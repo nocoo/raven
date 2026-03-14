@@ -73,7 +73,8 @@ raven/
 │   │   │   └── util/
 │   │   │       ├── sse.ts          # 手工 SSE parser
 │   │   │       └── logger.ts       # 结构化日志
-│   │   ├── test/                   # 单元测试
+│   │   ├── test/                   # 单元测试 + 性能基准
+│   │   │   └── perf/               # L4 性能基准测试
 │   │   ├── data/                   # SQLite 数据 (gitignored)
 │   │   └── package.json
 │   │
@@ -459,6 +460,21 @@ pre-push: bun test + bun test:e2e + bun test:perf (API E2E + 性能基准)
 
 ## 五、原子化提交计划
 
+### 开发方法论：TDD (Test-Driven Development)
+
+Proxy 开发严格按 TDD 推进，每个功能模块遵循 **Red → Green → Refactor** 循环：
+
+1. **Red** — 先写失败测试，定义期望行为和边界条件
+2. **Green** — 写最小实现让测试通过
+3. **Refactor** — 清理代码，保持测试绿灯
+
+**每个 proxy commit 的内部节奏：**
+- 先提交测试文件（或测试与实现在同一 commit 中，但测试必须先于实现编写）
+- 测试覆盖 happy path + edge cases + error cases
+- 翻译层（Phase 3）的测试需同时覆盖性能基准
+
+> Dashboard 不强制 TDD，但 ViewModel 纯函数建议 test-first。
+
 ### Phase 1 — 项目骨架 (4 commits)
 
 | # | Commit | 文件 |
@@ -468,29 +484,30 @@ pre-push: bun test + bun test:e2e + bun test:perf (API E2E + 性能基准)
 | 1.3 | `feat(proxy): API key 认证中间件` | `packages/proxy/src/middleware.ts`, `packages/proxy/test/middleware.test.ts` |
 | 1.4 | `chore: husky + lint 配置` | `.husky/`, `eslint.config.js`, lint 相关 |
 
-### Phase 2 — Copilot 认证 (3 commits)
+### Phase 2 — Copilot 认证 (3 commits, TDD)
 
 | # | Commit | 文件 |
 |---|---|---|
-| 2.1 | `feat(proxy): GitHub device flow 登录` | `packages/proxy/src/copilot/auth.ts`, `packages/proxy/test/copilot/auth.test.ts` |
-| 2.2 | `feat(proxy): 双层 token 管理 + 自动刷新` | `packages/proxy/src/copilot/token.ts`, `packages/proxy/src/copilot/headers.ts`, `packages/proxy/src/copilot/vscode.ts`, `packages/proxy/test/copilot/token.test.ts` |
-| 2.3 | `feat(proxy): Copilot API client + OpenAI 直通` | `packages/proxy/src/copilot/client.ts`, `packages/proxy/src/routes/chat.ts`, `packages/proxy/src/routes/models.ts`, `packages/proxy/src/util/sse.ts`, `packages/proxy/test/` |
+| 2.1 | `feat(proxy): GitHub device flow 登录` | `packages/proxy/test/copilot/auth.test.ts` → `packages/proxy/src/copilot/auth.ts` |
+| 2.2 | `feat(proxy): 双层 token 管理 + 自动刷新` | `packages/proxy/test/copilot/token.test.ts` → `packages/proxy/src/copilot/token.ts`, `packages/proxy/src/copilot/headers.ts`, `packages/proxy/src/copilot/vscode.ts` |
+| 2.3 | `feat(proxy): Copilot API client + OpenAI 直通` | `packages/proxy/test/` → `packages/proxy/src/copilot/client.ts`, `packages/proxy/src/routes/chat.ts`, `packages/proxy/src/routes/models.ts`, `packages/proxy/src/util/sse.ts` |
 
-### Phase 3 — Anthropic 翻译 (3 commits)
-
-| # | Commit | 文件 |
-|---|---|---|
-| 3.1 | `feat(proxy): Anthropic → OpenAI 请求翻译` | `packages/proxy/src/translate/types.ts`, `packages/proxy/src/translate/anthropic-to-openai.ts`, `packages/proxy/test/translate/` |
-| 3.2 | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `packages/proxy/src/translate/openai-to-anthropic.ts`, `packages/proxy/test/translate/` |
-| 3.3 | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `packages/proxy/src/translate/stream.ts`, `packages/proxy/src/routes/messages.ts`, `packages/proxy/test/translate/stream.test.ts` |
-
-### Phase 4 — 数据库 + 统计 (3 commits)
+### Phase 3 — Anthropic 翻译 (4 commits, TDD + perf)
 
 | # | Commit | 文件 |
 |---|---|---|
-| 4.1 | `feat(proxy): SQLite 请求日志 + 统计查询` | `packages/proxy/src/db/sqlite.ts`, `packages/proxy/src/db/schema.ts`, `packages/proxy/src/db/requests.ts`, `packages/proxy/test/db/` |
+| 3.1 | `feat(proxy): Anthropic → OpenAI 请求翻译` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/types.ts`, `packages/proxy/src/translate/anthropic-to-openai.ts` |
+| 3.2 | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/openai-to-anthropic.ts` |
+| 3.3 | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `packages/proxy/test/translate/stream.test.ts` → `packages/proxy/src/translate/stream.ts`, `packages/proxy/src/routes/messages.ts` |
+| 3.4 | `test(proxy): 翻译层性能基准测试` | `packages/proxy/test/perf/translate.bench.ts`, `packages/proxy/test/perf/sse.bench.ts` |
+
+### Phase 4 — 数据库 + 统计 (3 commits, TDD)
+
+| # | Commit | 文件 |
+|---|---|---|
+| 4.1 | `feat(proxy): SQLite 请求日志 + 统计查询` | `packages/proxy/test/db/` → `packages/proxy/src/db/sqlite.ts`, `packages/proxy/src/db/schema.ts`, `packages/proxy/src/db/requests.ts` |
 | 4.2 | `feat(proxy): route handler 日志采集集成` | `packages/proxy/src/routes/messages.ts`, `packages/proxy/src/routes/chat.ts` — 在响应/流消费完毕后写入 DB |
-| 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts`, `packages/proxy/test/routes/` |
+| 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/test/routes/` → `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts` |
 
 ### Phase 5 — Dashboard (5 commits)
 
@@ -502,13 +519,14 @@ pre-push: bun test + bun test:e2e + bun test:perf (API E2E + 性能基准)
 | 5.4 | `feat(dashboard): 请求日志列表页` | `packages/dashboard/src/app/requests/page.tsx`, 筛选/排序逻辑 |
 | 5.5 | `feat(dashboard): 模型统计页` | `packages/dashboard/src/app/models/page.tsx` |
 
-### Phase 6 — 加固 + 发布 (3 commits)
+### Phase 6 — 加固 + 发布 (4 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
 | 6.1 | `feat(proxy): 重试逻辑 + 错误处理 + 优雅关机` | 更新 `packages/proxy/src/routes/`, `packages/proxy/src/copilot/client.ts` |
-| 6.2 | `chore: Dockerfile + docker-compose` | `Dockerfile`, `docker-compose.yml` |
-| 6.3 | `docs: README + CHANGELOG + 发布 v0.1.0` | `README.md`, `CHANGELOG.md`, `docs/` |
+| 6.2 | `chore: 覆盖率 ≥ 95% gate + 性能 regression gate` | 更新 Husky pre-push、CI 配置 |
+| 6.3 | `chore: Dockerfile + docker-compose` | `Dockerfile`, `docker-compose.yml` |
+| 6.4 | `docs: README + CHANGELOG + 发布 v0.1.0` | `README.md`, `CHANGELOG.md`, `docs/` |
 
 ---
 
