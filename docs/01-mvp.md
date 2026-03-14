@@ -117,7 +117,9 @@ raven/
 
 **Layer 1 — GitHub OAuth Token（持久化）**
 - 通过 GitHub device flow 获取
-- 持久化到 `data/github_token`
+- 持久化到 `data/github_token`（路径可通过 `RAVEN_TOKEN_PATH` 环境变量覆盖）
+- 文件权限：`0600`（创建时 `writeFileSync` + `chmodSync`）
+- 损坏恢复：读取/解析失败时删除损坏文件，触发重新 device flow 登录
 - 关键参数：
   - Client ID: `Iv1.b507a08c87ecfe98`
   - Scopes: `read:user`
