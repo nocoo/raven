@@ -6,6 +6,23 @@
 const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7033";
 const API_KEY = process.env.RAVEN_API_KEY ?? "";
 
+export class ProxyError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode?: number | undefined,
+  ) {
+    super(message);
+    this.name = "ProxyError";
+  }
+}
+
+/**
+ * Result type for data fetching — explicitly distinguishes success from failure.
+ */
+export type FetchResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
+
 /**
  * Typed fetch helper for proxy API calls.
  * Automatically includes API key auth and JSON parsing.
@@ -33,8 +50,30 @@ export async function proxyFetch<T>(
   });
 
   if (!res.ok) {
-    throw new Error(`Proxy fetch failed: ${res.status} ${res.statusText}`);
+    throw new ProxyError(
+      `Proxy responded with ${res.status} ${res.statusText}`,
+      res.status,
+    );
   }
 
   return res.json() as Promise<T>;
+}
+
+/**
+ * Safe wrapper that catches errors and returns a FetchResult.
+ * Use this in server components to avoid silent error swallowing.
+ */
+export async function safeFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<FetchResult<T>> {
+  try {
+    const data = await proxyFetch<T>(path, init);
+    return { ok: true, data };
+  } catch (err) {
+    const message = err instanceof Error
+      ? err.message
+      : "Unknown error connecting to proxy";
+    return { ok: false, error: message };
+  }
 }

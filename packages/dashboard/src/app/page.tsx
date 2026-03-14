@@ -1,28 +1,42 @@
 import { Activity, Zap, Clock, AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/stats/stat-card";
+import { FetchError } from "@/components/fetch-error";
 import { OverviewCharts } from "./overview-charts";
-import { proxyFetch } from "@/lib/proxy";
+import { safeFetch } from "@/lib/proxy";
 import type { OverviewStats, TimeseriesBucket } from "@/lib/types";
 import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
 
-async function getOverviewData() {
-  try {
-    const [overview, timeseries] = await Promise.all([
-      proxyFetch<OverviewStats>("/api/stats/overview"),
-      proxyFetch<TimeseriesBucket[]>("/api/stats/timeseries?interval=hour&range=24h"),
-    ]);
-    return { overview, timeseries };
-  } catch {
-    return {
-      overview: { total_requests: 0, total_tokens: 0, error_count: 0, avg_latency_ms: 0 },
-      timeseries: [] as TimeseriesBucket[],
-    };
-  }
-}
-
 export default async function HomePage() {
-  const { overview, timeseries } = await getOverviewData();
+  const [overviewResult, timeseriesResult] = await Promise.all([
+    safeFetch<OverviewStats>("/api/stats/overview"),
+    safeFetch<TimeseriesBucket[]>("/api/stats/timeseries?interval=hour&range=24h"),
+  ]);
+
+  // If either fetch failed, show error
+  if (!overviewResult.ok) {
+    return (
+      <AppShell>
+        <FetchError
+          title="Failed to load dashboard"
+          message={overviewResult.error}
+        />
+      </AppShell>
+    );
+  }
+  if (!timeseriesResult.ok) {
+    return (
+      <AppShell>
+        <FetchError
+          title="Failed to load dashboard"
+          message={timeseriesResult.error}
+        />
+      </AppShell>
+    );
+  }
+
+  const overview = overviewResult.data;
+  const timeseries = timeseriesResult.data;
 
   const errorRate = overview.total_requests > 0
     ? overview.error_count / overview.total_requests

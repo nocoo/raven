@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { proxyFetch } from "@/lib/proxy";
+import { proxyFetch, ProxyError } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,12 @@ export async function GET(
   const queryString = url.searchParams.toString();
   const fullPath = `/api/stats/${subPath}${queryString ? `?${queryString}` : ""}`;
 
-  const data = await proxyFetch(fullPath);
-  return NextResponse.json(data);
+  try {
+    const data = await proxyFetch(fullPath);
+    return NextResponse.json(data);
+  } catch (err) {
+    const status = err instanceof ProxyError ? (err.statusCode ?? 502) : 502;
+    const message = err instanceof Error ? err.message : "Failed to reach proxy";
+    return NextResponse.json({ error: message }, { status });
+  }
 }
