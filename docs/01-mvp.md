@@ -507,7 +507,7 @@ Proxy 开发严格按 TDD 推进，每个功能模块遵循 **Red → Green → 
 |---|---|---|
 | 4.1 ✅ | `feat(proxy): SQLite 请求日志 + 统计查询` | `packages/proxy/test/db/` → `packages/proxy/src/db/sqlite.ts`, `packages/proxy/src/db/schema.ts`, `packages/proxy/src/db/requests.ts` |
 | 4.2 ✅ | `feat(proxy): route handler 日志采集集成` | `packages/proxy/src/routes/messages.ts`, `packages/proxy/src/routes/chat.ts` — 在响应/流消费完毕后写入 DB |
-| 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/test/routes/` → `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts` |
+| 4.3 ✅ | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/test/routes/` → `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts` |
 
 ### Phase 5 — Dashboard (5 commits)
 
