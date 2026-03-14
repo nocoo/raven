@@ -1,22 +1,45 @@
-import { Hono } from "hono";
+import { Database } from "bun:sqlite";
 import { loadConfig } from "./config.ts";
+import { createApp } from "./app.ts";
+import { createCopilotClient } from "./copilot/client.ts";
+import { authenticate } from "./copilot/auth.ts";
+import { fetchCopilotToken, TokenManager } from "./copilot/token.ts";
+import { initDatabase } from "./db/requests.ts";
+
+// ---------------------------------------------------------------------------
+// Bootstrap
+// ---------------------------------------------------------------------------
 
 const config = loadConfig();
-const app = new Hono();
 
-// health check
-app.get("/health", (c) => c.json({ status: "ok" }));
+// 1. Database
+const db = new Database("data/raven.db");
+initDatabase(db);
+console.log("[init] Database ready (WAL mode)");
 
-// placeholder routes — will be replaced in subsequent commits
-app.get("/v1/models", (c) => c.json({ object: "list", data: [] }));
+// 2. GitHub OAuth (loads from disk or runs device flow)
+const githubToken = await authenticate(config.tokenPath);
+console.log("[init] GitHub token loaded");
 
-app.post("/v1/chat/completions", (c) =>
-  c.json({ error: "not implemented" }, 501),
-);
+// 3. Copilot JWT (initial fetch + auto-refresh)
+const tokenManager = new TokenManager();
+const initialToken = await fetchCopilotToken(githubToken);
+tokenManager.setCopilotToken(initialToken);
+tokenManager.startAutoRefresh(githubToken);
+console.log("[init] Copilot JWT acquired, auto-refresh started");
 
-app.post("/v1/messages", (c) =>
-  c.json({ error: "not implemented" }, 501),
-);
+// 4. Copilot client
+const client = createCopilotClient();
+
+// 5. Build app with all dependencies wired
+const app = createApp({
+  client,
+  getJwt: () => tokenManager.getToken()!,
+  db,
+  apiKey: config.apiKey || undefined,
+});
+
+console.log(`[init] Raven proxy listening on port ${config.port}`);
 
 export default {
   port: config.port,
