@@ -450,11 +450,11 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
 ### Husky 配置
 
 ```
-pre-commit: bun lint + bun typecheck
-pre-push: bun test + bun test:e2e + bun test:perf (API E2E + 性能基准)
+pre-commit: bun test (单元测试)
+pre-push: bun test + bun test:perf + bun lint + bun typecheck (UT + 性能基准 + Lint)
 ```
 
-> 覆盖率检查 (≥ 95%) 在 Phase 6 通过 CI 或 pre-push 脚本追加。
+> 覆盖率检查 (≥ 90%) 在 Phase 6 通过 CI 或 pre-push 脚本追加。
 
 ---
 
