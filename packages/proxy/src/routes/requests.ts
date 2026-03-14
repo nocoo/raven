@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import { queryRequests, type QueryParams } from "../db/requests.ts";
+import { safeParseInt } from "../util/params.ts";
 
 /**
  * Create the /requests query route with filtering, sorting, pagination.
@@ -34,10 +35,18 @@ export function createRequestsRoute(db: Database): Hono {
     if (cursor) params.cursor = cursor;
 
     const offsetStr = c.req.query("offset");
-    if (offsetStr) params.offset = parseInt(offsetStr, 10);
+    if (offsetStr) {
+      const v = safeParseInt(offsetStr);
+      if (v === null) return c.json({ error: "offset must be a number" }, 400);
+      params.offset = v;
+    }
 
     const limitStr = c.req.query("limit");
-    if (limitStr) params.limit = parseInt(limitStr, 10);
+    if (limitStr) {
+      const v = safeParseInt(limitStr);
+      if (v === null) return c.json({ error: "limit must be a number" }, 400);
+      params.limit = v;
+    }
 
     const result = queryRequests(db, params);
     return c.json(result);

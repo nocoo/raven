@@ -6,6 +6,7 @@ import {
   queryModels,
   queryRecent,
 } from "../db/requests.ts";
+import { safeParseInt } from "../util/params.ts";
 
 /**
  * Create stats API routes under /stats/*
@@ -32,8 +33,13 @@ export function createStatsRoute(db: Database): Hono {
 
   route.get("/stats/recent", (c) => {
     const limitStr = c.req.query("limit");
-    const limit = limitStr ? parseInt(limitStr, 10) : 50;
-    const result = queryRecent(db, limit);
+    if (limitStr) {
+      const v = safeParseInt(limitStr);
+      if (v === null) return c.json({ error: "limit must be a number" }, 400);
+      const result = queryRecent(db, v);
+      return c.json(result);
+    }
+    const result = queryRecent(db);
     return c.json(result);
   });
 

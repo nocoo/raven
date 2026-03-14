@@ -210,4 +210,36 @@ describe("GET /api/requests", () => {
     const ids1 = body1.data.map((r: { id: string }) => r.id);
     expect(body2.data.every((r: { id: string }) => !ids1.includes(r.id))).toBe(true);
   });
+
+  test("invalid limit → 400", async () => {
+    const app = new Hono();
+    app.route("/api", createRequestsRoute(db));
+
+    const res = await app.request("/api/requests?limit=foo");
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("number");
+  });
+
+  test("invalid offset → 400", async () => {
+    const app = new Hono();
+    app.route("/api", createRequestsRoute(db));
+
+    const res = await app.request("/api/requests?offset=bar");
+    expect(res.status).toBe(400);
+  });
+});
+
+// ===========================================================================
+// Stats route param validation
+// ===========================================================================
+
+describe("stats param validation", () => {
+  test("invalid limit on /api/stats/recent → 400", async () => {
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/recent?limit=abc");
+    expect(res.status).toBe(400);
+  });
 });
