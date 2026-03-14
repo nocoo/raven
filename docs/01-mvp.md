@@ -343,7 +343,7 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
    - 数据来源：`GET /api/requests` (带筛选/排序/分页)
    - 可筛选：按 model、status、format
    - 可排序：按 timestamp、latency、total_tokens
-   - Cursor-based 分页
+   - 分页：按时间排序时 cursor 分页，其余排序用 offset 分页
    - 详情展开
 
 3. **模型统计 (`/models`)** — 各模型对比
