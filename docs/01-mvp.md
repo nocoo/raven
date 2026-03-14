@@ -421,48 +421,48 @@ pre-push: bun test:e2e (API E2E)
 | # | Commit | 文件 |
 |---|---|---|
 | 1.1 | `init: bun workspace monorepo 初始化` | `package.json`, `packages/proxy/package.json`, `packages/dashboard/package.json`, `tsconfig.json`, `.gitignore` |
-| 1.2 | `feat(proxy): Hono server 骨架 + 配置加载` | `proxy/src/index.ts`, `proxy/src/config.ts`, `proxy/src/routes/`, `proxy/test/` |
-| 1.3 | `feat(proxy): API key 认证中间件` | `proxy/src/middleware.ts`, `proxy/test/middleware.test.ts` |
+| 1.2 | `feat(proxy): Hono server 骨架 + 配置加载` | `packages/proxy/src/index.ts`, `packages/proxy/src/config.ts`, `packages/proxy/src/routes/`, `packages/proxy/test/` |
+| 1.3 | `feat(proxy): API key 认证中间件` | `packages/proxy/src/middleware.ts`, `packages/proxy/test/middleware.test.ts` |
 | 1.4 | `chore: husky + lint 配置` | `.husky/`, `eslint.config.js`, lint 相关 |
 
 ### Phase 2 — Copilot 认证 (3 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
-| 2.1 | `feat(proxy): GitHub device flow 登录` | `copilot/auth.ts`, `test/copilot/auth.test.ts` |
-| 2.2 | `feat(proxy): 双层 token 管理 + 自动刷新` | `copilot/token.ts`, `copilot/headers.ts`, `copilot/vscode.ts`, `test/copilot/token.test.ts` |
-| 2.3 | `feat(proxy): Copilot API client + OpenAI 直通` | `copilot/client.ts`, `routes/chat.ts`, `routes/models.ts`, `util/sse.ts`, `test/` |
+| 2.1 | `feat(proxy): GitHub device flow 登录` | `packages/proxy/src/copilot/auth.ts`, `packages/proxy/test/copilot/auth.test.ts` |
+| 2.2 | `feat(proxy): 双层 token 管理 + 自动刷新` | `packages/proxy/src/copilot/token.ts`, `packages/proxy/src/copilot/headers.ts`, `packages/proxy/src/copilot/vscode.ts`, `packages/proxy/test/copilot/token.test.ts` |
+| 2.3 | `feat(proxy): Copilot API client + OpenAI 直通` | `packages/proxy/src/copilot/client.ts`, `packages/proxy/src/routes/chat.ts`, `packages/proxy/src/routes/models.ts`, `packages/proxy/src/util/sse.ts`, `packages/proxy/test/` |
 
 ### Phase 3 — Anthropic 翻译 (3 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
-| 3.1 | `feat(proxy): Anthropic → OpenAI 请求翻译` | `translate/types.ts`, `translate/anthropic-to-openai.ts`, `test/translate/` |
-| 3.2 | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `translate/openai-to-anthropic.ts`, `test/translate/` |
-| 3.3 | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `translate/stream.ts`, `routes/messages.ts`, `test/translate/stream.test.ts` |
+| 3.1 | `feat(proxy): Anthropic → OpenAI 请求翻译` | `packages/proxy/src/translate/types.ts`, `packages/proxy/src/translate/anthropic-to-openai.ts`, `packages/proxy/test/translate/` |
+| 3.2 | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `packages/proxy/src/translate/openai-to-anthropic.ts`, `packages/proxy/test/translate/` |
+| 3.3 | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `packages/proxy/src/translate/stream.ts`, `packages/proxy/src/routes/messages.ts`, `packages/proxy/test/translate/stream.test.ts` |
 
 ### Phase 4 — 数据库 + 统计 (3 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
-| 4.1 | `feat(proxy): SQLite 请求日志 + 统计查询` | `db/sqlite.ts`, `db/schema.ts`, `db/requests.ts`, `test/db/` |
-| 4.2 | `feat(proxy): route handler 日志采集集成` | `routes/messages.ts`, `routes/chat.ts` — 在响应/流消费完毕后写入 DB |
-| 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `routes/stats.ts`, `routes/requests.ts`, `test/routes/` |
+| 4.1 | `feat(proxy): SQLite 请求日志 + 统计查询` | `packages/proxy/src/db/sqlite.ts`, `packages/proxy/src/db/schema.ts`, `packages/proxy/src/db/requests.ts`, `packages/proxy/test/db/` |
+| 4.2 | `feat(proxy): route handler 日志采集集成` | `packages/proxy/src/routes/messages.ts`, `packages/proxy/src/routes/chat.ts` — 在响应/流消费完毕后写入 DB |
+| 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts`, `packages/proxy/test/routes/` |
 
 ### Phase 5 — Dashboard (4 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
-| 5.1 | `init(dashboard): Next.js + basalt 设计系统基础` | `layout.tsx`, `globals.css`, `components/ui/`, `components/layout/`, `lib/` |
-| 5.2 | `feat(dashboard): 概览首页 (stat cards + 时序图)` | `app/page.tsx`, `components/charts/`, 首页 ViewModel |
-| 5.3 | `feat(dashboard): 请求日志列表页` | `app/requests/page.tsx`, 筛选/排序逻辑 |
-| 5.4 | `feat(dashboard): 模型统计页` | `app/models/page.tsx` |
+| 5.1 | `init(dashboard): Next.js + basalt 设计系统基础` | `packages/dashboard/src/app/layout.tsx`, `packages/dashboard/src/app/globals.css`, `packages/dashboard/src/components/ui/`, `packages/dashboard/src/components/layout/`, `packages/dashboard/src/lib/` |
+| 5.2 | `feat(dashboard): 概览首页 (stat cards + 时序图)` | `packages/dashboard/src/app/page.tsx`, `packages/dashboard/src/components/charts/`, 首页 ViewModel |
+| 5.3 | `feat(dashboard): 请求日志列表页` | `packages/dashboard/src/app/requests/page.tsx`, 筛选/排序逻辑 |
+| 5.4 | `feat(dashboard): 模型统计页` | `packages/dashboard/src/app/models/page.tsx` |
 
 ### Phase 6 — 加固 + 发布 (3 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
-| 6.1 | `feat(proxy): 重试逻辑 + 错误处理 + 优雅关机` | 更新 `routes/`, `copilot/client.ts` |
+| 6.1 | `feat(proxy): 重试逻辑 + 错误处理 + 优雅关机` | 更新 `packages/proxy/src/routes/`, `packages/proxy/src/copilot/client.ts` |
 | 6.2 | `chore: Dockerfile + docker-compose` | `Dockerfile`, `docker-compose.yml` |
 | 6.3 | `docs: README + CHANGELOG + 发布 v0.1.0` | `README.md`, `CHANGELOG.md`, `docs/` |
 
