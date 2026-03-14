@@ -132,6 +132,35 @@ describe("Copilot Token Manager", () => {
       // max((30 - 60) * 1000, 10000) = 10000
       expect(delay).toBe(10000);
     });
+
+    test("failure retries in 30s without double-scheduling", async () => {
+      const { TokenManager } = await import("../../src/copilot/token.ts");
+
+      let callCount = 0;
+      const failingFetch = async () => {
+        callCount++;
+        return new Response("error", { status: 500 });
+      };
+
+      const manager = new TokenManager();
+      manager.setCopilotToken({
+        token: "jwt",
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        refresh_in: 3600,
+      });
+
+      // Override getRefreshDelay to return 10ms so the first timer fires fast
+      manager.getRefreshDelay = () => 10;
+      manager.startAutoRefresh("gh-token", failingFetch as unknown as typeof fetch);
+
+      // Wait enough for first attempt + retry at 30s would not have fired
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Should have attempted exactly once (first timer at 10ms)
+      expect(callCount).toBe(1);
+
+      manager.stopAutoRefresh();
+    });
   });
 });
 

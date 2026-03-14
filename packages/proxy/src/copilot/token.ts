@@ -75,25 +75,24 @@ export class TokenManager {
   ): void {
     this.stopAutoRefresh();
 
-    const scheduleRefresh = () => {
-      const delay = this.getRefreshDelay();
-      this.refreshTimer = setTimeout(async () => {
-        try {
-          const newToken = await fetchCopilotToken(githubToken, fetchFn);
-          this.setCopilotToken(newToken);
-          console.log(
-            `[token] Copilot JWT refreshed, next refresh in ${Math.round(this.getRefreshDelay() / 1000)}s`,
-          );
-          scheduleRefresh();
-        } catch (err) {
-          console.error("[token] Failed to refresh Copilot JWT:", err);
-          // Retry in 30 seconds
-          this.refreshTimer = setTimeout(scheduleRefresh, 30000);
-        }
-      }, delay);
+    const doRefresh = async () => {
+      try {
+        const newToken = await fetchCopilotToken(githubToken, fetchFn);
+        this.setCopilotToken(newToken);
+        console.log(
+          `[token] Copilot JWT refreshed, next refresh in ${Math.round(this.getRefreshDelay() / 1000)}s`,
+        );
+        // Schedule next refresh based on new token's refresh_in
+        this.refreshTimer = setTimeout(doRefresh, this.getRefreshDelay());
+      } catch (err) {
+        console.error("[token] Failed to refresh Copilot JWT:", err);
+        // Retry directly in 30 seconds (no double-scheduling)
+        this.refreshTimer = setTimeout(doRefresh, 30000);
+      }
     };
 
-    scheduleRefresh();
+    // First refresh after current token's delay
+    this.refreshTimer = setTimeout(doRefresh, this.getRefreshDelay());
   }
 
   stopAutoRefresh(): void {
