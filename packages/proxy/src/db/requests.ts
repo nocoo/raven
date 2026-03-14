@@ -92,6 +92,8 @@ const CREATE_INDEXES = `
 CREATE INDEX IF NOT EXISTS idx_requests_timestamp ON requests(timestamp);
 CREATE INDEX IF NOT EXISTS idx_requests_model ON requests(model);
 CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
+CREATE INDEX IF NOT EXISTS idx_requests_latency ON requests(latency_ms);
+CREATE INDEX IF NOT EXISTS idx_requests_total_tokens ON requests(total_tokens);
 `;
 
 // ---------------------------------------------------------------------------

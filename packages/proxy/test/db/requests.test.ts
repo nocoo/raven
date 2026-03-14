@@ -86,6 +86,8 @@ describe("initDatabase", () => {
     expect(names).toContain("idx_requests_timestamp");
     expect(names).toContain("idx_requests_model");
     expect(names).toContain("idx_requests_status");
+    expect(names).toContain("idx_requests_latency");
+    expect(names).toContain("idx_requests_total_tokens");
   });
 
   test("idempotent (can run twice)", () => {
