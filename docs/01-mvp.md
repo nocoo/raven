@@ -504,8 +504,11 @@ pre-push: bun test + bun test:e2e (API E2E)
 
 2. **Claude Code 集成：**
    ```bash
-   ANTHROPIC_BASE_URL=http://localhost:8080 claude
+   ANTHROPIC_BASE_URL=http://localhost:8080 \
+   ANTHROPIC_API_KEY=sk-raven-test \
+   claude
    # 验证：正常对话、工具调用、流式输出
+   # 注意：Proxy 需已启动且 RAVEN_API_KEY=sk-raven-test (或与上面的 key 一致)
    ```
 
 3. **数据库日志：**
