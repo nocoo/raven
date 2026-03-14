@@ -84,7 +84,10 @@ raven/
 │       │   │   ├── globals.css     # basalt 3-tier luminance
 │       │   │   ├── page.tsx        # Dashboard 首页
 │       │   │   ├── requests/       # 请求日志列表
-│       │   │   └── models/         # 模型统计
+│       │   │   ├── models/         # 模型统计
+│       │   │   └── api/            # Next.js Route Handlers (服务端代理)
+│       │   │       ├── stats/      # 转发 Proxy /api/stats/*
+│       │   │       └── requests/   # 转发 Proxy /api/requests
 │       │   ├── components/
 │       │   │   ├── ui/             # shadcn/ui (从 surety 复制)
 │       │   │   ├── layout/         # AppShell, Sidebar, ThemeToggle
@@ -290,6 +293,17 @@ GET /api/requests?model=xxx&status=xxx&format=xxx&sort=timestamp&order=desc&curs
 > `GET /api/stats/recent?limit=50` 为简化别名，内部复用同一查询逻辑。
 
 ### 2.6 Dashboard (`dashboard/`)
+
+沿用 basalt 设计系统 + Next.js 模式，参考 surety。
+
+**数据流架构：**
+```
+Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
+```
+
+- Dashboard 的 Next.js 服务端通过 Route Handlers (`app/api/`) 转发请求到 Proxy 的 `/api/stats/*` 和 `/api/requests`
+- Proxy 的 API key 仅在 Next.js 服务端持有（通过环境变量 `RAVEN_PROXY_URL` 和 `RAVEN_API_KEY`），不暴露给浏览器
+- 浏览器不直接访问 Proxy
 
 **主色调：深色系 (Raven 主题)**，将 surety 的 Vermilion 替换为深蓝/石墨蓝。
 
