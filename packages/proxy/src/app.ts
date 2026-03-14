@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import type { CopilotClient } from "./copilot/client.ts";
+import { requestContext, apiKeyAuth } from "./middleware.ts";
 import { modelsRoute } from "./routes/models.ts";
 import { createMessagesRoute } from "./routes/messages.ts";
 import { createChatRoute } from "./routes/chat.ts";
@@ -26,23 +27,10 @@ export function createApp(deps: AppDeps): Hono {
   const { client, getJwt, db, apiKey } = deps;
   const app = new Hono();
 
-  // ------- middleware: API key gate -------
-  if (apiKey) {
-    app.use("*", async (c, next) => {
-      // Skip auth for health + stats endpoints
-      const path = c.req.path;
-      if (path === "/health" || path.startsWith("/api/")) {
-        return next();
-      }
-
-      const auth = c.req.header("authorization");
-      const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-      if (token !== apiKey) {
-        return c.json({ error: "unauthorized" }, 401);
-      }
-      return next();
-    });
-  }
+  // ------- middleware -------
+  app.use("*", requestContext());
+  app.use("/v1/*", apiKeyAuth(apiKey ?? ""));
+  app.use("/api/*", apiKeyAuth(apiKey ?? ""));
 
   // ------- routes -------
   app.get("/health", (c) => c.json({ status: "ok" }));

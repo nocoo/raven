@@ -175,7 +175,7 @@ describe("app wiring", () => {
 });
 
 // ===========================================================================
-// API key middleware
+// API key middleware (delegates to middleware.ts apiKeyAuth)
 // ===========================================================================
 
 describe("API key middleware", () => {
@@ -189,6 +189,10 @@ describe("API key middleware", () => {
 
     const res = await app.request("/v1/models");
     expect(res.status).toBe(401);
+    const body = await res.json();
+    // Should use structured error from apiKeyAuth, not plain string
+    expect(body.error).toHaveProperty("type");
+    expect(body.error.type).toBe("authentication_error");
   });
 
   test("accepts requests with correct API key", async () => {
@@ -217,7 +221,7 @@ describe("API key middleware", () => {
     expect(res.status).toBe(200);
   });
 
-  test("stats/api endpoints bypass API key check", async () => {
+  test("/api/* requires API key (no bypass)", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
@@ -226,6 +230,20 @@ describe("API key middleware", () => {
     });
 
     const res = await app.request("/api/stats/overview");
+    expect(res.status).toBe(401);
+  });
+
+  test("/api/* accepts correct API key", async () => {
+    const app = createApp({
+      client: createMockClient(),
+      getJwt: () => "test-jwt",
+      db,
+      apiKey: "secret-key",
+    });
+
+    const res = await app.request("/api/stats/overview", {
+      headers: { Authorization: "Bearer secret-key" },
+    });
     expect(res.status).toBe(200);
   });
 

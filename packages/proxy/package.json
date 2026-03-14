@@ -7,7 +7,6 @@
     "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test",
-    "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
     "lint": "eslint --config ../../eslint.config.js src/",
     "typecheck": "tsc --noEmit"

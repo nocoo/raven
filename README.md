@@ -46,9 +46,6 @@ bun test
 
 # Performance benchmarks (proxy translation layer + SSE parser)
 bun run test:perf
-
-# E2E tests (requires running proxy)
-bun run test:e2e
 ```
 
 ### Linting & Type Checking
@@ -79,7 +76,7 @@ raven/
 ├── packages/
 │   ├── proxy/          # Bun + Hono API proxy (port 7033)
 │   │   ├── src/        # Source code
-│   │   └── test/       # Tests (unit, perf, e2e)
+│   │   └── test/       # Tests (unit, perf)
 │   └── dashboard/      # Next.js statistics dashboard (port 7032)
 ├── docs/               # Design documents
 ├── .husky/             # Git hooks (shared via repo)
