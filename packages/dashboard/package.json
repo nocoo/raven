@@ -1,0 +1,30 @@
+{
+  "name": "dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 7032",
+    "build": "next build",
+    "start": "next start -p 7032",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.3.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "recharts": "^2.15.3",
+    "@radix-ui/react-slot": "^1.2.0",
+    "lucide-react": "^0.503.0",
+    "tailwind-merge": "^3.3.0",
+    "clsx": "^2.1.1",
+    "class-variance-authority": "^0.7.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "typescript": "^5.8.3",
+    "tailwindcss": "^4.1.5",
+    "@tailwindcss/postcss": "^4.1.5"
+  }
+}

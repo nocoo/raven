@@ -1,0 +1,21 @@
+{
+  "name": "proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "test:e2e": "bun test test/e2e/",
+    "test:perf": "bun test test/perf/",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.7.6"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.9"
+  }
+}

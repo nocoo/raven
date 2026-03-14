@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# build
+.next/
+dist/
+out/
+
+# data
+packages/proxy/data/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# test
+coverage/
+
+# bun
+bun.lock
