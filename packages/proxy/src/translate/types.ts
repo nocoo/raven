@@ -212,3 +212,70 @@ export interface OpenAIStreamChunk {
     };
   };
 }
+
+// ============================================================
+// Anthropic Streaming Event Types
+// ============================================================
+
+export interface AnthropicMessageStartEvent {
+  type: "message_start";
+  message: {
+    id: string;
+    type: "message";
+    role: "assistant";
+    content: [];
+    model: string;
+    stop_reason: null;
+    stop_sequence: null;
+    usage: {
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_input_tokens?: number;
+      cache_creation_input_tokens?: number;
+    };
+  };
+}
+
+export interface AnthropicContentBlockStartEvent {
+  type: "content_block_start";
+  index: number;
+  content_block:
+    | { type: "text"; text: "" }
+    | { type: "tool_use"; id: string; name: string; input: "" };
+}
+
+export interface AnthropicContentBlockDeltaEvent {
+  type: "content_block_delta";
+  index: number;
+  delta:
+    | { type: "text_delta"; text: string }
+    | { type: "input_json_delta"; partial_json: string };
+}
+
+export interface AnthropicContentBlockStopEvent {
+  type: "content_block_stop";
+  index: number;
+}
+
+export interface AnthropicMessageDeltaEvent {
+  type: "message_delta";
+  delta: {
+    stop_reason: "end_turn" | "max_tokens" | "tool_use" | "stop_sequence" | null;
+    stop_sequence: null;
+  };
+  usage: {
+    output_tokens: number;
+  };
+}
+
+export interface AnthropicMessageStopEvent {
+  type: "message_stop";
+}
+
+export type AnthropicStreamEvent =
+  | AnthropicMessageStartEvent
+  | AnthropicContentBlockStartEvent
+  | AnthropicContentBlockDeltaEvent
+  | AnthropicContentBlockStopEvent
+  | AnthropicMessageDeltaEvent
+  | AnthropicMessageStopEvent;
