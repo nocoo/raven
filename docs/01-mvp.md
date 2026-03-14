@@ -281,19 +281,25 @@ GET /api/requests?model=xxx&status=xxx&format=xxx&sort=timestamp&order=desc&curs
 | `format` | string | `"anthropic"` \| `"openai"` (可选) |
 | `sort` | string | `"timestamp"` \| `"latency_ms"` \| `"total_tokens"` (默认 `"timestamp"`) |
 | `order` | string | `"asc"` \| `"desc"` (默认 `"desc"`) |
-| `cursor` | string | ULID，用于 cursor-based 分页 (可选) |
+| `cursor` | string | ULID，仅 `sort=timestamp` 时有效 (可选) |
+| `offset` | number | 偏移量，仅 `sort≠timestamp` 时使用 (可选，默认 0) |
 | `limit` | number | 每页条数，默认 50，最大 200 |
+
+**分页策略：**
+- **`sort=timestamp`**：cursor-based 分页（ULID 天然有序唯一），响应含 `next_cursor`
+- **`sort=latency_ms` / `sort=total_tokens`**：offset/limit 分页，值不唯一无法用单游标定位
 
 响应：
 ```json
 {
   "data": [ /* request records */ ],
-  "next_cursor": "01JWXYZ...",
-  "has_more": true
+  "next_cursor": "01JWXYZ...",   // 仅 sort=timestamp 时返回
+  "has_more": true,
+  "total": 1234                  // 仅 offset 分页时返回，用于前端计算总页数
 }
 ```
 
-> `GET /api/stats/recent?limit=50` 为简化别名，内部复用同一查询逻辑。
+> `GET /api/stats/recent?limit=50` 为简化别名，内部复用同一查询逻辑（固定 sort=timestamp）。
 
 ### 2.6 Dashboard (`dashboard/`)
 
