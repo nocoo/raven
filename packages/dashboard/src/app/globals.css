@@ -1,0 +1,315 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Map CSS-variable design tokens to Tailwind v4 theme namespace
+ * so utilities like bg-background, text-foreground, etc. work.
+ *
+ * Color space: HSL (basalt design system).
+ * Primary: Raven slate-blue.
+ * Luminance: 3-tier (L0 body > L1 card > L2 secondary).
+ */
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  /* Semantic badge colors */
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  --color-purple: hsl(var(--purple));
+  --color-purple-foreground: hsl(var(--purple-foreground));
+  --color-teal: hsl(var(--teal));
+  --color-teal-foreground: hsl(var(--teal-foreground));
+
+  --color-badge-red: hsl(var(--badge-red));
+  --color-badge-red-foreground: hsl(var(--badge-red-foreground));
+
+  /* 24 sequential chart colors */
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --color-chart-6: hsl(var(--chart-6));
+  --color-chart-7: hsl(var(--chart-7));
+  --color-chart-8: hsl(var(--chart-8));
+  --color-chart-9: hsl(var(--chart-9));
+  --color-chart-10: hsl(var(--chart-10));
+  --color-chart-11: hsl(var(--chart-11));
+  --color-chart-12: hsl(var(--chart-12));
+  --color-chart-13: hsl(var(--chart-13));
+  --color-chart-14: hsl(var(--chart-14));
+  --color-chart-15: hsl(var(--chart-15));
+  --color-chart-16: hsl(var(--chart-16));
+  --color-chart-17: hsl(var(--chart-17));
+  --color-chart-18: hsl(var(--chart-18));
+  --color-chart-19: hsl(var(--chart-19));
+  --color-chart-20: hsl(var(--chart-20));
+  --color-chart-21: hsl(var(--chart-21));
+  --color-chart-22: hsl(var(--chart-22));
+  --color-chart-23: hsl(var(--chart-23));
+  --color-chart-24: hsl(var(--chart-24));
+  --color-chart-axis: hsl(var(--chart-axis));
+  --color-chart-muted: hsl(var(--chart-muted));
+
+  /* Radius tokens */
+  --radius-card: 14px;
+  --radius-widget: 10px;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Animations */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+/*
+ * Design tokens — light (default) & dark mode
+ * 3-tier luminance: L0 (background) > L1 (card) > L2 (secondary)
+ * Primary: Raven slate-blue
+ */
+:root {
+  /* L0 body */
+  --background: 220 14% 94%;
+  --foreground: 0 0% 12%;
+
+  /* L1 content panel */
+  --card: 220 14% 97%;
+  --card-foreground: 0 0% 12%;
+
+  /* L2 inner cards */
+  --secondary: 0 0% 100%;
+  --secondary-foreground: 0 0% 12%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 12%;
+
+  /* Raven slate-blue primary */
+  --primary: 215 70% 50%;
+  --primary-foreground: 0 0% 100%;
+
+  --muted: 220 14% 92%;
+  --muted-foreground: 0 0% 45%;
+
+  --accent: 220 14% 92%;
+  --accent-foreground: 0 0% 12%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 13% 88%;
+  --input: 220 13% 88%;
+  --ring: 215 70% 50%;
+
+  --radius: 0.75rem;
+
+  --sidebar-background: 220 14% 94%;
+  --sidebar-foreground: 0 0% 12%;
+  --sidebar-primary: 215 70% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 14% 90%;
+  --sidebar-accent-foreground: 0 0% 12%;
+  --sidebar-border: 220 13% 88%;
+  --sidebar-ring: 215 70% 50%;
+
+  /* Semantic badge colors */
+  --success: 142 71% 35%;
+  --success-foreground: 0 0% 100%;
+  --warning: 45 93% 47%;
+  --warning-foreground: 0 0% 12%;
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
+  --purple: 270 70% 60%;
+  --purple-foreground: 0 0% 100%;
+  --teal: 186 72% 38%;
+  --teal-foreground: 0 0% 100%;
+  --badge-red: 340 82% 55%;
+  --badge-red-foreground: 0 0% 100%;
+
+  /* 24 sequential chart colors */
+  --chart-1: 215 70% 50%;
+  --chart-2: 200 90% 55%;
+  --chart-3: 186 80% 45%;
+  --chart-4: 166 72% 44%;
+  --chart-5: 142 71% 45%;
+  --chart-6: 84 65% 46%;
+  --chart-7: 45 93% 47%;
+  --chart-8: 30 90% 55%;
+  --chart-9: 217 91% 60%;
+  --chart-10: 0 72% 51%;
+  --chart-11: 340 82% 55%;
+  --chart-12: 320 70% 55%;
+  --chart-13: 290 65% 55%;
+  --chart-14: 270 70% 60%;
+  --chart-15: 250 65% 58%;
+  --chart-16: 230 70% 56%;
+  --chart-17: 210 55% 50%;
+  --chart-18: 195 45% 55%;
+  --chart-19: 160 50% 50%;
+  --chart-20: 100 50% 48%;
+  --chart-21: 60 65% 45%;
+  --chart-22: 22 80% 50%;
+  --chart-23: 350 65% 50%;
+  --chart-24: 0 0% 25%;
+
+  /* Chart utility tokens */
+  --chart-axis: 0 0% 40%;
+  --chart-muted: 0 0% 70%;
+}
+
+.dark {
+  /* L0 body: #171717 */
+  --background: 0 0% 9%;
+  --foreground: 0 0% 93%;
+
+  /* L1 content panel: #1b1b1b */
+  --card: 0 0% 10.6%;
+  --card-foreground: 0 0% 93%;
+
+  /* L2 inner cards: #1f1f1f */
+  --secondary: 0 0% 12.2%;
+  --secondary-foreground: 0 0% 93%;
+
+  --popover: 0 0% 10.6%;
+  --popover-foreground: 0 0% 93%;
+
+  /* Raven slate-blue primary (muted for dark) */
+  --primary: 215 55% 45%;
+  --primary-foreground: 215 70% 92%;
+
+  --muted: 0 0% 12.2%;
+  --muted-foreground: 0 0% 48%;
+
+  --accent: 0 0% 14%;
+  --accent-foreground: 0 0% 93%;
+
+  --destructive: 0 65% 45%;
+  --destructive-foreground: 0 65% 92%;
+
+  --border: 0 0% 16%;
+  --input: 0 0% 12%;
+  --ring: 215 55% 45%;
+
+  --sidebar-background: 0 0% 9%;
+  --sidebar-foreground: 0 0% 93%;
+  --sidebar-primary: 215 55% 45%;
+  --sidebar-primary-foreground: 215 70% 92%;
+  --sidebar-accent: 0 0% 14%;
+  --sidebar-accent-foreground: 0 0% 93%;
+  --sidebar-border: 0 0% 16%;
+  --sidebar-ring: 215 55% 45%;
+
+  /* Semantic badge colors (dark mode — vivid hue, controlled brightness) */
+  --success: 142 65% 38%;
+  --success-foreground: 142 60% 90%;
+  --warning: 45 80% 42%;
+  --warning-foreground: 45 80% 92%;
+  --info: 217 70% 45%;
+  --info-foreground: 217 70% 92%;
+  --purple: 270 60% 48%;
+  --purple-foreground: 270 60% 92%;
+  --teal: 186 60% 35%;
+  --teal-foreground: 186 60% 92%;
+  --badge-red: 340 65% 45%;
+  --badge-red-foreground: 340 65% 92%;
+
+  /* 24 sequential chart colors — controlled brightness, vivid hue */
+  --chart-1: 215 55% 45%;
+  --chart-2: 200 75% 48%;
+  --chart-3: 186 68% 42%;
+  --chart-4: 166 62% 42%;
+  --chart-5: 142 65% 40%;
+  --chart-6: 84 58% 42%;
+  --chart-7: 45 80% 44%;
+  --chart-8: 30 75% 48%;
+  --chart-9: 217 70% 48%;
+  --chart-10: 0 65% 46%;
+  --chart-11: 340 65% 48%;
+  --chart-12: 320 58% 48%;
+  --chart-13: 290 55% 48%;
+  --chart-14: 270 58% 48%;
+  --chart-15: 250 55% 48%;
+  --chart-16: 230 58% 48%;
+  --chart-17: 210 50% 45%;
+  --chart-18: 195 45% 48%;
+  --chart-19: 160 48% 45%;
+  --chart-20: 100 48% 44%;
+  --chart-21: 60 58% 42%;
+  --chart-22: 22 68% 45%;
+  --chart-23: 350 58% 45%;
+  --chart-24: 0 0% 45%;
+
+  /* Chart utility tokens */
+  --chart-axis: 0 0% 50%;
+  --chart-muted: 0 0% 35%;
+}
+
+/*
+ * Base styles
+ */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
+  }
+}
+
+/*
+ * Custom utilities
+ */
+@utility font-display {
+  font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+}
