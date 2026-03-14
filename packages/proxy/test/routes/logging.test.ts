@@ -274,3 +274,105 @@ describe("chat route DB logging", () => {
     expect(res.status).toBe(200);
   });
 });
+
+// ===========================================================================
+// Stream error logging
+// ===========================================================================
+
+function createErrorStreamClient(): CopilotClient {
+  return {
+    chatCompletion: mock(async () => {
+      // Stream that errors mid-way
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          // Send one valid chunk, then error
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({
+                id: "err1",
+                object: "chat.completion.chunk",
+                created: 0,
+                model: "claude-sonnet-4",
+                choices: [
+                  { index: 0, delta: { role: "assistant" }, finish_reason: null },
+                ],
+              })}\n\n`,
+            ),
+          );
+          // Simulate upstream error mid-stream
+          controller.error(new Error("upstream connection reset"));
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    }),
+  };
+}
+
+describe("messages route stream error logging", () => {
+  test("stream error → logs error status to DB", async () => {
+    const db = createTestDb();
+    const client = createErrorStreamClient();
+    const app = new Hono();
+    app.route(
+      "/v1",
+      createMessagesRoute({ client, copilotJwt: "jwt", db }),
+    );
+
+    const res = await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: "hi" }],
+        stream: true,
+      }),
+    });
+
+    // Consume the stream to trigger finally block
+    await res.text().catch(() => {});
+
+    const rows = db.query("SELECT * FROM requests").all() as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("error");
+    expect(rows[0].status_code).toBe(502);
+    expect(rows[0].error_message).toContain("stream");
+    db.close();
+  });
+});
+
+describe("chat route stream error logging", () => {
+  test("stream error → logs error status to DB", async () => {
+    const db = createTestDb();
+    const client = createErrorStreamClient();
+    const app = new Hono();
+    app.route(
+      "/v1",
+      createChatRoute({ client, copilotJwt: "jwt", db }),
+    );
+
+    const res = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: "hi" }],
+        stream: true,
+      }),
+    });
+
+    // Consume the stream to trigger finally block
+    await res.text().catch(() => {});
+
+    const rows = db.query("SELECT * FROM requests").all() as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("error");
+    expect(rows[0].status_code).toBe(502);
+    expect(rows[0].error_message).toContain("stream");
+    db.close();
+  });
+});

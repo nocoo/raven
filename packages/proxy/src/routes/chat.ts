@@ -154,6 +154,7 @@ async function handleStreamPassthrough(
   let outputTokens = 0;
   let ttftMs: number | null = null;
   let firstContentSeen = false;
+  let streamError: string | null = null;
 
   const outputStream = new ReadableStream({
     async start(controller) {
@@ -190,8 +191,9 @@ async function handleStreamPassthrough(
             // Parse error for metrics — don't break stream
           }
         }
-      } catch {
-        // Stream error
+      } catch (err) {
+        streamError =
+          err instanceof Error ? `stream error: ${err.message}` : "stream error";
       } finally {
         controller.close();
 
@@ -208,9 +210,10 @@ async function handleStreamPassthrough(
             outputTokens,
             latencyMs,
             ttftMs,
-            status: "success",
-            statusCode: 200,
-            upstreamStatus: 200,
+            status: streamError ? "error" : "success",
+            statusCode: streamError ? 502 : 200,
+            upstreamStatus: streamError ? null : 200,
+            errorMessage: streamError ?? undefined,
           });
         }
       }

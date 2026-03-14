@@ -179,6 +179,7 @@ async function handleStreamResponse(
   let outputTokens = 0;
   let ttftMs: number | null = null;
   let firstContentSeen = false;
+  let streamError: string | null = null;
 
   const outputStream = new ReadableStream({
     async start(controller) {
@@ -223,12 +224,20 @@ async function handleStreamResponse(
             controller.enqueue(encoder.encode(line));
           }
         }
-      } catch {
-        // Stream error — close gracefully
+      } catch (err) {
+        streamError =
+          err instanceof Error ? `stream error: ${err.message}` : "stream error";
+        // Emit error event to client before closing
+        try {
+          const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "stream_error", message: streamError } })}\n\n`;
+          controller.enqueue(new TextEncoder().encode(errorEvent));
+        } catch {
+          // Controller may already be closed
+        }
       } finally {
         controller.close();
 
-        // Log after stream completes
+        // Log after stream completes — use error status if stream failed
         if (ctx.db) {
           const latencyMs = Math.round(performance.now() - ctx.startTime);
           logRequest(ctx.db, {
@@ -243,9 +252,10 @@ async function handleStreamResponse(
             outputTokens,
             latencyMs,
             ttftMs,
-            status: "success",
-            statusCode: 200,
-            upstreamStatus: 200,
+            status: streamError ? "error" : "success",
+            statusCode: streamError ? 502 : 200,
+            upstreamStatus: streamError ? null : 200,
+            errorMessage: streamError ?? undefined,
           });
         }
       }
