@@ -507,7 +507,7 @@ pre-push: bun test + bun test:e2e (API E2E)
 3. **数据库日志：**
    ```bash
    # 请求完成后
-   sqlite3 database/raven.db "SELECT * FROM requests ORDER BY timestamp DESC LIMIT 5"
+   sqlite3 packages/proxy/data/raven.db "SELECT * FROM requests ORDER BY timestamp DESC LIMIT 5"
    ```
 
 4. **Dashboard：**
@@ -518,6 +518,22 @@ pre-push: bun test + bun test:e2e (API E2E)
 5. **Token 自动刷新：**
    - 运行超过 token 有效期，观察日志中的 refresh 记录
    - 确认无中断
+
+### 翻译层兼容性验证 (Edge Cases)
+
+以下场景必须在 L1 单元测试或 L3 API E2E 中覆盖：
+
+| # | 场景 | 验证点 |
+|---|---|---|
+| E1 | 流式 tool_call 增量参数拼接 | 多个 `input_json_delta` chunk 正确拼接为完整 JSON |
+| E2 | `content: null` + `tool_calls` (纯工具调用) | 不生成空 text block，只生成 tool_use blocks |
+| E3 | usage 字段缺失 | 降级为 `input_tokens: 0, output_tokens: 0`，不崩溃 |
+| E4 | 上游 429 (rate limit) | 透传 429 状态码和 `retry-after` header |
+| E5 | 上游 5xx 中断 (流式中途断开) | 发送 error event 或 `message_delta` 带错误信息，关闭流 |
+| E6 | image + thinking 混合消息 | image → `image_url` 转换正确，thinking → text 合并正确 |
+| E7 | SSE chunk 跨分割边界 | parser 正确缓冲不完整行，跨 chunk 拼接后解析 |
+| E8 | text + tool_call 交错输出 | content block 正确关闭和切换，索引递增无跳跃 |
+| E9 | `[DONE]` 标记处理 | 流正常结束，不尝试 JSON 解析 `[DONE]` |
 
 ### 测试命令
 
