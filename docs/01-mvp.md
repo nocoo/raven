@@ -469,14 +469,15 @@ pre-push: bun test + bun test:e2e (API E2E)
 | 4.2 | `feat(proxy): route handler 日志采集集成` | `packages/proxy/src/routes/messages.ts`, `packages/proxy/src/routes/chat.ts` — 在响应/流消费完毕后写入 DB |
 | 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts`, `packages/proxy/test/routes/` |
 
-### Phase 5 — Dashboard (4 commits)
+### Phase 5 — Dashboard (5 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
 | 5.1 | `init(dashboard): Next.js + basalt 设计系统基础` | `packages/dashboard/src/app/layout.tsx`, `packages/dashboard/src/app/globals.css`, `packages/dashboard/src/components/ui/`, `packages/dashboard/src/components/layout/`, `packages/dashboard/src/lib/` |
-| 5.2 | `feat(dashboard): 概览首页 (stat cards + 时序图)` | `packages/dashboard/src/app/page.tsx`, `packages/dashboard/src/components/charts/`, 首页 ViewModel |
-| 5.3 | `feat(dashboard): 请求日志列表页` | `packages/dashboard/src/app/requests/page.tsx`, 筛选/排序逻辑 |
-| 5.4 | `feat(dashboard): 模型统计页` | `packages/dashboard/src/app/models/page.tsx` |
+| 5.2 | `feat(dashboard): Route Handlers 服务端转发层` | `packages/dashboard/src/app/api/stats/[...path]/route.ts`, `packages/dashboard/src/app/api/requests/route.ts`, `packages/dashboard/test/api/` |
+| 5.3 | `feat(dashboard): 概览首页 (stat cards + 时序图)` | `packages/dashboard/src/app/page.tsx`, `packages/dashboard/src/components/charts/`, 首页 ViewModel |
+| 5.4 | `feat(dashboard): 请求日志列表页` | `packages/dashboard/src/app/requests/page.tsx`, 筛选/排序逻辑 |
+| 5.5 | `feat(dashboard): 模型统计页` | `packages/dashboard/src/app/models/page.tsx` |
 
 ### Phase 6 — 加固 + 发布 (3 commits)
 
