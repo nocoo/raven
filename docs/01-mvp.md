@@ -403,9 +403,10 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
 | **L1 — UT** | 翻译函数、流式状态机、token 管理、DB 查询、ULID 生成、SSE 解析 | pre-push |
 | **L2 — Lint** | TypeScript strict mode, ESLint zero-warning | pre-commit |
 | **L3 — API E2E** | Proxy 全端点 + Dashboard Route Handlers 转发 (mock upstream) | pre-push |
-| **L4 — BDD E2E** | Claude Code 完整对话流程 (需要真实 Copilot token) | 按需 |
+| **L4 — Perf** | 翻译层吞吐量 + 延迟基准测试 (regression gate) | pre-push |
+| **L5 — BDD E2E** | Claude Code 完整对话流程 (需要真实 Copilot token) | 按需 |
 
-> **覆盖率 ≥ 90% 门槛在 Phase 6 加固阶段引入**，避免前期骨架 commit 被门禁卡住。
+> **覆盖率 ≥ 95% 门槛在 Phase 6 加固阶段引入**，避免前期骨架 commit 被门禁卡住。
 
 ### 端口约定
 
@@ -430,14 +431,29 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
 **dashboard:**
 - ViewModel 纯函数 — 数据聚合、格式化
 
+### L4 性能测试 (`packages/proxy/test/perf/`)
+
+使用 `Bun.bench` 或 `console.time` 基准测试，重点覆盖翻译层：
+
+| 测试项 | 基准指标 | 说明 |
+|---|---|---|
+| `anthropic-to-openai` 请求翻译 | < 0.5ms / 次 | 10-message 对话，含 tool_use + image |
+| `openai-to-anthropic` 响应翻译 | < 0.3ms / 次 | 含 tool_calls + usage 映射 |
+| `stream` 流式翻译状态机 | < 0.1ms / chunk | 模拟 200 chunk 流式输出 |
+| SSE parser 吞吐量 | > 50MB/s | 大量 SSE 行解析 |
+| DB 批量插入 | < 1ms / 条 | 1000 条请求日志连续写入 |
+
+> 性能测试作为 regression gate：若指标劣化超过 20%，pre-push 阻断并报告。
+> 首次运行记录 baseline，后续对比 baseline 判断是否劣化。
+
 ### Husky 配置
 
 ```
 pre-commit: bun lint + bun typecheck
-pre-push: bun test + bun test:e2e (API E2E)
+pre-push: bun test + bun test:e2e + bun test:perf (API E2E + 性能基准)
 ```
 
-> 覆盖率检查 (≥ 90%) 在 Phase 6 通过 CI 或 pre-push 脚本追加。
+> 覆盖率检查 (≥ 95%) 在 Phase 6 通过 CI 或 pre-push 脚本追加。
 
 ---
 
@@ -560,6 +576,9 @@ bun lint
 # L3: API E2E (proxy + dashboard route handlers)
 bun test:e2e
 
-# L4: BDD E2E (按需，需要真实 token)
+# L4: 性能基准测试 (翻译层 + SSE + DB)
+bun test:perf
+
+# L5: BDD E2E (按需，需要真实 token)
 bun test:e2e:bdd
 ```
