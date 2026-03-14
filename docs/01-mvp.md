@@ -377,10 +377,12 @@ GET /api/requests?model=xxx&status=xxx&format=xxx&sort=timestamp&order=desc&curs
 
 | 层 | 内容 | 触发时机 |
 |---|---|---|
-| **L1 — UT** | 翻译函数、流式状态机、token 管理、DB 查询、ULID 生成、SSE 解析 | pre-commit (覆盖率 ≥ 90%) |
+| **L1 — UT** | 翻译函数、流式状态机、token 管理、DB 查询、ULID 生成、SSE 解析 | pre-push |
 | **L2 — Lint** | TypeScript strict mode, ESLint zero-warning | pre-commit |
 | **L3 — API E2E** | 所有 proxy 端点 + stats 端点 (mock upstream) | pre-push |
 | **L4 — BDD E2E** | Claude Code 完整对话流程 (需要真实 Copilot token) | 按需 |
+
+> **覆盖率 ≥ 90% 门槛在 Phase 6 加固阶段引入**，避免前期骨架 commit 被门禁卡住。
 
 ### 端口约定
 
@@ -408,9 +410,11 @@ GET /api/requests?model=xxx&status=xxx&format=xxx&sort=timestamp&order=desc&curs
 ### Husky 配置
 
 ```
-pre-commit: bun test + bun lint (覆盖率检查 ≥ 90%)
-pre-push: bun test:e2e (API E2E)
+pre-commit: bun lint + bun typecheck
+pre-push: bun test + bun test:e2e (API E2E)
 ```
+
+> 覆盖率检查 (≥ 90%) 在 Phase 6 通过 CI 或 pre-push 脚本追加。
 
 ---
 
