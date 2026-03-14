@@ -396,7 +396,7 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
 |---|---|---|
 | **L1 — UT** | 翻译函数、流式状态机、token 管理、DB 查询、ULID 生成、SSE 解析 | pre-push |
 | **L2 — Lint** | TypeScript strict mode, ESLint zero-warning | pre-commit |
-| **L3 — API E2E** | 所有 proxy 端点 + stats 端点 (mock upstream) | pre-push |
+| **L3 — API E2E** | Proxy 全端点 + Dashboard Route Handlers 转发 (mock upstream) | pre-push |
 | **L4 — BDD E2E** | Claude Code 完整对话流程 (需要真实 Copilot token) | 按需 |
 
 > **覆盖率 ≥ 90% 门槛在 Phase 6 加固阶段引入**，避免前期骨架 commit 被门禁卡住。
@@ -408,7 +408,7 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
 | Proxy dev | 开发 | 8080 |
 | Dashboard dev | 开发 | 7020 |
 | Proxy API E2E | L3 测试 | 18080 |
-| Dashboard API E2E | L3 测试 | 17020 |
+| Dashboard API E2E | L3 测试 (Route Handlers 转发验证) | 17020 |
 
 ### L1 重点测试对象
 
@@ -551,7 +551,7 @@ bun test
 # L2: Lint
 bun lint
 
-# L3: API E2E (proxy)
+# L3: API E2E (proxy + dashboard route handlers)
 bun test:e2e
 
 # L4: BDD E2E (按需，需要真实 token)
