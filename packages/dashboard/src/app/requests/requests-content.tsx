@@ -9,12 +9,13 @@ interface RequestsContentProps {
   hasMore: boolean;
   nextCursor?: string | undefined;
   total?: number | undefined;
+  models: string[];
 }
 
-export function RequestsContent({ data, hasMore, nextCursor, total }: RequestsContentProps) {
+export function RequestsContent({ data, hasMore, nextCursor, total, models }: RequestsContentProps) {
   return (
     <>
-      <Filters />
+      <Filters models={models} />
       <RequestTable
         data={data}
         hasMore={hasMore}

@@ -4,11 +4,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 
-const MODELS = ["claude-sonnet-4-20250514", "claude-3.5-sonnet", "gpt-4o", "gpt-4o-mini", "o3-mini"];
 const STATUSES = ["success", "error"];
 const FORMATS = ["anthropic", "openai"];
 
-export function Filters() {
+interface FiltersProps {
+  models: string[];
+}
+
+export function Filters({ models }: FiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -47,7 +50,7 @@ export function Filters() {
         className="h-8 rounded-widget border bg-background px-2 text-sm text-foreground"
       >
         <option value="">All models</option>
-        {MODELS.map((m) => (
+        {models.map((m) => (
           <option key={m} value={m}>{m}</option>
         ))}
       </select>

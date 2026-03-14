@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
-import type { PaginatedRequests } from "@/lib/types";
+import type { PaginatedRequests, ModelStats } from "@/lib/types";
 import { RequestsContent } from "./requests-content";
 
 interface PageProps {
@@ -17,23 +17,31 @@ export default async function RequestsPage({ searchParams }: PageProps) {
     if (value) params.set(key, value);
   }
   const queryString = params.toString();
-  const path = `/api/requests${queryString ? `?${queryString}` : ""}`;
+  const requestsPath = `/api/requests${queryString ? `?${queryString}` : ""}`;
 
-  const result = await safeFetch<PaginatedRequests>(path);
+  const [requestsResult, modelsResult] = await Promise.all([
+    safeFetch<PaginatedRequests>(requestsPath),
+    safeFetch<ModelStats[]>("/api/stats/models"),
+  ]);
 
-  if (!result.ok) {
+  if (!requestsResult.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Requests" }]}>
         <div className="space-y-4">
           <h1 className="text-lg font-semibold">Request Log</h1>
           <FetchError
             title="Failed to load requests"
-            message={result.error}
+            message={requestsResult.error}
           />
         </div>
       </AppShell>
     );
   }
+
+  // Models list for filter dropdown — graceful fallback to empty if fetch fails
+  const models = modelsResult.ok
+    ? modelsResult.data.map((m) => m.model)
+    : [];
 
   return (
     <AppShell breadcrumbs={[{ label: "Requests" }]}>
@@ -41,10 +49,11 @@ export default async function RequestsPage({ searchParams }: PageProps) {
         <h1 className="text-lg font-semibold">Request Log</h1>
         <Suspense fallback={<div className="text-muted-foreground">Loading...</div>}>
           <RequestsContent
-            data={result.data.data}
-            hasMore={result.data.has_more}
-            nextCursor={result.data.next_cursor}
-            total={result.data.total}
+            data={requestsResult.data.data}
+            hasMore={requestsResult.data.has_more}
+            nextCursor={requestsResult.data.next_cursor}
+            total={requestsResult.data.total}
+            models={models}
           />
         </Suspense>
       </div>
