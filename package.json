@@ -1,7 +1,10 @@
 {
   "name": "raven",
   "private": true,
-  "workspaces": ["packages/*"],
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun run --filter '*' dev",
     "dev:proxy": "bun run --filter proxy dev",
@@ -10,6 +13,14 @@
     "lint": "bun run --filter '*' lint",
     "typecheck": "bun run --filter '*' typecheck",
     "test:e2e": "bun run --filter proxy test:e2e",
-    "test:perf": "bun run --filter proxy test:perf"
+    "test:perf": "bun run --filter proxy test:perf",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "typescript-eslint": "^8.57.0"
   }
 }

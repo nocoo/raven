@@ -1,0 +1,2 @@
+#!/bin/sh
+bun run test && bun run test:e2e && bun run test:perf

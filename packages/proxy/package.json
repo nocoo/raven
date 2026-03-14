@@ -9,7 +9,7 @@
     "test": "bun test",
     "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
-    "lint": "eslint src/",
+    "lint": "eslint --config ../../eslint.config.js src/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
