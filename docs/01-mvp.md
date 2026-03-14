@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS requests (
   stream          INTEGER NOT NULL,      -- 0 | 1
   input_tokens    INTEGER,              -- 输入 token 数
   output_tokens   INTEGER,              -- 输出 token 数
+  total_tokens    INTEGER GENERATED ALWAYS AS (COALESCE(input_tokens, 0) + COALESCE(output_tokens, 0)) STORED,
   latency_ms      INTEGER NOT NULL,     -- 总耗时
   ttft_ms         INTEGER,              -- 首 token 时间 (仅流式)
   status          TEXT NOT NULL,         -- "success" | "error"
@@ -278,7 +279,7 @@ GET /api/requests?model=xxx&status=xxx&format=xxx&sort=timestamp&order=desc&curs
 | `model` | string | 按模型筛选 (可选) |
 | `status` | string | `"success"` \| `"error"` (可选) |
 | `format` | string | `"anthropic"` \| `"openai"` (可选) |
-| `sort` | string | `"timestamp"` \| `"latency_ms"` \| `"tokens"` (默认 `"timestamp"`) |
+| `sort` | string | `"timestamp"` \| `"latency_ms"` \| `"total_tokens"` (默认 `"timestamp"`) |
 | `order` | string | `"asc"` \| `"desc"` (默认 `"desc"`) |
 | `cursor` | string | ULID，用于 cursor-based 分页 (可选) |
 | `limit` | number | 每页条数，默认 50，最大 200 |
@@ -335,7 +336,7 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
 2. **请求日志 (`/requests`)** — 参考 surety 的 policies 表格模式
    - 数据来源：`GET /api/requests` (带筛选/排序/分页)
    - 可筛选：按 model、status、format
-   - 可排序：按 timestamp、latency、tokens
+   - 可排序：按 timestamp、latency、total_tokens
    - Cursor-based 分页
    - 详情展开
 
