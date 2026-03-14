@@ -19,7 +19,7 @@ Raven 是一个 GitHub Copilot 代理服务，结合 copilot-api（能工作但�
 │  Claude Code /   │  HTTP   │               │  HTTP   │                      │
 │  OpenAI 客户端   ├────────►│  Proxy        ├─────────►│ api.githubcopilot.com│
 │                  │◄────────┤  (Bun + Hono) │◄─────────┤                      │
-└─────────────────┘         │  :8080        │          └──────────────────────┘
+└─────────────────┘         │  :7033        │          └──────────────────────┘
                             │               │
                             │  ┌──────────┐ │
                             │  │ SQLite   │ │
@@ -32,7 +32,7 @@ Raven 是一个 GitHub Copilot 代理服务，结合 copilot-api（能工作但�
                             ┌───────┴───────┐
                             │  Dashboard    │
                             │  (Next.js)    │
-                            │  :7020        │
+                            │  :7032        │
                             └───────────────┘
 ```
 
@@ -44,7 +44,7 @@ Raven 是一个 GitHub Copilot 代理服务，结合 copilot-api（能工作但�
 ```
 raven/
 ├── packages/
-│   ├── proxy/                      # Bun + Hono, port 8080
+│   ├── proxy/                      # Bun + Hono, port 7033
 │   │   ├── src/
 │   │   │   ├── index.ts            # 入口：启动 server + 初始化 token
 │   │   │   ├── config.ts           # env + 默认值
@@ -77,7 +77,7 @@ raven/
 │   │   ├── data/                   # SQLite 数据 (gitignored)
 │   │   └── package.json
 │   │
-│   └── dashboard/                  # Next.js + basalt 设计系统, port 7020
+│   └── dashboard/                  # Next.js + basalt 设计系统, port 7032
 │       ├── src/
 │       │   ├── app/
 │       │   │   ├── layout.tsx      # Root layout (basalt tokens)
@@ -411,10 +411,10 @@ Browser → Next.js Server (Route Handlers) → Proxy HTTP API → SQLite
 
 | 服务 | 用途 | 端口 |
 |---|---|---|
-| Proxy dev | 开发 | 8080 |
-| Dashboard dev | 开发 | 7020 |
-| Proxy API E2E | L3 测试 | 18080 |
-| Dashboard API E2E | L3 测试 (Route Handlers 转发验证) | 17020 |
+| Proxy dev | 开发 | 7033 |
+| Dashboard dev | 开发 | 7032 |
+| Proxy API E2E | L3 测试 | 17033 |
+| Dashboard API E2E | L3 测试 (Route Handlers 转发验证) | 17032 |
 
 ### L1 重点测试对象
 
@@ -502,7 +502,7 @@ pre-push: bun test + bun test:e2e (API E2E)
 
 1. **Proxy OpenAI 直通：**
    ```bash
-   curl -X POST http://localhost:8080/v1/chat/completions \
+   curl -X POST http://localhost:7033/v1/chat/completions \
      -H "Authorization: Bearer sk-raven-test" \
      -H "Content-Type: application/json" \
      -d '{"model":"claude-sonnet-4","messages":[{"role":"user","content":"hello"}]}'
@@ -510,7 +510,7 @@ pre-push: bun test + bun test:e2e (API E2E)
 
 2. **Claude Code 集成：**
    ```bash
-   ANTHROPIC_BASE_URL=http://localhost:8080 \
+   ANTHROPIC_BASE_URL=http://localhost:7033 \
    ANTHROPIC_API_KEY=sk-raven-test \
    claude
    # 验证：正常对话、工具调用、流式输出
@@ -524,7 +524,7 @@ pre-push: bun test + bun test:e2e (API E2E)
    ```
 
 4. **Dashboard：**
-   - 浏览器打开 `http://localhost:7020`
+   - 浏览器打开 `http://localhost:7032`
    - 验证 stat cards 数据正确
    - 验证图表渲染
 
