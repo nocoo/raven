@@ -484,13 +484,13 @@ Proxy 开发严格按 TDD 推进，每个功能模块遵循 **Red → Green → 
 | 1.3 | `feat(proxy): API key 认证中间件` | `packages/proxy/src/middleware.ts`, `packages/proxy/test/middleware.test.ts` | ✅ |
 | 1.4 | `chore: husky + lint 配置` | `.husky/`, `eslint.config.js`, lint 相关 | ✅ |
 
-### Phase 2 — Copilot 认证 (3 commits, TDD)
+### Phase 2 — Copilot 认证 (3 commits, TDD) ✅
 
-| # | Commit | 文件 |
-|---|---|---|
-| 2.1 | `feat(proxy): GitHub device flow 登录` | `packages/proxy/test/copilot/auth.test.ts` → `packages/proxy/src/copilot/auth.ts` |
-| 2.2 | `feat(proxy): 双层 token 管理 + 自动刷新` | `packages/proxy/test/copilot/token.test.ts` → `packages/proxy/src/copilot/token.ts`, `packages/proxy/src/copilot/headers.ts`, `packages/proxy/src/copilot/vscode.ts` |
-| 2.3 | `feat(proxy): Copilot API client + OpenAI 直通` | `packages/proxy/test/` → `packages/proxy/src/copilot/client.ts`, `packages/proxy/src/routes/chat.ts`, `packages/proxy/src/routes/models.ts`, `packages/proxy/src/util/sse.ts` |
+| # | Commit | 文件 | 状态 |
+|---|---|---|---|
+| 2.1 | `feat(proxy): GitHub device flow 登录` | `packages/proxy/test/copilot/auth.test.ts` → `packages/proxy/src/copilot/auth.ts` | ✅ |
+| 2.2 | `feat(proxy): 双层 token 管理 + 自动刷新` | `packages/proxy/test/copilot/token.test.ts` → `packages/proxy/src/copilot/token.ts`, `packages/proxy/src/copilot/headers.ts`, `packages/proxy/src/copilot/vscode.ts` | ✅ |
+| 2.3 | `feat(proxy): Copilot API client + OpenAI 直通` | `packages/proxy/test/` → `packages/proxy/src/copilot/client.ts`, `packages/proxy/src/routes/models.ts`, `packages/proxy/src/util/sse.ts` | ✅ |
 
 ### Phase 3 — Anthropic 翻译 (4 commits, TDD + perf)
 
