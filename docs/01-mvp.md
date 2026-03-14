@@ -499,7 +499,7 @@ Proxy 开发严格按 TDD 推进，每个功能模块遵循 **Red → Green → 
 | 3.1 ✅ | `feat(proxy): Anthropic → OpenAI 请求翻译` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/types.ts`, `packages/proxy/src/translate/anthropic-to-openai.ts` |
 | 3.2 ✅ | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/openai-to-anthropic.ts` |
 | 3.3 ✅ | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `packages/proxy/test/translate/stream.test.ts` → `packages/proxy/src/translate/stream.ts`, `packages/proxy/src/routes/messages.ts` |
-| 3.4 | `test(proxy): 翻译层性能基准测试` | `packages/proxy/test/perf/translate.bench.ts`, `packages/proxy/test/perf/sse.bench.ts` |
+| 3.4 ✅ | `test(proxy): 翻译层性能基准测试` | `packages/proxy/test/perf/translate.bench.ts`, `packages/proxy/test/perf/sse.bench.ts` |
 
 ### Phase 4 — 数据库 + 统计 (3 commits, TDD)
 
