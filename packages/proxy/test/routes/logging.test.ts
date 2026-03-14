@@ -376,3 +376,111 @@ describe("chat route stream error logging", () => {
     db.close();
   });
 });
+
+// ===========================================================================
+// JWT getter (live token refresh)
+// ===========================================================================
+
+describe("messages route JWT getter", () => {
+  test("uses getter function to get fresh JWT per request", async () => {
+    const db = createTestDb();
+    let currentJwt = "jwt-v1";
+    const jwtGetter = () => currentJwt;
+
+    const client: CopilotClient = {
+      chatCompletion: mock(async (_req, _jwt) => {
+        return new Response(JSON.stringify(OPENAI_RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    };
+
+    const app = new Hono();
+    app.route(
+      "/v1",
+      createMessagesRoute({ client, copilotJwt: jwtGetter, db }),
+    );
+
+    // First request with jwt-v1
+    await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+
+    const fn = client.chatCompletion as ReturnType<typeof mock>;
+    expect(fn.mock.calls[0][1]).toBe("jwt-v1");
+
+    // Update token
+    currentJwt = "jwt-v2";
+
+    // Second request should use jwt-v2
+    await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+
+    expect(fn.mock.calls[1][1]).toBe("jwt-v2");
+    db.close();
+  });
+});
+
+describe("chat route JWT getter", () => {
+  test("uses getter function to get fresh JWT per request", async () => {
+    let currentJwt = "jwt-v1";
+    const jwtGetter = () => currentJwt;
+
+    const client: CopilotClient = {
+      chatCompletion: mock(async (_req, _jwt) => {
+        return new Response(JSON.stringify(OPENAI_RESPONSE), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    };
+
+    const app = new Hono();
+    app.route(
+      "/v1",
+      createChatRoute({ client, copilotJwt: jwtGetter }),
+    );
+
+    // First request
+    await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+
+    const fn = client.chatCompletion as ReturnType<typeof mock>;
+    expect(fn.mock.calls[0][1]).toBe("jwt-v1");
+
+    // Update token
+    currentJwt = "jwt-v2";
+
+    // Second request should use jwt-v2
+    await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+
+    expect(fn.mock.calls[1][1]).toBe("jwt-v2");
+  });
+});

@@ -25,7 +25,7 @@ function generateId(): string {
 
 export interface ChatRouteOptions {
   client: CopilotClient;
-  copilotJwt: string;
+  copilotJwt: string | (() => string);
   db?: Database;
 }
 
@@ -34,13 +34,20 @@ export interface ChatRouteOptions {
  * OpenAI format requests to the Copilot API.
  */
 export function createChatRoute(opts: ChatRouteOptions): Hono {
-  const { client, copilotJwt, db } = opts;
+  const { client, copilotJwt: copilotJwtOrGetter, db } = opts;
+  const getJwt =
+    typeof copilotJwtOrGetter === "function"
+      ? copilotJwtOrGetter
+      : () => copilotJwtOrGetter;
   const route = new Hono();
 
   route.post("/chat/completions", async (c) => {
     const startTime = performance.now();
     const requestId = generateId();
     const body = (await c.req.json()) as ChatCompletionRequest;
+
+    // Resolve JWT at request time (not route creation time)
+    const copilotJwt = getJwt();
 
     // Forward to Copilot
     let upstream: Response;

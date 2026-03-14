@@ -32,7 +32,7 @@ function generateId(): string {
 
 export interface MessagesRouteOptions {
   client: CopilotClient;
-  copilotJwt: string;
+  copilotJwt: string | (() => string);
   db?: Database;
 }
 
@@ -50,7 +50,11 @@ export function createMessagesRoute(
       ? { client: clientOrOpts, copilotJwt: copilotJwtArg! }
       : clientOrOpts;
 
-  const { client, copilotJwt, db } = opts;
+  const { client, copilotJwt: copilotJwtOrGetter, db } = opts;
+  const getJwt =
+    typeof copilotJwtOrGetter === "function"
+      ? copilotJwtOrGetter
+      : () => copilotJwtOrGetter;
   const route = new Hono();
 
   route.post("/messages", async (c) => {
@@ -62,6 +66,9 @@ export function createMessagesRoute(
 
     // Translate to OpenAI format
     const openAIReq = translateRequest(anthropicReq);
+
+    // Resolve JWT at request time (not route creation time)
+    const copilotJwt = getJwt();
 
     // Forward to Copilot API
     let upstream: Response;
