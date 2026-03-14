@@ -1,19 +1,12 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
-import type { CopilotClient } from "../copilot/client.ts";
-import type {
-  AnthropicRequest,
-  OpenAIResponse,
-  OpenAIStreamChunk,
-} from "../translate/types.ts";
-import { translateRequest } from "../translate/anthropic-to-openai.ts";
-import { translateResponse } from "../translate/openai-to-anthropic.ts";
-import { createStreamTranslator } from "../translate/stream.ts";
+import type { CopilotClient, ChatCompletionRequest } from "../copilot/client.ts";
+import type { OpenAIResponse, OpenAIStreamChunk } from "../translate/types.ts";
 import { parseSSEStream } from "../util/sse.ts";
 import { insertRequest, type RequestRecord } from "../db/requests.ts";
 
 // ---------------------------------------------------------------------------
-// ULID-like ID generator (timestamp-sortable, no external deps)
+// ULID-like ID generator
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
@@ -30,53 +23,38 @@ function generateId(): string {
 // Route options
 // ---------------------------------------------------------------------------
 
-export interface MessagesRouteOptions {
+export interface ChatRouteOptions {
   client: CopilotClient;
   copilotJwt: string;
   db?: Database;
 }
 
 /**
- * Create the /v1/messages route that accepts Anthropic format requests,
- * translates to OpenAI format, forwards to Copilot, and translates back.
+ * Create the /v1/chat/completions route that directly forwards
+ * OpenAI format requests to the Copilot API.
  */
-export function createMessagesRoute(
-  clientOrOpts: CopilotClient | MessagesRouteOptions,
-  copilotJwtArg?: string,
-): Hono {
-  // Support both old signature and new options object
-  const opts: MessagesRouteOptions =
-    "chatCompletion" in clientOrOpts
-      ? { client: clientOrOpts, copilotJwt: copilotJwtArg! }
-      : clientOrOpts;
-
+export function createChatRoute(opts: ChatRouteOptions): Hono {
   const { client, copilotJwt, db } = opts;
   const route = new Hono();
 
-  route.post("/messages", async (c) => {
+  route.post("/chat/completions", async (c) => {
     const startTime = performance.now();
     const requestId = generateId();
+    const body = (await c.req.json()) as ChatCompletionRequest;
 
-    // Parse incoming Anthropic request
-    const anthropicReq = (await c.req.json()) as AnthropicRequest;
-
-    // Translate to OpenAI format
-    const openAIReq = translateRequest(anthropicReq);
-
-    // Forward to Copilot API
+    // Forward to Copilot
     let upstream: Response;
     try {
-      upstream = await client.chatCompletion(openAIReq, copilotJwt);
+      upstream = await client.chatCompletion(body, copilotJwt);
     } catch (err) {
       const latencyMs = Math.round(performance.now() - startTime);
       if (db) {
         logRequest(db, {
           id: requestId,
-          startTime,
-          path: "/v1/messages",
-          format: "anthropic",
-          model: anthropicReq.model,
-          stream: anthropicReq.stream ? 1 : 0,
+          path: "/v1/chat/completions",
+          format: "openai",
+          model: body.model,
+          stream: body.stream ? 1 : 0,
           latencyMs,
           status: "error",
           statusCode: 502,
@@ -87,45 +65,44 @@ export function createMessagesRoute(
       return c.json({ error: "upstream connection failed" }, 502);
     }
 
-    // Handle upstream errors
+    // Error passthrough
     if (!upstream.ok) {
-      const body = await upstream.text();
+      const text = await upstream.text();
       const latencyMs = Math.round(performance.now() - startTime);
       if (db) {
         logRequest(db, {
           id: requestId,
-          startTime,
-          path: "/v1/messages",
-          format: "anthropic",
-          model: anthropicReq.model,
-          stream: anthropicReq.stream ? 1 : 0,
+          path: "/v1/chat/completions",
+          format: "openai",
+          model: body.model,
+          stream: body.stream ? 1 : 0,
           latencyMs,
           status: "error",
           statusCode: upstream.status,
           upstreamStatus: upstream.status,
-          errorMessage: body.slice(0, 500),
+          errorMessage: text.slice(0, 500),
         });
       }
-      return c.body(body, upstream.status as 429);
+      return c.body(text, upstream.status as 429);
     }
 
-    // Non-streaming response
-    if (!anthropicReq.stream) {
-      const openAIRes = (await upstream.json()) as OpenAIResponse;
-      const anthropicRes = translateResponse(openAIRes);
+    // Non-streaming
+    if (!body.stream) {
+      const res = (await upstream.json()) as OpenAIResponse;
       const latencyMs = Math.round(performance.now() - startTime);
 
       if (db) {
+        const cachedTokens =
+          res.usage?.prompt_tokens_details?.cached_tokens ?? 0;
         logRequest(db, {
           id: requestId,
-          startTime,
-          path: "/v1/messages",
-          format: "anthropic",
-          model: anthropicReq.model,
-          resolvedModel: openAIRes.model,
+          path: "/v1/chat/completions",
+          format: "openai",
+          model: body.model,
+          resolvedModel: res.model,
           stream: 0,
-          inputTokens: anthropicRes.usage.input_tokens,
-          outputTokens: anthropicRes.usage.output_tokens,
+          inputTokens: (res.usage?.prompt_tokens ?? 0) - cachedTokens,
+          outputTokens: res.usage?.completion_tokens ?? 0,
           latencyMs,
           status: "success",
           statusCode: 200,
@@ -133,15 +110,15 @@ export function createMessagesRoute(
         });
       }
 
-      return c.json(anthropicRes);
+      return c.json(res);
     }
 
-    // Streaming response
-    return handleStreamResponse(c, upstream, openAIReq.model, {
+    // Streaming — passthrough with metrics collection
+    return handleStreamPassthrough(c, upstream, {
       db,
       requestId,
       startTime,
-      anthropicModel: anthropicReq.model,
+      model: body.model,
     });
   });
 
@@ -149,23 +126,22 @@ export function createMessagesRoute(
 }
 
 // ---------------------------------------------------------------------------
-// Stream handler
+// Stream passthrough
 // ---------------------------------------------------------------------------
 
 interface StreamContext {
   db?: Database;
   requestId: string;
   startTime: number;
-  anthropicModel: string;
+  model: string;
 }
 
-async function handleStreamResponse(
+async function handleStreamPassthrough(
   c: {
     header: (key: string, value: string) => void;
     body: (stream: ReadableStream) => Response;
   },
   upstream: Response,
-  model: string,
   ctx: StreamContext,
 ): Promise<Response> {
   const upstreamBody = upstream.body;
@@ -173,8 +149,7 @@ async function handleStreamResponse(
     return c.body(new ReadableStream());
   }
 
-  // Metrics collected during streaming
-  let resolvedModel = model;
+  let resolvedModel = ctx.model;
   let inputTokens = 0;
   let outputTokens = 0;
   let ttftMs: number | null = null;
@@ -183,60 +158,50 @@ async function handleStreamResponse(
   const outputStream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
-      let translator: ReturnType<typeof createStreamTranslator> | null = null;
 
       try {
         for await (const data of parseSSEStream(upstreamBody)) {
-          // null = [DONE] marker
-          if (data === null) break;
-
-          const chunk = JSON.parse(data) as OpenAIStreamChunk;
-
-          // Track resolved model
-          if (chunk.model) resolvedModel = chunk.model;
-
-          // Track usage from chunks
-          if (chunk.usage) {
-            inputTokens =
-              chunk.usage.prompt_tokens -
-              (chunk.usage.prompt_tokens_details?.cached_tokens ?? 0);
-            outputTokens = chunk.usage.completion_tokens;
+          if (data === null) {
+            // Forward [DONE]
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            break;
           }
 
-          // Track TTFT
-          if (
-            !firstContentSeen &&
-            chunk.choices[0]?.delta?.content
-          ) {
-            firstContentSeen = true;
-            ttftMs = Math.round(performance.now() - ctx.startTime);
-          }
+          // Forward raw SSE data
+          controller.enqueue(
+            encoder.encode(`data: ${data}\n\n`),
+          );
 
-          // Lazily create translator with first chunk's id
-          if (!translator) {
-            translator = createStreamTranslator(chunk.id, model);
-          }
-
-          const events = translator.processChunk(chunk);
-          for (const event of events) {
-            const line = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
-            controller.enqueue(encoder.encode(line));
+          // Parse for metrics collection
+          try {
+            const chunk = JSON.parse(data) as OpenAIStreamChunk;
+            if (chunk.model) resolvedModel = chunk.model;
+            if (chunk.usage) {
+              inputTokens =
+                chunk.usage.prompt_tokens -
+                (chunk.usage.prompt_tokens_details?.cached_tokens ?? 0);
+              outputTokens = chunk.usage.completion_tokens;
+            }
+            if (!firstContentSeen && chunk.choices[0]?.delta?.content) {
+              firstContentSeen = true;
+              ttftMs = Math.round(performance.now() - ctx.startTime);
+            }
+          } catch {
+            // Parse error for metrics — don't break stream
           }
         }
       } catch {
-        // Stream error — close gracefully
+        // Stream error
       } finally {
         controller.close();
 
-        // Log after stream completes
         if (ctx.db) {
           const latencyMs = Math.round(performance.now() - ctx.startTime);
           logRequest(ctx.db, {
             id: ctx.requestId,
-            startTime: ctx.startTime,
-            path: "/v1/messages",
-            format: "anthropic",
-            model: ctx.anthropicModel,
+            path: "/v1/chat/completions",
+            format: "openai",
+            model: ctx.model,
             resolvedModel,
             stream: 1,
             inputTokens,
@@ -265,7 +230,6 @@ async function handleStreamResponse(
 
 interface LogParams {
   id: string;
-  startTime: number;
   path: string;
   format: string;
   model: string;
