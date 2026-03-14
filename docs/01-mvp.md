@@ -65,7 +65,7 @@ raven/
 │   │   │   │   ├── models.ts       # GET /v1/models
 │   │   │   │   ├── stats.ts        # GET /api/stats/*
 │   │   │   │   └── requests.ts     # GET /api/requests (筛选/排序/分页)
-│   │   │   ├── middleware.ts       # API key 认证 + 请求日志
+│   │   │   ├── middleware.ts       # API key 认证 + 请求上下文 (request ID, start time)
 │   │   │   ├── db/
 │   │   │   │   ├── sqlite.ts       # bun:sqlite 初始化
 │   │   │   │   ├── schema.ts       # 建表
@@ -242,6 +242,13 @@ CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
 
 **MVP 阶段不用 Drizzle ORM，直接用 `bun:sqlite` 裸 SQL**，保持极简。
 
+**日志采集职责划分：**
+- **middleware**：API key 验证、注入请求上下文（request ID、start time）
+- **route handler**（`messages.ts`、`chat.ts`）：在拿到完整上游响应后调用 `db.insertRequest()` 写入日志
+- **流式场景**：在 stream 消费完毕的 finally/cleanup 回调中，汇总 `resolved_model`、`usage`、`ttft_ms`、`upstream_status` 后写入
+
+> middleware 无法获取 `resolved_model`、token usage、`ttft_ms` 等数据——这些分散在响应流的不同 chunk 中，只能在 route/client 层采集。
+
 ### 2.4 统计 API (`proxy/src/routes/stats.ts`)
 
 Dashboard 调用的 JSON 端点：
@@ -393,7 +400,7 @@ GET /api/requests?model=xxx&status=xxx&format=xxx&sort=timestamp&order=desc&curs
 - `copilot/token.ts` — token 有效性检查、refresh 触发
 - `db/requests.ts` — 插入、查询、统计聚合
 - `util/sse.ts` — SSE 解析 (完整行、跨 chunk 分割、[DONE])
-- `middleware.ts` — API key 验证、timing-safe 比较
+- `middleware.ts` — API key 验证、timing-safe 比较、请求上下文注入
 
 **dashboard:**
 - ViewModel 纯函数 — 数据聚合、格式化
@@ -434,12 +441,13 @@ pre-push: bun test:e2e (API E2E)
 | 3.2 | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `translate/openai-to-anthropic.ts`, `test/translate/` |
 | 3.3 | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `translate/stream.ts`, `routes/messages.ts`, `test/translate/stream.test.ts` |
 
-### Phase 4 — 数据库 + 统计 (2 commits)
+### Phase 4 — 数据库 + 统计 (3 commits)
 
 | # | Commit | 文件 |
 |---|---|---|
 | 4.1 | `feat(proxy): SQLite 请求日志 + 统计查询` | `db/sqlite.ts`, `db/schema.ts`, `db/requests.ts`, `test/db/` |
-| 4.2 | `feat(proxy): /api/stats/* 统计端点 + 日志中间件` | `routes/stats.ts`, 更新 `middleware.ts`, `test/routes/stats.test.ts` |
+| 4.2 | `feat(proxy): route handler 日志采集集成` | `routes/messages.ts`, `routes/chat.ts` — 在响应/流消费完毕后写入 DB |
+| 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `routes/stats.ts`, `routes/requests.ts`, `test/routes/` |
 
 ### Phase 5 — Dashboard (4 commits)
 
