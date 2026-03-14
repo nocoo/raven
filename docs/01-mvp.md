@@ -492,22 +492,22 @@ Proxy 开发严格按 TDD 推进，每个功能模块遵循 **Red → Green → 
 | 2.2 | `feat(proxy): 双层 token 管理 + 自动刷新` | `packages/proxy/test/copilot/token.test.ts` → `packages/proxy/src/copilot/token.ts`, `packages/proxy/src/copilot/headers.ts`, `packages/proxy/src/copilot/vscode.ts` | ✅ |
 | 2.3 | `feat(proxy): Copilot API client + OpenAI 直通` | `packages/proxy/test/` → `packages/proxy/src/copilot/client.ts`, `packages/proxy/src/routes/models.ts`, `packages/proxy/src/util/sse.ts` | ✅ |
 
-### Phase 3 — Anthropic 翻译 (4 commits, TDD + perf)
+### Phase 3 — Anthropic 翻译 (4 commits, TDD + perf) ✅
 
-| # | Commit | 文件 |
-|---|---|---|
-| 3.1 ✅ | `feat(proxy): Anthropic → OpenAI 请求翻译` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/types.ts`, `packages/proxy/src/translate/anthropic-to-openai.ts` |
-| 3.2 ✅ | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/openai-to-anthropic.ts` |
-| 3.3 ✅ | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `packages/proxy/test/translate/stream.test.ts` → `packages/proxy/src/translate/stream.ts`, `packages/proxy/src/routes/messages.ts` |
-| 3.4 ✅ | `test(proxy): 翻译层性能基准测试` | `packages/proxy/test/perf/translate.bench.ts`, `packages/proxy/test/perf/sse.bench.ts` |
+| # | Commit | 文件 | 状态 |
+|---|---|---|---|
+| 3.1 | `feat(proxy): Anthropic → OpenAI 请求翻译` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/types.ts`, `packages/proxy/src/translate/anthropic-to-openai.ts` | ✅ |
+| 3.2 | `feat(proxy): OpenAI → Anthropic 响应翻译 (非流式)` | `packages/proxy/test/translate/` → `packages/proxy/src/translate/openai-to-anthropic.ts` | ✅ |
+| 3.3 | `feat(proxy): 流式翻译状态机 + /v1/messages 端点` | `packages/proxy/test/translate/stream.test.ts` → `packages/proxy/src/translate/stream.ts`, `packages/proxy/src/routes/messages.ts` | ✅ |
+| 3.4 | `test(proxy): 翻译层性能基准测试` | `packages/proxy/test/perf/translate.bench.ts`, `packages/proxy/test/perf/sse.bench.ts` | ✅ |
 
-### Phase 4 — 数据库 + 统计 (3 commits, TDD)
+### Phase 4 — 数据库 + 统计 (3 commits, TDD) ✅
 
-| # | Commit | 文件 |
-|---|---|---|
-| 4.1 ✅ | `feat(proxy): SQLite 请求日志 + 统计查询` | `packages/proxy/test/db/` → `packages/proxy/src/db/sqlite.ts`, `packages/proxy/src/db/schema.ts`, `packages/proxy/src/db/requests.ts` |
-| 4.2 ✅ | `feat(proxy): route handler 日志采集集成` | `packages/proxy/src/routes/messages.ts`, `packages/proxy/src/routes/chat.ts` — 在响应/流消费完毕后写入 DB |
-| 4.3 ✅ | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/test/routes/` → `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts` |
+| # | Commit | 文件 | 状态 |
+|---|---|---|---|
+| 4.1 | `feat(proxy): SQLite 请求日志 + 统计查询` | `packages/proxy/test/db/` → `packages/proxy/src/db/requests.ts` | ✅ |
+| 4.2 | `feat(proxy): route handler 日志采集集成` | `packages/proxy/src/routes/messages.ts`, `packages/proxy/src/routes/chat.ts` — 在响应/流消费完毕后写入 DB | ✅ |
+| 4.3 | `feat(proxy): /api/stats/* + /api/requests 端点` | `packages/proxy/test/routes/` → `packages/proxy/src/routes/stats.ts`, `packages/proxy/src/routes/requests.ts` | ✅ |
 
 ### Phase 5 — Dashboard (5 commits)
 
