@@ -63,7 +63,8 @@ raven/
 │   │   │   │   ├── messages.ts     # POST /v1/messages
 │   │   │   │   ├── chat.ts         # POST /v1/chat/completions
 │   │   │   │   ├── models.ts       # GET /v1/models
-│   │   │   │   └── stats.ts        # GET /api/stats/*
+│   │   │   │   ├── stats.ts        # GET /api/stats/*
+│   │   │   │   └── requests.ts     # GET /api/requests (筛选/排序/分页)
 │   │   │   ├── middleware.ts       # API key 认证 + 请求日志
 │   │   │   ├── db/
 │   │   │   │   ├── sqlite.ts       # bun:sqlite 初始化
@@ -252,9 +253,36 @@ Dashboard 调用的 JSON 端点：
 | `GET /api/stats/models` | 各模型使用量、延迟、token |
 | `GET /api/stats/recent?limit=50` | 最近 N 条请求日志 |
 
-### 2.5 Dashboard (`dashboard/`)
+### 2.5 请求查询 API (`proxy/src/routes/requests.ts`)
 
-沿用 basalt 设计系统 + Next.js 模式，参考 surety。
+正式的请求日志查询接口，支持筛选、排序和分页：
+
+```
+GET /api/requests?model=xxx&status=xxx&format=xxx&sort=timestamp&order=desc&cursor=xxx&limit=50
+```
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `model` | string | 按模型筛选 (可选) |
+| `status` | string | `"success"` \| `"error"` (可选) |
+| `format` | string | `"anthropic"` \| `"openai"` (可选) |
+| `sort` | string | `"timestamp"` \| `"latency_ms"` \| `"tokens"` (默认 `"timestamp"`) |
+| `order` | string | `"asc"` \| `"desc"` (默认 `"desc"`) |
+| `cursor` | string | ULID，用于 cursor-based 分页 (可选) |
+| `limit` | number | 每页条数，默认 50，最大 200 |
+
+响应：
+```json
+{
+  "data": [ /* request records */ ],
+  "next_cursor": "01JWXYZ...",
+  "has_more": true
+}
+```
+
+> `GET /api/stats/recent?limit=50` 为简化别名，内部复用同一查询逻辑。
+
+### 2.6 Dashboard (`dashboard/`)
 
 **主色调：深色系 (Raven 主题)**，将 surety 的 Vermilion 替换为深蓝/石墨蓝。
 
@@ -282,8 +310,10 @@ Dashboard 调用的 JSON 端点：
    - 错误率趋势
 
 2. **请求日志 (`/requests`)** — 参考 surety 的 policies 表格模式
+   - 数据来源：`GET /api/requests` (带筛选/排序/分页)
    - 可筛选：按 model、status、format
    - 可排序：按 timestamp、latency、tokens
+   - Cursor-based 分页
    - 详情展开
 
 3. **模型统计 (`/models`)** — 各模型对比
