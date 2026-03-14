@@ -475,14 +475,14 @@ Proxy 开发严格按 TDD 推进，每个功能模块遵循 **Red → Green → 
 
 > Dashboard 不强制 TDD，但 ViewModel 纯函数建议 test-first。
 
-### Phase 1 — 项目骨架 (4 commits)
+### Phase 1 — 项目骨架 (4 commits) ✅
 
-| # | Commit | 文件 |
-|---|---|---|
-| 1.1 | `init: bun workspace monorepo 初始化` | `package.json`, `packages/proxy/package.json`, `packages/dashboard/package.json`, `tsconfig.json`, `.gitignore` |
-| 1.2 | `feat(proxy): Hono server 骨架 + 配置加载` | `packages/proxy/src/index.ts`, `packages/proxy/src/config.ts`, `packages/proxy/src/routes/`, `packages/proxy/test/` |
-| 1.3 | `feat(proxy): API key 认证中间件` | `packages/proxy/src/middleware.ts`, `packages/proxy/test/middleware.test.ts` |
-| 1.4 | `chore: husky + lint 配置` | `.husky/`, `eslint.config.js`, lint 相关 |
+| # | Commit | 文件 | 状态 |
+|---|---|---|---|
+| 1.1 | `init: bun workspace monorepo 初始化` | `package.json`, `packages/proxy/package.json`, `packages/dashboard/package.json`, `tsconfig.json`, `.gitignore` | ✅ |
+| 1.2 | `feat(proxy): Hono server 骨架 + 配置加载` | `packages/proxy/src/index.ts`, `packages/proxy/src/config.ts`, `packages/proxy/src/routes/`, `packages/proxy/test/` | ✅ |
+| 1.3 | `feat(proxy): API key 认证中间件` | `packages/proxy/src/middleware.ts`, `packages/proxy/test/middleware.test.ts` | ✅ |
+| 1.4 | `chore: husky + lint 配置` | `.husky/`, `eslint.config.js`, lint 相关 | ✅ |
 
 ### Phase 2 — Copilot 认证 (3 commits, TDD)
 
