@@ -336,27 +336,42 @@ function authenticateWs(
 
 **安全设计：**
 
-WebSocket 不经过 Hono 中间件，鉴权在 HTTP upgrade 阶段通过 query parameter `?token=` 完成。
+Proxy 侧 `/ws/logs` 使用 query token 鉴权（`?token=`），鉴权逻辑完整复用 `multiKeyAuth` 三条路径（dev mode / rk- DB key / env key）。
 
-使用 query token 而非 `Authorization` header 的原因：**浏览器原生 `new WebSocket(url)` 不支持自定义请求头**。`Authorization` header 方案会导致 dashboard WS 页面无法直连 proxy，与设计目标矛盾。
+**浏览器不直连 proxy。** 浏览器原生 `new WebSocket(url)` 不支持自定义请求头，而把长期凭证（`RAVEN_API_KEY` 或 DB key）通过任何方式下发到浏览器（server component props、`NEXT_PUBLIC_*`、inline script）都会将管理级密钥暴露到客户端 JS，安全模型不成立。
 
-鉴权逻辑完整复用 `multiKeyAuth` 的三条路径（dev mode / rk- DB key / env key），不存在"只配 DB key、不配 env key"时的鉴权缺口。
+**解决方案：Dashboard BFF 做 WS 代理。** 浏览器连 Next.js 的 WS 端点，Next.js 服务端连 proxy，凭证永远不离开服务端。
 
-**安全 tradeoff：** query token 会出现在 URL 中（服务端 access log、Caddy/nginx log 可能记录完整 URL）。可接受的理由：
-- Raven 是本地个人使用工具，不运行在共享基础设施上
-- Token 在 URL 中与 token 在 header 中的泄漏面差异，在单用户本地场景下可忽略
-- 如果后续需要更高安全性，可改为 dashboard BFF 做 WS 代理（Next.js API route），proxy 端改回 header auth
-
-**Dashboard 接入：** WS hook 构造 URL 时拼接 token：
-```typescript
-const wsUrl = `${WS_BASE}/ws/logs?token=${apiKey}&level=${level}`;
 ```
-dashboard 通过 `RAVEN_API_KEY` 或 DB key 获取 token 值。
+浏览器 ←WS→ Next.js /api/ws/logs ←WS→ Proxy /ws/logs?token=${RAVEN_API_KEY}
+              (NextAuth session 鉴权)      (query token 鉴权)
+```
 
-**调试工具接入：**
+- **浏览器 → Next.js**：通过 NextAuth session cookie 鉴权（复用现有 `proxy.ts` 中间件），无需额外凭证
+- **Next.js → Proxy**：服务端用 `RAVEN_API_KEY`（私有 env var）拼接 query token，凭证不暴露到客户端
+
+**调试工具直连 proxy**（不经过 BFF）：
 ```bash
 websocat "ws://localhost:7033/ws/logs?token=rk-xxx&level=debug"
 ```
+
+### 5.2 Dashboard WS 代理
+
+**新文件：`packages/dashboard/src/app/api/ws/logs/route.ts`**
+
+Next.js 16 Route Handler 实现 WS 代理：
+
+```typescript
+// Next.js 16 WebSocket route handler
+export function GET(req: Request) {
+  // 1. 验证 NextAuth session（复用 auth()）
+  // 2. 建立到 proxy 的 upstream WS 连接（附带 RAVEN_API_KEY query token）
+  // 3. 双向转发消息：浏览器 ↔ Next.js ↔ proxy
+  // 4. 任一端断开时清理另一端
+}
+```
+
+WS 代理是轻量的消息转发，不解析或缓存日志内容。upstream URL 从 `RAVEN_PROXY_URL` 构建（`ws://` scheme）。
 
 ---
 
@@ -383,8 +398,8 @@ export function useLogStream(options?: { level?: string }) {
   const [paused, setPaused] = useState(false);
   const bufferRef = useRef<LogEvent[]>([]);
 
-  // WS 连接到 proxy ws://localhost:7033/ws/logs?token=xxx&level=info
-  // token 通过 server component props 从 RAVEN_API_KEY 传入（不暴露到客户端 JS bundle）
+  // WS 连接到 dashboard BFF: ws://raven.dev.hexly.ai/api/ws/logs?level=info
+  // 鉴权通过 NextAuth session cookie 自动携带，无需传 token
   // 自动重连（exponential backoff）
   // paused 时 buffer 到 bufferRef，resume 时 flush
 
@@ -392,7 +407,7 @@ export function useLogStream(options?: { level?: string }) {
 }
 ```
 
-WS URL 通过 `NEXT_PUBLIC_RAVEN_WS_URL` 环境变量配置，默认 `ws://localhost:7033`。Token 由 server component（`page.tsx`）从 `RAVEN_API_KEY` 读取后通过 props 传给 client component，不暴露到客户端 JS bundle。
+WS URL 与 dashboard 同源（相对路径 `/api/ws/logs`），浏览器自动携带 session cookie，无需任何凭证配置。
 
 ### 6.3 页面组件
 
@@ -449,9 +464,8 @@ WS URL 通过 `NEXT_PUBLIC_RAVEN_WS_URL` 环境变量配置，默认 `ws://local
 |------|--------|------|
 | `RAVEN_LOG_LEVEL` | `info` | Terminal sink 最低输出级别（现有） |
 | `RAVEN_LOG_BUFFER_SIZE` | `200` | Ring buffer 大小 |
-| `NEXT_PUBLIC_RAVEN_WS_URL` | `ws://localhost:7033` | Dashboard WS 基础地址（不含 token） |
 
-注意：WS token 从服务端 `RAVEN_API_KEY`（已有）读取，通过 server component props 传给 client component，不需要额外环境变量。
+Dashboard WS 连接为同源相对路径（`/api/ws/logs`），不需要额外 URL 配置。BFF 代理通过现有 `RAVEN_PROXY_URL` + `RAVEN_API_KEY` 连接 proxy。
 
 ---
 
@@ -473,8 +487,9 @@ WS URL 通过 `NEXT_PUBLIC_RAVEN_WS_URL` 环境变量配置，默认 `ws://local
 | 3 | `refactor: unify requestId generation in route layer` | `middleware.ts`, `routes/messages.ts`, `routes/chat.ts` |
 | 4 | `feat: instrument routes with structured log events` | `routes/messages.ts`, `routes/chat.ts` |
 | 5 | `feat: add WebSocket /ws/logs endpoint with auth and backfill` | `ws/logs.ts`, `index.ts` |
-| 6 | `feat: add real-time log viewer dashboard page` | dashboard: `hooks/use-log-stream.ts`, `app/logs/`, `sidebar.tsx` |
-| 7 | `test: add unit tests for LogEmitter and WS handler` | `test/util/log-emitter.test.ts`, `test/ws/logs.test.ts` |
+| 6 | `feat: add dashboard WS proxy route for log streaming` | dashboard: `app/api/ws/logs/route.ts` |
+| 7 | `feat: add real-time log viewer dashboard page` | dashboard: `hooks/use-log-stream.ts`, `app/logs/`, `sidebar.tsx` |
+| 8 | `test: add unit tests for LogEmitter and WS handler` | `test/util/log-emitter.test.ts`, `test/ws/logs.test.ts` |
 
 ---
 
