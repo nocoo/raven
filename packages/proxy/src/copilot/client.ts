@@ -18,6 +18,7 @@ export interface CopilotClient {
     request: ChatCompletionRequest,
     copilotJwt: string,
   ): Promise<Response>;
+  fetchModels(copilotJwt: string): Promise<Response>;
 }
 
 /**
@@ -43,6 +44,14 @@ export function createCopilotClient(
       });
 
       return res;
+    },
+
+    async fetchModels(copilotJwt: string): Promise<Response> {
+      const headers = buildCopilotHeaders(copilotJwt);
+
+      return fetchFn(`${COPILOT_API_BASE}/models`, {
+        headers,
+      });
     },
   };
 }

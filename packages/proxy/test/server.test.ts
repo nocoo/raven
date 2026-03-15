@@ -39,6 +39,12 @@ function createMockClient(): CopilotClient {
         { status: 200, headers: { "content-type": "application/json" } },
       );
     }),
+    fetchModels: mock(async () => {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }),
   };
 }
 
@@ -62,6 +68,7 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/health");
@@ -75,6 +82,7 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/v1/models");
@@ -92,6 +100,7 @@ describe("app wiring", () => {
       client,
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/v1/messages", {
@@ -117,6 +126,7 @@ describe("app wiring", () => {
       client,
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/v1/chat/completions", {
@@ -140,6 +150,7 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/api/stats/overview");
@@ -153,6 +164,7 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/api/requests");
@@ -167,6 +179,7 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/unknown");
@@ -185,6 +198,7 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/v1/models");
@@ -201,6 +215,7 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/v1/models", {
@@ -215,6 +230,7 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/health");
@@ -227,6 +243,7 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/api/stats/overview");
@@ -239,6 +256,7 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/api/stats/overview", {
@@ -252,6 +270,7 @@ describe("API key middleware", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      githubToken: "test-github-token",
     });
 
     const res = await app.request("/v1/models");
