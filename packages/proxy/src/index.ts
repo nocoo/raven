@@ -83,7 +83,7 @@ function authenticateWs(token: string | null): boolean {
 
 export default {
   port: config.port,
-  fetch(req: Request, server: Server) {
+  fetch(req: Request, server: Server<WsData>) {
     const url = new URL(req.url);
 
     // WebSocket upgrade for /ws/logs
@@ -98,7 +98,7 @@ export default {
         ? (levelParam as LogLevel)
         : "info";
 
-      const upgraded = server.upgrade<WsData>(req, {
+      const upgraded = server.upgrade(req, {
         data: {
           minLevel,
           filterRequestId: url.searchParams.get("requestId") ?? undefined,
