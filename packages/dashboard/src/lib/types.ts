@@ -134,3 +134,35 @@ export interface CopilotUser {
   analytics_tracking_id?: string;
   [key: string]: unknown;
 }
+
+// ---------------------------------------------------------------------------
+// API Key types
+// ---------------------------------------------------------------------------
+
+export interface ApiKeyPublic {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: number;
+  last_used_at: number | null;
+  revoked_at: number | null;
+}
+
+export interface ApiKeyCreated extends ApiKeyPublic {
+  key: string;
+}
+
+// ---------------------------------------------------------------------------
+// Connection info types
+// ---------------------------------------------------------------------------
+
+export interface ConnectionInfo {
+  base_url: string;
+  endpoints: {
+    chat_completions: string;
+    messages: string;
+    models: string;
+    embeddings: string;
+  };
+  models: string[];
+}

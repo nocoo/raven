@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ScrollText,
   Boxes,
+  Cable,
   Cpu,
   CircleUser,
   PanelLeft,
@@ -36,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/requests", label: "Requests", icon: ScrollText },
   { href: "/models", label: "Models", icon: Boxes },
+  { href: "/connect", label: "Connect", icon: Cable },
   { href: "/copilot/models", label: "Copilot Models", icon: Cpu },
   { href: "/copilot/account", label: "Account", icon: CircleUser },
 ];
