@@ -3,7 +3,6 @@ import { Hono } from "hono"
 import { state } from "../lib/state"
 import { cacheModels } from "../lib/utils"
 import { getCopilotUsage } from "~/services/github/get-copilot-usage"
-import { logger } from "../util/logger"
 
 // ---------------------------------------------------------------------------
 // Copilot info routes — cached models + user subscription data
@@ -15,7 +14,7 @@ export interface CopilotInfoDeps {
 
 /**
  * Create routes that expose cached Copilot models and user info.
- * Both endpoints are populated eagerly at creation time.
+ * Data is fetched lazily on first request, then cached.
  * Pass `?refresh=true` to re-fetch from upstream.
  *
  * Uses global state.models (via cacheModels) and getCopilotUsage()
@@ -56,11 +55,6 @@ export function createCopilotInfoRoute(_deps: CopilotInfoDeps): Hono {
       return c.json({ error: message }, 502)
     }
   })
-
-  // Eager fetch at creation
-  getCopilotUsage().then((u) => { cachedUser = u }).catch((err) =>
-    logger.warn("Failed to fetch user info", { error: String(err) }),
-  )
 
   return app
 }
