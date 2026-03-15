@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Database } from "bun:sqlite"
 import { initDatabase, type RequestRecord } from "../../src/db/requests.ts"
 import { startRequestSink } from "../../src/db/request-sink.ts"
@@ -226,9 +226,15 @@ describe("request-sink", () => {
     // Close DB to trigger write error
     db.close()
 
+    // Suppress expected console.error output
+    const spy = spyOn(console, "error").mockImplementation(() => {})
+
     // Should not throw
     expect(() => {
       logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_db_error" }))
     }).not.toThrow()
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    spy.mockRestore()
   })
 })

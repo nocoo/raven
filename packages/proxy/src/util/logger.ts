@@ -23,7 +23,7 @@ function shouldLog(level: LogLevel): boolean {
 // Terminal sink listener — gated by currentLevel BEFORE serialization
 // ---------------------------------------------------------------------------
 
-logEmitter.on("log", (event: LogEvent) => {
+function terminalSinkListener(event: LogEvent): void {
   if (!shouldLog(event.level)) return;
 
   const line = JSON.stringify({
@@ -45,7 +45,28 @@ logEmitter.on("log", (event: LogEvent) => {
     default:
       console.log(line);
   }
-});
+}
+
+let terminalSinkEnabled = false;
+
+/** Enable terminal log output. Called at application startup. */
+export function enableTerminalSink(): void {
+  if (terminalSinkEnabled) return;
+  logEmitter.on("log", terminalSinkListener);
+  terminalSinkEnabled = true;
+}
+
+/** Disable terminal log output. Useful in tests to silence noise. */
+export function disableTerminalSink(): void {
+  if (!terminalSinkEnabled) return;
+  logEmitter.off("log", terminalSinkListener);
+  terminalSinkEnabled = false;
+}
+
+// Auto-enable outside of test environment
+if (!process.env.BUN_TEST && process.env.NODE_ENV !== "test") {
+  enableTerminalSink();
+}
 
 // ---------------------------------------------------------------------------
 // Convenience API — emits "system" type events through LogEmitter
