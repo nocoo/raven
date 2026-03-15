@@ -62,6 +62,7 @@ export function createMessagesRoute(
   route.post("/messages", async (c) => {
     const startTime = performance.now();
     const requestId = generateId();
+    const accountName = c.get("keyName") ?? "default";
 
     // Parse incoming Anthropic request
     const anthropicReq = (await c.req.json()) as AnthropicRequest;
@@ -99,6 +100,7 @@ export function createMessagesRoute(
           statusCode: 502,
           upstreamStatus: null,
           errorMessage: err instanceof Error ? err.message : "upstream error",
+          accountName,
         });
       }
       return c.json({ error: "upstream connection failed" }, 502);
@@ -121,6 +123,7 @@ export function createMessagesRoute(
           statusCode: upstream.status,
           upstreamStatus: upstream.status,
           errorMessage: body.slice(0, 500),
+          accountName,
         });
       }
       return c.body(body, upstream.status as 429);
@@ -147,6 +150,7 @@ export function createMessagesRoute(
           status: "success",
           statusCode: 200,
           upstreamStatus: 200,
+          accountName,
         });
       }
 
@@ -159,6 +163,7 @@ export function createMessagesRoute(
       requestId,
       startTime,
       anthropicModel: anthropicReq.model,
+      accountName,
     });
   });
 
@@ -174,6 +179,7 @@ interface StreamContext {
   requestId: string;
   startTime: number;
   anthropicModel: string;
+  accountName?: string;
 }
 
 async function handleStreamResponse(
@@ -311,6 +317,7 @@ async function handleStreamResponse(
             statusCode: streamError ? 502 : 200,
             upstreamStatus: streamError ? null : 200,
             errorMessage: streamError ?? undefined,
+            accountName: ctx.accountName,
           });
         }
       }
@@ -344,6 +351,7 @@ interface LogParams {
   statusCode: number;
   upstreamStatus: number | null;
   errorMessage?: string;
+  accountName?: string;
 }
 
 function logRequest(db: Database, params: LogParams): void {
@@ -363,7 +371,7 @@ function logRequest(db: Database, params: LogParams): void {
     status_code: params.statusCode,
     upstream_status: params.upstreamStatus,
     error_message: params.errorMessage ?? null,
-    account_name: "default",
+    account_name: params.accountName ?? "default",
   };
   try {
     insertRequest(db, record);

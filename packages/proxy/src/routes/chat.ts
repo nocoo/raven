@@ -46,6 +46,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
     const startTime = performance.now();
     const requestId = generateId();
     const body = (await c.req.json()) as ChatCompletionRequest;
+    const accountName = c.get("keyName") ?? "default";
 
     // Ensure max_tokens is set — Copilot API may truncate or error without it
     if (body.max_tokens === undefined) {
@@ -73,6 +74,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
           statusCode: 502,
           upstreamStatus: null,
           errorMessage: err instanceof Error ? err.message : "upstream error",
+          accountName,
         });
       }
       return c.json({ error: "upstream connection failed" }, 502);
@@ -94,6 +96,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
           statusCode: upstream.status,
           upstreamStatus: upstream.status,
           errorMessage: text.slice(0, 500),
+          accountName,
         });
       }
       return c.body(text, upstream.status as 429);
@@ -120,6 +123,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
           status: "success",
           statusCode: 200,
           upstreamStatus: 200,
+          accountName,
         });
       }
 
@@ -132,6 +136,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
       requestId,
       startTime,
       model: body.model,
+      accountName,
     });
   });
 
@@ -147,6 +152,7 @@ interface StreamContext {
   requestId: string;
   startTime: number;
   model: string;
+  accountName?: string;
 }
 
 async function handleStreamPassthrough(
@@ -230,6 +236,7 @@ async function handleStreamPassthrough(
             statusCode: streamError ? 502 : 200,
             upstreamStatus: streamError ? null : 200,
             errorMessage: streamError ?? undefined,
+            accountName: ctx.accountName,
           });
         }
       }
@@ -262,6 +269,7 @@ interface LogParams {
   statusCode: number;
   upstreamStatus: number | null;
   errorMessage?: string;
+  accountName?: string;
 }
 
 function logRequest(db: Database, params: LogParams): void {
@@ -281,7 +289,7 @@ function logRequest(db: Database, params: LogParams): void {
     status_code: params.statusCode,
     upstream_status: params.upstreamStatus,
     error_message: params.errorMessage ?? null,
-    account_name: "default",
+    account_name: params.accountName ?? "default",
   };
   try {
     insertRequest(db, record);
