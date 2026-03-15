@@ -30,7 +30,8 @@ export function createConnectionInfoRoute(
       }
     }
 
-    const models = state.models?.data?.map((m) => m.id) ?? []
+    const allIds = state.models?.data?.map((m) => m.id) ?? []
+    const models = [...new Set(allIds)]
 
     return c.json({
       base_url: baseUrl,
