@@ -19,7 +19,7 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 
 const PROXY = process.env.RAVEN_PROXY_URL ?? "http://localhost:7033";
-const API_KEY = process.env.RAVEN_API_KEY ?? "";
+const API_KEY = process.env.RAVEN_E2E_KEY ?? "";
 
 // Headers for authenticated requests
 function headers(extra?: Record<string, string>): Record<string, string> {

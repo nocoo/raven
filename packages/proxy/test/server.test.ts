@@ -2,7 +2,8 @@ import { describe, expect, test, mock, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { createApp } from "../src/app.ts";
 import { initDatabase } from "../src/db/requests.ts";
-import { initApiKeys } from "../src/db/keys.ts";
+import { initApiKeys, createApiKey } from "../src/db/keys.ts";
+import { invalidateKeyCountCache } from "../src/middleware.ts";
 import type { CopilotClient } from "../src/copilot/client.ts";
 
 // ---------------------------------------------------------------------------
@@ -196,48 +197,65 @@ describe("app wiring", () => {
 });
 
 // ===========================================================================
-// API key middleware (delegates to middleware.ts apiKeyAuth)
+// Auth middleware (delegates to middleware.ts dbKeyAuth)
 // ===========================================================================
 
 describe("API key middleware", () => {
-  test("rejects requests without API key when configured", async () => {
+  test("dev mode (no DB keys) → accepts all requests", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-      apiKey: "secret-key",
+      githubToken: "gho_test_token",
+      });
+
+    const res = await app.request("/v1/models");
+    expect(res.status).toBe(200);
+  });
+
+  test("with DB key → rejects unauthenticated /v1/* requests", async () => {
+    createApiKey(db, "test-key");
+    invalidateKeyCountCache();
+
+    const app = createApp({
+      client: createMockClient(),
+      getJwt: () => "test-jwt",
+      db,
       githubToken: "gho_test_token",
       });
 
     const res = await app.request("/v1/models");
     expect(res.status).toBe(401);
     const body = await res.json();
-    // Should use structured error from apiKeyAuth, not plain string
     expect(body.error).toHaveProperty("type");
     expect(body.error.type).toBe("authentication_error");
   });
 
-  test("accepts requests with correct API key", async () => {
+  test("with DB key → accepts authenticated /v1/* requests", async () => {
+    const created = createApiKey(db, "test-key");
+    invalidateKeyCountCache();
+
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-      apiKey: "secret-key",
       githubToken: "gho_test_token",
       });
 
     const res = await app.request("/v1/models", {
-      headers: { Authorization: "Bearer secret-key" },
+      headers: { Authorization: `Bearer ${created.key}` },
     });
     expect(res.status).toBe(200);
   });
 
-  test("health endpoint bypasses API key check", async () => {
+  test("health endpoint bypasses auth", async () => {
+    createApiKey(db, "test-key");
+    invalidateKeyCountCache();
+
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-      apiKey: "secret-key",
       githubToken: "gho_test_token",
       });
 
@@ -246,27 +264,17 @@ describe("API key middleware", () => {
   });
 
   test("/api/* dashboard endpoints are unauthenticated (internal use)", async () => {
+    createApiKey(db, "test-key");
+    invalidateKeyCountCache();
+
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-      apiKey: "secret-key",
       githubToken: "gho_test_token",
       });
 
     const res = await app.request("/api/stats/overview");
-    expect(res.status).toBe(200);
-  });
-
-  test("no API key configured → accepts all requests", async () => {
-    const app = createApp({
-      client: createMockClient(),
-      getJwt: () => "test-jwt",
-      db,
-      githubToken: "gho_test_token",
-      });
-
-    const res = await app.request("/v1/models");
     expect(res.status).toBe(200);
   });
 });

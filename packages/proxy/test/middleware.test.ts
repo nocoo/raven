@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import {
-  multiKeyAuth,
+  dbKeyAuth,
   requestContext,
   invalidateKeyCountCache,
 } from "../src/middleware.ts";
@@ -14,12 +14,10 @@ function createTestDb(): Database {
   return db;
 }
 
-function createTestApp(db: Database, envApiKey?: string) {
+function createTestApp(db: Database) {
   const app = new Hono();
   app.use("*", requestContext());
-  const auth = multiKeyAuth({ db, envApiKey });
-  app.use("/v1/*", auth);
-  app.use("/api/*", auth);
+  app.use("/v1/*", dbKeyAuth({ db }));
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get("/v1/models", (c) => {
     const requestId = c.get("requestId");
@@ -43,8 +41,8 @@ afterEach(() => {
   db.close();
 });
 
-describe("multiKeyAuth middleware", () => {
-  describe("dev mode (no env key, no DB keys)", () => {
+describe("dbKeyAuth middleware", () => {
+  describe("dev mode (no DB keys)", () => {
     test("accepts all requests, keyName = dev", async () => {
       const app = createTestApp(db);
       const res = await app.request("/v1/models");
@@ -54,63 +52,7 @@ describe("multiKeyAuth middleware", () => {
     });
   });
 
-  describe("env key path", () => {
-    test("rejects request without Authorization header", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
-      const res = await app.request("/v1/models");
-      expect(res.status).toBe(401);
-      const body = await res.json();
-      expect(body.error.type).toBe("authentication_error");
-    });
-
-    test("rejects request with wrong API key", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
-      const res = await app.request("/v1/models", {
-        headers: { Authorization: "Bearer wrong-key" },
-      });
-      expect(res.status).toBe(401);
-    });
-
-    test("rejects request with malformed Authorization header", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
-      const res = await app.request("/v1/models", {
-        headers: { Authorization: "sk-raven-secret" },
-      });
-      expect(res.status).toBe(401);
-    });
-
-    test("accepts request with correct env API key, keyName = env:default", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
-      const res = await app.request("/v1/models", {
-        headers: { Authorization: "Bearer sk-raven-secret" },
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.keyName).toBe("env:default");
-    });
-
-    test("protects /api/* routes", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
-      const res = await app.request("/api/stats/overview");
-      expect(res.status).toBe(401);
-    });
-
-    test("allows /api/* with correct key", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
-      const res = await app.request("/api/stats/overview", {
-        headers: { Authorization: "Bearer sk-raven-secret" },
-      });
-      expect(res.status).toBe(200);
-    });
-
-    test("does not protect /health", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
-      const res = await app.request("/health");
-      expect(res.status).toBe(200);
-    });
-  });
-
-  describe("DB key path (rk- prefix)", () => {
+  describe("DB key path", () => {
     test("accepts valid DB key, keyName = key name", async () => {
       const created = createApiKey(db, "test-key");
       invalidateKeyCountCache();
@@ -123,10 +65,32 @@ describe("multiKeyAuth middleware", () => {
       expect(body.keyName).toBe("test-key");
     });
 
-    test("rejects invalid rk- key (no fallback to env)", async () => {
-      const app = createTestApp(db, "sk-raven-secret");
+    test("rejects invalid key", async () => {
+      createApiKey(db, "some-key");
+      invalidateKeyCountCache();
+      const app = createTestApp(db);
       const res = await app.request("/v1/models", {
         headers: { Authorization: "Bearer rk-0000000000000000000000000000000000000000000000000000000000000000" },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects request without Authorization header", async () => {
+      createApiKey(db, "some-key");
+      invalidateKeyCountCache();
+      const app = createTestApp(db);
+      const res = await app.request("/v1/models");
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.error.type).toBe("authentication_error");
+    });
+
+    test("rejects malformed Authorization header", async () => {
+      createApiKey(db, "some-key");
+      invalidateKeyCountCache();
+      const app = createTestApp(db);
+      const res = await app.request("/v1/models", {
+        headers: { Authorization: "some-token-no-bearer" },
       });
       expect(res.status).toBe(401);
     });
@@ -146,10 +110,28 @@ describe("multiKeyAuth middleware", () => {
     test("DB key presence disables dev mode", async () => {
       createApiKey(db, "some-key");
       invalidateKeyCountCache();
-      const app = createTestApp(db); // no env key
+      const app = createTestApp(db);
       const res = await app.request("/v1/models");
       // No Authorization header → should be 401, not dev mode
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe("route scoping", () => {
+    test("does not protect /health", async () => {
+      createApiKey(db, "some-key");
+      invalidateKeyCountCache();
+      const app = createTestApp(db);
+      const res = await app.request("/health");
+      expect(res.status).toBe(200);
+    });
+
+    test("does not protect /api/* (dashboard internal)", async () => {
+      createApiKey(db, "some-key");
+      invalidateKeyCountCache();
+      const app = createTestApp(db);
+      const res = await app.request("/api/stats/overview");
+      expect(res.status).toBe(200);
     });
   });
 });
@@ -173,23 +155,5 @@ describe("requestContext middleware", () => {
     const body1 = await res1.json();
     const body2 = await res2.json();
     expect(body1.requestId).not.toBe(body2.requestId);
-  });
-});
-
-describe("timing-safe comparison", () => {
-  test("rejects keys of different length", async () => {
-    const app = createTestApp(db, "sk-raven-secret");
-    const res = await app.request("/v1/models", {
-      headers: { Authorization: "Bearer short" },
-    });
-    expect(res.status).toBe(401);
-  });
-
-  test("rejects keys of same length but different content", async () => {
-    const app = createTestApp(db, "sk-raven-secret");
-    const res = await app.request("/v1/models", {
-      headers: { Authorization: "Bearer sk-raven-secre!" },
-    });
-    expect(res.status).toBe(401);
   });
 });

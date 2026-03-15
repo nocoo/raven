@@ -40,7 +40,6 @@ const app = createApp({
   client,
   getJwt: () => tokenManager.getToken()!,
   db,
-  apiKey: config.apiKey || undefined,
   githubToken,
   port: config.port,
 });

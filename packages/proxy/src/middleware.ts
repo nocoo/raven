@@ -21,24 +21,6 @@ export function requestContext() {
   });
 }
 
-/**
- * Timing-safe string comparison to prevent timing attacks.
- * Uses constant-time XOR comparison.
- */
-export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-
-  const encoder = new TextEncoder();
-  const bufA = encoder.encode(a);
-  const bufB = encoder.encode(b);
-
-  let result = 0;
-  for (let i = 0; i < bufA.length; i++) {
-    result |= bufA[i]! ^ bufB[i]!;
-  }
-  return result === 0;
-}
-
 // ---------------------------------------------------------------------------
 // Cached key count — avoid COUNT(*) on every request
 // ---------------------------------------------------------------------------
@@ -63,29 +45,26 @@ export function invalidateKeyCountCache(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Multi-key auth middleware
+// DB-key auth middleware
 // ---------------------------------------------------------------------------
 
-export interface MultiKeyAuthOpts {
+export interface DbKeyAuthOpts {
   db: Database;
-  envApiKey?: string;
 }
 
 /**
- * Multi-key authentication middleware with three paths:
+ * Database-key authentication middleware with two paths:
  *
- * 1. Dev mode: no envApiKey AND no DB keys → allow all, keyName = "dev"
- * 2. rk- prefix: DB hash lookup → match + not revoked → allow, keyName = key.name
- *                                → no match → 401 (never fallback to env)
- * 3. Other token: timing-safe compare vs envApiKey → match → allow, keyName = "env:default"
- *                                                  → no match → 401
+ * 1. Dev mode: no DB keys → allow all, keyName = "dev"
+ * 2. rk- token: DB hash lookup → match + not revoked → allow, keyName = key.name
+ *                               → no match or missing header → 401
  */
-export function multiKeyAuth(opts: MultiKeyAuthOpts) {
-  const { db, envApiKey } = opts;
+export function dbKeyAuth(opts: DbKeyAuthOpts) {
+  const { db } = opts;
 
   return createMiddleware(async (c, next) => {
-    // Dev mode: no env key AND no DB keys → skip auth
-    if (!envApiKey && getCachedKeyCount(db) === 0) {
+    // Dev mode: no DB keys → skip auth
+    if (getCachedKeyCount(db) === 0) {
       c.set("keyName", "dev");
       await next();
       return;
@@ -107,40 +86,21 @@ export function multiKeyAuth(opts: MultiKeyAuthOpts) {
 
     const token = authHeader.slice(7); // strip "Bearer "
 
-    // Path 2: rk- prefix → DB lookup only, never fallback to env
-    if (token.startsWith("rk-")) {
-      const keyRecord = validateApiKey(db, token);
-      if (!keyRecord) {
-        return c.json(
-          {
-            error: {
-              type: "authentication_error",
-              message: "Invalid API key",
-            },
+    // DB key lookup
+    const keyRecord = validateApiKey(db, token);
+    if (!keyRecord) {
+      return c.json(
+        {
+          error: {
+            type: "authentication_error",
+            message: "Invalid API key",
           },
-          401,
-        );
-      }
-      c.set("keyName", keyRecord.name);
-      await next();
-      return;
-    }
-
-    // Path 3: non-rk- token → env timing-safe compare
-    if (envApiKey && timingSafeEqual(token, envApiKey)) {
-      c.set("keyName", "env:default");
-      await next();
-      return;
-    }
-
-    return c.json(
-      {
-        error: {
-          type: "authentication_error",
-          message: "Invalid API key",
         },
-      },
-      401,
-    );
+        401,
+      );
+    }
+
+    c.set("keyName", keyRecord.name);
+    await next();
   });
 }
