@@ -34,7 +34,6 @@ export async function checkRateLimit(state: State) {
   const waitTimeMs = waitTimeSeconds * 1000
   logger.warn(`Rate limit reached. Waiting ${waitTimeSeconds} seconds before proceeding...`)
   await sleep(waitTimeMs)
-  // eslint-disable-next-line require-atomic-updates
   state.lastRequestTimestamp = now
   logger.info("Rate limit wait completed, proceeding with request")
   return

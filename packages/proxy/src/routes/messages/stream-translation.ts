@@ -16,7 +16,6 @@ function isToolBlockOpen(state: AnthropicStreamState): boolean {
   )
 }
 
-// eslint-disable-next-line max-lines-per-function, complexity
 export function translateChunkToAnthropicEvents(
   chunk: ChatCompletionChunk,
   state: AnthropicStreamState,
@@ -127,7 +126,6 @@ export function translateChunkToAnthropicEvents(
       if (toolCall.function?.arguments) {
         const toolCallInfo = state.toolCalls[toolCall.index]
         // Tool call can still be empty
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (toolCallInfo) {
           events.push({
             type: "content_block_delta",

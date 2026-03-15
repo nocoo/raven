@@ -289,7 +289,7 @@ const calculateToolTokens = (
   const line = fName + ":" + fDesc
   tokens += encoder.encode(line).length
   if (
-    typeof func.parameters === "object" // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    typeof func.parameters === "object"
     && func.parameters !== null
   ) {
     tokens += calculateParametersTokens(func.parameters, encoder, constants)

@@ -21,7 +21,7 @@ export interface CopilotInfoDeps {
  * Uses global state.models (via cacheModels) and getCopilotUsage()
  * (which reads state.githubToken internally).
  */
-export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
+export function createCopilotInfoRoute(_deps: CopilotInfoDeps): Hono {
   const app = new Hono()
 
   let cachedUser: unknown = null
