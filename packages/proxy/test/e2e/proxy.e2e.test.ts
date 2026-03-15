@@ -82,14 +82,14 @@ describe("e2e: models", () => {
 // ---------------------------------------------------------------------------
 
 describe("e2e: /v1/messages (non-streaming)", () => {
-  test("simple message returns valid Anthropic response", async () => {
+  test("Claude Haiku 4.5 returns valid Anthropic response", async () => {
     if (!proxyReachable) return;
 
     const res = await fetch(`${PROXY}/v1/messages`, {
       method: "POST",
       headers: headers(),
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-4.5",
         max_tokens: 32,
         messages: [
           { role: "user", content: "Reply with exactly: hello" },
@@ -128,14 +128,14 @@ describe("e2e: /v1/messages (non-streaming)", () => {
 // ---------------------------------------------------------------------------
 
 describe("e2e: /v1/chat/completions (non-streaming)", () => {
-  test("simple message returns valid OpenAI response", async () => {
+  test("GPT-5-mini returns valid OpenAI response", async () => {
     if (!proxyReachable) return;
 
     const res = await fetch(`${PROXY}/v1/chat/completions`, {
       method: "POST",
       headers: headers(),
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         max_tokens: 32,
         messages: [
           { role: "user", content: "Reply with exactly: hello" },

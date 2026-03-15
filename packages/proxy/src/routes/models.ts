@@ -3,7 +3,8 @@ import { Hono } from "hono";
 const MODELS = [
   "claude-sonnet-4-20250514",
   "claude-3.5-sonnet",
-  "claude-3.5-haiku",
+  "claude-haiku-4.5",
+  "gpt-5-mini",
   "gpt-4o",
   "gpt-4o-mini",
   "gpt-4.1",
