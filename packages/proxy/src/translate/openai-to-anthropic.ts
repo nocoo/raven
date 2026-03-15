@@ -81,6 +81,20 @@ function translateContent(
 export function translateResponse(res: OpenAIResponse): AnthropicResponse {
   const choice = res.choices[0];
 
+  // Copilot may return empty choices (e.g. tool_choice: "none" with tools)
+  if (!choice) {
+    return {
+      id: res.id,
+      type: "message",
+      role: "assistant",
+      content: [{ type: "text", text: "" }],
+      model: res.model,
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage: translateUsage(res.usage),
+    };
+  }
+
   return {
     id: res.id,
     type: "message",
