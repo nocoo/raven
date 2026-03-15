@@ -22,10 +22,9 @@ function createTestApp(db: Database, envApiKey?: string) {
   app.use("/api/*", auth);
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get("/v1/models", (c) => {
-    const requestId = c.get("requestId");
     const startTime = c.get("startTime");
     const keyName = c.get("keyName");
-    return c.json({ requestId, startTime, keyName });
+    return c.json({ startTime, keyName });
   });
   app.post("/v1/chat/completions", (c) => c.json({ ok: true }));
   app.get("/api/stats/overview", (c) => c.json({ ok: true }));
@@ -177,24 +176,24 @@ describe("multiKeyAuth middleware", () => {
 });
 
 describe("requestContext middleware", () => {
-  test("injects requestId and startTime", async () => {
+  test("injects startTime", async () => {
     const app = createTestApp(db);
     const res = await app.request("/v1/models");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.requestId).toBeString();
-    expect(body.requestId.length).toBeGreaterThan(0);
     expect(body.startTime).toBeNumber();
     expect(body.startTime).toBeGreaterThan(0);
   });
 
-  test("generates unique requestIds", async () => {
+  test("generates unique startTimes per request", async () => {
     const app = createTestApp(db);
     const res1 = await app.request("/v1/models");
+    // Small delay to ensure different timestamps
+    await new Promise((r) => setTimeout(r, 1));
     const res2 = await app.request("/v1/models");
     const body1 = await res1.json();
     const body2 = await res2.json();
-    expect(body1.requestId).not.toBe(body2.requestId);
+    expect(body1.startTime).not.toBe(body2.startTime);
   });
 });
 

@@ -4,18 +4,18 @@ import { validateApiKey, getKeyCount } from "./db/keys.ts";
 
 declare module "hono" {
   interface ContextVariableMap {
-    requestId: string;
     startTime: number;
     keyName: string;
   }
 }
 
 /**
- * Injects request context: unique requestId and startTime.
+ * Injects request context: startTime for latency tracking.
+ * Note: requestId is generated per-route via generateId() (ULID) to unify
+ * the DB primary key and log correlation key into a single ID.
  */
 export function requestContext() {
   return createMiddleware(async (c, next) => {
-    c.set("requestId", globalThis.crypto.randomUUID());
     c.set("startTime", performance.now());
     await next();
   });

@@ -13,20 +13,7 @@ import { parseSSEStream } from "../util/sse.ts";
 import { insertRequest, type RequestRecord } from "../db/requests.ts";
 import { logger } from "../util/logger.ts";
 import { startKeepalive } from "../util/keepalive.ts";
-
-// ---------------------------------------------------------------------------
-// ULID-like ID generator (timestamp-sortable, no external deps)
-// ---------------------------------------------------------------------------
-
-function generateId(): string {
-  const ts = Date.now().toString(36).toUpperCase().padStart(10, "0");
-  const rand = Array.from({ length: 16 }, () =>
-    Math.floor(Math.random() * 36).toString(36),
-  )
-    .join("")
-    .toUpperCase();
-  return ts + rand;
-}
+import { generateRequestId } from "../util/id.ts";
 
 // ---------------------------------------------------------------------------
 // Route options
@@ -61,7 +48,7 @@ export function createMessagesRoute(
 
   route.post("/messages", async (c) => {
     const startTime = performance.now();
-    const requestId = generateId();
+    const requestId = generateRequestId();
     const accountName = c.get("keyName") ?? "default";
 
     // Parse incoming Anthropic request
