@@ -11,9 +11,9 @@ import { translateResponse } from "../translate/openai-to-anthropic.ts";
 import { createStreamTranslator } from "../translate/stream.ts";
 import { parseSSEStream } from "../util/sse.ts";
 import { insertRequest, type RequestRecord } from "../db/requests.ts";
-import { logger } from "../util/logger.ts";
 import { startKeepalive } from "../util/keepalive.ts";
 import { generateRequestId } from "../util/id.ts";
+import { logEmitter } from "../util/log-emitter.ts";
 
 // ---------------------------------------------------------------------------
 // Route options
@@ -57,12 +57,20 @@ export function createMessagesRoute(
     // Translate to OpenAI format
     const openAIReq = translateRequest(anthropicReq);
 
-    logger.debug("messages request", {
-      model: anthropicReq.model,
-      stream: anthropicReq.stream ?? false,
-      messageCount: anthropicReq.messages.length,
-      toolCount: anthropicReq.tools?.length ?? 0,
-      translatedModel: openAIReq.model,
+    logEmitter.emitLog({
+      ts: Date.now(),
+      level: "info",
+      type: "request_start",
+      requestId,
+      msg: `POST /v1/messages ${anthropicReq.model}`,
+      data: {
+        model: anthropicReq.model,
+        stream: anthropicReq.stream ?? false,
+        messageCount: anthropicReq.messages.length,
+        toolCount: anthropicReq.tools?.length ?? 0,
+        translatedModel: openAIReq.model,
+        accountName,
+      },
     });
 
     // Resolve JWT at request time (not route creation time)
@@ -74,6 +82,15 @@ export function createMessagesRoute(
       upstream = await client.chatCompletion(openAIReq, copilotJwt);
     } catch (err) {
       const latencyMs = Math.round(performance.now() - startTime);
+      const errorMsg = err instanceof Error ? err.message : "upstream error";
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "upstream_error",
+        requestId,
+        msg: `upstream connection failed for ${anthropicReq.model}`,
+        data: { error: errorMsg, latencyMs },
+      });
       if (db) {
         logRequest(db, {
           id: requestId,
@@ -86,7 +103,7 @@ export function createMessagesRoute(
           status: "error",
           statusCode: 502,
           upstreamStatus: null,
-          errorMessage: err instanceof Error ? err.message : "upstream error",
+          errorMessage: errorMsg,
           accountName,
         });
       }
@@ -97,6 +114,14 @@ export function createMessagesRoute(
     if (!upstream.ok) {
       const body = await upstream.text();
       const latencyMs = Math.round(performance.now() - startTime);
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "upstream_error",
+        requestId,
+        msg: `upstream ${upstream.status} for ${anthropicReq.model}`,
+        data: { statusCode: upstream.status, body: body.slice(0, 500), latencyMs },
+      });
       if (db) {
         logRequest(db, {
           id: requestId,
@@ -121,6 +146,25 @@ export function createMessagesRoute(
       const openAIRes = (await upstream.json()) as OpenAIResponse;
       const anthropicRes = translateResponse(openAIRes);
       const latencyMs = Math.round(performance.now() - startTime);
+
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "info",
+        type: "request_end",
+        requestId,
+        msg: `200 ${anthropicReq.model} ${latencyMs}ms`,
+        data: {
+          status: "success",
+          statusCode: 200,
+          model: anthropicReq.model,
+          resolvedModel: openAIRes.model,
+          inputTokens: anthropicRes.usage.input_tokens,
+          outputTokens: anthropicRes.usage.output_tokens,
+          latencyMs,
+          stream: false,
+          accountName,
+        },
+      });
 
       if (db) {
         logRequest(db, {
@@ -204,23 +248,6 @@ async function handleStreamResponse(
 
           const chunk = JSON.parse(data) as OpenAIStreamChunk;
 
-          // Debug: log upstream chunk structure (tool calls, finish reason)
-          if (chunk.choices[0]?.delta?.tool_calls) {
-            logger.debug("upstream chunk: tool_calls", {
-              toolCalls: chunk.choices[0].delta.tool_calls.map((tc) => ({
-                index: tc.index,
-                id: tc.id,
-                name: tc.function?.name,
-                argsLen: tc.function?.arguments?.length ?? 0,
-              })),
-            });
-          }
-          if (chunk.choices[0]?.finish_reason) {
-            logger.debug("upstream chunk: finish", {
-              finishReason: chunk.choices[0].finish_reason,
-            });
-          }
-
           // Track resolved model
           if (chunk.model) resolvedModel = chunk.model;
 
@@ -248,22 +275,29 @@ async function handleStreamResponse(
 
           const events = translator.processChunk(chunk);
           for (const event of events) {
-            // Debug: log translated Anthropic events with tool context
+            // Debug: emit sse_chunk events for key stream lifecycle moments
             if (
               event.type === "content_block_start" ||
               event.type === "content_block_stop" ||
               event.type === "message_delta"
             ) {
-              logger.debug("anthropic event", {
-                type: event.type,
-                index: "index" in event ? event.index : undefined,
-                ...(event.type === "content_block_start" && {
-                  blockType: event.content_block.type,
-                  ...("id" in event.content_block && {
-                    toolId: event.content_block.id,
-                    toolName: (event.content_block as { name: string }).name,
+              logEmitter.emitLog({
+                ts: Date.now(),
+                level: "debug",
+                type: "sse_chunk",
+                requestId: ctx.requestId,
+                msg: `anthropic event: ${event.type}`,
+                data: {
+                  eventType: event.type,
+                  index: "index" in event ? event.index : undefined,
+                  ...(event.type === "content_block_start" && {
+                    blockType: event.content_block.type,
+                    ...("id" in event.content_block && {
+                      toolId: event.content_block.id,
+                      toolName: (event.content_block as { name: string }).name,
+                    }),
                   }),
-                }),
+                },
               });
             }
             const line = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
@@ -285,9 +319,32 @@ async function handleStreamResponse(
         ka.stop();
         controller.close();
 
-        // Log after stream completes — use error status if stream failed
+        const latencyMs = Math.round(performance.now() - ctx.startTime);
+
+        // Emit request_end log event
+        logEmitter.emitLog({
+          ts: Date.now(),
+          level: streamError ? "error" : "info",
+          type: "request_end",
+          requestId: ctx.requestId,
+          msg: `${streamError ? "error" : "200"} ${ctx.anthropicModel} ${latencyMs}ms`,
+          data: {
+            status: streamError ? "error" : "success",
+            statusCode: streamError ? 502 : 200,
+            model: ctx.anthropicModel,
+            resolvedModel,
+            inputTokens,
+            outputTokens,
+            latencyMs,
+            ttftMs,
+            stream: true,
+            accountName: ctx.accountName,
+            ...(streamError && { error: streamError }),
+          },
+        });
+
+        // Persist to DB
         if (ctx.db) {
-          const latencyMs = Math.round(performance.now() - ctx.startTime);
           logRequest(ctx.db, {
             id: ctx.requestId,
             startTime: ctx.startTime,

@@ -6,6 +6,7 @@ import { parseSSEStream } from "../util/sse.ts";
 import { insertRequest, type RequestRecord } from "../db/requests.ts";
 import { startKeepalive } from "../util/keepalive.ts";
 import { generateRequestId } from "../util/id.ts";
+import { logEmitter } from "../util/log-emitter.ts";
 
 // ---------------------------------------------------------------------------
 // Route options
@@ -40,6 +41,19 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
       body.max_tokens = 16384;
     }
 
+    logEmitter.emitLog({
+      ts: Date.now(),
+      level: "info",
+      type: "request_start",
+      requestId,
+      msg: `POST /v1/chat/completions ${body.model}`,
+      data: {
+        model: body.model,
+        stream: body.stream ?? false,
+        accountName,
+      },
+    });
+
     // Resolve JWT at request time (not route creation time)
     const copilotJwt = getJwt();
 
@@ -49,6 +63,15 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
       upstream = await client.chatCompletion(body, copilotJwt);
     } catch (err) {
       const latencyMs = Math.round(performance.now() - startTime);
+      const errorMsg = err instanceof Error ? err.message : "upstream error";
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "upstream_error",
+        requestId,
+        msg: `upstream connection failed for ${body.model}`,
+        data: { error: errorMsg, latencyMs },
+      });
       if (db) {
         logRequest(db, {
           id: requestId,
@@ -60,7 +83,7 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
           status: "error",
           statusCode: 502,
           upstreamStatus: null,
-          errorMessage: err instanceof Error ? err.message : "upstream error",
+          errorMessage: errorMsg,
           accountName,
         });
       }
@@ -71,6 +94,14 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
     if (!upstream.ok) {
       const text = await upstream.text();
       const latencyMs = Math.round(performance.now() - startTime);
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "upstream_error",
+        requestId,
+        msg: `upstream ${upstream.status} for ${body.model}`,
+        data: { statusCode: upstream.status, body: text.slice(0, 500), latencyMs },
+      });
       if (db) {
         logRequest(db, {
           id: requestId,
@@ -93,10 +124,30 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
     if (!body.stream) {
       const res = (await upstream.json()) as OpenAIResponse;
       const latencyMs = Math.round(performance.now() - startTime);
+      const cachedTokens = res.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+      const inTokens = (res.usage?.prompt_tokens ?? 0) - cachedTokens;
+      const outTokens = res.usage?.completion_tokens ?? 0;
+
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "info",
+        type: "request_end",
+        requestId,
+        msg: `200 ${body.model} ${latencyMs}ms`,
+        data: {
+          status: "success",
+          statusCode: 200,
+          model: body.model,
+          resolvedModel: res.model,
+          inputTokens: inTokens,
+          outputTokens: outTokens,
+          latencyMs,
+          stream: false,
+          accountName,
+        },
+      });
 
       if (db) {
-        const cachedTokens =
-          res.usage?.prompt_tokens_details?.cached_tokens ?? 0;
         logRequest(db, {
           id: requestId,
           path: "/v1/chat/completions",
@@ -104,8 +155,8 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
           model: body.model,
           resolvedModel: res.model,
           stream: 0,
-          inputTokens: (res.usage?.prompt_tokens ?? 0) - cachedTokens,
-          outputTokens: res.usage?.completion_tokens ?? 0,
+          inputTokens: inTokens,
+          outputTokens: outTokens,
           latencyMs,
           status: "success",
           statusCode: 200,
@@ -206,8 +257,32 @@ async function handleStreamPassthrough(
         ka.stop();
         controller.close();
 
+        const latencyMs = Math.round(performance.now() - ctx.startTime);
+
+        // Emit request_end log event
+        logEmitter.emitLog({
+          ts: Date.now(),
+          level: streamError ? "error" : "info",
+          type: "request_end",
+          requestId: ctx.requestId,
+          msg: `${streamError ? "error" : "200"} ${ctx.model} ${latencyMs}ms`,
+          data: {
+            status: streamError ? "error" : "success",
+            statusCode: streamError ? 502 : 200,
+            model: ctx.model,
+            resolvedModel,
+            inputTokens,
+            outputTokens,
+            latencyMs,
+            ttftMs,
+            stream: true,
+            accountName: ctx.accountName,
+            ...(streamError && { error: streamError }),
+          },
+        });
+
+        // Persist to DB
         if (ctx.db) {
-          const latencyMs = Math.round(performance.now() - ctx.startTime);
           logRequest(ctx.db, {
             id: ctx.requestId,
             path: "/v1/chat/completions",
