@@ -36,9 +36,7 @@ export function createApp(deps: AppDeps): Hono {
 
   // ------- middleware -------
   app.use("*", requestContext());
-  const auth = multiKeyAuth({ db, envApiKey: apiKey });
-  app.use("/v1/*", auth);
-  app.use("/api/*", auth);
+  app.use("/v1/*", multiKeyAuth({ db, envApiKey: apiKey }));
 
   // ------- routes -------
   app.get("/health", (c) => c.json({ status: "ok" }));

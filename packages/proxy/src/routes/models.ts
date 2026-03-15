@@ -69,15 +69,22 @@ export function createModelsRoute(opts: ModelsRouteOptions): Hono {
         }>;
       };
 
-      // Transform to standard OpenAI /v1/models shape
+      // Transform to standard OpenAI /v1/models shape, dedup by id
+      const seen = new Set<string>();
       cached = {
         object: "list",
-        data: upstream.data.map((m) => ({
-          id: m.id,
-          object: "model",
-          created: 0,
-          owned_by: m.vendor ?? "github-copilot",
-        })),
+        data: upstream.data
+          .filter((m) => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          })
+          .map((m) => ({
+            id: m.id,
+            object: "model",
+            created: 0,
+            owned_by: m.vendor ?? "github-copilot",
+          })),
       };
 
       return c.json(cached);

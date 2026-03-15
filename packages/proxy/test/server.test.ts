@@ -245,7 +245,7 @@ describe("API key middleware", () => {
     expect(res.status).toBe(200);
   });
 
-  test("/api/* requires API key (no bypass)", async () => {
+  test("/api/* dashboard endpoints are unauthenticated (internal use)", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
@@ -255,21 +255,6 @@ describe("API key middleware", () => {
       });
 
     const res = await app.request("/api/stats/overview");
-    expect(res.status).toBe(401);
-  });
-
-  test("/api/* accepts correct API key", async () => {
-    const app = createApp({
-      client: createMockClient(),
-      getJwt: () => "test-jwt",
-      db,
-      apiKey: "secret-key",
-      githubToken: "gho_test_token",
-      });
-
-    const res = await app.request("/api/stats/overview", {
-      headers: { Authorization: "Bearer secret-key" },
-    });
     expect(res.status).toBe(200);
   });
 
