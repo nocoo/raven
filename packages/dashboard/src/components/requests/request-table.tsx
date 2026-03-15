@@ -65,6 +65,7 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
       }
       params.delete("cursor");
       params.delete("offset");
+      params.delete("prevCursors");
       router.push(`/requests?${params.toString()}`);
     },
     [router, searchParams, currentSort, currentOrder],
@@ -73,6 +74,11 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
   const goNextPage = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
     if (currentSort === "timestamp" && nextCursor) {
+      // Push current cursor onto history stack for backward navigation
+      const currentCursor = params.get("cursor") ?? "";
+      const prevCursors = params.get("prevCursors") ?? "";
+      const newPrev = prevCursors ? `${prevCursors},${currentCursor}` : currentCursor;
+      params.set("prevCursors", newPrev);
       params.set("cursor", nextCursor);
     } else {
       const currentOffset = parseInt(params.get("offset") ?? "0", 10);
@@ -84,20 +90,38 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
 
   const goPrevPage = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
-    // Only works with offset pagination
-    const currentOffset = parseInt(params.get("offset") ?? "0", 10);
-    const limit = parseInt(params.get("limit") ?? "50", 10);
-    const newOffset = Math.max(0, currentOffset - limit);
-    if (newOffset === 0) {
-      params.delete("offset");
+    if (currentSort === "timestamp") {
+      // Pop cursor from history stack
+      const prevCursors = params.get("prevCursors") ?? "";
+      const stack = prevCursors.split(",").filter(Boolean);
+      const prevCursor = stack.pop();
+      if (stack.length > 0) {
+        params.set("prevCursors", stack.join(","));
+      } else {
+        params.delete("prevCursors");
+      }
+      if (prevCursor) {
+        params.set("cursor", prevCursor);
+      } else {
+        params.delete("cursor");
+      }
     } else {
-      params.set("offset", String(newOffset));
+      const currentOffset = parseInt(params.get("offset") ?? "0", 10);
+      const limit = parseInt(params.get("limit") ?? "50", 10);
+      const newOffset = Math.max(0, currentOffset - limit);
+      if (newOffset === 0) {
+        params.delete("offset");
+      } else {
+        params.set("offset", String(newOffset));
+      }
+      params.delete("cursor");
     }
-    params.delete("cursor");
     router.push(`/requests?${params.toString()}`);
-  }, [router, searchParams]);
+  }, [router, searchParams, currentSort]);
 
-  const canGoPrev = currentSort !== "timestamp" && parseInt(searchParams.get("offset") ?? "0", 10) > 0;
+  const canGoPrev = currentSort === "timestamp"
+    ? searchParams.has("cursor")
+    : parseInt(searchParams.get("offset") ?? "0", 10) > 0;
 
   function SortButton({ column, children }: { column: SortColumn; children: React.ReactNode }) {
     const isActive = currentSort === column;
