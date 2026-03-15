@@ -1,0 +1,22 @@
+{
+  "name": "@raven/proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test test/",
+    "test:e2e": "bun test test/e2e/",
+    "test:perf": "bun test test/perf/",
+    "lint": "eslint --config ../../eslint.config.js src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.9.9",
+    "fetch-event-stream": "^0.1.5",
+    "gpt-tokenizer": "^3.0.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.9"
+  }
+}
