@@ -2,6 +2,7 @@ import { describe, expect, test, mock, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { createApp } from "../src/app.ts";
 import { initDatabase } from "../src/db/requests.ts";
+import { initApiKeys } from "../src/db/keys.ts";
 import type { CopilotClient } from "../src/copilot/client.ts";
 
 // ---------------------------------------------------------------------------
@@ -11,6 +12,7 @@ import type { CopilotClient } from "../src/copilot/client.ts";
 function createTestDb(): Database {
   const db = new Database(":memory:");
   initDatabase(db);
+  initApiKeys(db);
   return db;
 }
 

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import type { CopilotClient } from "./copilot/client.ts";
-import { requestContext, apiKeyAuth } from "./middleware.ts";
+import { requestContext, multiKeyAuth } from "./middleware.ts";
 import { createModelsRoute } from "./routes/models.ts";
 import { createMessagesRoute } from "./routes/messages.ts";
 import { createChatRoute } from "./routes/chat.ts";
@@ -33,8 +33,9 @@ export function createApp(deps: AppDeps): Hono {
 
   // ------- middleware -------
   app.use("*", requestContext());
-  app.use("/v1/*", apiKeyAuth(apiKey ?? ""));
-  app.use("/api/*", apiKeyAuth(apiKey ?? ""));
+  const auth = multiKeyAuth({ db, envApiKey: apiKey });
+  app.use("/v1/*", auth);
+  app.use("/api/*", auth);
 
   // ------- routes -------
   app.get("/health", (c) => c.json({ status: "ok" }));
