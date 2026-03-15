@@ -1,5 +1,9 @@
 # Raven — Project Instructions
 
+## Project Positioning
+
+Research-oriented, open-source, personal-use only. Not designed for multi-user deployment or server hosting. Runs locally.
+
 ## Architecture
 
 Bun workspace monorepo: `packages/proxy` (Hono, port 7033) + `packages/dashboard` (Next.js 16, port 7032).
