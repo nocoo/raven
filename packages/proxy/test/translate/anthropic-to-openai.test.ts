@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { translateToOpenAI } from "../../src/routes/messages/non-stream-translation"
+import {
+  translateToOpenAI,
+  translateToAnthropic,
+} from "../../src/routes/messages/non-stream-translation"
 import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
+import type { ChatCompletionResponse } from "../../src/services/copilot/create-chat-completions"
 
 // ---------------------------------------------------------------------------
 // Helper: minimal valid Anthropic request
@@ -607,5 +611,275 @@ describe("other request fields", () => {
     )
     expect(result).not.toHaveProperty("metadata")
     expect(result.user).toBe("u1")
+  })
+})
+
+// ===========================================================================
+// Model name: claude-opus normalization
+// ===========================================================================
+
+describe("claude-opus model name normalization", () => {
+  test("claude-opus-4-20260301 → claude-opus-4", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-opus-4-20260301" }),
+    )
+    expect(result.model).toBe("claude-opus-4")
+  })
+
+  test("claude-opus-4 (no date suffix) → unchanged", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-opus-4" }),
+    )
+    // startsWith("claude-opus-") is true, but the regex doesn't match
+    // because there's no date suffix after "claude-opus-4-"
+    expect(result.model).toBe("claude-opus-4")
+  })
+})
+
+// ===========================================================================
+// tool_choice edge cases
+// ===========================================================================
+
+describe("tool_choice edge cases", () => {
+  test("tool without name → undefined", () => {
+    const result = translateToOpenAI(
+      makeRequest({ tool_choice: { type: "tool" } }),
+    )
+    expect(result.tool_choice).toBeUndefined()
+  })
+
+  test("none → 'none'", () => {
+    const result = translateToOpenAI(
+      makeRequest({ tool_choice: { type: "none" } }),
+    )
+    expect(result.tool_choice).toBe("none")
+  })
+
+  test("unknown type → undefined", () => {
+    const result = translateToOpenAI(
+      makeRequest({ tool_choice: { type: "unknown_type" as "auto" } }),
+    )
+    expect(result.tool_choice).toBeUndefined()
+  })
+})
+
+// ===========================================================================
+// mapContent edge: non-string, non-array → null
+// ===========================================================================
+
+describe("mapContent edge cases", () => {
+  test("assistant with non-array non-string content → null", () => {
+    const result = translateToOpenAI(
+      makeRequest({
+        messages: [
+          { role: "assistant", content: undefined as unknown as string },
+        ],
+      }),
+    )
+    expect(result.messages[0].content).toBeNull()
+  })
+})
+
+// ===========================================================================
+// translateToAnthropic — response translation
+// ===========================================================================
+
+function makeResponse(
+  overrides: Partial<ChatCompletionResponse> = {},
+): ChatCompletionResponse {
+  return {
+    id: "chatcmpl-abc",
+    object: "chat.completion",
+    created: 1700000000,
+    model: "claude-sonnet-4",
+    choices: [
+      {
+        index: 0,
+        message: { role: "assistant", content: "Hello!" },
+        finish_reason: "stop",
+        logprobs: null,
+      },
+    ],
+    usage: {
+      prompt_tokens: 100,
+      completion_tokens: 20,
+      total_tokens: 120,
+    },
+    ...overrides,
+  }
+}
+
+describe("translateToAnthropic", () => {
+  test("basic text response → Anthropic format", () => {
+    const result = translateToAnthropic(makeResponse())
+    expect(result.id).toBe("chatcmpl-abc")
+    expect(result.type).toBe("message")
+    expect(result.role).toBe("assistant")
+    expect(result.model).toBe("claude-sonnet-4")
+    expect(result.stop_reason).toBe("end_turn")
+    expect(result.stop_sequence).toBeNull()
+    expect(result.content).toHaveLength(1)
+    expect(result.content[0]).toEqual({ type: "text", text: "Hello!" })
+    expect(result.usage.input_tokens).toBe(100)
+    expect(result.usage.output_tokens).toBe(20)
+  })
+
+  test("response with tool_calls → tool_use blocks", () => {
+    const result = translateToAnthropic(
+      makeResponse({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: null,
+              tool_calls: [
+                {
+                  id: "call_1",
+                  type: "function",
+                  function: {
+                    name: "get_weather",
+                    arguments: '{"city":"SF"}',
+                  },
+                },
+              ],
+            },
+            finish_reason: "tool_calls",
+            logprobs: null,
+          },
+        ],
+      }),
+    )
+    expect(result.stop_reason).toBe("tool_use")
+    expect(result.content).toHaveLength(1)
+    expect(result.content[0]).toMatchObject({
+      type: "tool_use",
+      id: "call_1",
+      name: "get_weather",
+      input: { city: "SF" },
+    })
+  })
+
+  test("response with cached_tokens → cache_read_input_tokens", () => {
+    const result = translateToAnthropic(
+      makeResponse({
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 20,
+          total_tokens: 120,
+          prompt_tokens_details: { cached_tokens: 30 },
+        },
+      }),
+    )
+    expect(result.usage.input_tokens).toBe(70) // 100 - 30
+    expect(result.usage.cache_read_input_tokens).toBe(30)
+  })
+
+  test("finish_reason:length → max_tokens", () => {
+    const result = translateToAnthropic(
+      makeResponse({
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "partial" },
+            finish_reason: "length",
+            logprobs: null,
+          },
+        ],
+      }),
+    )
+    expect(result.stop_reason).toBe("max_tokens")
+  })
+
+  test("finish_reason:content_filter → end_turn", () => {
+    const result = translateToAnthropic(
+      makeResponse({
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: "" },
+            finish_reason: "content_filter",
+            logprobs: null,
+          },
+        ],
+      }),
+    )
+    expect(result.stop_reason).toBe("end_turn")
+  })
+
+  test("no usage → defaults to 0", () => {
+    const result = translateToAnthropic(
+      makeResponse({ usage: undefined }),
+    )
+    expect(result.usage.input_tokens).toBe(0)
+    expect(result.usage.output_tokens).toBe(0)
+  })
+
+  test("array content → text blocks", () => {
+    const result = translateToAnthropic(
+      makeResponse({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: [
+                { type: "text", text: "part 1" },
+                { type: "text", text: "part 2" },
+              ] as unknown as string,
+            },
+            finish_reason: "stop",
+            logprobs: null,
+          },
+        ],
+      }),
+    )
+    expect(result.content).toHaveLength(2)
+    expect(result.content[0]).toEqual({ type: "text", text: "part 1" })
+    expect(result.content[1]).toEqual({ type: "text", text: "part 2" })
+  })
+
+  test("null content → empty content array", () => {
+    const result = translateToAnthropic(
+      makeResponse({
+        choices: [
+          {
+            index: 0,
+            message: { role: "assistant", content: null as unknown as string },
+            finish_reason: "stop",
+            logprobs: null,
+          },
+        ],
+      }),
+    )
+    expect(result.content).toHaveLength(0)
+  })
+
+  test("text + tool_calls → both in content", () => {
+    const result = translateToAnthropic(
+      makeResponse({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: "I'll help",
+              tool_calls: [
+                {
+                  id: "c1",
+                  type: "function",
+                  function: { name: "search", arguments: '{"q":"x"}' },
+                },
+              ],
+            },
+            finish_reason: "tool_calls",
+            logprobs: null,
+          },
+        ],
+      }),
+    )
+    expect(result.content).toHaveLength(2)
+    expect(result.content[0]).toMatchObject({ type: "text", text: "I'll help" })
+    expect(result.content[1]).toMatchObject({ type: "tool_use", name: "search" })
   })
 })
