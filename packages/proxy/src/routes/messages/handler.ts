@@ -20,7 +20,10 @@ import {
   translateToAnthropic,
   translateToOpenAI,
 } from "./non-stream-translation"
-import { translateChunkToAnthropicEvents } from "./stream-translation"
+import {
+  translateChunkToAnthropicEvents,
+  translateErrorToAnthropicErrorEvent,
+} from "./stream-translation"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -113,6 +116,17 @@ export async function handleCompletion(c: Context) {
         }
       } catch (err) {
         streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
+
+        // Send Anthropic error event so the client knows the stream failed
+        try {
+          const errorEvent = translateErrorToAnthropicErrorEvent()
+          await sseStream.writeSSE({
+            event: errorEvent.type,
+            data: JSON.stringify(errorEvent),
+          })
+        } catch {
+          // Best-effort — connection may already be closed
+        }
       } finally {
         const latencyMs = Math.round(performance.now() - startTime)
         logEmitter.emitLog({

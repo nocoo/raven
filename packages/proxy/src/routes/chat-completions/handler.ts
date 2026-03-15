@@ -104,6 +104,21 @@ export async function handleCompletion(c: Context) {
         }
       } catch (err) {
         streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
+
+        // Send an error chunk so the client knows the stream failed
+        try {
+          await sseStream.writeSSE({
+            data: JSON.stringify({
+              error: {
+                message: "An upstream error occurred during streaming.",
+                type: "server_error",
+                code: "stream_error",
+              },
+            }),
+          })
+        } catch {
+          // Best-effort — connection may already be closed
+        }
       } finally {
         const latencyMs = Math.round(performance.now() - startTime)
         logEmitter.emitLog({
