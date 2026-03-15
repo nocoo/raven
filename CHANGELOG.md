@@ -1,5 +1,35 @@
 # Changelog
 
+## v0.2.2 (2026-03-15)
+
+Copilot API parity — closed functional gaps against the copilot-api reference project so the proxy works end-to-end with Claude Code, Cursor, and Continue.
+
+### Proxy — bug fixes
+
+- **tool_choice "none"** — was silently mapped to "auto", causing models to invoke tools when they shouldn't
+- **Empty choices crash** — Copilot returns `choices: []` for `tool_choice: "none"` with tools; `translateResponse` now handles this gracefully
+- **content_filter finish_reason** — now maps to `end_turn` instead of `null`
+- **Streaming usage incomplete** — `message_delta` now includes `input_tokens` and `cache_read_input_tokens`, not just `output_tokens`
+
+### Proxy — new features
+
+- **Vision header** — auto-detects `image_url` content parts and sets `copilot-vision-request: true` header for screenshot analysis
+- **X-Initiator header** — detects agent conversations (assistant/tool roles) and sets `x-initiator: agent` for correct rate-limit tier
+- **max_tokens auto-fill** — defaults to 16384 when clients omit `max_tokens` on the OpenAI route
+- **`/v1/messages/count_tokens`** — character-based token estimation with Claude correction factor (×1.15), tool overhead (+346), MCP detection; zero new dependencies
+- **`/v1/embeddings`** — forwards to Copilot embeddings API
+- **No-prefix routes** — `/chat/completions` and `/embeddings` aliases for backward compatibility
+- **Dynamic model list** — `/v1/models` now fetches from upstream Copilot API with caching, instead of a hardcoded list
+
+### Tests
+
+- 184 unit tests passing (was 182)
+- 9 E2E tests across 4 orthogonal layers: protocol conformance, streaming translation, feature parity, regression guard
+
+### Dashboard
+
+- **Recharts hydration fix** — resolved SSR/CSR mismatch
+
 ## v0.2.1 (2026-03-15)
 
 Copilot upstream visibility — fetch real model list and subscription info from GitHub APIs, display in two new dashboard pages.
