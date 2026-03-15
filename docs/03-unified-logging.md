@@ -81,8 +81,30 @@ export const logEmitter = new LogEmitter();
 **设计决策：**
 - 单例 `logEmitter`，全局共享
 - Ring buffer 200 条（内存约 100KB，可配置），新 WS 客户端连接时推送 backfill
-- `EventEmitter` 是同步的，不会 block — listener 内部可异步但不 await
-- 不用 `AsyncLocalStorage` — requestId 已经由中间件注入 context，手动传入即可
+- `EventEmitter` 是同步分发 — listener 的执行成本直接叠加到调用方的请求路径上。因此所有 listener 必须足够轻量：terminal sink 仅做 `JSON.stringify` + `console.*`；WS sink 仅做 `ws.send()`（Bun 的 ws.send 是非阻塞的，只把数据拷贝到内核缓冲区）。高频的 `sse_chunk` 事件（debug level）在 terminal sink 中受 `RAVEN_LOG_LEVEL` 门控，info 级别下不会触发 JSON 序列化。WS sink 受客户端 `minLevel` 门控，level 判断在序列化之前，不匹配时零开销
+- requestId 来源需要统一（见下方"requestId 统一"章节）
+
+---
+
+## 二-A、requestId 统一
+
+**现状问题：** 当前存在两套 requestId 生成：
+- `middleware.ts:18` — `requestContext()` 中间件用 `crypto.randomUUID()` 写入 `c.set("requestId", ...)`，格式为 UUID v4
+- `messages.ts:64` / `chat.ts:47` — 路由内用 `generateId()` 生成 ULID 格式 ID，用于 SQLite `requests` 表主键
+
+两者互不关联，导致日志流 requestId 和 DB 记录 ID 对不上。
+
+**统一方案：删除中间件的 requestId 生成，统一由路由层生成。**
+
+理由：
+- 路由层的 `generateId()` 生成 ULID，既是 DB 主键也是日志关联键，一个 ID 贯穿全链路
+- 中间件的 UUID 当前没有任何消费方（没有被读取或使用），是死代码
+- `requestContext()` 中间件保留 `startTime`，移除 `requestId`
+
+**修改：**
+1. `middleware.ts` — `requestContext()` 删除 `requestId` 设置，`ContextVariableMap` 中移除 `requestId`
+2. `messages.ts` / `chat.ts` — 路由内 `generateId()` 生成的 ID 既传给 `logRequest()`（DB）也传给 `logEmitter.emitLog()`（日志流），保持一致
+3. 如果后续有中间件层需要 requestId 的场景（如 access log），在路由层通过 `c.set("requestId", id)` 回写即可
 
 ---
 
@@ -267,6 +289,13 @@ export default {
     // WebSocket upgrade for /ws/logs
     const url = new URL(req.url);
     if (url.pathname === "/ws/logs") {
+      // Auth check: require RAVEN_API_KEY (env path) for WS access
+      if (config.apiKey) {
+        const auth = req.headers.get("Authorization");
+        if (!auth || auth !== `Bearer ${config.apiKey}`) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+      }
       const upgraded = server.upgrade(req, {
         data: { minLevel: url.searchParams.get("level") ?? "info" },
       });
@@ -281,7 +310,16 @@ export default {
 };
 ```
 
-**注意：** WebSocket 不经过 Hono 中间件（包括 auth）。日志端点是运维工具，仅监听 localhost，不暴露到公网。如果后续需要 auth 可在 upgrade 前检查 header。
+**安全考虑：** WebSocket 不经过 Hono 中间件（包括 `multiKeyAuth`）。`/ws/logs` 是一个无鉴权的公开路径。当前 Bun.serve 导出未绑定 `hostname`（默认 `0.0.0.0`），因此该端点对网络可达的所有客户端开放。
+
+Raven 定位为本地个人使用工具，网络隔离依赖外部层（Caddy 反代仅暴露 HTTP 端口、防火墙规则、或局域网隔离）。文档不假设 proxy 仅监听 localhost。
+
+如果需要加固：
+- **方案 A（推荐）：** 在 WebSocket upgrade 前检查 `Authorization` header，复用 `multiKeyAuth` 的 env key 路径（`Bearer ${RAVEN_API_KEY}`）
+- **方案 B：** 在 Bun.serve 导出中设置 `hostname: "127.0.0.1"` 强制仅监听 loopback（会影响所有端点，包括 HTTP）
+- **方案 C：** 通过 Caddy/nginx 配置不反代 `/ws/logs` 路径
+
+当前实现选择 **方案 A** — upgrade 时验证 Bearer token。这对 dashboard 透明（已通过 `RAVEN_API_KEY` 访问 proxy），对 `websocat` 等调试工具需要加 `-H "Authorization: Bearer ..."` 参数。
 
 ---
 
@@ -392,10 +430,11 @@ WS URL 通过 `NEXT_PUBLIC_RAVEN_WS_URL` 环境变量配置，默认 `ws://local
 |---|--------|------|
 | 1 | `feat: add LogEvent types and LogEmitter event bus` | `util/log-event.ts`, `util/log-emitter.ts` |
 | 2 | `refactor: wire logger.ts as LogEmitter terminal sink` | `util/logger.ts`, `index.ts`, `copilot/token.ts` |
-| 3 | `feat: instrument routes with structured log events` | `routes/messages.ts`, `routes/chat.ts` |
-| 4 | `feat: add WebSocket /ws/logs endpoint with backfill` | `ws/logs.ts`, `index.ts` |
-| 5 | `feat: add real-time log viewer dashboard page` | dashboard: `hooks/use-log-stream.ts`, `app/logs/`, `sidebar.tsx` |
-| 6 | `test: add unit tests for LogEmitter and WS handler` | `test/util/log-emitter.test.ts`, `test/ws/logs.test.ts` |
+| 3 | `refactor: unify requestId generation in route layer` | `middleware.ts`, `routes/messages.ts`, `routes/chat.ts` |
+| 4 | `feat: instrument routes with structured log events` | `routes/messages.ts`, `routes/chat.ts` |
+| 5 | `feat: add WebSocket /ws/logs endpoint with auth and backfill` | `ws/logs.ts`, `index.ts` |
+| 6 | `feat: add real-time log viewer dashboard page` | dashboard: `hooks/use-log-stream.ts`, `app/logs/`, `sidebar.tsx` |
+| 7 | `test: add unit tests for LogEmitter and WS handler` | `test/util/log-emitter.test.ts`, `test/ws/logs.test.ts` |
 
 ---
 
