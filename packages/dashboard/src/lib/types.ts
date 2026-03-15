@@ -90,23 +90,47 @@ export interface CopilotModelList {
 // Copilot user/subscription info (from api.github.com/copilot_internal/user)
 // ---------------------------------------------------------------------------
 
+export interface CopilotQuotaSnapshot {
+  quota_id: string;
+  entitlement: number;
+  remaining: number;
+  overage_count: number;
+  overage_permitted: boolean;
+  percent_remaining: number;
+  quota_remaining: number;
+  unlimited: boolean;
+  timestamp_utc?: string;
+}
+
+export interface CopilotEndpoints {
+  api?: string;
+  proxy?: string;
+  telemetry?: string;
+  "origin-tracker"?: string;
+  [key: string]: string | undefined;
+}
+
+export interface CopilotOrganization {
+  login: string;
+  name?: string;
+}
+
 export interface CopilotUser {
-  /** GitHub login */
   login?: string;
-  /** Subscription tier (e.g. "copilot_for_business") */
   copilot_plan?: string;
-  /** Whether the user has access to Copilot Chat */
+  access_type_sku?: string;
   chat_enabled?: boolean;
-  /** Whether the user has access to Copilot in the IDE */
-  copilot_ide_agent_chat_enabled?: boolean;
-  /** Whether the user has access to xcode */
-  xcode?: boolean;
-  /** Whether the user has access to CLI */
-  copilot_ide_chat_enabled?: boolean;
-  /** Organization managing the subscription */
-  organization_name?: string;
-  /** Seat management pending cancellation date */
-  pending_cancellation_date?: string | null;
-  /** Raw fields from the API we haven't typed explicitly */
+  copilotignore_enabled?: boolean;
+  is_mcp_enabled?: boolean;
+  restricted_telemetry?: boolean;
+  can_signup_for_limited?: boolean;
+  assigned_date?: string;
+  organization_login_list?: string[];
+  organization_list?: CopilotOrganization[];
+  endpoints?: CopilotEndpoints;
+  quota_snapshots?: Record<string, CopilotQuotaSnapshot>;
+  quota_reset_date?: string;
+  quota_reset_date_utc?: string;
+  analytics_tracking_id?: string;
   [key: string]: unknown;
 }
