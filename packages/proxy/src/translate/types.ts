@@ -54,7 +54,7 @@ export interface AnthropicTool {
 }
 
 export interface AnthropicToolChoice {
-  type: "auto" | "any" | "tool";
+  type: "auto" | "any" | "none" | "tool";
   name?: string;
 }
 

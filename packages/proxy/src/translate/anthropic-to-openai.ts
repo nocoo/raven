@@ -231,6 +231,8 @@ function translateToolChoice(
       return "auto";
     case "any":
       return "required";
+    case "none":
+      return "none";
     case "tool":
       return { type: "function", function: { name: choice.name! } };
     default:
