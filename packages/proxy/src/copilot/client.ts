@@ -21,6 +21,35 @@ export interface CopilotClient {
   fetchModels(copilotJwt: string): Promise<Response>;
 }
 
+// ---------------------------------------------------------------------------
+// Message introspection helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Detect if any message contains image_url content parts.
+ */
+function hasVisionContent(messages: ChatCompletionRequest["messages"]): boolean {
+  for (const msg of messages) {
+    if (!Array.isArray(msg.content)) continue;
+    for (const part of msg.content as Array<{ type?: string }>) {
+      if (part.type === "image_url") return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Detect if conversation involves agent-style interaction
+ * (has assistant or tool messages beyond the initial turn).
+ */
+function isAgentConversation(
+  messages: ChatCompletionRequest["messages"],
+): boolean {
+  return messages.some(
+    (msg) => msg.role === "assistant" || msg.role === "tool",
+  );
+}
+
 /**
  * Create a client that forwards requests to the GitHub Copilot API.
  */
@@ -33,6 +62,16 @@ export function createCopilotClient(
       copilotJwt: string,
     ): Promise<Response> {
       const headers = buildCopilotHeaders(copilotJwt);
+
+      // Vision: signal Copilot that the request contains images
+      if (hasVisionContent(request.messages)) {
+        headers["copilot-vision-request"] = "true";
+      }
+
+      // Initiator: helps Copilot apply correct rate-limit tier
+      headers["x-initiator"] = isAgentConversation(request.messages)
+        ? "agent"
+        : "user";
 
       const res = await fetchFn(`${COPILOT_API_BASE}/chat/completions`, {
         method: "POST",
