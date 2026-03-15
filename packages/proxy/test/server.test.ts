@@ -45,6 +45,12 @@ function createMockClient(): CopilotClient {
         headers: { "content-type": "application/json" },
       });
     }),
+    createEmbedding: mock(async () => {
+      return new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }),
   };
 }
 

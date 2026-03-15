@@ -13,9 +13,19 @@ export interface ChatCompletionRequest {
   [key: string]: unknown;
 }
 
+export interface EmbeddingRequest {
+  model: string;
+  input: string | string[];
+  [key: string]: unknown;
+}
+
 export interface CopilotClient {
   chatCompletion(
     request: ChatCompletionRequest,
+    copilotJwt: string,
+  ): Promise<Response>;
+  createEmbedding(
+    request: EmbeddingRequest,
     copilotJwt: string,
   ): Promise<Response>;
   fetchModels(copilotJwt: string): Promise<Response>;
@@ -83,6 +93,22 @@ export function createCopilotClient(
       });
 
       return res;
+    },
+
+    async createEmbedding(
+      request: EmbeddingRequest,
+      copilotJwt: string,
+    ): Promise<Response> {
+      const headers = buildCopilotHeaders(copilotJwt);
+
+      return fetchFn(`${COPILOT_API_BASE}/embeddings`, {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      });
     },
 
     async fetchModels(copilotJwt: string): Promise<Response> {

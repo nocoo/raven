@@ -40,6 +40,12 @@ function createMockClient(
         headers: { "content-type": "application/json" },
       });
     }),
+    createEmbedding: mock(async () => {
+      return new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }),
   };
 }
 
@@ -321,6 +327,12 @@ function createErrorStreamClient(): CopilotClient {
         headers: { "content-type": "application/json" },
       });
     }),
+    createEmbedding: mock(async () => {
+      return new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }),
   };
 }
 
@@ -412,6 +424,12 @@ describe("messages route JWT getter", () => {
           headers: { "content-type": "application/json" },
         });
       }),
+      createEmbedding: mock(async () => {
+        return new Response(JSON.stringify({ data: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
     };
 
     const app = new Hono();
@@ -467,6 +485,12 @@ describe("chat route JWT getter", () => {
       }),
       fetchModels: mock(async () => {
         return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+      createEmbedding: mock(async () => {
+        return new Response(JSON.stringify({ data: [] }), {
           status: 200,
           headers: { "content-type": "application/json" },
         });
