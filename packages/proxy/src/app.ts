@@ -52,11 +52,11 @@ export function createApp(deps: AppDeps): Hono {
   // Anthropic messages
   app.route(
     "/v1",
-    createMessagesRoute({ client, copilotJwt: getJwt, db }),
+    createMessagesRoute({ client, copilotJwt: getJwt }),
   );
 
   // Chat completions (OpenAI format)
-  const chatRoute = createChatRoute({ client, copilotJwt: getJwt, db });
+  const chatRoute = createChatRoute({ client, copilotJwt: getJwt });
   app.route("/v1", chatRoute);
   // No-prefix alias for backward compatibility
   app.route("/", chatRoute);

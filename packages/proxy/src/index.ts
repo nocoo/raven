@@ -7,6 +7,7 @@ import { createCopilotClient } from "./copilot/client.ts";
 import { authenticate } from "./copilot/auth.ts";
 import { fetchCopilotToken, TokenManager } from "./copilot/token.ts";
 import { initDatabase } from "./db/requests.ts";
+import { startRequestSink } from "./db/request-sink.ts";
 import { initApiKeys, getKeyCount, validateApiKey } from "./db/keys.ts";
 import { timingSafeEqual } from "./middleware.ts";
 import { wsHandler, type WsData } from "./ws/logs.ts";
@@ -24,6 +25,7 @@ setLogLevel(config.logLevel);
 const db = new Database("data/raven.db");
 initDatabase(db);
 initApiKeys(db);
+startRequestSink(db);
 logger.info("Database ready (WAL mode)");
 
 // 2. GitHub OAuth (loads from disk or runs device flow)

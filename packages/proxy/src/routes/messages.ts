@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import type { Database } from "bun:sqlite";
 import type { CopilotClient } from "../copilot/client.ts";
 import type {
   AnthropicRequest,
@@ -10,7 +9,6 @@ import { translateRequest } from "../translate/anthropic-to-openai.ts";
 import { translateResponse } from "../translate/openai-to-anthropic.ts";
 import { createStreamTranslator } from "../translate/stream.ts";
 import { parseSSEStream } from "../util/sse.ts";
-import { insertRequest, type RequestRecord } from "../db/requests.ts";
 import { startKeepalive } from "../util/keepalive.ts";
 import { generateRequestId } from "../util/id.ts";
 import { logEmitter } from "../util/log-emitter.ts";
@@ -22,7 +20,6 @@ import { logEmitter } from "../util/log-emitter.ts";
 export interface MessagesRouteOptions {
   client: CopilotClient;
   copilotJwt: string | (() => string);
-  db?: Database;
 }
 
 /**
@@ -39,7 +36,7 @@ export function createMessagesRoute(
       ? { client: clientOrOpts, copilotJwt: copilotJwtArg! }
       : clientOrOpts;
 
-  const { client, copilotJwt: copilotJwtOrGetter, db } = opts;
+  const { client, copilotJwt: copilotJwtOrGetter } = opts;
   const getJwt =
     typeof copilotJwtOrGetter === "function"
       ? copilotJwtOrGetter
@@ -64,6 +61,8 @@ export function createMessagesRoute(
       requestId,
       msg: `POST /v1/messages ${anthropicReq.model}`,
       data: {
+        path: "/v1/messages",
+        format: "anthropic",
         model: anthropicReq.model,
         stream: anthropicReq.stream ?? false,
         messageCount: anthropicReq.messages.length,
@@ -91,22 +90,25 @@ export function createMessagesRoute(
         msg: `upstream connection failed for ${anthropicReq.model}`,
         data: { error: errorMsg, latencyMs },
       });
-      if (db) {
-        logRequest(db, {
-          id: requestId,
-          startTime,
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId,
+        msg: `502 ${anthropicReq.model} ${latencyMs}ms`,
+        data: {
           path: "/v1/messages",
           format: "anthropic",
           model: anthropicReq.model,
-          stream: anthropicReq.stream ? 1 : 0,
+          stream: anthropicReq.stream ?? false,
           latencyMs,
           status: "error",
           statusCode: 502,
           upstreamStatus: null,
-          errorMessage: errorMsg,
+          error: errorMsg,
           accountName,
-        });
-      }
+        },
+      });
       return c.json({ error: "upstream connection failed" }, 502);
     }
 
@@ -122,22 +124,25 @@ export function createMessagesRoute(
         msg: `upstream ${upstream.status} for ${anthropicReq.model}`,
         data: { statusCode: upstream.status, body: body.slice(0, 500), latencyMs },
       });
-      if (db) {
-        logRequest(db, {
-          id: requestId,
-          startTime,
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId,
+        msg: `${upstream.status} ${anthropicReq.model} ${latencyMs}ms`,
+        data: {
           path: "/v1/messages",
           format: "anthropic",
           model: anthropicReq.model,
-          stream: anthropicReq.stream ? 1 : 0,
+          stream: anthropicReq.stream ?? false,
           latencyMs,
           status: "error",
           statusCode: upstream.status,
           upstreamStatus: upstream.status,
-          errorMessage: body.slice(0, 500),
+          error: body.slice(0, 500),
           accountName,
-        });
-      }
+        },
+      });
       return c.body(body, upstream.status as 429);
     }
 
@@ -154,43 +159,26 @@ export function createMessagesRoute(
         requestId,
         msg: `200 ${anthropicReq.model} ${latencyMs}ms`,
         data: {
-          status: "success",
-          statusCode: 200,
+          path: "/v1/messages",
+          format: "anthropic",
           model: anthropicReq.model,
           resolvedModel: openAIRes.model,
           inputTokens: anthropicRes.usage.input_tokens,
           outputTokens: anthropicRes.usage.output_tokens,
           latencyMs,
           stream: false,
-          accountName,
-        },
-      });
-
-      if (db) {
-        logRequest(db, {
-          id: requestId,
-          startTime,
-          path: "/v1/messages",
-          format: "anthropic",
-          model: anthropicReq.model,
-          resolvedModel: openAIRes.model,
-          stream: 0,
-          inputTokens: anthropicRes.usage.input_tokens,
-          outputTokens: anthropicRes.usage.output_tokens,
-          latencyMs,
           status: "success",
           statusCode: 200,
           upstreamStatus: 200,
           accountName,
-        });
-      }
+        },
+      });
 
       return c.json(anthropicRes);
     }
 
     // Streaming response
     return handleStreamResponse(c, upstream, openAIReq.model, {
-      db,
       requestId,
       startTime,
       anthropicModel: anthropicReq.model,
@@ -206,7 +194,6 @@ export function createMessagesRoute(
 // ---------------------------------------------------------------------------
 
 interface StreamContext {
-  db?: Database;
   requestId: string;
   startTime: number;
   anthropicModel: string;
@@ -321,7 +308,7 @@ async function handleStreamResponse(
 
         const latencyMs = Math.round(performance.now() - ctx.startTime);
 
-        // Emit request_end log event
+        // Emit request_end — the DB sink will persist this
         logEmitter.emitLog({
           ts: Date.now(),
           level: streamError ? "error" : "info",
@@ -329,8 +316,8 @@ async function handleStreamResponse(
           requestId: ctx.requestId,
           msg: `${streamError ? "error" : "200"} ${ctx.anthropicModel} ${latencyMs}ms`,
           data: {
-            status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
+            path: "/v1/messages",
+            format: "anthropic",
             model: ctx.anthropicModel,
             resolvedModel,
             inputTokens,
@@ -338,32 +325,13 @@ async function handleStreamResponse(
             latencyMs,
             ttftMs,
             stream: true,
+            status: streamError ? "error" : "success",
+            statusCode: streamError ? 502 : 200,
+            upstreamStatus: streamError ? null : 200,
             accountName: ctx.accountName,
             ...(streamError && { error: streamError }),
           },
         });
-
-        // Persist to DB
-        if (ctx.db) {
-          logRequest(ctx.db, {
-            id: ctx.requestId,
-            startTime: ctx.startTime,
-            path: "/v1/messages",
-            format: "anthropic",
-            model: ctx.anthropicModel,
-            resolvedModel,
-            stream: 1,
-            inputTokens,
-            outputTokens,
-            latencyMs,
-            ttftMs,
-            status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
-            upstreamStatus: streamError ? null : 200,
-            errorMessage: streamError ?? undefined,
-            accountName: ctx.accountName,
-          });
-        }
       }
     },
   });
@@ -373,53 +341,4 @@ async function handleStreamResponse(
   c.header("Connection", "keep-alive");
 
   return c.body(outputStream);
-}
-
-// ---------------------------------------------------------------------------
-// Log helper
-// ---------------------------------------------------------------------------
-
-interface LogParams {
-  id: string;
-  startTime: number;
-  path: string;
-  format: string;
-  model: string;
-  resolvedModel?: string;
-  stream: number;
-  inputTokens?: number;
-  outputTokens?: number;
-  latencyMs: number;
-  ttftMs?: number | null;
-  status: string;
-  statusCode: number;
-  upstreamStatus: number | null;
-  errorMessage?: string;
-  accountName?: string;
-}
-
-function logRequest(db: Database, params: LogParams): void {
-  const record: RequestRecord = {
-    id: params.id,
-    timestamp: Date.now(),
-    path: params.path,
-    client_format: params.format,
-    model: params.model,
-    resolved_model: params.resolvedModel ?? null,
-    stream: params.stream,
-    input_tokens: params.inputTokens ?? null,
-    output_tokens: params.outputTokens ?? null,
-    latency_ms: params.latencyMs,
-    ttft_ms: params.ttftMs ?? null,
-    status: params.status,
-    status_code: params.statusCode,
-    upstream_status: params.upstreamStatus,
-    error_message: params.errorMessage ?? null,
-    account_name: params.accountName ?? "default",
-  };
-  try {
-    insertRequest(db, record);
-  } catch {
-    // Don't let logging failures break the request
-  }
 }

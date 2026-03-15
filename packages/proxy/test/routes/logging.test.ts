@@ -1,9 +1,10 @@
-import { describe, expect, test, mock } from "bun:test";
+import { describe, expect, test, mock, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import { createMessagesRoute } from "../../src/routes/messages.ts";
 import { createChatRoute } from "../../src/routes/chat.ts";
 import { initDatabase } from "../../src/db/requests.ts";
+import { startRequestSink } from "../../src/db/request-sink.ts";
 import type { CopilotClient } from "../../src/copilot/client.ts";
 
 // ---------------------------------------------------------------------------
@@ -75,18 +76,27 @@ const OPENAI_RESPONSE = {
 };
 
 // ===========================================================================
-// Messages route DB logging
+// Messages route DB logging (via DB sink)
 // ===========================================================================
 
 describe("messages route DB logging", () => {
+  let db: Database;
+  let stopSink: () => void;
+
+  beforeEach(() => {
+    db = createTestDb();
+    stopSink = startRequestSink(db);
+  });
+
+  afterEach(() => {
+    stopSink();
+    db.close();
+  });
+
   test("non-streaming success → logs to DB", async () => {
-    const db = createTestDb();
     const client = createMockClient(OPENAI_RESPONSE);
     const app = new Hono();
-    app.route(
-      "/v1",
-      createMessagesRoute({ client, copilotJwt: "jwt", db }),
-    );
+    app.route("/v1", createMessagesRoute({ client, copilotJwt: "jwt" }));
 
     await app.request("/v1/messages", {
       method: "POST",
@@ -106,20 +116,15 @@ describe("messages route DB logging", () => {
     expect(rows[0].status).toBe("success");
     expect(rows[0].input_tokens).toBe(10);
     expect(rows[0].output_tokens).toBe(5);
-    db.close();
   });
 
   test("upstream error → logs error to DB", async () => {
-    const db = createTestDb();
     const client = createMockClient(
       { error: "rate limited" },
       { status: 429 },
     );
     const app = new Hono();
-    app.route(
-      "/v1",
-      createMessagesRoute({ client, copilotJwt: "jwt", db }),
-    );
+    app.route("/v1", createMessagesRoute({ client, copilotJwt: "jwt" }));
 
     await app.request("/v1/messages", {
       method: "POST",
@@ -135,11 +140,9 @@ describe("messages route DB logging", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].status).toBe("error");
     expect(rows[0].status_code).toBe(429);
-    db.close();
   });
 
   test("streaming → logs after stream completes", async () => {
-    const db = createTestDb();
     const sseBody = [
       `data: ${JSON.stringify({
         id: "s1", object: "chat.completion.chunk", created: 0, model: "claude-sonnet-4",
@@ -160,10 +163,7 @@ describe("messages route DB logging", () => {
 
     const client = createMockClient(sseBody, { stream: true });
     const app = new Hono();
-    app.route(
-      "/v1",
-      createMessagesRoute({ client, copilotJwt: "jwt", db }),
-    );
+    app.route("/v1", createMessagesRoute({ client, copilotJwt: "jwt" }));
 
     const res = await app.request("/v1/messages", {
       method: "POST",
@@ -185,23 +185,31 @@ describe("messages route DB logging", () => {
     expect(rows[0].status).toBe("success");
     expect(rows[0].output_tokens).toBe(3);
     expect(rows[0].ttft_ms).toBeDefined();
-    db.close();
   });
 });
 
 // ===========================================================================
-// Chat route DB logging
+// Chat route DB logging (via DB sink)
 // ===========================================================================
 
 describe("chat route DB logging", () => {
+  let db: Database;
+  let stopSink: () => void;
+
+  beforeEach(() => {
+    db = createTestDb();
+    stopSink = startRequestSink(db);
+  });
+
+  afterEach(() => {
+    stopSink();
+    db.close();
+  });
+
   test("non-streaming success → logs to DB", async () => {
-    const db = createTestDb();
     const client = createMockClient(OPENAI_RESPONSE);
     const app = new Hono();
-    app.route(
-      "/v1",
-      createChatRoute({ client, copilotJwt: "jwt", db }),
-    );
+    app.route("/v1", createChatRoute({ client, copilotJwt: "jwt" }));
 
     await app.request("/v1/chat/completions", {
       method: "POST",
@@ -218,11 +226,9 @@ describe("chat route DB logging", () => {
     expect(rows[0].client_format).toBe("openai");
     expect(rows[0].model).toBe("gpt-4o");
     expect(rows[0].status).toBe("success");
-    db.close();
   });
 
   test("streaming passthrough → logs after completion", async () => {
-    const db = createTestDb();
     const sseBody = [
       `data: ${JSON.stringify({
         id: "c1", object: "chat.completion.chunk", created: 0, model: "gpt-4o",
@@ -242,10 +248,7 @@ describe("chat route DB logging", () => {
 
     const client = createMockClient(sseBody, { stream: true });
     const app = new Hono();
-    app.route(
-      "/v1",
-      createChatRoute({ client, copilotJwt: "jwt", db }),
-    );
+    app.route("/v1", createChatRoute({ client, copilotJwt: "jwt" }));
 
     const res = await app.request("/v1/chat/completions", {
       method: "POST",
@@ -263,16 +266,15 @@ describe("chat route DB logging", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].stream).toBe(1);
     expect(rows[0].status).toBe("success");
-    db.close();
   });
 
-  test("no db → still works without logging", async () => {
+  test("no db sink → still works without logging", async () => {
+    // Stop the sink so there's no DB listener
+    stopSink();
+
     const client = createMockClient(OPENAI_RESPONSE);
     const app = new Hono();
-    app.route(
-      "/v1",
-      createChatRoute({ client, copilotJwt: "jwt" }),
-    );
+    app.route("/v1", createChatRoute({ client, copilotJwt: "jwt" }));
 
     const res = await app.request("/v1/chat/completions", {
       method: "POST",
@@ -294,11 +296,9 @@ describe("chat route DB logging", () => {
 function createErrorStreamClient(): CopilotClient {
   return {
     chatCompletion: mock(async () => {
-      // Stream that errors mid-way
       const stream = new ReadableStream({
         start(controller) {
           const encoder = new TextEncoder();
-          // Send one valid chunk, then error
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({
@@ -312,7 +312,6 @@ function createErrorStreamClient(): CopilotClient {
               })}\n\n`,
             ),
           );
-          // Simulate upstream error mid-stream
           controller.error(new Error("upstream connection reset"));
         },
       });
@@ -337,14 +336,23 @@ function createErrorStreamClient(): CopilotClient {
 }
 
 describe("messages route stream error logging", () => {
+  let db: Database;
+  let stopSink: () => void;
+
+  beforeEach(() => {
+    db = createTestDb();
+    stopSink = startRequestSink(db);
+  });
+
+  afterEach(() => {
+    stopSink();
+    db.close();
+  });
+
   test("stream error → logs error status to DB", async () => {
-    const db = createTestDb();
     const client = createErrorStreamClient();
     const app = new Hono();
-    app.route(
-      "/v1",
-      createMessagesRoute({ client, copilotJwt: "jwt", db }),
-    );
+    app.route("/v1", createMessagesRoute({ client, copilotJwt: "jwt" }));
 
     const res = await app.request("/v1/messages", {
       method: "POST",
@@ -357,7 +365,6 @@ describe("messages route stream error logging", () => {
       }),
     });
 
-    // Consume the stream to trigger finally block
     await res.text().catch(() => {});
 
     const rows = db.query("SELECT * FROM requests").all() as Array<Record<string, unknown>>;
@@ -365,19 +372,27 @@ describe("messages route stream error logging", () => {
     expect(rows[0].status).toBe("error");
     expect(rows[0].status_code).toBe(502);
     expect(rows[0].error_message).toContain("stream");
-    db.close();
   });
 });
 
 describe("chat route stream error logging", () => {
+  let db: Database;
+  let stopSink: () => void;
+
+  beforeEach(() => {
+    db = createTestDb();
+    stopSink = startRequestSink(db);
+  });
+
+  afterEach(() => {
+    stopSink();
+    db.close();
+  });
+
   test("stream error → logs error status to DB", async () => {
-    const db = createTestDb();
     const client = createErrorStreamClient();
     const app = new Hono();
-    app.route(
-      "/v1",
-      createChatRoute({ client, copilotJwt: "jwt", db }),
-    );
+    app.route("/v1", createChatRoute({ client, copilotJwt: "jwt" }));
 
     const res = await app.request("/v1/chat/completions", {
       method: "POST",
@@ -389,7 +404,6 @@ describe("chat route stream error logging", () => {
       }),
     });
 
-    // Consume the stream to trigger finally block
     await res.text().catch(() => {});
 
     const rows = db.query("SELECT * FROM requests").all() as Array<Record<string, unknown>>;
@@ -397,7 +411,6 @@ describe("chat route stream error logging", () => {
     expect(rows[0].status).toBe("error");
     expect(rows[0].status_code).toBe(502);
     expect(rows[0].error_message).toContain("stream");
-    db.close();
   });
 });
 
@@ -407,7 +420,6 @@ describe("chat route stream error logging", () => {
 
 describe("messages route JWT getter", () => {
   test("uses getter function to get fresh JWT per request", async () => {
-    const db = createTestDb();
     let currentJwt = "jwt-v1";
     const jwtGetter = () => currentJwt;
 
@@ -433,12 +445,8 @@ describe("messages route JWT getter", () => {
     };
 
     const app = new Hono();
-    app.route(
-      "/v1",
-      createMessagesRoute({ client, copilotJwt: jwtGetter, db }),
-    );
+    app.route("/v1", createMessagesRoute({ client, copilotJwt: jwtGetter }));
 
-    // First request with jwt-v1
     await app.request("/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -452,10 +460,8 @@ describe("messages route JWT getter", () => {
     const fn = client.chatCompletion as ReturnType<typeof mock>;
     expect(fn.mock.calls[0][1]).toBe("jwt-v1");
 
-    // Update token
     currentJwt = "jwt-v2";
 
-    // Second request should use jwt-v2
     await app.request("/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -467,7 +473,6 @@ describe("messages route JWT getter", () => {
     });
 
     expect(fn.mock.calls[1][1]).toBe("jwt-v2");
-    db.close();
   });
 });
 
@@ -498,12 +503,8 @@ describe("chat route JWT getter", () => {
     };
 
     const app = new Hono();
-    app.route(
-      "/v1",
-      createChatRoute({ client, copilotJwt: jwtGetter }),
-    );
+    app.route("/v1", createChatRoute({ client, copilotJwt: jwtGetter }));
 
-    // First request
     await app.request("/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -516,10 +517,8 @@ describe("chat route JWT getter", () => {
     const fn = client.chatCompletion as ReturnType<typeof mock>;
     expect(fn.mock.calls[0][1]).toBe("jwt-v1");
 
-    // Update token
     currentJwt = "jwt-v2";
 
-    // Second request should use jwt-v2
     await app.request("/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

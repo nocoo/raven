@@ -1,9 +1,7 @@
 import { Hono } from "hono";
-import type { Database } from "bun:sqlite";
 import type { CopilotClient, ChatCompletionRequest } from "../copilot/client.ts";
 import type { OpenAIResponse, OpenAIStreamChunk } from "../translate/types.ts";
 import { parseSSEStream } from "../util/sse.ts";
-import { insertRequest, type RequestRecord } from "../db/requests.ts";
 import { startKeepalive } from "../util/keepalive.ts";
 import { generateRequestId } from "../util/id.ts";
 import { logEmitter } from "../util/log-emitter.ts";
@@ -15,7 +13,6 @@ import { logEmitter } from "../util/log-emitter.ts";
 export interface ChatRouteOptions {
   client: CopilotClient;
   copilotJwt: string | (() => string);
-  db?: Database;
 }
 
 /**
@@ -23,7 +20,7 @@ export interface ChatRouteOptions {
  * OpenAI format requests to the Copilot API.
  */
 export function createChatRoute(opts: ChatRouteOptions): Hono {
-  const { client, copilotJwt: copilotJwtOrGetter, db } = opts;
+  const { client, copilotJwt: copilotJwtOrGetter } = opts;
   const getJwt =
     typeof copilotJwtOrGetter === "function"
       ? copilotJwtOrGetter
@@ -48,6 +45,8 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
       requestId,
       msg: `POST /v1/chat/completions ${body.model}`,
       data: {
+        path: "/v1/chat/completions",
+        format: "openai",
         model: body.model,
         stream: body.stream ?? false,
         accountName,
@@ -72,21 +71,25 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
         msg: `upstream connection failed for ${body.model}`,
         data: { error: errorMsg, latencyMs },
       });
-      if (db) {
-        logRequest(db, {
-          id: requestId,
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId,
+        msg: `502 ${body.model} ${latencyMs}ms`,
+        data: {
           path: "/v1/chat/completions",
           format: "openai",
           model: body.model,
-          stream: body.stream ? 1 : 0,
+          stream: body.stream ?? false,
           latencyMs,
           status: "error",
           statusCode: 502,
           upstreamStatus: null,
-          errorMessage: errorMsg,
+          error: errorMsg,
           accountName,
-        });
-      }
+        },
+      });
       return c.json({ error: "upstream connection failed" }, 502);
     }
 
@@ -102,21 +105,25 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
         msg: `upstream ${upstream.status} for ${body.model}`,
         data: { statusCode: upstream.status, body: text.slice(0, 500), latencyMs },
       });
-      if (db) {
-        logRequest(db, {
-          id: requestId,
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId,
+        msg: `${upstream.status} ${body.model} ${latencyMs}ms`,
+        data: {
           path: "/v1/chat/completions",
           format: "openai",
           model: body.model,
-          stream: body.stream ? 1 : 0,
+          stream: body.stream ?? false,
           latencyMs,
           status: "error",
           statusCode: upstream.status,
           upstreamStatus: upstream.status,
-          errorMessage: text.slice(0, 500),
+          error: text.slice(0, 500),
           accountName,
-        });
-      }
+        },
+      });
       return c.body(text, upstream.status as 429);
     }
 
@@ -135,42 +142,26 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
         requestId,
         msg: `200 ${body.model} ${latencyMs}ms`,
         data: {
-          status: "success",
-          statusCode: 200,
+          path: "/v1/chat/completions",
+          format: "openai",
           model: body.model,
           resolvedModel: res.model,
           inputTokens: inTokens,
           outputTokens: outTokens,
           latencyMs,
           stream: false,
-          accountName,
-        },
-      });
-
-      if (db) {
-        logRequest(db, {
-          id: requestId,
-          path: "/v1/chat/completions",
-          format: "openai",
-          model: body.model,
-          resolvedModel: res.model,
-          stream: 0,
-          inputTokens: inTokens,
-          outputTokens: outTokens,
-          latencyMs,
           status: "success",
           statusCode: 200,
           upstreamStatus: 200,
           accountName,
-        });
-      }
+        },
+      });
 
       return c.json(res);
     }
 
     // Streaming — passthrough with metrics collection
     return handleStreamPassthrough(c, upstream, {
-      db,
       requestId,
       startTime,
       model: body.model,
@@ -186,7 +177,6 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
 // ---------------------------------------------------------------------------
 
 interface StreamContext {
-  db?: Database;
   requestId: string;
   startTime: number;
   model: string;
@@ -259,7 +249,7 @@ async function handleStreamPassthrough(
 
         const latencyMs = Math.round(performance.now() - ctx.startTime);
 
-        // Emit request_end log event
+        // Emit request_end — the DB sink will persist this
         logEmitter.emitLog({
           ts: Date.now(),
           level: streamError ? "error" : "info",
@@ -267,8 +257,8 @@ async function handleStreamPassthrough(
           requestId: ctx.requestId,
           msg: `${streamError ? "error" : "200"} ${ctx.model} ${latencyMs}ms`,
           data: {
-            status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
+            path: "/v1/chat/completions",
+            format: "openai",
             model: ctx.model,
             resolvedModel,
             inputTokens,
@@ -276,31 +266,13 @@ async function handleStreamPassthrough(
             latencyMs,
             ttftMs,
             stream: true,
+            status: streamError ? "error" : "success",
+            statusCode: streamError ? 502 : 200,
+            upstreamStatus: streamError ? null : 200,
             accountName: ctx.accountName,
             ...(streamError && { error: streamError }),
           },
         });
-
-        // Persist to DB
-        if (ctx.db) {
-          logRequest(ctx.db, {
-            id: ctx.requestId,
-            path: "/v1/chat/completions",
-            format: "openai",
-            model: ctx.model,
-            resolvedModel,
-            stream: 1,
-            inputTokens,
-            outputTokens,
-            latencyMs,
-            ttftMs,
-            status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
-            upstreamStatus: streamError ? null : 200,
-            errorMessage: streamError ?? undefined,
-            accountName: ctx.accountName,
-          });
-        }
       }
     },
   });
@@ -310,52 +282,4 @@ async function handleStreamPassthrough(
   c.header("Connection", "keep-alive");
 
   return c.body(outputStream);
-}
-
-// ---------------------------------------------------------------------------
-// Log helper
-// ---------------------------------------------------------------------------
-
-interface LogParams {
-  id: string;
-  path: string;
-  format: string;
-  model: string;
-  resolvedModel?: string;
-  stream: number;
-  inputTokens?: number;
-  outputTokens?: number;
-  latencyMs: number;
-  ttftMs?: number | null;
-  status: string;
-  statusCode: number;
-  upstreamStatus: number | null;
-  errorMessage?: string;
-  accountName?: string;
-}
-
-function logRequest(db: Database, params: LogParams): void {
-  const record: RequestRecord = {
-    id: params.id,
-    timestamp: Date.now(),
-    path: params.path,
-    client_format: params.format,
-    model: params.model,
-    resolved_model: params.resolvedModel ?? null,
-    stream: params.stream,
-    input_tokens: params.inputTokens ?? null,
-    output_tokens: params.outputTokens ?? null,
-    latency_ms: params.latencyMs,
-    ttft_ms: params.ttftMs ?? null,
-    status: params.status,
-    status_code: params.statusCode,
-    upstream_status: params.upstreamStatus,
-    error_message: params.errorMessage ?? null,
-    account_name: params.accountName ?? "default",
-  };
-  try {
-    insertRequest(db, record);
-  } catch {
-    // Don't let logging failures break the request
-  }
 }
