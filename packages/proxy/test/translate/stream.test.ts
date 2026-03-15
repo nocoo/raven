@@ -195,7 +195,7 @@ describe("tool call streaming", () => {
         type: "tool_use",
         id: "call_1",
         name: "get_weather",
-        input: "",
+        input: {},
       },
     });
 

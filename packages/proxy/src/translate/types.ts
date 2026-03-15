@@ -241,7 +241,7 @@ export interface AnthropicContentBlockStartEvent {
   index: number;
   content_block:
     | { type: "text"; text: "" }
-    | { type: "tool_use"; id: string; name: string; input: "" };
+    | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
 }
 
 export interface AnthropicContentBlockDeltaEvent {

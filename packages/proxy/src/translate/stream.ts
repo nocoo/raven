@@ -174,7 +174,7 @@ export function createStreamTranslator(
                 type: "tool_use",
                 id: info.id,
                 name: info.name,
-                input: "",
+                input: {},
               } as const,
             });
             state.contentBlockOpen = true;
