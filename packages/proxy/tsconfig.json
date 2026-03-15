@@ -4,6 +4,7 @@
     "rootDir": ".",
     "types": ["bun"],
     "allowImportingTsExtensions": true,
+    "baseUrl": ".",
     "paths": {
       "~/*": ["./src/*"]
     }
