@@ -1,17 +1,20 @@
-import { buildCopilotHeaders } from "./headers.ts";
-
 /**
  * Fetch Copilot user/subscription info from GitHub API.
- * Uses the Copilot JWT (same as models endpoint), not the GitHub OAuth token.
+ * This endpoint lives on api.github.com (same as /copilot_internal/v2/token)
+ * and requires the GitHub OAuth token, NOT the Copilot session JWT.
  */
 export async function fetchCopilotUser(
-  copilotJwt: string,
+  githubToken: string,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<unknown> {
   const res = await fetchFn(
     "https://api.github.com/copilot_internal/user",
     {
-      headers: buildCopilotHeaders(copilotJwt),
+      headers: {
+        Authorization: `token ${githubToken}`,
+        Accept: "application/json",
+        "User-Agent": "GitHubCopilotChat/0.26.7",
+      },
     },
   );
 

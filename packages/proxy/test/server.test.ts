@@ -68,7 +68,8 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/health");
     expect(res.status).toBe(200);
@@ -81,7 +82,8 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/v1/models");
     expect(res.status).toBe(200);
@@ -98,6 +100,7 @@ describe("app wiring", () => {
       client,
       getJwt: () => "test-jwt",
       db,
+      githubToken: "gho_test_token",
     });
 
     const res = await app.request("/v1/messages", {
@@ -123,6 +126,7 @@ describe("app wiring", () => {
       client,
       getJwt: () => "test-jwt",
       db,
+      githubToken: "gho_test_token",
     });
 
     const res = await app.request("/v1/chat/completions", {
@@ -146,7 +150,8 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/api/stats/overview");
     expect(res.status).toBe(200);
@@ -159,7 +164,8 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/api/requests");
     expect(res.status).toBe(200);
@@ -173,7 +179,8 @@ describe("app wiring", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/unknown");
     expect(res.status).toBe(404);
@@ -191,7 +198,8 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/v1/models");
     expect(res.status).toBe(401);
@@ -207,7 +215,8 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/v1/models", {
       headers: { Authorization: "Bearer secret-key" },
@@ -221,7 +230,8 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/health");
     expect(res.status).toBe(200);
@@ -233,7 +243,8 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/api/stats/overview");
     expect(res.status).toBe(401);
@@ -245,7 +256,8 @@ describe("API key middleware", () => {
       getJwt: () => "test-jwt",
       db,
       apiKey: "secret-key",
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/api/stats/overview", {
       headers: { Authorization: "Bearer secret-key" },
@@ -258,7 +270,8 @@ describe("API key middleware", () => {
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
-    });
+      githubToken: "gho_test_token",
+      });
 
     const res = await app.request("/v1/models");
     expect(res.status).toBe(200);

@@ -9,6 +9,7 @@ import { fetchCopilotUser } from "../copilot/info.ts";
 export interface CopilotInfoDeps {
   client: CopilotClient;
   getJwt: () => string;
+  githubToken: string;
 }
 
 /**
@@ -17,7 +18,7 @@ export interface CopilotInfoDeps {
  * Pass `?refresh=true` to re-fetch from upstream.
  */
 export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
-  const { client, getJwt } = deps;
+  const { client, getJwt, githubToken } = deps;
   const app = new Hono();
 
   // In-memory cache
@@ -35,7 +36,7 @@ export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
   }
 
   async function refreshUser(): Promise<unknown> {
-    cachedUser = await fetchCopilotUser(getJwt());
+    cachedUser = await fetchCopilotUser(githubToken);
     return cachedUser;
   }
 

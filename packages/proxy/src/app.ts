@@ -18,6 +18,7 @@ export interface AppDeps {
   getJwt: () => string;
   db: Database;
   apiKey?: string;
+  githubToken: string;
 }
 
 /**
@@ -25,7 +26,7 @@ export interface AppDeps {
  * Dependencies are injected so the app can be tested without real auth.
  */
 export function createApp(deps: AppDeps): Hono {
-  const { client, getJwt, db, apiKey } = deps;
+  const { client, getJwt, db, apiKey, githubToken } = deps;
   const app = new Hono();
 
   // ------- middleware -------
@@ -50,7 +51,7 @@ export function createApp(deps: AppDeps): Hono {
 
   app.route("/api", createStatsRoute(db));
   app.route("/api", createRequestsRoute(db));
-  app.route("/api", createCopilotInfoRoute({ client, getJwt }));
+  app.route("/api", createCopilotInfoRoute({ client, getJwt, githubToken }));
 
   return app;
 }
