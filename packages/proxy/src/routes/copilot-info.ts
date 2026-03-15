@@ -9,7 +9,6 @@ import { fetchCopilotUser } from "../copilot/info.ts";
 export interface CopilotInfoDeps {
   client: CopilotClient;
   getJwt: () => string;
-  githubToken: string;
 }
 
 /**
@@ -18,7 +17,7 @@ export interface CopilotInfoDeps {
  * Pass `?refresh=true` to re-fetch from upstream.
  */
 export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
-  const { client, getJwt, githubToken } = deps;
+  const { client, getJwt } = deps;
   const app = new Hono();
 
   // In-memory cache
@@ -36,16 +35,16 @@ export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
   }
 
   async function refreshUser(): Promise<unknown> {
-    cachedUser = await fetchCopilotUser(githubToken);
+    cachedUser = await fetchCopilotUser(getJwt());
     return cachedUser;
   }
 
   // Eager fetch at creation time (fire-and-forget, log errors)
   refreshModels().catch((err) =>
-    console.error("[copilot-info] Failed to fetch models:", err),
+    console.error("[copilot-info] Failed to fetch models:", err.message),
   );
   refreshUser().catch((err) =>
-    console.error("[copilot-info] Failed to fetch user info:", err),
+    console.error("[copilot-info] Failed to fetch user info:", err.message),
   );
 
   // ------- Routes -------

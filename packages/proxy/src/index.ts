@@ -37,7 +37,6 @@ const app = createApp({
   getJwt: () => tokenManager.getToken()!,
   db,
   apiKey: config.apiKey || undefined,
-  githubToken,
 });
 
 console.log(`[init] Raven proxy listening on port ${config.port}`);
