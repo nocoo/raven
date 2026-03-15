@@ -31,6 +31,39 @@ bun run test:perf   # performance benchmarks (SSE parsing, translation)
 bun run test:e2e    # e2e tests (requires proxy running on :7033)
 ```
 
+## Debugging — Real-time log stream
+
+The proxy has a built-in structured logging system with real-time WebSocket streaming. No third-party logging library — fully custom, based on `EventEmitter` + ring buffer.
+
+### Observing live logs
+
+Connect to the WebSocket endpoint while the proxy is running:
+
+```bash
+# listen to all levels (debug/info/warn/error)
+bun -e '
+const ws = new WebSocket("ws://localhost:7033/ws/logs?level=debug");
+ws.onmessage = (e) => {
+  const ev = JSON.parse(e.data);
+  const ts = new Date(ev.ts).toISOString().slice(11, 23);
+  console.log(`[${ts}] ${ev.level.toUpperCase().padEnd(5)} ${ev.type.padEnd(15)} ${ev.msg}${ev.requestId ? ` (${ev.requestId.slice(0,8)})` : ""}`);
+};'
+```
+
+If `RAVEN_API_KEY` is set or DB has API keys, append `&token=<key>` to the query string.
+
+### Key concepts
+
+- **Log levels**: `debug | info | warn | error`. Default level is `info` (configurable via `RAVEN_LOG_LEVEL` env var). Level gating happens before JSON serialization (zero cost for filtered-out events).
+- **Event types**: `system`, `request_start`, `request_end`, `sse_chunk`, `upstream_error`. Each request carries a ULID `requestId` linking start → chunks → end.
+- **Ring buffer**: Last 200 events cached in memory. New WebSocket connections receive backfill automatically.
+- **Client commands**: Send JSON to the WebSocket to adjust filtering on the fly:
+  - `{ "type": "set_level", "level": "debug" }` — change minimum level
+  - `{ "type": "set_filter", "requestId": "..." }` — isolate a single request
+  - `{ "type": "set_filter" }` — clear request filter
+- **Three sinks**: terminal (JSON lines → stdout), WebSocket (real-time push), DB (`request_end` → SQLite).
+- **Dashboard path**: proxy WebSocket → dashboard SSE bridge (`/api/logs/stream`) → `useLogStream` hook → `/logs` page UI.
+
 ## Retrospective
 
 - `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.
