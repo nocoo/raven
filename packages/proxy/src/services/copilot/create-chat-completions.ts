@@ -1,4 +1,4 @@
-import consola from "consola"
+import { logger } from "~/util/logger"
 import { events } from "fetch-event-stream"
 
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
@@ -17,12 +17,10 @@ export const createChatCompletions = async (
   )
 
   // Agent/user check for X-Initiator header
-  // Determine if any message is from an agent ("assistant" or "tool")
   const isAgentCall = payload.messages.some((msg) =>
     ["assistant", "tool"].includes(msg.role),
   )
 
-  // Build headers and add X-Initiator
   const headers: Record<string, string> = {
     ...copilotHeaders(state, enableVision),
     "X-Initiator": isAgentCall ? "agent" : "user",
@@ -35,7 +33,7 @@ export const createChatCompletions = async (
   })
 
   if (!response.ok) {
-    consola.error("Failed to create chat completions", response)
+    logger.error("Failed to create chat completions", { status: response.status })
     throw new HTTPError("Failed to create chat completions", response)
   }
 

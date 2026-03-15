@@ -1,5 +1,4 @@
-import consola from "consola"
-
+import { logger } from "~/util/logger"
 import { getModels } from "~/services/copilot/get-models"
 import { getVSCodeVersion } from "~/services/get-vscode-version"
 
@@ -22,5 +21,5 @@ export const cacheVSCodeVersion = async () => {
   const response = await getVSCodeVersion()
   state.vsCodeVersion = response
 
-  consola.info(`Using VSCode version: ${response}`)
+  logger.info(`Using VSCode version: ${response}`)
 }

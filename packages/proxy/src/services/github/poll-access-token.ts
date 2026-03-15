@@ -1,4 +1,4 @@
-import consola from "consola"
+import { logger } from "~/util/logger"
 
 import {
   GITHUB_BASE_URL,
@@ -12,10 +12,8 @@ import type { DeviceCodeResponse } from "./get-device-code"
 export async function pollAccessToken(
   deviceCode: DeviceCodeResponse,
 ): Promise<string> {
-  // Interval is in seconds, we need to multiply by 1000 to get milliseconds
-  // I'm also adding another second, just to be safe
   const sleepDuration = (deviceCode.interval + 1) * 1000
-  consola.debug(`Polling access token with interval of ${sleepDuration}ms`)
+  logger.debug(`Polling access token with interval of ${sleepDuration}ms`)
 
   while (true) {
     const response = await fetch(
@@ -33,13 +31,12 @@ export async function pollAccessToken(
 
     if (!response.ok) {
       await sleep(sleepDuration)
-      consola.error("Failed to poll access token:", await response.text())
-
+      logger.error("Failed to poll access token", { status: response.status })
       continue
     }
 
     const json = await response.json()
-    consola.debug("Polling access token response:", json)
+    logger.debug("Polling access token response received")
 
     const { access_token } = json as AccessTokenResponse
 

@@ -1,11 +1,10 @@
 import type { Context } from "hono"
 
-import consola from "consola"
 import { streamSSE } from "hono/streaming"
 
-import { awaitApproval } from "~/lib/approval"
 import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
+import { logger } from "~/util/logger"
 import {
   createChatCompletions,
   type ChatCompletionChunk,
@@ -26,34 +25,21 @@ export async function handleCompletion(c: Context) {
   await checkRateLimit(state)
 
   const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
-  consola.debug("Anthropic request payload:", JSON.stringify(anthropicPayload))
+  logger.debug(`Anthropic request payload: ${JSON.stringify(anthropicPayload)}`)
 
   const openAIPayload = translateToOpenAI(anthropicPayload)
-  consola.debug(
-    "Translated OpenAI request payload:",
-    JSON.stringify(openAIPayload),
-  )
-
-  if (state.manualApprove) {
-    await awaitApproval()
-  }
+  logger.debug(`Translated OpenAI request payload: ${JSON.stringify(openAIPayload)}`)
 
   const response = await createChatCompletions(openAIPayload)
 
   if (isNonStreaming(response)) {
-    consola.debug(
-      "Non-streaming response from Copilot:",
-      JSON.stringify(response).slice(-400),
-    )
+    logger.debug(`Non-streaming response from Copilot: ${JSON.stringify(response).slice(-400)}`)
     const anthropicResponse = translateToAnthropic(response)
-    consola.debug(
-      "Translated Anthropic response:",
-      JSON.stringify(anthropicResponse),
-    )
+    logger.debug(`Translated Anthropic response: ${JSON.stringify(anthropicResponse)}`)
     return c.json(anthropicResponse)
   }
 
-  consola.debug("Streaming response from Copilot")
+  logger.debug("Streaming response from Copilot")
   return streamSSE(c, async (stream) => {
     const streamState: AnthropicStreamState = {
       messageStartSent: false,
@@ -63,7 +49,7 @@ export async function handleCompletion(c: Context) {
     }
 
     for await (const rawEvent of response) {
-      consola.debug("Copilot raw stream event:", JSON.stringify(rawEvent))
+      logger.debug(`Copilot raw stream event: ${JSON.stringify(rawEvent)}`)
       if (rawEvent.data === "[DONE]") {
         break
       }
@@ -76,7 +62,7 @@ export async function handleCompletion(c: Context) {
       const events = translateChunkToAnthropicEvents(chunk, streamState)
 
       for (const event of events) {
-        consola.debug("Translated Anthropic event:", JSON.stringify(event))
+        logger.debug(`Translated Anthropic event: ${JSON.stringify(event)}`)
         await stream.writeSSE({
           event: event.type,
           data: JSON.stringify(event),
