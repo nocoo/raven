@@ -20,6 +20,8 @@ interface StreamState {
   contentBlockOpen: boolean;
   currentBlockType: "text" | "tool_use" | null;
   toolCalls: Map<number, ToolCallInfo>; // OpenAI tool_call index → info
+  inputTokens: number; // captured from first chunk for final usage
+  cacheReadInputTokens: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +63,8 @@ export function createStreamTranslator(
     contentBlockOpen: false,
     currentBlockType: null,
     toolCalls: new Map(),
+    inputTokens: 0,
+    cacheReadInputTokens: 0,
   };
 
   return {
@@ -98,6 +102,8 @@ export function createStreamTranslator(
             },
           },
         });
+        state.inputTokens = promptTokens - cachedTokens;
+        state.cacheReadInputTokens = cachedTokens;
         state.messageStartSent = true;
       }
 
@@ -210,7 +216,13 @@ export function createStreamTranslator(
             stop_reason: mapStopReason(finish_reason),
             stop_sequence: null,
           },
-          usage: { output_tokens: outputTokens },
+          usage: {
+            output_tokens: outputTokens,
+            input_tokens: state.inputTokens,
+            ...(state.cacheReadInputTokens > 0 && {
+              cache_read_input_tokens: state.cacheReadInputTokens,
+            }),
+          },
         });
 
         events.push({ type: "message_stop" });
