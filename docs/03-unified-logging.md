@@ -282,6 +282,8 @@ Bun.serve 支持同时处理 HTTP 和 WebSocket：
 
 ```typescript
 import { wsHandler } from "./ws/logs.ts";
+import { validateApiKey } from "./db/keys.ts";
+import { timingSafeEqual } from "./middleware.ts";
 
 export default {
   port: config.port,
@@ -289,12 +291,10 @@ export default {
     // WebSocket upgrade for /ws/logs
     const url = new URL(req.url);
     if (url.pathname === "/ws/logs") {
-      // Auth check: require RAVEN_API_KEY (env path) for WS access
-      if (config.apiKey) {
-        const auth = req.headers.get("Authorization");
-        if (!auth || auth !== `Bearer ${config.apiKey}`) {
-          return new Response("Unauthorized", { status: 401 });
-        }
+      // Auth: query token, required unless dev mode
+      const token = url.searchParams.get("token");
+      if (!authenticateWs(token, db, config.apiKey)) {
+        return new Response("Unauthorized", { status: 401 });
       }
       const upgraded = server.upgrade(req, {
         data: { minLevel: url.searchParams.get("level") ?? "info" },
@@ -308,18 +308,55 @@ export default {
   websocket: wsHandler,
   idleTimeout: 255,
 };
+
+/**
+ * WS 鉴权复用 multiKeyAuth 相同语义：
+ * 1. Dev mode: !envApiKey && DB 无 key → 放行
+ * 2. rk- prefix → DB hash lookup
+ * 3. 其他 token → timing-safe compare vs envApiKey
+ * 4. 无 token 且非 dev mode → 拒绝
+ */
+function authenticateWs(
+  token: string | null,
+  db: Database,
+  envApiKey?: string,
+): boolean {
+  const hasDbKeys = getKeyCount(db) > 0;
+  // Dev mode
+  if (!envApiKey && !hasDbKeys) return true;
+  // No token provided
+  if (!token) return false;
+  // rk- prefix → DB path
+  if (token.startsWith("rk-")) return validateApiKey(db, token) !== null;
+  // env path
+  if (envApiKey) return timingSafeEqual(token, envApiKey);
+  return false;
+}
 ```
 
-**安全考虑：** WebSocket 不经过 Hono 中间件（包括 `multiKeyAuth`）。`/ws/logs` 是一个无鉴权的公开路径。当前 Bun.serve 导出未绑定 `hostname`（默认 `0.0.0.0`），因此该端点对网络可达的所有客户端开放。
+**安全设计：**
 
-Raven 定位为本地个人使用工具，网络隔离依赖外部层（Caddy 反代仅暴露 HTTP 端口、防火墙规则、或局域网隔离）。文档不假设 proxy 仅监听 localhost。
+WebSocket 不经过 Hono 中间件，鉴权在 HTTP upgrade 阶段通过 query parameter `?token=` 完成。
 
-如果需要加固：
-- **方案 A（推荐）：** 在 WebSocket upgrade 前检查 `Authorization` header，复用 `multiKeyAuth` 的 env key 路径（`Bearer ${RAVEN_API_KEY}`）
-- **方案 B：** 在 Bun.serve 导出中设置 `hostname: "127.0.0.1"` 强制仅监听 loopback（会影响所有端点，包括 HTTP）
-- **方案 C：** 通过 Caddy/nginx 配置不反代 `/ws/logs` 路径
+使用 query token 而非 `Authorization` header 的原因：**浏览器原生 `new WebSocket(url)` 不支持自定义请求头**。`Authorization` header 方案会导致 dashboard WS 页面无法直连 proxy，与设计目标矛盾。
 
-当前实现选择 **方案 A** — upgrade 时验证 Bearer token。这对 dashboard 透明（已通过 `RAVEN_API_KEY` 访问 proxy），对 `websocat` 等调试工具需要加 `-H "Authorization: Bearer ..."` 参数。
+鉴权逻辑完整复用 `multiKeyAuth` 的三条路径（dev mode / rk- DB key / env key），不存在"只配 DB key、不配 env key"时的鉴权缺口。
+
+**安全 tradeoff：** query token 会出现在 URL 中（服务端 access log、Caddy/nginx log 可能记录完整 URL）。可接受的理由：
+- Raven 是本地个人使用工具，不运行在共享基础设施上
+- Token 在 URL 中与 token 在 header 中的泄漏面差异，在单用户本地场景下可忽略
+- 如果后续需要更高安全性，可改为 dashboard BFF 做 WS 代理（Next.js API route），proxy 端改回 header auth
+
+**Dashboard 接入：** WS hook 构造 URL 时拼接 token：
+```typescript
+const wsUrl = `${WS_BASE}/ws/logs?token=${apiKey}&level=${level}`;
+```
+dashboard 通过 `RAVEN_API_KEY` 或 DB key 获取 token 值。
+
+**调试工具接入：**
+```bash
+websocat "ws://localhost:7033/ws/logs?token=rk-xxx&level=debug"
+```
 
 ---
 
@@ -346,7 +383,8 @@ export function useLogStream(options?: { level?: string }) {
   const [paused, setPaused] = useState(false);
   const bufferRef = useRef<LogEvent[]>([]);
 
-  // WS 连接到 proxy ws://localhost:7033/ws/logs?level=info
+  // WS 连接到 proxy ws://localhost:7033/ws/logs?token=xxx&level=info
+  // token 通过 server component props 从 RAVEN_API_KEY 传入（不暴露到客户端 JS bundle）
   // 自动重连（exponential backoff）
   // paused 时 buffer 到 bufferRef，resume 时 flush
 
@@ -354,7 +392,7 @@ export function useLogStream(options?: { level?: string }) {
 }
 ```
 
-WS URL 通过 `NEXT_PUBLIC_RAVEN_WS_URL` 环境变量配置，默认 `ws://localhost:7033`。
+WS URL 通过 `NEXT_PUBLIC_RAVEN_WS_URL` 环境变量配置，默认 `ws://localhost:7033`。Token 由 server component（`page.tsx`）从 `RAVEN_API_KEY` 读取后通过 props 传给 client component，不暴露到客户端 JS bundle。
 
 ### 6.3 页面组件
 
@@ -411,7 +449,9 @@ WS URL 通过 `NEXT_PUBLIC_RAVEN_WS_URL` 环境变量配置，默认 `ws://local
 |------|--------|------|
 | `RAVEN_LOG_LEVEL` | `info` | Terminal sink 最低输出级别（现有） |
 | `RAVEN_LOG_BUFFER_SIZE` | `200` | Ring buffer 大小 |
-| `NEXT_PUBLIC_RAVEN_WS_URL` | `ws://localhost:7033` | Dashboard WS 连接地址 |
+| `NEXT_PUBLIC_RAVEN_WS_URL` | `ws://localhost:7033` | Dashboard WS 基础地址（不含 token） |
+
+注意：WS token 从服务端 `RAVEN_API_KEY`（已有）读取，通过 server component props 传给 client component，不需要额外环境变量。
 
 ---
 
