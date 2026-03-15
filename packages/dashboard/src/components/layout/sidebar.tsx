@@ -1,15 +1,17 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   ScrollText,
   Boxes,
   PanelLeft,
+  LogOut,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getAvatarColor } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
@@ -43,6 +45,12 @@ interface SidebarProps {
 export function Sidebar({ mobile = false }: SidebarProps) {
   const pathname = usePathname();
   const { collapsed, toggle, setMobileOpen } = useSidebar();
+  const { data: session } = useSession();
+
+  const userName = session?.user?.name ?? "User";
+  const userEmail = session?.user?.email ?? "";
+  const userImage = session?.user?.image;
+  const userInitial = userName[0] ?? "?";
 
   const handleNavigate = () => setMobileOpen(false);
 
@@ -60,7 +68,14 @@ export function Sidebar({ mobile = false }: SidebarProps) {
           <div className="flex h-screen w-[68px] flex-col items-center">
             {/* Logo */}
             <div className="flex h-14 w-full items-center justify-start pl-5 pr-3">
-              <Image src="/logo-24.png" alt="Raven" width={24} height={24} className="rounded-sm" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-24.png"
+                alt="Raven"
+                width={24}
+                height={24}
+                className="shrink-0"
+              />
             </div>
 
             {/* Expand toggle */}
@@ -110,6 +125,29 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                 );
               })}
             </nav>
+
+            {/* User avatar + sign out */}
+            <div className="py-3 flex justify-center w-full">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    aria-label="Sign out"
+                    className="cursor-pointer"
+                  >
+                    <Avatar className="h-9 w-9">
+                      {userImage && <AvatarImage src={userImage} alt={userName} />}
+                      <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
+                        {userInitial}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {userName} · Sign out
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         ) : (
           /* ── Expanded view ── */
@@ -118,7 +156,14 @@ export function Sidebar({ mobile = false }: SidebarProps) {
             <div className="px-3 h-14 flex items-center">
               <div className="flex w-full items-center justify-between px-3">
                 <div className="flex items-center gap-3">
-                  <Image src="/logo-24.png" alt="Raven" width={24} height={24} className="rounded-sm" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/logo-24.png"
+                    alt="Raven"
+                    width={24}
+                    height={24}
+                    className="shrink-0"
+                  />
                   <span className="text-lg font-bold tracking-tighter">raven</span>
                 </div>
                 <button
@@ -159,6 +204,34 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                 })}
               </div>
             </nav>
+
+            {/* User info + sign out */}
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-9 w-9 shrink-0">
+                  {userImage && <AvatarImage src={userImage} alt={userName} />}
+                  <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
+                    {userInitial}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => signOut({ callbackUrl: "/login" })}
+                      aria-label="Sign out"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                    >
+                      <LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Sign out</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
           </div>
         )}
       </aside>

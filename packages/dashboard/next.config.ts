@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
     "*.hexly.ai",
     "*.dev.hexly.ai",
   ],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

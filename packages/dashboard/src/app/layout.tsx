@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/components/auth-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -14,8 +15,16 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXTAUTH_URL || "http://localhost:7032"
+  ),
   title: "Raven",
   description: "GitHub Copilot proxy dashboard",
+  openGraph: {
+    title: "Raven — GitHub Copilot Proxy Dashboard",
+    description: "GitHub Copilot proxy dashboard",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -36,7 +45,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${dmSans.variable} antialiased`}
       >
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
