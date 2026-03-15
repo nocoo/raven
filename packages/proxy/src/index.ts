@@ -42,6 +42,7 @@ const app = createApp({
   db,
   apiKey: config.apiKey || undefined,
   githubToken,
+  port: config.port,
 });
 
 console.log(`[init] Raven proxy listening on port ${config.port}`);

@@ -10,6 +10,8 @@ import { createEmbeddingsRoute } from "./routes/embeddings.ts";
 import { createStatsRoute } from "./routes/stats.ts";
 import { createRequestsRoute } from "./routes/requests.ts";
 import { createCopilotInfoRoute } from "./routes/copilot-info.ts";
+import { createKeysRoute } from "./routes/keys.ts";
+import { createConnectionInfoRoute } from "./routes/connection-info.ts";
 
 // ---------------------------------------------------------------------------
 // App factory — pure, synchronous, testable
@@ -21,6 +23,7 @@ export interface AppDeps {
   db: Database;
   apiKey?: string;
   githubToken: string;
+  port?: number;
 }
 
 /**
@@ -28,7 +31,7 @@ export interface AppDeps {
  * Dependencies are injected so the app can be tested without real auth.
  */
 export function createApp(deps: AppDeps): Hono {
-  const { client, getJwt, db, apiKey, githubToken } = deps;
+  const { client, getJwt, db, apiKey, githubToken, port } = deps;
   const app = new Hono();
 
   // ------- middleware -------
@@ -71,6 +74,8 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createStatsRoute(db));
   app.route("/api", createRequestsRoute(db));
   app.route("/api", createCopilotInfoRoute({ client, getJwt, githubToken }));
+  app.route("/api", createKeysRoute(db));
+  app.route("/api", createConnectionInfoRoute({ client, getJwt, port: port ?? 7033 }));
 
   return app;
 }
