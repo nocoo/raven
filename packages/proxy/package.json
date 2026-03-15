@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test test/config.test.ts test/middleware.test.ts test/server.test.ts test/copilot/ test/db/ test/routes/ test/translate/ test/util/",
     "test:e2e": "bun test test/e2e/",
