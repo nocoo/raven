@@ -1,10 +1,11 @@
 import fs from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 
-const APP_DIR = path.join(os.homedir(), ".local", "share", "copilot-api")
+import { loadConfig } from "~/config"
 
-const GITHUB_TOKEN_PATH = path.join(APP_DIR, "github_token")
+const config = loadConfig()
+const APP_DIR = path.resolve(config.tokenPath, "..")
+const GITHUB_TOKEN_PATH = config.tokenPath
 
 export const PATHS = {
   APP_DIR,
