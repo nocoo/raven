@@ -299,12 +299,12 @@ const [keysResult, connResult] = await Promise.all([
 
 | # | Commit | 文件 |
 |---|--------|------|
-| 1 | `feat: add api_keys database schema and query functions` | `db/keys.ts` |
-| 2 | `feat: replace single-key auth with multi-key middleware` | `middleware.ts` |
-| 3 | `feat: add key-based request attribution` | `chat.ts`, `messages.ts` |
-| 4 | `feat: add key management and connection-info api routes` | `routes/keys.ts`, `routes/connection-info.ts`, `app.ts`, `index.ts` |
-| 5 | `test: add unit tests for key management` | `test/unit/db/keys.test.ts`, `test/unit/middleware.test.ts` |
-| 6 | `feat: add connect page with connection info and key management` | dashboard 全部文件（page, content, BFF routes, sidebar, components, types, shadcn） |
+| 1 | ✅ `feat: add api_keys database schema and query functions` | `db/keys.ts` |
+| 2 | ✅ `feat: replace single-key auth with multi-key middleware` | `middleware.ts` |
+| 3 | ✅ `feat: add key-based request attribution` | `chat.ts`, `messages.ts` |
+| 4 | ✅ `feat: add key management and connection-info api routes` | `routes/keys.ts`, `routes/connection-info.ts`, `app.ts`, `index.ts` |
+| 5 | ✅ `test: add unit tests for key management` | `test/unit/db/keys.test.ts`, `test/unit/middleware.test.ts` |
+| 6 | ✅ `feat: add connect page with connection info and key management` | dashboard 全部文件（page, content, BFF routes, sidebar, components, types, shadcn） |
 
 ---
 
