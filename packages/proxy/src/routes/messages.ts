@@ -11,6 +11,7 @@ import { translateResponse } from "../translate/openai-to-anthropic.ts";
 import { createStreamTranslator } from "../translate/stream.ts";
 import { parseSSEStream } from "../util/sse.ts";
 import { insertRequest, type RequestRecord } from "../db/requests.ts";
+import { logger } from "../util/logger.ts";
 
 // ---------------------------------------------------------------------------
 // ULID-like ID generator (timestamp-sortable, no external deps)
@@ -66,6 +67,14 @@ export function createMessagesRoute(
 
     // Translate to OpenAI format
     const openAIReq = translateRequest(anthropicReq);
+
+    logger.debug("messages request", {
+      model: anthropicReq.model,
+      stream: anthropicReq.stream ?? false,
+      messageCount: anthropicReq.messages.length,
+      toolCount: anthropicReq.tools?.length ?? 0,
+      translatedModel: openAIReq.model,
+    });
 
     // Resolve JWT at request time (not route creation time)
     const copilotJwt = getJwt();
@@ -200,6 +209,23 @@ async function handleStreamResponse(
 
           const chunk = JSON.parse(data) as OpenAIStreamChunk;
 
+          // Debug: log upstream chunk structure (tool calls, finish reason)
+          if (chunk.choices[0]?.delta?.tool_calls) {
+            logger.debug("upstream chunk: tool_calls", {
+              toolCalls: chunk.choices[0].delta.tool_calls.map((tc) => ({
+                index: tc.index,
+                id: tc.id,
+                name: tc.function?.name,
+                argsLen: tc.function?.arguments?.length ?? 0,
+              })),
+            });
+          }
+          if (chunk.choices[0]?.finish_reason) {
+            logger.debug("upstream chunk: finish", {
+              finishReason: chunk.choices[0].finish_reason,
+            });
+          }
+
           // Track resolved model
           if (chunk.model) resolvedModel = chunk.model;
 
@@ -227,6 +253,24 @@ async function handleStreamResponse(
 
           const events = translator.processChunk(chunk);
           for (const event of events) {
+            // Debug: log translated Anthropic events with tool context
+            if (
+              event.type === "content_block_start" ||
+              event.type === "content_block_stop" ||
+              event.type === "message_delta"
+            ) {
+              logger.debug("anthropic event", {
+                type: event.type,
+                index: "index" in event ? event.index : undefined,
+                ...(event.type === "content_block_start" && {
+                  blockType: event.content_block.type,
+                  ...("id" in event.content_block && {
+                    toolId: event.content_block.id,
+                    toolName: (event.content_block as { name: string }).name,
+                  }),
+                }),
+              });
+            }
             const line = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
             controller.enqueue(encoder.encode(line));
           }

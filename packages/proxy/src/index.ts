@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { loadConfig } from "./config.ts";
+import { setLogLevel } from "./util/logger.ts";
 import { createApp } from "./app.ts";
 import { createCopilotClient } from "./copilot/client.ts";
 import { authenticate } from "./copilot/auth.ts";
@@ -12,6 +13,7 @@ import { initApiKeys } from "./db/keys.ts";
 // ---------------------------------------------------------------------------
 
 const config = loadConfig();
+setLogLevel(config.logLevel);
 
 // 1. Database
 const db = new Database("data/raven.db");
