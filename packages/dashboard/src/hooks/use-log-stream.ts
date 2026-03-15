@@ -67,6 +67,10 @@ export function useLogStream(
   const [paused, setPaused] = useState(false);
   const [level, setLevel] = useState<LogLevel>(initialLevel);
 
+  // Refs for values accessed inside the SSE listener closure
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+
   // Buffers for pause mode
   const pauseBufferRef = useRef<LogEvent[]>([]);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -113,8 +117,8 @@ export function useLogStream(
       es.addEventListener("log", (e) => {
         try {
           const event: LogEvent = JSON.parse(e.data);
-          if (pauseBufferRef.current !== undefined && paused) {
-            // If paused, buffer events
+          if (pausedRef.current) {
+            // If paused, buffer events for later flush
             pauseBufferRef.current.push(event);
           } else {
             setEvents((prev) => {
@@ -129,31 +133,33 @@ export function useLogStream(
 
       es.addEventListener("disconnected", () => {
         setConnected(false);
-        scheduleReconnect();
-      });
-
-      es.addEventListener("error", () => {
-        setConnected(false);
         es.close();
         scheduleReconnect();
       });
 
-      es.onerror = () => {
-        // EventSource fires error on connection loss
-        if (es.readyState === EventSource.CLOSED) {
-          setConnected(false);
-          scheduleReconnect();
-        }
-      };
+      es.addEventListener("error", () => {
+        // Native EventSource fires error on connection loss.
+        // Close immediately to prevent native auto-reconnect, then use
+        // our own backoff-based reconnect exclusively.
+        setConnected(false);
+        es.close();
+        scheduleReconnect();
+      });
     }
 
     function scheduleReconnect() {
+      // Guard against duplicate calls (e.g. both "disconnected" and "error"
+      // firing for the same EventSource instance)
+      if (reconnectTimerRef.current) return;
       const attempt = reconnectAttemptRef.current++;
       const delay = Math.min(
         RECONNECT_BASE_MS * Math.pow(2, attempt),
         RECONNECT_MAX_MS,
       );
-      reconnectTimerRef.current = setTimeout(connect, delay);
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        connect();
+      }, delay);
     }
 
     connect();
@@ -170,7 +176,6 @@ export function useLogStream(
       setConnected(false);
     };
     // Re-connect when level or requestId changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, level, requestId, maxEvents]);
 
   return {
