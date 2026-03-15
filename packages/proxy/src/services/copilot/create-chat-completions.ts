@@ -1,5 +1,5 @@
 import { logger } from "~/util/logger"
-import { events } from "fetch-event-stream"
+import { events } from "~/util/sse"
 
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
 import { HTTPError } from "~/lib/error"

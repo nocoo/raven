@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "hono": "^4.9.9",
-    "fetch-event-stream": "^0.1.5",
     "gpt-tokenizer": "^3.0.1"
   },
   "devDependencies": {
