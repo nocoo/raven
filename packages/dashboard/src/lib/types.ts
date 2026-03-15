@@ -49,3 +49,34 @@ export interface PaginatedRequests {
   has_more: boolean;
   total?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Copilot API types (from api.githubcopilot.com/models)
+// ---------------------------------------------------------------------------
+
+export interface CopilotModelCapabilities {
+  family: string;
+  type: string;
+  tokenizer: string;
+  limits?: {
+    max_prompt_tokens?: number;
+    max_output_tokens?: number;
+  };
+}
+
+export interface CopilotModelPolicy {
+  type: string;
+  terms?: string;
+}
+
+export interface CopilotModel {
+  id: string;
+  name: string;
+  version: string;
+  is_custom_model?: boolean;
+  model_picker_enabled: boolean;
+  preview_state?: string;
+  capabilities: CopilotModelCapabilities;
+  policy?: CopilotModelPolicy;
+  vendor?: string;
+}

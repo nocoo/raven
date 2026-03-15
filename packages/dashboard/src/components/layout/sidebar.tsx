@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   ScrollText,
   Boxes,
+  Cpu,
+  CircleUser,
   PanelLeft,
   LogOut,
 } from "lucide-react";
@@ -34,6 +36,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/requests", label: "Requests", icon: ScrollText },
   { href: "/models", label: "Models", icon: Boxes },
+  { href: "/copilot/models", label: "Copilot Models", icon: Cpu },
+  { href: "/copilot/account", label: "Account", icon: CircleUser },
 ];
 
 // ── Main component ──
