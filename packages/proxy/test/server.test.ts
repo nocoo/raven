@@ -61,6 +61,7 @@ let db: Database;
 
 beforeEach(() => {
   db = createTestDb();
+  invalidateKeyCountCache();
 });
 
 afterEach(() => {
@@ -78,7 +79,7 @@ describe("app wiring", () => {
       getJwt: () => "test-jwt",
       db,
       githubToken: "gho_test_token",
-      });
+    });
 
     const res = await app.request("/health");
     expect(res.status).toBe(200);
@@ -86,13 +87,13 @@ describe("app wiring", () => {
     expect(body).toEqual({ status: "ok" });
   });
 
-  test("GET /v1/models returns model list", async () => {
+  test("GET /v1/models returns model list (dev mode)", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
       githubToken: "gho_test_token",
-      });
+    });
 
     const res = await app.request("/v1/models");
     expect(res.status).toBe(200);
@@ -103,7 +104,7 @@ describe("app wiring", () => {
     expect(body.data[0]).toHaveProperty("owned_by");
   });
 
-  test("POST /v1/messages routes to messages handler", async () => {
+  test("POST /v1/messages routes to messages handler (dev mode)", async () => {
     const client = createMockClient();
     const app = createApp({
       client,
@@ -124,12 +125,11 @@ describe("app wiring", () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    // Should be Anthropic response format
     expect(body.type).toBe("message");
     expect(body.role).toBe("assistant");
   });
 
-  test("POST /v1/chat/completions routes to chat handler", async () => {
+  test("POST /v1/chat/completions routes to chat handler (dev mode)", async () => {
     const client = createMockClient();
     const app = createApp({
       client,
@@ -149,18 +149,17 @@ describe("app wiring", () => {
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    // Should be OpenAI response format (passthrough)
     expect(body.id).toBe("chatcmpl-123");
     expect(body.choices).toBeDefined();
   });
 
-  test("GET /api/stats/overview returns stats", async () => {
+  test("GET /api/stats/overview returns stats (dev mode)", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
       githubToken: "gho_test_token",
-      });
+    });
 
     const res = await app.request("/api/stats/overview");
     expect(res.status).toBe(200);
@@ -168,13 +167,13 @@ describe("app wiring", () => {
     expect(body).toHaveProperty("total_requests");
   });
 
-  test("GET /api/requests returns paginated results", async () => {
+  test("GET /api/requests returns paginated results (dev mode)", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
       githubToken: "gho_test_token",
-      });
+    });
 
     const res = await app.request("/api/requests");
     expect(res.status).toBe(200);
@@ -189,7 +188,7 @@ describe("app wiring", () => {
       getJwt: () => "test-jwt",
       db,
       githubToken: "gho_test_token",
-      });
+    });
 
     const res = await app.request("/unknown");
     expect(res.status).toBe(404);
@@ -197,32 +196,18 @@ describe("app wiring", () => {
 });
 
 // ===========================================================================
-// Auth middleware (delegates to middleware.ts dbKeyAuth)
+// API key middleware (delegates to middleware.ts multiKeyAuth)
 // ===========================================================================
 
 describe("API key middleware", () => {
-  test("dev mode (no DB keys) → accepts all requests", async () => {
+  test("env key set → rejects unauthenticated /v1/* requests", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      apiKey: "secret-key",
       githubToken: "gho_test_token",
-      });
-
-    const res = await app.request("/v1/models");
-    expect(res.status).toBe(200);
-  });
-
-  test("with DB key → rejects unauthenticated /v1/* requests", async () => {
-    createApiKey(db, "test-key");
-    invalidateKeyCountCache();
-
-    const app = createApp({
-      client: createMockClient(),
-      getJwt: () => "test-jwt",
-      db,
-      githubToken: "gho_test_token",
-      });
+    });
 
     const res = await app.request("/v1/models");
     expect(res.status).toBe(401);
@@ -231,16 +216,72 @@ describe("API key middleware", () => {
     expect(body.error.type).toBe("authentication_error");
   });
 
-  test("with DB key → accepts authenticated /v1/* requests", async () => {
+  test("env key set → accepts /v1/* with correct env key", async () => {
+    const app = createApp({
+      client: createMockClient(),
+      getJwt: () => "test-jwt",
+      db,
+      apiKey: "secret-key",
+      githubToken: "gho_test_token",
+    });
+
+    const res = await app.request("/v1/models", {
+      headers: { Authorization: "Bearer secret-key" },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("env key set → rejects unauthenticated /api/* requests", async () => {
+    const app = createApp({
+      client: createMockClient(),
+      getJwt: () => "test-jwt",
+      db,
+      apiKey: "secret-key",
+      githubToken: "gho_test_token",
+    });
+
+    const res = await app.request("/api/stats/overview");
+    expect(res.status).toBe(401);
+  });
+
+  test("env key set → accepts /api/* with correct env key", async () => {
+    const app = createApp({
+      client: createMockClient(),
+      getJwt: () => "test-jwt",
+      db,
+      apiKey: "secret-key",
+      githubToken: "gho_test_token",
+    });
+
+    const res = await app.request("/api/stats/overview", {
+      headers: { Authorization: "Bearer secret-key" },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("health endpoint bypasses auth", async () => {
+    const app = createApp({
+      client: createMockClient(),
+      getJwt: () => "test-jwt",
+      db,
+      apiKey: "secret-key",
+      githubToken: "gho_test_token",
+    });
+
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+  });
+
+  test("DB key → accepts /v1/* with valid rk- key", async () => {
     const created = createApiKey(db, "test-key");
-    invalidateKeyCountCache();
 
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
+      apiKey: "secret-key",
       githubToken: "gho_test_token",
-      });
+    });
 
     const res = await app.request("/v1/models", {
       headers: { Authorization: `Bearer ${created.key}` },
@@ -248,33 +289,29 @@ describe("API key middleware", () => {
     expect(res.status).toBe(200);
   });
 
-  test("health endpoint bypasses auth", async () => {
-    createApiKey(db, "test-key");
-    invalidateKeyCountCache();
-
+  test("dev mode (no env key, no DB keys) → accepts all requests", async () => {
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
       githubToken: "gho_test_token",
-      });
+    });
 
-    const res = await app.request("/health");
+    const res = await app.request("/v1/models");
     expect(res.status).toBe(200);
   });
 
-  test("/api/* dashboard endpoints are unauthenticated (internal use)", async () => {
+  test("DB key only (no env key) → rejects unauthenticated", async () => {
     createApiKey(db, "test-key");
-    invalidateKeyCountCache();
 
     const app = createApp({
       client: createMockClient(),
       getJwt: () => "test-jwt",
       db,
       githubToken: "gho_test_token",
-      });
+    });
 
-    const res = await app.request("/api/stats/overview");
-    expect(res.status).toBe(200);
+    const res = await app.request("/v1/models");
+    expect(res.status).toBe(401);
   });
 });

@@ -288,10 +288,14 @@ const [keysResult, connResult] = await Promise.all([
 ## 六、向后兼容
 
 **零破坏性：**
-- `RAVEN_API_KEY` 继续生效（走 env timing-safe 路径）
-- Dev mode 逻辑：env 为空 **且** DB 无 key → 跳过 auth
+- `RAVEN_API_KEY` 继续生效（走 env timing-safe 路径），同时用于 dashboard→proxy 鉴权和 e2e 测试
+- Dashboard 通过 `RAVEN_INTERNAL_KEY ?? RAVEN_API_KEY` 访问 proxy `/api/*` 端点
+- Dev mode 逻辑：env 为空 **且** DB 无 key → 跳过 auth（仅限本地开发无 key 配置时）
+- 设置了 `RAVEN_API_KEY` 但 DB 无 key 时，仅 env 路径可用（不会裸奔）
+- `/api/*` 管理端点同样受 `multiKeyAuth` 保护
 - 现有 `requests` 表数据 `account_name` 保持 "default"，新请求写入实际 key name
 - 无需数据迁移
+- E2E 测试通过 `RAVEN_API_KEY` 环境变量获取 token
 
 ---
 
@@ -310,10 +314,11 @@ const [keysResult, connResult] = await Promise.all([
 
 ## 八、验证
 
-1. **单元测试**：`bun run test` — 现有 187 tests 通过 + 新增 key 相关测试
-2. **手动验证**：
-   - 启动 proxy → 通过 dashboard 创建 key → curl 用新 key 请求 → 验证 `account_name` 正确
+1. **单元测试**：`bun run test` — 218 tests 通过，覆盖 multiKeyAuth 三条路径、key CRUD、route 鉴权
+2. **E2E 测试**：`RAVEN_API_KEY=<key> bun run test:e2e` — 通过 env key 鉴权访问 proxy
+3. **手动验证**：
+   - 启动 proxy（设置 `RAVEN_API_KEY`）→ 通过 dashboard 创建 DB key → curl 用新 key 请求 → 验证 `account_name` 正确
    - 撤销 key → 验证返回 401
-   - `RAVEN_API_KEY` 仍能正常使用
+   - `RAVEN_API_KEY` 仍能正常使用（env:default 路径）
    - 无 key 配置时 dev mode 仍生效
    - Connect 页面：所有 URL 可复制、代码示例正确、模型列表显示

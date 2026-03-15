@@ -4,7 +4,7 @@
  */
 
 const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7033";
-const API_KEY = process.env.RAVEN_API_KEY ?? "";
+const API_KEY = process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
 
 export class ProxyError extends Error {
   constructor(
