@@ -483,7 +483,7 @@ Dashboard WS 连接为同源相对路径（`/api/ws/logs`），不需要额外 U
 | # | Commit | 文件 |
 |---|--------|------|
 | 1 | `feat: add LogEvent types and LogEmitter event bus` ✅ | `util/log-event.ts`, `util/log-emitter.ts` |
-| 2 | `refactor: wire logger.ts as LogEmitter terminal sink` | `util/logger.ts`, `index.ts`, `copilot/token.ts` |
+| 2 | `refactor: wire logger.ts as LogEmitter terminal sink` ✅ | `util/logger.ts`, `index.ts`, `copilot/token.ts` |
 | 3 | `refactor: unify requestId generation in route layer` | `middleware.ts`, `routes/messages.ts`, `routes/chat.ts` |
 | 4 | `feat: instrument routes with structured log events` | `routes/messages.ts`, `routes/chat.ts` |
 | 5 | `feat: add WebSocket /ws/logs endpoint with auth and backfill` | `ws/logs.ts`, `index.ts` |
