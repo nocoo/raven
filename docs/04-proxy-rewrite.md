@@ -1,4 +1,4 @@
-# 03 — Proxy Rewrite: Big-Bang Replace with copilot-api
+# 04 — Proxy Rewrite: Big-Bang Replace with copilot-api
 
 ## Background
 
