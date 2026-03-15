@@ -49,6 +49,7 @@ console.log(`[init] Raven proxy listening on port ${config.port}`);
 export default {
   port: config.port,
   fetch: app.fetch,
+  idleTimeout: 255, // seconds — SSE streams for LLM can be slow (thinking, long generation)
 };
 
 export { app, config };
