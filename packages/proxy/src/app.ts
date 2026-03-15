@@ -5,6 +5,7 @@ import { requestContext, apiKeyAuth } from "./middleware.ts";
 import { modelsRoute } from "./routes/models.ts";
 import { createMessagesRoute } from "./routes/messages.ts";
 import { createChatRoute } from "./routes/chat.ts";
+import { countTokensRoute } from "./routes/count-tokens.ts";
 import { createStatsRoute } from "./routes/stats.ts";
 import { createRequestsRoute } from "./routes/requests.ts";
 import { createCopilotInfoRoute } from "./routes/copilot-info.ts";
@@ -38,6 +39,8 @@ export function createApp(deps: AppDeps): Hono {
   app.get("/health", (c) => c.json({ status: "ok" }));
 
   app.route("/v1", modelsRoute);
+
+  app.route("/v1", countTokensRoute);
 
   app.route(
     "/v1",
