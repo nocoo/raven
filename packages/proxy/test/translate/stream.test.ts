@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { translateChunkToAnthropicEvents } from "../../src/routes/messages/stream-translation"
+import {
+  translateChunkToAnthropicEvents,
+  translateErrorToAnthropicErrorEvent,
+} from "../../src/routes/messages/stream-translation"
 import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions"
 import type {
   AnthropicStreamEventData,
@@ -584,5 +587,188 @@ describe("empty delta", () => {
         e.type === "content_block_delta",
     )
     expect(contentEvents).toHaveLength(0)
+  })
+})
+
+// ===========================================================================
+// translateErrorToAnthropicErrorEvent
+// ===========================================================================
+
+describe("translateErrorToAnthropicErrorEvent", () => {
+  test("returns error event with api_error type", () => {
+    const event = translateErrorToAnthropicErrorEvent()
+    expect(event.type).toBe("error")
+    expect(event).toHaveProperty("error")
+    const err = (event as { error: { type: string; message: string } }).error
+    expect(err.type).toBe("api_error")
+    expect(err.message).toBe("An unexpected error occurred during streaming.")
+  })
+})
+
+// ===========================================================================
+// Tool → text interleaving (lines 60-68)
+// ===========================================================================
+
+describe("tool → text interleaving", () => {
+  test("tool block open, then delta.content → close tool + open text", () => {
+    const state = makeState()
+    // message_start
+    translateChunkToAnthropicEvents(
+      makeChunk({ delta: { role: "assistant" } }),
+      state,
+    )
+    // Open a tool block
+    translateChunkToAnthropicEvents(
+      makeChunk({
+        delta: {
+          tool_calls: [{
+            index: 0,
+            id: "call_1",
+            type: "function",
+            function: { name: "search", arguments: '{"q":"x"}' },
+          }],
+        },
+      }),
+      state,
+    )
+
+    // Now send text content — should close tool block, open text block
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ delta: { content: "Here are the results" } }),
+      state,
+    )
+
+    const types = events.map((e) => e.type)
+    expect(types).toEqual([
+      "content_block_stop",   // close tool block at index 0
+      "content_block_start",  // open text block at index 1
+      "content_block_delta",  // text delta at index 1
+    ])
+
+    // Verify indices
+    const stop = events[0] as { index: number }
+    expect(stop.index).toBe(0)
+    const start = events[1] as { index: number }
+    expect(start.index).toBe(1)
+    const delta = events[2] as { index: number }
+    expect(delta.index).toBe(1)
+  })
+
+  test("multiple tool→text→tool transitions in sequence", () => {
+    const state = makeState()
+    translateChunkToAnthropicEvents(
+      makeChunk({ delta: { role: "assistant" } }),
+      state,
+    )
+
+    // Tool call
+    translateChunkToAnthropicEvents(
+      makeChunk({
+        delta: {
+          tool_calls: [{
+            index: 0, id: "c1", type: "function",
+            function: { name: "fn1", arguments: "{}" },
+          }],
+        },
+      }),
+      state,
+    )
+
+    // Text after tool
+    translateChunkToAnthropicEvents(
+      makeChunk({ delta: { content: "result: " } }),
+      state,
+    )
+
+    // Another tool call after text
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({
+        delta: {
+          tool_calls: [{
+            index: 1, id: "c2", type: "function",
+            function: { name: "fn2", arguments: "{}" },
+          }],
+        },
+      }),
+      state,
+    )
+
+    // Should close text block (index 1) and open tool block (index 2)
+    const types = events.map((e) => e.type)
+    expect(types).toContain("content_block_stop")
+    expect(types).toContain("content_block_start")
+
+    const start = events.find((e) => e.type === "content_block_start") as {
+      index: number
+      content_block: { type: string }
+    }
+    expect(start.index).toBe(2)
+    expect(start.content_block.type).toBe("tool_use")
+  })
+})
+
+// ===========================================================================
+// Finish while tool block is still open
+// ===========================================================================
+
+describe("finish while tool block open", () => {
+  test("finish_reason arrives while tool_use block is open → close block + message_delta + message_stop", () => {
+    const state = makeState()
+    translateChunkToAnthropicEvents(
+      makeChunk({ delta: { role: "assistant" } }),
+      state,
+    )
+
+    // Open tool block
+    translateChunkToAnthropicEvents(
+      makeChunk({
+        delta: {
+          tool_calls: [{
+            index: 0, id: "c1", type: "function",
+            function: { name: "fn", arguments: '{"a":1}' },
+          }],
+        },
+      }),
+      state,
+    )
+
+    // Finish with tool block still open
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({
+        delta: {},
+        finish_reason: "tool_calls",
+        usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
+      }),
+      state,
+    )
+
+    const types = events.map((e) => e.type)
+    expect(types).toEqual([
+      "content_block_stop",
+      "message_delta",
+      "message_stop",
+    ])
+
+    // content_block_stop should close the tool block
+    expect((events[0] as { index: number }).index).toBe(0)
+  })
+})
+
+// ===========================================================================
+// Empty choices array
+// ===========================================================================
+
+describe("empty choices", () => {
+  test("chunk with empty choices array → no events", () => {
+    const state = makeState()
+    const chunk: ChatCompletionChunk = {
+      id: "chatcmpl-empty",
+      object: "chat.completion.chunk",
+      created: 1700000000,
+      model: "gpt-4o",
+      choices: [],
+    }
+    const events = translateChunkToAnthropicEvents(chunk, state)
+    expect(events).toHaveLength(0)
   })
 })
