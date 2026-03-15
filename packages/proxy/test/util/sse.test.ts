@@ -63,6 +63,20 @@ describe("SSE Parser", () => {
       const result = parseSSELine("data:{\"no\":\"space\"}");
       expect(result).toEqual({ type: "data", value: "{\"no\":\"space\"}" });
     });
+
+    test("parses event line without space after colon", () => {
+      const result = parseSSELine("event:delta");
+      expect(result).toEqual({ type: "event", value: "delta" });
+    });
+
+    test("[DONE] without space after colon", () => {
+      const result = parseSSELine("data:[DONE]");
+      expect(result).toEqual({ type: "done", value: "[DONE]" });
+    });
+
+    test("returns null for unknown field (no colon prefix)", () => {
+      expect(parseSSELine("random text")).toBeNull();
+    });
   });
 
   // ===========================================================================
@@ -122,6 +136,32 @@ describe("SSE Parser", () => {
       }
 
       expect(results).toEqual([]);
+    });
+
+    test("flushes remaining buffer data when stream ends without trailing newline", async () => {
+      // Stream ends with data still in buffer (no \n\n terminator)
+      const chunks = [
+        "data: {\"id\":1}\n\ndata: {\"id\":2}",
+      ];
+
+      const results: string[] = [];
+      for await (const event of parseSSEStream(streamFrom(chunks))) {
+        if (event !== null) results.push(event);
+      }
+
+      expect(results).toEqual(["{\"id\":1}", "{\"id\":2}"]);
+    });
+
+    test("flushes [DONE] in buffer at stream end", async () => {
+      // Stream ends with [DONE] in buffer, no trailing \n\n
+      const chunks = ["data: {\"id\":1}\n\ndata: [DONE]"];
+
+      const results: (string | null)[] = [];
+      for await (const event of parseSSEStream(streamFrom(chunks))) {
+        results.push(event);
+      }
+
+      expect(results).toEqual(["{\"id\":1}", null]);
     });
 
     test("skips comment and event lines", async () => {
@@ -339,6 +379,20 @@ describe("SSE Parser", () => {
 
       expect(result).toEqual([
         { data: "last" },
+      ]);
+    });
+
+    test("flushes buffer with multiple lines at stream end", async () => {
+      // Stream ends with buffer containing unparsed lines (no trailing blank)
+      const res = responseFrom(["event: delta\ndata: tail"]);
+
+      const result: ServerSentEvent[] = [];
+      for await (const event of events(res)) {
+        result.push(event);
+      }
+
+      expect(result).toEqual([
+        { data: "tail", event: "delta" },
       ]);
     });
 
