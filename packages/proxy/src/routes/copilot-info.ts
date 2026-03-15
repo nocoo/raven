@@ -1,81 +1,66 @@
-import { Hono } from "hono";
-import type { CopilotClient } from "../copilot/client.ts";
-import { fetchCopilotUser } from "../copilot/info.ts";
-import { logger } from "../util/logger.ts";
+import { Hono } from "hono"
+
+import { state } from "../lib/state"
+import { cacheModels } from "../lib/utils"
+import { getCopilotUsage } from "~/services/github/get-copilot-usage"
+import { logger } from "../util/logger"
 
 // ---------------------------------------------------------------------------
 // Copilot info routes — cached models + user subscription data
 // ---------------------------------------------------------------------------
 
 export interface CopilotInfoDeps {
-  client: CopilotClient;
-  getJwt: () => string;
-  githubToken: string;
+  githubToken: string // precondition: state.githubToken must be set
 }
 
 /**
  * Create routes that expose cached Copilot models and user info.
- * Both endpoints are populated eagerly at creation time (1 request each).
+ * Both endpoints are populated eagerly at creation time.
  * Pass `?refresh=true` to re-fetch from upstream.
+ *
+ * Uses global state.models (via cacheModels) and getCopilotUsage()
+ * (which reads state.githubToken internally).
  */
 export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
-  const { client, getJwt, githubToken } = deps;
-  const app = new Hono();
+  const app = new Hono()
 
-  // In-memory cache
-  let cachedModels: unknown = null;
-  let cachedUser: unknown = null;
+  let cachedUser: unknown = null
 
-  // Fetch helpers
-  async function refreshModels(): Promise<unknown> {
-    const res = await client.fetchModels(getJwt());
-    if (!res.ok) {
-      throw new Error(`Copilot models fetch failed: ${res.status} ${res.statusText}`);
-    }
-    cachedModels = await res.json();
-    return cachedModels;
-  }
-
-  async function refreshUser(): Promise<unknown> {
-    cachedUser = await fetchCopilotUser(githubToken);
-    return cachedUser;
-  }
-
-  // Eager fetch at creation time (fire-and-forget, log errors)
-  refreshModels().catch((err) =>
-    logger.warn("Failed to fetch models", { error: err.message }),
-  );
-  refreshUser().catch((err) =>
-    logger.warn("Failed to fetch user info", { error: err.message }),
-  );
-
-  // ------- Routes -------
-
+  // /copilot/models — read from global state.models
   app.get("/copilot/models", async (c) => {
     try {
-      const refresh = c.req.query("refresh") === "true";
-      if (refresh || cachedModels === null) {
-        await refreshModels();
+      const refresh = c.req.query("refresh") === "true"
+      if (refresh || !state.models) {
+        await cacheModels()
       }
-      return c.json(cachedModels);
+      if (!state.models) {
+        return c.json({ error: "Models not available" }, 502)
+      }
+      return c.json(state.models)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      return c.json({ error: message }, 502);
+      const message = err instanceof Error ? err.message : "Unknown error"
+      return c.json({ error: message }, 502)
     }
-  });
+  })
 
+  // /copilot/user — getCopilotUsage reads state.githubToken internally
   app.get("/copilot/user", async (c) => {
     try {
-      const refresh = c.req.query("refresh") === "true";
+      const refresh = c.req.query("refresh") === "true"
       if (refresh || cachedUser === null) {
-        await refreshUser();
+        cachedUser = await getCopilotUsage()
       }
-      return c.json(cachedUser);
+      return c.json(cachedUser)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      return c.json({ error: message }, 502);
+      const message = err instanceof Error ? err.message : "Unknown error"
+      return c.json({ error: message }, 502)
     }
-  });
+  })
 
-  return app;
+  // Eager fetch at creation
+  getCopilotUsage().then((u) => { cachedUser = u }).catch((err) =>
+    logger.warn("Failed to fetch user info", { error: String(err) }),
+  )
+
+  return app
 }

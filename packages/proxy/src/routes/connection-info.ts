@@ -1,41 +1,36 @@
-import { Hono } from "hono";
-import type { CopilotClient } from "../copilot/client.ts";
+import { Hono } from "hono"
+
+import { state } from "../lib/state"
+import { cacheModels } from "../lib/utils"
 
 export interface ConnectionInfoRouteOptions {
-  client: CopilotClient;
-  getJwt: () => string;
-  port: number;
+  port: number
 }
 
 /**
  * GET /api/connection-info — returns proxy connection details for clients.
+ * Reads model list from global state.models (cached by cacheModels).
  */
 export function createConnectionInfoRoute(
   opts: ConnectionInfoRouteOptions,
 ): Hono {
-  const { client, getJwt, port } = opts;
+  const { port } = opts
 
-  // Cache model list in memory
-  let cachedModels: string[] | null = null;
-
-  const route = new Hono();
+  const route = new Hono()
 
   route.get("/connection-info", async (c) => {
-    const baseUrl = `http://localhost:${port}`;
+    const baseUrl = `http://localhost:${port}`
 
-    // Fetch models if not cached
-    if (!cachedModels) {
+    // Ensure models are cached
+    if (!state.models) {
       try {
-        const res = await client.fetchModels(getJwt());
-        if (res.ok) {
-          const data = await res.json();
-          const models = Array.isArray(data) ? data : data?.data ?? [];
-          cachedModels = models.map((m: { id: string }) => m.id);
-        }
+        await cacheModels()
       } catch {
         // Fall through with empty models
       }
     }
+
+    const models = state.models?.data?.map((m) => m.id) ?? []
 
     return c.json({
       base_url: baseUrl,
@@ -45,9 +40,9 @@ export function createConnectionInfoRoute(
         models: "/v1/models",
         embeddings: "/v1/embeddings",
       },
-      models: cachedModels ?? [],
-    });
-  });
+      models,
+    })
+  })
 
-  return route;
+  return route
 }
