@@ -8,9 +8,7 @@ export interface State {
   models?: ModelsResponse
   vsCodeVersion?: string
 
-  manualApprove: boolean
   rateLimitWait: boolean
-  showToken: boolean
 
   // Rate limiting configuration
   rateLimitSeconds?: number
@@ -19,7 +17,5 @@ export interface State {
 
 export const state: State = {
   accountType: "individual",
-  manualApprove: false,
   rateLimitWait: false,
-  showToken: false,
 }
