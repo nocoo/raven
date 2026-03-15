@@ -28,3 +28,5 @@ bun run test:e2e    # e2e tests (requires proxy running on :7033)
 ```
 
 ## Retrospective
+
+- `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.
