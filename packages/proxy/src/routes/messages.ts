@@ -12,6 +12,7 @@ import { createStreamTranslator } from "../translate/stream.ts";
 import { parseSSEStream } from "../util/sse.ts";
 import { insertRequest, type RequestRecord } from "../db/requests.ts";
 import { logger } from "../util/logger.ts";
+import { startKeepalive } from "../util/keepalive.ts";
 
 // ---------------------------------------------------------------------------
 // ULID-like ID generator (timestamp-sortable, no external deps)
@@ -201,6 +202,7 @@ async function handleStreamResponse(
     async start(controller) {
       const encoder = new TextEncoder();
       let translator: ReturnType<typeof createStreamTranslator> | null = null;
+      const ka = startKeepalive(controller);
 
       try {
         for await (const data of parseSSEStream(upstreamBody)) {
@@ -274,6 +276,7 @@ async function handleStreamResponse(
             const line = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
             controller.enqueue(encoder.encode(line));
           }
+          ka.ping();
         }
       } catch (err) {
         streamError =
@@ -286,6 +289,7 @@ async function handleStreamResponse(
           // Controller may already be closed
         }
       } finally {
+        ka.stop();
         controller.close();
 
         // Log after stream completes — use error status if stream failed

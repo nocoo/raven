@@ -4,6 +4,7 @@ import type { CopilotClient, ChatCompletionRequest } from "../copilot/client.ts"
 import type { OpenAIResponse, OpenAIStreamChunk } from "../translate/types.ts";
 import { parseSSEStream } from "../util/sse.ts";
 import { insertRequest, type RequestRecord } from "../db/requests.ts";
+import { startKeepalive } from "../util/keepalive.ts";
 
 // ---------------------------------------------------------------------------
 // ULID-like ID generator
@@ -171,6 +172,7 @@ async function handleStreamPassthrough(
   const outputStream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
+      const ka = startKeepalive(controller);
 
       try {
         for await (const data of parseSSEStream(upstreamBody)) {
@@ -184,6 +186,7 @@ async function handleStreamPassthrough(
           controller.enqueue(
             encoder.encode(`data: ${data}\n\n`),
           );
+          ka.ping();
 
           // Parse for metrics collection
           try {
@@ -207,6 +210,7 @@ async function handleStreamPassthrough(
         streamError =
           err instanceof Error ? `stream error: ${err.message}` : "stream error";
       } finally {
+        ka.stop();
         controller.close();
 
         if (ctx.db) {
