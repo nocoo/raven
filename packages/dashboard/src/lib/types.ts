@@ -81,6 +81,11 @@ export interface CopilotModel {
   vendor?: string;
 }
 
+export interface CopilotModelList {
+  object: string;
+  data: CopilotModel[];
+}
+
 // ---------------------------------------------------------------------------
 // Copilot user/subscription info (from api.github.com/copilot_internal/user)
 // ---------------------------------------------------------------------------
