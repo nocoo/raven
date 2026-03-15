@@ -14,6 +14,7 @@ import {
   PanelLeft,
   LogOut,
   ChevronUp,
+  Terminal,
 } from "lucide-react";
 import { cn, getAvatarColor } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -52,6 +53,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard },
       { href: "/requests", label: "Requests", icon: ScrollText },
+      { href: "/logs", label: "Logs", icon: Terminal },
       { href: "/models", label: "Models", icon: Boxes },
     ],
   },
