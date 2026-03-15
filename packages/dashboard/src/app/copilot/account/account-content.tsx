@@ -90,39 +90,78 @@ function ToggleRow({ label, value }: { label: string; value: boolean }) {
   );
 }
 
+const RING_SIZE = 80;
+const RING_STROKE = 6;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean }) {
+  const clamped = Math.min(Math.max(percent, 0), 100);
+  const offset = unlimited ? 0 : RING_CIRCUMFERENCE * (1 - clamped / 100);
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: RING_SIZE, height: RING_SIZE }}>
+      <svg width={RING_SIZE} height={RING_SIZE} className="-rotate-90">
+        {/* Background track */}
+        <circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_RADIUS}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={RING_STROKE}
+          className="text-muted/40"
+        />
+        {/* Foreground arc */}
+        <circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_RADIUS}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={RING_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={RING_CIRCUMFERENCE}
+          strokeDashoffset={offset}
+          className={unlimited ? "text-primary" : clamped > 20 ? "text-primary" : "text-destructive"}
+          style={{ transition: "stroke-dashoffset 0.6s ease" }}
+        />
+      </svg>
+      {/* Center label */}
+      <span className="absolute inset-0 flex items-center justify-center">
+        {unlimited ? (
+          <Infinity className="h-5 w-5 text-primary" strokeWidth={2} />
+        ) : (
+          <span className="text-sm font-semibold tabular-nums">{Math.round(clamped)}%</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function QuotaCard({ id, snapshot }: { id: string; snapshot: CopilotQuotaSnapshot }) {
   const label = id
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="rounded-lg bg-secondary p-3 space-y-2">
-      <div className="flex items-center justify-between">
+    <div className="flex items-center gap-4 rounded-lg bg-secondary p-4">
+      <QuotaRing percent={snapshot.percent_remaining} unlimited={snapshot.unlimited} />
+      <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm font-medium">{label}</p>
         {snapshot.unlimited ? (
-          <Badge variant="info" className="gap-1">
-            <Infinity className="h-3 w-3" />
-            Unlimited
-          </Badge>
+          <p className="text-xs text-muted-foreground">Unlimited usage</p>
         ) : (
-          <span className="text-sm font-mono">
-            {snapshot.remaining.toLocaleString()} / {snapshot.entitlement.toLocaleString()}
-          </span>
+          <p className="text-xs text-muted-foreground">
+            {snapshot.remaining.toLocaleString()} / {snapshot.entitlement.toLocaleString()} remaining
+          </p>
+        )}
+        {snapshot.overage_count > 0 && (
+          <p className="text-xs text-destructive">
+            {snapshot.overage_count} overage{snapshot.overage_count !== 1 ? "s" : ""}
+          </p>
         )}
       </div>
-      {!snapshot.unlimited && (
-        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${Math.min(snapshot.percent_remaining, 100)}%` }}
-          />
-        </div>
-      )}
-      {snapshot.overage_count > 0 && (
-        <p className="text-xs text-destructive">
-          {snapshot.overage_count} overage{snapshot.overage_count !== 1 ? "s" : ""}
-        </p>
-      )}
     </div>
   );
 }
@@ -254,6 +293,26 @@ export function AccountContent({ data }: AccountContentProps) {
         )}
       </div>
 
+      {/* Quota snapshots */}
+      {quotas.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Gauge className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+            <h2 className="text-sm font-medium text-muted-foreground">Quota</h2>
+            {data.quota_reset_date && (
+              <span className="text-xs text-muted-foreground ml-auto">
+                Resets {data.quota_reset_date}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {quotas.map(([id, snapshot]) => (
+              <QuotaCard key={id} id={id} snapshot={snapshot} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Feature toggles */}
       <div className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Feature Toggles</h2>
@@ -275,26 +334,6 @@ export function AccountContent({ data }: AccountContentProps) {
           )}
         </div>
       </div>
-
-      {/* Quota snapshots */}
-      {quotas.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Gauge className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
-            <h2 className="text-sm font-medium text-muted-foreground">Quota</h2>
-            {data.quota_reset_date && (
-              <span className="text-xs text-muted-foreground ml-auto">
-                Resets {data.quota_reset_date}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {quotas.map(([id, snapshot]) => (
-              <QuotaCard key={id} id={id} snapshot={snapshot} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Endpoints */}
       {data.endpoints && Object.keys(data.endpoints).length > 0 && (
