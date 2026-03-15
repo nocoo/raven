@@ -37,13 +37,10 @@ function scheduleTokenRefresh(refreshInSeconds: number) {
   // If result is too small, use the floor.
   const intervalMs = Math.max((refreshInSeconds - 60) * 1000, MIN_REFRESH_MS)
 
-  let backoff = INITIAL_BACKOFF_MS
-
   const timer = setInterval(async () => {
     try {
       const { token, refresh_in } = await getCopilotToken()
       state.copilotToken = token
-      backoff = INITIAL_BACKOFF_MS // reset on success
       logger.debug("Copilot token refreshed")
 
       // If upstream changed refresh_in, reschedule with new interval
@@ -53,33 +50,41 @@ function scheduleTokenRefresh(refreshInSeconds: number) {
         scheduleTokenRefresh(refresh_in)
       }
     } catch (error) {
-      logger.error("Failed to refresh Copilot token, retrying", {
-        error: String(error),
-        retryInMs: backoff,
-      })
-      // Exponential backoff: stop current interval, retry after delay,
-      // then resume normal interval schedule.
+      // First failure on the normal interval — switch to retry loop
       clearInterval(timer)
-      setTimeout(async () => {
-        try {
-          const { token, refresh_in } = await getCopilotToken()
-          state.copilotToken = token
-          backoff = INITIAL_BACKOFF_MS
-          logger.info("Copilot token recovered after retry")
-          scheduleTokenRefresh(refresh_in)
-        } catch (retryError) {
-          // Keep backing off — schedule another retry
-          backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
-          logger.error("Copilot token retry failed, backing off", {
-            error: String(retryError),
-            nextRetryInMs: backoff,
-          })
-          scheduleTokenRefresh(refreshInSeconds)
-        }
-      }, backoff)
-      backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
+      retryTokenRefresh(INITIAL_BACKOFF_MS, refreshInSeconds, error)
     }
   }, intervalMs)
+}
+
+/**
+ * Retry loop using setTimeout chain with exponential backoff.
+ * On success, resumes normal setInterval schedule.
+ * On failure, keeps retrying with increasing delay up to MAX_BACKOFF_MS.
+ */
+function retryTokenRefresh(
+  backoff: number,
+  originalRefreshInSeconds: number,
+  lastError: unknown,
+) {
+  logger.error("Failed to refresh Copilot token, retrying", {
+    error: String(lastError),
+    retryInMs: backoff,
+  })
+
+  setTimeout(async () => {
+    try {
+      const { token, refresh_in } = await getCopilotToken()
+      state.copilotToken = token
+      logger.info("Copilot token recovered after retry")
+      // Success — resume normal refresh schedule
+      scheduleTokenRefresh(refresh_in)
+    } catch (retryError) {
+      // Keep retrying with increasing backoff
+      const nextBackoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
+      retryTokenRefresh(nextBackoff, originalRefreshInSeconds, retryError)
+    }
+  }, backoff)
 }
 
 interface SetupGitHubTokenOptions {
