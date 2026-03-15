@@ -80,3 +80,28 @@ export interface CopilotModel {
   policy?: CopilotModelPolicy;
   vendor?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Copilot user/subscription info (from api.github.com/copilot_internal/user)
+// ---------------------------------------------------------------------------
+
+export interface CopilotUser {
+  /** GitHub login */
+  login?: string;
+  /** Subscription tier (e.g. "copilot_for_business") */
+  copilot_plan?: string;
+  /** Whether the user has access to Copilot Chat */
+  chat_enabled?: boolean;
+  /** Whether the user has access to Copilot in the IDE */
+  copilot_ide_agent_chat_enabled?: boolean;
+  /** Whether the user has access to xcode */
+  xcode?: boolean;
+  /** Whether the user has access to CLI */
+  copilot_ide_chat_enabled?: boolean;
+  /** Organization managing the subscription */
+  organization_name?: string;
+  /** Seat management pending cancellation date */
+  pending_cancellation_date?: string | null;
+  /** Raw fields from the API we haven't typed explicitly */
+  [key: string]: unknown;
+}
