@@ -486,7 +486,7 @@ Dashboard WS 连接为同源相对路径（`/api/ws/logs`），不需要额外 U
 | 2 | `refactor: wire logger.ts as LogEmitter terminal sink` ✅ | `util/logger.ts`, `index.ts`, `copilot/token.ts` |
 | 3 | `refactor: unify requestId generation in route layer` ✅ | `middleware.ts`, `routes/messages.ts`, `routes/chat.ts` |
 | 4 | `feat: instrument routes with structured log events` ✅ | `routes/messages.ts`, `routes/chat.ts` |
-| 5 | `feat: add WebSocket /ws/logs endpoint with auth and backfill` | `ws/logs.ts`, `index.ts` |
+| 5 | `feat: add WebSocket /ws/logs endpoint with auth and backfill` ✅ | `ws/logs.ts`, `index.ts` |
 | 6 | `feat: add dashboard WS proxy route for log streaming` | dashboard: `app/api/ws/logs/route.ts` |
 | 7 | `feat: add real-time log viewer dashboard page` | dashboard: `hooks/use-log-stream.ts`, `app/logs/`, `sidebar.tsx` |
 | 8 | `test: add unit tests for LogEmitter and WS handler` | `test/util/log-emitter.test.ts`, `test/ws/logs.test.ts` |
