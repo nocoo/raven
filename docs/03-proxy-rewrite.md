@@ -788,30 +788,35 @@ routes/messages/route.ts           ← only hono + forwardError + handlers (incl
 ## Commit Sequence Summary
 
 ```
-Phase 1 — The Swap
-  1.1  chore: move packages/proxy to proxy-legacy outside workspace
-  1.2  feat: scaffold new packages/proxy from copilot-api
-  1.3  chore: create new package.json with trimmed deps
-  1.4  refactor: strip consola from all copilot-api files
-  1.5  refactor: strip approval, proxy, shell modules
-  1.6  refactor: replace tiny-invariant with inline checks
-  1.7  refactor: patch lib/paths.ts to use RAVEN_TOKEN_PATH
+Phase 1 — The Swap ✅
+  1.1  chore: move packages/proxy to proxy-legacy outside workspace          ✅ 80874ae
+  1.2  feat: scaffold new packages/proxy from copilot-api                    ✅ 9c05a85
+  1.3  chore: create new package.json with trimmed deps                      ✅ 6d5194a
+  1.4  refactor: strip consola from all copilot-api files                    ✅ a91e28e
+  1.5  refactor: strip approval, proxy, shell modules                        ✅ a91e28e (combined with 1.4)
+  1.6  refactor: replace tiny-invariant with inline checks                   ✅ a91e28e (combined with 1.4)
+  1.7  refactor: patch lib/paths.ts to use RAVEN_TOKEN_PATH                  ✅ 741ae74
 
-Phase 2 — Glue Raven Features (including logging)
-  2.1  feat: write createApp factory with partial DI
-  2.2  feat: rewire copilot-info.ts to new state/services
-  2.3  feat: add log events to chat-completions handler (logEmitter.emitLog)
-  2.4  feat: add log events to messages handler (logEmitter.emitLog)
-  2.5  feat: wire request sink in bootstrap (startRequestSink)
+Phase 2 — Glue Raven Features (including logging) ✅
+  2.1  feat: write createApp factory with partial DI                         ✅ ce03fad
+  2.2  feat: rewire copilot-info.ts to new state/services                    ✅ ce03fad (included in 2.1)
+  2.3  feat: add log events to chat-completions handler (logEmitter.emitLog) ✅ 9655413
+  2.4  feat: add log events to messages handler (logEmitter.emitLog)         ✅ bf5198c
+  2.5  feat: wire request sink in bootstrap (startRequestSink)               ✅ 83bda2b
+       fix: correct route mount paths                                        ✅ 50bca9d
 
-Phase 3 — MVP Verification
-  3.1  test: verify core proxy routes + count_tokens (manual)
-  3.2  test: verify ALL 7 dashboard API endpoints (manual)
-  3.3  test: verify auth-protected paths (manual)
-  3.4  test: verify dashboard renders with live data (manual)
+Phase 3 — MVP Verification ✅
+  3.1  test: verify core proxy routes + count_tokens (manual)                ✅ all passing
+  3.2  test: verify ALL 7 dashboard API endpoints (manual)                   ✅ 7/7 endpoints verified
+  3.3  test: verify auth-protected paths (manual)                            ✅ 6/6 checks passed
+  3.4  test: verify dashboard renders with live data (manual)                ⏳ API verified, browser pending
 
-Phase 4 — Test Rebuild
-  (copy 40 safe tests, adapt translation tests, write new wiring tests)
+Phase 4 — Test Rebuild ✅
+  test: copy 9 test files from proxy-legacy (110 tests)                      ✅ 535f153
+  test: adapt translation tests (67 tests)                                   ✅ 5a3550a
+  test: add request-sink and app wiring tests (20 tests)                     ✅ 964c510
+  test: copy e2e and adapt perf benchmarks (14 tests)                        ✅ cce5d34
+  Total: 211 tests, 0 failures
 
 Phase 5 — Iterative Deepening
   (timeout, zod, full DI refactor, upstream tracking, ...)
