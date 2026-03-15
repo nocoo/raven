@@ -10,6 +10,13 @@ const allowedEmails = (process.env.ALLOWED_EMAILS ?? "")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean);
 
+if (allowedEmails.length === 0) {
+  console.warn(
+    "[auth] ⚠ ALLOWED_EMAILS is not set — all Google accounts can sign in. " +
+      "Set ALLOWED_EMAILS=you@example.com to restrict access.",
+  );
+}
+
 // For reverse proxy environments with HTTPS, we need secure cookies
 const useSecureCookies =
   process.env.NODE_ENV === "production" ||
@@ -84,10 +91,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user }) {
       const email = user.email?.toLowerCase();
-      if (!email || !allowedEmails.includes(email)) {
-        return false;
-      }
-      return true;
+      if (!email) return false;
+      // If no allowlist is configured, permit any authenticated Google account
+      if (allowedEmails.length === 0) return true;
+      return allowedEmails.includes(email);
     },
   },
 });
