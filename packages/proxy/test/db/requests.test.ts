@@ -180,6 +180,54 @@ describe("queryTimeseries", () => {
     const latestBucket = result[result.length - 1];
     expect(latestBucket.count).toBe(2);
   });
+
+  test("aggregates by minute", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
+
+    const result = queryTimeseries(db, "minute", "1h");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("aggregates by day", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
+
+    const result = queryTimeseries(db, "day", "7d");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("unknown interval defaults to hour", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
+
+    const result = queryTimeseries(db, "unknown", "24h");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("range with minute unit", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
+
+    const result = queryTimeseries(db, "minute", "30m");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("range with day unit", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
+
+    const result = queryTimeseries(db, "hour", "7d");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("invalid range defaults to 24h", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
+
+    const result = queryTimeseries(db, "hour", "invalid");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ===========================================================================
