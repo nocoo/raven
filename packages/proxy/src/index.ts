@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { loadConfig } from "./config.ts";
-import { setLogLevel } from "./util/logger.ts";
+import { logger, setLogLevel } from "./util/logger.ts";
 import { createApp } from "./app.ts";
 import { createCopilotClient } from "./copilot/client.ts";
 import { authenticate } from "./copilot/auth.ts";
@@ -19,18 +19,18 @@ setLogLevel(config.logLevel);
 const db = new Database("data/raven.db");
 initDatabase(db);
 initApiKeys(db);
-console.log("[init] Database ready (WAL mode)");
+logger.info("Database ready (WAL mode)");
 
 // 2. GitHub OAuth (loads from disk or runs device flow)
 const githubToken = await authenticate(config.tokenPath);
-console.log("[init] GitHub token loaded");
+logger.info("GitHub token loaded");
 
 // 3. Copilot JWT (initial fetch + auto-refresh)
 const tokenManager = new TokenManager();
 const initialToken = await fetchCopilotToken(githubToken);
 tokenManager.setCopilotToken(initialToken);
 tokenManager.startAutoRefresh(githubToken);
-console.log("[init] Copilot JWT acquired, auto-refresh started");
+logger.info("Copilot JWT acquired, auto-refresh started");
 
 // 4. Copilot client
 const client = createCopilotClient();
@@ -45,7 +45,7 @@ const app = createApp({
   port: config.port,
 });
 
-console.log(`[init] Raven proxy listening on port ${config.port}`);
+logger.info(`Raven proxy listening on port ${config.port}`);
 
 export default {
   port: config.port,

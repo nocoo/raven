@@ -1,3 +1,5 @@
+import { logger } from "../util/logger.ts";
+
 export interface CopilotTokenResponse {
   token: string;
   expires_at: number;
@@ -79,13 +81,15 @@ export class TokenManager {
       try {
         const newToken = await fetchCopilotToken(githubToken, fetchFn);
         this.setCopilotToken(newToken);
-        console.log(
-          `[token] Copilot JWT refreshed, next refresh in ${Math.round(this.getRefreshDelay() / 1000)}s`,
+        logger.info(
+          `Copilot JWT refreshed, next refresh in ${Math.round(this.getRefreshDelay() / 1000)}s`,
         );
         // Schedule next refresh based on new token's refresh_in
         this.refreshTimer = setTimeout(doRefresh, this.getRefreshDelay());
       } catch (err) {
-        console.error("[token] Failed to refresh Copilot JWT:", err);
+        logger.error("Failed to refresh Copilot JWT", {
+          error: err instanceof Error ? err.message : String(err),
+        });
         // Retry directly in 30 seconds (no double-scheduling)
         this.refreshTimer = setTimeout(doRefresh, 30000);
       }

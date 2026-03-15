@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { CopilotClient } from "../copilot/client.ts";
 import { fetchCopilotUser } from "../copilot/info.ts";
+import { logger } from "../util/logger.ts";
 
 // ---------------------------------------------------------------------------
 // Copilot info routes — cached models + user subscription data
@@ -42,10 +43,10 @@ export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
 
   // Eager fetch at creation time (fire-and-forget, log errors)
   refreshModels().catch((err) =>
-    console.error("[copilot-info] Failed to fetch models:", err.message),
+    logger.warn("Failed to fetch models", { error: err.message }),
   );
   refreshUser().catch((err) =>
-    console.error("[copilot-info] Failed to fetch user info:", err.message),
+    logger.warn("Failed to fetch user info", { error: err.message }),
   );
 
   // ------- Routes -------
