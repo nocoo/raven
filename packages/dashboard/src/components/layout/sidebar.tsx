@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -59,7 +60,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
           <div className="flex h-screen w-[68px] flex-col items-center">
             {/* Logo */}
             <div className="flex h-14 w-full items-center justify-start pl-5 pr-3">
-              <span className="text-lg font-bold tracking-tighter">R</span>
+              <Image src="/logo-24.png" alt="Raven" width={24} height={24} className="rounded-sm" />
             </div>
 
             {/* Expand toggle */}
@@ -117,6 +118,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
             <div className="px-3 h-14 flex items-center">
               <div className="flex w-full items-center justify-between px-3">
                 <div className="flex items-center gap-3">
+                  <Image src="/logo-24.png" alt="Raven" width={24} height={24} className="rounded-sm" />
                   <span className="text-lg font-bold tracking-tighter">raven</span>
                 </div>
                 <button
