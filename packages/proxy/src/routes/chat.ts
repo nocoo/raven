@@ -46,6 +46,11 @@ export function createChatRoute(opts: ChatRouteOptions): Hono {
     const requestId = generateId();
     const body = (await c.req.json()) as ChatCompletionRequest;
 
+    // Ensure max_tokens is set — Copilot API may truncate or error without it
+    if (body.max_tokens === undefined) {
+      body.max_tokens = 16384;
+    }
+
     // Resolve JWT at request time (not route creation time)
     const copilotJwt = getJwt();
 
