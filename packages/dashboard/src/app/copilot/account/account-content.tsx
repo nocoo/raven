@@ -13,7 +13,7 @@ import {
   Gauge,
   CheckCircle2,
   XCircle,
-  Infinity,
+  Infinity as InfinityIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -130,7 +130,7 @@ function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean
       {/* Center label */}
       <span className="absolute inset-0 flex items-center justify-center">
         {unlimited ? (
-          <Infinity className="h-5 w-5 text-primary" strokeWidth={2} />
+          <InfinityIcon className="h-5 w-5 text-primary" strokeWidth={2} />
         ) : (
           <span className="text-sm font-semibold tabular-nums">{Math.round(clamped)}%</span>
         )}

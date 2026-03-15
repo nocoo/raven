@@ -6,7 +6,7 @@
     "dev": "next dev -p 7032",
     "build": "next build",
     "start": "next start -p 7032",
-    "lint": "next lint",
+    "lint": "eslint --config ../../eslint.config.js src/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
