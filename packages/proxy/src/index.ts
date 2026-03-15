@@ -5,6 +5,7 @@ import { createCopilotClient } from "./copilot/client.ts";
 import { authenticate } from "./copilot/auth.ts";
 import { fetchCopilotToken, TokenManager } from "./copilot/token.ts";
 import { initDatabase } from "./db/requests.ts";
+import { initApiKeys } from "./db/keys.ts";
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -15,6 +16,7 @@ const config = loadConfig();
 // 1. Database
 const db = new Database("data/raven.db");
 initDatabase(db);
+initApiKeys(db);
 console.log("[init] Database ready (WAL mode)");
 
 // 2. GitHub OAuth (loads from disk or runs device flow)
