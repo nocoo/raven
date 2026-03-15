@@ -13,11 +13,11 @@ Raven proxy has high error rates from hand-written SSE parsing, stream lifecycle
 1. Move `packages/proxy` → `proxy-legacy/` (out of workspace, reference only)
 2. Copy copilot-api source into `packages/proxy` as the new core
 3. Strip CLI/UX deps, write `createApp()` factory with DI, wire to Bun.serve on :7033
-4. Glue Raven features back **including logging** — `db/`, `middleware.ts`, dashboard API routes, `count-tokens`, `logRequest()` hooks
+4. Glue Raven features back **including logging** -- `db/`, `middleware.ts`, dashboard API routes, `count-tokens`, `logEmitter.emitLog()` event instrumentation
 5. Get MVP running (proxy forwards requests, dashboard loads **with live data**)
 6. Iterate: add tests, refactor
 
-**Assumption:** Phase 0 (`logRequest` extraction to `db/log.ts`) is already done.
+**Assumption:** Logging refactoring is already done — the codebase has a full event-bus architecture (see "Logging Architecture" section below). Phase 2 logging work is limited to emitting the right `LogEvent`s from the new handlers; the persistence and streaming infrastructure is in place.
 
 ---
 
@@ -31,10 +31,12 @@ copilot-api uses a module-level singleton `server` in `server.ts` and a global m
 
 | Layer | DI? | How deps flow |
 |-------|-----|---------------|
-| `createApp(deps)` — Raven wiring | ✅ Real DI | `db`, `apiKey`, `githubToken` passed explicitly |
-| Raven routes (stats, requests, copilot-info) | ✅ Real DI | Receive `db` / `state` via factory params |
-| copilot-api routes (chat, messages, models) | ❌ Global singleton | `import { state } from "~/lib/state"` — unchanged |
-| copilot-api services | ❌ Global singleton | Same — read `state.copilotToken` etc. directly |
+| `createApp(deps)` -- Raven wiring | ✅ Real DI | `client`, `getJwt`, `db`, `apiKey`, `githubToken` passed explicitly |
+| Raven routes (stats, requests, copilot-info) | ✅ Real DI | Receive `db` / deps via factory params |
+| Logging (emit side) | ✅ Module singleton | Handlers import `logEmitter` directly -- no DI needed, no DB coupling |
+| Logging (persist side) | ✅ Bootstrap wiring | `startRequestSink(db)` subscribes listener at boot -- routes are unaware |
+| copilot-api routes (chat, messages, models) | ❌ Global singleton | `import { state } from "~/lib/state"` -- unchanged |
+| copilot-api services | ❌ Global singleton | Same -- read `state.copilotToken` etc. directly |
 
 This means: **you cannot pass a mock `state` into `createApp()` and expect copilot-api routes to use it.** Testing copilot-api routes requires mutating the global `state` object. This is acceptable for MVP — copilot-api itself has zero tests and was designed around this singleton. Full DI refactoring is Phase 5 backlog.
 
@@ -42,105 +44,155 @@ This means: **you cannot pass a mock `state` into `createApp()` and expect copil
 // packages/proxy/src/app.ts
 
 import type { Database } from "bun:sqlite"
+import type { CopilotClient } from "./copilot/client"
 
 export interface AppDeps {
-  db: Database                    // SQLite for request logging + dashboard queries
-  apiKey: string                  // RAVEN_API_KEY (empty = no auth)
+  client: CopilotClient           // Copilot API client (token-aware fetch)
+  getJwt: () => string            // returns current Copilot JWT (auto-refreshed)
+  db: Database                    // SQLite for dashboard queries
+  apiKey?: string                 // RAVEN_API_KEY (undefined = dev mode)
   githubToken: string             // needed by copilot-info /user endpoint
+  port?: number                   // for connection-info display
 }
 
 export function createApp(deps: AppDeps): Hono {
-  const { db, apiKey, githubToken } = deps
+  const { client, getJwt, db, apiKey, githubToken, port } = deps
   const app = new Hono()
 
   // --- Middleware ---
-  app.use(logger())
-  app.use(cors())
   app.use("*", requestContext())
-  if (apiKey) {
-    app.use("/v1/*", apiKeyAuth(apiKey))
-    app.use("/api/*", apiKeyAuth(apiKey))
-  }
+  const auth = multiKeyAuth({ db, envApiKey: apiKey })
+  app.use("/v1/*", auth)
+  app.use("/api/*", auth)
 
-  // --- Wire db into handlers for logging ---
-  setChatDb(db)
-  setMsgDb(db)
-
-  // --- copilot-api core routes (read from global state internally) ---
-  app.route("/chat/completions", completionRoutes)
-  app.route("/v1/chat/completions", completionRoutes)
-  app.route("/v1/messages", messageRoutes)     // includes /v1/messages/count_tokens
-  app.route("/models", modelRoutes)
-  app.route("/v1/models", modelRoutes)
-  app.route("/embeddings", embeddingRoutes)
-  app.route("/v1/embeddings", embeddingRoutes)
-
-  // --- Raven: health ---
+  // --- Health ---
   app.get("/health", (c) => c.json({ status: "ok" }))
 
-  // --- Raven: dashboard API ---
-  // NOTE: Raven routes define internal paths like "/stats/overview", "/requests",
-  // "/copilot/models". Mount at "/api" so final paths become "/api/stats/overview" etc.
+  // --- Core proxy routes ---
+  // NOTE: Handlers emit LogEvents via logEmitter.emitLog() internally.
+  // DB persistence is handled by the request-sink listener (see bootstrap).
+  // No db wiring needed in route layer.
+  app.route("/v1", createModelsRoute({ client, getJwt }))
+  app.route("/v1", countTokensRoute)
+  app.route("/v1", createMessagesRoute({ client, copilotJwt: getJwt }))
+  app.route("/v1", createChatRoute({ client, copilotJwt: getJwt }))
+
+  // --- Dashboard API ---
   app.route("/api", createStatsRoute(db))
   app.route("/api", createRequestsRoute(db))
-  app.route("/api", createCopilotInfoRoute({ githubToken }))
-
-  // --- copilot-api extras ---
-  app.route("/usage", usageRoute)
-  // NOTE: /token route deliberately excluded (exposes JWT, security risk)
+  app.route("/api", createCopilotInfoRoute({ client, getJwt, githubToken }))
+  app.route("/api", createKeysRoute(db))
+  app.route("/api", createConnectionInfoRoute({ client, getJwt, port: port ?? 7033 }))
 
   return app
 }
 ```
 
-**`index.ts` (bootstrap) creates runtime objects, then passes them into the factory:**
+**`index.ts` (bootstrap) creates runtime objects, wires the log pipeline, then passes deps into the factory. The request-sink is started as a LogEmitter listener -- routes never touch the database directly:**
 
 ```typescript
 // packages/proxy/src/index.ts
 
 import { Database } from "bun:sqlite"
-import { loadConfig } from "./raven/config"
-import { initDatabase } from "./db/requests"
-import { state } from "./lib/state"
-import { setupCopilotToken, setupGitHubToken } from "./lib/token"
-import { cacheModels, cacheVSCodeVersion } from "./lib/utils"
+import { loadConfig } from "./config"
+import { logger, setLogLevel } from "./util/logger"
 import { createApp } from "./app"
-import { resolve } from "node:path"
-import { ensurePaths } from "./lib/paths"
+import { createCopilotClient } from "./copilot/client"
+import { authenticate } from "./copilot/auth"
+import { fetchCopilotToken, TokenManager } from "./copilot/token"
+import { initDatabase } from "./db/requests"
+import { startRequestSink } from "./db/request-sink"
+import { initApiKeys } from "./db/keys"
+import { wsHandler } from "./ws/logs"
 
 const config = loadConfig()
+setLogLevel(config.logLevel)
 
-// --- Ensure data dir + token file exist BEFORE anything reads them ---
-await ensurePaths()
-
-// --- Raven: SQLite ---
-// DB lives next to token file: config.tokenPath = "data/github_token"
-// → DB path = "data/raven.db"
-const dataDir = resolve(config.tokenPath, "..")
-const db = new Database(resolve(dataDir, "raven.db"), { create: true })
+// --- Database + sinks ---
+const db = new Database("data/raven.db")
 initDatabase(db)
+initApiKeys(db)
+startRequestSink(db)    // subscribes to logEmitter, persists request_end events
+logger.info("Database ready (WAL mode)")
 
-// --- copilot-api boot sequence ---
-// copilot-api's lib/paths.ts hardcodes ~/.local/share/copilot-api/github_token
-// for its own token storage. We override by setting RAVEN_TOKEN_PATH in config
-// and patching lib/paths.ts to use it (see "Data/Token Path Reconciliation" below).
-state.accountType = "individual"
-await cacheVSCodeVersion()
-await setupGitHubToken()
-await setupCopilotToken()
-await cacheModels()
+// --- GitHub OAuth (loads from disk or runs device flow) ---
+const githubToken = await authenticate(config.tokenPath)
 
-// --- Create app with all deps ---
+// --- Copilot JWT (initial fetch + auto-refresh) ---
+const tokenManager = new TokenManager()
+const initialToken = await fetchCopilotToken(githubToken)
+tokenManager.setCopilotToken(initialToken)
+tokenManager.startAutoRefresh(githubToken)
+
+// --- Build app ---
 const app = createApp({
+  client: createCopilotClient(),
+  getJwt: () => tokenManager.getToken()!,
   db,
-  apiKey: config.apiKey,
-  githubToken: state.githubToken!,
+  apiKey: config.apiKey || undefined,
+  githubToken,
+  port: config.port,
 })
 
-// --- Start ---
-Bun.serve({ fetch: app.fetch, port: config.port })
-console.log(`Raven proxy listening on http://localhost:${config.port}`)
+// --- Start (Bun.serve with WS support) ---
+export default {
+  port: config.port,
+  fetch(req, server) {
+    // WebSocket upgrade for /ws/logs (real-time log streaming)
+    if (new URL(req.url).pathname === "/ws/logs") {
+      // ... auth check + server.upgrade() ...
+      return
+    }
+    return app.fetch(req, server)
+  },
+  websocket: wsHandler,
+}
 ```
+
+### Logging Architecture (implemented)
+
+The logging system uses a **fan-out event bus** pattern. All log events flow through a central `LogEmitter` (Node.js `EventEmitter` + ring buffer). Multiple sinks subscribe independently:
+
+```
+  Producers                    Event Bus               Sinks (listeners)
+  ---                          ---                     ---
+  logger.info()  --+
+  logger.error() --+
+  route handlers --+-->  logEmitter.emitLog()  -->  1. Terminal (logger.ts) -> stdout JSON lines
+                   |         |                       2. WebSocket (ws/logs.ts) -> dashboard live stream
+                   |         +- ring buffer (200)    3. DB sink (request-sink.ts) -> SQLite
+                   |            for WS backfill
+```
+
+**Key files:**
+
+| File | Role |
+|------|------|
+| `util/log-event.ts` | Type definitions: `LogLevel`, `LogEventType`, `LogEvent` |
+| `util/log-emitter.ts` | Central event bus (`LogEmitter` class) with ring buffer |
+| `util/logger.ts` | Terminal sink (stdout JSON lines) + `logger.debug/info/warn/error()` convenience API |
+| `ws/logs.ts` | WebSocket sink -- real-time log streaming to dashboard (per-connection level/filter) |
+| `db/request-sink.ts` | DB sink -- persists `request_end` events to SQLite via `startRequestSink(db)` |
+
+**Event types:**
+
+| Type | Emitted by | Persisted? |
+|------|-----------|------------|
+| `system` | `logger.*()` convenience API | No |
+| `request_start` | Route handlers (inline) | No |
+| `request_end` | Route handlers (inline) | Yes -- DB sink extracts fields to `RequestRecord` |
+| `sse_chunk` | Route handlers (debug only) | No |
+| `upstream_error` | Route handlers | No |
+
+**Design properties:**
+
+- Dispatch is **synchronous** -- listeners must be lightweight (level check before serialization)
+- Level filtering is **per-sink**: terminal respects `RAVEN_LOG_LEVEL`, WS respects per-connection `?level=` param (adjustable at runtime via `set_level` command)
+- DB sink filters by **event type** (`request_end` only), not level
+- Route handlers emit `LogEvent`s via `logEmitter.emitLog()` directly -- they never import or call the DB layer
+- `requestId` (ULID-like from `util/id.ts`) correlates all events for one request and doubles as the SQLite primary key
+
+**What this means for the rewrite:** Handlers only need to `import { logEmitter } from "~/util/log-emitter"` and call `logEmitter.emitLog({...})` at the right exit points. The `startRequestSink(db)` call in bootstrap handles all persistence automatically. No `setDb()` setters, no `logRequest()` calls, no DB imports in route files.
 
 ### Data/Token Path Reconciliation
 
@@ -196,7 +248,7 @@ Root `package.json` has `"workspaces": ["packages/*"]`. Moving to repo root (not
 
 ### 1.2 `feat: scaffold new packages/proxy from copilot-api`
 
-Copy copilot-api `src/` into `packages/proxy/src/`. New directory layout:
+Copy copilot-api `src/` into `packages/proxy/src/`. New directory layout (reflects actual refactored structure):
 
 ```
 packages/proxy/
@@ -204,66 +256,55 @@ packages/proxy/
 ├── tsconfig.json               ← NEW (add ~/paths, bun types)
 │
 ├── src/
-│   ├── index.ts                ← NEW (Raven bootstrap)
-│   ├── app.ts                  ← NEW (createApp factory with DI)
+│   ├── index.ts                ← Raven bootstrap (wires sinks, auth, starts server)
+│   ├── app.ts                  ← createApp factory with DI
+│   ├── config.ts               ← RAVEN_* env vars (logLevel, apiKey, tokenPath, port)
+│   ├── middleware.ts            ← API key auth (multiKeyAuth) + requestContext
 │   │
-│   ├── lib/                    ← FROM copilot-api (trimmed)
-│   │   ├── api-config.ts       ← KEEP (headers, URLs, constants)
-│   │   ├── error.ts            ← KEEP (HTTPError, forwardError) — strip consola
-│   │   ├── paths.ts            ← KEEP (token file paths)
-│   │   ├── rate-limit.ts       ← KEEP — strip consola
-│   │   ├── state.ts            ← KEEP (global state singleton)
-│   │   ├── token.ts            ← KEEP (GitHub + Copilot token setup) — strip consola
-│   │   ├── tokenizer.ts        ← KEEP (gpt-tokenizer wrapper)
-│   │   └── utils.ts            ← KEEP (cacheModels, cacheVSCodeVersion) — strip consola
+│   ├── copilot/                ← Auth + client (Raven-owned, replaces copilot-api lib/)
+│   │   ├── auth.ts             ← GitHub device flow + token persistence
+│   │   ├── client.ts           ← CopilotClient (token-aware fetch)
+│   │   ├── headers.ts          ← Copilot API headers (editor version, etc.)
+│   │   ├── info.ts             ← Copilot account info service
+│   │   ├── token.ts            ← TokenManager (auto-refresh JWT)
+│   │   └── vscode.ts           ← VS Code version caching
 │   │
-│   ├── services/               ← FROM copilot-api (all kept)
-│   │   ├── copilot/
-│   │   │   ├── create-chat-completions.ts  ← strip consola
-│   │   │   ├── create-embeddings.ts
-│   │   │   └── get-models.ts
-│   │   ├── github/
-│   │   │   ├── get-copilot-token.ts
-│   │   │   ├── get-copilot-usage.ts
-│   │   │   ├── get-device-code.ts
-│   │   │   ├── get-user.ts
-│   │   │   └── poll-access-token.ts        ← strip consola
-│   │   └── get-vscode-version.ts
+│   ├── routes/                 ← HTTP route handlers (flat files, not nested dirs)
+│   │   ├── chat.ts             ← /v1/chat/completions — emits LogEvents via logEmitter
+│   │   ├── messages.ts         ← /v1/messages — emits LogEvents via logEmitter
+│   │   ├── models.ts           ← /v1/models
+│   │   ├── embeddings.ts       ← /v1/embeddings
+│   │   ├── count-tokens.ts     ← /v1/messages/count_tokens
+│   │   ├── stats.ts            ← /api/stats/* (dashboard)
+│   │   ├── requests.ts         ← /api/requests (dashboard)
+│   │   ├── copilot-info.ts     ← /api/copilot/* (dashboard)
+│   │   ├── keys.ts             ← /api/keys (API key management)
+│   │   └── connection-info.ts  ← /api/connection-info
 │   │
-│   ├── routes/                 ← FROM copilot-api (core routes) + logging hooks
-│   │   ├── chat-completions/
-│   │   │   ├── route.ts
-│   │   │   └── handler.ts     ← strip consola/approval, ADD logRequest hooks
-│   │   ├── messages/
-│   │   │   ├── route.ts
-│   │   │   ├── handler.ts     ← strip consola/approval, ADD logRequest hooks
-│   │   │   ├── anthropic-types.ts
-│   │   │   ├── non-stream-translation.ts
-│   │   │   ├── stream-translation.ts
-│   │   │   ├── count-tokens-handler.ts     ← strip consola
-│   │   │   └── utils.ts
-│   │   ├── models/
-│   │   │   └── route.ts
-│   │   ├── embeddings/
-│   │   │   └── route.ts
-│   │   └── usage/
-│   │       └── route.ts
+│   ├── translate/              ← Stream format translation (OpenAI ↔ Anthropic)
+│   │   ├── anthropic-to-openai.ts
+│   │   ├── openai-to-anthropic.ts
+│   │   ├── stream.ts
+│   │   └── types.ts
 │   │
-│   ├── db/                     ← FROM proxy-legacy (Raven-specific, copy as-is)
-│   │   ├── requests.ts
-│   │   └── log.ts              ← FROM Phase 0 extraction
+│   ├── db/                     ← SQLite persistence
+│   │   ├── requests.ts         ← Schema + queries (RequestRecord)
+│   │   ├── request-sink.ts     ← LogEmitter listener — persists request_end events
+│   │   └── keys.ts             ← API key storage + hashing
 │   │
-│   ├── raven/                  ← FROM proxy-legacy (Raven-specific features)
-│   │   ├── middleware.ts       ← API key auth + requestContext
-│   │   ├── config.ts           ← RAVEN_* env vars
-│   │   ├── stats.ts            ← GET /api/stats/* routes
-│   │   ├── requests.ts         ← GET /api/requests route
-│   │   └── copilot-info.ts     ← GET /api/copilot/* routes (rewired)
+│   ├── util/                   ← Logging infrastructure + helpers
+│   │   ├── log-event.ts        ← LogLevel, LogEventType, LogEvent types
+│   │   ├── log-emitter.ts      ← Central event bus (EventEmitter + ring buffer)
+│   │   ├── logger.ts           ← Terminal sink (stdout JSON lines) + convenience API
+│   │   ├── id.ts               ← ULID-like request ID generation
+│   │   ├── keepalive.ts        ← SSE keepalive helper
+│   │   ├── params.ts           ← Request parameter extraction
+│   │   └── sse.ts              ← SSE utilities
 │   │
-│   └── util/
-│       └── logger.ts           ← FROM proxy-legacy
+│   └── ws/
+│       └── logs.ts             ← WebSocket sink — real-time log streaming to dashboard
 │
-├── test/                       ← tests (initially copied safe ones from legacy)
+├── test/                       ← tests
 └── data/                       ← runtime data dir
     └── (raven.db, github_token)
 ```
@@ -296,17 +337,19 @@ packages/proxy/
 
 ### 1.4 `refactor: strip consola from all copilot-api files`
 
-Mechanical find-and-replace across 14 files:
+Mechanical find-and-replace across 14 files. Replace with Raven's `logger.*` convenience API (which emits `system` type events through `LogEmitter`) or `logEmitter.emitLog()` for typed events:
 
 | Pattern | Replacement |
 |---------|-------------|
-| `import { consola } from "consola"` | remove line |
-| `consola.debug(...)` | remove or `// debug: ...` |
-| `consola.info(...)` | `console.log(...)` |
-| `consola.warn(...)` | `console.warn(...)` |
-| `consola.error(...)` | `console.error(...)` |
-| `consola.start(...)` | `console.log(...)` |
-| `consola.success(...)` | `console.log(...)` |
+| `import { consola } from "consola"` | `import { logger } from "~/util/logger"` |
+| `consola.debug(...)` | `logger.debug(...)` or remove |
+| `consola.info(...)` | `logger.info(...)` |
+| `consola.warn(...)` | `logger.warn(...)` |
+| `consola.error(...)` | `logger.error(...)` |
+| `consola.start(...)` | `logger.info(...)` |
+| `consola.success(...)` | `logger.info(...)` |
+
+In route handlers specifically, replace `consola.*` with direct `logEmitter.emitLog()` calls using typed events (`request_start`, `request_end`, etc.) -- see Phase 2.3/2.4.
 
 ### 1.5 `refactor: strip approval, proxy, shell modules`
 
@@ -327,7 +370,7 @@ Only used in original `start.ts` (which we replaced with our own `index.ts`), so
 
 ## Phase 2 — Glue Raven Features (including logging)
 
-**Logging is MVP-critical.** Without `logRequest()` calls in the new handlers, `/api/stats/*` and `/api/requests` return empty data — that's a behavior regression the dashboard would immediately surface. So logging hooks go in Phase 2, not "post-MVP".
+**Logging is MVP-critical.** Without `logEmitter.emitLog()` calls in the new handlers, the DB sink has nothing to persist and `/api/stats/*` and `/api/requests` return empty data -- that's a behavior regression the dashboard would immediately surface. So log event instrumentation goes in Phase 2, not "post-MVP". The logging infrastructure (event bus, sinks, types) is already in place -- this phase is about emitting the right events from the new handlers.
 
 ### 2.1 `feat: write createApp factory with dependency injection`
 
@@ -392,19 +435,14 @@ export function createCopilotInfoRoute(deps: CopilotInfoDeps): Hono {
 
 **Why `githubToken` is in deps but not used in the function body:** It serves as a precondition assertion — the caller must have `state.githubToken` set before creating this route (which `setupGitHubToken()` does in bootstrap). The actual service `getCopilotUsage()` reads from global `state.githubToken` internally, same as all other copilot-api services. This is consistent with the "Partial DI" model described above: Raven routes access the global state for copilot-api concerns, and only receive Raven-specific deps (like `db`) via real injection.
 
-### 2.3 `feat: add logRequest hooks to chat-completions handler`
+### 2.3 `feat: add log events to chat-completions handler`
 
-Modify copilot-api's `chat-completions/handler.ts` to accept `db` and call `logRequest()`:
+Modify copilot-api's handler to emit structured `LogEvent`s via `logEmitter.emitLog()`. The handler does **not** import `db` or call any persistence function -- the `request-sink` listener (wired in bootstrap) handles SQLite writes automatically when it sees a `request_end` event.
 
 ```typescript
-// At module level — import logging
-import { logRequest, generateId } from "../../db/log"
-import type { Database } from "bun:sqlite"
-
-// db is accessed via a module-level setter (see 2.4)
-let _db: Database | undefined
-
-export function setDb(db: Database | undefined) { _db = db }
+// At module level
+import { logEmitter } from "~/util/log-emitter"
+import { generateId } from "~/util/id"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -413,118 +451,74 @@ export async function handleCompletion(c: Context) {
   let stream = false
 
   try {
-    // ... existing handler logic ...
-    // After payload parse:
     model = payload.model
     stream = !!payload.stream
+
+    // --- request_start ---
+    logEmitter.emitLog({
+      ts: Date.now(), level: "info", type: "request_start", requestId,
+      msg: `POST /v1/chat/completions ${model}`,
+      data: { path: "/v1/chat/completions", format: "openai", model, stream },
+    })
 
     const response = await createChatCompletions(payload)
 
     if (isNonStreaming(response)) {
-      const latency = performance.now() - startTime
-      logRequest(_db, {
-        id: requestId,
-        path: "/v1/chat/completions",
-        clientFormat: "openai",
-        model,
-        resolvedModel: response.model ?? null,
-        stream: false,
-        inputTokens: response.usage?.prompt_tokens,
-        outputTokens: response.usage?.completion_tokens,
-        latencyMs: latency,
-        status: "success",
-        statusCode: 200,
+      // --- request_end (non-stream success) ---
+      logEmitter.emitLog({
+        ts: Date.now(), level: "info", type: "request_end", requestId,
+        msg: `completed ${model}`,
+        data: {
+          path: "/v1/chat/completions", format: "openai", model,
+          resolvedModel: response.model, stream: false,
+          inputTokens: response.usage?.prompt_tokens,
+          outputTokens: response.usage?.completion_tokens,
+          latencyMs: performance.now() - startTime,
+          status: "success", statusCode: 200,
+        },
       })
       return c.json(response)
     }
 
-    // Streaming path
-    let ttft: number | undefined
-    let inputTokens: number | undefined
-    let outputTokens: number | undefined
-    let resolvedModel: string | undefined
-    let streamError: Error | undefined
-
-    return streamSSE(c, async (stream) => {
-      stream.onAbort(() => {
-        logRequest(_db, {
-          id: requestId, path: "/v1/chat/completions",
-          clientFormat: "openai", model, stream: true,
-          inputTokens, outputTokens, ttftMs: ttft,
-          latencyMs: performance.now() - startTime,
-          status: "error", statusCode: 499,
-          errorMessage: "Client disconnected",
-        })
-      })
-
-      for await (const chunk of response) {
-        await stream.writeSSE(chunk)
-        // Parse chunk for metrics
-        try {
-          const parsed = JSON.parse(chunk.data)
-          if (!ttft && parsed.choices?.[0]?.delta?.content) {
-            ttft = performance.now() - startTime
-          }
-          if (!resolvedModel && parsed.model) resolvedModel = parsed.model
-          if (parsed.usage) {
-            inputTokens = parsed.usage.prompt_tokens
-            outputTokens = parsed.usage.completion_tokens
-          }
-        } catch { /* metrics extraction is best-effort */ }
-      }
-
-      logRequest(_db, {
-        id: requestId, path: "/v1/chat/completions",
-        clientFormat: "openai", model, resolvedModel,
-        stream: true, inputTokens, outputTokens, ttftMs: ttft,
-        latencyMs: performance.now() - startTime,
-        status: "success", statusCode: 200,
-      })
-    }, (err) => {
-      // Stream-internal error — could be upstream disconnect, parse error, etc.
-      const statusCode = err instanceof HTTPError ? err.response.status : 502
-      logRequest(_db, {
-        id: requestId, path: "/v1/chat/completions",
-        clientFormat: "openai", model, stream: true,
-        latencyMs: performance.now() - startTime,
-        status: "error", statusCode,
-        errorMessage: err instanceof Error ? err.message : String(err),
-      })
-    })
+    // Streaming path — emit request_end in finally block
+    // (covers success, client abort, upstream error)
+    // ...
   } catch (error) {
-    // Extract real status from HTTPError (e.g. 429 from rate limit, upstream 4xx/5xx)
-    // Only fall back to 500 for truly unknown errors
-    const statusCode = error instanceof HTTPError
-      ? error.response.status    // preserves 429, 403, 502 etc.
-      : 500                      // unknown error
-    const upstreamStatus = error instanceof HTTPError
-      ? error.response.status
-      : undefined
-
-    logRequest(_db, {
-      id: requestId, path: "/v1/chat/completions",
-      clientFormat: "openai", model, stream,
-      latencyMs: performance.now() - startTime,
-      status: "error", statusCode, upstreamStatus,
-      errorMessage: error instanceof Error ? error.message : String(error),
+    const statusCode = error instanceof HTTPError ? error.response.status : 500
+    // --- request_end (error) ---
+    logEmitter.emitLog({
+      ts: Date.now(), level: "error", type: "request_end", requestId,
+      msg: `failed ${model}: ${error instanceof Error ? error.message : String(error)}`,
+      data: {
+        path: "/v1/chat/completions", format: "openai", model, stream,
+        latencyMs: performance.now() - startTime,
+        status: "error", statusCode, upstreamStatus: statusCode !== 500 ? statusCode : undefined,
+        error: error instanceof Error ? error.message : String(error),
+      },
     })
-    throw error  // let route.ts forwardError handle the response
+    throw error
   }
 }
 ```
 
-### 2.4 `feat: add logRequest hooks to messages handler`
+Every request MUST emit exactly one `request_end` event as its terminal event -- this is the contract that `request-sink` depends on for DB persistence.
 
-Same pattern as 2.3 but with:
-- `clientFormat: "anthropic"`
+### 2.4 `feat: add log events to messages handler`
+
+Same event-bus pattern as 2.3 but with:
+- `format: "anthropic"` in the data bag
 - `path: "/v1/messages"`
-- Messages handler already does `JSON.parse(rawEvent.data)` at L75, so usage extraction is direct
+- Anthropic stream translation already parses chunks inline, so usage/TTFT extraction is direct
 
-### 2.5 `feat: wire db into handlers via createApp`
+### 2.5 `feat: wire request sink in bootstrap` (already done)
 
-`setChatDb(db)` and `setMsgDb(db)` are called inside `createApp()` (see Core Design section above). No separate step needed — this happens as part of 2.1.
+`startRequestSink(db)` is called in `index.ts` at bootstrap (see code above). It subscribes a listener to `logEmitter` that:
+1. Filters for `type === "request_end"` events only
+2. Extracts `data` fields into a `RequestRecord`
+3. Calls `insertRequest(db, record)` -- wrapped in try/catch to never crash the request flow
+4. Uses `console.error()` directly (not `logEmitter`) to avoid infinite recursion on DB write failures
 
-**Why module-level setter instead of passing db through Hono context?** copilot-api's handlers are plain functions `handleCompletion(c: Context)` — they only receive Hono's Context. We could add db to Hono's context variables, but that requires type augmentation across all files. The setter approach is minimal-invasive: one function call at boot, zero changes to handler signatures. It can be refactored to proper DI later (Phase 5).
+No `setDb()` setters needed. No DB imports in route files. The decoupling is clean: handlers emit events, the sink persists them.
 
 ### 2.6 `feat: add health endpoint`
 
@@ -650,7 +644,7 @@ test/config.test.ts             → 2 tests (env var loading)
 | P0 | Dashboard API contract | New | Snapshot tests for 7 `/api/*` endpoints |
 | P0 | E2E smoke | Copy from legacy | 8 tests, adjust if routes changed |
 | P1 | Translation (58 cases) | Adapt from legacy | Same test cases, new function names (`translateToOpenAI`/`translateToAnthropic`/`translateChunkToAnthropicEvents`) |
-| P1 | Logging (10 cases) | Rewrite | Test `logRequest()` at 4 exit points per handler |
+| P1 | Logging (10 cases) | Rewrite | Test `logEmitter.emitLog()` at exit points per handler + `request-sink` persistence |
 | P2 | Auth flow | Adapt from legacy | 20 tests, point to new service modules |
 | P2 | App wiring | Rewrite | Test `createApp(deps)` with mock deps |
 | P3 | Rate limiting | New | Test copilot-api's `checkRateLimit` |
@@ -667,9 +661,7 @@ After MVP is stable, pick from this backlog:
 | Add request timeout (`AbortSignal.timeout(30s)`) | S | Prevents hung connections |
 | Add `zod` request validation | M | Rejects malformed payloads early |
 | Upstream tracking (`git remote add upstream`) | S | Track auth/header changes |
-| Refactor `setDb()` setter → proper DI via Hono context | M | Cleaner architecture |
 | Refactor global `state` → injected dependency | L | Full testability |
-| Add TTFT tracking to dashboard charts | M | New metric visibility |
 | Add `Retry-After` header forwarding on 429 | S | Better client experience |
 | Remove `gpt-tokenizer` if count-tokens not needed | S | Fewer deps |
 
@@ -702,8 +694,8 @@ After MVP is stable, pick from this backlog:
 | `lib/utils.ts` | `consola` | `cacheModels`, `cacheVSCodeVersion`, `sleep`, `isNullish` |
 | `services/copilot/create-chat-completions.ts` | `consola` | core service |
 | `services/github/poll-access-token.ts` | `consola` | polling logic |
-| `routes/chat-completions/handler.ts` | `consola`, `approval`, ADD `logRequest` hooks | handler + logging |
-| `routes/messages/handler.ts` | `consola`, `approval`, ADD `logRequest` hooks | handler + logging |
+| `routes/chat-completions/handler.ts` | `consola`, `approval`, ADD `logEmitter.emitLog()` events | handler + structured logging |
+| `routes/messages/handler.ts` | `consola`, `approval`, ADD `logEmitter.emitLog()` events | handler + structured logging |
 | `routes/messages/count-tokens-handler.ts` | `consola` | token counting |
 
 ### copilot-api files: COPY AS-IS (zero external deps, no changes needed)
@@ -746,7 +738,7 @@ routes/messages/route.ts           ← only hono + forwardError + handlers (incl
 | `gpt-tokenizer` | ✅ | ✅ | Keep (for count-tokens) |
 | `bun:sqlite` | ❌ | ✅ | Raven-specific, built-in |
 | `citty` | ✅ | ❌ | Drop — replaced by direct bootstrap |
-| `consola` | ✅ | ❌ | Drop — mechanical replace with console.* |
+| `consola` | ✅ | ❌ | Drop -- replaced by `logger.*` (emits through LogEmitter) |
 | `clipboardy` | ✅ | ❌ | Drop — UX sugar |
 | `srvx` | ✅ | ❌ | Drop — replaced by Bun.serve |
 | `tiny-invariant` | ✅ | ❌ | Drop — inline if/throw |
@@ -769,6 +761,7 @@ routes/messages/route.ts           ← only hono + forwardError + handlers (incl
 | 5 | `GET /api/requests?...` | `{ data: RequestRecord[], has_more, next_cursor?, total? }` | Same | 3.2 |
 | 6 | `GET /api/copilot/models` | `{ object, data: CopilotModel[] }` | `raven/copilot-info.ts` → `state.models` (rewired) | 3.2 |
 | 7 | `GET /api/copilot/user` | `CopilotUser` | `raven/copilot-info.ts` → `getCopilotUsage()` (rewired) | 3.2 |
+| 8 | `WS /ws/logs?token=&level=` | Stream of `LogEvent` JSON objects | `ws/logs.ts` → `logEmitter` ring buffer + live events | 3.4 |
 
 ---
 
@@ -776,8 +769,8 @@ routes/messages/route.ts           ← only hono + forwardError + handlers (incl
 
 | Risk | Mitigation |
 |------|-----------|
-| Dashboard shows empty data | Logging hooks are in Phase 2 (MVP), not deferred. Verified in 3.2 + 3.4. |
-| `db` not accessible in handlers | `createApp(deps)` factory wires `setDb()` at boot. |
+| Dashboard shows empty data | Log event instrumentation is in Phase 2 (MVP), not deferred. `startRequestSink(db)` in bootstrap persists `request_end` events automatically. Verified in 3.2 + 3.4. |
+| DB persistence breaks request flow | `request-sink.ts` wraps `insertRequest()` in try/catch, uses `console.error()` directly (not logEmitter) to avoid infinite recursion. DB failures are logged but never crash handlers. |
 | `copilot-info.ts` breaks | Reads global `state.models` + calls `getCopilotUsage()` (which reads `state.githubToken`). Tested in 3.2. |
 | Legacy pollutes workspace | Moved to `proxy-legacy/` at repo root, outside `packages/*` glob. |
 | Auth not tested | Phase 3.3 explicitly tests auth + no-auth paths for both `/v1/*` and `/api/*`. |
@@ -807,9 +800,9 @@ Phase 1 — The Swap
 Phase 2 — Glue Raven Features (including logging)
   2.1  feat: write createApp factory with partial DI
   2.2  feat: rewire copilot-info.ts to new state/services
-  2.3  feat: add logRequest hooks to chat-completions handler
-  2.4  feat: add logRequest hooks to messages handler
-  2.5  feat: add health endpoint
+  2.3  feat: add log events to chat-completions handler (logEmitter.emitLog)
+  2.4  feat: add log events to messages handler (logEmitter.emitLog)
+  2.5  feat: wire request sink in bootstrap (startRequestSink)
 
 Phase 3 — MVP Verification
   3.1  test: verify core proxy routes + count_tokens (manual)
@@ -831,10 +824,10 @@ Phase 5 — Iterative Deepening
 When copying copilot-api modules, apply these transformations:
 
 1. **`~/` imports** — add `paths: { "~/*": ["./src/*"] }` to `tsconfig.json` (one line, all imports work)
-2. **`consola.*` → `console.*`** — mechanical replacement, 14 files
+2. **`consola.*` → `logger.*` / `logEmitter.emitLog()`** — infrastructure modules use `logger.*` convenience API, route handlers use `logEmitter.emitLog()` with typed events
 3. **`awaitApproval()` calls** — delete entirely (2 handlers)
 4. **`manualApprove` checks** — delete entirely (2 handlers)
 5. **`tiny-invariant`** — inline `if (!x) throw` (likely zero occurrences in copied files)
-6. **Add `logRequest()` hooks** — 2 handlers, 4 exit points each (see Phase 2.3/2.4)
+6. **Add `logEmitter.emitLog()` events** — 2 handlers, emit `request_start` + `request_end` (+ `upstream_error`, `sse_chunk` for debug). DB persistence is automatic via `request-sink` (see Phase 2.3/2.4)
 7. **`server.ts` → `app.ts`** — singleton → factory with `AppDeps` (see Core Design)
 8. **`lib/paths.ts`** — patch hardcoded `~/.local/share/copilot-api/` to use `RAVEN_TOKEN_PATH` (see "Data/Token Path Reconciliation")
