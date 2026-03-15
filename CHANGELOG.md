@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.1 (2026-03-15)
+
+Copilot upstream visibility — fetch real model list and subscription info from GitHub APIs, display in two new dashboard pages.
+
+### Proxy
+
+- **Copilot models endpoint** — `GET /api/copilot/models` fetches available models from `api.githubcopilot.com/models`, cached in memory with `?refresh=true` support
+- **Copilot user endpoint** — `GET /api/copilot/user` fetches subscription/entitlement info from `api.github.com/copilot_internal/user`, same caching strategy
+- **CopilotClient.fetchModels()** — new method on the client interface for upstream model discovery
+
+### Dashboard
+
+- **Copilot Models page** — table grouped by vendor (Anthropic, Azure OpenAI, Google, OpenAI), sorted by max prompt tokens descending, inline copy-to-clipboard on model IDs
+- **Copilot Account page** — subscription overview cards, SVG circular progress rings for quota (percentage center label, ∞ icon for unlimited), feature toggles list, endpoints table, catch-all for unknown API fields with JSON pretty-print
+- **Sidebar** — added Copilot Models and Account navigation items
+
 ## v0.2.0 (2026-03-15)
 
 First feature-complete release — proxy + dashboard MVP.
