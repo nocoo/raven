@@ -8,20 +8,23 @@ Bun workspace monorepo: `packages/proxy` (Hono, port 7033) + `packages/dashboard
 
 ### Proxy tests — anti-ban protocol
 
-The proxy interacts with GitHub Copilot's upstream API. Automated tests that hit real endpoints risk triggering rate limits or account bans. Follow these rules strictly:
+The proxy interacts with GitHub Copilot's upstream API. Careless testing can trigger rate limits or account bans.
 
-- **Never** send real requests to `api.githubcopilot.com` in tests
-- **Always** mock HTTP calls to upstream services (GitHub OAuth, Copilot token, Copilot chat completions)
-- **Never** use real GitHub OAuth tokens or Copilot JWTs in test fixtures — use obviously fake values
-- **Never** run load tests or rapid-fire requests against real endpoints
-- **Never** commit real tokens, even expired ones, into test files or fixtures
-- If a test requires integration with the real upstream, it must be explicitly gated behind an env flag (e.g. `RAVEN_INTEGRATION=true`) and must **never** run in CI or pre-commit hooks
+**Unit tests** (`bun run test`): Always mock upstream HTTP calls. Never use real tokens in fixtures.
+
+**E2E tests** (`bun run test:e2e`): Hit the real running proxy (localhost:7033) which forwards to real Copilot API. Rules:
+- **Fail fast**: stop the entire suite on first upstream error (non-2xx from Copilot). Do not retry, do not continue.
+- **Minimal requests**: each test sends exactly 1 request. No loops, no load testing, no rapid-fire.
+- **Never commit real tokens** into test files or fixtures.
+- **Require proxy running**: skip gracefully if proxy is not reachable.
+- E2E tests must **never** run in CI or pre-commit hooks — manual execution only.
 
 ### Running tests
 
 ```bash
-bun run test        # all proxy unit tests (187 tests)
+bun run test        # unit tests (187 tests, all mocked)
 bun run test:perf   # performance benchmarks (SSE parsing, translation)
+bun run test:e2e    # e2e tests (requires proxy running on :7033)
 ```
 
 ## Retrospective
