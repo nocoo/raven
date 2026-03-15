@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import type { CopilotClient } from "./copilot/client.ts";
 import { requestContext, apiKeyAuth } from "./middleware.ts";
-import { modelsRoute } from "./routes/models.ts";
+import { createModelsRoute } from "./routes/models.ts";
 import { createMessagesRoute } from "./routes/messages.ts";
 import { createChatRoute } from "./routes/chat.ts";
 import { countTokensRoute } from "./routes/count-tokens.ts";
@@ -39,8 +39,8 @@ export function createApp(deps: AppDeps): Hono {
   // ------- routes -------
   app.get("/health", (c) => c.json({ status: "ok" }));
 
-  // Models
-  app.route("/v1", modelsRoute);
+  // Models (dynamic from upstream, cached)
+  app.route("/v1", createModelsRoute({ client, getJwt }));
 
   // Token counting
   app.route("/v1", countTokensRoute);
