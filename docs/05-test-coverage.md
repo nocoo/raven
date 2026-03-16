@@ -10,25 +10,51 @@ Raven proxy handles high-volume concurrent requests — every code path directly
 | 🟠 WARM | Per-request — executes once per API call | `middleware.ts`, handlers, `create-chat-completions.ts`, `rate-limit.ts`, `non-stream-translation.ts`, `log-emitter.ts`, `request-sink.ts` |
 | 🧊 COLD | Startup or admin — executes once at boot or on manual action | `db/requests.ts initDatabase`, `db/keys.ts initApiKeys`, `services/github/*` |
 
-### Current state (229 tests, 468 assertions)
+### Current state (371 tests, 672 assertions) — ✅ COMPLETE
+
+**All 40 source files at 95%+ line coverage. Overall: 99.56%.**
 
 | Module | Heat | Line coverage | Status |
 |--------|------|---------------|--------|
-| `util/sse.ts` | 🔥 | 91% | Good, minor edge cases |
-| `routes/messages/stream-translation.ts` | 🔥 | 91% | Good, missing error event + tool↔text transitions |
-| `routes/messages/non-stream-translation.ts` | 🟠 | 94% | Good, missing `claude-opus-*` model name |
-| `middleware.ts` | 🟠 | 100% | ✅ Complete |
-| `util/log-emitter.ts` | 🟠 | 100% | ✅ Complete |
-| `db/request-sink.ts` | 🟠 | 100% | ✅ Complete |
-| `db/keys.ts` | 🧊 | 100% | ✅ Complete |
-| `db/requests.ts` | 🧊 | 94% | Good, asc-order cursor untested |
-| `routes/chat-completions/handler.ts` | 🟠 | 7% | ❌ Zero coverage |
-| `routes/messages/handler.ts` | 🟠 | 7% | ❌ Zero coverage |
-| `lib/rate-limit.ts` | 🟠 | 9% | ❌ Zero coverage |
-| `services/copilot/create-chat-completions.ts` | 🟠 | 14% | ❌ Zero coverage |
-| `lib/tokenizer.ts` | 🟠 | 7% | ❌ Zero coverage (350 lines) |
-| `routes/messages/count-tokens-handler.ts` | 🟠 | 7% | ❌ Zero coverage |
-| `util/id.ts` | 🟠 | 0% | ❌ Zero coverage |
+| `util/sse.ts` | 🔥 | 100% | ✅ Phase 1c |
+| `routes/messages/stream-translation.ts` | 🔥 | 100% | ✅ Phase 1a |
+| `routes/messages/non-stream-translation.ts` | 🟠 | 98.50% | ✅ Phase 1b |
+| `middleware.ts` | 🟠 | 100% | ✅ Pre-existing |
+| `util/log-emitter.ts` | 🟠 | 100% | ✅ Pre-existing |
+| `db/request-sink.ts` | 🟠 | 100% | ✅ Pre-existing |
+| `db/keys.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `db/requests.ts` | 🧊 | 99.38% | ✅ Phase 1d |
+| `routes/chat-completions/handler.ts` | 🟠 | 100% | ✅ Phase 2g |
+| `routes/messages/handler.ts` | 🟠 | 100% | ✅ Phase 2h |
+| `lib/rate-limit.ts` | 🟠 | 100% | ✅ Phase 2b |
+| `services/copilot/create-chat-completions.ts` | 🟠 | 100% | ✅ Phase 2d |
+| `lib/tokenizer.ts` | 🟠 | 99.14% | ✅ Phase 2e |
+| `routes/messages/count-tokens-handler.ts` | 🟠 | 100% | ✅ Phase 2f |
+| `util/id.ts` | 🟠 | 100% | ✅ Phase 2c |
+| `lib/utils.ts` | 🧊 | 100% | ✅ Phase 3b |
+| `routes/copilot-info.ts` | 🧊 | 96.97% | ✅ Phase 3b |
+| `routes/messages/utils.ts` | 🟠 | 100% | ✅ Phase 3b |
+| `routes/messages/route.ts` | 🟠 | 100% | ✅ Phase 3b |
+| `routes/chat-completions/route.ts` | 🟠 | 100% | ✅ Phase 3b |
+| `routes/stats.ts` | 🧊 | 100% | ✅ Phase 3b |
+| `routes/models/route.ts` | 🟠 | 100% | ✅ Phase 3a |
+| `routes/embeddings/route.ts` | 🟠 | 100% | ✅ Phase 3a |
+| `services/get-vscode-version.ts` | 🧊 | 95.83% | ✅ Phase 3a |
+| `services/copilot/create-embeddings.ts` | 🧊 | 100% | ✅ Phase 3a |
+| `services/copilot/get-models.ts` | 🧊 | 100% | ✅ Phase 3a |
+| `services/github/get-copilot-usage.ts` | 🧊 | 100% | ✅ Phase 3a |
+| `util/logger.ts` | 🟠 | 95.65% | ✅ Phase 3a |
+| `util/params.ts` | 🟠 | 100% | ✅ Pre-existing |
+| `lib/api-config.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `lib/error.ts` | 🟠 | 100% | ✅ Pre-existing |
+| `lib/state.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `routes/keys.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `routes/requests.ts` | 🧊 | 97.44% | ✅ Pre-existing |
+| `routes/connection-info.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `config.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `app.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `ws/logs.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `util/log-event.ts` | 🧊 | 100% | ✅ Pre-existing |
 
 ### Target
 
