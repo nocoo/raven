@@ -246,6 +246,66 @@ function SystemEventCard({ event }: { event: LogEvent }) {
 }
 
 // ---------------------------------------------------------------------------
+// Phase detail — shows events relevant to a clicked timeline node
+// ---------------------------------------------------------------------------
+
+function PhaseDetail({
+  phase,
+  events,
+  onClose,
+}: {
+  phase: "start" | "error" | "end";
+  events: LogEvent[];
+  onClose: () => void;
+}) {
+  const phaseEvents = events.filter((e) => {
+    if (phase === "start") return e.type === "request_start";
+    if (phase === "error") return e.type === "upstream_error";
+    if (phase === "end") return e.type === "request_end";
+    return false;
+  });
+
+  if (phaseEvents.length === 0) return null;
+
+  const phaseLabel = phase === "start" ? "Request Start" : phase === "error" ? "Upstream Error" : "Request End";
+
+  return (
+    <div className="mt-3 rounded-md border border-border bg-muted/30 p-2.5 font-mono text-[11px]">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{phaseLabel}</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
+        >
+          ✕
+        </button>
+      </div>
+      {phaseEvents.map((ev, i) => {
+        const data = ev.data ? { ...ev.data } : null;
+        return (
+          <div key={i} className="space-y-1">
+            <p className="text-muted-foreground">{ev.msg}</p>
+            {data && Object.keys(data).length > 0 && (
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
+                {Object.entries(data).map(([key, val]) => (
+                  <div key={key} className="contents">
+                    <span className="text-muted-foreground/70">{key}</span>
+                    <span className="text-foreground truncate">
+                      {typeof val === "object" ? JSON.stringify(val) : String(val)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Request card — header + timeline
 // ---------------------------------------------------------------------------
 
@@ -257,6 +317,7 @@ function RequestCard({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const [focusedPhase, setFocusedPhase] = useState<"start" | "error" | "end" | null>(null);
 
   const startEvent = events.find((e) => e.type === "request_start");
   const endEvent = events.find((e) => e.type === "request_end");
@@ -374,14 +435,19 @@ function RequestCard({
           <div className="flex items-center gap-0 font-mono text-[11px]">
             {/* Start node */}
             <div className="flex shrink-0 flex-col items-center">
-              <div className={cn(
-                "flex items-center justify-center rounded-full size-7 border-2",
-                isError
-                  ? "border-destructive/40 bg-destructive/10"
-                  : "border-info/40 bg-info/10",
-              )}>
+              <button
+                type="button"
+                onClick={() => setFocusedPhase(focusedPhase === "start" ? null : "start")}
+                className={cn(
+                  "flex items-center justify-center rounded-full size-7 border-2 cursor-pointer transition-shadow",
+                  isError
+                    ? "border-destructive/40 bg-destructive/10"
+                    : "border-info/40 bg-info/10",
+                  focusedPhase === "start" && "ring-2 ring-info/50",
+                  "hover:ring-2 hover:ring-info/30",
+                )}>
                 <span className="text-[9px] font-bold text-info">S</span>
-              </div>
+              </button>
               <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
                 {startEvent ? formatTime(startEvent.ts) : "—"}
               </span>
@@ -432,9 +498,16 @@ function RequestCard({
             {errorEvents.length > 0 && (
               <>
                 <div className="flex shrink-0 flex-col items-center mx-1">
-                  <div className="flex items-center justify-center rounded-full size-7 border-2 border-destructive/50 bg-destructive/10">
+                  <button
+                    type="button"
+                    onClick={() => setFocusedPhase(focusedPhase === "error" ? null : "error")}
+                    className={cn(
+                      "flex items-center justify-center rounded-full size-7 border-2 border-destructive/50 bg-destructive/10 cursor-pointer transition-shadow",
+                      focusedPhase === "error" && "ring-2 ring-destructive/50",
+                      "hover:ring-2 hover:ring-destructive/30",
+                    )}>
                     <span className="text-[9px] font-bold text-destructive">!</span>
-                  </div>
+                  </button>
                   <span className="mt-1 text-[10px] text-destructive whitespace-nowrap">
                     upstream
                   </span>
@@ -449,19 +522,24 @@ function RequestCard({
             {/* End node */}
             <div className="flex shrink-0 flex-col items-center">
               {isComplete ? (
-                <div className={cn(
-                  "flex items-center justify-center rounded-full size-7 border-2",
-                  isError
-                    ? "border-destructive/50 bg-destructive/10"
-                    : "border-success/50 bg-success/10",
-                )}>
+                <button
+                  type="button"
+                  onClick={() => setFocusedPhase(focusedPhase === "end" ? null : "end")}
+                  className={cn(
+                    "flex items-center justify-center rounded-full size-7 border-2 cursor-pointer transition-shadow",
+                    isError
+                      ? "border-destructive/50 bg-destructive/10"
+                      : "border-success/50 bg-success/10",
+                    focusedPhase === "end" && (isError ? "ring-2 ring-destructive/50" : "ring-2 ring-success/50"),
+                    isError ? "hover:ring-2 hover:ring-destructive/30" : "hover:ring-2 hover:ring-success/30",
+                  )}>
                   <span className={cn(
                     "text-[9px] font-bold",
                     isError ? "text-destructive" : "text-success",
                   )}>
                     {isError ? "E" : "OK"}
                   </span>
-                </div>
+                </button>
               ) : (
                 <div className="flex items-center justify-center rounded-full size-7 border-2 border-dashed border-muted-foreground/40">
                   <Loader2 className="size-3 text-muted-foreground animate-spin" />
@@ -487,6 +565,15 @@ function RequestCard({
               {(ev.data?.error as string) ?? ev.msg}
             </div>
           ))}
+
+          {/* Phase detail — shown when a timeline node is clicked */}
+          {focusedPhase && (
+            <PhaseDetail
+              phase={focusedPhase}
+              events={events}
+              onClose={() => setFocusedPhase(null)}
+            />
+          )}
         </div>
 
         {/* ── Expandable raw events ── */}
