@@ -323,7 +323,7 @@ export function LogsContent() {
   return (
     <div className="flex h-full flex-col gap-3">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">Logs</h1>
           <ConnectionIndicator connected={connected} />
@@ -368,7 +368,7 @@ export function LogsContent() {
 
       {/* Pause banner */}
       {paused && (
-        <div className="flex items-center gap-2 rounded-md bg-yellow-50 px-3 py-1.5 text-xs text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200">
+        <div className="flex shrink-0 items-center gap-2 rounded-md bg-yellow-50 px-3 py-1.5 text-xs text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200">
           <Pause className="size-3" />
           Paused — new events are being buffered
         </div>
@@ -378,7 +378,7 @@ export function LogsContent() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto rounded-md border bg-card"
+        className="min-h-0 flex-1 overflow-y-auto rounded-md border bg-card"
       >
         {groups.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
@@ -387,7 +387,7 @@ export function LogsContent() {
               : "Connecting to log stream..."}
           </div>
         ) : (
-          <div className="divide-y divide-border/50">
+          <div className="max-w-5xl divide-y divide-border/50">
             {groups.map((group) => (
               <RequestGroup
                 key={group.key}
@@ -400,7 +400,7 @@ export function LogsContent() {
       </div>
 
       {/* Footer status */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex shrink-0 items-center justify-between text-xs text-muted-foreground">
         <span>
           {filteredEvents.length} events
           {search && ` (filtered from ${events.length})`}

@@ -37,7 +37,7 @@ function SidebarShellInner({ children }: { children: React.ReactNode }) {
   }, [mobileOpen]);
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex h-screen w-full bg-background">
       {/* Desktop sidebar */}
       {!isMobile && <Sidebar />}
 
@@ -53,7 +53,7 @@ function SidebarShellInner({ children }: { children: React.ReactNode }) {
         </Sheet>
       )}
 
-      <main className="flex flex-1 flex-col min-h-screen min-w-0">
+      <main className="flex flex-1 flex-col h-full min-w-0">
         {children}
       </main>
     </div>
