@@ -15,13 +15,29 @@ const readGithubToken = () => fs.readFile(PATHS.GITHUB_TOKEN_PATH, "utf8")
 const writeGithubToken = (token: string) =>
   fs.writeFile(PATHS.GITHUB_TOKEN_PATH, token)
 
-export const setupCopilotToken = async () => {
+// ---------------------------------------------------------------------------
+// Timer factory — injectable for testing, defaults to globalThis
+// ---------------------------------------------------------------------------
+
+export interface TimerFactory {
+  setInterval: typeof globalThis.setInterval
+  clearInterval: typeof globalThis.clearInterval
+  setTimeout: typeof globalThis.setTimeout
+}
+
+const defaultTimers: TimerFactory = {
+  setInterval: globalThis.setInterval.bind(globalThis),
+  clearInterval: globalThis.clearInterval.bind(globalThis),
+  setTimeout: globalThis.setTimeout.bind(globalThis),
+}
+
+export const setupCopilotToken = async (timers: TimerFactory = defaultTimers) => {
   const { token, refresh_in } = await getCopilotToken()
   state.copilotToken = token
 
   logger.debug("GitHub Copilot Token fetched successfully!")
 
-  scheduleTokenRefresh(refresh_in)
+  scheduleTokenRefresh(refresh_in, timers)
 }
 
 // ---------------------------------------------------------------------------
@@ -32,12 +48,15 @@ const MIN_REFRESH_MS = 30_000       // floor: never refresh faster than 30s
 const MAX_BACKOFF_MS = 5 * 60_000   // ceiling: 5 minutes between retries
 const INITIAL_BACKOFF_MS = 5_000    // first retry delay
 
-function scheduleTokenRefresh(refreshInSeconds: number) {
+function scheduleTokenRefresh(
+  refreshInSeconds: number,
+  timers: TimerFactory = defaultTimers,
+) {
   // Clamp: upstream gives refresh_in in seconds, subtract 60s safety margin.
   // If result is too small, use the floor.
   const intervalMs = Math.max((refreshInSeconds - 60) * 1000, MIN_REFRESH_MS)
 
-  const timer = setInterval(async () => {
+  const timer = timers.setInterval(async () => {
     try {
       const { token, refresh_in } = await getCopilotToken()
       state.copilotToken = token
@@ -46,13 +65,13 @@ function scheduleTokenRefresh(refreshInSeconds: number) {
       // If upstream changed refresh_in, reschedule with new interval
       const newIntervalMs = Math.max((refresh_in - 60) * 1000, MIN_REFRESH_MS)
       if (newIntervalMs !== intervalMs) {
-        clearInterval(timer)
-        scheduleTokenRefresh(refresh_in)
+        timers.clearInterval(timer)
+        scheduleTokenRefresh(refresh_in, timers)
       }
     } catch (error) {
       // First failure on the normal interval — switch to retry loop
-      clearInterval(timer)
-      retryTokenRefresh(INITIAL_BACKOFF_MS, refreshInSeconds, error)
+      timers.clearInterval(timer)
+      retryTokenRefresh(INITIAL_BACKOFF_MS, refreshInSeconds, error, timers)
     }
   }, intervalMs)
 }
@@ -66,23 +85,24 @@ function retryTokenRefresh(
   backoff: number,
   originalRefreshInSeconds: number,
   lastError: unknown,
+  timers: TimerFactory = defaultTimers,
 ) {
   logger.error("Failed to refresh Copilot token, retrying", {
     error: String(lastError),
     retryInMs: backoff,
   })
 
-  setTimeout(async () => {
+  timers.setTimeout(async () => {
     try {
       const { token, refresh_in } = await getCopilotToken()
       state.copilotToken = token
       logger.info("Copilot token recovered after retry")
       // Success — resume normal refresh schedule
-      scheduleTokenRefresh(refresh_in)
+      scheduleTokenRefresh(refresh_in, timers)
     } catch (retryError) {
       // Keep retrying with increasing backoff
       const nextBackoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
-      retryTokenRefresh(nextBackoff, originalRefreshInSeconds, retryError)
+      retryTokenRefresh(nextBackoff, originalRefreshInSeconds, retryError, timers)
     }
   }, backoff)
 }
