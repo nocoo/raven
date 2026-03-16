@@ -94,6 +94,7 @@
   /* Radius tokens */
   --radius-card: 14px;
   --radius-widget: 10px;
+  --radius-island: 20px;
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
