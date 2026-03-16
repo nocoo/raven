@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS } from "@/lib/chart-config";
 import { formatCompact } from "@/lib/chart-config";
 import type { ModelStats } from "@/lib/types";
 
@@ -43,7 +43,7 @@ export function ModelBar({ data }: ModelBarProps) {
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Token Consumption by Model</h3>
-      <div className="h-[280px]">
+      <div style={{ height: CHART_HEIGHTS.full }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <BarChart data={chartData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />

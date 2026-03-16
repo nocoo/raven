@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, formatBucketTime } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, formatBucketTime } from "@/lib/chart-config";
 import { formatCompact } from "@/lib/chart-config";
 import type { TimeseriesBucket } from "@/lib/types";
 
@@ -37,7 +37,7 @@ export function TokensChart({ data }: TokensChartProps) {
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Token Consumption</h3>
-      <div className="h-[220px]">
+      <div style={{ height: CHART_HEIGHTS.standard }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />

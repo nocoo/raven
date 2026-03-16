@@ -143,6 +143,18 @@ export const RESPONSIVE_CONTAINER_PROPS = {
 } as const;
 
 /**
+ * Standard chart heights for consistent layout
+ */
+export const CHART_HEIGHTS = {
+  /** Full-size charts: model pie, model bar */
+  full: 280,
+  /** Standard charts: request volume, tokens, latency */
+  standard: 220,
+  /** Compact sparklines: logs sidebar mini-charts */
+  compact: 140,
+} as const;
+
+/**
  * Pie chart label line configuration
  */
 export const PIE_LABEL_LINE = {

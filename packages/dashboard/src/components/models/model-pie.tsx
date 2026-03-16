@@ -1,7 +1,7 @@
 "use client";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { getChartColor, RESPONSIVE_CONTAINER_PROPS, TOOLTIP_STYLES, PIE_LABEL_LINE } from "@/lib/chart-config";
+import { getChartColor, RESPONSIVE_CONTAINER_PROPS, TOOLTIP_STYLES, PIE_LABEL_LINE, CHART_HEIGHTS } from "@/lib/chart-config";
 import type { ModelStats } from "@/lib/types";
 
 interface ModelPieProps {
@@ -27,7 +27,7 @@ export function ModelPie({ data }: ModelPieProps) {
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Request Distribution</h3>
-      <div className="h-[280px]">
+      <div style={{ height: CHART_HEIGHTS.full }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <PieChart>
             <Pie

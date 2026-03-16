@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, RESPONSIVE_CONTAINER_PROPS, formatBucketTime } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, formatBucketTime } from "@/lib/chart-config";
 import type { TimeseriesBucket } from "@/lib/types";
 
 interface RequestsChartProps {
@@ -36,7 +36,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Request Volume</h3>
-      <div className="h-[220px]">
+      <div style={{ height: CHART_HEIGHTS.standard }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <AreaChart data={data}>
             <defs>

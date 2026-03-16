@@ -28,6 +28,7 @@ import {
   AXIS_CONFIG,
   TOOLTIP_STYLES,
   RESPONSIVE_CONTAINER_PROPS,
+  CHART_HEIGHTS,
   formatCompact,
   formatLatency as fmtLatency,
   getChartColor,
@@ -307,7 +308,7 @@ function ChartRpm({ data }: { data: MinuteBucket[] }) {
       <h4 className="text-xs font-medium text-muted-foreground mb-2">
         Requests / min
       </h4>
-      <div className="h-[140px]">
+      <div style={{ height: CHART_HEIGHTS.compact }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <AreaChart data={data}>
             <defs>
@@ -341,7 +342,7 @@ function ChartModels({ data }: { data: ModelCount[] }) {
       <h4 className="text-xs font-medium text-muted-foreground mb-2">
         Models
       </h4>
-      <div className="h-[140px]">
+      <div style={{ height: CHART_HEIGHTS.compact }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <BarChart
             data={data}
@@ -385,7 +386,7 @@ function ChartLatency({ data }: { data: LatencyPoint[] }) {
           (last {data.length})
         </span>
       </h4>
-      <div className="h-[140px]">
+      <div style={{ height: CHART_HEIGHTS.compact }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
