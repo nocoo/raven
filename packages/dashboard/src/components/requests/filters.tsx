@@ -59,7 +59,7 @@ export function Filters({ models }: FiltersProps) {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">All models</SelectItem>
-          {models.map((m) => (
+          {models.filter(Boolean).map((m) => (
             <SelectItem key={m} value={m}>{m}</SelectItem>
           ))}
         </SelectContent>
