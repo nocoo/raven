@@ -151,8 +151,8 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {models.map((model) => (
-                <TableRow key={model.id}>
+              {models.map((model, i) => (
+                <TableRow key={`${model.id}-${i}`}>
                   <TableCell>
                     <span className="inline-flex items-center gap-1.5">
                       <span className="font-mono text-xs">{model.id}</span>
