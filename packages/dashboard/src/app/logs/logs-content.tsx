@@ -8,10 +8,8 @@ import {
   Circle,
   ChevronDown,
   ChevronRight,
-  ArrowRight,
-  ArrowLeft,
-  AlertTriangle,
   Monitor,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,45 +26,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
-
-const LEVEL_COLORS: Record<LogLevel, string> = {
-  debug: "text-muted-foreground",
-  info: "text-foreground",
-  warn: "text-yellow-600 dark:text-yellow-400",
-  error: "text-red-600 dark:text-red-400",
-};
-
-// Map event types to badge variants and labels
-type BadgeVariant =
-  | "default"
-  | "secondary"
-  | "destructive"
-  | "outline"
-  | "success"
-  | "warning"
-  | "info"
-  | "purple"
-  | "teal";
-
-function getEventTypeBadge(event: LogEvent): { variant: BadgeVariant; label: string; icon?: React.ReactNode } {
-  const status = event.data?.status as string | undefined;
-
-  switch (event.type) {
-    case "request_start":
-      return { variant: "info", label: "START", icon: <ArrowRight className="size-3" /> };
-    case "request_end":
-      return status === "error"
-        ? { variant: "destructive", label: "END", icon: <AlertTriangle className="size-3" /> }
-        : { variant: "success", label: "END", icon: <ArrowLeft className="size-3" /> };
-    case "upstream_error":
-      return { variant: "destructive", label: "UPSTREAM ERROR", icon: <AlertTriangle className="size-3" /> };
-    case "sse_chunk":
-      return { variant: "purple", label: "SSE", icon: undefined };
-    case "system":
-    default:
-      return { variant: "secondary", label: "SYSTEM", icon: <Monitor className="size-3" /> };
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,14 +50,24 @@ function relativeTime(ts: number): string {
   return `${Math.floor(diff / 3_600_000)}h ago`;
 }
 
+function formatLatency(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+function formatTokens(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
+  return `${(n / 1_000_000).toFixed(2)}M`;
+}
+
 /** Group events by requestId. System events (no requestId) are standalone. */
 function groupEvents(events: LogEvent[]) {
   const groups: { key: string; events: LogEvent[] }[] = [];
-  const requestMap = new Map<string, number>(); // requestId → index in groups
+  const requestMap = new Map<string, number>();
 
   for (const event of events) {
     if (!event.requestId) {
-      // System events are standalone
       groups.push({ key: `sys-${event.ts}-${Math.random()}`, events: [event] });
     } else {
       const existing = requestMap.get(event.requestId);
@@ -124,9 +93,7 @@ function ConnectionIndicator({ connected }: { connected: boolean }) {
       <Circle
         className={cn(
           "size-2 fill-current",
-          connected
-            ? "text-green-500"
-            : "text-red-500 animate-pulse",
+          connected ? "text-green-500" : "text-red-500 animate-pulse",
         )}
       />
       <span className="text-muted-foreground">
@@ -158,45 +125,24 @@ function LevelSelect({
   );
 }
 
-/** Single event rendered as a card */
-function EventCard({ event, nested = false }: { event: LogEvent; nested?: boolean }) {
-  const data = event.data ?? {};
-  const model = data.model as string | undefined;
-  const resolvedModel = data.resolvedModel as string | undefined;
-  const latencyMs = data.latencyMs as number | undefined;
-  const inputTokens = data.inputTokens as number | undefined;
-  const outputTokens = data.outputTokens as number | undefined;
-  const statusCode = data.statusCode as number | undefined;
-  const format = data.format as string | undefined;
-  const stream = data.stream as boolean | undefined;
-  const path = data.path as string | undefined;
-  const error = data.error as string | undefined;
-  const accountName = data.accountName as string | undefined;
-  const messageCount = data.messageCount as number | undefined;
-  const toolCount = data.toolCount as number | undefined;
+// ---------------------------------------------------------------------------
+// System event — simple card
+// ---------------------------------------------------------------------------
 
-  const badge = getEventTypeBadge(event);
-  const hasMetadata = model || latencyMs !== undefined || inputTokens !== undefined || format || path;
-
+function SystemEventCard({ event }: { event: LogEvent }) {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card font-mono text-xs",
-        nested ? "p-2.5" : "p-3",
+        "rounded-lg border bg-card p-3 font-mono text-xs",
         event.level === "error" && "border-red-200 dark:border-red-900/50",
         event.level === "warn" && "border-yellow-200 dark:border-yellow-900/50",
       )}
     >
-      {/* Row 1: type badge + time + status tags */}
       <div className="flex items-center gap-2">
-        <Badge variant={badge.variant} className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
-          {badge.icon}
-          {badge.label}
+        <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
+          <Monitor className="size-3" />
+          SYSTEM
         </Badge>
-        <span className="text-muted-foreground tabular-nums" title={new Date(event.ts).toISOString()}>
-          {formatTime(event.ts)}
-        </span>
-        {/* Level badge for warn/error */}
         {(event.level === "warn" || event.level === "error") && (
           <Badge
             variant={event.level === "error" ? "destructive" : "warning"}
@@ -205,91 +151,32 @@ function EventCard({ event, nested = false }: { event: LogEvent; nested?: boolea
             {event.level}
           </Badge>
         )}
-        {/* Status code tag */}
-        {statusCode !== undefined && (
-          <Badge
-            variant={statusCode >= 400 ? "destructive" : "success"}
-            className="px-1.5 py-0 text-[10px] font-mono"
-          >
-            {statusCode}
-          </Badge>
-        )}
-        {/* Streaming indicator */}
-        {stream !== undefined && (
-          <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-            {stream ? "stream" : "sync"}
-          </Badge>
-        )}
+        <span className="text-muted-foreground tabular-nums">
+          {formatTime(event.ts)}
+        </span>
       </div>
-
-      {/* Row 2: message */}
-      <p className={cn("mt-1.5 leading-relaxed break-all", LEVEL_COLORS[event.level])}>
+      <p className={cn(
+        "mt-1.5 leading-relaxed",
+        event.level === "error" ? "text-red-600 dark:text-red-400" :
+        event.level === "warn" ? "text-yellow-600 dark:text-yellow-400" :
+        "text-foreground",
+      )}>
         {event.msg}
       </p>
-
-      {/* Row 3: error detail */}
-      {error && event.type !== "request_start" && (
-        <p className="mt-1 text-red-600 dark:text-red-400 leading-relaxed break-all">
-          {error}
+      {typeof event.data?.error === "string" && (
+        <p className="mt-1 text-red-600 dark:text-red-400 break-all leading-relaxed">
+          {event.data.error}
         </p>
-      )}
-
-      {/* Row 4: metadata tags */}
-      {hasMetadata && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {path && (
-            <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-mono">
-              {path}
-            </Badge>
-          )}
-          {model && (
-            <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
-              {model}
-            </Badge>
-          )}
-          {resolvedModel && resolvedModel !== model && (
-            <Badge variant="teal" className="px-1.5 py-0 text-[10px]">
-              resolved: {resolvedModel}
-            </Badge>
-          )}
-          {format && (
-            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-              {format}
-            </Badge>
-          )}
-          {accountName && accountName !== "default" && (
-            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-              {accountName}
-            </Badge>
-          )}
-          {latencyMs !== undefined && (
-            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
-              {latencyMs}ms
-            </Badge>
-          )}
-          {inputTokens !== undefined && outputTokens !== undefined && (
-            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
-              in:{inputTokens} out:{outputTokens}
-            </Badge>
-          )}
-          {messageCount !== undefined && (
-            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
-              {messageCount} msgs
-            </Badge>
-          )}
-          {toolCount !== undefined && toolCount > 0 && (
-            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
-              {toolCount} tools
-            </Badge>
-          )}
-        </div>
       )}
     </div>
   );
 }
 
-/** A group of events sharing the same requestId, rendered as an expandable card */
-function RequestGroup({
+// ---------------------------------------------------------------------------
+// Request card — header + timeline
+// ---------------------------------------------------------------------------
+
+function RequestCard({
   events,
   defaultExpanded = false,
 }: {
@@ -298,93 +185,67 @@ function RequestGroup({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
-  // Single event (system or solo) — render as standalone card
-  if (events.length === 1 && !events[0]!.requestId) {
-    return <EventCard event={events[0]!} />;
-  }
-
-  // Multi-event request group
   const startEvent = events.find((e) => e.type === "request_start");
   const endEvent = events.find((e) => e.type === "request_end");
-  const hasError = events.some((e) => e.level === "error");
-  const summaryEvent = startEvent ?? events[0]!;
+  const errorEvents = events.filter((e) => e.type === "upstream_error");
 
-  const data = endEvent?.data ?? startEvent?.data ?? {};
-  const model = data.model as string | undefined;
-  const latencyMs = data.latencyMs as number | undefined;
-  const inputTokens = data.inputTokens as number | undefined;
-  const outputTokens = data.outputTokens as number | undefined;
-  const status = data.status as string | undefined;
-  const format = data.format as string | undefined;
-  const stream = data.stream as boolean | undefined;
-  const statusCode = data.statusCode as number | undefined;
+  // Merge data from start + end, prefer end for result fields
+  const startData = startEvent?.data ?? {};
+  const endData = endEvent?.data ?? {};
+
+  const method = (startData.path as string)?.startsWith("/") ? "POST" : "GET";
+  const path = (startData.path ?? endData.path) as string | undefined;
+  const model = (startData.model ?? endData.model) as string | undefined;
+  const resolvedModel = endData.resolvedModel as string | undefined;
+  const format = (startData.format ?? endData.format) as string | undefined;
+  const stream = (startData.stream ?? endData.stream) as boolean | undefined;
+  const accountName = (startData.accountName ?? endData.accountName) as string | undefined;
+  const messageCount = startData.messageCount as number | undefined;
+  const toolCount = startData.toolCount as number | undefined;
+
+  // End-only fields
+  const latencyMs = endData.latencyMs as number | undefined;
+  const statusCode = endData.statusCode as number | undefined;
+  const status = endData.status as string | undefined;
+  const inputTokens = endData.inputTokens as number | undefined;
+  const outputTokens = endData.outputTokens as number | undefined;
+  const error = endData.error as string | undefined;
+
+  // Determine method from path
+  const httpMethod = path === "/v1/models" ? "GET" : method;
+
+  // State
+  const isComplete = !!endEvent;
+  const isError = status === "error";
+  const isInProgress = !isComplete;
 
   return (
     <div
       className={cn(
         "rounded-lg border bg-card overflow-hidden",
-        hasError
-          ? "border-red-200 dark:border-red-900/50"
-          : "border-border",
+        isError ? "border-red-200 dark:border-red-900/50" : "border-border",
       )}
     >
-      {/* Summary header — clickable */}
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className={cn(
-          "flex w-full items-start gap-2.5 p-3 text-left font-mono text-xs transition-colors hover:bg-muted/50",
-        )}
-      >
-        <div className="mt-0.5 shrink-0">
-          {expanded ? (
-            <ChevronDown className="size-3.5 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="size-3.5 text-muted-foreground" />
-          )}
-        </div>
-
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-3 p-3 pb-0">
         <div className="min-w-0 flex-1">
-          {/* Row 1: badges + time */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {status === "error" ? (
-              <Badge variant="destructive" className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
-                <AlertTriangle className="size-3" />
-                ERROR
-              </Badge>
-            ) : endEvent ? (
-              <Badge variant="success" className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
-                OK
-              </Badge>
-            ) : (
-              <Badge variant="info" className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
-                <ArrowRight className="size-3" />
-                IN PROGRESS
-              </Badge>
-            )}
-            {statusCode !== undefined && (
-              <Badge
-                variant={statusCode >= 400 ? "destructive" : "success"}
-                className="px-1.5 py-0 text-[10px] font-mono"
-              >
-                {statusCode}
-              </Badge>
-            )}
-            <span className="text-muted-foreground tabular-nums">
-              {formatTime(summaryEvent.ts)}
-            </span>
+          {/* Method + Path */}
+          <div className="flex items-center gap-2 font-mono text-sm">
+            <Badge variant={httpMethod === "GET" ? "teal" : "info"} className="px-1.5 py-0 text-[10px] font-bold">
+              {httpMethod}
+            </Badge>
+            <span className="font-semibold truncate">{path ?? "unknown"}</span>
           </div>
-
-          {/* Row 2: message */}
-          <p className="mt-1 leading-relaxed">
-            {summaryEvent.msg}
-          </p>
-
-          {/* Row 3: metadata tags */}
+          {/* Tags row */}
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {model && (
               <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
                 {model}
+              </Badge>
+            )}
+            {resolvedModel && resolvedModel !== model && (
+              <Badge variant="teal" className="px-1.5 py-0 text-[10px]">
+                &rarr; {resolvedModel}
               </Badge>
             )}
             {format && (
@@ -397,33 +258,254 @@ function RequestGroup({
                 {stream ? "stream" : "sync"}
               </Badge>
             )}
-            {latencyMs !== undefined && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
-                {latencyMs}ms
+            {accountName && accountName !== "default" && (
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                {accountName}
               </Badge>
             )}
-            {inputTokens !== undefined && outputTokens !== undefined && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
-                in:{inputTokens} out:{outputTokens}
+            {messageCount !== undefined && (
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+                {messageCount} msgs
               </Badge>
             )}
-            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-              {events.length} events
-            </Badge>
+            {toolCount !== undefined && toolCount > 0 && (
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+                {toolCount} tools
+              </Badge>
+            )}
           </div>
         </div>
-      </button>
+        {/* Overall status badge — top right */}
+        <div className="shrink-0">
+          {isError ? (
+            <Badge variant="destructive" className="px-2 py-0.5 text-[11px] font-semibold">
+              ERROR
+            </Badge>
+          ) : isComplete ? (
+            <Badge variant="success" className="px-2 py-0.5 text-[11px] font-semibold">
+              {statusCode ?? 200}
+            </Badge>
+          ) : (
+            <Badge variant="info" className="gap-1 px-2 py-0.5 text-[11px] font-semibold">
+              <Loader2 className="size-3 animate-spin" />
+              IN PROGRESS
+            </Badge>
+          )}
+        </div>
+      </div>
 
-      {/* Expanded: individual event cards */}
-      {expanded && (
-        <div className="space-y-1.5 border-t border-border bg-muted/30 p-2.5">
-          {events.map((event, i) => (
-            <EventCard key={`${event.ts}-${i}`} event={event} nested />
-          ))}
+      {/* ── Timeline ── */}
+      <div className="px-3 py-3">
+        <div className="flex items-center gap-0 font-mono text-[11px]">
+          {/* Start node */}
+          <div className="flex shrink-0 flex-col items-center">
+            <div className={cn(
+              "flex items-center justify-center rounded-full size-7 border-2",
+              isError
+                ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/50"
+                : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50",
+            )}>
+              <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400">S</span>
+            </div>
+            <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
+              {startEvent ? formatTime(startEvent.ts) : "—"}
+            </span>
+          </div>
+
+          {/* Connector line + metrics */}
+          <div className="relative mx-1 flex flex-1 items-center">
+            {/* The line */}
+            <div className={cn(
+              "h-0.5 w-full rounded-full",
+              isError
+                ? "bg-red-300 dark:bg-red-800"
+                : isInProgress
+                  ? "bg-blue-200 dark:bg-blue-900 animate-pulse"
+                  : "bg-green-300 dark:bg-green-800",
+            )} />
+            {/* Arrow head */}
+            <div className={cn(
+              "absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px]",
+              isError
+                ? "border-l-red-400 dark:border-l-red-700"
+                : isInProgress
+                  ? "border-l-blue-300 dark:border-l-blue-800"
+                  : "border-l-green-400 dark:border-l-green-700",
+            )} />
+            {/* Metrics label on the line */}
+            <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
+              {latencyMs !== undefined && (
+                <span className="rounded bg-background px-1 text-[10px] font-medium tabular-nums text-foreground">
+                  {formatLatency(latencyMs)}
+                </span>
+              )}
+              {isInProgress && (
+                <span className="rounded bg-background px-1 text-[10px] text-muted-foreground">
+                  waiting...
+                </span>
+              )}
+            </div>
+            {/* Metrics below the line */}
+            {(inputTokens !== undefined || error) && (
+              <div className="absolute inset-x-0 top-3 flex items-center justify-center gap-3">
+                {inputTokens !== undefined && outputTokens !== undefined && (
+                  <span className="rounded bg-background px-1 text-[10px] tabular-nums text-muted-foreground">
+                    input {formatTokens(inputTokens)} &middot; output {formatTokens(outputTokens)} &middot; total {formatTokens(inputTokens + outputTokens)}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Error node (if upstream_error occurred) */}
+          {errorEvents.length > 0 && (
+            <>
+              <div className="flex shrink-0 flex-col items-center mx-1">
+                <div className="flex items-center justify-center rounded-full size-7 border-2 border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50">
+                  <span className="text-[9px] font-bold text-red-600 dark:text-red-400">!</span>
+                </div>
+                <span className="mt-1 text-[10px] text-red-500 whitespace-nowrap">
+                  upstream
+                </span>
+              </div>
+              {/* Second connector to end */}
+              <div className="relative mx-1 flex flex-1 max-w-16 items-center">
+                <div className="h-0.5 w-full rounded-full bg-red-300 dark:bg-red-800" />
+                <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-red-400 dark:border-l-red-700" />
+              </div>
+            </>
+          )}
+
+          {/* End node */}
+          <div className="flex shrink-0 flex-col items-center">
+            {isComplete ? (
+              <div className={cn(
+                "flex items-center justify-center rounded-full size-7 border-2",
+                isError
+                  ? "border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50"
+                  : "border-green-400 bg-green-100 dark:border-green-700 dark:bg-green-950/50",
+              )}>
+                <span className={cn(
+                  "text-[9px] font-bold",
+                  isError ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400",
+                )}>
+                  {isError ? "E" : "OK"}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center rounded-full size-7 border-2 border-dashed border-muted-foreground/40">
+                <Loader2 className="size-3 text-muted-foreground animate-spin" />
+              </div>
+            )}
+            <span className={cn(
+              "mt-1 text-[10px] tabular-nums whitespace-nowrap",
+              isError ? "text-red-500" : isComplete ? "text-muted-foreground" : "text-muted-foreground/50",
+            )}>
+              {endEvent ? formatTime(endEvent.ts) : "pending"}
+            </span>
+          </div>
+        </div>
+
+        {/* Error message below timeline */}
+        {error && (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            {error}
+          </div>
+        )}
+        {errorEvents.map((ev, i) => (
+          <div key={i} className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            {ev.data?.error as string ?? ev.msg}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Expandable raw events ── */}
+      {events.length > 0 && (
+        <div className="border-t border-border">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-muted/50 transition-colors"
+          >
+            {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+            {events.length} raw events
+            {startEvent?.requestId && (
+              <span className="ml-auto font-mono text-[10px] opacity-50">
+                {startEvent.requestId.slice(0, 8)}
+              </span>
+            )}
+          </button>
+          {expanded && (
+            <div className="border-t border-border bg-muted/20 px-3 py-2 space-y-1">
+              {events.map((event, i) => (
+                <RawEventLine key={`${event.ts}-${i}`} event={event} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+/** Compact single-line raw event for expanded detail view */
+function RawEventLine({ event }: { event: LogEvent }) {
+  const badge = getRawBadge(event);
+  return (
+    <div className="flex items-start gap-2 font-mono text-[11px] leading-5">
+      <span className="shrink-0 text-muted-foreground tabular-nums">
+        {formatTime(event.ts)}
+      </span>
+      <Badge variant={badge.variant} className="shrink-0 px-1 py-0 text-[9px]">
+        {badge.label}
+      </Badge>
+      <span className={cn(
+        "flex-1 break-all",
+        event.level === "error" ? "text-red-600 dark:text-red-400" :
+        event.level === "warn" ? "text-yellow-600 dark:text-yellow-400" :
+        "text-muted-foreground",
+      )}>
+        {event.msg}
+      </span>
+    </div>
+  );
+}
+
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple" | "teal";
+
+function getRawBadge(event: LogEvent): { variant: BadgeVariant; label: string } {
+  switch (event.type) {
+    case "request_start": return { variant: "info", label: "START" };
+    case "request_end": {
+      const s = event.data?.status as string | undefined;
+      return s === "error"
+        ? { variant: "destructive", label: "END" }
+        : { variant: "success", label: "END" };
+    }
+    case "upstream_error": return { variant: "destructive", label: "ERR" };
+    case "sse_chunk": return { variant: "purple", label: "SSE" };
+    case "system":
+    default: return { variant: "secondary", label: "SYS" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Group renderer — dispatches to SystemEventCard or RequestCard
+// ---------------------------------------------------------------------------
+
+function EventGroup({
+  events,
+  defaultExpanded,
+}: {
+  events: LogEvent[];
+  defaultExpanded: boolean;
+}) {
+  // Standalone system event
+  if (events.length === 1 && !events[0]!.requestId) {
+    return <SystemEventCard event={events[0]!} />;
+  }
+
+  return <RequestCard events={events} defaultExpanded={defaultExpanded} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -441,7 +523,6 @@ export function LogsContent() {
   const autoScrollRef = useRef(true);
   const prevEventsLenRef = useRef(0);
 
-  // Handle level change — update both local state and stream
   const handleLevelChange = useCallback(
     (newLevel: LogLevel) => {
       setLevel(newLevel);
@@ -550,10 +631,10 @@ export function LogsContent() {
         ) : (
           <div className="max-w-3xl space-y-2">
             {groups.map((group) => (
-              <RequestGroup
+              <EventGroup
                 key={group.key}
                 events={group.events}
-                defaultExpanded={group.events.length <= 2}
+                defaultExpanded={false}
               />
             ))}
           </div>
