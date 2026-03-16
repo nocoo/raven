@@ -10,9 +10,9 @@ Raven proxy handles high-volume concurrent requests — every code path directly
 | 🟠 WARM | Per-request — executes once per API call | `middleware.ts`, handlers, `create-chat-completions.ts`, `rate-limit.ts`, `non-stream-translation.ts`, `log-emitter.ts`, `request-sink.ts` |
 | 🧊 COLD | Startup or admin — executes once at boot or on manual action | `db/requests.ts initDatabase`, `db/keys.ts initApiKeys`, `services/github/*` |
 
-### Current state (397 tests, 733 assertions) — ✅ Phase 4 COMPLETE
+### Current state (402 tests, 741 assertions) — ✅ Phase 4 COMPLETE
 
-**46 source files tracked in coverage. Overall: 96.94% line coverage.**
+**46 source files tracked in coverage. Overall: 98.85% line coverage, 98.03% function coverage.**
 
 > **Note:** Bun only reports coverage for files loaded during tests. Files that are never
 > imported by any test file (e.g., `src/index.ts`, `src/lib/paths.ts`) remain invisible in
@@ -39,8 +39,8 @@ Raven proxy handles high-volume concurrent requests — every code path directly
 | `lib/utils.ts` | 🧊 | 100% | ✅ Phase 3b |
 | `routes/copilot-info.ts` | 🧊 | 96.97% | ✅ Phase 3b |
 | `routes/messages/utils.ts` | 🟠 | 100% | ✅ Phase 3b |
-| `routes/messages/route.ts` | 🟠 | 46.67% | ⚠️ Thin wrapper — handler tests cover logic |
-| `routes/chat-completions/route.ts` | 🟠 | 55.56% | ⚠️ Thin wrapper — handler tests cover logic |
+| `routes/messages/route.ts` | 🟠 | 88.24% | ⚠️ L21-22 unreachable safety catch |
+| `routes/chat-completions/route.ts` | 🟠 | 100% | ✅ Phase 4 |
 | `routes/stats.ts` | 🧊 | 100% | ✅ Phase 3b |
 | `routes/models/route.ts` | 🟠 | 100% | ✅ Phase 3a |
 | `routes/embeddings/route.ts` | 🟠 | 100% | ✅ Phase 3a |
