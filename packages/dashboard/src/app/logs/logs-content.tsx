@@ -10,6 +10,9 @@ import {
   ChevronRight,
   Monitor,
   Loader2,
+  Rocket,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +64,17 @@ function formatTokens(n: number): string {
   return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
+/** Serialize events to a readable text for clipboard */
+function serializeEvents(events: LogEvent[]): string {
+  return events
+    .map((e) => {
+      const ts = new Date(e.ts).toISOString();
+      const data = e.data ? ` ${JSON.stringify(e.data)}` : "";
+      return `[${ts}] ${e.level.toUpperCase()} ${e.type}${e.requestId ? ` (${e.requestId})` : ""}: ${e.msg}${data}`;
+    })
+    .join("\n");
+}
+
 /** Group events by requestId. System events (no requestId) are standalone. */
 function groupEvents(events: LogEvent[]) {
   const groups: { key: string; events: LogEvent[] }[] = [];
@@ -80,7 +94,52 @@ function groupEvents(events: LogEvent[]) {
     }
   }
 
-  return groups;
+  // Newest first — reverse so latest groups appear at the top
+  return groups.reverse();
+}
+
+// ---------------------------------------------------------------------------
+// Copy button hook
+// ---------------------------------------------------------------------------
+
+function useCopyFeedback() {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const copy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
+    });
+  }, []);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  return { copied, copy };
+}
+
+function CopyButton({ events }: { events: LogEvent[] }) {
+  const { copied, copy } = useCopyFeedback();
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        copy(serializeEvents(events));
+      }}
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-md size-6 transition-colors",
+        copied
+          ? "text-green-500"
+          : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted",
+      )}
+      title="Copy raw events"
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </button>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -131,43 +190,48 @@ function LevelSelect({
 
 function SystemEventCard({ event }: { event: LogEvent }) {
   return (
-    <div
-      className={cn(
-        "rounded-lg border bg-card p-3 font-mono text-xs",
-        event.level === "error" && "border-red-200 dark:border-red-900/50",
-        event.level === "warn" && "border-yellow-200 dark:border-yellow-900/50",
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
-          <Monitor className="size-3" />
-          SYSTEM
-        </Badge>
-        {(event.level === "warn" || event.level === "error") && (
-          <Badge
-            variant={event.level === "error" ? "destructive" : "warning"}
-            className="px-1.5 py-0 text-[10px]"
-          >
-            {event.level}
-          </Badge>
-        )}
-        <span className="text-muted-foreground tabular-nums">
-          {formatTime(event.ts)}
-        </span>
+    <div className="flex items-start gap-2">
+      <div className="shrink-0 pt-3">
+        <CopyButton events={[event]} />
       </div>
-      <p className={cn(
-        "mt-1.5 leading-relaxed",
-        event.level === "error" ? "text-red-600 dark:text-red-400" :
-        event.level === "warn" ? "text-yellow-600 dark:text-yellow-400" :
-        "text-foreground",
-      )}>
-        {event.msg}
-      </p>
-      {typeof event.data?.error === "string" && (
-        <p className="mt-1 text-red-600 dark:text-red-400 break-all leading-relaxed">
-          {event.data.error}
+      <div
+        className={cn(
+          "flex-1 rounded-lg border bg-card p-3 font-mono text-xs",
+          event.level === "error" && "border-red-200 dark:border-red-900/50",
+          event.level === "warn" && "border-yellow-200 dark:border-yellow-900/50",
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
+            <Monitor className="size-3" />
+            SYSTEM
+          </Badge>
+          {(event.level === "warn" || event.level === "error") && (
+            <Badge
+              variant={event.level === "error" ? "destructive" : "warning"}
+              className="px-1.5 py-0 text-[10px]"
+            >
+              {event.level}
+            </Badge>
+          )}
+          <span className="text-muted-foreground tabular-nums">
+            {formatTime(event.ts)}
+          </span>
+        </div>
+        <p className={cn(
+          "mt-1.5 leading-relaxed",
+          event.level === "error" ? "text-red-600 dark:text-red-400" :
+          event.level === "warn" ? "text-yellow-600 dark:text-yellow-400" :
+          "text-foreground",
+        )}>
+          {event.msg}
         </p>
-      )}
+        {typeof event.data?.error === "string" && (
+          <p className="mt-1 text-red-600 dark:text-red-400 break-all leading-relaxed">
+            {event.data.error}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -211,239 +275,237 @@ function RequestCard({
   const outputTokens = endData.outputTokens as number | undefined;
   const error = endData.error as string | undefined;
 
-  // Determine method from path
   const httpMethod = path === "/v1/models" ? "GET" : method;
 
-  // State
   const isComplete = !!endEvent;
   const isError = status === "error";
   const isInProgress = !isComplete;
 
   return (
-    <div
-      className={cn(
-        "rounded-lg border bg-card overflow-hidden",
-        isError ? "border-red-200 dark:border-red-900/50" : "border-border",
-      )}
-    >
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-3 p-3 pb-0">
-        <div className="min-w-0 flex-1">
-          {/* Method + Path */}
-          <div className="flex items-center gap-2 font-mono text-sm">
-            <Badge variant={httpMethod === "GET" ? "teal" : "info"} className="px-1.5 py-0 text-[10px] font-bold">
-              {httpMethod}
-            </Badge>
-            <span className="font-semibold truncate">{path ?? "unknown"}</span>
-          </div>
-          {/* Tags row */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {model && (
-              <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
-                {model}
-              </Badge>
-            )}
-            {resolvedModel && resolvedModel !== model && (
-              <Badge variant="teal" className="px-1.5 py-0 text-[10px]">
-                &rarr; {resolvedModel}
-              </Badge>
-            )}
-            {format && (
-              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                {format}
-              </Badge>
-            )}
-            {stream !== undefined && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                {stream ? "stream" : "sync"}
-              </Badge>
-            )}
-            {accountName && accountName !== "default" && (
-              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                {accountName}
-              </Badge>
-            )}
-            {messageCount !== undefined && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
-                {messageCount} msgs
-              </Badge>
-            )}
-            {toolCount !== undefined && toolCount > 0 && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
-                {toolCount} tools
-              </Badge>
-            )}
-          </div>
-        </div>
-        {/* Overall status badge — top right */}
-        <div className="shrink-0">
-          {isError ? (
-            <Badge variant="destructive" className="px-2 py-0.5 text-[11px] font-semibold">
-              ERROR
-            </Badge>
-          ) : isComplete ? (
-            <Badge variant="success" className="px-2 py-0.5 text-[11px] font-semibold">
-              {statusCode ?? 200}
-            </Badge>
-          ) : (
-            <Badge variant="info" className="gap-1 px-2 py-0.5 text-[11px] font-semibold">
-              <Loader2 className="size-3 animate-spin" />
-              IN PROGRESS
-            </Badge>
-          )}
-        </div>
+    <div className="flex items-start gap-2">
+      <div className="shrink-0 pt-3">
+        <CopyButton events={events} />
       </div>
-
-      {/* ── Timeline ── */}
-      <div className="px-3 py-3">
-        <div className="flex items-center gap-0 font-mono text-[11px]">
-          {/* Start node */}
-          <div className="flex shrink-0 flex-col items-center">
-            <div className={cn(
-              "flex items-center justify-center rounded-full size-7 border-2",
-              isError
-                ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/50"
-                : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50",
-            )}>
-              <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400">S</span>
+      <div
+        className={cn(
+          "flex-1 rounded-lg border bg-card overflow-hidden",
+          isError ? "border-red-200 dark:border-red-900/50" : "border-border",
+        )}
+      >
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-3 p-3 pb-0">
+          <div className="min-w-0 flex-1">
+            {/* Method + Path */}
+            <div className="flex items-center gap-2 font-mono text-sm">
+              <Badge variant={httpMethod === "GET" ? "teal" : "info"} className="px-1.5 py-0 text-[10px] font-bold">
+                {httpMethod}
+              </Badge>
+              <span className="font-semibold truncate">{path ?? "unknown"}</span>
             </div>
-            <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
-              {startEvent ? formatTime(startEvent.ts) : "—"}
-            </span>
+            {/* Tags row */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {model && (
+                <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
+                  {model}
+                </Badge>
+              )}
+              {resolvedModel && resolvedModel !== model && (
+                <Badge variant="teal" className="px-1.5 py-0 text-[10px]">
+                  &rarr; {resolvedModel}
+                </Badge>
+              )}
+              {format && (
+                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                  {format}
+                </Badge>
+              )}
+              {stream !== undefined && (
+                <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                  {stream ? "stream" : "sync"}
+                </Badge>
+              )}
+              {accountName && accountName !== "default" && (
+                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                  {accountName}
+                </Badge>
+              )}
+              {messageCount !== undefined && (
+                <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+                  {messageCount} msgs
+                </Badge>
+              )}
+              {toolCount !== undefined && toolCount > 0 && (
+                <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+                  {toolCount} tools
+                </Badge>
+              )}
+            </div>
           </div>
-
-          {/* Connector line + metrics */}
-          <div className="relative mx-1 flex flex-1 items-center">
-            {/* The line */}
-            <div className={cn(
-              "h-0.5 w-full rounded-full",
-              isError
-                ? "bg-red-300 dark:bg-red-800"
-                : isInProgress
-                  ? "bg-blue-200 dark:bg-blue-900 animate-pulse"
-                  : "bg-green-300 dark:bg-green-800",
-            )} />
-            {/* Arrow head */}
-            <div className={cn(
-              "absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px]",
-              isError
-                ? "border-l-red-400 dark:border-l-red-700"
-                : isInProgress
-                  ? "border-l-blue-300 dark:border-l-blue-800"
-                  : "border-l-green-400 dark:border-l-green-700",
-            )} />
-            {/* Metrics label on the line */}
-            <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
-              {latencyMs !== undefined && (
-                <span className="rounded bg-background px-1 text-[10px] font-medium tabular-nums text-foreground">
-                  {formatLatency(latencyMs)}
-                </span>
-              )}
-              {isInProgress && (
-                <span className="rounded bg-background px-1 text-[10px] text-muted-foreground">
-                  waiting...
-                </span>
-              )}
-            </div>
-            {/* Metrics below the line */}
-            {(inputTokens !== undefined || error) && (
-              <div className="absolute inset-x-0 top-3 flex items-center justify-center gap-3">
-                {inputTokens !== undefined && outputTokens !== undefined && (
-                  <span className="rounded bg-background px-1 text-[10px] tabular-nums text-muted-foreground">
-                    input {formatTokens(inputTokens)} &middot; output {formatTokens(outputTokens)} &middot; total {formatTokens(inputTokens + outputTokens)}
-                  </span>
-                )}
-              </div>
+          {/* Overall status badge — top right */}
+          <div className="shrink-0">
+            {isError ? (
+              <Badge variant="destructive" className="px-2 py-0.5 text-[11px] font-semibold">
+                ERROR
+              </Badge>
+            ) : isComplete ? (
+              <Badge variant="success" className="px-2 py-0.5 text-[11px] font-semibold">
+                {statusCode ?? 200}
+              </Badge>
+            ) : (
+              <Badge variant="info" className="gap-1 px-2 py-0.5 text-[11px] font-semibold">
+                <Loader2 className="size-3 animate-spin" />
+                IN PROGRESS
+              </Badge>
             )}
           </div>
+        </div>
 
-          {/* Error node (if upstream_error occurred) */}
-          {errorEvents.length > 0 && (
-            <>
-              <div className="flex shrink-0 flex-col items-center mx-1">
-                <div className="flex items-center justify-center rounded-full size-7 border-2 border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50">
-                  <span className="text-[9px] font-bold text-red-600 dark:text-red-400">!</span>
-                </div>
-                <span className="mt-1 text-[10px] text-red-500 whitespace-nowrap">
-                  upstream
-                </span>
-              </div>
-              {/* Second connector to end */}
-              <div className="relative mx-1 flex flex-1 max-w-16 items-center">
-                <div className="h-0.5 w-full rounded-full bg-red-300 dark:bg-red-800" />
-                <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-red-400 dark:border-l-red-700" />
-              </div>
-            </>
-          )}
-
-          {/* End node */}
-          <div className="flex shrink-0 flex-col items-center">
-            {isComplete ? (
+        {/* ── Timeline ── */}
+        <div className="px-3 py-3">
+          <div className="flex items-center gap-0 font-mono text-[11px]">
+            {/* Start node */}
+            <div className="flex shrink-0 flex-col items-center">
               <div className={cn(
                 "flex items-center justify-center rounded-full size-7 border-2",
                 isError
-                  ? "border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50"
-                  : "border-green-400 bg-green-100 dark:border-green-700 dark:bg-green-950/50",
+                  ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/50"
+                  : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50",
               )}>
-                <span className={cn(
-                  "text-[9px] font-bold",
-                  isError ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400",
-                )}>
-                  {isError ? "E" : "OK"}
-                </span>
+                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400">S</span>
               </div>
-            ) : (
-              <div className="flex items-center justify-center rounded-full size-7 border-2 border-dashed border-muted-foreground/40">
-                <Loader2 className="size-3 text-muted-foreground animate-spin" />
-              </div>
-            )}
-            <span className={cn(
-              "mt-1 text-[10px] tabular-nums whitespace-nowrap",
-              isError ? "text-red-500" : isComplete ? "text-muted-foreground" : "text-muted-foreground/50",
-            )}>
-              {endEvent ? formatTime(endEvent.ts) : "pending"}
-            </span>
-          </div>
-        </div>
-
-        {/* Error message below timeline */}
-        {error && (
-          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-            {error}
-          </div>
-        )}
-        {errorEvents.map((ev, i) => (
-          <div key={i} className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-            {ev.data?.error as string ?? ev.msg}
-          </div>
-        ))}
-      </div>
-
-      {/* ── Expandable raw events ── */}
-      {events.length > 0 && (
-        <div className="border-t border-border">
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-muted/50 transition-colors"
-          >
-            {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-            {events.length} raw events
-            {startEvent?.requestId && (
-              <span className="ml-auto font-mono text-[10px] opacity-50">
-                {startEvent.requestId.slice(0, 8)}
+              <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
+                {startEvent ? formatTime(startEvent.ts) : "—"}
               </span>
+            </div>
+
+            {/* Connector line + metrics */}
+            <div className="relative mx-1 flex flex-1 items-center">
+              <div className={cn(
+                "h-0.5 w-full rounded-full",
+                isError
+                  ? "bg-red-300 dark:bg-red-800"
+                  : isInProgress
+                    ? "bg-blue-200 dark:bg-blue-900 animate-pulse"
+                    : "bg-green-300 dark:bg-green-800",
+              )} />
+              <div className={cn(
+                "absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px]",
+                isError
+                  ? "border-l-red-400 dark:border-l-red-700"
+                  : isInProgress
+                    ? "border-l-blue-300 dark:border-l-blue-800"
+                    : "border-l-green-400 dark:border-l-green-700",
+              )} />
+              {/* Metrics above line */}
+              <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
+                {latencyMs !== undefined && (
+                  <span className="rounded bg-background px-1 text-[10px] font-medium tabular-nums text-foreground">
+                    {formatLatency(latencyMs)}
+                  </span>
+                )}
+                {isInProgress && (
+                  <span className="rounded bg-background px-1 text-[10px] text-muted-foreground">
+                    waiting...
+                  </span>
+                )}
+              </div>
+              {/* Metrics below line */}
+              {inputTokens !== undefined && outputTokens !== undefined && (
+                <div className="absolute inset-x-0 top-3 flex items-center justify-center">
+                  <span className="rounded bg-background px-1 text-[10px] tabular-nums text-muted-foreground">
+                    input {formatTokens(inputTokens)} &middot; output {formatTokens(outputTokens)} &middot; total {formatTokens(inputTokens + outputTokens)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Error node (if upstream_error occurred) */}
+            {errorEvents.length > 0 && (
+              <>
+                <div className="flex shrink-0 flex-col items-center mx-1">
+                  <div className="flex items-center justify-center rounded-full size-7 border-2 border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50">
+                    <span className="text-[9px] font-bold text-red-600 dark:text-red-400">!</span>
+                  </div>
+                  <span className="mt-1 text-[10px] text-red-500 whitespace-nowrap">
+                    upstream
+                  </span>
+                </div>
+                <div className="relative mx-1 flex flex-1 max-w-16 items-center">
+                  <div className="h-0.5 w-full rounded-full bg-red-300 dark:bg-red-800" />
+                  <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-red-400 dark:border-l-red-700" />
+                </div>
+              </>
             )}
-          </button>
-          {expanded && (
-            <div className="border-t border-border bg-muted/20 px-3 py-2 space-y-1">
-              {events.map((event, i) => (
-                <RawEventLine key={`${event.ts}-${i}`} event={event} />
-              ))}
+
+            {/* End node */}
+            <div className="flex shrink-0 flex-col items-center">
+              {isComplete ? (
+                <div className={cn(
+                  "flex items-center justify-center rounded-full size-7 border-2",
+                  isError
+                    ? "border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50"
+                    : "border-green-400 bg-green-100 dark:border-green-700 dark:bg-green-950/50",
+                )}>
+                  <span className={cn(
+                    "text-[9px] font-bold",
+                    isError ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400",
+                  )}>
+                    {isError ? "E" : "OK"}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center rounded-full size-7 border-2 border-dashed border-muted-foreground/40">
+                  <Loader2 className="size-3 text-muted-foreground animate-spin" />
+                </div>
+              )}
+              <span className={cn(
+                "mt-1 text-[10px] tabular-nums whitespace-nowrap",
+                isError ? "text-red-500" : isComplete ? "text-muted-foreground" : "text-muted-foreground/50",
+              )}>
+                {endEvent ? formatTime(endEvent.ts) : "pending"}
+              </span>
+            </div>
+          </div>
+
+          {/* Error messages below timeline */}
+          {error && (
+            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+              {error}
             </div>
           )}
+          {errorEvents.map((ev, i) => (
+            <div key={i} className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+              {(ev.data?.error as string) ?? ev.msg}
+            </div>
+          ))}
         </div>
-      )}
+
+        {/* ── Expandable raw events ── */}
+        {events.length > 0 && (
+          <div className="border-t border-border">
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+              {events.length} raw events
+              {startEvent?.requestId && (
+                <span className="ml-auto font-mono text-[10px] opacity-50">
+                  {startEvent.requestId.slice(0, 8)}
+                </span>
+              )}
+            </button>
+            {expanded && (
+              <div className="border-t border-border bg-muted/20 px-3 py-2 space-y-1">
+                {events.map((event, i) => (
+                  <RawEventLine key={`${event.ts}-${i}`} event={event} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -490,7 +552,7 @@ function getRawBadge(event: LogEvent): { variant: BadgeVariant; label: string } 
 }
 
 // ---------------------------------------------------------------------------
-// Group renderer — dispatches to SystemEventCard or RequestCard
+// Group renderer
 // ---------------------------------------------------------------------------
 
 function EventGroup({
@@ -500,11 +562,9 @@ function EventGroup({
   events: LogEvent[];
   defaultExpanded: boolean;
 }) {
-  // Standalone system event
   if (events.length === 1 && !events[0]!.requestId) {
     return <SystemEventCard event={events[0]!} />;
   }
-
   return <RequestCard events={events} defaultExpanded={defaultExpanded} />;
 }
 
@@ -520,8 +580,9 @@ export function LogsContent() {
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef(true);
-  const prevEventsLenRef = useRef(0);
+  // "pinned to top" means user is at scrollTop ≈ 0 and wants to see newest
+  const pinnedRef = useRef(true);
+  const prevScrollHeightRef = useRef(0);
 
   const handleLevelChange = useCallback(
     (newLevel: LogLevel) => {
@@ -531,23 +592,35 @@ export function LogsContent() {
     [setStreamLevel],
   );
 
-  // Auto-scroll to bottom when new events arrive
+  // Newest-first: new items prepend at top. When pinned, keep scrollTop at 0.
+  // When NOT pinned, compensate scrollTop so the user's view doesn't jump.
   useEffect(() => {
-    if (
-      autoScrollRef.current &&
-      scrollRef.current &&
-      events.length > prevEventsLenRef.current
-    ) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    if (pinnedRef.current) {
+      // Stay at top — newest items are already at position 0
+      el.scrollTop = 0;
+    } else {
+      // Content was prepended: the scroll container grew at the top.
+      // Compensate so the user's current view stays in place.
+      const growth = el.scrollHeight - prevScrollHeightRef.current;
+      if (growth > 0) {
+        el.scrollTop += growth;
+      }
     }
-    prevEventsLenRef.current = events.length;
+    prevScrollHeightRef.current = el.scrollHeight;
   }, [events.length]);
 
-  // Detect manual scroll — pause auto-scroll when user scrolls up
+  // Track whether user is pinned to top
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    autoScrollRef.current = scrollHeight - scrollTop - clientHeight < 50;
+    pinnedRef.current = scrollRef.current.scrollTop < 30;
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    pinnedRef.current = true;
   }, []);
 
   // Filter events by search
@@ -561,6 +634,18 @@ export function LogsContent() {
     : events;
 
   const groups = groupEvents(filteredEvents);
+
+  // Show FAB when not pinned
+  const [showFab, setShowFab] = useState(false);
+  const handleScrollForFab = useCallback(() => {
+    if (!scrollRef.current) return;
+    setShowFab(scrollRef.current.scrollTop >= 100);
+  }, []);
+
+  const onScroll = useCallback(() => {
+    handleScroll();
+    handleScrollForFab();
+  }, [handleScroll, handleScrollForFab]);
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -617,27 +702,41 @@ export function LogsContent() {
       )}
 
       {/* Log stream */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-y-auto"
-      >
-        {groups.length === 0 ? (
-          <div className="flex h-32 items-center justify-center rounded-md border bg-card text-sm text-muted-foreground">
-            {connected
-              ? "Waiting for log events..."
-              : "Connecting to log stream..."}
-          </div>
-        ) : (
-          <div className="max-w-3xl space-y-2">
-            {groups.map((group) => (
-              <EventGroup
-                key={group.key}
-                events={group.events}
-                defaultExpanded={false}
-              />
-            ))}
-          </div>
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          className="h-full overflow-y-auto"
+        >
+          {groups.length === 0 ? (
+            <div className="flex h-32 items-center justify-center rounded-md border bg-card text-sm text-muted-foreground">
+              {connected
+                ? "Waiting for log events..."
+                : "Connecting to log stream..."}
+            </div>
+          ) : (
+            <div className="max-w-3xl space-y-2 pb-2">
+              {groups.map((group) => (
+                <EventGroup
+                  key={group.key}
+                  events={group.events}
+                  defaultExpanded={false}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* FAB — scroll to top (newest) */}
+        {showFab && (
+          <button
+            type="button"
+            onClick={scrollToTop}
+            className="absolute bottom-4 right-4 flex items-center justify-center size-10 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
+            title="Back to latest"
+          >
+            <Rocket className="size-4" />
+          </button>
         )}
       </div>
 
