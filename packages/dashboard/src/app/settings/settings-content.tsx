@@ -22,11 +22,13 @@ const SETTING_LABELS: Record<string, { label: string; description: string }> = {
   },
 };
 
+const FALLBACK_BADGE = { label: "Fallback", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20" };
+
 const SOURCE_VARIANTS: Record<string, { label: string; className: string }> = {
   override: { label: "Override", className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20" },
   local: { label: "Local", className: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20" },
   aur: { label: "AUR", className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/20" },
-  fallback: { label: "Fallback", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20" },
+  fallback: FALLBACK_BADGE,
 };
 
 // ── Component ──
@@ -49,9 +51,11 @@ export function SettingsContent({ data }: SettingsContentProps) {
         Set an override to pin a specific version.
       </p>
       <div className="grid gap-3">
-        {keys.map((key) => (
-          <SettingRow key={key} settingKey={key} info={data[key]} />
-        ))}
+        {keys.map((key) => {
+          const info = data[key];
+          if (!info) return null;
+          return <SettingRow key={key} settingKey={key} info={info} />;
+        })}
       </div>
     </section>
   );
@@ -76,7 +80,7 @@ function SettingRow({
     label: settingKey,
     description: "",
   };
-  const sourceBadge = SOURCE_VARIANTS[info.source] ?? SOURCE_VARIANTS.fallback;
+  const sourceBadge = SOURCE_VARIANTS[info.source] ?? FALLBACK_BADGE;
 
   const hasOverride = info.override !== null;
   const isDirty = value !== (info.override ?? info.effective);
