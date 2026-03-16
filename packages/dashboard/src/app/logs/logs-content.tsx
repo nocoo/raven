@@ -140,7 +140,7 @@ function CopyButton({ events }: { events: LogEvent[] }) {
       className={cn(
         "flex shrink-0 items-center justify-center rounded-md size-6 transition-colors",
         copied
-          ? "text-green-500"
+          ? "text-success"
           : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted",
       )}
       title="Copy raw events"
@@ -160,7 +160,7 @@ function ConnectionIndicator({ connected }: { connected: boolean }) {
       <Circle
         className={cn(
           "size-2 fill-current",
-          connected ? "text-green-500" : "text-red-500 animate-pulse",
+          connected ? "text-success" : "text-destructive animate-pulse",
         )}
       />
       <span className="text-muted-foreground">
@@ -206,8 +206,8 @@ function SystemEventCard({ event }: { event: LogEvent }) {
       <div
         className={cn(
           "flex-1 rounded-lg border bg-card p-3 font-mono text-xs",
-          event.level === "error" && "border-red-200 dark:border-red-900/50",
-          event.level === "warn" && "border-yellow-200 dark:border-yellow-900/50",
+          event.level === "error" && "border-destructive/30",
+          event.level === "warn" && "border-warning/30",
         )}
       >
         <div className="flex items-center gap-2">
@@ -229,14 +229,14 @@ function SystemEventCard({ event }: { event: LogEvent }) {
         </div>
         <p className={cn(
           "mt-1.5 leading-relaxed",
-          event.level === "error" ? "text-red-600 dark:text-red-400" :
-          event.level === "warn" ? "text-yellow-600 dark:text-yellow-400" :
+          event.level === "error" ? "text-destructive" :
+          event.level === "warn" ? "text-warning" :
           "text-foreground",
         )}>
           {event.msg}
         </p>
         {typeof event.data?.error === "string" && (
-          <p className="mt-1 text-red-600 dark:text-red-400 break-all leading-relaxed">
+          <p className="mt-1 text-destructive break-all leading-relaxed">
             {event.data.error}
           </p>
         )}
@@ -298,7 +298,7 @@ function RequestCard({
       <div
         className={cn(
           "flex-1 rounded-lg border bg-card overflow-hidden",
-          isError ? "border-red-200 dark:border-red-900/50" : "border-border",
+          isError ? "border-destructive/30" : "border-border",
         )}
       >
         {/* ── Header ── */}
@@ -377,10 +377,10 @@ function RequestCard({
               <div className={cn(
                 "flex items-center justify-center rounded-full size-7 border-2",
                 isError
-                  ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/50"
-                  : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/50",
+                  ? "border-destructive/40 bg-destructive/10"
+                  : "border-info/40 bg-info/10",
               )}>
-                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400">S</span>
+                <span className="text-[9px] font-bold text-info">S</span>
               </div>
               <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
                 {startEvent ? formatTime(startEvent.ts) : "—"}
@@ -392,18 +392,18 @@ function RequestCard({
               <div className={cn(
                 "h-0.5 w-full rounded-full",
                 isError
-                  ? "bg-red-300 dark:bg-red-800"
+                  ? "bg-destructive/40"
                   : isInProgress
-                    ? "bg-blue-200 dark:bg-blue-900 animate-pulse"
-                    : "bg-green-300 dark:bg-green-800",
+                    ? "bg-info/30 animate-pulse"
+                    : "bg-success/40",
               )} />
               <div className={cn(
                 "absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px]",
                 isError
-                  ? "border-l-red-400 dark:border-l-red-700"
+                  ? "border-l-destructive/50"
                   : isInProgress
-                    ? "border-l-blue-300 dark:border-l-blue-800"
-                    : "border-l-green-400 dark:border-l-green-700",
+                    ? "border-l-info/40"
+                    : "border-l-success/50",
               )} />
               {/* Metrics above line */}
               <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
@@ -432,16 +432,16 @@ function RequestCard({
             {errorEvents.length > 0 && (
               <>
                 <div className="flex shrink-0 flex-col items-center mx-1">
-                  <div className="flex items-center justify-center rounded-full size-7 border-2 border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50">
-                    <span className="text-[9px] font-bold text-red-600 dark:text-red-400">!</span>
+                  <div className="flex items-center justify-center rounded-full size-7 border-2 border-destructive/50 bg-destructive/10">
+                    <span className="text-[9px] font-bold text-destructive">!</span>
                   </div>
-                  <span className="mt-1 text-[10px] text-red-500 whitespace-nowrap">
+                  <span className="mt-1 text-[10px] text-destructive whitespace-nowrap">
                     upstream
                   </span>
                 </div>
                 <div className="relative mx-1 flex flex-1 max-w-16 items-center">
-                  <div className="h-0.5 w-full rounded-full bg-red-300 dark:bg-red-800" />
-                  <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-red-400 dark:border-l-red-700" />
+                  <div className="h-0.5 w-full rounded-full bg-destructive/40" />
+                  <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-destructive/50" />
                 </div>
               </>
             )}
@@ -452,12 +452,12 @@ function RequestCard({
                 <div className={cn(
                   "flex items-center justify-center rounded-full size-7 border-2",
                   isError
-                    ? "border-red-400 bg-red-100 dark:border-red-700 dark:bg-red-950/50"
-                    : "border-green-400 bg-green-100 dark:border-green-700 dark:bg-green-950/50",
+                    ? "border-destructive/50 bg-destructive/10"
+                    : "border-success/50 bg-success/10",
                 )}>
                   <span className={cn(
                     "text-[9px] font-bold",
-                    isError ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400",
+                    isError ? "text-destructive" : "text-success",
                   )}>
                     {isError ? "E" : "OK"}
                   </span>
@@ -469,7 +469,7 @@ function RequestCard({
               )}
               <span className={cn(
                 "mt-1 text-[10px] tabular-nums whitespace-nowrap",
-                isError ? "text-red-500" : isComplete ? "text-muted-foreground" : "text-muted-foreground/50",
+                isError ? "text-destructive" : isComplete ? "text-muted-foreground" : "text-muted-foreground/50",
               )}>
                 {endEvent ? formatTime(endEvent.ts) : "pending"}
               </span>
@@ -478,12 +478,12 @@ function RequestCard({
 
           {/* Error messages below timeline */}
           {error && (
-            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <div className="mt-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               {error}
             </div>
           )}
           {errorEvents.map((ev, i) => (
-            <div key={i} className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <div key={i} className="mt-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               {(ev.data?.error as string) ?? ev.msg}
             </div>
           ))}
@@ -706,7 +706,7 @@ export function LogsContent() {
 
       {/* Pause banner */}
       {paused && (
-        <div className="flex shrink-0 items-center gap-2 rounded-md bg-yellow-50 px-3 py-1.5 text-xs text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200">
+        <div className="flex shrink-0 items-center gap-2 rounded-md bg-warning/10 px-3 py-1.5 text-xs text-warning">
           <Pause className="size-3" />
           Paused — new events are being buffered
         </div>
