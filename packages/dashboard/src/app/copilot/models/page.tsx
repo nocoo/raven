@@ -13,7 +13,7 @@ export default async function CopilotModelsPage() {
     return (
       <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Models" }]}>
         <div className="space-y-4">
-          <h1 className="text-lg font-semibold">Copilot Models</h1>
+          <h1 className="text-lg font-semibold font-display">Copilot Models</h1>
           <FetchError
             title="Failed to load Copilot models"
             message={result.error}
@@ -26,7 +26,7 @@ export default async function CopilotModelsPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Models" }]}>
       <div className="space-y-4">
-        <h1 className="text-lg font-semibold">Copilot Models</h1>
+        <h1 className="text-lg font-semibold font-display">Copilot Models</h1>
         <CopilotModelsContent data={result.data.data} />
       </div>
     </AppShell>

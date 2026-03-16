@@ -661,7 +661,7 @@ export function LogsContent() {
       {/* Header */}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 md:gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">Logs</h1>
+          <h1 className="text-lg font-semibold font-display">Logs</h1>
           <ConnectionIndicator connected={connected} />
         </div>
         <div className="flex items-center gap-2">

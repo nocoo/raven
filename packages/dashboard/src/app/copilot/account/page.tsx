@@ -13,7 +13,7 @@ export default async function CopilotAccountPage() {
     return (
       <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Account" }]}>
         <div className="space-y-4">
-          <h1 className="text-lg font-semibold">Copilot Account</h1>
+          <h1 className="text-lg font-semibold font-display">Copilot Account</h1>
           <FetchError
             title="Failed to load account info"
             message={result.error}
@@ -26,7 +26,7 @@ export default async function CopilotAccountPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Account" }]}>
       <div className="space-y-4">
-        <h1 className="text-lg font-semibold">Copilot Account</h1>
+        <h1 className="text-lg font-semibold font-display">Copilot Account</h1>
         <AccountContent data={result.data} />
       </div>
     </AppShell>

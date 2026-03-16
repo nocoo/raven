@@ -13,7 +13,7 @@ export default async function ModelsPage() {
     return (
       <AppShell breadcrumbs={[{ label: "Models" }]}>
         <div className="space-y-4">
-          <h1 className="text-lg font-semibold">Model Statistics</h1>
+          <h1 className="text-lg font-semibold font-display">Model Statistics</h1>
           <FetchError
             title="Failed to load model stats"
             message={result.error}
@@ -26,7 +26,7 @@ export default async function ModelsPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Models" }]}>
       <div className="space-y-4">
-        <h1 className="text-lg font-semibold">Model Statistics</h1>
+        <h1 className="text-lg font-semibold font-display">Model Statistics</h1>
         <ModelsContent data={result.data} />
       </div>
     </AppShell>
