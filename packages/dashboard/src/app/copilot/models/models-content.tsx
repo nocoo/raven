@@ -136,30 +136,30 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
             <Badge variant="secondary">{models.length}</Badge>
           </div>
 
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Model ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead>Family</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Max Prompt</TableHead>
-                <TableHead className="text-right">Max Output</TableHead>
-                <TableHead>Picker</TableHead>
-                <TableHead>Preview</TableHead>
+                <TableHead className="w-[28%]">Model ID</TableHead>
+                <TableHead className="w-[16%]">Name</TableHead>
+                <TableHead className="w-[8%]">Version</TableHead>
+                <TableHead className="w-[10%]">Family</TableHead>
+                <TableHead className="w-[7%]">Type</TableHead>
+                <TableHead className="w-[11%] text-right">Max Prompt</TableHead>
+                <TableHead className="w-[10%] text-right">Max Output</TableHead>
+                <TableHead className="w-[5%]">Picker</TableHead>
+                <TableHead className="w-[5%]">Preview</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {models.map((model, i) => (
                 <TableRow key={`${model.id}-${i}`}>
-                  <TableCell>
+                  <TableCell className="truncate">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="font-mono text-xs">{model.id}</span>
+                      <span className="font-mono text-xs truncate">{model.id}</span>
                       <CopyButton text={model.id} />
                     </span>
                   </TableCell>
-                  <TableCell className="font-medium">{model.name}</TableCell>
+                  <TableCell className="font-medium truncate">{model.name}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {model.version}
                   </TableCell>
