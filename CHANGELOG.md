@@ -1,5 +1,50 @@
 # Changelog
 
+## v0.3.0 (2026-03-16)
+
+Major infrastructure release — complete proxy rewrite, real-time logging system, API key management, and dashboard test suite from zero to 145 tests with 5 bug fixes.
+
+### Proxy — rewrite
+
+- **Full proxy rewrite** — rebuilt from copilot-api reference into clean Hono architecture with DI, request sinks, and structured routes
+- **Structured logging** — `LogEmitter` event bus with ring buffer, WebSocket `/ws/logs` endpoint with auth and backfill, terminal JSON sink, and DB sink for request persistence
+- **Request instrumentation** — all routes emit structured log events (`request_start`, `request_end`, `sse_chunk`, `upstream_error`) with ULID `requestId` linking
+- **SSE improvements** — unified SSE module replacing fetch-event-stream, keepalive heartbeat to prevent idle timeout disconnects, error events forwarded to client on upstream failure
+- **Token refresh** — rewritten as retry chain with exponential backoff (capped at MAX_BACKOFF_MS), injected timer factory for testability
+
+### Proxy — bug fixes
+
+- **Copilot token refresh** — added exponential backoff to prevent hammering upstream on transient failures
+- **Upstream stream failure** — now sends error events to client instead of silently dropping
+- **ALLOWED_EMAILS trap** — prevented silent rejection of all logins when env var is malformed
+- **Backward pagination** — enabled cursor-based backward navigation in timestamp sort mode
+- **Model deduplication** — deduplicate model IDs in connection-info response
+- **Route mount paths** — corrected to match copilot-api conventions
+- **useLogStream** — fixed stale paused closure and duplicate reconnect on both "disconnected" and "error" events
+
+### Dashboard — features
+
+- **Real-time log viewer** — `/logs` page with live SSE stream, level filtering, pause/resume, request ID isolation
+- **SSE bridge route** — `/api/logs/stream` bridges upstream WebSocket to SSE for browser consumption
+- **Connect page** — API key management dashboard with create/revoke/delete flows, connection info, code examples
+- **API key management routes** — full CRUD: GET/POST `/api/keys`, DELETE `/api/keys/[id]`, POST `/api/keys/[id]/revoke`
+- **Multi-key auth middleware** — replaced single-key auth with DB-backed multi-key system
+- **Key-based attribution** — requests tagged with the API key used for authentication
+- **Sidebar redesign** — collapsible nav groups for better organization
+
+### Dashboard — bug fixes
+
+- **handleAction error handling** — API key revoke/delete now catches fetch failures and shows error feedback (was unhandled)
+- **Error message format** — CreateKeyDialog now handles both `{ error: "string" }` and `{ error: { message: "string" } }` response formats
+- **handleRefresh error handling** — AccountContent and CopilotModelsContent now catch fetch failures and show error feedback (was silently swallowed in `finally`)
+- **Clipboard writeText** — CopyButton (shared and inline) now handles `navigator.clipboard.writeText` rejection gracefully
+
+### Tests
+
+- **Proxy** — 403 unit tests (was 184), pushed all source files to 95%+ line coverage; added tests for GitHub services, poll-access-token, token.ts lifecycle, keepalive, paths, connection-info, and VSCode version
+- **Dashboard** — 145 tests across 11 files (was 0); covers lib/proxy, all BFF routes, SSE bridge, useLogStream hook, 3 component interaction suites, proxy auth enforcement, and NextAuth config/signIn callback
+- **Test infrastructure** — Vitest with node default environment, jsdom opt-in for component tests, vi.resetModules + vi.stubEnv pattern for env-dependent modules
+
 ## v0.2.2 (2026-03-15)
 
 Copilot API parity — closed functional gaps against the copilot-api reference project so the proxy works end-to-end with Claude Code, Cursor, and Continue.
