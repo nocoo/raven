@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start -p 7032",
     "lint": "eslint --config ../../eslint.config.js src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
