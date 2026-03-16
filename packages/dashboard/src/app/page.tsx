@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { Activity, Zap, Clock, AlertTriangle } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/stats/stat-card";
@@ -8,6 +9,8 @@ import { RequestsContent } from "./requests/requests-content";
 import { safeFetch } from "@/lib/proxy";
 import type { OverviewStats, TimeseriesBucket, PaginatedRequests, ModelStats } from "@/lib/types";
 import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
+
+export const metadata: Metadata = { title: "Overview" };
 
 interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>;

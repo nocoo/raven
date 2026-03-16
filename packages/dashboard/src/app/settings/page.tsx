@@ -4,6 +4,8 @@ import { safeFetch } from "@/lib/proxy";
 import type { SettingsData } from "@/lib/types";
 import { SettingsContent } from "./settings-content";
 
+export const metadata = { title: "Settings" };
+
 export default async function SettingsPage() {
   const result = await safeFetch<SettingsData>("/api/settings");
 

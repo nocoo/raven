@@ -4,6 +4,8 @@ import { safeFetch } from "@/lib/proxy";
 import type { ApiKeyPublic, ConnectionInfo } from "@/lib/types";
 import { ConnectContent } from "./connect-content";
 
+export const metadata = { title: "Connect" };
+
 export default async function ConnectPage() {
   const [keysResult, connResult] = await Promise.all([
     safeFetch<ApiKeyPublic[]>("/api/keys"),

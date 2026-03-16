@@ -4,6 +4,8 @@ import { safeFetch } from "@/lib/proxy";
 import type { CopilotModelList } from "@/lib/types";
 import { CopilotModelsContent } from "./models-content";
 
+export const metadata = { title: "Copilot Models" };
+
 export default async function CopilotModelsPage() {
   const result = await safeFetch<CopilotModelList>("/api/copilot/models");
 

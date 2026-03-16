@@ -18,7 +18,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXTAUTH_URL || "http://localhost:7032"
   ),
-  title: "Raven",
+  title: {
+    default: "Raven — GitHub Copilot Proxy Dashboard",
+    template: "%s — Raven",
+  },
   description: "GitHub Copilot proxy dashboard",
   openGraph: {
     title: "Raven — GitHub Copilot Proxy Dashboard",

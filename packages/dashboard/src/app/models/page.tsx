@@ -4,6 +4,8 @@ import { safeFetch } from "@/lib/proxy";
 import type { ModelStats } from "@/lib/types";
 import { ModelsContent } from "./models-content";
 
+export const metadata = { title: "Models" };
+
 export default async function ModelsPage() {
   const result = await safeFetch<ModelStats[]>("/api/stats/models");
 
