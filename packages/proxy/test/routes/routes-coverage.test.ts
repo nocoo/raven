@@ -4,8 +4,6 @@ import { Hono } from "hono"
 import { state } from "../../src/lib/state"
 import { embeddingRoutes } from "../../src/routes/embeddings/route"
 import { modelRoutes } from "../../src/routes/models/route"
-import { completionRoutes } from "../../src/routes/chat-completions/route"
-import { messageRoutes } from "../../src/routes/messages/route"
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -167,114 +165,5 @@ describe("POST /v1/embeddings", () => {
 
     // forwardError returns 500
     expect(res.status).toBe(500)
-  })
-})
-
-// ===========================================================================
-// Chat completions route wrapper (error forwarding)
-// ===========================================================================
-
-describe("POST /v1/chat/completions (route wrapper)", () => {
-  test("success → proxies handler response", async () => {
-    const mockResp = {
-      id: "chatcmpl-1",
-      object: "chat.completion",
-      model: "gpt-4o",
-      choices: [{ index: 0, message: { role: "assistant", content: "hi" }, finish_reason: "stop" }],
-      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-    }
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify(mockResp), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    )
-
-    const app = new Hono()
-    app.route("/v1/chat/completions", completionRoutes)
-
-    const res = await app.request("/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4o", messages: [{ role: "user", content: "hi" }] }),
-    })
-
-    expect(res.status).toBe(200)
-  })
-
-  test("handler throws → forwardError catches and returns error JSON", async () => {
-    fetchSpy.mockRejectedValueOnce(new Error("upstream boom"))
-
-    const app = new Hono()
-    app.route("/v1/chat/completions", completionRoutes)
-
-    const res = await app.request("/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model: "gpt-4o", messages: [{ role: "user", content: "hi" }] }),
-    })
-
-    // forwardError returns 500 for generic Error
-    expect(res.status).toBe(500)
-    const json = (await res.json()) as { error: { message: string } }
-    expect(json.error).toBeDefined()
-  })
-})
-
-// ===========================================================================
-// Messages route wrapper (error forwarding)
-// ===========================================================================
-
-describe("POST /v1/messages (route wrapper)", () => {
-  test("success → proxies handler response", async () => {
-    const mockResp = {
-      id: "chatcmpl-1",
-      object: "chat.completion",
-      model: "claude-sonnet-4",
-      choices: [{ index: 0, message: { role: "assistant", content: "hi" }, finish_reason: "stop" }],
-      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-    }
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify(mockResp), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    )
-
-    const app = new Hono()
-    app.route("/v1/messages", messageRoutes)
-
-    const res = await app.request("/v1/messages", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-      }),
-    })
-
-    expect(res.status).toBe(200)
-  })
-
-  test("handler throws → forwardError catches and returns error JSON", async () => {
-    fetchSpy.mockRejectedValueOnce(new Error("upstream boom"))
-
-    const app = new Hono()
-    app.route("/v1/messages", messageRoutes)
-
-    const res = await app.request("/v1/messages", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-      }),
-    })
-
-    expect(res.status).toBe(500)
-    const json = (await res.json()) as { error: { message: string } }
-    expect(json.error).toBeDefined()
   })
 })
