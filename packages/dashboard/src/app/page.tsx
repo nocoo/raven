@@ -62,6 +62,11 @@ export default async function HomePage({ searchParams }: PageProps) {
     ? overview.error_count / overview.total_requests
     : 0;
 
+  // Sparkline data from timeseries buckets
+  const requestsSpark = timeseries.map((b) => b.count);
+  const tokensSpark = timeseries.map((b) => b.total_tokens);
+  const latencySpark = timeseries.map((b) => b.avg_latency_ms);
+
   // Graceful fallback for requests + models
   const models = modelsResult.ok
     ? modelsResult.data.map((m) => m.model)
@@ -76,16 +81,19 @@ export default async function HomePage({ searchParams }: PageProps) {
             icon={Activity}
             label="Total Requests"
             value={formatCompact(overview.total_requests)}
+            sparkline={requestsSpark}
           />
           <StatCard
             icon={Zap}
             label="Total Tokens"
             value={formatCompact(overview.total_tokens)}
+            sparkline={tokensSpark}
           />
           <StatCard
             icon={Clock}
             label="Avg Latency"
             value={formatLatency(overview.avg_latency_ms)}
+            sparkline={latencySpark}
           />
           <StatCard
             icon={AlertTriangle}
