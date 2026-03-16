@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.0.0 (2026-03-16)
+
+First stable release — version settings system, multi-platform local detection, dashboard polish, and brand unification to lowercase raven.
+
+### Proxy — features
+
+- **Settings persistence** — new `settings` SQLite table with key-value CRUD for version overrides
+- **Local version detection** — auto-detect VS Code and Copilot Chat versions from local installations (VS Code, Cursor, Insiders, VSCodium) across macOS, Linux, and Windows
+- **Dynamic Copilot version** — replaced hardcoded `COPILOT_VERSION = "0.26.7"` with `state.copilotChatVersion`, resolved at startup via priority chain: DB override → local detection → AUR fetch → fallback
+- **Settings API** — `GET/PUT/DELETE /api/settings` with semver validation, effective value + source tracking, and live state update
+- **Version source tracking** — state tracks whether each version came from override, local, aur, or fallback
+
+### Dashboard — features
+
+- **Settings page** — view effective versions with source badges (Override / Local / AUR / Fallback), input override values, save and reset controls with inline error feedback
+- **Per-page tab titles** — Next.js metadata template `"%s — raven"` with unique titles per page (e.g. "Logs — raven", "Copilot Models — raven")
+- **Copilot models table** — unified column widths across vendor tables via `table-fixed` layout with percentage-based columns
+
+### Dashboard — UI improvements
+
+- **Logs page** — redesigned with left-right split layout, card-based request cards with timeline visualization, real-time session stats panel, reverse chronological order, scroll-to-top FAB, copy button
+- **Home page** — merged Overview and Requests into single page with stat cards + charts + embedded request log
+
+### Bug fixes
+
+- **Semver validation** — settings API rejects non-semver values with 400 to prevent corrupting upstream request headers
+- **Error feedback** — settings save/reset shows inline error message on proxy 4xx/5xx or network failure
+- **Copilot models table** — fixed duplicate React keys
+- **TypeScript** — resolved strict type errors in settings-content component
+
+### Brand & docs
+
+- **Brand unification** — standardized to lowercase `raven` across metadata titles, sidebar, docs
+- **README rewrite** — updated per project standards: lowercase brand, 404 test count, full docs index, new features documented
+- **docs/README.md** — added entries for docs 02–06
+
 ## v0.3.0 (2026-03-16)
 
 Major infrastructure release — complete proxy rewrite, real-time logging system, API key management, and dashboard test suite from zero to 145 tests with 5 bug fixes.
