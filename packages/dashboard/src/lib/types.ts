@@ -166,3 +166,16 @@ export interface ConnectionInfo {
   };
   models: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Settings types
+// ---------------------------------------------------------------------------
+
+export interface SettingInfo {
+  effective: string;
+  source: string;
+  override: string | null;
+}
+
+export type SettingsData = Record<string, SettingInfo>;
+

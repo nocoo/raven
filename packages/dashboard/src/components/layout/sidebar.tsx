@@ -14,6 +14,7 @@ import {
   LogOut,
   ChevronUp,
   Terminal,
+  Settings,
 } from "lucide-react";
 import { cn, getAvatarColor } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,6 +68,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Settings",
     defaultOpen: true,
     items: [
+      { href: "/settings", label: "Settings", icon: Settings },
       { href: "/connect", label: "Connect", icon: Cable },
     ],
   },
