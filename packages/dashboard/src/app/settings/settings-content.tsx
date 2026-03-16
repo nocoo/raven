@@ -22,12 +22,12 @@ const SETTING_LABELS: Record<string, { label: string; description: string }> = {
   },
 };
 
-const FALLBACK_BADGE = { label: "Fallback", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20" };
+const FALLBACK_BADGE = { label: "Fallback", className: "bg-warning/15 text-warning border-warning/20" };
 
 const SOURCE_VARIANTS: Record<string, { label: string; className: string }> = {
-  override: { label: "Override", className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20" },
-  local: { label: "Local", className: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20" },
-  aur: { label: "AUR", className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/20" },
+  override: { label: "Override", className: "bg-info/15 text-info border-info/20" },
+  local: { label: "Local", className: "bg-success/15 text-success border-success/20" },
+  aur: { label: "AUR", className: "bg-purple/15 text-purple border-purple/20" },
   fallback: FALLBACK_BADGE,
 };
 
