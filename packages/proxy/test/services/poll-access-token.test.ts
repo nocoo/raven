@@ -1,6 +1,17 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { pollAccessToken } from "../../src/services/github/poll-access-token"
+import { describe, expect, test, beforeEach, afterEach, spyOn, mock } from "bun:test"
 import type { DeviceCodeResponse } from "../../src/services/github/get-device-code"
+
+// ---------------------------------------------------------------------------
+// Mock sleep → instant resolve (eliminates ~1s real wait per retry)
+// ---------------------------------------------------------------------------
+
+mock.module("~/lib/utils", () => ({
+  sleep: () => Promise.resolve(),
+  isNullish: (v: unknown) => v === null || v === undefined,
+}))
+
+// Import AFTER mock
+const { pollAccessToken } = await import("../../src/services/github/poll-access-token")
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -8,8 +19,6 @@ import type { DeviceCodeResponse } from "../../src/services/github/get-device-co
 
 let fetchSpy: ReturnType<typeof spyOn>
 
-// Use interval: 0 → sleepDuration = (0 + 1) * 1000 = 1000ms
-// Tests with retries will take ~1s per retry
 const deviceCode: DeviceCodeResponse = {
   device_code: "dc-test",
   user_code: "ABCD-1234",
@@ -45,10 +54,8 @@ describe("pollAccessToken", () => {
   })
 
   test("retries on HTTP non-ok, then succeeds", async () => {
-    // First call: HTTP 500 → retry
     fetchSpy
       .mockResolvedValueOnce(new Response("server error", { status: 500 }))
-      // Second call: success
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({ access_token: "gho_retry", token_type: "bearer", scope: "" }),
@@ -59,10 +66,9 @@ describe("pollAccessToken", () => {
     const token = await pollAccessToken(deviceCode)
     expect(token).toBe("gho_retry")
     expect(fetchSpy).toHaveBeenCalledTimes(2)
-  }, 5_000)
+  })
 
   test("retries when ok but no access_token, then succeeds", async () => {
-    // First call: 200 but pending (no access_token)
     fetchSpy
       .mockResolvedValueOnce(
         new Response(
@@ -70,7 +76,6 @@ describe("pollAccessToken", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         ),
       )
-      // Second call: success with access_token
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({ access_token: "gho_delayed", token_type: "bearer", scope: "" }),
@@ -81,5 +86,5 @@ describe("pollAccessToken", () => {
     const token = await pollAccessToken(deviceCode)
     expect(token).toBe("gho_delayed")
     expect(fetchSpy).toHaveBeenCalledTimes(2)
-  }, 5_000)
+  })
 })

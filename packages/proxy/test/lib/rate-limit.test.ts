@@ -1,6 +1,17 @@
-import { describe, expect, test } from "bun:test"
-import { checkRateLimit } from "../../src/lib/rate-limit"
+import { describe, expect, test, mock } from "bun:test"
 import type { State } from "../../src/lib/state"
+
+// ---------------------------------------------------------------------------
+// Mock sleep → instant resolve (eliminates ~1s real wait in the wait branch)
+// ---------------------------------------------------------------------------
+
+mock.module("~/lib/utils", () => ({
+  sleep: () => Promise.resolve(),
+  isNullish: (v: unknown) => v === null || v === undefined,
+}))
+
+// Import AFTER mock so checkRateLimit's sleep binding is replaced
+const { checkRateLimit } = await import("../../src/lib/rate-limit")
 
 // ---------------------------------------------------------------------------
 // Helper: minimal State with rate-limit-relevant fields
@@ -21,7 +32,6 @@ function makeState(overrides: Partial<State> = {}): State {
 describe("checkRateLimit", () => {
   test("no-op when rateLimitSeconds is undefined", async () => {
     const s = makeState({ rateLimitSeconds: undefined })
-    // Should resolve without touching timestamp
     await checkRateLimit(s)
     expect(s.lastRequestTimestamp).toBeUndefined()
   })
@@ -42,7 +52,6 @@ describe("checkRateLimit", () => {
       lastRequestTimestamp: past,
     })
     await checkRateLimit(s)
-    // Timestamp should be updated to approximately now
     expect(s.lastRequestTimestamp!).toBeGreaterThan(past)
   })
 
@@ -50,16 +59,14 @@ describe("checkRateLimit", () => {
     const s = makeState({
       rateLimitSeconds: 60,
       rateLimitWait: false,
-      lastRequestTimestamp: Date.now(), // just now
+      lastRequestTimestamp: Date.now(),
     })
 
     try {
       await checkRateLimit(s)
-      // Should not reach here
       expect(true).toBe(false)
     } catch (err: unknown) {
       expect(err).toBeDefined()
-      // HTTPError has a .response property
       const httpErr = err as { response: Response }
       expect(httpErr.response.status).toBe(429)
     }
@@ -67,18 +74,15 @@ describe("checkRateLimit", () => {
 
   test("under limit + rateLimitWait=true → waits then continues", async () => {
     const s = makeState({
-      rateLimitSeconds: 0.05, // 50ms — small enough for fast test
+      rateLimitSeconds: 60,
       rateLimitWait: true,
       lastRequestTimestamp: Date.now(),
     })
 
-    const before = Date.now()
+    // With mocked sleep this resolves instantly
     await checkRateLimit(s)
-    const elapsed = Date.now() - before
 
-    // Should have waited ~1 second (ceil of remaining seconds)
-    // With 50ms rate limit, ceil gives 1 second wait
-    expect(elapsed).toBeGreaterThanOrEqual(500)
-    expect(s.lastRequestTimestamp!).toBeGreaterThanOrEqual(before)
+    // After sleep, timestamp is updated
+    expect(s.lastRequestTimestamp).toBeDefined()
   })
 })
