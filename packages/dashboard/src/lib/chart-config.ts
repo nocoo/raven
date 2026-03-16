@@ -161,3 +161,9 @@ export const PIE_LABEL_LINE = {
   stroke: chartMuted,
   strokeWidth: 1,
 } as const;
+
+/**
+ * Maximum number of individual items to show in model distribution
+ * charts. Remaining items are aggregated into an "Others" bucket.
+ */
+export const MODEL_TOP_N = 8;
