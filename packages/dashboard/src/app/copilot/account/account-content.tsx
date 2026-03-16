@@ -199,14 +199,18 @@ export function AccountContent({ data }: AccountContentProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const loading = isPending || isRefreshing;
 
   async function handleRefresh() {
     setIsRefreshing(true);
+    setRefreshError(null);
     try {
       await fetch("/api/copilot/user?refresh=true");
       startTransition(() => router.refresh());
+    } catch (err) {
+      setRefreshError(err instanceof Error ? err.message : "Refresh failed");
     } finally {
       setIsRefreshing(false);
     }
@@ -235,6 +239,10 @@ export function AccountContent({ data }: AccountContentProps) {
           Refresh
         </Button>
       </div>
+
+      {refreshError && (
+        <p className="text-xs text-destructive">{refreshError}</p>
+      )}
 
       {/* Subscription overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -23,9 +23,13 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API may fail (e.g., no permission) — fail silently
+    }
   }, [text]);
 
   return (
@@ -82,6 +86,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const loading = isPending || isRefreshing;
 
@@ -89,9 +94,12 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
 
   async function handleRefresh() {
     setIsRefreshing(true);
+    setRefreshError(null);
     try {
       await fetch("/api/copilot/models?refresh=true");
       startTransition(() => router.refresh());
+    } catch (err) {
+      setRefreshError(err instanceof Error ? err.message : "Refresh failed");
     } finally {
       setIsRefreshing(false);
     }
@@ -116,6 +124,10 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
           Refresh
         </Button>
       </div>
+
+      {refreshError && (
+        <p className="text-xs text-destructive">{refreshError}</p>
+      )}
 
       {groups.map(({ vendor, models }) => (
         <div key={vendor} className="space-y-2">
