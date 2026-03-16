@@ -1,8 +1,31 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, spyOn, mock } from "bun:test"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
-import { messageRoutes } from "../../src/routes/messages/route"
+
+// ---------------------------------------------------------------------------
+// Controllable mock for count-tokens-handler.
+// Default: delegates to the real handler. Tests can override via shouldThrow.
+// This mock.module only affects ~/routes/messages/count-tokens-handler which
+// is exclusively imported by messages/route.ts — no cross-file poisoning.
+// ---------------------------------------------------------------------------
+
+let shouldThrow = false
+
+// Grab the real implementation via relative path before mock.module intercepts the alias
+const { handleCountTokens: realHandleCountTokens } = await import(
+  "../../src/routes/messages/count-tokens-handler"
+)
+
+mock.module("../../src/routes/messages/count-tokens-handler", () => ({
+  handleCountTokens: (...args: Parameters<typeof realHandleCountTokens>) => {
+    if (shouldThrow) throw new Error("handler exploded")
+    return realHandleCountTokens(...args)
+  },
+}))
+
+// Import route AFTER mock is registered
+const { messageRoutes } = await import("../../src/routes/messages/route")
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -12,6 +35,7 @@ const savedToken = state.copilotToken
 let fetchSpy: ReturnType<typeof spyOn>
 
 beforeEach(() => {
+  shouldThrow = false
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
@@ -107,9 +131,20 @@ describe("POST /v1/messages/count_tokens (route wrapper)", () => {
       body: JSON.stringify({ model: "nonexistent", messages: [{ role: "user", content: "x" }] }),
     })
 
-    // handler returns fallback { input_tokens: 1 } when model not found
     expect(res.status).toBe(200)
     const json = (await res.json()) as { input_tokens: number }
     expect(json.input_tokens).toBe(1)
+  })
+
+  test("handler throws → route catch triggers forwardError", async () => {
+    shouldThrow = true
+
+    const app = new Hono()
+    app.route("/v1/messages", messageRoutes)
+    const res = await app.request("/v1/messages/count_tokens", { method: "POST", headers, body })
+
+    expect(res.status).toBe(500)
+    const json = (await res.json()) as { error: { message: string } }
+    expect(json.error.message).toBe("handler exploded")
   })
 })
