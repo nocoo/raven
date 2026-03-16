@@ -69,10 +69,12 @@ function parseSSEEvent(raw: string): { event: string; data: unknown } | null {
   const eventMatch = raw.match(/event: (\w+)/);
   const dataMatch = raw.match(/data: (.+)/);
   if (!eventMatch || !dataMatch) return null;
+  const event = eventMatch[1]!;
+  const data = dataMatch[1]!;
   try {
-    return { event: eventMatch[1], data: JSON.parse(dataMatch[1]) };
+    return { event, data: JSON.parse(data) };
   } catch {
-    return { event: eventMatch[1], data: dataMatch[1] };
+    return { event, data };
   }
 }
 
@@ -108,7 +110,7 @@ describe("GET /api/logs/stream", () => {
 
   describe("connection setup", () => {
     it("builds WebSocket URL with ws:// protocol from http://", async () => {
-      const res = await importAndCall("http://localhost/api/logs/stream");
+      await importAndCall("http://localhost/api/logs/stream");
       const ws = MockWebSocket.lastInstance!;
 
       expect(ws.url).toMatch(/^ws:\/\/localhost:7033\/ws\/logs\?/);
