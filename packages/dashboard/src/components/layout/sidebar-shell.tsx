@@ -46,7 +46,7 @@ function SidebarShellInner({ children }: { children: React.ReactNode }) {
           <SheetContent side="left" className="w-[260px] p-0 sm:max-w-[260px]" showCloseButton={false}>
             <SheetHeader className="sr-only">
               <SheetTitle>Navigation</SheetTitle>
-              <SheetDescription>Browse Raven dashboard pages</SheetDescription>
+              <SheetDescription>Browse raven dashboard pages</SheetDescription>
             </SheetHeader>
             <Sidebar mobile />
           </SheetContent>
