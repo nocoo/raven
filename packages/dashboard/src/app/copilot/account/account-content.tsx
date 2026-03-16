@@ -124,7 +124,7 @@ function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean
           strokeDasharray={RING_CIRCUMFERENCE}
           strokeDashoffset={offset}
           className={unlimited ? "text-primary" : clamped > 20 ? "text-primary" : "text-destructive"}
-          style={{ transition: "stroke-dashoffset 0.6s ease" }}
+          style={{ transition: "stroke-dashoffset 0.3s ease" }}
         />
       </svg>
       {/* Center label */}

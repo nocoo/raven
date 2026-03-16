@@ -118,7 +118,7 @@ function useCopyFeedback() {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 1500);
+      timerRef.current = setTimeout(() => setCopied(false), 800);
     });
   }, []);
 

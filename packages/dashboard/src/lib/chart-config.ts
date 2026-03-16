@@ -130,8 +130,8 @@ export function formatBucketTime(bucket: number): string {
  * Shared ResponsiveContainer props to avoid repeated configuration.
  * - minWidth/minHeight=0: prevent flex/grid sizing issues
  * - initialDimension={1,1}: suppress recharts -1 initial size warning
- * - debounce=300: throttle resize callbacks to avoid jank during
- *   sidebar collapse/expand animation (also 300ms)
+ * - debounce=150: throttle resize callbacks to avoid jank during
+ *   sidebar collapse/expand animation (also 150ms)
  */
 export const RESPONSIVE_CONTAINER_PROPS = {
   width: "100%" as const,
@@ -139,7 +139,7 @@ export const RESPONSIVE_CONTAINER_PROPS = {
   minWidth: 0,
   minHeight: 0,
   initialDimension: { width: 1, height: 1 },
-  debounce: 300,
+  debounce: 150,
 } as const;
 
 /**

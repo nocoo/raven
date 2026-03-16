@@ -99,7 +99,7 @@ function NavGroupSection({
           <span className="flex h-5 w-5 shrink-0 items-center justify-center">
             <ChevronUp
               className={cn(
-                "h-3.5 w-3.5 text-muted-foreground/50 transition-transform duration-200",
+                "h-3.5 w-3.5 text-muted-foreground/50 transition-transform duration-150",
                 !open && "rotate-180",
               )}
               strokeWidth={1.5}
@@ -111,7 +111,7 @@ function NavGroupSection({
         className="grid overflow-hidden"
         style={{
           gridTemplateRows: open ? "1fr" : "0fr",
-          transition: "grid-template-rows 200ms ease-out",
+          transition: "grid-template-rows 150ms ease-out",
         }}
       >
         <div className="min-h-0 overflow-hidden">
@@ -169,7 +169,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
       <aside
         aria-label={mobile ? "Main navigation drawer" : "Main navigation"}
         className={cn(
-          "sticky top-0 flex h-screen shrink-0 flex-col bg-background transition-all duration-300 ease-in-out overflow-hidden",
+          "sticky top-0 flex h-screen shrink-0 flex-col bg-background transition-all duration-150 ease-in-out overflow-hidden",
           collapsed ? "w-[68px]" : "w-[260px]",
         )}
       >

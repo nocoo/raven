@@ -26,7 +26,7 @@ function CopyButton({ text }: { text: string }) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setTimeout(() => setCopied(false), 800);
     } catch {
       // Clipboard API may fail (e.g., no permission) — fail silently
     }
