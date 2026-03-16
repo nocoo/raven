@@ -7,10 +7,11 @@ import { createApp } from "./app"
 import { ensurePaths } from "./lib/paths"
 import { state } from "./lib/state"
 import { setupGitHubToken, setupCopilotToken } from "./lib/token"
-import { cacheModels, cacheVSCodeVersion } from "./lib/utils"
+import { cacheModels, cacheVersions } from "./lib/utils"
 import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
 import { initApiKeys, getKeyCount, validateApiKey } from "./db/keys"
+import { initSettings } from "./db/settings"
 import { timingSafeEqual } from "./middleware"
 import { wsHandler, type WsData } from "./ws/logs"
 import type { LogLevel } from "./util/log-event"
@@ -31,11 +32,12 @@ mkdirSync("data", { recursive: true })
 const db = new Database("data/raven.db")
 initDatabase(db)
 initApiKeys(db)
+initSettings(db)
 startRequestSink(db)
 logger.info("Database ready (WAL mode)")
 
-// 3. Cache VS Code version (for Copilot API headers)
-await cacheVSCodeVersion()
+// 3. Cache versions (VS Code + Copilot Chat, for Copilot API headers)
+await cacheVersions(db)
 
 // 4. GitHub OAuth (loads from disk or runs device flow)
 await setupGitHubToken()

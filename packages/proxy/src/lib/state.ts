@@ -7,6 +7,11 @@ export interface State {
   accountType: string
   models?: ModelsResponse
   vsCodeVersion?: string
+  copilotChatVersion?: string
+
+  // Source tracking for settings page
+  vsCodeVersionSource?: "override" | "local" | "aur" | "fallback"
+  copilotChatVersionSource?: "override" | "local" | "fallback"
 
   rateLimitWait: boolean
 
