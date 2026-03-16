@@ -121,7 +121,7 @@ describe("GET /api/stats/models", () => {
 });
 
 describe("GET /api/stats/recent", () => {
-  test("returns recent records", async () => {
+  test("returns recent records with limit", async () => {
     seedDb(db);
     const app = new Hono();
     app.route("/api", createStatsRoute(db));
@@ -132,6 +132,19 @@ describe("GET /api/stats/recent", () => {
     const body = await res.json();
     expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBe(2);
+  });
+
+  test("returns recent records without limit (default)", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/recent");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBe(4); // all seeded records
   });
 });
 
