@@ -190,6 +190,7 @@ claude`,
 function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleCreated = useCallback(() => {
     setDialogOpen(false);
@@ -197,12 +198,17 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
   }, [router]);
 
   const handleAction = useCallback(async (id: string, action: "revoke" | "delete") => {
-    if (action === "revoke") {
-      await fetch(`/api/keys/${id}/revoke`, { method: "POST" });
-    } else {
-      await fetch(`/api/keys/${id}`, { method: "DELETE" });
+    setActionError(null);
+    try {
+      if (action === "revoke") {
+        await fetch(`/api/keys/${id}/revoke`, { method: "POST" });
+      } else {
+        await fetch(`/api/keys/${id}`, { method: "DELETE" });
+      }
+      router.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Action failed");
     }
-    router.refresh();
   }, [router]);
 
   return (
@@ -222,6 +228,10 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
           <CreateKeyDialog onCreated={handleCreated} />
         </Dialog>
       </div>
+
+      {actionError && (
+        <p className="text-xs text-destructive">{actionError}</p>
+      )}
 
       {initialKeys.length === 0 ? (
         <div className="rounded-widget border border-border/40 bg-secondary/30 px-6 py-8 text-center">
@@ -314,7 +324,10 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error?.message ?? "Failed to create key");
+        const errMsg = typeof data.error === "string"
+          ? data.error
+          : data.error?.message ?? "Failed to create key";
+        setError(errMsg);
         return;
       }
       const data = await res.json() as ApiKeyCreated;
