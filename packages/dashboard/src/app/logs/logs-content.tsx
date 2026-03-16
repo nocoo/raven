@@ -8,6 +8,10 @@ import {
   Circle,
   ChevronDown,
   ChevronRight,
+  ArrowRight,
+  ArrowLeft,
+  AlertTriangle,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,12 +36,37 @@ const LEVEL_COLORS: Record<LogLevel, string> = {
   error: "text-red-600 dark:text-red-400",
 };
 
-const LEVEL_BORDER: Record<LogLevel, string> = {
-  debug: "",
-  info: "",
-  warn: "border-l-2 border-l-yellow-500",
-  error: "border-l-2 border-l-red-500",
-};
+// Map event types to badge variants and labels
+type BadgeVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline"
+  | "success"
+  | "warning"
+  | "info"
+  | "purple"
+  | "teal";
+
+function getEventTypeBadge(event: LogEvent): { variant: BadgeVariant; label: string; icon?: React.ReactNode } {
+  const status = event.data?.status as string | undefined;
+
+  switch (event.type) {
+    case "request_start":
+      return { variant: "info", label: "START", icon: <ArrowRight className="size-3" /> };
+    case "request_end":
+      return status === "error"
+        ? { variant: "destructive", label: "END", icon: <AlertTriangle className="size-3" /> }
+        : { variant: "success", label: "END", icon: <ArrowLeft className="size-3" /> };
+    case "upstream_error":
+      return { variant: "destructive", label: "UPSTREAM ERROR", icon: <AlertTriangle className="size-3" /> };
+    case "sse_chunk":
+      return { variant: "purple", label: "SSE", icon: undefined };
+    case "system":
+    default:
+      return { variant: "secondary", label: "SYSTEM", icon: <Monitor className="size-3" /> };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -129,61 +158,137 @@ function LevelSelect({
   );
 }
 
-function EventLine({ event }: { event: LogEvent }) {
+/** Single event rendered as a card */
+function EventCard({ event, nested = false }: { event: LogEvent; nested?: boolean }) {
   const data = event.data ?? {};
   const model = data.model as string | undefined;
+  const resolvedModel = data.resolvedModel as string | undefined;
   const latencyMs = data.latencyMs as number | undefined;
   const inputTokens = data.inputTokens as number | undefined;
   const outputTokens = data.outputTokens as number | undefined;
-  const status = data.status as string | undefined;
+  const statusCode = data.statusCode as number | undefined;
+  const format = data.format as string | undefined;
+  const stream = data.stream as boolean | undefined;
+  const path = data.path as string | undefined;
+  const error = data.error as string | undefined;
+  const accountName = data.accountName as string | undefined;
+  const messageCount = data.messageCount as number | undefined;
+  const toolCount = data.toolCount as number | undefined;
+
+  const badge = getEventTypeBadge(event);
+  const hasMetadata = model || latencyMs !== undefined || inputTokens !== undefined || format || path;
 
   return (
     <div
       className={cn(
-        "flex items-start gap-2 px-3 py-1 font-mono text-xs leading-5",
-        LEVEL_BORDER[event.level],
+        "rounded-lg border bg-card font-mono text-xs",
+        nested ? "p-2.5" : "p-3",
+        event.level === "error" && "border-red-200 dark:border-red-900/50",
+        event.level === "warn" && "border-yellow-200 dark:border-yellow-900/50",
       )}
     >
-      <span className="shrink-0 text-muted-foreground tabular-nums" title={new Date(event.ts).toISOString()}>
-        {formatTime(event.ts)}
-      </span>
-      <Badge
-        variant="outline"
-        className={cn("shrink-0 px-1 py-0 text-[10px] font-normal", LEVEL_COLORS[event.level])}
-      >
-        {event.level}
-      </Badge>
-      <span className={cn("shrink-0 text-muted-foreground", LEVEL_COLORS[event.level])}>
-        {event.type}
-      </span>
-      <span className={cn("flex-1 truncate", LEVEL_COLORS[event.level])}>
+      {/* Row 1: type badge + time + status tags */}
+      <div className="flex items-center gap-2">
+        <Badge variant={badge.variant} className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
+          {badge.icon}
+          {badge.label}
+        </Badge>
+        <span className="text-muted-foreground tabular-nums" title={new Date(event.ts).toISOString()}>
+          {formatTime(event.ts)}
+        </span>
+        {/* Level badge for warn/error */}
+        {(event.level === "warn" || event.level === "error") && (
+          <Badge
+            variant={event.level === "error" ? "destructive" : "warning"}
+            className="px-1.5 py-0 text-[10px]"
+          >
+            {event.level}
+          </Badge>
+        )}
+        {/* Status code tag */}
+        {statusCode !== undefined && (
+          <Badge
+            variant={statusCode >= 400 ? "destructive" : "success"}
+            className="px-1.5 py-0 text-[10px] font-mono"
+          >
+            {statusCode}
+          </Badge>
+        )}
+        {/* Streaming indicator */}
+        {stream !== undefined && (
+          <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+            {stream ? "stream" : "sync"}
+          </Badge>
+        )}
+      </div>
+
+      {/* Row 2: message */}
+      <p className={cn("mt-1.5 leading-relaxed break-all", LEVEL_COLORS[event.level])}>
         {event.msg}
-      </span>
-      {/* Metadata chips */}
-      {model && (
-        <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px] font-normal">
-          {model}
-        </Badge>
+      </p>
+
+      {/* Row 3: error detail */}
+      {error && event.type !== "request_start" && (
+        <p className="mt-1 text-red-600 dark:text-red-400 leading-relaxed break-all">
+          {error}
+        </p>
       )}
-      {latencyMs !== undefined && (
-        <span className="shrink-0 text-muted-foreground tabular-nums">
-          {latencyMs}ms
-        </span>
-      )}
-      {inputTokens !== undefined && outputTokens !== undefined && (
-        <span className="shrink-0 text-muted-foreground tabular-nums">
-          {inputTokens}/{outputTokens}
-        </span>
-      )}
-      {status === "error" && (
-        <Badge variant="destructive" className="shrink-0 px-1 py-0 text-[10px]">
-          error
-        </Badge>
+
+      {/* Row 4: metadata tags */}
+      {hasMetadata && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {path && (
+            <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-mono">
+              {path}
+            </Badge>
+          )}
+          {model && (
+            <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
+              {model}
+            </Badge>
+          )}
+          {resolvedModel && resolvedModel !== model && (
+            <Badge variant="teal" className="px-1.5 py-0 text-[10px]">
+              resolved: {resolvedModel}
+            </Badge>
+          )}
+          {format && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+              {format}
+            </Badge>
+          )}
+          {accountName && accountName !== "default" && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+              {accountName}
+            </Badge>
+          )}
+          {latencyMs !== undefined && (
+            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
+              {latencyMs}ms
+            </Badge>
+          )}
+          {inputTokens !== undefined && outputTokens !== undefined && (
+            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
+              in:{inputTokens} out:{outputTokens}
+            </Badge>
+          )}
+          {messageCount !== undefined && (
+            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+              {messageCount} msgs
+            </Badge>
+          )}
+          {toolCount !== undefined && toolCount > 0 && (
+            <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+              {toolCount} tools
+            </Badge>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
+/** A group of events sharing the same requestId, rendered as an expandable card */
 function RequestGroup({
   events,
   defaultExpanded = false,
@@ -193,71 +298,127 @@ function RequestGroup({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
-  // Single event (system) — no grouping
+  // Single event (system or solo) — render as standalone card
   if (events.length === 1 && !events[0]!.requestId) {
-    return <EventLine event={events[0]!} />;
+    return <EventCard event={events[0]!} />;
   }
 
-  // Find the summary events
+  // Multi-event request group
   const startEvent = events.find((e) => e.type === "request_start");
   const endEvent = events.find((e) => e.type === "request_end");
-  const summaryEvent = startEvent ?? events[0]!;
   const hasError = events.some((e) => e.level === "error");
+  const summaryEvent = startEvent ?? events[0]!;
+
+  const data = endEvent?.data ?? startEvent?.data ?? {};
+  const model = data.model as string | undefined;
+  const latencyMs = data.latencyMs as number | undefined;
+  const inputTokens = data.inputTokens as number | undefined;
+  const outputTokens = data.outputTokens as number | undefined;
+  const status = data.status as string | undefined;
+  const format = data.format as string | undefined;
+  const stream = data.stream as boolean | undefined;
+  const statusCode = data.statusCode as number | undefined;
 
   return (
-    <div>
-      {/* Group header — clickable */}
+    <div
+      className={cn(
+        "rounded-lg border bg-card overflow-hidden",
+        hasError
+          ? "border-red-200 dark:border-red-900/50"
+          : "border-border",
+      )}
+    >
+      {/* Summary header — clickable */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
         className={cn(
-          "flex w-full items-center gap-2 px-3 py-1 font-mono text-xs leading-5 hover:bg-muted/50 transition-colors",
-          hasError ? "border-l-2 border-l-red-500" : "",
+          "flex w-full items-start gap-2.5 p-3 text-left font-mono text-xs transition-colors hover:bg-muted/50",
         )}
       >
-        {expanded ? (
-          <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
-        )}
-        <span className="shrink-0 text-muted-foreground tabular-nums" title={new Date(summaryEvent.ts).toISOString()}>
-          {formatTime(summaryEvent.ts)}
-        </span>
-        <span className="flex-1 truncate text-left">
-          {summaryEvent.msg}
-        </span>
-        {endEvent && (
-          <>
-            {endEvent.data?.status === "error" ? (
-              <Badge variant="destructive" className="shrink-0 px-1 py-0 text-[10px]">
-                error
+        <div className="mt-0.5 shrink-0">
+          {expanded ? (
+            <ChevronDown className="size-3.5 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="size-3.5 text-muted-foreground" />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {/* Row 1: badges + time */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {status === "error" ? (
+              <Badge variant="destructive" className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
+                <AlertTriangle className="size-3" />
+                ERROR
+              </Badge>
+            ) : endEvent ? (
+              <Badge variant="success" className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
+                OK
               </Badge>
             ) : (
-              <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] text-green-600 dark:text-green-400">
-                ok
+              <Badge variant="info" className="gap-1 px-1.5 py-0 text-[10px] font-semibold">
+                <ArrowRight className="size-3" />
+                IN PROGRESS
               </Badge>
             )}
-            {endEvent.data?.latencyMs !== undefined && (
-              <span className="shrink-0 text-muted-foreground tabular-nums">
-                {endEvent.data.latencyMs as number}ms
-              </span>
+            {statusCode !== undefined && (
+              <Badge
+                variant={statusCode >= 400 ? "destructive" : "success"}
+                className="px-1.5 py-0 text-[10px] font-mono"
+              >
+                {statusCode}
+              </Badge>
             )}
-            {endEvent.data?.inputTokens !== undefined && (
-              <span className="shrink-0 text-muted-foreground tabular-nums">
-                in:{endEvent.data.inputTokens as number} out:{endEvent.data.outputTokens as number}
-              </span>
+            <span className="text-muted-foreground tabular-nums">
+              {formatTime(summaryEvent.ts)}
+            </span>
+          </div>
+
+          {/* Row 2: message */}
+          <p className="mt-1 leading-relaxed">
+            {summaryEvent.msg}
+          </p>
+
+          {/* Row 3: metadata tags */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {model && (
+              <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
+                {model}
+              </Badge>
             )}
-          </>
-        )}
-        <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px] font-normal">
-          {events.length}
-        </Badge>
+            {format && (
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                {format}
+              </Badge>
+            )}
+            {stream !== undefined && (
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                {stream ? "stream" : "sync"}
+              </Badge>
+            )}
+            {latencyMs !== undefined && (
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
+                {latencyMs}ms
+              </Badge>
+            )}
+            {inputTokens !== undefined && outputTokens !== undefined && (
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums font-mono">
+                in:{inputTokens} out:{outputTokens}
+              </Badge>
+            )}
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+              {events.length} events
+            </Badge>
+          </div>
+        </div>
       </button>
-      {/* Expanded detail */}
+
+      {/* Expanded: individual event cards */}
       {expanded && (
-        <div className="ml-5 border-l border-border">
+        <div className="space-y-1.5 border-t border-border bg-muted/30 p-2.5">
           {events.map((event, i) => (
-            <EventLine key={`${event.ts}-${i}`} event={event} />
+            <EventCard key={`${event.ts}-${i}`} event={event} nested />
           ))}
         </div>
       )}
@@ -378,21 +539,21 @@ export function LogsContent() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-y-auto rounded-md border bg-card"
+        className="min-h-0 flex-1 overflow-y-auto"
       >
         {groups.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-32 items-center justify-center rounded-md border bg-card text-sm text-muted-foreground">
             {connected
               ? "Waiting for log events..."
               : "Connecting to log stream..."}
           </div>
         ) : (
-          <div className="max-w-5xl divide-y divide-border/50">
+          <div className="max-w-3xl space-y-2">
             {groups.map((group) => (
               <RequestGroup
                 key={group.key}
                 events={group.events}
-                defaultExpanded={group.events.length <= 3}
+                defaultExpanded={group.events.length <= 2}
               />
             ))}
           </div>
