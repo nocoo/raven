@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "test": "bun test test/db test/lib test/routes test/translate test/util test/ws test/*.test.ts",
+    "test": "bun test test/db test/lib test/routes test/services test/translate test/util test/ws test/*.test.ts",
     "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
     "lint": "eslint --config ../../eslint.config.js src/",
