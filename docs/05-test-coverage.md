@@ -10,9 +10,14 @@ Raven proxy handles high-volume concurrent requests — every code path directly
 | 🟠 WARM | Per-request — executes once per API call | `middleware.ts`, handlers, `create-chat-completions.ts`, `rate-limit.ts`, `non-stream-translation.ts`, `log-emitter.ts`, `request-sink.ts` |
 | 🧊 COLD | Startup or admin — executes once at boot or on manual action | `db/requests.ts initDatabase`, `db/keys.ts initApiKeys`, `services/github/*` |
 
-### Current state (371 tests, 672 assertions) — ✅ COMPLETE
+### Current state (397 tests, 733 assertions) — ✅ Phase 4 COMPLETE
 
-**All 40 source files at 95%+ line coverage. Overall: 99.56%.**
+**46 source files tracked in coverage. Overall: 96.94% line coverage.**
+
+> **Note:** Bun only reports coverage for files loaded during tests. Files that are never
+> imported by any test file (e.g., `src/index.ts`, `src/lib/paths.ts`) remain invisible in
+> the report. The previous "99.56% across all 40 files" was misleading because 8 source files
+> with runtime logic were not loaded and therefore not counted.
 
 | Module | Heat | Line coverage | Status |
 |--------|------|---------------|--------|
@@ -34,8 +39,8 @@ Raven proxy handles high-volume concurrent requests — every code path directly
 | `lib/utils.ts` | 🧊 | 100% | ✅ Phase 3b |
 | `routes/copilot-info.ts` | 🧊 | 96.97% | ✅ Phase 3b |
 | `routes/messages/utils.ts` | 🟠 | 100% | ✅ Phase 3b |
-| `routes/messages/route.ts` | 🟠 | 100% | ✅ Phase 3b |
-| `routes/chat-completions/route.ts` | 🟠 | 100% | ✅ Phase 3b |
+| `routes/messages/route.ts` | 🟠 | 46.67% | ⚠️ Thin wrapper — handler tests cover logic |
+| `routes/chat-completions/route.ts` | 🟠 | 55.56% | ⚠️ Thin wrapper — handler tests cover logic |
 | `routes/stats.ts` | 🧊 | 100% | ✅ Phase 3b |
 | `routes/models/route.ts` | 🟠 | 100% | ✅ Phase 3a |
 | `routes/embeddings/route.ts` | 🟠 | 100% | ✅ Phase 3a |
@@ -50,11 +55,24 @@ Raven proxy handles high-volume concurrent requests — every code path directly
 | `lib/state.ts` | 🧊 | 100% | ✅ Pre-existing |
 | `routes/keys.ts` | 🧊 | 100% | ✅ Pre-existing |
 | `routes/requests.ts` | 🧊 | 97.44% | ✅ Pre-existing |
-| `routes/connection-info.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `routes/connection-info.ts` | 🧊 | 100% | ✅ Phase 4 |
 | `config.ts` | 🧊 | 100% | ✅ Pre-existing |
 | `app.ts` | 🧊 | 100% | ✅ Pre-existing |
 | `ws/logs.ts` | 🧊 | 100% | ✅ Pre-existing |
 | `util/log-event.ts` | 🧊 | 100% | ✅ Pre-existing |
+| `lib/token.ts` | 🧊 | 100% | ✅ Phase 4 |
+| `services/github/get-copilot-token.ts` | 🧊 | 100% | ✅ Phase 4 |
+| `services/github/get-device-code.ts` | 🧊 | 100% | ✅ Phase 4 |
+| `services/github/get-user.ts` | 🧊 | 100% | ✅ Phase 4 |
+| `services/github/poll-access-token.ts` | 🧊 | 97.06% | ✅ Phase 4 |
+| `util/keepalive.ts` | 🟠 | 80.00% | ⚠️ Interval callback untestable without fake timers |
+
+#### Files not in coverage report (never loaded by tests)
+
+| Module | Reason |
+|--------|--------|
+| `index.ts` | Entry point — starts server, not importable in tests |
+| `lib/paths.ts` | Module-level `loadConfig()` conflicts with mock.module — tested via replicated logic |
 
 ### Target
 
