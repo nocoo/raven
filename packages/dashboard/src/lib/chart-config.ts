@@ -119,6 +119,14 @@ export function formatLatency(ms: number): string {
 }
 
 /**
+ * Format a timestamp bucket (epoch ms) as HH:MM for chart axis labels
+ */
+export function formatBucketTime(bucket: number): string {
+  const d = new Date(bucket);
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}
+
+/**
  * Shared ResponsiveContainer props to avoid repeated configuration.
  * - minWidth/minHeight=0: prevent flex/grid sizing issues
  * - initialDimension={1,1}: suppress recharts -1 initial size warning

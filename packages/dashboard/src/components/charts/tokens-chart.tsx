@@ -9,17 +9,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, formatBucketTime } from "@/lib/chart-config";
 import { formatCompact } from "@/lib/chart-config";
 import type { TimeseriesBucket } from "@/lib/types";
 
 interface TokensChartProps {
   data: TimeseriesBucket[];
-}
-
-function formatTime(bucket: number): string {
-  const d = new Date(bucket);
-  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
 }
 
 function CustomTooltip({ active, payload, label }: {
@@ -30,7 +25,7 @@ function CustomTooltip({ active, payload, label }: {
   if (!active || !payload?.length) return null;
   return (
     <div className={TOOLTIP_STYLES.container}>
-      <p className={TOOLTIP_STYLES.title}>{label ? formatTime(label) : ""}</p>
+      <p className={TOOLTIP_STYLES.title}>{label ? formatBucketTime(label) : ""}</p>
       <p className={TOOLTIP_STYLES.value}>
         {formatCompact(payload[0]?.value ?? 0)} tokens
       </p>
@@ -46,7 +41,7 @@ export function TokensChart({ data }: TokensChartProps) {
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="bucket" tickFormatter={formatTime} {...AXIS_CONFIG} />
+            <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
             <YAxis tickFormatter={formatCompact} {...AXIS_CONFIG} />
             <Tooltip content={<CustomTooltip />} />
             <Bar
