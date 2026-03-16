@@ -23,7 +23,6 @@ import {
   Timer,
   Coins,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   CHART_COLORS,
   AXIS_CONFIG,
@@ -33,6 +32,7 @@ import {
   formatLatency as fmtLatency,
   getChartColor,
 } from "@/lib/chart-config";
+import { StatCard } from "@/components/stats/stat-card";
 import type { LogEvent } from "@/hooks/use-log-stream";
 
 // ---------------------------------------------------------------------------
@@ -180,48 +180,6 @@ function formatPercent(v: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Stat Card — compact for sidebar
-// ---------------------------------------------------------------------------
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  sub?: string | undefined;
-  accent?: "default" | "danger" | "warning" | "success" | undefined;
-}) {
-  const accentColor = {
-    default: "text-foreground",
-    danger: "text-red-500",
-    warning: "text-amber-500",
-    success: "text-green-500",
-  }[accent ?? "default"];
-
-  return (
-    <div className="flex items-center gap-2.5 rounded-lg border bg-card p-2.5">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
-        <Icon className="size-3.5 text-muted-foreground" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] text-muted-foreground truncate">{label}</p>
-        <p className={cn("text-base font-semibold leading-tight tabular-nums", accentColor)}>
-          {value}
-        </p>
-        {sub && (
-          <p className="text-[10px] text-muted-foreground truncate">{sub}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Chart tooltips
 // ---------------------------------------------------------------------------
 
@@ -295,12 +253,14 @@ function StatsCards({ stats, hasData }: {
   return (
     <div className="grid grid-cols-2 gap-2">
       <StatCard
+        variant="compact"
         icon={Activity}
         label="Requests"
         value={formatCompact(stats.total)}
-        sub={stats.errors > 0 ? `${stats.errors} failed` : undefined}
+        detail={stats.errors > 0 ? `${stats.errors} failed` : undefined}
       />
       <StatCard
+        variant="compact"
         icon={AlertTriangle}
         label="Error Rate"
         value={hasData ? formatPercent(stats.errorRate) : "—"}
@@ -313,6 +273,7 @@ function StatsCards({ stats, hasData }: {
         }
       />
       <StatCard
+        variant="compact"
         icon={Timer}
         label="Avg Latency"
         value={hasData ? fmtLatency(stats.avgLatency) : "—"}
@@ -325,10 +286,11 @@ function StatsCards({ stats, hasData }: {
         }
       />
       <StatCard
+        variant="compact"
         icon={Coins}
         label="Tokens"
         value={hasData ? formatCompact(stats.totalTokens) : "—"}
-        sub={
+        detail={
           hasData
             ? `in ${formatCompact(stats.totalInput)} · out ${formatCompact(stats.totalOutput)}`
             : undefined
