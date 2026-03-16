@@ -1,56 +1,177 @@
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { Glob } from "bun";
 
-/**
- * Read the version from the locally installed VS Code app.
- * Returns null if VS Code is not installed or the file cannot be read.
- */
-export async function detectLocalVSCodeVersion(): Promise<string | null> {
-  const packageJsonPath =
-    "/Applications/Visual Studio Code.app/Contents/Resources/app/package.json";
+// ---------------------------------------------------------------------------
+// VS Code app paths — per platform × editor variant
+// ---------------------------------------------------------------------------
 
-  try {
-    const raw = await readFile(packageJsonPath, "utf-8");
-    const pkg = JSON.parse(raw) as { version?: string };
-    return pkg.version ?? null;
-  } catch {
-    return null;
-  }
+interface EditorCandidate {
+  /** Path to the app's package.json containing `version`. */
+  packageJson: string;
+  /** Corresponding extensions dir for Copilot Chat lookup. */
+  extensionsDir: string;
 }
 
+function getEditorCandidates(): EditorCandidate[] {
+  const home = homedir();
+  const os = platform();
+
+  if (os === "darwin") {
+    return [
+      // VS Code
+      {
+        packageJson:
+          "/Applications/Visual Studio Code.app/Contents/Resources/app/package.json",
+        extensionsDir: join(home, ".vscode", "extensions"),
+      },
+      // VS Code Insiders
+      {
+        packageJson:
+          "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/package.json",
+        extensionsDir: join(home, ".vscode-insiders", "extensions"),
+      },
+      // Cursor
+      {
+        packageJson:
+          "/Applications/Cursor.app/Contents/Resources/app/package.json",
+        extensionsDir: join(home, ".cursor", "extensions"),
+      },
+      // VSCodium
+      {
+        packageJson:
+          "/Applications/VSCodium.app/Contents/Resources/app/package.json",
+        extensionsDir: join(home, ".vscode-oss", "extensions"),
+      },
+    ];
+  }
+
+  if (os === "linux") {
+    return [
+      // VS Code — snap, deb/rpm, or extracted
+      {
+        packageJson: "/usr/share/code/resources/app/package.json",
+        extensionsDir: join(home, ".vscode", "extensions"),
+      },
+      {
+        packageJson: "/snap/code/current/usr/share/code/resources/app/package.json",
+        extensionsDir: join(home, ".vscode", "extensions"),
+      },
+      // VS Code Insiders
+      {
+        packageJson: "/usr/share/code-insiders/resources/app/package.json",
+        extensionsDir: join(home, ".vscode-insiders", "extensions"),
+      },
+      // Cursor
+      {
+        packageJson: join(home, ".local", "share", "cursor", "resources", "app", "package.json"),
+        extensionsDir: join(home, ".cursor", "extensions"),
+      },
+      {
+        packageJson: "/opt/Cursor/resources/app/package.json",
+        extensionsDir: join(home, ".cursor", "extensions"),
+      },
+      // VSCodium
+      {
+        packageJson: "/usr/share/codium/resources/app/package.json",
+        extensionsDir: join(home, ".vscode-oss", "extensions"),
+      },
+    ];
+  }
+
+  if (os === "win32") {
+    const localAppData = process.env.LOCALAPPDATA ?? join(home, "AppData", "Local");
+    return [
+      // VS Code
+      {
+        packageJson: join(localAppData, "Programs", "Microsoft VS Code", "resources", "app", "package.json"),
+        extensionsDir: join(home, ".vscode", "extensions"),
+      },
+      // VS Code Insiders
+      {
+        packageJson: join(localAppData, "Programs", "Microsoft VS Code Insiders", "resources", "app", "package.json"),
+        extensionsDir: join(home, ".vscode-insiders", "extensions"),
+      },
+      // Cursor
+      {
+        packageJson: join(localAppData, "Programs", "cursor", "resources", "app", "package.json"),
+        extensionsDir: join(home, ".cursor", "extensions"),
+      },
+      // VSCodium
+      {
+        packageJson: join(localAppData, "Programs", "VSCodium", "resources", "app", "package.json"),
+        extensionsDir: join(home, ".vscode-oss", "extensions"),
+      },
+    ];
+  }
+
+  // Unknown platform — return empty
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// VS Code version detection
+// ---------------------------------------------------------------------------
+
 /**
- * Find the highest-version Copilot Chat extension installed locally.
- * Globs ~/.vscode/extensions/github.copilot-chat-*, sorts by semver,
- * and reads the version from its package.json.
- * Returns null if no extension is found.
+ * Try reading VS Code (or Cursor / Insiders / VSCodium) version
+ * from the local installation. Returns the first match found.
+ */
+export async function detectLocalVSCodeVersion(): Promise<string | null> {
+  const candidates = getEditorCandidates();
+
+  for (const candidate of candidates) {
+    try {
+      const raw = await readFile(candidate.packageJson, "utf-8");
+      const pkg = JSON.parse(raw) as { version?: string };
+      if (pkg.version) return pkg.version;
+    } catch {
+      // Not installed at this path — try next
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Copilot Chat extension version detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Scan all known extension directories for github.copilot-chat-*,
+ * return the highest version found across all editors.
  */
 export async function detectLocalCopilotVersion(): Promise<string | null> {
-  const extensionsDir = join(homedir(), ".vscode", "extensions");
+  const candidates = getEditorCandidates();
+
+  // Deduplicate extension dirs (e.g. snap + deb both use ~/.vscode/extensions)
+  const extensionsDirs = [...new Set(candidates.map((c) => c.extensionsDir))];
+
   const glob = new Glob("github.copilot-chat-*/package.json");
+  const allVersioned: { dir: string; path: string; version: string }[] = [];
 
-  try {
-    const matches: string[] = [];
-    for await (const path of glob.scan({ cwd: extensionsDir })) {
-      matches.push(path);
+  for (const dir of extensionsDirs) {
+    try {
+      for await (const path of glob.scan({ cwd: dir })) {
+        const match = path.match(/github\.copilot-chat-(\d+\.\d+\.\d+)/);
+        if (match) {
+          allVersioned.push({ dir, path, version: match[1] });
+        }
+      }
+    } catch {
+      // Directory doesn't exist — skip
     }
+  }
 
-    if (matches.length === 0) return null;
+  if (allVersioned.length === 0) return null;
 
-    // Extract versions and sort descending
-    const versioned = matches
-      .map((p) => {
-        const match = p.match(/github\.copilot-chat-(\d+\.\d+\.\d+)/);
-        return match ? { path: p, version: match[1] } : null;
-      })
-      .filter((v): v is { path: string; version: string } => v !== null)
-      .sort((a, b) => compareSemver(b.version, a.version));
+  // Sort descending by semver, pick highest
+  allVersioned.sort((a, b) => compareSemver(b.version, a.version));
 
-    if (versioned.length === 0) return null;
-
-    // Read the actual version from the highest extension's package.json
-    const fullPath = join(extensionsDir, versioned[0].path);
+  const best = allVersioned[0];
+  try {
+    const fullPath = join(best.dir, best.path);
     const raw = await readFile(fullPath, "utf-8");
     const pkg = JSON.parse(raw) as { version?: string };
     return pkg.version ?? null;
@@ -58,6 +179,10 @@ export async function detectLocalCopilotVersion(): Promise<string | null> {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 /** Compare two semver strings. Returns negative if a < b, positive if a > b, 0 if equal. */
 function compareSemver(a: string, b: string): number {
