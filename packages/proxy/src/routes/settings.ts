@@ -12,6 +12,16 @@ function isKnownKey(key: string): key is SettingKey {
   return (KNOWN_KEYS as readonly string[]).includes(key);
 }
 
+/**
+ * Validate that a version string looks like a semver (major.minor.patch).
+ * Allows optional pre-release suffix (e.g. "1.104.3-insider").
+ */
+const SEMVER_RE = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
+
+function isValidVersion(value: string): boolean {
+  return SEMVER_RE.test(value);
+}
+
 export interface SettingInfo {
   effective: string;
   source: string;
@@ -77,8 +87,21 @@ export function createSettingsRoute(db: Database): Hono {
       );
     }
 
+    const trimmed = value.trim();
+    if (!isValidVersion(trimmed)) {
+      return c.json(
+        {
+          error: {
+            type: "validation_error",
+            message: `invalid version format: "${trimmed}". Expected semver (e.g. 1.104.3)`,
+          },
+        },
+        400,
+      );
+    }
+
     // Persist to DB and re-resolve all versions from DB/local/fallback
-    setSetting(db, key, value);
+    setSetting(db, key, trimmed);
     await cacheVersions(db);
 
     return c.json(getSettingsSnapshot(db));
