@@ -22,7 +22,7 @@ Browser ──SSE/fetch──► Dashboard (Next.js :7032) ──fetch/WS──�
 | File | Lines | Category | Testability |
 |------|-------|----------|-------------|
 | `src/proxy.ts` | 42 | Auth middleware | Needs NextAuth mock |
-| `src/auth.ts` | 101 | Auth config | Module-level side effects |
+| `src/auth.ts` | 101 | Auth config | Module-level side effects — mock `next-auth` + `vi.stubEnv` |
 | `src/lib/proxy.ts` | 80 | Fetch helpers | Pure functions, easy |
 | `src/lib/types.ts` | 169 | Types only | No runtime logic |
 | `src/app/api/connection-info/route.ts` | 17 | BFF route | Easy — mock proxyFetch |
@@ -54,7 +54,7 @@ Browser ──SSE/fetch──► Dashboard (Next.js :7032) ──fetch/WS──�
 
 ## Strategy
 
-**Phase 1 — Infrastructure**: Set up Vitest + React Testing Library + MSW. No tests yet, just validate the toolchain.
+**Phase 1 — Infrastructure**: Set up Vitest + React Testing Library. No tests yet, just validate the toolchain.
 
 **Phase 2 — Pure logic**: `lib/proxy.ts` (ProxyError, proxyFetch, safeFetch). Zero external dependencies.
 
@@ -66,7 +66,7 @@ Browser ──SSE/fetch──► Dashboard (Next.js :7032) ──fetch/WS──�
 
 **Phase 6 — Component interactions**: Error handling bugs in `connect-content.tsx`, `account-content.tsx`, `models-content.tsx`. Pagination logic in `request-table.tsx`.
 
-**Phase 7 — Auth**: `proxy.ts` auth enforcement. Mock NextAuth `auth()`.
+**Phase 7 — Auth**: `proxy.ts` auth enforcement + `auth.ts` NextAuth config. Mock NextAuth internals.
 
 ---
 
@@ -90,7 +90,7 @@ import { resolve } from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "jsdom",
+    environment: "node",              // server-side by default (BFF routes, SSE bridge, lib)
     globals: true,
     setupFiles: ["./test/setup.ts"],
     include: ["test/**/*.test.{ts,tsx}"],
@@ -103,11 +103,21 @@ export default defineConfig({
 });
 ```
 
+Client-side test files (hooks, components) opt-in to jsdom via the magic comment at the top of each file:
+
+```ts
+// @vitest-environment jsdom
+```
+
+This keeps BFF route and SSE bridge tests running in a Node-like environment with correct `Response`, `ReadableStream`, and `WebSocket` semantics, while component/hook tests get the DOM APIs they need.
+
 **New file:** `test/setup.ts`
 
 ```ts
 import "@testing-library/jest-dom/vitest";
 ```
+
+> **Note:** `setup.ts` is only loaded for jsdom files (RTL matchers require DOM). For node-environment tests it's harmless — `@testing-library/jest-dom` adds matchers globally but they simply go unused.
 
 **Modify:** `package.json` — add `"test": "vitest run"`, `"test:watch": "vitest"`
 
@@ -478,19 +488,21 @@ describe("empty state")
 
 ---
 
-## Phase 7 — Auth: `proxy.ts`
+## Phase 7 — Auth: `proxy.ts` + `auth.ts`
+
+### Commit 7a: `proxy.ts` — auth enforcement
 
 **New file:** `test/proxy.test.ts`
 
 **Source:** `src/proxy.ts` (42 lines)
 
-### Mock strategy
+#### Mock strategy
 
 `proxy.ts` exports `default` as `auth(handler)` — the handler function receives `req` with an `auth` property. The easiest approach: extract the handler callback and test it directly by constructing mock request objects with/without `req.auth`.
 
 Alternatively, mock `@/auth` module to return a pass-through `auth` wrapper, then import and call the default export.
 
-### Tests
+#### Tests
 
 ```
 describe("proxy.ts auth enforcement")
@@ -507,6 +519,65 @@ describe("proxy.ts auth enforcement")
   describe("page routes")
     - unauthenticated → redirects to /login
     - authenticated → passes through
+```
+
+### Commit 7b: `auth.ts` — NextAuth config and signIn callback
+
+**New file:** `test/auth.test.ts`
+
+**Source:** `src/auth.ts` (101 lines)
+
+This is the most security-sensitive file in the dashboard. It controls who can sign in and how session cookies are configured. The `signIn` callback (L92-98) is the core allowlist gate.
+
+#### Mock strategy
+
+`auth.ts` has module-level side effects: it reads `ALLOWED_EMAILS`, `NEXTAUTH_URL`, `USE_SECURE_COOKIES` from `process.env` at import time, calls `console.warn` if allowlist is empty, and invokes `NextAuth()` which returns `{ handlers, signIn, signOut, auth }`.
+
+**Approach:** Use `vi.stubEnv` + dynamic `import()` inside each test to re-evaluate the module with different env values. Mock `next-auth` to capture the config object passed to `NextAuth()` — this gives direct access to the `callbacks.signIn` function and cookie config without running a real OAuth flow.
+
+```ts
+vi.mock("next-auth", () => ({
+  default: (config: unknown) => {
+    // Capture config for inspection, return stub exports
+    lastConfig = config;
+    return { handlers: {}, signIn: vi.fn(), signOut: vi.fn(), auth: vi.fn() };
+  },
+}));
+vi.mock("next-auth/providers/google", () => ({
+  default: (opts: unknown) => ({ id: "google", ...opts }),
+}));
+```
+
+#### Tests
+
+```
+describe("auth.ts signIn callback")
+  describe("ALLOWED_EMAILS set")
+    - email in allowlist → returns true
+    - email NOT in allowlist → returns false
+    - email comparison is case-insensitive ("User@GMAIL.com" matches "user@gmail.com")
+    - user with no email → returns false
+
+  describe("ALLOWED_EMAILS empty or unset")
+    - any email → returns true (open access)
+    - logs console.warn about unrestricted access
+
+describe("auth.ts cookie configuration")
+  describe("useSecureCookies = true")
+    - NODE_ENV=production → secure cookies with __Secure- / __Host- prefixes
+    - NEXTAUTH_URL=https://... → secure cookies
+    - USE_SECURE_COOKIES=true → secure cookies
+    - all cookie options have httpOnly: true, sameSite: "lax"
+
+  describe("useSecureCookies = false")
+    - NODE_ENV=development + http URL + no USE_SECURE_COOKIES → non-secure cookie names
+    - cookie secure option is false
+
+describe("auth.ts provider config")
+  - passes GOOGLE_CLIENT_ID to Google provider
+  - passes GOOGLE_CLIENT_SECRET to Google provider
+  - custom pages: signIn → /login, error → /login
+  - trustHost is true
 ```
 
 ---
@@ -577,10 +648,13 @@ const handleCopy = useCallback(async () => {
 
 `tsconfig.json` includes `.next/types/**/*.ts` which contains generated route type definitions. These files only exist after `next build` or `next dev` and are not committed to git. Running `bun run typecheck` without a prior build may fail or produce inconsistent results.
 
-**Fix:** Ensure `bun run typecheck` either:
-1. Runs `next build` first (slow but correct), or
-2. Excludes `.next/types` from typecheck (fast but loses route type safety), or
-3. Documents that `bun run build` is a prerequisite for typecheck
+**Decision:** Change `bun run typecheck` to run `next build` first, then `tsc --noEmit`:
+
+```json
+"typecheck": "next build && tsc --noEmit"
+```
+
+This is the only approach that guarantees `.next/types` are generated and consistent. The build adds ~10-15s but ensures route type params (`params: Promise<{ id: string }>`) are correctly validated. Since typecheck runs infrequently (pre-commit or CI, not on every save), the cost is acceptable.
 
 ---
 
@@ -593,6 +667,17 @@ const handleCopy = useCallback(async () => {
 - `vi.stubEnv` for controlling env vars that are read at module load time
 - Path alias (`@/*`) support via Vite's `resolve.alias`
 
+### Why no MSW
+
+All dashboard API routes are thin BFF wrappers around `proxyFetch`. Mocking at the module boundary (`vi.mock("@/lib/proxy")`) is simpler and more precise than intercepting HTTP at the network layer. Component tests that call `fetch` directly (handleAction, handleRefresh) use `vi.spyOn(globalThis, "fetch")` — also module-level, no network interception needed. MSW adds weight without value here.
+
+### Environment strategy
+
+- **Default:** `node` — all BFF route tests, SSE bridge, `lib/proxy.ts`, `auth.ts`, `proxy.ts`
+- **Opt-in `jsdom`:** hooks and component tests, via `// @vitest-environment jsdom` file comment
+
+This avoids forcing browser globals onto server-side code. Node environment provides real `Response`, `ReadableStream`, `TextEncoder` — higher fidelity for route handler tests.
+
 ### Mocking patterns
 
 | Target | Pattern | Reason |
@@ -601,30 +686,34 @@ const handleCopy = useCallback(async () => {
 | `globalThis.fetch` | `vi.spyOn(globalThis, "fetch")` | Component-level fetch calls (handleAction, handleRefresh) |
 | `next/navigation` | `vi.mock("next/navigation")` | Mock useRouter, useSearchParams |
 | `@/auth` | `vi.mock("@/auth")` | Mock auth() wrapper for proxy.ts tests |
+| `next-auth` | `vi.mock("next-auth")` | Capture NextAuth config for auth.ts tests |
+| `next-auth/providers/google` | `vi.mock(...)` | Stub Google provider for auth.ts tests |
 | `WebSocket` | `vi.stubGlobal("WebSocket", MockWebSocket)` | SSE bridge test |
 | `EventSource` | `vi.stubGlobal("EventSource", MockEventSource)` | useLogStream test |
 | `navigator.clipboard` | `vi.stubGlobal("navigator", ...)` | CopyButton tests |
+| `process.env.*` | `vi.stubEnv(key, value)` | Control module-level env reads (auth.ts, lib/proxy.ts) |
 
 ### File structure
 
 ```
 packages/dashboard/
 ├── test/
-│   ├── setup.ts                        # Testing library matchers
+│   ├── setup.ts                        # Testing library matchers (loaded by all envs)
 │   ├── smoke.test.ts                   # Toolchain verification
 │   ├── lib/
-│   │   └── proxy.test.ts              # proxyFetch, safeFetch, ProxyError
+│   │   └── proxy.test.ts              # proxyFetch, safeFetch, ProxyError          [node]
 │   ├── api/
-│   │   ├── simple-routes.test.ts      # connection-info, requests, copilot, stats
-│   │   ├── keys-routes.test.ts        # keys CRUD routes
-│   │   └── logs-stream.test.ts        # SSE bridge
+│   │   ├── simple-routes.test.ts      # connection-info, requests, copilot, stats  [node]
+│   │   ├── keys-routes.test.ts        # keys CRUD routes                           [node]
+│   │   └── logs-stream.test.ts        # SSE bridge                                 [node]
 │   ├── hooks/
-│   │   └── use-log-stream.test.ts     # SSE hook
+│   │   └── use-log-stream.test.ts     # SSE hook                                   [jsdom]
 │   ├── components/
-│   │   ├── connect-content.test.ts    # API key management interactions
-│   │   ├── copilot-content.test.ts    # Account + models refresh
-│   │   └── request-table.test.ts      # Pagination + sorting
-│   └── proxy.test.ts                  # Auth enforcement
+│   │   ├── connect-content.test.tsx   # API key management interactions             [jsdom]
+│   │   ├── copilot-content.test.tsx   # Account + models refresh                    [jsdom]
+│   │   └── request-table.test.tsx     # Pagination + sorting                        [jsdom]
+│   ├── auth.test.ts                   # NextAuth config + signIn callback           [node]
+│   └── proxy.test.ts                  # Auth enforcement                            [node]
 └── vitest.config.ts
 ```
 
@@ -635,7 +724,7 @@ packages/dashboard/
 ```bash
 bun run test             # all dashboard tests
 bun run test -- --coverage  # with coverage report
-bun run typecheck        # ensure no type regressions
+bun run typecheck        # next build + tsc --noEmit
 ```
 
 Check:
@@ -643,4 +732,7 @@ Check:
 2. `lib/proxy.ts` ≥ 95% line coverage
 3. All BFF routes ≥ 90% line coverage
 4. `use-log-stream.ts` ≥ 85% line coverage
-5. Bug fixes verified by tests that previously demonstrated the broken behavior
+5. `auth.ts` signIn callback — all branches covered (allowlist match, no match, empty allowlist, no email)
+6. `auth.ts` cookie config — both secure and non-secure paths covered
+7. Bug fixes verified by tests that previously demonstrated the broken behavior
+8. `bun run typecheck` passes cleanly (requires prior `next build` — handled by the updated script)
