@@ -152,7 +152,26 @@ Run `bun run test` → confirm green.
 
 ### proxyFetch
 
-Requires mocking `globalThis.fetch`. Module reads `PROXY_URL` and `API_KEY` from env at import time — use `vi.stubEnv` or set `process.env` before import.
+Requires mocking `globalThis.fetch`. Module reads `PROXY_URL` and `API_KEY` from env at import time — tests that need different env values must call `vi.resetModules()` before `vi.stubEnv()` + dynamic `import()` to force re-evaluation. Without `resetModules`, Vitest serves the cached module and the new env values are ignored.
+
+```ts
+// Pattern for env-dependent tests
+beforeEach(() => {
+  vi.resetModules();
+});
+
+it("includes Authorization header when API_KEY is set", async () => {
+  vi.stubEnv("RAVEN_API_KEY", "test-key");
+  const { proxyFetch } = await import("@/lib/proxy");
+  // ...
+});
+
+it("omits Authorization header when API_KEY is empty", async () => {
+  vi.stubEnv("RAVEN_API_KEY", "");
+  const { proxyFetch } = await import("@/lib/proxy");
+  // ...
+});
+```
 
 ```
 describe("proxyFetch")
@@ -410,21 +429,24 @@ describe("ApiKeysSection")
   describe("handleAction — revoke")
     - calls POST /api/keys/{id}/revoke
     - calls router.refresh() on success
-    - ⚠️ BUG: fetch failure → no error feedback (document current behavior)
+    - fetch failure → shows error feedback to user (fix Bug 1, then assert fixed behavior)
+    - non-2xx response → shows error feedback to user
 
   describe("handleAction — delete")
     - calls DELETE /api/keys/{id}
     - calls router.refresh() on success
-    - ⚠️ BUG: fetch failure → no error feedback (document current behavior)
+    - fetch failure → shows error feedback to user (fix Bug 1, then assert fixed behavior)
+    - non-2xx response → shows error feedback to user
 
 describe("CreateKeyDialog")
   - empty name → create button disabled
   - submit → calls POST /api/keys with name
   - success → shows created key for copy
-  - res.ok=false → shows error message from response body
+  - res.ok=false → shows actual error message from response (fix Bug 2, then assert fixed behavior)
   - fetch throws → shows "Failed to create key"
-  - ⚠️ BUG: error message reads `data.error?.message` but route returns `{ error: string }` not `{ error: { message: string } }` — mismatch at L317
 ```
+
+> **Test-first bug fix workflow:** Write the test asserting the *correct* behavior first (it will fail against the current code), then fix the production code in the same commit so the test passes. Never commit a green test that asserts broken behavior.
 
 ### Commit 6b: `account-content.tsx` and `models-content.tsx` — refresh error handling
 
@@ -434,15 +456,15 @@ describe("CreateKeyDialog")
 describe("AccountContent.handleRefresh")
   - calls GET /api/copilot/user?refresh=true
   - calls router.refresh() on success
-  - ⚠️ BUG: fetch failure → no error feedback, only setIsRefreshing(false)
+  - fetch failure → shows error feedback to user (fix Bug 3, then assert fixed behavior)
 
 describe("CopilotModelsContent.handleRefresh")
   - calls GET /api/copilot/models?refresh=true
   - calls router.refresh() on success
-  - ⚠️ BUG: fetch failure → no error feedback
+  - fetch failure → shows error feedback to user (fix Bug 4, then assert fixed behavior)
 
 describe("CopilotModelsContent.CopyButton")
-  - ⚠️ BUG: navigator.clipboard.writeText throws → unhandled promise rejection
+  - clipboard.writeText throws → fails gracefully, no unhandled rejection (fix Bug 5, then assert fixed behavior)
 ```
 
 ### Commit 6c: `request-table.tsx` — pagination and sorting
@@ -533,7 +555,7 @@ This is the most security-sensitive file in the dashboard. It controls who can s
 
 `auth.ts` has module-level side effects: it reads `ALLOWED_EMAILS`, `NEXTAUTH_URL`, `USE_SECURE_COOKIES` from `process.env` at import time, calls `console.warn` if allowlist is empty, and invokes `NextAuth()` which returns `{ handlers, signIn, signOut, auth }`.
 
-**Approach:** Use `vi.stubEnv` + dynamic `import()` inside each test to re-evaluate the module with different env values. Mock `next-auth` to capture the config object passed to `NextAuth()` — this gives direct access to the `callbacks.signIn` function and cookie config without running a real OAuth flow.
+**Approach:** Use `vi.resetModules()` + `vi.stubEnv()` + dynamic `import()` inside each test to force re-evaluation of the module with different env values. `resetModules` is critical — without it, Vitest serves the cached module and env changes are ignored, causing cross-test pollution. Mock `next-auth` to capture the config object passed to `NextAuth()` — this gives direct access to the `callbacks.signIn` function and cookie config without running a real OAuth flow.
 
 ```ts
 vi.mock("next-auth", () => ({
@@ -546,6 +568,18 @@ vi.mock("next-auth", () => ({
 vi.mock("next-auth/providers/google", () => ({
   default: (opts: unknown) => ({ id: "google", ...opts }),
 }));
+
+// Each test re-imports auth.ts with fresh env
+beforeEach(() => {
+  vi.resetModules();
+});
+
+it("blocks email not in allowlist", async () => {
+  vi.stubEnv("ALLOWED_EMAILS", "alice@example.com");
+  await import("@/auth");  // re-evaluates with new ALLOWED_EMAILS
+  const result = await lastConfig.callbacks.signIn({ user: { email: "eve@evil.com" } });
+  expect(result).toBe(false);
+});
 ```
 
 #### Tests
@@ -691,7 +725,7 @@ This avoids forcing browser globals onto server-side code. Node environment prov
 | `WebSocket` | `vi.stubGlobal("WebSocket", MockWebSocket)` | SSE bridge test |
 | `EventSource` | `vi.stubGlobal("EventSource", MockEventSource)` | useLogStream test |
 | `navigator.clipboard` | `vi.stubGlobal("navigator", ...)` | CopyButton tests |
-| `process.env.*` | `vi.stubEnv(key, value)` | Control module-level env reads (auth.ts, lib/proxy.ts) |
+| `process.env.*` | `vi.resetModules()` + `vi.stubEnv(key, value)` + dynamic `import()` | Force re-evaluation of modules that read env at import time (auth.ts, lib/proxy.ts). `resetModules` clears module cache so the new env is picked up |
 
 ### File structure
 
