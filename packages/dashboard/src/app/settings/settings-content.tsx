@@ -70,6 +70,7 @@ function SettingRow({
   const [value, setValue] = useState(info.override ?? info.effective);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const meta = SETTING_LABELS[settingKey] ?? {
     label: settingKey,
@@ -83,6 +84,7 @@ function SettingRow({
   const handleSave = useCallback(async () => {
     if (!value.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch("/api/settings", {
         method: "PUT",
@@ -91,7 +93,14 @@ function SettingRow({
       });
       if (res.ok) {
         router.refresh();
+      } else {
+        const body = await res.json().catch(() => null);
+        const msg =
+          body?.error?.message ?? body?.error ?? `Save failed (${res.status})`;
+        setError(msg);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setSaving(false);
     }
@@ -99,6 +108,7 @@ function SettingRow({
 
   const handleReset = useCallback(async () => {
     setResetting(true);
+    setError(null);
     try {
       const res = await fetch(`/api/settings/${settingKey}`, {
         method: "DELETE",
@@ -110,7 +120,14 @@ function SettingRow({
           setValue(newInfo.effective);
         }
         router.refresh();
+      } else {
+        const body = await res.json().catch(() => null);
+        const msg =
+          body?.error?.message ?? body?.error ?? `Reset failed (${res.status})`;
+        setError(msg);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setResetting(false);
     }
@@ -141,7 +158,10 @@ function SettingRow({
       <div className="flex items-center gap-2">
         <Input
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setError(null);
+          }}
           placeholder={info.effective}
           className="h-8 text-xs font-mono max-w-60"
         />
@@ -176,6 +196,10 @@ function SettingRow({
           </Button>
         )}
       </div>
+
+      {error && (
+        <p className="text-xs text-destructive mt-2">{error}</p>
+      )}
     </div>
   );
 }
