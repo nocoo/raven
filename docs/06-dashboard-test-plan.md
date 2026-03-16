@@ -778,3 +778,35 @@ Check:
 6. `auth.ts` cookie config — both secure and non-secure paths covered
 7. Bug fixes verified by tests that previously demonstrated the broken behavior
 8. `bun run typecheck` passes cleanly (requires prior `next build` — handled by the updated script)
+
+---
+
+## Completion Status
+
+All phases implemented. **145 tests across 11 files, all passing.**
+
+| Phase | Commit(s) | Tests | Status |
+|-------|-----------|-------|--------|
+| 1a: Install dependencies | `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@vitejs/plugin-react`, `jsdom`, `@testing-library/user-event` | — | ✅ Done |
+| 1b: Vitest config | `vitest.config.ts`, `test/setup.ts` | — | ✅ Done |
+| 1c: Smoke test | `test/smoke.test.ts` | 1 | ✅ Done |
+| 2: `lib/proxy.ts` | `test/lib/proxy.test.ts` | 20 | ✅ Done |
+| 3a: Simple routes | `test/api/simple-routes.test.ts` | 16 | ✅ Done |
+| 3b: Keys routes | `test/api/keys-routes.test.ts` | 12 | ✅ Done |
+| 4: SSE bridge | `test/api/logs-stream.test.ts` | 14 | ✅ Done |
+| 5: useLogStream hook | `test/hooks/use-log-stream.test.ts` | 22 | ✅ Done |
+| 6a: connect-content + Bug 1,2 | `test/components/connect-content.test.tsx` | 10 | ✅ Done |
+| 6b: copilot-content + Bug 3,4,5 | `test/components/copilot-content.test.tsx` | 7 | ✅ Done |
+| 6c: request-table | `test/components/request-table.test.tsx` | 17 | ✅ Done |
+| 7a: proxy.ts auth | `test/proxy.test.ts` | 9 | ✅ Done |
+| 7b: auth.ts config | `test/auth.test.ts` | 17 | ✅ Done |
+
+### Bugs fixed
+
+| Bug | File | Fix |
+|-----|------|-----|
+| 1: handleAction ignores errors | `connect-content.tsx` | Added try/catch + error state display |
+| 2: Error message format mismatch | `connect-content.tsx` | Handle both `{ error: "string" }` and `{ error: { message: "string" } }` |
+| 3: handleRefresh ignores errors | `account-content.tsx` | Added catch block + error state display |
+| 4: handleRefresh ignores errors | `models-content.tsx` | Added catch block + error state display |
+| 5: clipboard.writeText unhandled | `copy-button.tsx`, `models-content.tsx` | Wrapped in try/catch |
