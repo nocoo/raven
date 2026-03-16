@@ -66,7 +66,7 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
       params.delete("cursor");
       params.delete("offset");
       params.delete("prevCursors");
-      router.push(`/requests?${params.toString()}`);
+      router.push(`/?${params.toString()}`);
     },
     [router, searchParams, currentSort, currentOrder],
   );
@@ -85,7 +85,7 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
       const limit = parseInt(params.get("limit") ?? "50", 10);
       params.set("offset", String(currentOffset + limit));
     }
-    router.push(`/requests?${params.toString()}`);
+    router.push(`/?${params.toString()}`);
   }, [router, searchParams, currentSort, nextCursor]);
 
   const goPrevPage = useCallback(() => {
@@ -116,7 +116,7 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
       }
       params.delete("cursor");
     }
-    router.push(`/requests?${params.toString()}`);
+    router.push(`/?${params.toString()}`);
   }, [router, searchParams, currentSort]);
 
   const canGoPrev = currentSort === "timestamp"

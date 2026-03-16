@@ -30,13 +30,13 @@ export function Filters({ models }: FiltersProps) {
       // Reset pagination when filtering
       params.delete("cursor");
       params.delete("offset");
-      router.push(`/requests?${params.toString()}`);
+      router.push(`/?${params.toString()}`);
     },
     [router, searchParams],
   );
 
   const clearFilters = useCallback(() => {
-    router.push("/requests");
+    router.push("/");
   }, [router]);
 
   const hasFilters = currentModel || currentStatus || currentFormat;

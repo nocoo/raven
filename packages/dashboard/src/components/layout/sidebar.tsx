@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   LayoutDashboard,
-  ScrollText,
   Boxes,
   Cable,
   Cpu,
@@ -52,7 +51,6 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard },
-      { href: "/requests", label: "Requests", icon: ScrollText },
       { href: "/logs", label: "Logs", icon: Terminal },
       { href: "/models", label: "Models", icon: Boxes },
     ],
