@@ -17,6 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   useLogStream,
@@ -171,17 +178,18 @@ function LevelSelect({
   onChange: (level: LogLevel) => void;
 }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value as LogLevel)}
-      className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-    >
-      {LEVELS.map((l) => (
-        <option key={l} value={l}>
-          {l.charAt(0).toUpperCase() + l.slice(1)}
-        </option>
-      ))}
-    </select>
+    <Select value={value} onValueChange={(v) => onChange(v as LogLevel)}>
+      <SelectTrigger size="sm" className="text-xs min-w-[90px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {LEVELS.map((l) => (
+          <SelectItem key={l} value={l}>
+            {l.charAt(0).toUpperCase() + l.slice(1)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

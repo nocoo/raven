@@ -3,6 +3,13 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const STATUSES = ["success", "error"];
 const FORMATS = ["anthropic", "openai"];
@@ -22,8 +29,10 @@ export function Filters({ models }: FiltersProps) {
   const setFilter = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (value) {
-        params.set(key, value);
+      // "__all__" is the sentinel for "no filter"
+      const resolved = value === "__all__" ? "" : value;
+      if (resolved) {
+        params.set(key, resolved);
       } else {
         params.delete(key);
       }
@@ -44,40 +53,43 @@ export function Filters({ models }: FiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Model filter */}
-      <select
-        value={currentModel}
-        onChange={(e) => setFilter("model", e.target.value)}
-        className="h-8 rounded-widget border bg-background px-2 text-sm text-foreground"
-      >
-        <option value="">All models</option>
-        {models.map((m) => (
-          <option key={m} value={m}>{m}</option>
-        ))}
-      </select>
+      <Select value={currentModel || "__all__"} onValueChange={(v) => setFilter("model", v)}>
+        <SelectTrigger size="sm" className="text-xs min-w-[140px]">
+          <SelectValue placeholder="All models" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__all__">All models</SelectItem>
+          {models.map((m) => (
+            <SelectItem key={m} value={m}>{m}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Status filter */}
-      <select
-        value={currentStatus}
-        onChange={(e) => setFilter("status", e.target.value)}
-        className="h-8 rounded-widget border bg-background px-2 text-sm text-foreground"
-      >
-        <option value="">All statuses</option>
-        {STATUSES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
+      <Select value={currentStatus || "__all__"} onValueChange={(v) => setFilter("status", v)}>
+        <SelectTrigger size="sm" className="text-xs min-w-[120px]">
+          <SelectValue placeholder="All statuses" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__all__">All statuses</SelectItem>
+          {STATUSES.map((s) => (
+            <SelectItem key={s} value={s}>{s}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Format filter */}
-      <select
-        value={currentFormat}
-        onChange={(e) => setFilter("format", e.target.value)}
-        className="h-8 rounded-widget border bg-background px-2 text-sm text-foreground"
-      >
-        <option value="">All formats</option>
-        {FORMATS.map((f) => (
-          <option key={f} value={f}>{f}</option>
-        ))}
-      </select>
+      <Select value={currentFormat || "__all__"} onValueChange={(v) => setFilter("format", v)}>
+        <SelectTrigger size="sm" className="text-xs min-w-[120px]">
+          <SelectValue placeholder="All formats" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__all__">All formats</SelectItem>
+          {FORMATS.map((f) => (
+            <SelectItem key={f} value={f}>{f}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {hasFilters && (
         <Button variant="ghost" size="xs" onClick={clearFilters}>
