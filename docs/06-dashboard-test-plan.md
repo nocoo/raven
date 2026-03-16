@@ -160,6 +160,10 @@ beforeEach(() => {
   vi.resetModules();
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 it("includes Authorization header when API_KEY is set", async () => {
   vi.stubEnv("RAVEN_API_KEY", "test-key");
   const { proxyFetch } = await import("@/lib/proxy");
@@ -574,6 +578,10 @@ beforeEach(() => {
   vi.resetModules();
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 it("blocks email not in allowlist", async () => {
   vi.stubEnv("ALLOWED_EMAILS", "alice@example.com");
   await import("@/auth");  // re-evaluates with new ALLOWED_EMAILS
@@ -725,7 +733,7 @@ This avoids forcing browser globals onto server-side code. Node environment prov
 | `WebSocket` | `vi.stubGlobal("WebSocket", MockWebSocket)` | SSE bridge test |
 | `EventSource` | `vi.stubGlobal("EventSource", MockEventSource)` | useLogStream test |
 | `navigator.clipboard` | `vi.stubGlobal("navigator", ...)` | CopyButton tests |
-| `process.env.*` | `vi.resetModules()` + `vi.stubEnv(key, value)` + dynamic `import()` | Force re-evaluation of modules that read env at import time (auth.ts, lib/proxy.ts). `resetModules` clears module cache so the new env is picked up |
+| `process.env.*` | `vi.resetModules()` + `vi.stubEnv(key, value)` + dynamic `import()` / `vi.unstubAllEnvs()` in afterEach | Force re-evaluation of modules that read env at import time (auth.ts, lib/proxy.ts). `resetModules` clears module cache; `unstubAllEnvs` restores `process.env` so stubs don't leak across tests |
 
 ### File structure
 
