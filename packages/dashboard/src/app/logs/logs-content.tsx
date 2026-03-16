@@ -704,55 +704,58 @@ export function LogsContent() {
         </div>
       )}
 
-      {/* Real-time stats */}
-      <LogsStats events={events} />
+      {/* ── Main body: left stats | right stream ── */}
+      <div className="min-h-0 flex-1 flex flex-col lg:flex-row gap-3">
+        {/* Left — Stats panel (scrollable on desktop, collapsible on mobile) */}
+        <LogsStats events={events} />
 
-      {/* Log stream */}
-      <div className="relative min-h-0 flex-1">
-        <div
-          ref={scrollRef}
-          onScroll={onScroll}
-          className="h-full overflow-y-auto"
-        >
-          {groups.length === 0 ? (
-            <div className="flex h-32 items-center justify-center rounded-md border bg-card text-sm text-muted-foreground">
-              {connected
-                ? "Waiting for log events..."
-                : "Connecting to log stream..."}
-            </div>
-          ) : (
-            <div className="max-w-3xl space-y-2 pb-2">
-              {groups.map((group) => (
-                <EventGroup
-                  key={group.key}
-                  events={group.events}
-                  defaultExpanded={false}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* FAB — scroll to top (newest) */}
-        {showFab && (
-          <button
-            type="button"
-            onClick={scrollToTop}
-            className="absolute bottom-4 right-4 flex items-center justify-center size-10 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
-            title="Back to latest"
+        {/* Right — Log stream */}
+        <div className="relative min-h-0 flex-1 flex flex-col">
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            className="flex-1 overflow-y-auto"
           >
-            <Rocket className="size-4" />
-          </button>
-        )}
-      </div>
+            {groups.length === 0 ? (
+              <div className="flex h-32 items-center justify-center rounded-md border bg-card text-sm text-muted-foreground">
+                {connected
+                  ? "Waiting for log events..."
+                  : "Connecting to log stream..."}
+              </div>
+            ) : (
+              <div className="space-y-2 pb-2">
+                {groups.map((group) => (
+                  <EventGroup
+                    key={group.key}
+                    events={group.events}
+                    defaultExpanded={false}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
-      {/* Footer status */}
-      <div className="flex shrink-0 items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {filteredEvents.length} events
-          {search && ` (filtered from ${events.length})`}
-        </span>
-        <span>{relativeTime(events[events.length - 1]?.ts ?? Date.now())}</span>
+          {/* FAB — scroll to top (newest) */}
+          {showFab && (
+            <button
+              type="button"
+              onClick={scrollToTop}
+              className="absolute bottom-4 right-4 flex items-center justify-center size-10 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
+              title="Back to latest"
+            >
+              <Rocket className="size-4" />
+            </button>
+          )}
+
+          {/* Footer status */}
+          <div className="flex shrink-0 items-center justify-between pt-2 text-xs text-muted-foreground">
+            <span>
+              {filteredEvents.length} events
+              {search && ` (filtered from ${events.length})`}
+            </span>
+            <span>{relativeTime(events[events.length - 1]?.ts ?? Date.now())}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
