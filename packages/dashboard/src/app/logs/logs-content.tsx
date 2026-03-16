@@ -23,6 +23,7 @@ import {
   type LogEvent,
   type LogLevel,
 } from "@/hooks/use-log-stream";
+import { LogsStats } from "./logs-stats";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -650,7 +651,7 @@ export function LogsContent() {
   return (
     <div className="flex h-full flex-col gap-3">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 md:gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">Logs</h1>
           <ConnectionIndicator connected={connected} />
@@ -660,7 +661,7 @@ export function LogsContent() {
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-48 text-xs"
+            className="h-8 w-28 md:w-48 text-xs"
           />
           <LevelSelect value={level} onChange={handleLevelChange} />
           <Button
@@ -668,16 +669,17 @@ export function LogsContent() {
             size="sm"
             className="h-8 gap-1"
             onClick={() => setPaused(!paused)}
+            title={paused ? "Resume" : "Pause"}
           >
             {paused ? (
               <>
                 <Play className="size-3" />
-                Resume
+                <span className="hidden sm:inline">Resume</span>
               </>
             ) : (
               <>
                 <Pause className="size-3" />
-                Pause
+                <span className="hidden sm:inline">Pause</span>
               </>
             )}
           </Button>
@@ -686,9 +688,10 @@ export function LogsContent() {
             size="sm"
             className="h-8 gap-1"
             onClick={clear}
+            title="Clear"
           >
             <Trash2 className="size-3" />
-            Clear
+            <span className="hidden sm:inline">Clear</span>
           </Button>
         </div>
       </div>
@@ -700,6 +703,9 @@ export function LogsContent() {
           Paused — new events are being buffered
         </div>
       )}
+
+      {/* Real-time stats */}
+      <LogsStats events={events} />
 
       {/* Log stream */}
       <div className="relative min-h-0 flex-1">
