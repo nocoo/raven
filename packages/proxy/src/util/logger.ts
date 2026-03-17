@@ -8,6 +8,7 @@
 
 import { logEmitter } from "./log-emitter.ts";
 import { LEVEL_ORDER, type LogEvent, type LogLevel } from "./log-event.ts";
+import { formatEvent } from "./terminal-format.ts";
 
 let currentLevel: LogLevel = "info";
 
@@ -26,14 +27,8 @@ function shouldLog(level: LogLevel): boolean {
 function terminalSinkListener(event: LogEvent): void {
   if (!shouldLog(event.level)) return;
 
-  const line = JSON.stringify({
-    ts: new Date(event.ts).toISOString(),
-    level: event.level,
-    type: event.type,
-    msg: event.msg,
-    ...(event.requestId && { requestId: event.requestId }),
-    ...(event.data && Object.keys(event.data).length > 0 && event.data),
-  });
+  const line = formatEvent(event);
+  if (!line) return; // sse_chunk returns null — skip
 
   switch (event.level) {
     case "error":

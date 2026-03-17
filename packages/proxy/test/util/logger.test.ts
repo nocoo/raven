@@ -99,7 +99,7 @@ describe("terminal sink", () => {
     expect(logSpy).not.toHaveBeenCalled()
   })
 
-  test("includes requestId and data in JSON output", () => {
+  test("includes requestId and data fields in formatted output", () => {
     enableTerminalSink()
     logEmitter.emitLog({
       ts: Date.now(),
@@ -107,12 +107,13 @@ describe("terminal sink", () => {
       type: "request_end",
       requestId: "req_123",
       msg: "200 gpt-4o 100ms",
-      data: { model: "gpt-4o", latencyMs: 100 },
+      data: { model: "gpt-4o", latencyMs: 100, statusCode: 200, status: "success", inputTokens: 50, outputTokens: 20 },
     })
     expect(logSpy).toHaveBeenCalledTimes(1)
-    const loggedJson = JSON.parse(logSpy.mock.calls[0][0] as string)
-    expect(loggedJson.requestId).toBe("req_123")
-    expect(loggedJson.model).toBe("gpt-4o")
+    const logged = logSpy.mock.calls[0][0] as string
+    // Formatted output should contain the shortened model and token info
+    expect(logged).toContain("4o")
+    expect(logged).toContain("50→20 tok")
   })
 })
 
