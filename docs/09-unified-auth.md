@@ -111,7 +111,7 @@ Key difference from current `multiKeyAuth`: **no dev mode bypass**. If you have 
 
 Covers: `/api/*`
 
-**Keeps dev mode for first-run bootstrap.** Dev mode activates when ALL of the following are true:
+**Keeps dev mode for first-run bootstrap only.** Dev mode allows the dashboard to reach `/api/*` long enough to display the Connect page and let the user create their first key. Once any key exists (env or DB), dev mode exits permanently until all keys are removed. Dev mode activates when ALL of the following are true:
 - `RAVEN_API_KEY` is not set
 - `RAVEN_INTERNAL_KEY` is not set
 - No **active** (non-revoked) DB keys exist
@@ -129,7 +129,7 @@ Request → dev mode? (!envApiKey && !internalKey && no active DB keys)
                        neither → 401
 ```
 
-Rationale: Dashboard management routes (`/api/stats`, `/api/keys`, `/api/connection-info`, etc.) are accessed by the dashboard's server-side code via `proxyFetch()`. In local mode, the user hasn't configured any keys yet, and the dashboard needs to reach these endpoints to function (including the `/api/keys` endpoint used to create the first API key). Blocking these would make first-run impossible.
+Rationale: Dashboard management routes (`/api/stats`, `/api/keys`, `/api/connection-info`, etc.) are accessed by the dashboard's server-side code via `proxyFetch()`. On first run, the user hasn't configured any keys yet, and the dashboard needs to reach these endpoints to function — specifically the `/api/keys` endpoint used to create the first API key. Dev mode covers only this bootstrap window; once any key is created or configured, dev mode exits and `RAVEN_INTERNAL_KEY` (or `RAVEN_API_KEY`) is required for ongoing dashboard operation.
 
 **First-run → first DB key transition:**
 
@@ -164,7 +164,7 @@ app.use("/v1/*", aiAuth)
 app.use("/chat/*", aiAuth)
 app.use("/embeddings", aiAuth)
 
-// Dashboard management routes — allows dev mode for first-run
+// Dashboard management routes — dev mode for bootstrap only
 const mgmtAuth = dashboardAuth({ db, envApiKey: apiKey, internalKey })
 app.use("/api/*", mgmtAuth)
 ```
@@ -203,7 +203,7 @@ The `authenticateWs` function in `index.ts` is updated to use `getActiveKeyCount
 | `/embeddings` | `apiKeyAuth` | ❌ | ✅ | ❌ | ✅ |
 | `/api/*` (dashboard) | `dashboardAuth` | ✅ | ✅ | ✅ | ✅ |
 | `/health` | none | — | — | — | — |
-| `/ws/logs` | custom | ✅ | ✅ | ✅ | ✅ |
+| `/ws/logs` | custom (dashboardAuth semantics) | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -284,6 +284,8 @@ A user can have:
 | 3 | `refactor: split multiKeyAuth into apiKeyAuth and dashboardAuth` | `middleware.ts` |
 | 4 | `feat: enforce strict auth on AI routes, restore aliases` | `app.ts`, `index.ts` |
 | 5 | `test: update auth tests for split middleware and aliases` | `middleware.test.ts`, `app.test.ts` |
+| 6 | `docs: update env examples and README for unified auth` | `README.md`, `packages/proxy/.env.example`, `packages/dashboard/.env.example` |
+| 7 | `docs: sync 02-key-management and 03-unified-logging with unified auth` | `docs/02-key-management.md`, `docs/03-unified-logging.md` |
 
 ---
 
@@ -339,17 +341,17 @@ All existing `middleware.test.ts` tests for the env key and DB key paths should 
 
 ---
 
-## Doc updates after implementation
+## Doc and config updates (commits 6-7)
 
-The following documents reference the old `multiKeyAuth` or "dev mode" semantics and must be updated:
+These are part of this implementation, not deferred. The current files contain stale semantics that will mislead users and developers:
 
-| Document | Section | Required change |
-|----------|---------|-----------------|
-| `docs/02-key-management.md` | Section 二 "验证流程" (line 78-88) | Replace `multiKeyAuth` three-path flow with `apiKeyAuth` + `dashboardAuth`. Remove "Dev mode" from AI auth path. Add `RAVEN_INTERNAL_KEY` to dashboard auth path. |
-| `docs/02-key-management.md` | Section 五 "Proxy 通信" (line 149) | Note that proxy now natively loads `RAVEN_INTERNAL_KEY`. |
-| `docs/02-key-management.md` | Section 六 "向后兼容" (line 293) | Remove "Dev mode 逻辑：env 为空且 DB 无 key → 跳过 auth" — this no longer applies to AI routes. |
-| `docs/03-unified-logging.md` | WS auth section (line 313-317) | Update "WS 鉴权复用 multiKeyAuth 相同语义" to reference `dashboardAuth` semantics. Replace "DB 无 key" with "no active keys". Add `RAVEN_INTERNAL_KEY` acceptance. |
-| `README.md` | Proxy env vars table | Update `RAVEN_API_KEY` description from "空 = 跳过" to "AI API 认证，空 = 需通过 dashboard 创建 DB key". Add `RAVEN_INTERNAL_KEY` row to proxy table. |
-| `README.md` | First-run guide | Recommend setting `RAVEN_API_KEY` before `bun run dev`. Add step: "创建 API key" before configuring Claude Code. |
-| `packages/proxy/.env.example` | `RAVEN_API_KEY` comment | Remove "Leave empty to skip auth" language. Add `RAVEN_INTERNAL_KEY` entry. |
-| `packages/dashboard/.env.example` | `RAVEN_INTERNAL_KEY` comment (line 38) | Update from "Must match a key registered in the proxy" to "Proxy reads this natively as a dashboard management credential." |
+| Document | Section | Current (stale) | Required change |
+|----------|---------|-----------------|-----------------|
+| `README.md` | Proxy env vars table | `RAVEN_API_KEY`: "空 = 跳过" | Change to "AI API 认证，空 = 需通过 dashboard 创建 DB key". Add `RAVEN_INTERNAL_KEY` row to proxy table. |
+| `README.md` | First-run guide (line 102) | "无需手动操作" | Recommend setting `RAVEN_API_KEY` first. Add step: create API key via dashboard before configuring Claude Code. |
+| `packages/proxy/.env.example` | `RAVEN_API_KEY` comment (line 8) | "Leave empty to skip auth" | Remove skip language. Add `RAVEN_INTERNAL_KEY` entry with "Dashboard → Proxy management credential" comment. |
+| `packages/dashboard/.env.example` | `RAVEN_INTERNAL_KEY` comment (line 38) | "Must match a key registered in the proxy (RAVEN_API_KEY or DB-managed key)" | Change to "Proxy reads this natively as a dashboard management credential." |
+| `docs/02-key-management.md` | Section 二 "验证流程" (line 78-88) | `multiKeyAuth` three-path flow with dev mode | Replace with `apiKeyAuth` + `dashboardAuth`. Remove "Dev mode" from AI auth path. Add `RAVEN_INTERNAL_KEY` to dashboard auth path. |
+| `docs/02-key-management.md` | Section 五 "Proxy 通信" (line 149) | `RAVEN_INTERNAL_KEY ?? RAVEN_API_KEY` fallback note | Note that proxy now natively loads `RAVEN_INTERNAL_KEY`. |
+| `docs/02-key-management.md` | Section 六 "向后兼容" (line 293) | "Dev mode 逻辑：env 为空且 DB 无 key → 跳过 auth" | Remove — no longer applies to AI routes. |
+| `docs/03-unified-logging.md` | WS auth section (line 313-317) | "WS 鉴权复用 multiKeyAuth 相同语义" | Reference `dashboardAuth` semantics. Replace "DB 无 key" with "no active keys". Add `RAVEN_INTERNAL_KEY` acceptance. |
