@@ -185,11 +185,24 @@ export function deleteApiKey(db: Database, id: string): boolean {
 
 /**
  * Returns the count of all API keys (including revoked).
- * Used by auth middleware to determine dev-mode eligibility.
  */
 export function getKeyCount(db: Database): number {
   const row = db
     .query("SELECT COUNT(*) as count FROM api_keys")
+    .get() as { count: number };
+  return row.count;
+}
+
+/**
+ * Returns the count of active (non-revoked) API keys.
+ * Used by dashboardAuth to determine dev-mode eligibility.
+ * Excludes revoked keys to prevent self-lockout: if all keys are
+ * revoked and no env key is set, dev mode re-activates so the user
+ * can create a new key via dashboard.
+ */
+export function getActiveKeyCount(db: Database): number {
+  const row = db
+    .query("SELECT COUNT(*) as count FROM api_keys WHERE revoked_at IS NULL")
     .get() as { count: number };
   return row.count;
 }
