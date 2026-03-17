@@ -101,7 +101,11 @@ bun install
 
 ### Dashboard
 
-Dashboard 使用 Google OAuth 认证。如需使用，按以下步骤配置：
+> **本地快速启动**：如果只是本地使用，Dashboard 无需额外配置。`bun run dev` 即可同时启动 proxy 和 dashboard，dashboard 自动以 local 模式运行（无需登录）。
+
+#### （可选）启用 Google OAuth 认证
+
+如需启用 Google 登录认证，按以下步骤配置：
 
 1. 复制环境变量模板：
 
@@ -161,9 +165,9 @@ Dashboard 使用 Google OAuth 认证。如需使用，按以下步骤配置：
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `NEXTAUTH_URL` | `http://localhost:7032` | NextAuth base URL |
-| `NEXTAUTH_SECRET` | _(必填)_ | Session 签名密钥 |
-| `GOOGLE_CLIENT_ID` | _(必填)_ | Google OAuth Client ID |
-| `GOOGLE_CLIENT_SECRET` | _(必填)_ | Google OAuth Client Secret |
+| `NEXTAUTH_SECRET` | _(启用 Google OAuth 时必填)_ | Session 签名密钥 |
+| `GOOGLE_CLIENT_ID` | _(启用 Google OAuth 时必填)_ | Google OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | _(启用 Google OAuth 时必填)_ | Google OAuth Client Secret |
 | `ALLOWED_EMAILS` | _(空)_ | 邮箱白名单，逗号分隔，空 = 允许所有 |
 | `RAVEN_PROXY_URL` | `http://localhost:7033` | Dashboard → Proxy 连接 URL |
 | `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard 专用 Proxy auth key |
