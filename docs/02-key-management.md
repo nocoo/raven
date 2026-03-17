@@ -71,26 +71,38 @@ hash 使用 `Bun.CryptoHasher("sha256")`。
 
 ### 修改：`packages/proxy/src/middleware.ts`
 
-用 `multiKeyAuth` 替换 `apiKeyAuth`。在 Hono `ContextVariableMap` 中新增 `keyName: string`。
+> **Updated by doc 09 (Unified Auth).** `multiKeyAuth` has been split into `apiKeyAuth` + `dashboardAuth`.
 
-**验证流程（三条路径）：**
+用 `apiKeyAuth` 和 `dashboardAuth` 替换 `multiKeyAuth`。在 Hono `ContextVariableMap` 中新增 `keyName: string`。
+
+**AI 路由验证流程（`apiKeyAuth` — 无 dev mode）：**
 
 ```
 请求进入
   ↓
 Bearer token 解析
   ↓
-1. Dev mode: !envApiKey && DB 无 key → 放行，keyName = "dev"
-2. rk- 前缀: DB hash lookup → 匹配且未 revoke → 放行，keyName = key.name
+1. rk- 前缀: DB hash lookup → 匹配且未 revoke → 放行，keyName = key.name
                               → 不匹配 → 401（不 fallback 到 env）
-3. 其他 token: timing-safe compare vs envApiKey → 匹配 → 放行，keyName = "env:default"
-                                                → 不匹配 → 401
+2. 其他 token: timing-safe compare vs RAVEN_API_KEY → 匹配 → 放行，keyName = "env:default"
+                                                    → 不匹配 → 401
+3. RAVEN_INTERNAL_KEY 不接受 → 401
+```
+
+**管理路由验证流程（`dashboardAuth` — bootstrap dev mode）：**
+
+```
+请求进入
+  ↓
+Dev mode? (!envApiKey && !internalKey && 无 active DB key) → 放行，keyName = "dev"
+  ↓ 否
+Bearer token 解析 → 同 apiKeyAuth + 额外接受 RAVEN_INTERNAL_KEY (keyName = "internal")
 ```
 
 **关键点：**
 - `rk-` 前缀的 key 只走 DB 路径，绝不 fallback 到 env
 - 非 `rk-` 的 token 只走 env 路径（保持向后兼容）
-- `getKeyCount()` 用 30s TTL 缓存，避免每请求 COUNT 查询
+- `getActiveKeyCount()` 用 30s TTL 缓存，排除 revoked keys 防止自锁
 
 ### 修改：`packages/proxy/src/app.ts`
 
@@ -149,7 +161,7 @@ Bearer token 解析
 const API_KEY = process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
 ```
 
-新增 `RAVEN_INTERNAL_KEY` 作为 dashboard→proxy 专用 auth，fallback 到 `RAVEN_API_KEY` 保持兼容。Dashboard 走 env var timing-safe 路径，不走 DB key 路径。
+新增 `RAVEN_INTERNAL_KEY` 作为 dashboard→proxy 专用管理凭证，fallback 到 `RAVEN_API_KEY` 保持兼容。Proxy 原生读取 `RAVEN_INTERNAL_KEY`（见 doc 09），`dashboardAuth` 接受它作为 Bearer token。Dashboard 走 env var timing-safe 路径，不走 DB key 路径。
 
 ### 5.2 Types
 
@@ -288,11 +300,12 @@ const [keysResult, connResult] = await Promise.all([
 ## 六、向后兼容
 
 **零破坏性：**
-- `RAVEN_API_KEY` 继续生效（走 env timing-safe 路径），同时用于 dashboard→proxy 鉴权和 e2e 测试
+- `RAVEN_API_KEY` 继续生效（走 env timing-safe 路径），同时用于 AI API 鉴权和 e2e 测试
 - Dashboard 通过 `RAVEN_INTERNAL_KEY ?? RAVEN_API_KEY` 访问 proxy `/api/*` 端点
-- Dev mode 逻辑：env 为空 **且** DB 无 key → 跳过 auth（仅限本地开发无 key 配置时）
+- AI 路由（`/v1/*`, `/chat/*`, `/embeddings`）始终需要认证，无 dev mode（见 doc 09）
+- 管理路由（`/api/*`）的 dev mode 仅在首次启动（无任何 key）时激活（见 doc 09）
 - 设置了 `RAVEN_API_KEY` 但 DB 无 key 时，仅 env 路径可用（不会裸奔）
-- `/api/*` 管理端点同样受 `multiKeyAuth` 保护
+- `/api/*` 管理端点受 `dashboardAuth` 保护
 - 现有 `requests` 表数据 `account_name` 保持 "default"，新请求写入实际 key name
 - 无需数据迁移
 - E2E 测试通过 `RAVEN_API_KEY` 环境变量获取 token

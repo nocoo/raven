@@ -1,6 +1,6 @@
 # Unified Auth Architecture — Design Doc
 
-> **Status: Pending**
+> **Status: Implemented** — Commits `243f6d3` through final commit of this batch.
 
 ## Problem
 

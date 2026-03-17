@@ -310,10 +310,10 @@ export default {
 };
 
 /**
- * WS 鉴权复用 multiKeyAuth 相同语义：
- * 1. Dev mode: !envApiKey && DB 无 key → 放行
+ * WS 鉴权复用 dashboardAuth 相同语义（见 doc 09）：
+ * 1. Dev mode: !envApiKey && !internalKey && 无 active key → 放行
  * 2. rk- prefix → DB hash lookup
- * 3. 其他 token → timing-safe compare vs envApiKey
+ * 3. 其他 token → timing-safe compare vs envApiKey 或 internalKey
  * 4. 无 token 且非 dev mode → 拒绝
  */
 function authenticateWs(
