@@ -10,7 +10,7 @@ The project currently has two independent auth concepts that are named confusing
 
 2. **Proxy "dev mode"** (doc 02): When neither `RAVEN_API_KEY` nor DB keys exist, proxy skips ALL authentication — any request without a Bearer token is allowed through. This is a security hole: a user who just wants to skip Google login (local mode) gets an unauthenticated proxy as a side effect, exposing their Copilot quota to the LAN.
 
-Additionally, the no-prefix route aliases (`/chat/completions`, `/embeddings`) were not covered by the auth middleware path patterns (`/v1/*`, `/api/*`), bypassing authentication entirely. These aliases were removed in commit `931f472` but the user wants them restored with proper auth.
+Additionally, the no-prefix route aliases (`/chat/completions`, `/embeddings`) were not covered by the auth middleware path patterns (`/v1/*`, `/api/*`), bypassing authentication entirely. These aliases were removed in commit `931f472` but should be restored with proper auth.
 
 ### Current auth matrix (broken)
 
@@ -65,18 +65,71 @@ Key difference from current `multiKeyAuth`: **no dev mode bypass**. If you have 
 
 Covers: `/api/*`
 
-**Keeps dev mode.** When neither `RAVEN_API_KEY` nor `RAVEN_INTERNAL_KEY` nor DB keys exist, dashboard management routes are accessible without auth. This enables the zero-config first-run experience where dashboard can talk to proxy without any key setup.
+**Keeps dev mode for first-run bootstrap.** Dev mode activates when ALL of the following are true:
+- `RAVEN_API_KEY` is not set
+- `RAVEN_INTERNAL_KEY` is not set
+- No **active** (non-revoked) DB keys exist
 
 Flow:
 
 ```
-Request → dev mode? (!envApiKey && !internalKey && DB empty)
+Request → dev mode? (!envApiKey && !internalKey && no active DB keys)
   ├─ Yes → allow (keyName = "dev")
-  └─ No → same Bearer token validation as apiKeyAuth
-          (also accepts RAVEN_INTERNAL_KEY via timing-safe compare)
+  └─ No → Bearer token?
+           ├─ No token → 401
+           ├─ rk- prefix → DB hash lookup → match + not revoked → allow
+           └─ other → timing-safe compare vs RAVEN_API_KEY → match → allow
+                       timing-safe compare vs RAVEN_INTERNAL_KEY → match → allow
+                       neither → 401
 ```
 
 Rationale: Dashboard management routes (`/api/stats`, `/api/keys`, `/api/connection-info`, etc.) are accessed by the dashboard's server-side code via `proxyFetch()`. In local mode, the user hasn't configured any keys yet, and the dashboard needs to reach these endpoints to function (including the `/api/keys` endpoint used to create the first API key). Blocking these would make first-run impossible.
+
+**Anti-lockout: "no active keys" not "DB empty".**
+
+The current `getKeyCount()` counts ALL keys including revoked ones (`SELECT COUNT(*) FROM api_keys`). If a user has no env key and only revoked DB keys, the current logic sees `count > 0` → requires auth, but no valid key exists → dashboard is locked out.
+
+Fix: Add `getActiveKeyCount()` that excludes revoked keys:
+
+```sql
+SELECT COUNT(*) FROM api_keys WHERE revoked_at IS NULL
+```
+
+Dev mode condition uses `getActiveKeyCount(db) === 0` instead of `getKeyCount(db) === 0`. This ensures:
+- All keys revoked → dev mode re-activates → user can create a new key via dashboard
+- At least one active key → auth required
+
+### `RAVEN_INTERNAL_KEY` — proxy-side support
+
+**Current gap:** Dashboard sends `RAVEN_INTERNAL_KEY` as Bearer token (see `packages/dashboard/src/lib/proxy.ts:7`), but proxy never loads or validates it — `packages/proxy/src/config.ts` only reads `RAVEN_API_KEY`.
+
+**Fix:** Add `RAVEN_INTERNAL_KEY` to proxy's config and `dashboardAuth`:
+
+```typescript
+// packages/proxy/src/config.ts
+export interface Config {
+  port: number;
+  apiKey: string;
+  internalKey: string;   // ← new
+  tokenPath: string;
+  logLevel: "debug" | "info" | "warn" | "error";
+  baseUrl: string;
+}
+
+export function loadConfig(): Config {
+  // ...
+  const internalKey = process.env.RAVEN_INTERNAL_KEY ?? "";
+  return { port, apiKey, internalKey, tokenPath, logLevel, baseUrl };
+}
+```
+
+`dashboardAuth` accepts both `RAVEN_API_KEY` and `RAVEN_INTERNAL_KEY` via timing-safe compare. `apiKeyAuth` does NOT accept `RAVEN_INTERNAL_KEY` — it is a dashboard-only credential, not for AI API access.
+
+This matches the existing dashboard-side behavior:
+```typescript
+// packages/dashboard/src/lib/proxy.ts:7
+const API_KEY = process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
+```
 
 ### Route → middleware mapping
 
@@ -88,7 +141,7 @@ app.use("/chat/*", aiAuth)
 app.use("/embeddings", aiAuth)
 
 // Dashboard management routes — allows dev mode for first-run
-const mgmtAuth = dashboardAuth({ db, envApiKey: apiKey })
+const mgmtAuth = dashboardAuth({ db, envApiKey: apiKey, internalKey })
 app.use("/api/*", mgmtAuth)
 ```
 
@@ -103,17 +156,13 @@ app.route("/v1/embeddings", embeddingRoutes)
 app.route("/embeddings", embeddingRoutes)             // alias, covered by /embeddings
 ```
 
-### WebSocket auth updated
+### WebSocket auth
 
-`authenticateWs` in `index.ts` follows the same strict logic as `apiKeyAuth` — no dev mode bypass for the log stream either. Dashboard accesses logs via its own SSE bridge (`/api/logs/stream`), which goes through `dashboardAuth`.
+The WebSocket log stream at `/ws/logs` is a dashboard management feature, not an AI API. It follows the same dev mode rules as `dashboardAuth`:
+- No keys configured → allow (dev mode)
+- Keys configured → require valid token via query parameter
 
-Wait — actually the dashboard's log stream SSE bridge hits the proxy's WebSocket at `/ws/logs`. If we remove dev mode from WS auth, the dashboard can't stream logs without a key. Two options:
-
-**Option A:** Keep dev mode for WS auth (same as dashboardAuth). The WS endpoint is a monitoring/management concern, not an AI API.
-
-**Option B:** Route dashboard log streaming through `/api/*` path so it falls under dashboardAuth.
-
-**Decision: Option A.** The WebSocket log stream is a dashboard management feature, not an AI API. It should follow the same dev mode rules as `/api/*`. The `authenticateWs` function already mirrors `multiKeyAuth` — just keep its dev mode intact.
+The `authenticateWs` function in `index.ts` is updated to use `getActiveKeyCount()` and accept `RAVEN_INTERNAL_KEY`.
 
 ---
 
@@ -134,8 +183,6 @@ Wait — actually the dashboard's log stream SSE bridge hits the proxy's WebSock
 ---
 
 ## First-run UX
-
-With this design, the first-run experience becomes:
 
 1. `bun run dev` — proxy + dashboard start
 2. GitHub Device Flow — user authorizes in browser
@@ -172,18 +219,20 @@ A user can have:
 
 | File | Change |
 |------|--------|
-| `packages/proxy/src/middleware.ts` | Split `multiKeyAuth` into `apiKeyAuth` + `dashboardAuth` |
+| `packages/proxy/src/config.ts` | Add `internalKey` field, load `RAVEN_INTERNAL_KEY` from env |
+| `packages/proxy/src/middleware.ts` | Split `multiKeyAuth` into `apiKeyAuth` + `dashboardAuth`; use `getActiveKeyCount` |
+| `packages/proxy/src/db/keys.ts` | Add `getActiveKeyCount()` (excludes revoked keys) |
 | `packages/proxy/src/app.ts` | Use `apiKeyAuth` for `/v1/*`, `/chat/*`, `/embeddings`; `dashboardAuth` for `/api/*`; restore aliases |
-| `packages/proxy/src/index.ts` | Keep `authenticateWs` dev mode (dashboard management feature) |
-| `packages/proxy/test/middleware.test.ts` | Update tests for split middleware |
+| `packages/proxy/src/index.ts` | Update `authenticateWs` to use `getActiveKeyCount` and accept `RAVEN_INTERNAL_KEY`; pass `internalKey` to `createApp` |
+| `packages/proxy/test/middleware.test.ts` | Update/add tests for split middleware |
+| `packages/proxy/test/app.test.ts` | Update `"no apiKey and no DB keys → open access"` to test split behavior; add alias auth tests |
 
 ## Files NOT changed
 
 | File | Why |
 |------|-----|
 | `packages/dashboard/src/auth.ts` | Dashboard auth is unchanged (doc 08) |
-| `packages/dashboard/src/proxy.ts` | Still uses `RAVEN_INTERNAL_KEY ?? RAVEN_API_KEY` for `/api/*` |
-| `packages/proxy/src/db/keys.ts` | Key storage/validation unchanged |
+| `packages/dashboard/src/lib/proxy.ts` | Already sends `RAVEN_INTERNAL_KEY ?? RAVEN_API_KEY`, no change needed |
 | `packages/proxy/src/routes/*` | Route handlers unchanged |
 
 ---
@@ -192,9 +241,11 @@ A user can have:
 
 | # | Commit | Files |
 |---|--------|-------|
-| 1 | `refactor: split multiKeyAuth into apiKeyAuth and dashboardAuth` | `middleware.ts` |
-| 2 | `feat: enforce strict api key auth on all AI routes` | `app.ts` |
-| 3 | `test: update middleware tests for split auth` | `middleware.test.ts` |
+| 1 | `feat: add RAVEN_INTERNAL_KEY to proxy config` | `config.ts` |
+| 2 | `feat: add getActiveKeyCount for anti-lockout` | `db/keys.ts` |
+| 3 | `refactor: split multiKeyAuth into apiKeyAuth and dashboardAuth` | `middleware.ts` |
+| 4 | `feat: enforce strict auth on AI routes, restore aliases` | `app.ts`, `index.ts` |
+| 5 | `test: update auth tests for split middleware and aliases` | `middleware.test.ts`, `app.test.ts` |
 
 ---
 
@@ -218,20 +269,30 @@ A user can have:
 | Test | Assertion |
 |------|-----------|
 | No keys configured → 200 (dev mode) | keyName = "dev" |
+| Only revoked DB keys → 200 (dev mode) | Anti-lockout: revoked keys don't count |
 | `RAVEN_API_KEY` set → requires Bearer | |
-| DB key exists → requires Bearer | |
+| `RAVEN_INTERNAL_KEY` set → requires Bearer | |
+| Active DB key exists → requires Bearer (no dev mode) | |
 | Valid env key → 200 | |
+| Valid internal key → 200 | |
 | Valid DB key → 200 | |
+| `RAVEN_INTERNAL_KEY` rejected by `apiKeyAuth` | Internal key is dashboard-only |
 
-### `app.ts` integration
+### `app.test.ts` — route integration
 
 | Test | Assertion |
 |------|-----------|
 | `/v1/chat/completions` without key → 401 | Even when no keys configured |
 | `/chat/completions` without key → 401 | Alias has same auth |
+| `/v1/messages` without key → 401 | Same |
+| `/v1/models` without key → 401 | Same |
 | `/embeddings` without key → 401 | Alias has same auth |
 | `/api/stats/overview` without key → 200 | Dev mode for dashboard |
 | `/health` without key → 200 | No auth |
+| `/v1/models` with env key → non-401 | AI route accepts env key |
+| `/chat/completions` with DB key → non-401 | Alias accepts DB key |
+| `/api/stats/overview` with internal key → 200 | Dashboard route accepts internal key |
+| Update existing `"no apiKey and no DB keys → open access"` | Split into: `/api/*` open (dev mode), `/v1/*` returns 401 |
 
 ### Existing tests
 
@@ -241,7 +302,13 @@ All existing `middleware.test.ts` tests for the env key and DB key paths should 
 
 ## Doc updates after implementation
 
-- **Doc 02** (Key Management): Update section 二 to reference `apiKeyAuth` + `dashboardAuth` instead of single `multiKeyAuth`. Remove "Dev mode" from the AI auth flow.
-- **README**: Update first-run guide to mention that an API key must be created before AI tools can connect.
-</content>
-</invoke>
+The following documents reference the old `multiKeyAuth` or "dev mode" semantics and must be updated:
+
+| Document | Section | Required change |
+|----------|---------|-----------------|
+| `docs/02-key-management.md` | Section 二 "验证流程" (line 78-88) | Replace `multiKeyAuth` three-path flow with `apiKeyAuth` + `dashboardAuth`. Remove "Dev mode" from AI auth path. |
+| `docs/02-key-management.md` | Section 六 "向后兼容" (line 293) | Remove "Dev mode 逻辑：env 为空且 DB 无 key → 跳过 auth" — this no longer applies to AI routes. |
+| `docs/03-unified-logging.md` | WS auth section (line 313-317) | Update "WS 鉴权复用 multiKeyAuth 相同语义" to reference `dashboardAuth` semantics. Replace "DB 无 key" with "no active keys". |
+| `README.md` | Proxy env vars table (line 266) | Update `RAVEN_API_KEY` description from "空 = 跳过" to "空 = 需通过 DB key 或 dashboard 创建 key". Add `RAVEN_INTERNAL_KEY` row. |
+| `README.md` | First-run guide (line 102-108) | Add step: "创建 API key" before configuring Claude Code. |
+| `packages/proxy/.env.example` | `RAVEN_API_KEY` comment | Remove "Leave empty to skip auth" language. Add `RAVEN_INTERNAL_KEY` entry. |
