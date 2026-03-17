@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.1.1 (2026-03-17)
+
+Code review fixes — data accuracy, chart consistency, and test coverage.
+
+### Bug fixes
+
+- **Non-streaming TTFT** — non-streaming requests were emitting `ttftMs: latencyMs` and `processingMs: 0`, polluting dashboard TTFT averages; now emit `null` so the `!== null` filter correctly excludes them
+- **Model chart aggregation** — pie chart (by count) and bar chart (by tokens) each computed independent top-N, causing different models in "Others"; unified into a single top-N set (union of both dimensions) in the parent component
+- **Clear filters nuked sort** — `clearFilters()` used `router.push("/")` which wiped sort/order params; now only removes filter-specific params (model, status, format, cursor, offset)
+- **shortenSession :: format** — terminal session abbreviation didn't handle `"user::Claude Code::default"` separator; now takes first segment before `::` (first 6 chars)
+
+### Improvements
+
+- **test:all script** — added `test:all` to run tests across all workspace packages (proxy + dashboard)
+
+### Tests
+
+- **456 proxy tests** (was 451) — added session field round-trip tests for request-sink (session_id, client_name, client_version), shortenSession `::` format and UUID tests
+- **unifyTopN unit tests** — 7 pure-logic vitest tests for the unified model aggregation function (union top-N, Others bucket, input order, edge cases)
+
 ## v1.1.0 (2026-03-17)
 
 Session tracking, pretty terminal logs, and dashboard analytics polish.

@@ -46,8 +46,8 @@ describe("unifyTopN", () => {
     const others = result.find((m) => m.model.startsWith("Others"));
     expect(others).toBeDefined();
     expect(others!.model).toBe("Others (2)");
-    expect(others!.count).toBe(data[8].count + data[9].count);
-    expect(others!.total_tokens).toBe(data[8].total_tokens + data[9].total_tokens);
+    expect(others!.count).toBe(data[8]!.count + data[9]!.count);
+    expect(others!.total_tokens).toBe(data[8]!.total_tokens + data[9]!.total_tokens);
   });
 
   it("keeps union of top-N by count and top-N by tokens", () => {
@@ -88,8 +88,10 @@ describe("unifyTopN", () => {
       makeModel(`m-${i}`, 100 - i * 10, 1000 - i * 100),
     );
     // Override avg_latency_ms for the two that will land in Others
-    data[8] = { ...data[8], avg_latency_ms: 200 };
-    data[9] = { ...data[9], avg_latency_ms: 400 };
+    data[8] = makeModel("m-8", 100 - 80, 1000 - 800);
+    data[8].avg_latency_ms = 200;
+    data[9] = makeModel("m-9", 100 - 90, 1000 - 900);
+    data[9].avg_latency_ms = 400;
 
     const result = unifyTopN(data);
     const others = result.find((m) => m.model.startsWith("Others"))!;
