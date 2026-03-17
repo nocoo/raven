@@ -21,6 +21,9 @@ export interface RequestRecord {
   upstream_status: number | null;
   error_message: string | null;
   account_name: string;
+  session_id: string;
+  client_name: string;
+  client_version: string | null;
 }
 
 export interface OverviewResult {
@@ -104,6 +107,17 @@ export function initDatabase(db: Database): void {
   db.exec("PRAGMA journal_mode=WAL;");
   db.exec(CREATE_TABLE);
   db.exec(CREATE_INDEXES);
+
+  // Migration: add session tracking columns
+  const safeAddColumn = (sql: string) => {
+    try { db.exec(sql); } catch (e) {
+      if (!(e instanceof Error && e.message.includes("duplicate column"))) throw e;
+    }
+  };
+  safeAddColumn("ALTER TABLE requests ADD COLUMN session_id TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN client_name TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN client_version TEXT");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
 }
 
 // ---------------------------------------------------------------------------
@@ -114,11 +128,13 @@ const INSERT_SQL = `
 INSERT INTO requests (
   id, timestamp, path, client_format, model, resolved_model,
   stream, input_tokens, output_tokens, latency_ms, ttft_ms,
-  status, status_code, upstream_status, error_message, account_name
+  status, status_code, upstream_status, error_message, account_name,
+  session_id, client_name, client_version
 ) VALUES (
   $id, $timestamp, $path, $client_format, $model, $resolved_model,
   $stream, $input_tokens, $output_tokens, $latency_ms, $ttft_ms,
-  $status, $status_code, $upstream_status, $error_message, $account_name
+  $status, $status_code, $upstream_status, $error_message, $account_name,
+  $session_id, $client_name, $client_version
 )`;
 
 export function insertRequest(db: Database, record: RequestRecord): void {
@@ -139,6 +155,9 @@ export function insertRequest(db: Database, record: RequestRecord): void {
     $upstream_status: record.upstream_status,
     $error_message: record.error_message,
     $account_name: record.account_name,
+    $session_id: record.session_id,
+    $client_name: record.client_name,
+    $client_version: record.client_version,
   });
 }
 

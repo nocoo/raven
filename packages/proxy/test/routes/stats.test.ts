@@ -37,6 +37,9 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     upstream_status: 200,
     error_message: null,
     account_name: "default",
+    session_id: "",
+    client_name: "",
+    client_version: null,
     ...overrides,
   };
 }

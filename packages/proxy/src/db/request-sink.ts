@@ -43,6 +43,9 @@ export function startRequestSink(db: Database): () => void {
       upstream_status: (d.upstreamStatus as number) ?? null,
       error_message: (d.error as string) ?? null,
       account_name: (d.accountName as string) ?? "default",
+      session_id: (d.sessionId as string) ?? "",
+      client_name: (d.clientName as string) ?? "",
+      client_version: (d.clientVersion as string) ?? null,
     };
 
     try {
