@@ -810,22 +810,20 @@ function SessionSection({
 }) {
   return (
     <>
-      <div className="pt-1">
-        <StatCard
-          variant="compact"
-          icon={Users}
-          label="Active Sessions"
-          value={String(sessionTracker.activeCount)}
-          {...(sessionTracker.activeCount > 0 && { detail: `${sessionTracker.totalActiveRequests} in-flight` })}
-          accent={
-            sessionTracker.activeCount > 3
-              ? "warning"
-              : sessionTracker.activeCount > 0
-                ? "success"
-                : "default"
-          }
-        />
-      </div>
+      <StatCard
+        variant="compact"
+        icon={Users}
+        label="Active Sessions"
+        value={String(sessionTracker.activeCount)}
+        {...(sessionTracker.activeCount > 0 && { detail: `${sessionTracker.totalActiveRequests} in-flight` })}
+        accent={
+          sessionTracker.activeCount > 3
+            ? "warning"
+            : sessionTracker.activeCount > 0
+              ? "success"
+              : "default"
+        }
+      />
       <ChartConcurrency data={concurrencyData} />
       <SessionList sessions={sessionTracker.sessions} />
     </>
@@ -851,21 +849,41 @@ export function LogsStats({ events }: LogsStatsProps) {
   return (
     <>
       {/* ── Desktop: fixed-width left sidebar, always visible ── */}
-      <div className="hidden lg:flex lg:w-[340px] lg:shrink-0 lg:flex-col lg:gap-3 lg:overflow-y-auto">
-        <StatsCards stats={stats} hasData={hasData} />
-        {hasData && (
-          <>
-            <ChartRpm data={minuteBuckets} />
-            <ChartModels data={modelDist} />
-            <ChartLatency data={latencyPoints} />
-          </>
-        )}
+      <div className="hidden lg:flex lg:w-[380px] lg:shrink-0 lg:flex-col lg:gap-6 lg:overflow-y-auto">
+        {/* ── Section: Request Stats ── */}
+        <section>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <Activity className="h-4 w-4" strokeWidth={1.5} />
+            Request Stats
+          </h2>
+          <div className="space-y-3">
+            <StatsCards stats={stats} hasData={hasData} />
+            {hasData && (
+              <>
+                <ChartRpm data={minuteBuckets} />
+                <ChartModels data={modelDist} />
+                <ChartLatency data={latencyPoints} />
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* ── Section: Sessions ── */}
         {hasSessionData && (
-          <SessionSection
-            sessionTracker={sessionTracker}
-            concurrencyData={concurrencyData}
-          />
+          <section>
+            <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4" strokeWidth={1.5} />
+              Sessions
+            </h2>
+            <div className="space-y-3">
+              <SessionSection
+                sessionTracker={sessionTracker}
+                concurrencyData={concurrencyData}
+              />
+            </div>
+          </section>
         )}
+
         {!hasData && !hasSessionData && (
           <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-xs text-muted-foreground">
             Stats will appear as requests arrive
@@ -898,21 +916,41 @@ export function LogsStats({ events }: LogsStatsProps) {
         </button>
 
         {mobileExpanded && (
-          <div className="border-t px-3 pb-3 pt-2 space-y-3">
-            <StatsCards stats={stats} hasData={hasData} />
-            {hasData && (
-              <>
-                <ChartRpm data={minuteBuckets} />
-                <ChartModels data={modelDist} />
-                <ChartLatency data={latencyPoints} />
-              </>
-            )}
+          <div className="border-t px-3 pb-3 pt-2 space-y-6">
+            {/* ── Section: Request Stats ── */}
+            <section>
+              <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <Activity className="h-4 w-4" strokeWidth={1.5} />
+                Request Stats
+              </h2>
+              <div className="space-y-3">
+                <StatsCards stats={stats} hasData={hasData} />
+                {hasData && (
+                  <>
+                    <ChartRpm data={minuteBuckets} />
+                    <ChartModels data={modelDist} />
+                    <ChartLatency data={latencyPoints} />
+                  </>
+                )}
+              </div>
+            </section>
+
+            {/* ── Section: Sessions ── */}
             {hasSessionData && (
-              <SessionSection
-                sessionTracker={sessionTracker}
-                concurrencyData={concurrencyData}
-              />
+              <section>
+                <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <Users className="h-4 w-4" strokeWidth={1.5} />
+                  Sessions
+                </h2>
+                <div className="space-y-3">
+                  <SessionSection
+                    sessionTracker={sessionTracker}
+                    concurrencyData={concurrencyData}
+                  />
+                </div>
+              </section>
             )}
+
             {!hasData && !hasSessionData && (
               <div className="flex items-center justify-center rounded-md border border-dashed py-6 text-xs text-muted-foreground">
                 Stats will appear as requests arrive
