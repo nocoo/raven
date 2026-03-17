@@ -4,6 +4,7 @@
 import { auth, isAuthEnabled } from "@/auth";
 import { NextResponse } from "next/server";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- NextAuth middleware wrapper passes untyped req
 export default auth((req: any) => {
   // Local mode: pass everything through — no auth enforcement
   if (!isAuthEnabled) return NextResponse.next();

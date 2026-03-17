@@ -35,10 +35,16 @@ describe("sidebar module — local mode flag", () => {
 });
 
 describe("sidebar local mode display logic (unit)", () => {
+  // Helper to simulate env-based flag (avoids TS "always truthy/falsy" errors)
+  function authEnabled(envValue: string): boolean {
+    return !!envValue;
+  }
+
   // Test the display logic directly without rendering
   it("local mode: userName=Local, userEmail=Local mode when env unset", () => {
-    const isAuthEnabled = !!(""); // simulates NEXT_PUBLIC_AUTH_ENABLED=""
-    const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } };
+    const isAuthEnabled = authEnabled(""); // simulates NEXT_PUBLIC_AUTH_ENABLED=""
+    const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } } as
+      { user: { name: string; email: string; image: string } } | null;
 
     const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
     const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";
@@ -50,8 +56,9 @@ describe("sidebar local mode display logic (unit)", () => {
   });
 
   it("auth mode: uses session data when env is set", () => {
-    const isAuthEnabled = !!("1"); // simulates NEXT_PUBLIC_AUTH_ENABLED="1"
-    const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } };
+    const isAuthEnabled = authEnabled("1"); // simulates NEXT_PUBLIC_AUTH_ENABLED="1"
+    const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } } as
+      { user: { name: string; email: string; image: string } } | null;
 
     const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
     const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";
@@ -63,8 +70,8 @@ describe("sidebar local mode display logic (unit)", () => {
   });
 
   it("auth mode: null session falls back to defaults", () => {
-    const isAuthEnabled = !!("1");
-    const session = null;
+    const isAuthEnabled = authEnabled("1");
+    const session = null as { user: { name: string; email: string; image: string } } | null;
 
     const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
     const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";

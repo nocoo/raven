@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.2.0 (2026-03-17)
+
+Unified auth architecture and zero-config local mode — dashboard works out of the box, AI API routes always require authentication.
+
+### Dashboard — local mode
+
+- **Zero-config dashboard** — when Google OAuth env vars are missing, dashboard runs in local mode: all pages accessible without login, sidebar shows "Local" / "Local mode", `/login` redirects to home
+- **Auth mode detection** — new `auth-mode.ts` server helper + `NEXT_PUBLIC_AUTH_ENABLED` client flag via `next.config.ts`
+- **Conditional NextAuth init** — `auth.ts` always exports compatible stubs (`handlers`, `signIn`, `signOut`, `auth`); in local mode returns `null` session for correct "unauthenticated" status
+- **Login redirect** — `/login` page redirects to `/` in local mode
+- **Sidebar local display** — shows "Local" / "Local mode" with no sign-out button
+
+### Proxy — unified auth
+
+- **Split auth middleware** — replaced single `multiKeyAuth` with `apiKeyAuth` (strict, no dev mode) for AI routes and `dashboardAuth` (dev mode when no env keys) for management routes
+- **AI routes always require auth** — `/v1/*`, `/chat/*`, `/embeddings` return 401 without valid API key, even with zero configuration
+- **Dashboard routes independent of DB keys** — `/api/*` dev mode only depends on env keys (`RAVEN_API_KEY`, `RAVEN_INTERNAL_KEY`), creating/revoking DB keys never breaks dashboard access
+- **`RAVEN_INTERNAL_KEY`** — proxy natively reads this as a dashboard management credential; accepted by `/api/*` and `/ws/logs`, rejected by AI API routes
+- **Route aliases restored** — `/chat/completions` and `/embeddings` re-added with proper `apiKeyAuth` coverage via `/chat/*` and `/embeddings` middleware patterns
+- **`getActiveKeyCount()`** — counts only non-revoked keys (excludes revoked) for potential future use
+
+### Bug fixes
+
+- **Session stub truthiness** — local mode session response changed from `{}` (truthy → "authenticated") to `null` (falsy → "unauthenticated")
+- **Revoke cache invalidation** — `POST /api/keys/:id/revoke` now clears key count cache immediately
+- **`connection-info` base URL** — `RAVEN_BASE_URL` now correctly propagated to `/api/connection-info` response
+- **Route alias auth bypass** — `/chat/completions` and `/embeddings` previously bypassed auth middleware patterns; now properly covered
+
+### Docs
+
+- **README rewrite** — step-by-step first-run guide (clone → configure API key → start → GitHub auth → configure client), auto-init table, client config examples, dashboard auth mode section
+- **Design docs** — added `docs/08-dev-auth-mode.md` (dashboard local mode) and `docs/09-unified-auth.md` (proxy auth architecture)
+- **Doc sync** — updated `docs/02-key-management.md` and `docs/03-unified-logging.md` to reference new `apiKeyAuth`/`dashboardAuth` semantics
+
+### Tests
+
+- **467 proxy tests** (was 456) — added `apiKeyAuth` strict tests (no dev mode, INTERNAL_KEY rejection), `dashboardAuth` dev mode tests (env-key-only condition, DB key independence), route alias auth coverage
+- **Dashboard tests** — added sidebar local mode unit tests, login redirect tests, auth module tests with `null` session assertions
+
 ## v1.1.1 (2026-03-17)
 
 Code review fixes — data accuracy, chart consistency, and test coverage.

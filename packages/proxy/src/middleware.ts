@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { validateApiKey } from "./db/keys.ts";
 
@@ -54,7 +55,7 @@ export function invalidateKeyCountCache(): void {
 // Shared 401 response helper
 // ---------------------------------------------------------------------------
 
-function unauthorized(c: any, message: string) {
+function unauthorized(c: Context, message: string) {
   return c.json(
     { error: { type: "authentication_error", message } },
     401,
@@ -66,7 +67,7 @@ function unauthorized(c: any, message: string) {
 // ---------------------------------------------------------------------------
 
 function validateBearerToken(
-  c: any,
+  c: Context,
   db: Database,
   envApiKey?: string,
   internalKey?: string,

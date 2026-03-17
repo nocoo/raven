@@ -20,7 +20,9 @@ if (!isAuthEnabled) {
 // localAuth: compatible with NextAuth middleware wrapper signature.
 // Accepts a handler function, returns a function that calls it with
 // the original request object + auth: null.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- NextAuth middleware wrapper signature is untyped
 function localAuth(handler: (req: any) => any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (req: any) => handler(Object.assign(Object.create(req), { auth: null }));
 }
 
@@ -147,8 +149,11 @@ const authExports = isAuthEnabled
   ? createGoogleAuth()
   : {
       handlers: localHandlers,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- must match NextAuth return type
       signIn: async () => "/" as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       signOut: async () => "/" as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       auth: localAuth as any,
     };
 
