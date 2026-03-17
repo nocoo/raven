@@ -72,7 +72,7 @@ export async function handleCompletion(c: Context) {
           resolvedModel: response.model,
           translatedModel: openAIPayload.model,
           inputTokens, outputTokens, latencyMs,
-          ttftMs: latencyMs, processingMs: 0,
+          ttftMs: null, processingMs: null,
           stream: false, status: "success", statusCode: 200,
           upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
         },

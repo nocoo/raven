@@ -72,7 +72,7 @@ export async function handleCompletion(c: Context) {
         data: {
           path: "/v1/chat/completions", format: "openai", model,
           resolvedModel: response.model, inputTokens, outputTokens,
-          latencyMs, ttftMs: latencyMs, processingMs: 0,
+          latencyMs, ttftMs: null, processingMs: null,
           stream: false, status: "success", statusCode: 200,
           upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
         },

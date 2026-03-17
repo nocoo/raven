@@ -36,7 +36,7 @@ embeddingRoutes.post("/", async (c) => {
       msg: `200 ${model} ${latencyMs}ms`,
       data: {
         path: "/v1/embeddings", format: "openai", model, latencyMs,
-        ttftMs: latencyMs, processingMs: 0,
+        ttftMs: null, processingMs: null,
         stream: false, status: "success", statusCode: 200,
         upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
       },
