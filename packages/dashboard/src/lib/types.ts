@@ -41,6 +41,9 @@ export interface RequestRecord {
   upstream_status: number | null;
   error_message: string | null;
   account_name: string;
+  session_id: string;
+  client_name: string;
+  client_version: string | null;
 }
 
 export interface PaginatedRequests {
