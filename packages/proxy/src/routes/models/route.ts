@@ -5,18 +5,22 @@ import { state } from "~/lib/state"
 import { cacheModels } from "~/lib/utils"
 import { logEmitter } from "~/util/log-emitter"
 import { generateRequestId } from "~/util/id"
+import { deriveClientIdentity } from "~/util/client-identity"
 
 export const modelRoutes = new Hono()
 
 modelRoutes.get("/", async (c) => {
   const startTime = performance.now()
   const requestId = generateRequestId()
+  const accountName = c.get("keyName") ?? "default"
+  const userAgent = c.req.header("user-agent")
+  const { sessionId, clientName, clientVersion } = deriveClientIdentity(undefined, userAgent, accountName)
 
   try {
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_start", requestId,
       msg: "GET /v1/models",
-      data: { path: "/v1/models", format: "openai", stream: false },
+      data: { path: "/v1/models", format: "openai", stream: false, accountName, sessionId, clientName, clientVersion },
     })
 
     if (!state.models) {
@@ -42,7 +46,8 @@ modelRoutes.get("/", async (c) => {
       data: {
         path: "/v1/models", format: "openai", latencyMs,
         stream: false, status: "success", statusCode: 200,
-        modelCount: models?.length ?? 0,
+        modelCount: models?.length ?? 0, accountName,
+        sessionId, clientName, clientVersion,
       },
     })
 
@@ -61,7 +66,8 @@ modelRoutes.get("/", async (c) => {
       data: {
         path: "/v1/models", format: "openai", latencyMs,
         stream: false, status: "error", statusCode: 500,
-        error: errorMsg,
+        error: errorMsg, accountName,
+        sessionId, clientName, clientVersion,
       },
     })
 

@@ -8,6 +8,7 @@ import { getTokenCount } from "~/lib/tokenizer"
 import { isNullish } from "~/lib/utils"
 import { logEmitter } from "~/util/log-emitter"
 import { generateRequestId } from "~/util/id"
+import { deriveClientIdentity } from "~/util/client-identity"
 import {
   createChatCompletions,
   type ChatCompletionResponse,
@@ -24,12 +25,15 @@ export async function handleCompletion(c: Context) {
   const model = payload.model
   const stream = !!payload.stream
   const accountName = c.get("keyName") ?? "default"
+  const userAgent = c.req.header("user-agent")
+  const openaiUser = payload.user ?? undefined
+  const { sessionId, clientName, clientVersion } = deriveClientIdentity(undefined, userAgent, accountName, openaiUser)
 
   // --- request_start ---
   logEmitter.emitLog({
     ts: Date.now(), level: "info", type: "request_start", requestId,
     msg: `POST /v1/chat/completions ${model}`,
-    data: { path: "/v1/chat/completions", format: "openai", model, stream, accountName },
+    data: { path: "/v1/chat/completions", format: "openai", model, stream, accountName, sessionId, clientName, clientVersion },
   })
 
   // Find the selected model
@@ -69,7 +73,7 @@ export async function handleCompletion(c: Context) {
           path: "/v1/chat/completions", format: "openai", model,
           resolvedModel: response.model, inputTokens, outputTokens,
           latencyMs, stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, accountName,
+          upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
         },
       })
 
@@ -131,7 +135,7 @@ export async function handleCompletion(c: Context) {
             stream: true, status: streamError ? "error" : "success",
             statusCode: streamError ? 502 : 200,
             upstreamStatus: streamError ? null : 200,
-            accountName,
+            accountName, sessionId, clientName, clientVersion,
             ...(streamError && { error: streamError }),
           },
         })
@@ -154,6 +158,7 @@ export async function handleCompletion(c: Context) {
         path: "/v1/chat/completions", format: "openai", model, stream,
         latencyMs, status: "error", statusCode,
         upstreamStatus: null, error: errorMsg, accountName,
+        sessionId, clientName, clientVersion,
       },
     })
     throw error

@@ -6,6 +6,7 @@ import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
 import { logEmitter } from "~/util/log-emitter"
 import { generateRequestId } from "~/util/id"
+import { deriveClientIdentity } from "~/util/client-identity"
 import {
   createChatCompletions,
   type ChatCompletionChunk,
@@ -35,6 +36,9 @@ export async function handleCompletion(c: Context) {
   const model = anthropicPayload.model
   const stream = !!anthropicPayload.stream
   const accountName = c.get("keyName") ?? "default"
+  const userAgent = c.req.header("user-agent")
+  const userId = anthropicPayload.metadata?.user_id
+  const { sessionId, clientName, clientVersion } = deriveClientIdentity(userId, userAgent, accountName)
 
   // --- request_start ---
   logEmitter.emitLog({
@@ -44,7 +48,7 @@ export async function handleCompletion(c: Context) {
       path: "/v1/messages", format: "anthropic", model, stream,
       messageCount: anthropicPayload.messages?.length ?? 0,
       toolCount: anthropicPayload.tools?.length ?? 0,
-      accountName,
+      accountName, sessionId, clientName, clientVersion,
     },
   })
 
@@ -69,7 +73,7 @@ export async function handleCompletion(c: Context) {
           translatedModel: openAIPayload.model,
           inputTokens, outputTokens, latencyMs,
           stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, accountName,
+          upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
         },
       })
 
@@ -140,7 +144,7 @@ export async function handleCompletion(c: Context) {
             stream: true, status: streamError ? "error" : "success",
             statusCode: streamError ? 502 : 200,
             upstreamStatus: streamError ? null : 200,
-            accountName,
+            accountName, sessionId, clientName, clientVersion,
             ...(streamError && { error: streamError }),
           },
         })
@@ -162,6 +166,7 @@ export async function handleCompletion(c: Context) {
         path: "/v1/messages", format: "anthropic", model, stream,
         latencyMs, status: "error", statusCode: 502,
         upstreamStatus: null, error: errorMsg, accountName,
+        sessionId, clientName, clientVersion,
       },
     })
     throw error

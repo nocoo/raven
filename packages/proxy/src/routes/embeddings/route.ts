@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { forwardError } from "~/lib/error"
 import { logEmitter } from "~/util/log-emitter"
 import { generateRequestId } from "~/util/id"
+import { deriveClientIdentity } from "~/util/client-identity"
 import {
   createEmbeddings,
   type EmbeddingRequest,
@@ -14,6 +15,8 @@ embeddingRoutes.post("/", async (c) => {
   const startTime = performance.now()
   const requestId = generateRequestId()
   const accountName = c.get("keyName") ?? "default"
+  const userAgent = c.req.header("user-agent")
+  const { sessionId, clientName, clientVersion } = deriveClientIdentity(undefined, userAgent, accountName)
 
   try {
     const payload = await c.req.json<EmbeddingRequest>()
@@ -22,7 +25,7 @@ embeddingRoutes.post("/", async (c) => {
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_start", requestId,
       msg: `POST /v1/embeddings ${model}`,
-      data: { path: "/v1/embeddings", format: "openai", model, stream: false, accountName },
+      data: { path: "/v1/embeddings", format: "openai", model, stream: false, accountName, sessionId, clientName, clientVersion },
     })
 
     const response = await createEmbeddings(payload)
@@ -34,7 +37,7 @@ embeddingRoutes.post("/", async (c) => {
       data: {
         path: "/v1/embeddings", format: "openai", model, latencyMs,
         stream: false, status: "success", statusCode: 200,
-        upstreamStatus: 200, accountName,
+        upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
       },
     })
 
@@ -50,6 +53,7 @@ embeddingRoutes.post("/", async (c) => {
         path: "/v1/embeddings", format: "openai", latencyMs,
         stream: false, status: "error", statusCode: 502,
         upstreamStatus: null, error: errorMsg, accountName,
+        sessionId, clientName, clientVersion,
       },
     })
 
