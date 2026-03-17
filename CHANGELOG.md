@@ -1,5 +1,49 @@
 # Changelog
 
+## v1.1.0 (2026-03-17)
+
+Session tracking, pretty terminal logs, and dashboard analytics polish.
+
+### Proxy — features
+
+- **Pretty terminal logs** — replaced raw JSON lines with colorized one-liner summaries (model, status, duration, TTFT, tokens), respects `NO_COLOR`
+- **TTFT and processing time** — request handlers now capture time-to-first-token and processing duration in `request_end` events
+- **Session tracking** — extract session identity (sessionId, clientName, clientVersion) from request headers via client identity parser, stored in new DB columns
+
+### Dashboard — features
+
+- **Session tracking UI** — logs sidebar shows live session info (client name, version, session ID) with stats panel
+- **Sparkline trends** — StatCard now supports inline sparkline charts for trend visualization
+- **Clickable timeline** — timeline nodes open phase detail on click
+- **Model aggregation** — charts group low-traffic models into "Others" bucket for cleaner visualization
+
+### Dashboard — UI improvements
+
+- **Logs sidebar redesign** — restructured into 3 sections with timing breakdown (latency, TTFT, processing)
+- **Skeleton loaders** — replaced empty loading states with skeleton placeholders for charts
+- **Faster animations** — sped up all UI animations and transitions
+- **Select component** — replaced native selects with shadcn Select across the app
+- **Font consistency** — applied DM Sans font-display to all page headings
+
+### Dashboard — refactoring
+
+- **Design tokens** — extracted floating island radius, timeline colors, chart heights, and settings source badge styles into semantic design tokens
+- **StatCard unification** — merged duplicate StatCard variants into single shared component
+- **Chart utilities** — extracted `formatBucketTime` to shared `chart-config.ts`
+
+### Bug fixes
+
+- **Dedup request_end events** — fixed duplicate `request_end` events in stats hooks and concurrency timeline
+- **Empty model filter** — filtered out empty model names from Select options
+
+### Tests
+
+- **451 proxy tests** (was 428) — added client identity unit tests, session tracking pure function tests, terminal-format tests
+
+### Docs
+
+- **Session tracking design doc** — added `docs/07-session-tracking.md`
+
 ## v1.0.0 (2026-03-16)
 
 First stable release — version settings system, multi-platform local detection, dashboard polish, and brand unification to lowercase raven.
