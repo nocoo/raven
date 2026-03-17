@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Monitor,
   Shield,
@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Rocket,
+  ExternalLink,
 } from "lucide-react";
 import {
   Dialog,
@@ -206,13 +207,39 @@ function StepApiKey() {
       <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-3">
         <div className="flex items-center gap-1.5">
           <Terminal className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
-          <p className="text-sm font-medium">Claude Code example</p>
+          <p className="text-sm font-medium">Claude Code config</p>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Add this to your Claude Code <code className="bg-secondary/70 px-1 py-0.5 rounded">settings.json</code> env block:
+        </p>
         <CodeBlock
-          code={`export ANTHROPIC_BASE_URL=http://localhost:7033/anthropic
-export ANTHROPIC_API_KEY=raven-your-api-key
-claude`}
+          code={`"env": {
+  "ANTHROPIC_AUTH_TOKEN": "rk-your-api-key",
+  "ANTHROPIC_BASE_URL": "http://localhost:7033",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_REASONING_MODEL": "claude-opus-4.6"
+}`}
         />
+      </div>
+
+      <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-2">
+        <p className="text-sm font-medium">Recommended tool</p>
+        <p className="text-xs text-muted-foreground">
+          Use{" "}
+          <a
+            href="https://github.com/farion1231/cc-switch"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+          >
+            CC Switch
+            <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+          </a>{" "}
+          to manage and switch between Claude Code configurations with ease.
+        </p>
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -233,9 +260,13 @@ export function SetupWizard() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [dismiss, setDismiss] = useState(false);
+  const closedThisSession = useRef(false);
 
   // SSR-safe: read localStorage only on mount
   useEffect(() => {
+    // Already closed in this session (without "Don't show again") — stay hidden
+    if (closedThisSession.current) return;
+
     try {
       const dismissed = localStorage.getItem(STORAGE_KEY);
       if (dismissed !== "true") {
@@ -256,6 +287,7 @@ export function SetupWizard() {
           // best effort
         }
       }
+      closedThisSession.current = true;
       setOpen(false);
       setStep(0);
     }
