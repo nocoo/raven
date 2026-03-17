@@ -77,7 +77,15 @@ raven 是一个运行在本地的 GitHub Copilot API 反向代理。它让你可
 - **版本设置** — 查看当前生效版本及来源（本地检测/AUR/回退），支持手动覆盖和重置
 - **连接信息** — 所有端点地址、可用模型列表、API Key 管理
 
-## 安装
+## 安装与首次运行
+
+### 环境要求
+
+- [Bun](https://bun.sh/) ≥ 1.3
+- Git
+- GitHub 账号（需有 [Copilot](https://github.com/features/copilot) 订阅）
+
+### 1. 克隆并安装
 
 ```bash
 git clone https://github.com/nocoo/raven.git
@@ -85,29 +93,78 @@ cd raven
 bun install
 ```
 
-## 设置
+### 2. 启动
 
-### Proxy
+```bash
+bun run dev          # 同时启动 proxy (:7033) + dashboard (:7032)
+```
 
-1. 复制环境变量模板：
+首次运行 proxy 会自动完成以下初始化，**无需手动操作**：
 
-   ```bash
-   cp packages/proxy/.env.example packages/proxy/.env.local
-   ```
+| 自动步骤 | 说明 |
+|----------|------|
+| 创建 `data/` 目录 | 存放 SQLite 和 token 文件 |
+| 创建 `data/raven.db` | SQLite 数据库（WAL 模式），自动建表 |
+| 创建 `data/github_token` | GitHub OAuth token 文件（权限 `0600`） |
 
-2. 首次启动 proxy 时会触发 **GitHub Device Flow** 认证，按终端提示在浏览器中授权即可。Token 会自动持久化到 `RAVEN_TOKEN_PATH`（默认 `data/github_token`）。
+### 3. GitHub 授权（首次必需）
 
-3. （可选）设置 `RAVEN_API_KEY` 启用客户端请求认证。
+首次启动时，终端会输出类似提示：
 
-### Dashboard
+```
+Please enter the code "ABCD-1234" in https://github.com/login/device/code
+```
 
-> **本地快速启动**：如果只是本地使用，Dashboard 无需额外配置。`bun run dev` 即可同时启动 proxy 和 dashboard，dashboard 自动以 local 模式运行（无需登录）。
+1. 用浏览器打开 https://github.com/login/device/code
+2. 输入终端显示的验证码
+3. 授权 raven 访问你的 GitHub 账号
 
-#### （可选）启用 Google OAuth 认证
+授权完成后 proxy 自动继续启动，token 持久化到 `data/github_token`。后续重启无需重复授权。
 
-如需启用 Google 登录认证，按以下步骤配置：
+### 4. 配置客户端
 
-1. 复制环境变量模板：
+Proxy 启动后，将客户端指向 raven：
+
+<details><summary><strong>Claude Code</strong></summary>
+
+```bash
+# Anthropic 格式
+claude config set --global apiUrl http://localhost:7033/v1
+```
+
+</details>
+
+<details><summary><strong>Cursor / 其他支持 OpenAI 格式的客户端</strong></summary>
+
+```
+Base URL: http://localhost:7033/v1
+```
+
+</details>
+
+打开 Dashboard 查看统计：http://localhost:7032
+
+---
+
+## Dashboard 认证模式
+
+Dashboard 支持两种运行模式：
+
+### Local 模式（默认）
+
+**零配置**。不设置 Google OAuth 环境变量时，dashboard 自动以 local 模式运行：
+
+- 所有页面直接可访问，无需登录
+- 侧边栏显示 "Local" / "Local mode"，无登出按钮
+- 访问 `/login` 会自动重定向到首页
+
+适合本地个人使用，也是 `bun run dev` 的默认行为。
+
+### Google OAuth 模式
+
+需要登录认证时（例如将 dashboard 暴露在网络上），启用 Google OAuth：
+
+1. 创建 dashboard 环境变量文件：
 
    ```bash
    cp packages/dashboard/.env.example packages/dashboard/.env.local
@@ -117,28 +174,24 @@ bun install
    - 应用类型：Web application
    - 授权重定向 URI：`http://localhost:7032/api/auth/callback/google`
 
-3. 将 Client ID 和 Client Secret 填入 `.env.local`：
-
-   ```
-   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=your-client-secret
-   ```
-
-4. 生成 NextAuth session 密钥：
+3. 填入凭据和密钥：
 
    ```bash
-   openssl rand -base64 32
+   # packages/dashboard/.env.local
+   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   NEXTAUTH_SECRET=$(openssl rand -base64 32)
    ```
 
-   填入 `NEXTAUTH_SECRET`。
+   三个变量**全部设置**后 dashboard 才会切换到 OAuth 模式。任一缺失则保持 local 模式。
 
-5. （可选）通过 `ALLOWED_EMAILS` 限制访问，逗号分隔多个邮箱：
+4. （可选）限制可登录的邮箱，逗号分隔：
 
    ```
    ALLOWED_EMAILS=alice@example.com,bob@example.com
    ```
 
-6. 确认 proxy 连接 URL（默认 `http://localhost:7033`）。如 proxy 端口不同，调整 `RAVEN_PROXY_URL`。
+5. 重启 dashboard，访问任何页面会跳转到 Google 登录页。
 
 ### 自定义 Hostname / HTTPS
 
@@ -147,31 +200,6 @@ bun install
 - 设置 `RAVEN_BASE_URL` 为 proxy 的公开地址（例如 `https://raven.example.com`），`/api/connection-info` 会返回该地址
 - 设置 `NEXTAUTH_URL` 为 dashboard 的公开地址
 - 启用 `USE_SECURE_COOKIES=true`（如果 HTTPS）
-
-## 环境变量
-
-### Proxy (`packages/proxy`)
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `RAVEN_PORT` | `7033` | 监听端口 |
-| `RAVEN_API_KEY` | _(空)_ | API Key 认证，空 = 跳过 |
-| `RAVEN_TOKEN_PATH` | `data/github_token` | GitHub OAuth token 持久化路径 |
-| `RAVEN_LOG_LEVEL` | `info` | 最低日志级别：`debug` / `info` / `warn` / `error` |
-| `RAVEN_BASE_URL` | _(空)_ | 公开 base URL，空 = `http://localhost:$RAVEN_PORT` |
-
-### Dashboard (`packages/dashboard`)
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `NEXTAUTH_URL` | `http://localhost:7032` | NextAuth base URL |
-| `NEXTAUTH_SECRET` | _(启用 Google OAuth 时必填)_ | Session 签名密钥 |
-| `GOOGLE_CLIENT_ID` | _(启用 Google OAuth 时必填)_ | Google OAuth Client ID |
-| `GOOGLE_CLIENT_SECRET` | _(启用 Google OAuth 时必填)_ | Google OAuth Client Secret |
-| `ALLOWED_EMAILS` | _(空)_ | 邮箱白名单，逗号分隔，空 = 允许所有 |
-| `RAVEN_PROXY_URL` | `http://localhost:7033` | Dashboard → Proxy 连接 URL |
-| `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard 专用 Proxy auth key |
-| `USE_SECURE_COOKIES` | _(空)_ | 强制启用 secure cookies |
 
 ## 命令一览
 
@@ -227,18 +255,37 @@ raven/
 
 ## 开发
 
-### 环境要求
+### 环境变量参考
 
-- [Bun](https://bun.sh/) ≥ 1.3
-- Git
-- GitHub 账号（需有 Copilot 订阅）
-
-### 快速开始
+Proxy 和 Dashboard 的所有环境变量都有合理默认值，本地运行无需创建 `.env.local` 文件。需要自定义时：
 
 ```bash
-bun install          # 安装依赖（自动配置 Husky）
-bun run dev          # 启动 proxy + dashboard
+cp packages/proxy/.env.example packages/proxy/.env.local
+cp packages/dashboard/.env.example packages/dashboard/.env.local
 ```
+
+#### Proxy (`packages/proxy`)
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `RAVEN_PORT` | `7033` | 监听端口 |
+| `RAVEN_API_KEY` | _(空)_ | API Key 认证，空 = 跳过 |
+| `RAVEN_TOKEN_PATH` | `data/github_token` | GitHub OAuth token 持久化路径 |
+| `RAVEN_LOG_LEVEL` | `info` | 最低日志级别：`debug` / `info` / `warn` / `error` |
+| `RAVEN_BASE_URL` | _(空)_ | 公开 base URL，空 = `http://localhost:$RAVEN_PORT` |
+
+#### Dashboard (`packages/dashboard`)
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `NEXTAUTH_URL` | `http://localhost:7032` | NextAuth base URL |
+| `NEXTAUTH_SECRET` | _(启用 OAuth 时必填)_ | Session 签名密钥 |
+| `GOOGLE_CLIENT_ID` | _(启用 OAuth 时必填)_ | Google OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | _(启用 OAuth 时必填)_ | Google OAuth Client Secret |
+| `ALLOWED_EMAILS` | _(空)_ | 邮箱白名单，逗号分隔，空 = 允许所有 |
+| `RAVEN_PROXY_URL` | `http://localhost:7033` | Dashboard → Proxy 连接 URL |
+| `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard 专用 Proxy auth key |
+| `USE_SECURE_COOKIES` | _(空)_ | 强制启用 secure cookies |
 
 ### Git Hooks
 
