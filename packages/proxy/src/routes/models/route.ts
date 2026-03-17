@@ -45,6 +45,7 @@ modelRoutes.get("/", async (c) => {
       msg: `200 models ${latencyMs}ms`,
       data: {
         path: "/v1/models", format: "openai", latencyMs,
+        ttftMs: latencyMs, processingMs: 0,
         stream: false, status: "success", statusCode: 200,
         modelCount: models?.length ?? 0, accountName,
         sessionId, clientName, clientVersion,

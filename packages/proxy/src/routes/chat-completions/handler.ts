@@ -72,7 +72,8 @@ export async function handleCompletion(c: Context) {
         data: {
           path: "/v1/chat/completions", format: "openai", model,
           resolvedModel: response.model, inputTokens, outputTokens,
-          latencyMs, stream: false, status: "success", statusCode: 200,
+          latencyMs, ttftMs: latencyMs, processingMs: 0,
+          stream: false, status: "success", statusCode: 200,
           upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
         },
       })
@@ -85,10 +86,13 @@ export async function handleCompletion(c: Context) {
     let inputTokens = 0
     let outputTokens = 0
     let streamError: string | null = null
+    let firstChunkTime: number | null = null
 
     return streamSSE(c, async (sseStream) => {
       try {
         for await (const chunk of response) {
+          if (firstChunkTime === null) firstChunkTime = performance.now()
+
           await sseStream.writeSSE(chunk as SSEMessage)
 
           // Extract metrics from chunk data
@@ -124,7 +128,10 @@ export async function handleCompletion(c: Context) {
           // Best-effort — connection may already be closed
         }
       } finally {
-        const latencyMs = Math.round(performance.now() - startTime)
+        const endTime = performance.now()
+        const latencyMs = Math.round(endTime - startTime)
+        const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
+        const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
         logEmitter.emitLog({
           ts: Date.now(), level: streamError ? "error" : "info",
           type: "request_end", requestId,
@@ -132,6 +139,7 @@ export async function handleCompletion(c: Context) {
           data: {
             path: "/v1/chat/completions", format: "openai", model,
             resolvedModel, inputTokens, outputTokens, latencyMs,
+            ttftMs, processingMs,
             stream: true, status: streamError ? "error" : "success",
             statusCode: streamError ? 502 : 200,
             upstreamStatus: streamError ? null : 200,
