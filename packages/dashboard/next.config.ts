@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
     "localhost",
-    "*.hexly.ai",
-    "*.dev.hexly.ai",
+    // Add custom domains here if running behind a reverse proxy, e.g.:
+    // "*.example.com",
   ],
   images: {
     remotePatterns: [
