@@ -37,6 +37,9 @@ function makeRequestEndEvent(
       statusCode: 200,
       upstreamStatus: 200,
       accountName: "default",
+      sessionId: "user_abc_a885da1234",
+      clientName: "Claude Code",
+      clientVersion: "1.2.3",
       ...overrides.data,
     },
     ...overrides,
@@ -77,6 +80,9 @@ describe("request-sink", () => {
     expect(rows[0].latency_ms).toBe(500)
     expect(rows[0].status).toBe("success")
     expect(rows[0].status_code).toBe(200)
+    expect(rows[0].session_id).toBe("user_abc_a885da1234")
+    expect(rows[0].client_name).toBe("Claude Code")
+    expect(rows[0].client_version).toBe("1.2.3")
   })
 
   test("ignores non-request_end events", () => {
@@ -236,5 +242,59 @@ describe("request-sink", () => {
 
     expect(spy).toHaveBeenCalledTimes(1)
     spy.mockRestore()
+  })
+
+  test("persists session fields round-trip", () => {
+    logEmitter.emitLog(
+      makeRequestEndEvent({
+        requestId: "req_session_rt",
+        data: {
+          path: "/v1/messages",
+          format: "anthropic",
+          model: "claude-sonnet-4",
+          stream: false,
+          latencyMs: 800,
+          status: "success",
+          statusCode: 200,
+          accountName: "default",
+          sessionId: "550e8400-e29b-41d4-a716-446655440000::Claude Code::default",
+          clientName: "Claude Code",
+          clientVersion: "2.0.0-beta.1",
+        },
+      }),
+    )
+
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
+    expect(rows).toHaveLength(1)
+    expect(rows[0].session_id).toBe("550e8400-e29b-41d4-a716-446655440000::Claude Code::default")
+    expect(rows[0].client_name).toBe("Claude Code")
+    expect(rows[0].client_version).toBe("2.0.0-beta.1")
+  })
+
+  test("persists null client_version", () => {
+    logEmitter.emitLog(
+      makeRequestEndEvent({
+        requestId: "req_null_cv",
+        data: {
+          path: "/v1/chat/completions",
+          format: "openai",
+          model: "gpt-4o",
+          stream: false,
+          latencyMs: 300,
+          status: "success",
+          statusCode: 200,
+          accountName: "default",
+          sessionId: "user_xyz",
+          clientName: "Cursor",
+          clientVersion: undefined,
+        },
+      }),
+    )
+
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
+    expect(rows).toHaveLength(1)
+    expect(rows[0].session_id).toBe("user_xyz")
+    expect(rows[0].client_name).toBe("Cursor")
+    expect(rows[0].client_version).toBeNull()
   })
 })
