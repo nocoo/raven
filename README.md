@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/runtime-Bun_≥1.3-f9f1e1?logo=bun" alt="Bun">
   <img src="https://img.shields.io/badge/proxy-Hono-e36002?logo=hono" alt="Hono">
   <img src="https://img.shields.io/badge/dashboard-Next.js_16-000?logo=nextdotjs" alt="Next.js">
-  <img src="https://img.shields.io/badge/tests-404_passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-456_passing-brightgreen" alt="Tests">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
 </p>
 
@@ -51,7 +51,7 @@ raven 是一个运行在本地的 GitHub Copilot API 反向代理。它让你可
           └─────────────────────┘
 ```
 
-> **定位**：研究性个人项目，仅供本地使用，不面向多用户部署。
+> **定位**：研究性个人项目，设计为本地运行。
 
 ## 功能
 
@@ -85,6 +85,90 @@ cd raven
 bun install
 ```
 
+## 设置
+
+### Proxy
+
+1. 复制环境变量模板：
+
+   ```bash
+   cp packages/proxy/.env.example packages/proxy/.env.local
+   ```
+
+2. 首次启动 proxy 时会触发 **GitHub Device Flow** 认证，按终端提示在浏览器中授权即可。Token 会自动持久化到 `RAVEN_TOKEN_PATH`（默认 `data/github_token`）。
+
+3. （可选）设置 `RAVEN_API_KEY` 启用客户端请求认证。
+
+### Dashboard
+
+Dashboard 使用 Google OAuth 认证。如需使用，按以下步骤配置：
+
+1. 复制环境变量模板：
+
+   ```bash
+   cp packages/dashboard/.env.example packages/dashboard/.env.local
+   ```
+
+2. 在 [Google Cloud Console](https://console.cloud.google.com/apis/credentials) 创建 OAuth 2.0 凭据：
+   - 应用类型：Web application
+   - 授权重定向 URI：`http://localhost:7032/api/auth/callback/google`
+
+3. 将 Client ID 和 Client Secret 填入 `.env.local`：
+
+   ```
+   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your-client-secret
+   ```
+
+4. 生成 NextAuth session 密钥：
+
+   ```bash
+   openssl rand -base64 32
+   ```
+
+   填入 `NEXTAUTH_SECRET`。
+
+5. （可选）通过 `ALLOWED_EMAILS` 限制访问，逗号分隔多个邮箱：
+
+   ```
+   ALLOWED_EMAILS=alice@example.com,bob@example.com
+   ```
+
+6. 确认 proxy 连接 URL（默认 `http://localhost:7033`）。如 proxy 端口不同，调整 `RAVEN_PROXY_URL`。
+
+### 自定义 Hostname / HTTPS
+
+如需通过自定义域名或 HTTPS 反向代理访问：
+
+- 设置 `RAVEN_BASE_URL` 为 proxy 的公开地址（例如 `https://raven.example.com`），`/api/connection-info` 会返回该地址
+- 设置 `NEXTAUTH_URL` 为 dashboard 的公开地址
+- 启用 `USE_SECURE_COOKIES=true`（如果 HTTPS）
+
+## 环境变量
+
+### Proxy (`packages/proxy`)
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `RAVEN_PORT` | `7033` | 监听端口 |
+| `RAVEN_API_KEY` | _(空)_ | API Key 认证，空 = 跳过 |
+| `RAVEN_TOKEN_PATH` | `data/github_token` | GitHub OAuth token 持久化路径 |
+| `RAVEN_LOG_LEVEL` | `info` | 最低日志级别：`debug` / `info` / `warn` / `error` |
+| `RAVEN_BASE_URL` | _(空)_ | 公开 base URL，空 = `http://localhost:$RAVEN_PORT` |
+
+### Dashboard (`packages/dashboard`)
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `NEXTAUTH_URL` | `http://localhost:7032` | NextAuth base URL |
+| `NEXTAUTH_SECRET` | _(必填)_ | Session 签名密钥 |
+| `GOOGLE_CLIENT_ID` | _(必填)_ | Google OAuth Client ID |
+| `GOOGLE_CLIENT_SECRET` | _(必填)_ | Google OAuth Client Secret |
+| `ALLOWED_EMAILS` | _(空)_ | 邮箱白名单，逗号分隔，空 = 允许所有 |
+| `RAVEN_PROXY_URL` | `http://localhost:7033` | Dashboard → Proxy 连接 URL |
+| `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard 专用 Proxy auth key |
+| `USE_SECURE_COOKIES` | _(空)_ | 强制启用 secure cookies |
+
 ## 命令一览
 
 | 命令 | 说明 |
@@ -92,13 +176,12 @@ bun install
 | `bun run dev` | 同时启动 proxy + dashboard |
 | `bun run dev:proxy` | 仅启动 proxy（:7033） |
 | `bun run dev:dashboard` | 仅启动 dashboard（:7032） |
-| `bun run test` | 运行单元测试（404 tests） |
+| `bun run test` | 运行 proxy 单元测试（456 tests） |
+| `bun run test:all` | 运行所有 workspace 测试 |
 | `bun run test:perf` | 性能基准测试（翻译层 + SSE 解析） |
 | `bun run test:e2e` | E2E 测试（需 proxy 运行中） |
 | `bun run lint` | ESLint 检查 |
 | `bun run typecheck` | TypeScript 类型检查 |
-
-首次启动 proxy 时会触发 GitHub Device Flow 认证，按提示在浏览器中授权即可。
 
 ## 项目结构
 
@@ -164,7 +247,7 @@ bun run dev          # 启动 proxy + dashboard
 
 | 层 | 内容 | 触发时机 |
 |------|------|----------|
-| Unit | 404 个测试，全部 mock 上游调用 | pre-commit |
+| Unit | 456 个测试，全部 mock 上游调用 | pre-commit |
 | Perf | SSE 解析、翻译层基准测试 | pre-push |
 | E2E | 真实 proxy → Copilot API，每个测试仅 1 个请求 | 手动 |
 
@@ -178,12 +261,20 @@ bun run test:e2e      # E2E（需 proxy 运行）
 
 | 编号 | 文档 | 说明 |
 |------|------|------|
-| 01 | [MVP 设计文档](docs/01-mvp.md) | 架构设计、核心模块、测试策略、提交计划 |
 | 02 | [Key Management](docs/02-key-management.md) | 多 Key 管理系统：数据库 + Dashboard UI + Proxy 验证 |
 | 03 | [Unified Logging](docs/03-unified-logging.md) | 统一日志系统：LogEmitter 事件总线 + 三路 fan-out |
 | 04 | [Proxy Rewrite](docs/04-proxy-rewrite.md) | Proxy 重写：基于 copilot-api 的整体替换方案 |
 | 05 | [Test Coverage](docs/05-test-coverage.md) | 测试覆盖率提升：Hot Path → 全量 95%+ |
 | 06 | [Dashboard Test Plan](docs/06-dashboard-test-plan.md) | Dashboard 测试计划 |
+| 07 | [Session Tracking](docs/07-session-tracking.md) | Session 识别 + 并行会话统计 UI |
+
+<details><summary>Archive</summary>
+
+| 编号 | 文档 | 说明 |
+|------|------|------|
+| 01 | [MVP 设计文档](docs/archive/01-mvp.md) | 初始 MVP 设计文档（已被 04-proxy-rewrite 取代） |
+
+</details>
 
 ## License
 
