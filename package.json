@@ -11,6 +11,7 @@
     "dev:proxy": "bun run --filter '@raven/proxy' dev",
     "dev:dashboard": "bun run --filter dashboard dev",
     "test": "bun run --filter '@raven/proxy' test",
+    "test:all": "bun run --filter '*' test",
     "lint": "bun run --filter '*' lint",
     "typecheck": "bun run --filter '*' typecheck",
     "test:e2e": "bun run --filter '@raven/proxy' test:e2e",
