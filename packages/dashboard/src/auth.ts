@@ -24,9 +24,10 @@ function localAuth(handler: (req: any) => any) {
   return (req: any) => handler(Object.assign(Object.create(req), { auth: null }));
 }
 
-// Session endpoint returns shape that NextAuth's SessionProvider expects
-// for an unauthenticated state — null user, no expires.
-const LOCAL_SESSION_RESPONSE = new Response(JSON.stringify({}), {
+// Session endpoint: NextAuth's fetchData() returns res.json() directly.
+// SessionProvider sets status = session ? "authenticated" : "unauthenticated".
+// Returning JSON null ensures session is falsy → status = "unauthenticated".
+const LOCAL_SESSION_RESPONSE = new Response("null", {
   status: 200,
   headers: { "Content-Type": "application/json" },
 });

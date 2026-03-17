@@ -107,20 +107,20 @@ describe("auth.ts local mode (no OAuth vars)", () => {
     expect(result.url).toBe("http://localhost/test");
   });
 
-  it("handlers.GET returns 200 with empty JSON body", async () => {
+  it("handlers.GET returns 200 with null body (unauthenticated session)", async () => {
     const { handlers } = await importAuth();
     const res = (handlers.GET as any)() as Response;
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({});
+    expect(body).toBeNull();
   });
 
-  it("handlers.POST returns 200 with empty JSON body", async () => {
+  it("handlers.POST returns 200 with null body (unauthenticated session)", async () => {
     const { handlers } = await importAuth();
     const res = (handlers.POST as any)() as Response;
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({});
+    expect(body).toBeNull();
   });
 
   it("exports isAuthEnabled as false", async () => {
