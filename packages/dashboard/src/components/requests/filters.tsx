@@ -45,8 +45,15 @@ export function Filters({ models }: FiltersProps) {
   );
 
   const clearFilters = useCallback(() => {
-    router.push("/");
-  }, [router]);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("model");
+    params.delete("status");
+    params.delete("format");
+    params.delete("cursor");
+    params.delete("offset");
+    const qs = params.toString();
+    router.push(qs ? `/?${qs}` : "/");
+  }, [router, searchParams]);
 
   const hasFilters = currentModel || currentStatus || currentFormat;
 
