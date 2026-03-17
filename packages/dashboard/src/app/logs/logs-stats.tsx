@@ -217,147 +217,151 @@ export function dedupEvents(events: LogEvent[]): LogEvent[] {
 // Session aggregation hooks
 // ---------------------------------------------------------------------------
 
-export function useSessionTracker(events: LogEvent[]) {
-  return useMemo(() => {
-    const deduped = dedupEvents(events);
-    const sessions = new Map<string, SessionInfo>();
+export function computeSessionTracker(events: LogEvent[]) {
+  const deduped = dedupEvents(events);
+  const sessions = new Map<string, SessionInfo>();
 
-    for (const e of deduped) {
-      if (e.type === "request_start") {
-        const d = e.data ?? {};
-        const sessionId = (d.sessionId as string) || "unknown";
-        const clientName = (d.clientName as string) || "Unknown";
-        const clientVersion = (d.clientVersion as string) ?? null;
-        const accountName = (d.accountName as string) || "default";
+  for (const e of deduped) {
+    if (e.type === "request_start") {
+      const d = e.data ?? {};
+      const sessionId = (d.sessionId as string) || "unknown";
+      const clientName = (d.clientName as string) || "Unknown";
+      const clientVersion = (d.clientVersion as string) ?? null;
+      const accountName = (d.accountName as string) || "default";
 
-        let session = sessions.get(sessionId);
-        if (!session) {
-          session = {
-            sessionId,
-            clientName,
-            clientVersion,
-            accountName,
-            activeRequests: new Set(),
-            totalRequests: 0,
-            errorCount: 0,
-            totalTokens: 0,
-            lastActiveTs: e.ts,
-            firstSeenTs: e.ts,
-          };
-          sessions.set(sessionId, session);
-        }
-
-        if (e.requestId) {
-          session.activeRequests.add(e.requestId);
-        }
-        session.lastActiveTs = Math.max(session.lastActiveTs, e.ts);
+      let session = sessions.get(sessionId);
+      if (!session) {
+        session = {
+          sessionId,
+          clientName,
+          clientVersion,
+          accountName,
+          activeRequests: new Set(),
+          totalRequests: 0,
+          errorCount: 0,
+          totalTokens: 0,
+          lastActiveTs: e.ts,
+          firstSeenTs: e.ts,
+        };
+        sessions.set(sessionId, session);
       }
 
-      if (e.type === "request_end") {
-        const d = e.data ?? {};
-        const sessionId = (d.sessionId as string) || "unknown";
-        const clientName = (d.clientName as string) || "Unknown";
-        const clientVersion = (d.clientVersion as string) ?? null;
-        const accountName = (d.accountName as string) || "default";
-
-        let session = sessions.get(sessionId);
-        if (!session) {
-          session = {
-            sessionId,
-            clientName,
-            clientVersion,
-            accountName,
-            activeRequests: new Set(),
-            totalRequests: 0,
-            errorCount: 0,
-            totalTokens: 0,
-            lastActiveTs: e.ts,
-            firstSeenTs: e.ts,
-          };
-          sessions.set(sessionId, session);
-        }
-
-        if (e.requestId) {
-          session.activeRequests.delete(e.requestId);
-        }
-        session.totalRequests++;
-        session.lastActiveTs = Math.max(session.lastActiveTs, e.ts);
-
-        if ((d.status as string) === "error") session.errorCount++;
-
-        const input = (d.inputTokens as number) ?? 0;
-        const output = (d.outputTokens as number) ?? 0;
-        session.totalTokens += input + output;
+      if (e.requestId) {
+        session.activeRequests.add(e.requestId);
       }
+      session.lastActiveTs = Math.max(session.lastActiveTs, e.ts);
     }
 
-    const allSessions = [...sessions.values()].sort(
-      (a, b) => b.lastActiveTs - a.lastActiveTs,
-    );
-    const activeSessions = allSessions.filter(
-      (s) => s.activeRequests.size > 0,
-    );
-    const totalActiveRequests = activeSessions.reduce(
-      (sum, s) => sum + s.activeRequests.size,
-      0,
-    );
+    if (e.type === "request_end") {
+      const d = e.data ?? {};
+      const sessionId = (d.sessionId as string) || "unknown";
+      const clientName = (d.clientName as string) || "Unknown";
+      const clientVersion = (d.clientVersion as string) ?? null;
+      const accountName = (d.accountName as string) || "default";
 
-    return {
-      sessions: allSessions,
-      activeSessions,
-      activeCount: activeSessions.length,
-      totalActiveRequests,
-    };
-  }, [events]);
+      let session = sessions.get(sessionId);
+      if (!session) {
+        session = {
+          sessionId,
+          clientName,
+          clientVersion,
+          accountName,
+          activeRequests: new Set(),
+          totalRequests: 0,
+          errorCount: 0,
+          totalTokens: 0,
+          lastActiveTs: e.ts,
+          firstSeenTs: e.ts,
+        };
+        sessions.set(sessionId, session);
+      }
+
+      if (e.requestId) {
+        session.activeRequests.delete(e.requestId);
+      }
+      session.totalRequests++;
+      session.lastActiveTs = Math.max(session.lastActiveTs, e.ts);
+
+      if ((d.status as string) === "error") session.errorCount++;
+
+      const input = (d.inputTokens as number) ?? 0;
+      const output = (d.outputTokens as number) ?? 0;
+      session.totalTokens += input + output;
+    }
+  }
+
+  const allSessions = [...sessions.values()].sort(
+    (a, b) => b.lastActiveTs - a.lastActiveTs,
+  );
+  const activeSessions = allSessions.filter(
+    (s) => s.activeRequests.size > 0,
+  );
+  const totalActiveRequests = activeSessions.reduce(
+    (sum, s) => sum + s.activeRequests.size,
+    0,
+  );
+
+  return {
+    sessions: allSessions,
+    activeSessions,
+    activeCount: activeSessions.length,
+    totalActiveRequests,
+  };
+}
+
+export function useSessionTracker(events: LogEvent[]) {
+  return useMemo(() => computeSessionTracker(events), [events]);
+}
+
+export function computeConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint[] {
+  const deduped = dedupEvents(events);
+  const intervals = new Map<
+    string,
+    { sessionId: string; startTs: number; endTs: number | null }
+  >();
+
+  for (const e of deduped) {
+    if (e.type === "request_start" && e.requestId) {
+      const sessionId =
+        (e.data?.sessionId as string) || "unknown";
+      intervals.set(e.requestId, {
+        sessionId,
+        startTs: e.ts,
+        endTs: null,
+      });
+    }
+    if (e.type === "request_end" && e.requestId) {
+      const interval = intervals.get(e.requestId);
+      if (interval) interval.endTs = e.ts;
+    }
+  }
+
+  const bucketMap = new Map<number, Set<string>>();
+  const now = Date.now();
+
+  for (const { sessionId, startTs, endTs } of intervals.values()) {
+    const effectiveEnd = endTs ?? now;
+    const startBucket = Math.floor(startTs / 60_000) * 60_000;
+    const endBucket = Math.floor(effectiveEnd / 60_000) * 60_000;
+
+    for (let b = startBucket; b <= endBucket; b += 60_000) {
+      let set = bucketMap.get(b);
+      if (!set) {
+        set = new Set();
+        bucketMap.set(b, set);
+      }
+      set.add(sessionId);
+    }
+  }
+
+  return [...bucketMap.entries()]
+    .map(([minute, sessionSet]) => ({ minute, sessions: sessionSet.size }))
+    .sort((a, b) => a.minute - b.minute)
+    .slice(-30);
 }
 
 export function useConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint[] {
-  return useMemo(() => {
-    const deduped = dedupEvents(events);
-    const intervals = new Map<
-      string,
-      { sessionId: string; startTs: number; endTs: number | null }
-    >();
-
-    for (const e of deduped) {
-      if (e.type === "request_start" && e.requestId) {
-        const sessionId =
-          (e.data?.sessionId as string) || "unknown";
-        intervals.set(e.requestId, {
-          sessionId,
-          startTs: e.ts,
-          endTs: null,
-        });
-      }
-      if (e.type === "request_end" && e.requestId) {
-        const interval = intervals.get(e.requestId);
-        if (interval) interval.endTs = e.ts;
-      }
-    }
-
-    const bucketMap = new Map<number, Set<string>>();
-    const now = Date.now();
-
-    for (const { sessionId, startTs, endTs } of intervals.values()) {
-      const effectiveEnd = endTs ?? now;
-      const startBucket = Math.floor(startTs / 60_000) * 60_000;
-      const endBucket = Math.floor(effectiveEnd / 60_000) * 60_000;
-
-      for (let b = startBucket; b <= endBucket; b += 60_000) {
-        let set = bucketMap.get(b);
-        if (!set) {
-          set = new Set();
-          bucketMap.set(b, set);
-        }
-        set.add(sessionId);
-      }
-    }
-
-    return [...bucketMap.entries()]
-      .map(([minute, sessionSet]) => ({ minute, sessions: sessionSet.size }))
-      .sort((a, b) => a.minute - b.minute)
-      .slice(-30);
-  }, [events]);
+  return useMemo(() => computeConcurrencyTimeline(events), [events]);
 }
 
 // ---------------------------------------------------------------------------
