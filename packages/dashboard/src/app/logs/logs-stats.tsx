@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -79,10 +79,16 @@ interface LatencyPoint {
 // Data extraction
 // ---------------------------------------------------------------------------
 
-function extractRequestEnds(events: LogEvent[]): RequestEndData[] {
+export function extractRequestEnds(events: LogEvent[]): RequestEndData[] {
   const results: RequestEndData[] = [];
+  const seen = new Set<string>();
   for (const e of events) {
     if (e.type !== "request_end") continue;
+    // Dedup by requestId — SSE reconnect replays ring buffer backfill
+    if (e.requestId) {
+      if (seen.has(e.requestId)) continue;
+      seen.add(e.requestId);
+    }
     const d = e.data;
     if (!d) continue;
     results.push({
@@ -360,8 +366,39 @@ export function computeConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint
     .slice(-30);
 }
 
+/**
+ * Returns the current minute-aligned timestamp, updating every 60s.
+ * Used to force periodic re-computation for time-dependent calculations
+ * (e.g. in-progress request timelines that use Date.now()).
+ */
+function useMinuteTick(): number {
+  const [tick, setTick] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
+  useEffect(() => {
+    // Align to next minute boundary
+    const msToNextMinute = 60_000 - (Date.now() % 60_000);
+    const timeout = setTimeout(() => {
+      setTick(Math.floor(Date.now() / 60_000) * 60_000);
+      // After first alignment, tick every 60s
+      const interval = setInterval(() => {
+        setTick(Math.floor(Date.now() / 60_000) * 60_000);
+      }, 60_000);
+      // Store interval id for cleanup
+      cleanupRef = interval;
+    }, msToNextMinute);
+    let cleanupRef: ReturnType<typeof setInterval> | null = null;
+    return () => {
+      clearTimeout(timeout);
+      if (cleanupRef) clearInterval(cleanupRef);
+    };
+  }, []);
+  return tick;
+}
+
 export function useConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint[] {
-  return useMemo(() => computeConcurrencyTimeline(events), [events]);
+  const minuteTick = useMinuteTick();
+  // minuteTick forces re-computation every minute so in-progress requests
+  // extend their timeline to the current minute even without new events.
+  return useMemo(() => computeConcurrencyTimeline(events), [events, minuteTick]);
 }
 
 // ---------------------------------------------------------------------------
