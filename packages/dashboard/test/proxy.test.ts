@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
@@ -12,16 +12,17 @@ type AuthHandler = (req: {
 }) => NextResponse | Response;
 
 let capturedHandler: AuthHandler;
+let mockIsAuthEnabled = true;
 
 vi.mock("@/auth", () => ({
   auth: (handler: AuthHandler) => {
     capturedHandler = handler;
     return handler;
   },
+  get isAuthEnabled() {
+    return mockIsAuthEnabled;
+  },
 }));
-
-// Force module evaluation to capture the handler
-await import("@/proxy");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -37,10 +38,16 @@ function makeReq(pathname: string, auth: unknown = null) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Auth mode tests (existing)
 // ---------------------------------------------------------------------------
 
-describe("proxy.ts auth enforcement", () => {
+describe("proxy.ts auth enforcement (auth mode)", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    mockIsAuthEnabled = true;
+    await import("@/proxy");
+  });
+
   describe("/api/auth/* routes", () => {
     it("passes through regardless of auth state", () => {
       const res = capturedHandler(makeReq("/api/auth/callback/google"));
@@ -98,5 +105,51 @@ describe("proxy.ts auth enforcement", () => {
       expect(res.status).toBe(307);
       expect(res.headers.get("location")).toBe("http://localhost:3000/login");
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Local mode tests
+// ---------------------------------------------------------------------------
+
+describe("proxy.ts local mode (isAuthEnabled = false)", () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    mockIsAuthEnabled = false;
+    await import("@/proxy");
+  });
+
+  afterEach(() => {
+    mockIsAuthEnabled = true;
+  });
+
+  it("/ → passes through (200)", () => {
+    const res = capturedHandler(makeReq("/"));
+    expect(res.status).toBe(200);
+  });
+
+  it("/login → passes through (200)", () => {
+    const res = capturedHandler(makeReq("/login"));
+    expect(res.status).toBe(200);
+  });
+
+  it("/api/keys → passes through (200), not 401", () => {
+    const res = capturedHandler(makeReq("/api/keys"));
+    expect(res.status).toBe(200);
+  });
+
+  it("/api/auth/callback/google → passes through (200)", () => {
+    const res = capturedHandler(makeReq("/api/auth/callback/google"));
+    expect(res.status).toBe(200);
+  });
+
+  it("/models → passes through (200)", () => {
+    const res = capturedHandler(makeReq("/models"));
+    expect(res.status).toBe(200);
+  });
+
+  it("/requests → passes through (200)", () => {
+    const res = capturedHandler(makeReq("/requests"));
+    expect(res.status).toBe(200);
   });
 });

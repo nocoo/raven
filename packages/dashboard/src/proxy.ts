@@ -1,10 +1,13 @@
 // Next.js 16 proxy convention (replaces middleware.ts)
 // Single enforcement point for authentication.
 
-import { auth } from "@/auth";
+import { auth, isAuthEnabled } from "@/auth";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
+  // Local mode: pass everything through — no auth enforcement
+  if (!isAuthEnabled) return NextResponse.next();
+
   const { pathname } = req.nextUrl;
 
   // Allow auth flow routes
