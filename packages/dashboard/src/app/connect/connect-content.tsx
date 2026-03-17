@@ -150,12 +150,16 @@ const message = await client.messages.create({
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(message.content);`,
-    "claude-code": `# Set environment variables before running Claude Code:
-export ANTHROPIC_BASE_URL="${info.base_url}/v1"
-export ANTHROPIC_API_KEY="rk-..."
-
-# Then launch Claude Code as normal:
-claude`,
+    "claude-code": `// Add to your Claude Code settings.json "env" block:
+{
+  "ANTHROPIC_AUTH_TOKEN": "rk-...",
+  "ANTHROPIC_BASE_URL": "${info.base_url}",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_MODEL": "claude-opus-4.6",
+  "ANTHROPIC_REASONING_MODEL": "claude-opus-4.6"
+}`,
   };
 
   return (
