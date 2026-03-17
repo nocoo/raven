@@ -52,7 +52,7 @@ Fallback: first token before space, or `"Unknown"`.
 Session ID derivation priority:
 
 1. **`anthropicUserId` present** (Anthropic `metadata.user_id`) → use directly (most precise — Claude Code sends unique per-session UUID)
-2. **`openaiUser` present** (OpenAI `payload.user`) → use as heuristic hint, but combine with UA to reduce false merges: `"{openaiUser}::{clientName}"`
+2. **`openaiUser` present** (OpenAI `payload.user`) → use as heuristic hint, combine with UA and account to reduce false merges: `"{openaiUser}::{clientName}::{accountName}"`
 3. **Fallback** → `"{clientName}::{accountName}"` (cannot distinguish two windows of same client + same key, acceptable tradeoff)
 
 ---
@@ -315,7 +315,7 @@ In the mobile collapsible panel, add session section below existing charts. Coll
 | `request_start` outside ring buffer (only `request_end` arrives) | Session tracker: session created from `request_end` data, completed stats correct, but `activeRequests` tracking misses the in-progress window. Concurrency timeline: request silently omitted (intentional low-estimate — no `startTs` available to construct interval) |
 | Orphaned `request_start` (stream hangs, no `request_end`) | Session shows "1 active" indefinitely — correct behavior, indicates stuck request. Clears on log stream clear |
 | Two windows same client + same key (no `user_id`) | Merge into one session via fallback `"{clientName}::{accountName}"` — acceptable tradeoff |
-| OpenAI `user` field set to fixed value across sessions | Combined with clientName: `"{user}::{clientName}"` reduces false merge vs using `user` alone, but may still group multiple sessions if client sets identical `user` + same UA. Acceptable — it's a heuristic signal, not a session boundary |
+| OpenAI `user` field set to fixed value across sessions | Combined with clientName + accountName: `"{user}::{clientName}::{accountName}"` reduces false merge vs using `user` alone, but may still group multiple sessions if client sets identical `user` + same UA + same key. Acceptable — it's a heuristic signal, not a session boundary |
 | Performance (500 max events) | `dedupEvents` is O(n) with Set lookup. Same `useMemo` + iterate pattern as existing hooks; negligible overhead |
 
 ---
@@ -346,7 +346,7 @@ export interface RequestRecord {
 | Parse undefined UA | `undefined` | `{ name: "Unknown", version: null }` |
 | Parse unknown UA | `"my-custom-client/2.0"` | `{ name: "my-custom-client", version: null }` (first token) |
 | userId takes priority | `deriveSessionId("uuid-123", "claude-code/1.0", "dev")` | `"uuid-123"` |
-| OpenAI user heuristic | `deriveSessionId(undefined, "cursor/0.5", "dev", "user-42")` | `"user-42::Cursor"` |
+| OpenAI user heuristic | `deriveSessionId(undefined, "cursor/0.5", "dev", "user-42")` | `"user-42::Cursor::dev"` |
 | Fallback composite | `deriveSessionId(undefined, "claude-code/1.0", "dev")` | `"Claude Code::dev"` |
 | All undefined | `deriveSessionId(undefined, undefined, "dev")` | `"Unknown::dev"` |
 
@@ -382,6 +382,6 @@ Pure logic tests for `dedupEvents`, `useSessionTracker`, `useConcurrencyTimeline
 2. Start proxy (`bun run dev`) → send requests from Claude Code / other client
 3. WebSocket monitor: confirm `request_start`/`request_end` events contain `sessionId`, `clientName`, `clientVersion`
 4. Dashboard `/logs` page: Active Sessions card appears on first `request_start` (before any `request_end`), concurrency chart updates, session list shows per-client details
-5. Reconnect test: pause dashboard → send requests → resume → verify no inflated counts (dedup working)
+5. Reconnect dedup test: send requests → refresh page (or kill/restart proxy to force SSE reconnect) → verify session counts and timeline don't inflate from ring buffer backfill replay
 6. Multi-window test: send requests from 2+ IDE windows simultaneously → confirmed as distinct sessions
 7. SQLite: `SELECT session_id, client_name, count(*) FROM requests GROUP BY 1, 2` — verify data persisted
