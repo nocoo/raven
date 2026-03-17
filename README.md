@@ -93,13 +93,29 @@ cd raven
 bun install
 ```
 
-### 2. 启动
+### 2. 配置 API Key
+
+AI API 端点（`/v1/messages`、`/v1/chat/completions` 等）**始终需要 API Key 认证**。推荐先配置再启动：
+
+```bash
+# Proxy 端
+cp packages/proxy/.env.example packages/proxy/.env.local
+# 编辑 RAVEN_API_KEY=<你的密钥>
+
+# Dashboard 端（用于 dashboard → proxy 内部通信）
+cp packages/dashboard/.env.example packages/dashboard/.env.local
+# 编辑 RAVEN_INTERNAL_KEY=<另一个密钥> 或复用 RAVEN_API_KEY
+```
+
+也可以不配 env key，通过 Dashboard 的 Connect 页面创建 DB-managed key（首次启动时 Dashboard 管理接口免认证）。
+
+### 3. 启动
 
 ```bash
 bun run dev          # 同时启动 proxy (:7033) + dashboard (:7032)
 ```
 
-首次运行 proxy 会自动完成以下初始化，**无需手动操作**：
+首次运行 proxy 会自动完成以下初始化：
 
 | 自动步骤 | 说明 |
 |----------|------|
@@ -107,7 +123,7 @@ bun run dev          # 同时启动 proxy (:7033) + dashboard (:7032)
 | 创建 `data/raven.db` | SQLite 数据库（WAL 模式），自动建表 |
 | 创建 `data/github_token` | GitHub OAuth token 文件（权限 `0600`） |
 
-### 3. GitHub 授权（首次必需）
+### 4. GitHub 授权（首次必需）
 
 首次启动时，终端会输出类似提示：
 
@@ -121,7 +137,7 @@ Please enter the code "ABCD-1234" in https://github.com/login/device/code
 
 授权完成后 proxy 自动继续启动，token 持久化到 `data/github_token`。后续重启无需重复授权。
 
-### 4. 配置客户端
+### 5. 配置客户端
 
 Proxy 启动后，将客户端指向 raven：
 
@@ -257,7 +273,7 @@ raven/
 
 ### 环境变量参考
 
-Proxy 和 Dashboard 的所有环境变量都有合理默认值，本地运行无需创建 `.env.local` 文件。需要自定义时：
+Proxy 和 Dashboard 的环境变量模板见 `.env.example`。AI API 端点需要 API Key 认证（无 key 则 401），Dashboard 管理端点在首次运行时免认证。
 
 ```bash
 cp packages/proxy/.env.example packages/proxy/.env.local
@@ -269,7 +285,8 @@ cp packages/dashboard/.env.example packages/dashboard/.env.local
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `RAVEN_PORT` | `7033` | 监听端口 |
-| `RAVEN_API_KEY` | _(空)_ | API Key 认证，空 = 跳过 |
+| `RAVEN_API_KEY` | _(空)_ | AI API 认证，空 = 需通过 dashboard 创建 DB key |
+| `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard → Proxy 管理凭证，AI API 不接受 |
 | `RAVEN_TOKEN_PATH` | `data/github_token` | GitHub OAuth token 持久化路径 |
 | `RAVEN_LOG_LEVEL` | `info` | 最低日志级别：`debug` / `info` / `warn` / `error` |
 | `RAVEN_BASE_URL` | _(空)_ | 公开 base URL，空 = `http://localhost:$RAVEN_PORT` |
@@ -284,7 +301,7 @@ cp packages/dashboard/.env.example packages/dashboard/.env.local
 | `GOOGLE_CLIENT_SECRET` | _(启用 OAuth 时必填)_ | Google OAuth Client Secret |
 | `ALLOWED_EMAILS` | _(空)_ | 邮箱白名单，逗号分隔，空 = 允许所有 |
 | `RAVEN_PROXY_URL` | `http://localhost:7033` | Dashboard → Proxy 连接 URL |
-| `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard 专用 Proxy auth key |
+| `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard → Proxy 管理凭证，proxy 原生读取 |
 | `USE_SECURE_COOKIES` | _(空)_ | 强制启用 secure cookies |
 
 ### Git Hooks
