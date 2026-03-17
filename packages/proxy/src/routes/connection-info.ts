@@ -5,6 +5,7 @@ import { cacheModels } from "../lib/utils"
 
 export interface ConnectionInfoRouteOptions {
   port: number
+  baseUrl?: string
 }
 
 /**
@@ -14,12 +15,12 @@ export interface ConnectionInfoRouteOptions {
 export function createConnectionInfoRoute(
   opts: ConnectionInfoRouteOptions,
 ): Hono {
-  const { port } = opts
+  const { port, baseUrl } = opts
 
   const route = new Hono()
 
   route.get("/connection-info", async (c) => {
-    const baseUrl = `http://localhost:${port}`
+    const resolvedBaseUrl = baseUrl || `http://localhost:${port}`
 
     // Ensure models are cached
     if (!state.models) {
@@ -34,7 +35,7 @@ export function createConnectionInfoRoute(
     const models = [...new Set(allIds)]
 
     return c.json({
-      base_url: baseUrl,
+      base_url: resolvedBaseUrl,
       endpoints: {
         chat_completions: "/v1/chat/completions",
         messages: "/v1/messages",

@@ -22,6 +22,7 @@ export interface AppDeps {
   apiKey?: string
   githubToken: string
   port?: number
+  baseUrl?: string
 }
 
 /**
@@ -32,7 +33,7 @@ export interface AppDeps {
  * Raven dashboard routes receive `db` via the factory.
  */
 export function createApp(deps: AppDeps): Hono {
-  const { db, apiKey, githubToken, port } = deps
+  const { db, apiKey, githubToken, port, baseUrl } = deps
   const app = new Hono()
 
   // ------- middleware -------
@@ -59,7 +60,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createRequestsRoute(db))
   app.route("/api", createCopilotInfoRoute({ githubToken }))
   app.route("/api", createKeysRoute(db))
-  app.route("/api", createConnectionInfoRoute({ port: port ?? 7033 }))
+  app.route("/api", createConnectionInfoRoute({ port: port ?? 7033, baseUrl }))
   app.route("/api", createSettingsRoute(db))
 
   return app

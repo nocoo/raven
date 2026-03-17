@@ -65,6 +65,7 @@ const app = createApp({
   apiKey: config.apiKey || undefined,
   githubToken,
   port: config.port,
+  baseUrl: config.baseUrl || undefined,
 })
 
 logger.info(`Raven proxy listening on port ${config.port}`)
