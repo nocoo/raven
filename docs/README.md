@@ -8,3 +8,4 @@
 | 04 | [Proxy Rewrite](./04-proxy-rewrite.md) | Proxy 重写：基于 copilot-api 的整体替换方案 |
 | 05 | [Test Coverage](./05-test-coverage.md) | 测试覆盖率提升：Hot Path → 全量 95%+ |
 | 06 | [Dashboard Test Plan](./06-dashboard-test-plan.md) | Dashboard 测试计划 |
+| 07 | [Session Tracking](./07-session-tracking.md) | Session 识别 + 并行会话统计 UI |
