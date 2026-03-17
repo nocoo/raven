@@ -52,6 +52,16 @@ describe("createApp", () => {
     expect(res.status).toBe(200)
   })
 
+  // -----------------------------------------------------------------------
+  // AI routes — apiKeyAuth (strict, no dev mode)
+  // -----------------------------------------------------------------------
+
+  test("/v1/* returns 401 when no keys configured (no dev mode)", async () => {
+    const app = createApp({ db, githubToken: "gh-test" })
+    const res = await app.request("/v1/models")
+    expect(res.status).toBe(401)
+  })
+
   test("/v1/* is auth-protected when apiKey is set", async () => {
     const app = createApp({ db, apiKey: "secret", githubToken: "gh-test" })
     const res = await app.request("/v1/models")
@@ -65,6 +75,51 @@ describe("createApp", () => {
     })
     // May get non-401 (could be 200 or 502 depending on state)
     expect(res.status).not.toBe(401)
+  })
+
+  test("/v1/* rejects RAVEN_INTERNAL_KEY", async () => {
+    const app = createApp({ db, apiKey: "secret", internalKey: "internal", githubToken: "gh-test" })
+    const res = await app.request("/v1/models", {
+      headers: { Authorization: "Bearer internal" },
+    })
+    expect(res.status).toBe(401)
+  })
+
+  // -----------------------------------------------------------------------
+  // Aliases — same auth as /v1/* routes
+  // -----------------------------------------------------------------------
+
+  test("/chat/completions without key → 401", async () => {
+    const app = createApp({ db, githubToken: "gh-test" })
+    const res = await app.request("/chat/completions", { method: "POST" })
+    expect(res.status).toBe(401)
+  })
+
+  test("/chat/completions with valid DB key → non-401", async () => {
+    const created = createApiKey(db, "test-key")
+    invalidateKeyCountCache()
+    const app = createApp({ db, githubToken: "gh-test" })
+    const res = await app.request("/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${created.key}` },
+    })
+    expect(res.status).not.toBe(401)
+  })
+
+  test("/embeddings without key → 401", async () => {
+    const app = createApp({ db, githubToken: "gh-test" })
+    const res = await app.request("/embeddings", { method: "POST" })
+    expect(res.status).toBe(401)
+  })
+
+  // -----------------------------------------------------------------------
+  // Dashboard routes — dashboardAuth (dev mode for bootstrap)
+  // -----------------------------------------------------------------------
+
+  test("/api/* dev mode: no keys → open access", async () => {
+    const app = createApp({ db, githubToken: "gh-test" })
+    const res = await app.request("/api/stats/overview")
+    expect(res.status).toBe(200)
   })
 
   test("/api/* is auth-protected when apiKey is set", async () => {
@@ -81,18 +136,20 @@ describe("createApp", () => {
     expect(res.status).toBe(200)
   })
 
-  test("no apiKey and no DB keys → open access", async () => {
-    const app = createApp({ db, githubToken: "gh-test" })
-    const res = await app.request("/api/stats/overview")
+  test("/api/* allows access with RAVEN_INTERNAL_KEY", async () => {
+    const app = createApp({ db, internalKey: "internal", githubToken: "gh-test" })
+    const res = await app.request("/api/stats/overview", {
+      headers: { Authorization: "Bearer internal" },
+    })
     expect(res.status).toBe(200)
   })
 
-  test("DB key auth works", async () => {
+  test("DB key auth works for /api/*", async () => {
     const key = createApiKey(db, "test-key")
     invalidateKeyCountCache()
     const app = createApp({ db, githubToken: "gh-test" })
 
-    // Without auth → 401
+    // Without auth → 401 (dev mode exited because active key exists)
     const res1 = await app.request("/api/stats/overview")
     expect(res1.status).toBe(401)
 
