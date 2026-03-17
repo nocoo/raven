@@ -44,6 +44,9 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     input_tokens: 100,
     output_tokens: 200,
     stream: 1,
+    session_id: "user_abc_test123456",
+    client_name: "Claude Code",
+    client_version: null,
     ...overrides,
   };
 }
