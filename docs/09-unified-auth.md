@@ -204,7 +204,7 @@ The two are fully independent:
 | | Dashboard Local Mode (doc 08) | Proxy Auth (doc 09) |
 |---|---|---|
 | What it controls | Google login for dashboard UI | API key for proxy endpoints |
-| Condition | Missing Google OAuth env vars | `RAVEN_API_KEY` and/or DB keys |
+| Condition | Missing Google OAuth env vars | `RAVEN_API_KEY`, `RAVEN_INTERNAL_KEY`, and/or DB keys |
 | Effect when disabled | Skip Google login, all pages open | N/A (always enforced for AI routes) |
 | Effect when enabled | Require Google sign-in | Require Bearer token |
 
@@ -312,3 +312,4 @@ The following documents reference the old `multiKeyAuth` or "dev mode" semantics
 | `README.md` | Proxy env vars table (line 266) | Update `RAVEN_API_KEY` description from "空 = 跳过" to "空 = 需通过 DB key 或 dashboard 创建 key". Add `RAVEN_INTERNAL_KEY` row. |
 | `README.md` | First-run guide (line 102-108) | Add step: "创建 API key" before configuring Claude Code. |
 | `packages/proxy/.env.example` | `RAVEN_API_KEY` comment | Remove "Leave empty to skip auth" language. Add `RAVEN_INTERNAL_KEY` entry. |
+| `packages/dashboard/.env.example` | `RAVEN_INTERNAL_KEY` comment (line 38) | Update from "Must match a key registered in the proxy (RAVEN_API_KEY or DB-managed key)" to "Proxy reads this natively — no need to duplicate as RAVEN_API_KEY." |
