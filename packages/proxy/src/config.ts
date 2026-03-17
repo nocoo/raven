@@ -1,6 +1,7 @@
 export interface Config {
   port: number;
   apiKey: string;
+  internalKey: string;
   tokenPath: string;
   logLevel: "debug" | "info" | "warn" | "error";
   baseUrl: string;
@@ -9,9 +10,10 @@ export interface Config {
 export function loadConfig(): Config {
   const port = parseInt(process.env.RAVEN_PORT ?? "7033", 10);
   const apiKey = process.env.RAVEN_API_KEY ?? "";
+  const internalKey = process.env.RAVEN_INTERNAL_KEY ?? "";
   const tokenPath = process.env.RAVEN_TOKEN_PATH ?? "data/github_token";
   const logLevel = (process.env.RAVEN_LOG_LEVEL ?? "info") as Config["logLevel"];
   const baseUrl = process.env.RAVEN_BASE_URL ?? "";
 
-  return { port, apiKey, tokenPath, logLevel, baseUrl };
+  return { port, apiKey, internalKey, tokenPath, logLevel, baseUrl };
 }
