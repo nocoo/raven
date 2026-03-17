@@ -1,29 +1,11 @@
 "use client";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { getChartColor, RESPONSIVE_CONTAINER_PROPS, TOOLTIP_STYLES, PIE_LABEL_LINE, CHART_HEIGHTS, MODEL_TOP_N } from "@/lib/chart-config";
+import { getChartColor, RESPONSIVE_CONTAINER_PROPS, TOOLTIP_STYLES, PIE_LABEL_LINE, CHART_HEIGHTS } from "@/lib/chart-config";
 import type { ModelStats } from "@/lib/types";
 
 interface ModelPieProps {
   data: ModelStats[];
-}
-
-/** Aggregate models beyond top-N into an "Others" bucket */
-function aggregateModels(data: ModelStats[]): ModelStats[] {
-  if (data.length <= MODEL_TOP_N) return data;
-  const sorted = [...data].sort((a, b) => b.count - a.count);
-  const top = sorted.slice(0, MODEL_TOP_N);
-  const rest = sorted.slice(MODEL_TOP_N);
-  if (rest.length === 0) return top;
-  const others: ModelStats = {
-    model: `Others (${rest.length})`,
-    count: rest.reduce((s, m) => s + m.count, 0),
-    total_tokens: rest.reduce((s, m) => s + m.total_tokens, 0),
-    avg_latency_ms: rest.length > 0
-      ? rest.reduce((s, m) => s + m.avg_latency_ms, 0) / rest.length
-      : 0,
-  };
-  return [...top, others];
 }
 
 function CustomTooltip({ active, payload }: {
@@ -42,7 +24,7 @@ function CustomTooltip({ active, payload }: {
 }
 
 export function ModelPie({ data }: ModelPieProps) {
-  const chartData = aggregateModels(data);
+  const chartData = [...data].sort((a, b) => b.count - a.count);
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Request Distribution</h3>

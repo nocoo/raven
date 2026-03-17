@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, MODEL_TOP_N } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS } from "@/lib/chart-config";
 import { formatCompact } from "@/lib/chart-config";
 import type { ModelStats } from "@/lib/types";
 
@@ -34,29 +34,13 @@ function CustomTooltip({ active, payload, label }: {
 }
 
 export function ModelBar({ data }: ModelBarProps) {
-  // Aggregate models beyond top-N
-  const aggregated = (() => {
-    if (data.length <= MODEL_TOP_N) return data;
-    const sorted = [...data].sort((a, b) => b.total_tokens - a.total_tokens);
-    const top = sorted.slice(0, MODEL_TOP_N);
-    const rest = sorted.slice(MODEL_TOP_N);
-    if (rest.length === 0) return top;
-    const others: ModelStats = {
-      model: `Others (${rest.length})`,
-      count: rest.reduce((s, m) => s + m.count, 0),
-      total_tokens: rest.reduce((s, m) => s + m.total_tokens, 0),
-      avg_latency_ms: rest.length > 0
-        ? rest.reduce((s, m) => s + m.avg_latency_ms, 0) / rest.length
-        : 0,
-    };
-    return [...top, others];
-  })();
-
   // Shorten model names for display
-  const chartData = aggregated.map((m) => ({
-    ...m,
-    shortName: m.model.split("/").pop() ?? m.model,
-  }));
+  const chartData = [...data]
+    .sort((a, b) => b.total_tokens - a.total_tokens)
+    .map((m) => ({
+      ...m,
+      shortName: m.model.split("/").pop() ?? m.model,
+    }));
 
   return (
     <div className="bg-secondary rounded-card p-4">
