@@ -2,6 +2,7 @@ import { Github } from "lucide-react";
 import { SidebarShell, MobileMenuButton } from "./sidebar-shell";
 import { ThemeToggle } from "./theme-toggle";
 import { Breadcrumbs } from "./breadcrumbs";
+import { SetupWizard } from "@/components/setup-wizard";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface AppShellProps {
 export function AppShell({ children, breadcrumbs = [] }: AppShellProps) {
   return (
     <SidebarShell>
+      <SetupWizard />
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-3">
