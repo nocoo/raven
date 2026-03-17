@@ -4,7 +4,7 @@
 import { auth, isAuthEnabled } from "@/auth";
 import { NextResponse } from "next/server";
 
-export default auth((req) => {
+export default auth((req: any) => {
   // Local mode: pass everything through — no auth enforcement
   if (!isAuthEnabled) return NextResponse.next();
 

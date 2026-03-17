@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/collapsible";
 import { useSidebar } from "./sidebar-context";
 
+const isAuthEnabled = !!process.env.NEXT_PUBLIC_AUTH_ENABLED;
+
 // ── Types ──
 
 interface NavItem {
@@ -157,9 +159,9 @@ export function Sidebar({ mobile = false }: SidebarProps) {
   const { collapsed, toggle, setMobileOpen } = useSidebar();
   const { data: session } = useSession();
 
-  const userName = session?.user?.name ?? "User";
-  const userEmail = session?.user?.email ?? "";
-  const userImage = session?.user?.image;
+  const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
+  const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";
+  const userImage = isAuthEnabled ? session?.user?.image : undefined;
   const userInitial = userName[0] ?? "?";
 
   const handleNavigate = () => setMobileOpen(false);
@@ -237,25 +239,42 @@ export function Sidebar({ mobile = false }: SidebarProps) {
 
             {/* User avatar + sign out */}
             <div className="py-3 flex justify-center w-full">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => signOut({ callbackUrl: "/login" })}
-                    aria-label="Sign out"
-                    className="cursor-pointer"
-                  >
-                    <Avatar className="h-9 w-9">
-                      {userImage && <AvatarImage src={userImage} alt={userName} />}
-                      <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
-                        {userInitial}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  {userName} · Sign out
-                </TooltipContent>
-              </Tooltip>
+              {isAuthEnabled ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => signOut({ callbackUrl: "/login" })}
+                      aria-label="Sign out"
+                      className="cursor-pointer"
+                    >
+                      <Avatar className="h-9 w-9">
+                        {userImage && <AvatarImage src={userImage} alt={userName} />}
+                        <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
+                          {userInitial}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    {userName} · Sign out
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div>
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
+                          {userInitial}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    {userName} · Local mode
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
           </div>
         ) : (
@@ -309,18 +328,20 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                   <p className="text-sm font-medium text-foreground truncate">{userName}</p>
                   <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => signOut({ callbackUrl: "/login" })}
-                      aria-label="Sign out"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                    >
-                      <LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Sign out</TooltipContent>
-                </Tooltip>
+                {isAuthEnabled && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        aria-label="Sign out"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+                      >
+                        <LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">Sign out</TooltipContent>
+                  </Tooltip>
+                )}
               </div>
             </div>
           </div>

@@ -1,10 +1,12 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import { Github, Bird } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+
+const isAuthEnabled = !!process.env.NEXT_PUBLIC_AUTH_ENABLED;
 
 function Barcode() {
   const bars = [2, 1, 3, 1, 2, 1, 1, 3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1];
@@ -23,9 +25,23 @@ function Barcode() {
 
 function LoginContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const error = searchParams.get("error");
   const year = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+  // Local mode: no login needed, redirect home
+  useEffect(() => {
+    if (!isAuthEnabled) router.replace("/");
+  }, [router]);
+
+  if (!isAuthEnabled) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Redirecting…</p>
+      </div>
+    );
+  }
 
   const handleGoogleLogin = () => {
     signIn("google", { callbackUrl: "/" });
