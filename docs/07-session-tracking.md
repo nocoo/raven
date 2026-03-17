@@ -364,15 +364,15 @@ Pure logic tests for `dedupEvents`, `useSessionTracker`, `useConcurrencyTimeline
 
 ## 8. Atomic Commits
 
-| # | Message | Files |
-|---|---------|-------|
-| 1 | `feat: add client identity parsing utility` | `proxy/src/util/client-identity.ts` |
-| 2 | `test: add client identity unit tests` | `proxy/src/__tests__/client-identity.test.ts` |
-| 3 | `feat: extract session identity in request handlers` | `proxy/src/routes/messages/handler.ts`, `proxy/src/routes/chat-completions/handler.ts`, `proxy/src/routes/embeddings/route.ts`, `proxy/src/routes/models/route.ts` |
-| 4 | `feat: add session tracking columns to DB` | `proxy/src/db/requests.ts`, `proxy/src/db/request-sink.ts` |
-| 5 | `feat: sync RequestRecord type with new DB columns` | `dashboard/src/lib/types.ts` |
-| 6 | `feat: add session tracking hooks to logs sidebar` | `dashboard/src/app/logs/logs-stats.tsx` |
-| 7 | `test: add session hooks unit tests` | `dashboard/src/__tests__/session-hooks.test.ts` |
+| # | Message | Files | Status |
+|---|---------|-------|--------|
+| 1 | `feat: add client identity parsing utility` | `proxy/src/util/client-identity.ts` | ✅ |
+| 2 | `test: add client identity unit tests` | `proxy/test/util/client-identity.test.ts` | ✅ |
+| 3 | `feat: extract session identity in request handlers` | `proxy/src/routes/messages/handler.ts`, `proxy/src/routes/chat-completions/handler.ts`, `proxy/src/routes/embeddings/route.ts`, `proxy/src/routes/models/route.ts` | ✅ |
+| 4 | `feat: add session tracking columns to DB` | `proxy/src/db/requests.ts`, `proxy/src/db/request-sink.ts`, `proxy/test/db/requests.test.ts`, `proxy/test/routes/stats.test.ts` | ✅ |
+| 5 | `feat: sync RequestRecord type with new DB columns` | `dashboard/src/lib/types.ts` | ✅ |
+| 6 | `feat: add session tracking hooks and UI to logs sidebar` | `dashboard/src/app/logs/logs-stats.tsx` | ✅ |
+| 7 | `test: add session tracking pure function tests` | `dashboard/test/hooks/session-tracking.test.ts`, `dashboard/src/app/logs/logs-stats.tsx` | ✅ |
 
 ---
 
