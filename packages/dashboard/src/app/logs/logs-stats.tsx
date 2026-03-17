@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   Timer,
   Coins,
+  Users,
+  Circle,
 } from "lucide-react";
 import {
   CHART_COLORS,
@@ -34,6 +36,8 @@ import {
   getChartColor,
 } from "@/lib/chart-config";
 import { StatCard } from "@/components/stats/stat-card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { LogEvent } from "@/hooks/use-log-stream";
 
 // ---------------------------------------------------------------------------
@@ -168,6 +172,195 @@ function useLatencyPoints(events: LogEvent[]): LatencyPoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// Session tracking types
+// ---------------------------------------------------------------------------
+
+interface SessionInfo {
+  sessionId: string;
+  clientName: string;
+  clientVersion: string | null;
+  accountName: string;
+  activeRequests: Set<string>;
+  totalRequests: number;
+  errorCount: number;
+  totalTokens: number;
+  lastActiveTs: number;
+  firstSeenTs: number;
+}
+
+interface ConcurrencyPoint {
+  minute: number;
+  sessions: number;
+}
+
+// ---------------------------------------------------------------------------
+// Reconnect replay dedup
+// ---------------------------------------------------------------------------
+
+export function dedupEvents(events: LogEvent[]): LogEvent[] {
+  const seen = new Set<string>();
+  const result: LogEvent[] = [];
+  for (const e of events) {
+    if (!e.requestId) {
+      result.push(e);
+      continue;
+    }
+    const key = `${e.requestId}:${e.type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(e);
+  }
+  return result.sort((a, b) => a.ts - b.ts);
+}
+
+// ---------------------------------------------------------------------------
+// Session aggregation hooks
+// ---------------------------------------------------------------------------
+
+export function useSessionTracker(events: LogEvent[]) {
+  return useMemo(() => {
+    const deduped = dedupEvents(events);
+    const sessions = new Map<string, SessionInfo>();
+
+    for (const e of deduped) {
+      if (e.type === "request_start") {
+        const d = e.data ?? {};
+        const sessionId = (d.sessionId as string) || "unknown";
+        const clientName = (d.clientName as string) || "Unknown";
+        const clientVersion = (d.clientVersion as string) ?? null;
+        const accountName = (d.accountName as string) || "default";
+
+        let session = sessions.get(sessionId);
+        if (!session) {
+          session = {
+            sessionId,
+            clientName,
+            clientVersion,
+            accountName,
+            activeRequests: new Set(),
+            totalRequests: 0,
+            errorCount: 0,
+            totalTokens: 0,
+            lastActiveTs: e.ts,
+            firstSeenTs: e.ts,
+          };
+          sessions.set(sessionId, session);
+        }
+
+        if (e.requestId) {
+          session.activeRequests.add(e.requestId);
+        }
+        session.lastActiveTs = Math.max(session.lastActiveTs, e.ts);
+      }
+
+      if (e.type === "request_end") {
+        const d = e.data ?? {};
+        const sessionId = (d.sessionId as string) || "unknown";
+        const clientName = (d.clientName as string) || "Unknown";
+        const clientVersion = (d.clientVersion as string) ?? null;
+        const accountName = (d.accountName as string) || "default";
+
+        let session = sessions.get(sessionId);
+        if (!session) {
+          session = {
+            sessionId,
+            clientName,
+            clientVersion,
+            accountName,
+            activeRequests: new Set(),
+            totalRequests: 0,
+            errorCount: 0,
+            totalTokens: 0,
+            lastActiveTs: e.ts,
+            firstSeenTs: e.ts,
+          };
+          sessions.set(sessionId, session);
+        }
+
+        if (e.requestId) {
+          session.activeRequests.delete(e.requestId);
+        }
+        session.totalRequests++;
+        session.lastActiveTs = Math.max(session.lastActiveTs, e.ts);
+
+        if ((d.status as string) === "error") session.errorCount++;
+
+        const input = (d.inputTokens as number) ?? 0;
+        const output = (d.outputTokens as number) ?? 0;
+        session.totalTokens += input + output;
+      }
+    }
+
+    const allSessions = [...sessions.values()].sort(
+      (a, b) => b.lastActiveTs - a.lastActiveTs,
+    );
+    const activeSessions = allSessions.filter(
+      (s) => s.activeRequests.size > 0,
+    );
+    const totalActiveRequests = activeSessions.reduce(
+      (sum, s) => sum + s.activeRequests.size,
+      0,
+    );
+
+    return {
+      sessions: allSessions,
+      activeSessions,
+      activeCount: activeSessions.length,
+      totalActiveRequests,
+    };
+  }, [events]);
+}
+
+export function useConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint[] {
+  return useMemo(() => {
+    const deduped = dedupEvents(events);
+    const intervals = new Map<
+      string,
+      { sessionId: string; startTs: number; endTs: number | null }
+    >();
+
+    for (const e of deduped) {
+      if (e.type === "request_start" && e.requestId) {
+        const sessionId =
+          (e.data?.sessionId as string) || "unknown";
+        intervals.set(e.requestId, {
+          sessionId,
+          startTs: e.ts,
+          endTs: null,
+        });
+      }
+      if (e.type === "request_end" && e.requestId) {
+        const interval = intervals.get(e.requestId);
+        if (interval) interval.endTs = e.ts;
+      }
+    }
+
+    const bucketMap = new Map<number, Set<string>>();
+    const now = Date.now();
+
+    for (const { sessionId, startTs, endTs } of intervals.values()) {
+      const effectiveEnd = endTs ?? now;
+      const startBucket = Math.floor(startTs / 60_000) * 60_000;
+      const endBucket = Math.floor(effectiveEnd / 60_000) * 60_000;
+
+      for (let b = startBucket; b <= endBucket; b += 60_000) {
+        let set = bucketMap.get(b);
+        if (!set) {
+          set = new Set();
+          bucketMap.set(b, set);
+        }
+        set.add(sessionId);
+      }
+    }
+
+    return [...bucketMap.entries()]
+      .map(([minute, sessionSet]) => ({ minute, sessions: sessionSet.size }))
+      .sort((a, b) => a.minute - b.minute)
+      .slice(-30);
+  }, [events]);
+}
+
+// ---------------------------------------------------------------------------
 // Formatters
 // ---------------------------------------------------------------------------
 
@@ -258,7 +451,7 @@ function StatsCards({ stats, hasData }: {
         icon={Activity}
         label="Requests"
         value={formatCompact(stats.total)}
-        detail={stats.errors > 0 ? `${stats.errors} failed` : undefined}
+        {...(stats.errors > 0 && { detail: `${stats.errors} failed` })}
       />
       <StatCard
         variant="compact"
@@ -291,11 +484,7 @@ function StatsCards({ stats, hasData }: {
         icon={Coins}
         label="Tokens"
         value={hasData ? formatCompact(stats.totalTokens) : "—"}
-        detail={
-          hasData
-            ? `in ${formatCompact(stats.totalInput)} · out ${formatCompact(stats.totalOutput)}`
-            : undefined
-        }
+        {...(hasData && { detail: `in ${formatCompact(stats.totalInput)} · out ${formatCompact(stats.totalOutput)}` })}
       />
     </div>
   );
@@ -409,6 +598,200 @@ function ChartLatency({ data }: { data: LatencyPoint[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Session UI components
+// ---------------------------------------------------------------------------
+
+function ConcurrencyTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: number;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className={TOOLTIP_STYLES.container}>
+      <p className={TOOLTIP_STYLES.title}>
+        {label ? formatMinute(label) : ""}
+      </p>
+      <p className={TOOLTIP_STYLES.value}>
+        {payload[0]?.value ?? 0} sessions
+      </p>
+    </div>
+  );
+}
+
+function ChartConcurrency({ data }: { data: ConcurrencyPoint[] }) {
+  if (data.length < 2) return null;
+  return (
+    <div className="bg-secondary rounded-lg p-3">
+      <h4 className="text-xs font-medium text-muted-foreground mb-2">
+        Parallel Sessions
+        <span className="ml-1 font-normal text-muted-foreground/60">
+          / min
+        </span>
+      </h4>
+      <div style={{ height: CHART_HEIGHTS.compact }}>
+        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
+          <AreaChart data={data}>
+            <defs>
+              <linearGradient
+                id="concurrencyFill"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop
+                  offset="5%"
+                  stopColor={getChartColor(2)}
+                  stopOpacity={0.3}
+                />
+                <stop
+                  offset="95%"
+                  stopColor={getChartColor(2)}
+                  stopOpacity={0}
+                />
+              </linearGradient>
+            </defs>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke={CHART_COLORS.muted}
+              strokeOpacity={0.3}
+            />
+            <XAxis
+              dataKey="minute"
+              tickFormatter={formatMinute}
+              {...AXIS_CONFIG}
+            />
+            <YAxis allowDecimals={false} {...AXIS_CONFIG} width={20} />
+            <Tooltip content={<ConcurrencyTooltip />} />
+            <Area
+              type="stepAfter"
+              dataKey="sessions"
+              stroke={getChartColor(2)}
+              fill="url(#concurrencyFill)"
+              strokeWidth={2}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function SessionRow({ session }: { session: SessionInfo }) {
+  const isActive = session.activeRequests.size > 0;
+  const errorRate =
+    session.totalRequests > 0
+      ? session.errorCount / session.totalRequests
+      : 0;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs",
+        isActive
+          ? "bg-success/5 border border-success/20"
+          : "bg-muted/30",
+      )}
+    >
+      <Circle
+        className={cn(
+          "size-2 shrink-0 fill-current",
+          isActive ? "text-success" : "text-muted-foreground/30",
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium truncate">{session.clientName}</span>
+          {session.clientVersion && (
+            <span className="text-[10px] text-muted-foreground">
+              v{session.clientVersion}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
+          <span>{session.totalRequests} req</span>
+          <span>{formatCompact(session.totalTokens)} tok</span>
+          {errorRate > 0 && (
+            <span className="text-destructive">
+              {formatPercent(errorRate)} err
+            </span>
+          )}
+          {isActive && (
+            <span className="text-success font-medium">
+              {session.activeRequests.size} active
+            </span>
+          )}
+        </div>
+      </div>
+      {session.accountName !== "default" &&
+        session.accountName !== "dev" && (
+          <Badge
+            variant="outline"
+            className="px-1 py-0 text-[9px] shrink-0"
+          >
+            {session.accountName}
+          </Badge>
+        )}
+    </div>
+  );
+}
+
+function SessionList({ sessions }: { sessions: SessionInfo[] }) {
+  if (sessions.length === 0) return null;
+  return (
+    <div className="bg-secondary rounded-lg p-3">
+      <h4 className="text-xs font-medium text-muted-foreground mb-2">
+        Sessions
+        <span className="ml-1 font-normal text-muted-foreground/60">
+          ({sessions.length})
+        </span>
+      </h4>
+      <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+        {sessions.map((s) => (
+          <SessionRow key={s.sessionId} session={s} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SessionSection({
+  sessionTracker,
+  concurrencyData,
+}: {
+  sessionTracker: ReturnType<typeof useSessionTracker>;
+  concurrencyData: ConcurrencyPoint[];
+}) {
+  return (
+    <>
+      <div className="pt-1">
+        <StatCard
+          variant="compact"
+          icon={Users}
+          label="Active Sessions"
+          value={String(sessionTracker.activeCount)}
+          {...(sessionTracker.activeCount > 0 && { detail: `${sessionTracker.totalActiveRequests} in-flight` })}
+          accent={
+            sessionTracker.activeCount > 3
+              ? "warning"
+              : sessionTracker.activeCount > 0
+                ? "success"
+                : "default"
+          }
+        />
+      </div>
+      <ChartConcurrency data={concurrencyData} />
+      <SessionList sessions={sessionTracker.sessions} />
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -418,8 +801,11 @@ export function LogsStats({ events }: LogsStatsProps) {
   const minuteBuckets = useMinuteBuckets(events);
   const modelDist = useModelDistribution(events);
   const latencyPoints = useLatencyPoints(events);
+  const sessionTracker = useSessionTracker(events);
+  const concurrencyData = useConcurrencyTimeline(events);
 
   const hasData = stats.total > 0;
+  const hasSessionData = sessionTracker.sessions.length > 0;
 
   return (
     <>
@@ -433,9 +819,15 @@ export function LogsStats({ events }: LogsStatsProps) {
             <ChartLatency data={latencyPoints} />
           </>
         )}
-        {!hasData && (
+        {hasSessionData && (
+          <SessionSection
+            sessionTracker={sessionTracker}
+            concurrencyData={concurrencyData}
+          />
+        )}
+        {!hasData && !hasSessionData && (
           <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-xs text-muted-foreground">
-            Stats will appear as requests complete
+            Stats will appear as requests arrive
           </div>
         )}
       </div>
@@ -450,9 +842,10 @@ export function LogsStats({ events }: LogsStatsProps) {
           <span className="flex items-center gap-2">
             <Activity className="size-4 text-muted-foreground" />
             Stats
-            {hasData && (
+            {(hasData || hasSessionData) && (
               <span className="text-xs font-normal text-muted-foreground tabular-nums">
                 {stats.total} req · {hasData ? fmtLatency(stats.avgLatency) : "—"} avg · {formatCompact(stats.totalTokens)} tok
+                {hasSessionData && ` · ${sessionTracker.activeCount} sessions`}
               </span>
             )}
           </span>
@@ -473,9 +866,15 @@ export function LogsStats({ events }: LogsStatsProps) {
                 <ChartLatency data={latencyPoints} />
               </>
             )}
-            {!hasData && (
+            {hasSessionData && (
+              <SessionSection
+                sessionTracker={sessionTracker}
+                concurrencyData={concurrencyData}
+              />
+            )}
+            {!hasData && !hasSessionData && (
               <div className="flex items-center justify-center rounded-md border border-dashed py-6 text-xs text-muted-foreground">
-                Stats will appear as requests complete
+                Stats will appear as requests arrive
               </div>
             )}
           </div>
