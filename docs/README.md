@@ -9,6 +9,7 @@
 | 06 | [Dashboard Test Plan](./06-dashboard-test-plan.md) | Dashboard 测试计划 |
 | 07 | [Session Tracking](./07-session-tracking.md) | Session 识别 + 并行会话统计 UI |
 | 08 | [Local Auth Mode](./08-dev-auth-mode.md) | Dashboard local 模式：无 Google OAuth 时跳过认证 |
+| 09 | [Unified Auth](./09-unified-auth.md) | 统一认证架构：分离 AI API 认证与 Dashboard 管理认证 |
 
 ## Archive
 
