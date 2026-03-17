@@ -24,6 +24,7 @@ import {
   Coins,
   Users,
   Circle,
+  Zap,
 } from "lucide-react";
 import {
   CHART_COLORS,
@@ -54,6 +55,9 @@ interface RequestEndData {
   inputTokens: number;
   outputTokens: number;
   latencyMs: number;
+  ttftMs: number | null;
+  processingMs: number | null;
+  stream: boolean;
   status: string;
 }
 
@@ -68,10 +72,13 @@ interface ModelCount {
   count: number;
 }
 
-interface LatencyPoint {
+interface TimingPoint {
   index: number;
   latencyMs: number;
+  ttftMs: number | null;
+  processingMs: number | null;
   model: string;
+  stream: boolean;
   ts: number;
 }
 
@@ -97,6 +104,9 @@ export function extractRequestEnds(events: LogEvent[]): RequestEndData[] {
       inputTokens: (d.inputTokens as number) ?? 0,
       outputTokens: (d.outputTokens as number) ?? 0,
       latencyMs: (d.latencyMs as number) ?? 0,
+      ttftMs: (d.ttftMs as number) ?? null,
+      processingMs: (d.processingMs as number) ?? null,
+      stream: !!(d.stream),
       status: (d.status as string) ?? "unknown",
     });
   }
@@ -124,7 +134,23 @@ function useStats(events: LogEvent[]) {
     const totalInput = ends.reduce((s, e) => s + e.inputTokens, 0);
     const totalOutput = ends.reduce((s, e) => s + e.outputTokens, 0);
 
-    return { total, errors, errorRate, avgLatency, totalTokens, totalInput, totalOutput };
+    // TTFT — only from entries that have it (streaming requests)
+    const withTtft = ends.filter((e) => e.ttftMs !== null);
+    const avgTtft = withTtft.length > 0
+      ? withTtft.reduce((s, e) => s + e.ttftMs!, 0) / withTtft.length
+      : 0;
+
+    // Processing — only from entries that have it
+    const withProcessing = ends.filter((e) => e.processingMs !== null);
+    const avgProcessing = withProcessing.length > 0
+      ? withProcessing.reduce((s, e) => s + e.processingMs!, 0) / withProcessing.length
+      : 0;
+
+    return {
+      total, errors, errorRate, avgLatency, totalTokens, totalInput, totalOutput,
+      avgTtft, ttftCount: withTtft.length,
+      avgProcessing, processingCount: withProcessing.length,
+    };
   }, [events]);
 }
 
@@ -165,13 +191,16 @@ function useModelDistribution(events: LogEvent[]): ModelCount[] {
   }, [events]);
 }
 
-function useLatencyPoints(events: LogEvent[]): LatencyPoint[] {
+function useTimingPoints(events: LogEvent[]): TimingPoint[] {
   return useMemo(() => {
     const ends = extractRequestEnds(events);
     return ends.slice(-50).map((e, i) => ({
       index: i,
       latencyMs: e.latencyMs,
+      ttftMs: e.ttftMs,
+      processingMs: e.processingMs,
       model: e.model,
+      stream: e.stream,
       ts: e.ts,
     }));
   }, [events]);
@@ -459,12 +488,12 @@ function ModelTooltip({
   );
 }
 
-function LatencyTooltip({
+function TimingTooltip({
   active,
   payload,
 }: {
   active?: boolean;
-  payload?: Array<{ payload: LatencyPoint }>;
+  payload?: Array<{ payload: TimingPoint }>;
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
@@ -472,7 +501,13 @@ function LatencyTooltip({
   return (
     <div className={TOOLTIP_STYLES.container}>
       <p className={TOOLTIP_STYLES.title}>{d.model}</p>
-      <p className={TOOLTIP_STYLES.value}>{fmtLatency(d.latencyMs)}</p>
+      <p className={TOOLTIP_STYLES.value}>Duration: {fmtLatency(d.latencyMs)}</p>
+      {d.ttftMs !== null && (
+        <p className={TOOLTIP_STYLES.value}>TTFT: {fmtLatency(d.ttftMs)}</p>
+      )}
+      {d.processingMs !== null && (
+        <p className={TOOLTIP_STYLES.value}>Processing: {fmtLatency(d.processingMs)}</p>
+      )}
     </div>
   );
 }
@@ -481,7 +516,7 @@ function LatencyTooltip({
 // Chart sections (shared between desktop & mobile)
 // ---------------------------------------------------------------------------
 
-function StatsCards({ stats, hasData }: {
+function RequestCards({ stats, hasData }: {
   stats: ReturnType<typeof useStats>;
   hasData: boolean;
 }) {
@@ -509,8 +544,22 @@ function StatsCards({ stats, hasData }: {
       />
       <StatCard
         variant="compact"
+        icon={Zap}
+        label="Avg TTFT"
+        value={hasData && stats.ttftCount > 0 ? fmtLatency(stats.avgTtft) : "—"}
+        {...(hasData && stats.ttftCount > 0 && { detail: `${stats.ttftCount} streaming` })}
+        accent={
+          stats.avgTtft > 5_000
+            ? "danger"
+            : stats.avgTtft > 2_000
+              ? "warning"
+              : "default"
+        }
+      />
+      <StatCard
+        variant="compact"
         icon={Timer}
-        label="Avg Latency"
+        label="Avg Duration"
         value={hasData ? fmtLatency(stats.avgLatency) : "—"}
         accent={
           stats.avgLatency > 10_000
@@ -520,6 +569,16 @@ function StatsCards({ stats, hasData }: {
               : "default"
         }
       />
+    </div>
+  );
+}
+
+function ModelCards({ stats, hasData }: {
+  stats: ReturnType<typeof useStats>;
+  hasData: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
       <StatCard
         variant="compact"
         icon={Coins}
@@ -606,12 +665,12 @@ function ChartModels({ data }: { data: ModelCount[] }) {
   );
 }
 
-function ChartLatency({ data }: { data: LatencyPoint[] }) {
+function ChartTiming({ data }: { data: TimingPoint[] }) {
   if (data.length < 2) return null;
   return (
     <div className="bg-secondary rounded-lg p-3">
       <h4 className="text-xs font-medium text-muted-foreground mb-2">
-        Latency
+        Timing
         <span className="ml-1 font-normal text-muted-foreground/60">
           (last {data.length})
         </span>
@@ -622,14 +681,36 @@ function ChartLatency({ data }: { data: LatencyPoint[] }) {
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
             <XAxis dataKey="index" {...AXIS_CONFIG} tick={false} />
             <YAxis tickFormatter={(v: number) => fmtLatency(v)} {...AXIS_CONFIG} width={40} />
-            <Tooltip content={<LatencyTooltip />} />
+            <Tooltip content={<TimingTooltip />} />
             <Line
               type="monotone"
               dataKey="latencyMs"
+              name="Duration"
               stroke={CHART_COLORS.warning}
               strokeWidth={2}
               dot={{ r: 2, fill: CHART_COLORS.warning }}
               activeDot={{ r: 4 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="ttftMs"
+              name="TTFT"
+              stroke={getChartColor(1)}
+              strokeWidth={1.5}
+              dot={{ r: 1.5, fill: getChartColor(1) }}
+              activeDot={{ r: 3 }}
+              connectNulls
+            />
+            <Line
+              type="monotone"
+              dataKey="processingMs"
+              name="Processing"
+              stroke={getChartColor(3)}
+              strokeWidth={1.5}
+              dot={{ r: 1.5, fill: getChartColor(3) }}
+              activeDot={{ r: 3 }}
+              connectNulls
+              strokeDasharray="4 2"
             />
           </LineChart>
         </ResponsiveContainer>
@@ -839,7 +920,7 @@ export function LogsStats({ events }: LogsStatsProps) {
   const stats = useStats(events);
   const minuteBuckets = useMinuteBuckets(events);
   const modelDist = useModelDistribution(events);
-  const latencyPoints = useLatencyPoints(events);
+  const timingPoints = useTimingPoints(events);
   const sessionTracker = useSessionTracker(events);
   const concurrencyData = useConcurrencyTimeline(events);
 
@@ -850,25 +931,38 @@ export function LogsStats({ events }: LogsStatsProps) {
     <>
       {/* ── Desktop: fixed-width left sidebar, always visible ── */}
       <div className="hidden lg:flex lg:w-[380px] lg:shrink-0 lg:flex-col lg:gap-6 lg:overflow-y-auto">
-        {/* ── Section: Request Stats ── */}
+        {/* ── Section 1: Requests ── */}
         <section>
           <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
             <Activity className="h-4 w-4" strokeWidth={1.5} />
-            Request Stats
+            Requests
           </h2>
           <div className="space-y-3">
-            <StatsCards stats={stats} hasData={hasData} />
+            <RequestCards stats={stats} hasData={hasData} />
             {hasData && (
               <>
                 <ChartRpm data={minuteBuckets} />
-                <ChartModels data={modelDist} />
-                <ChartLatency data={latencyPoints} />
+                <ChartTiming data={timingPoints} />
               </>
             )}
           </div>
         </section>
 
-        {/* ── Section: Sessions ── */}
+        {/* ── Section 2: Models ── */}
+        {hasData && (
+          <section>
+            <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+              <Coins className="h-4 w-4" strokeWidth={1.5} />
+              Models
+            </h2>
+            <div className="space-y-3">
+              <ModelCards stats={stats} hasData={hasData} />
+              <ChartModels data={modelDist} />
+            </div>
+          </section>
+        )}
+
+        {/* ── Section 3: Sessions ── */}
         {hasSessionData && (
           <section>
             <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
@@ -917,25 +1011,38 @@ export function LogsStats({ events }: LogsStatsProps) {
 
         {mobileExpanded && (
           <div className="border-t px-3 pb-3 pt-2 space-y-6">
-            {/* ── Section: Request Stats ── */}
+            {/* ── Section 1: Requests ── */}
             <section>
               <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                 <Activity className="h-4 w-4" strokeWidth={1.5} />
-                Request Stats
+                Requests
               </h2>
               <div className="space-y-3">
-                <StatsCards stats={stats} hasData={hasData} />
+                <RequestCards stats={stats} hasData={hasData} />
                 {hasData && (
                   <>
                     <ChartRpm data={minuteBuckets} />
-                    <ChartModels data={modelDist} />
-                    <ChartLatency data={latencyPoints} />
+                    <ChartTiming data={timingPoints} />
                   </>
                 )}
               </div>
             </section>
 
-            {/* ── Section: Sessions ── */}
+            {/* ── Section 2: Models ── */}
+            {hasData && (
+              <section>
+                <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <Coins className="h-4 w-4" strokeWidth={1.5} />
+                  Models
+                </h2>
+                <div className="space-y-3">
+                  <ModelCards stats={stats} hasData={hasData} />
+                  <ChartModels data={modelDist} />
+                </div>
+              </section>
+            )}
+
+            {/* ── Section 3: Sessions ── */}
             {hasSessionData && (
               <section>
                 <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
