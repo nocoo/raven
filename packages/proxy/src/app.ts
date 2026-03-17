@@ -49,11 +49,9 @@ export function createApp(deps: AppDeps): Hono {
   // These read from global state internally (state.copilotToken, etc.)
   // Each sub-router defines handlers at "/" so mount at the full path.
   app.route("/v1/chat/completions", completionRoutes)
-  app.route("/chat/completions", completionRoutes) // no-prefix alias
   app.route("/v1/messages", messageRoutes)
   app.route("/v1/models", modelRoutes)
   app.route("/v1/embeddings", embeddingRoutes)
-  app.route("/embeddings", embeddingRoutes) // no-prefix alias
 
   // ------- dashboard API (Raven-owned) -------
   app.route("/api", createStatsRoute(db))
