@@ -182,7 +182,7 @@ describe("apiKeyAuth middleware", () => {
 // ===========================================================================
 
 describe("dashboardAuth middleware", () => {
-  describe("dev mode (no env keys, no active DB keys)", () => {
+  describe("dev mode (no env keys configured)", () => {
     test("allows request without auth, keyName = dev", async () => {
       const app = createDashboardApp(db);
       const res = await app.request("/api/stats/overview");
@@ -191,16 +191,25 @@ describe("dashboardAuth middleware", () => {
       expect(body.keyName).toBe("dev");
     });
 
-    test("only revoked DB keys → dev mode (anti-lockout)", async () => {
-      const { revokeApiKey } = await import("../src/db/keys.ts");
-      const created = createApiKey(db, "revoke-me");
-      revokeApiKey(db, created.id);
+    test("dev mode persists even when active DB keys exist", async () => {
+      createApiKey(db, "some-key");
       invalidateKeyCountCache();
-      const app = createDashboardApp(db);
+      const app = createDashboardApp(db); // no env keys
       const res = await app.request("/api/stats/overview");
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.keyName).toBe("dev");
+    });
+
+    test("dev mode with DB key: DB key also accepted as Bearer", async () => {
+      const created = createApiKey(db, "some-key");
+      invalidateKeyCountCache();
+      const app = createDashboardApp(db); // no env keys → dev mode
+      const res = await app.request("/api/stats/overview", {
+        headers: { Authorization: `Bearer ${created.key}` },
+      });
+      // Dev mode allows without auth, but Bearer also works
+      expect(res.status).toBe(200);
     });
   });
 
@@ -235,26 +244,6 @@ describe("dashboardAuth middleware", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.keyName).toBe("internal");
-    });
-  });
-
-  describe("dev mode disabled by active DB key", () => {
-    test("requires Bearer when active DB key exists", async () => {
-      createApiKey(db, "some-key");
-      invalidateKeyCountCache();
-      const app = createDashboardApp(db);
-      const res = await app.request("/api/stats/overview");
-      expect(res.status).toBe(401);
-    });
-
-    test("accepts valid DB key", async () => {
-      const created = createApiKey(db, "some-key");
-      invalidateKeyCountCache();
-      const app = createDashboardApp(db);
-      const res = await app.request("/api/stats/overview", {
-        headers: { Authorization: `Bearer ${created.key}` },
-      });
-      expect(res.status).toBe(200);
     });
   });
 });

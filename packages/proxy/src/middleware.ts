@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { createMiddleware } from "hono/factory";
-import { validateApiKey, getActiveKeyCount } from "./db/keys.ts";
+import { validateApiKey } from "./db/keys.ts";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -40,26 +40,14 @@ export function timingSafeEqual(a: string, b: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Cached active key count — avoid COUNT(*) on every request
+// Key count cache invalidation — retained as no-op export for keys.ts
+// compatibility. dashboardAuth dev mode no longer depends on key count
+// (it only checks env keys), but routes still call this on create/revoke/delete.
 // ---------------------------------------------------------------------------
 
-let cachedActiveKeyCount: number | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL_MS = 30_000; // 30s
-
-function getCachedActiveKeyCount(db: Database): number {
-  const now = Date.now();
-  if (cachedActiveKeyCount === null || now - cacheTimestamp > CACHE_TTL_MS) {
-    cachedActiveKeyCount = getActiveKeyCount(db);
-    cacheTimestamp = now;
-  }
-  return cachedActiveKeyCount;
-}
-
-/** Invalidate the key count cache (call after create/delete/revoke) */
+/** @deprecated No-op — dashboardAuth dev mode no longer depends on key count */
 export function invalidateKeyCountCache(): void {
-  cachedActiveKeyCount = null;
-  cacheTimestamp = 0;
+  // intentionally empty
 }
 
 // ---------------------------------------------------------------------------
@@ -156,19 +144,20 @@ export interface DashboardAuthOpts {
 /**
  * Dashboard management auth for /api/* routes.
  *
- * Dev mode (bootstrap only): when no RAVEN_API_KEY, no RAVEN_INTERNAL_KEY,
- * and no active DB keys exist, requests are allowed without auth. This
- * enables the first-run experience where dashboard creates the first key.
- * Once any key exists, dev mode exits permanently.
+ * Dev mode: when neither RAVEN_API_KEY nor RAVEN_INTERNAL_KEY is set,
+ * all requests are allowed without auth. This is independent of DB keys —
+ * creating/revoking DB keys does not affect dashboard access.
  *
- * Accepts RAVEN_API_KEY, RAVEN_INTERNAL_KEY, and DB keys.
+ * When either env key is set, a valid Bearer token is required.
+ * Accepts RAVEN_API_KEY, RAVEN_INTERNAL_KEY, and DB keys as Bearer tokens.
  */
 export function dashboardAuth(opts: DashboardAuthOpts) {
   const { db, envApiKey, internalKey } = opts;
 
   return createMiddleware(async (c, next) => {
-    // Dev mode: no env keys AND no active DB keys → bootstrap allow
-    if (!envApiKey && !internalKey && getCachedActiveKeyCount(db) === 0) {
+    // Dev mode: no env keys configured → always allow
+    // DB key existence does NOT affect dashboard access
+    if (!envApiKey && !internalKey) {
       c.set("keyName", "dev");
       await next();
       return;

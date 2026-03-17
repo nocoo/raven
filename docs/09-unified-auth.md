@@ -111,15 +111,12 @@ Key difference from current `multiKeyAuth`: **no dev mode bypass**. If you have 
 
 Covers: `/api/*`
 
-**Keeps dev mode for first-run bootstrap only.** Dev mode allows the dashboard to reach `/api/*` long enough to display the Connect page and let the user create their first key. Once any key exists (env or DB), dev mode exits permanently until all keys are removed. Dev mode activates when ALL of the following are true:
-- `RAVEN_API_KEY` is not set
-- `RAVEN_INTERNAL_KEY` is not set
-- No **active** (non-revoked) DB keys exist
+**Dev mode: only env keys matter, DB keys are irrelevant.** Dev mode activates when neither `RAVEN_API_KEY` nor `RAVEN_INTERNAL_KEY` is set — regardless of how many DB keys exist. This ensures dashboard always works in local mode without env configuration, even after the user creates DB keys for external clients.
 
 Flow:
 
 ```
-Request → dev mode? (!envApiKey && !internalKey && no active DB keys)
+Request → dev mode? (!envApiKey && !internalKey)
   ├─ Yes → allow (keyName = "dev")
   └─ No → Bearer token?
            ├─ No token → 401
@@ -129,31 +126,18 @@ Request → dev mode? (!envApiKey && !internalKey && no active DB keys)
                        neither → 401
 ```
 
-Rationale: Dashboard management routes (`/api/stats`, `/api/keys`, `/api/connection-info`, etc.) are accessed by the dashboard's server-side code via `proxyFetch()`. On first run, the user hasn't configured any keys yet, and the dashboard needs to reach these endpoints to function — specifically the `/api/keys` endpoint used to create the first API key. Dev mode covers only this bootstrap window; once any key is created or configured, dev mode exits and `RAVEN_INTERNAL_KEY` (or `RAVEN_API_KEY`) is required for ongoing dashboard operation.
+Rationale: Dashboard management routes (`/api/stats`, `/api/keys`, `/api/connection-info`, etc.) are accessed by the dashboard's server-side code via `proxyFetch()`. Creating or revoking DB keys must never break dashboard access — DB keys are for external clients, not dashboard infrastructure. If the user wants to protect `/api/*`, they set `RAVEN_INTERNAL_KEY`.
 
-**First-run → first DB key transition:**
+**Dashboard access is always stable.** Since dev mode only depends on env keys, the transition from "no DB keys" to "has DB keys" does not affect dashboard:
 
-1. No env keys, no DB keys → dev mode active → dashboard works without Bearer
-2. User creates first DB key via dashboard → active key count becomes > 0
-3. `dashboardAuth` exits dev mode → requires Bearer
-4. Dashboard's `proxyFetch()` sends `RAVEN_INTERNAL_KEY` as Bearer → **still works** if `RAVEN_INTERNAL_KEY` is set
-5. If `RAVEN_INTERNAL_KEY` is also unset → dashboard loses access to `/api/*`
+1. No env keys, no DB keys → dev mode → dashboard works
+2. User creates DB key via dashboard → **dashboard still works** (dev mode unchanged)
+3. User configures Claude Code with the DB key → AI API works
+4. If user later sets `RAVEN_INTERNAL_KEY` → dev mode exits, dashboard uses internal key
 
-This means: to continue using dashboard management features after creating the first DB key, either `RAVEN_INTERNAL_KEY` or `RAVEN_API_KEY` must already be set in **both** proxy and dashboard env. The first-run guide should recommend configuring these before creating DB keys.
+Setting `RAVEN_INTERNAL_KEY` is optional for local use. It only matters if you want to protect `/api/*` from unauthenticated access on a shared network.
 
-**Anti-lockout: "no active keys" not "DB empty".**
-
-The current `getKeyCount()` counts ALL keys including revoked ones (`SELECT COUNT(*) FROM api_keys`). If a user has no env key and only revoked DB keys, the current logic sees `count > 0` → requires auth, but no valid key exists → dashboard is locked out.
-
-Fix: Add `getActiveKeyCount()` that excludes revoked keys:
-
-```sql
-SELECT COUNT(*) FROM api_keys WHERE revoked_at IS NULL
-```
-
-Dev mode condition uses `getActiveKeyCount(db) === 0` instead of `getKeyCount(db) === 0`. This ensures:
-- All keys revoked + no env keys → dev mode re-activates → user can create a new key via dashboard
-- At least one active key or env key → auth required
+**No anti-lockout concern.** Since dev mode only depends on env keys (not DB keys), creating/revoking DB keys never affects dashboard access. The `getActiveKeyCount()` function exists for potential future use but is not referenced by `dashboardAuth`.
 
 ### Route → middleware mapping
 
@@ -209,27 +193,16 @@ The `authenticateWs` function in `index.ts` is updated to use `getActiveKeyCount
 
 ## First-run UX
 
-### Zero-config path (no env keys)
-
-1. `bun run dev` — proxy + dashboard start
+1. `bun run dev` — proxy + dashboard start, zero configuration needed
 2. GitHub Device Flow — user authorizes in browser
 3. Dashboard opens at `:7032` — all pages load (dashboard local mode + proxy dev mode for `/api/*`)
 4. AI API requests return 401 — no key configured yet
-5. User goes to Connect page → creates first DB key
-6. ⚠️ Dashboard management requests now also return 401 (dev mode exited, no env key configured)
-7. User must set `RAVEN_API_KEY` in both proxy and dashboard `.env.local` (or `RAVEN_INTERNAL_KEY` in dashboard + proxy), then restart
+5. User goes to Connect page → creates a DB key via dashboard UI
+6. Dashboard continues working (dev mode unaffected by DB keys)
+7. User configures Claude Code: `claude config set --global apiUrl http://localhost:7033/v1` and sets the DB key
+8. AI API requests now work with the key
 
-### Recommended path (set env keys first)
-
-1. Set `RAVEN_API_KEY` in proxy `.env.local` (or set both `RAVEN_API_KEY` and `RAVEN_INTERNAL_KEY`)
-2. Set `RAVEN_API_KEY` (or `RAVEN_INTERNAL_KEY`) in dashboard `.env.local`
-3. `bun run dev` — proxy + dashboard start
-4. GitHub Device Flow — user authorizes in browser
-5. Dashboard works immediately (dashboard sends env key to proxy)
-6. User can optionally create DB keys for per-client attribution
-7. Configure Claude Code with `RAVEN_API_KEY` or a DB key
-
-**The README first-run guide should recommend the "set env keys first" path.**
+**Optional:** Set `RAVEN_INTERNAL_KEY` in both proxy and dashboard `.env.local` to protect `/api/*` on shared networks. Not required for local use.
 
 ---
 

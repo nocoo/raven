@@ -144,16 +144,16 @@ describe("createApp", () => {
     expect(res.status).toBe(200)
   })
 
-  test("DB key auth works for /api/*", async () => {
+  test("/api/* dev mode persists with DB keys (no env keys)", async () => {
     const key = createApiKey(db, "test-key")
     invalidateKeyCountCache()
     const app = createApp({ db, githubToken: "gh-test" })
 
-    // Without auth → 401 (dev mode exited because active key exists)
+    // Without auth → 200 (dev mode: no env keys configured)
     const res1 = await app.request("/api/stats/overview")
-    expect(res1.status).toBe(401)
+    expect(res1.status).toBe(200)
 
-    // With DB key → 200
+    // With DB key → also 200
     const res2 = await app.request("/api/stats/overview", {
       headers: { Authorization: `Bearer ${key.key}` },
     })
