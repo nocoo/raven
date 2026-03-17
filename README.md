@@ -267,6 +267,7 @@ bun run test:e2e      # E2E（需 proxy 运行）
 | 05 | [Test Coverage](docs/05-test-coverage.md) | 测试覆盖率提升：Hot Path → 全量 95%+ |
 | 06 | [Dashboard Test Plan](docs/06-dashboard-test-plan.md) | Dashboard 测试计划 |
 | 07 | [Session Tracking](docs/07-session-tracking.md) | Session 识别 + 并行会话统计 UI |
+| 08 | [Dev Auth Mode](docs/08-dev-auth-mode.md) | Dashboard 本地 dev 模式：无 Google OAuth 时跳过认证 |
 
 <details><summary>Archive</summary>
 
