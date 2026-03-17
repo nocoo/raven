@@ -8,7 +8,7 @@
 | 05 | [Test Coverage](./05-test-coverage.md) | 测试覆盖率提升：Hot Path → 全量 95%+ |
 | 06 | [Dashboard Test Plan](./06-dashboard-test-plan.md) | Dashboard 测试计划 |
 | 07 | [Session Tracking](./07-session-tracking.md) | Session 识别 + 并行会话统计 UI |
-| 08 | [Dev Auth Mode](./08-dev-auth-mode.md) | Dashboard 本地 dev 模式：无 Google OAuth 时跳过认证 |
+| 08 | [Local Auth Mode](./08-dev-auth-mode.md) | Dashboard local 模式：无 Google OAuth 时跳过认证 |
 
 ## Archive
 
