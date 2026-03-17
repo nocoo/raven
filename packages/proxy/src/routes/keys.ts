@@ -54,6 +54,7 @@ export function createKeysRoute(db: Database): Hono {
         404,
       );
     }
+    invalidateKeyCountCache();
     return c.json({ ok: true });
   });
 
