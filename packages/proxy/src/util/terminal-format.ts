@@ -48,11 +48,14 @@ export function shortenModel(model: string): string {
 
 /**
  * Extract a short session identifier.
- * Session IDs are typically "user_xxx_yyy_abc123def456..." — we take the
- * last segment after `_` and return the first 6 characters.
- * Falls back to first 6 characters if no underscore.
+ * - "::" format (e.g. "user123::Claude Code::default") → first segment, first 6 chars
+ * - "_" format (e.g. "user_abc_a885da1234") → last segment after `_`, first 6 chars
+ * - Fallback → first 6 characters
  */
 export function shortenSession(id: string): string {
+  if (id.includes("::")) {
+    return id.split("::")[0].slice(0, 6);
+  }
   const parts = id.split("_");
   const last = parts[parts.length - 1];
   return last.slice(0, 6);

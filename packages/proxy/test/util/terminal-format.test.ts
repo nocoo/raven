@@ -63,6 +63,18 @@ describe("shortenSession", () => {
   test("handles short session IDs", () => {
     expect(shortenSession("abc")).toBe("abc")
   })
+
+  test(":: format: takes first segment first 6 chars", () => {
+    expect(shortenSession("user123::Claude Code::default")).toBe("user12")
+  })
+
+  test(":: format: short first segment", () => {
+    expect(shortenSession("Cursor::default")).toBe("Cursor")
+  })
+
+  test("UUID format", () => {
+    expect(shortenSession("550e8400-e29b-41d4-a716-446655440000")).toBe("550e84")
+  })
 })
 
 describe("formatDuration", () => {
