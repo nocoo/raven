@@ -5,6 +5,7 @@ node_modules/
 .next/
 dist/
 out/
+*.tsbuildinfo
 
 # data
 packages/proxy/data/

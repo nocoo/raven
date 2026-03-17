@@ -75,19 +75,22 @@ if (!isAuthEnabled) {
 // auth() stub: compatible with NextAuth middleware wrapper signature.
 // Accepts a handler function, returns a new function that calls the handler
 // with a fake request object (req.auth = null).
+// Uses Object.create(req) to preserve prototype chain (req.nextUrl, req.url).
 function localAuth(handler: (req: any) => any) {
-  return (req: any) => handler({ ...req, auth: null })
+  return (req: any) => handler(Object.assign(Object.create(req), { auth: null }))
 }
 
+// Session endpoint: NextAuth's fetchData() returns res.json() directly.
+// SessionProvider sets status = session ? "authenticated" : "unauthenticated".
+// Returning JSON null ensures session is falsy → status = "unauthenticated".
+const LOCAL_SESSION_RESPONSE = new Response("null", {
+  status: 200,
+  headers: { "Content-Type": "application/json" },
+})
+
 const localHandlers = {
-  GET: () => new Response(JSON.stringify({ mode: "local" }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  }),
-  POST: () => new Response(JSON.stringify({ mode: "local" }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  }),
+  GET: () => LOCAL_SESSION_RESPONSE.clone(),
+  POST: () => LOCAL_SESSION_RESPONSE.clone(),
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +128,7 @@ export { isAuthEnabled }
 **Key points:**
 
 - `auth` is always exported — in local mode it's `localAuth`, a function that wraps a handler just like the real `auth()` does, but injects `req.auth = null`.
-- `handlers.GET/POST` return 200 with `{ mode: "local" }` so `SessionProvider`'s `/api/auth/session` fetch gets a clean JSON response (not 404).
+- `handlers.GET/POST` return 200 with JSON `null` body. NextAuth's `fetchData()` returns `res.json()` directly, and `SessionProvider` uses `session ? "authenticated" : "unauthenticated"` — `null` is falsy so status is correctly `"unauthenticated"`. Using `clone()` because `Response` body can only be read once.
 - `isAuthEnabled` re-exported from `auth.ts` for server-side consumers (e.g., `proxy.ts`) that already import from `@/auth`.
 
 ---
@@ -195,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 ```
 
-**No changes to this file.** The safety comes from section 2: in local mode, `handlers.GET` returns `{ mode: "local" }` (status 200, valid JSON). When `SessionProvider` fetches `/api/auth/session`, it gets this response. Since it doesn't contain a `user` property, `useSession()` returns `{ data: null, status: "unauthenticated" }` — which is exactly the clean empty state that existing optional chaining handles.
+**No changes to this file.** The safety comes from section 2: in local mode, `handlers.GET` returns JSON `null` (status 200, valid JSON). NextAuth's `fetchData()` calls `res.json()` which parses to `null`. `SessionProvider` checks `session ? "authenticated" : "unauthenticated"` — `null` is falsy, so `useSession()` returns `{ data: null, status: "unauthenticated" }` — the clean empty state that existing optional chaining handles.
 
 ---
 
@@ -364,7 +367,7 @@ In "设置 > Dashboard" section:
 | Local mode: does not call `NextAuth()` | Mock NextAuth, stub env without OAuth vars, import `@/auth`, assert NextAuth mock not called |
 | Local mode: `auth` export is a function | Assert `typeof auth === "function"` |
 | Local mode: `auth(handler)` returns a function that calls handler with `req.auth = null` | Call `auth(handler)`, invoke result, assert handler received `req.auth === null` |
-| Local mode: `handlers.GET` returns 200 JSON | Call `handlers.GET()`, assert status 200, body contains `{ mode: "local" }` |
+| Local mode: `handlers.GET` returns 200 JSON null | Call `handlers.GET()`, assert status 200, body is `null` |
 | Local mode: logs console.info | Spy on `console.info`, assert message contains "Local mode" |
 | Auth mode: calls `NextAuth()` with Google provider | Existing tests (already passing) |
 
