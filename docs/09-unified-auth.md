@@ -139,7 +139,7 @@ Rationale: Dashboard management routes (`/api/stats`, `/api/keys`, `/api/connect
 4. Dashboard's `proxyFetch()` sends `RAVEN_INTERNAL_KEY` as Bearer → **still works** if `RAVEN_INTERNAL_KEY` is set
 5. If `RAVEN_INTERNAL_KEY` is also unset → dashboard loses access to `/api/*`
 
-This means: **setting `RAVEN_INTERNAL_KEY` is required before creating the first DB key**, unless `RAVEN_API_KEY` is already set. The first-run guide must document this.
+This means: to continue using dashboard management features after creating the first DB key, either `RAVEN_INTERNAL_KEY` or `RAVEN_API_KEY` must already be set in **both** proxy and dashboard env. The first-run guide should recommend configuring these before creating DB keys.
 
 **Anti-lockout: "no active keys" not "DB empty".**
 
@@ -216,8 +216,8 @@ The `authenticateWs` function in `index.ts` is updated to use `getActiveKeyCount
 3. Dashboard opens at `:7032` — all pages load (dashboard local mode + proxy dev mode for `/api/*`)
 4. AI API requests return 401 — no key configured yet
 5. User goes to Connect page → creates first DB key
-6. ⚠️ Dashboard management requests now also return 401 (dev mode exited, no `RAVEN_INTERNAL_KEY`)
-7. User must set `RAVEN_INTERNAL_KEY` in dashboard `.env.local` and restart, or set `RAVEN_API_KEY` in proxy `.env.local`
+6. ⚠️ Dashboard management requests now also return 401 (dev mode exited, no env key configured)
+7. User must set `RAVEN_API_KEY` in both proxy and dashboard `.env.local` (or `RAVEN_INTERNAL_KEY` in dashboard + proxy), then restart
 
 ### Recommended path (set env keys first)
 
