@@ -106,7 +106,7 @@ Bearer token 解析 → 同 apiKeyAuth + 额外接受 RAVEN_INTERNAL_KEY (keyNam
 
 ### 修改：`packages/proxy/src/app.ts`
 
-将两处 `apiKeyAuth(apiKey ?? "")` 替换为 `multiKeyAuth({ db, envApiKey: apiKey })`。
+AI 路由使用 `apiKeyAuth({ db, envApiKey: apiKey })`，管理路由使用 `dashboardAuth({ db, envApiKey: apiKey, internalKey })`。见 doc 09。
 
 ---
 

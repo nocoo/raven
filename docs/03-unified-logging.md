@@ -320,23 +320,26 @@ function authenticateWs(
   token: string | null,
   db: Database,
   envApiKey?: string,
+  envInternalKey?: string,
 ): boolean {
-  const hasDbKeys = getKeyCount(db) > 0;
-  // Dev mode
-  if (!envApiKey && !hasDbKeys) return true;
+  const hasActiveKeys = getActiveKeyCount(db) > 0;
+  // Dev mode: no env keys AND no active DB keys
+  if (!envApiKey && !envInternalKey && !hasActiveKeys) return true;
   // No token provided
   if (!token) return false;
   // rk- prefix → DB path
   if (token.startsWith("rk-")) return validateApiKey(db, token) !== null;
-  // env path
-  if (envApiKey) return timingSafeEqual(token, envApiKey);
+  // env key path
+  if (envApiKey && timingSafeEqual(token, envApiKey)) return true;
+  // internal key path
+  if (envInternalKey && timingSafeEqual(token, envInternalKey)) return true;
   return false;
 }
 ```
 
 **安全设计：**
 
-Proxy 侧 `/ws/logs` 使用 query token 鉴权（`?token=`），鉴权逻辑完整复用 `multiKeyAuth` 三条路径（dev mode / rk- DB key / env key）。
+Proxy 侧 `/ws/logs` 使用 query token 鉴权（`?token=`），鉴权逻辑复用 `dashboardAuth` 语义（见 doc 09）：dev mode（无 env key + 无 active DB key）/ rk- DB key / env key / internal key。
 
 **浏览器不直连 proxy。** 浏览器原生 `new WebSocket(url)` 不支持自定义请求头，而把长期凭证（`RAVEN_API_KEY` 或 DB key）通过任何方式下发到浏览器（server component props、`NEXT_PUBLIC_*`、inline script）都会将管理级密钥暴露到客户端 JS，安全模型不成立。
 
