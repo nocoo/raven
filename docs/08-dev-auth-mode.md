@@ -1,5 +1,7 @@
 # Local Auth Mode — Design Doc
 
+> **Status: Implemented** — All sections complete. See commits `3e128e3` through `727aa57`.
+
 ## Overview
 
 The dashboard hard-requires Google OAuth (3 mandatory env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`). Without all three, the dashboard either crashes at import time (`process.env.GOOGLE_CLIENT_ID!` → `undefined` passed to Google provider) or produces broken auth flows. This makes it impossible for new users to run the dashboard locally without first creating Google Cloud OAuth credentials.
