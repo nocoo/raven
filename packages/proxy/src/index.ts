@@ -10,7 +10,7 @@ import { setupGitHubToken, setupCopilotToken } from "./lib/token"
 import { cacheModels, cacheVersions } from "./lib/utils"
 import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
-import { initApiKeys, getKeyCount, validateApiKey } from "./db/keys"
+import { initApiKeys, getActiveKeyCount, validateApiKey } from "./db/keys"
 import { initSettings } from "./db/settings"
 import { timingSafeEqual } from "./middleware"
 import { wsHandler, type WsData } from "./ws/logs"
@@ -63,6 +63,7 @@ try {
 const app = createApp({
   db,
   apiKey: config.apiKey || undefined,
+  internalKey: config.internalKey || undefined,
   githubToken,
   port: config.port,
   baseUrl: config.baseUrl || undefined,
@@ -71,17 +72,21 @@ const app = createApp({
 logger.info(`Raven proxy listening on port ${config.port}`)
 
 // ---------------------------------------------------------------------------
-// WS auth — reuses multiKeyAuth semantics
+// WS auth — dashboardAuth semantics (dev mode for bootstrap, accepts
+// RAVEN_INTERNAL_KEY)
 // ---------------------------------------------------------------------------
 
 const envApiKey = config.apiKey || undefined
+const envInternalKey = config.internalKey || undefined
 
 function authenticateWs(token: string | null): boolean {
-  const hasDbKeys = getKeyCount(db) > 0
-  if (!envApiKey && !hasDbKeys) return true
+  const hasActiveKeys = getActiveKeyCount(db) > 0
+  // Dev mode: no env keys AND no active DB keys → allow
+  if (!envApiKey && !envInternalKey && !hasActiveKeys) return true
   if (!token) return false
   if (token.startsWith("rk-")) return validateApiKey(db, token) !== null
-  if (envApiKey) return timingSafeEqual(token, envApiKey)
+  if (envApiKey && timingSafeEqual(token, envApiKey)) return true
+  if (envInternalKey && timingSafeEqual(token, envInternalKey)) return true
   return false
 }
 
