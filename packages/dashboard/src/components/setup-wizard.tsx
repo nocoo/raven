@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Monitor,
   Shield,
@@ -256,16 +256,18 @@ function StepApiKey() {
 // Main wizard
 // ---------------------------------------------------------------------------
 
+// Module-level flag — survives component unmount/remount across route changes
+let closedThisSession = false;
+
 export function SetupWizard() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [dismiss, setDismiss] = useState(false);
-  const closedThisSession = useRef(false);
 
   // SSR-safe: read localStorage only on mount
   useEffect(() => {
-    // Already closed in this session (without "Don't show again") — stay hidden
-    if (closedThisSession.current) return;
+    // Already closed in this session — stay hidden even after re-mount
+    if (closedThisSession) return;
 
     try {
       const dismissed = localStorage.getItem(STORAGE_KEY);
@@ -287,7 +289,7 @@ export function SetupWizard() {
           // best effort
         }
       }
-      closedThisSession.current = true;
+      closedThisSession = true;
       setOpen(false);
       setStep(0);
     }
