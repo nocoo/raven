@@ -13,7 +13,7 @@ interface ModelsContentProps {
 
 /** Build a unified top-N set: any model that appears in the top-N by count
  *  OR by total_tokens is kept individually; the rest are merged into "Others". */
-function unifyTopN(data: ModelStats[]): ModelStats[] {
+export function unifyTopN(data: ModelStats[]): ModelStats[] {
   if (data.length <= MODEL_TOP_N) return data;
 
   const topByCount = new Set(
