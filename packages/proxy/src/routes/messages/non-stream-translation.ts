@@ -23,6 +23,8 @@ import {
   type AnthropicUserMessage,
 } from "./anthropic-types"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
+import { state } from "~/lib/state"
+import { logger } from "~/util/logger"
 
 // Payload translation
 
@@ -112,18 +114,36 @@ function handleSystemPrompt(
 
 function handleUserMessage(
   message: AnthropicUserMessage,
-  _pendingToolCallIds: string[],
+  pendingToolCallIds: string[],
 ): Array<Message> {
   const newMessages: Array<Message> = []
 
   if (Array.isArray(message.content)) {
-    const toolResultBlocks = message.content.filter(
+    let toolResultBlocks = message.content.filter(
       (block): block is AnthropicToolResultBlock =>
         block.type === "tool_result",
     )
     const otherBlocks = message.content.filter(
       (block) => block.type !== "tool_result",
     )
+
+    // OPT-1: Drop tool_result blocks referencing non-existent tool_use IDs
+    if (state.optSanitizeOrphanedToolResults && pendingToolCallIds.length > 0) {
+      const validIds = new Set(pendingToolCallIds)
+      const before = toolResultBlocks.length
+      toolResultBlocks = toolResultBlocks.filter((block) => {
+        if (validIds.has(block.tool_use_id)) return true
+        logger.debug(
+          `OPT-1: dropping orphaned tool_result for tool_use_id=${block.tool_use_id}`,
+        )
+        return false
+      })
+      if (toolResultBlocks.length < before) {
+        logger.debug(
+          `OPT-1: dropped ${before - toolResultBlocks.length} orphaned tool_result(s)`,
+        )
+      }
+    }
 
     // Tool results must come first to maintain protocol: tool_use -> tool_result -> user
     for (const block of toolResultBlocks) {
