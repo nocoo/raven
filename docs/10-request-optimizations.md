@@ -220,13 +220,15 @@ export interface State {
 
 **Proxy 文件**：
 - `packages/proxy/src/lib/state.ts` — 添加 3 个 `opt*` boolean 字段，默认 `false`
-- `packages/proxy/src/routes/settings.ts` — 扩展 `KNOWN_KEYS` 加入 `opt_` keys，添加 `OPTIMIZATION_KEYS` 数组，修改 validation 逻辑区分 semver vs boolean，扩展 `getSettingsSnapshot()` 返回 `optimizations` 字段
-- `packages/proxy/src/lib/utils.ts` — 新建 `cacheOptimizations()` 从 DB 加载 `opt_` keys 到 state
+- `packages/proxy/src/routes/settings.ts` — 扩展 `KNOWN_KEYS` 加入 `opt_` keys，添加 `OPTIMIZATION_KEYS` 数组，修改 validation 逻辑区分 semver vs boolean，扩展 `getSettingsSnapshot()` 返回 `optimizations` 字段；PUT/DELETE handler 中补调 `cacheOptimizations(db)` 使 state 立即更新
+- `packages/proxy/src/lib/utils.ts` — 新建 `cacheOptimizations(db)` 从 DB 加载所有 `opt_` keys 到 state boolean 字段
+- `packages/proxy/src/index.ts` — 在启动路径 `cacheVersions(db)` 之后补调 `cacheOptimizations(db)`（约 L40 位置）
 
 **Dashboard 文件**：
 - `packages/dashboard/src/lib/types.ts` — 扩展 `SettingsData` 类型，增加 `optimizations` 字段
+- `packages/dashboard/src/app/settings/settings-content.tsx` — 修改 `Object.keys(data)` 遍历逻辑，排除 `optimizations` key 只渲染 version override 行（否则 `optimizations` 对象会被当成 `SettingInfo` 渲染导致类型错误）
 - `packages/dashboard/src/app/settings/optimizations-content.tsx` — 新建，Switch toggle 列表组件
-- `packages/dashboard/src/app/settings/page.tsx` — 引入 `OptimizationsContent`
+- `packages/dashboard/src/app/settings/page.tsx` — 引入 `OptimizationsContent`，将 `data.optimizations` 传入；将剩余的 version settings 传入 `SettingsContent`
 
 ### Commit 2: `refactor: convert message translation to contextual loop`
 
