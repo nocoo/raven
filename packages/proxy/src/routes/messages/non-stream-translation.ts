@@ -61,14 +61,38 @@ function translateAnthropicMessagesToOpenAI(
   system: string | Array<AnthropicTextBlock> | undefined,
 ): Array<Message> {
   const systemMessages = handleSystemPrompt(system)
+  const result: Array<Message> = []
 
-  const otherMessages = anthropicMessages.flatMap((message) =>
-    message.role === "user" ?
-      handleUserMessage(message)
-    : handleAssistantMessage(message),
-  )
+  // Context state for OPT-1 (sanitize) and OPT-2 (reorder).
+  // Tracks tool_use IDs from the most recent assistant message, in order.
+  let pendingToolCallIds: string[] = []
 
-  return [...systemMessages, ...otherMessages]
+  for (const message of anthropicMessages) {
+    if (message.role === "assistant") {
+      const translated = handleAssistantMessage(message)
+      result.push(...translated)
+      pendingToolCallIds = extractToolUseIds(message)
+    } else {
+      const translated = handleUserMessage(message, pendingToolCallIds)
+      result.push(...translated)
+      pendingToolCallIds = []
+    }
+  }
+
+  return [...systemMessages, ...result]
+}
+
+/**
+ * Extract tool_use block IDs from an assistant message, preserving order.
+ * Returns empty array if the message has no tool_use blocks.
+ */
+function extractToolUseIds(message: AnthropicAssistantMessage): string[] {
+  if (!Array.isArray(message.content)) return []
+  return message.content
+    .filter(
+      (block): block is AnthropicToolUseBlock => block.type === "tool_use",
+    )
+    .map((block) => block.id)
 }
 
 function handleSystemPrompt(
@@ -86,7 +110,10 @@ function handleSystemPrompt(
   }
 }
 
-function handleUserMessage(message: AnthropicUserMessage): Array<Message> {
+function handleUserMessage(
+  message: AnthropicUserMessage,
+  _pendingToolCallIds: string[],
+): Array<Message> {
   const newMessages: Array<Message> = []
 
   if (Array.isArray(message.content)) {
