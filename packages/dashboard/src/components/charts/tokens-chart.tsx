@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, formatBucketTime } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, ANIMATION_PROPS, formatBucketTime } from "@/lib/chart-config";
 import { formatCompact } from "@/lib/chart-config";
 import type { TimeseriesBucket } from "@/lib/types";
 
@@ -49,6 +49,7 @@ export function TokensChart({ data }: TokensChartProps) {
               fill={CHART_COLORS.primary}
               radius={BAR_RADIUS.vertical}
               maxBarSize={40}
+              {...ANIMATION_PROPS}
             />
           </BarChart>
         </ResponsiveContainer>

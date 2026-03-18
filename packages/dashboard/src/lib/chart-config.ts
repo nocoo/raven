@@ -167,3 +167,12 @@ export const PIE_LABEL_LINE = {
  * charts. Remaining items are aggregated into an "Others" bucket.
  */
 export const MODEL_TOP_N = 8;
+
+/**
+ * Disable recharts built-in animations.
+ * Default is 1500ms ease from origin — too slow for a real-time dashboard.
+ * Spread onto every <Line>, <Area>, <Bar>, <Pie> element.
+ */
+export const ANIMATION_PROPS = {
+  isAnimationActive: false,
+} as const;

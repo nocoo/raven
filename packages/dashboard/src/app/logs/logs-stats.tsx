@@ -32,6 +32,7 @@ import {
   TOOLTIP_STYLES,
   RESPONSIVE_CONTAINER_PROPS,
   CHART_HEIGHTS,
+  ANIMATION_PROPS,
   formatCompact,
   formatLatency as fmtLatency,
   getChartColor,
@@ -616,6 +617,7 @@ function ChartRpm({ data }: { data: MinuteBucket[] }) {
               stroke={CHART_COLORS.primary}
               fill="url(#logRpmFill)"
               strokeWidth={2}
+              {...ANIMATION_PROPS}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -653,7 +655,7 @@ function ChartModels({ data }: { data: ModelCount[] }) {
               tick={{ fontSize: 10, fill: AXIS_CONFIG.tick.fill }}
             />
             <Tooltip content={<ModelTooltip />} />
-            <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20}>
+            <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20} {...ANIMATION_PROPS}>
               {data.map((_, i) => (
                 <Cell key={i} fill={getChartColor(i)} />
               ))}
@@ -690,6 +692,7 @@ function ChartTiming({ data }: { data: TimingPoint[] }) {
               strokeWidth={2}
               dot={{ r: 2, fill: CHART_COLORS.warning }}
               activeDot={{ r: 4 }}
+              {...ANIMATION_PROPS}
             />
             <Line
               type="monotone"
@@ -700,6 +703,7 @@ function ChartTiming({ data }: { data: TimingPoint[] }) {
               dot={{ r: 1.5, fill: getChartColor(1) }}
               activeDot={{ r: 3 }}
               connectNulls
+              {...ANIMATION_PROPS}
             />
             <Line
               type="monotone"
@@ -711,6 +715,7 @@ function ChartTiming({ data }: { data: TimingPoint[] }) {
               activeDot={{ r: 3 }}
               connectNulls
               strokeDasharray="4 2"
+              {...ANIMATION_PROPS}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -796,6 +801,7 @@ function ChartConcurrency({ data }: { data: ConcurrencyPoint[] }) {
               stroke={getChartColor(2)}
               fill="url(#concurrencyFill)"
               strokeWidth={2}
+              {...ANIMATION_PROPS}
             />
           </AreaChart>
         </ResponsiveContainer>

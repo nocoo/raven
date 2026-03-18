@@ -1,7 +1,7 @@
 "use client";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { getChartColor, RESPONSIVE_CONTAINER_PROPS, TOOLTIP_STYLES, PIE_LABEL_LINE, CHART_HEIGHTS } from "@/lib/chart-config";
+import { getChartColor, RESPONSIVE_CONTAINER_PROPS, TOOLTIP_STYLES, PIE_LABEL_LINE, CHART_HEIGHTS, ANIMATION_PROPS } from "@/lib/chart-config";
 import type { ModelStats } from "@/lib/types";
 
 interface ModelPieProps {
@@ -42,6 +42,7 @@ export function ModelPie({ data }: ModelPieProps) {
               label={({ model, percent }: { model: string; percent: number }) =>
                 `${model.split("/").pop() ?? model} ${(percent * 100).toFixed(0)}%`
               }
+              {...ANIMATION_PROPS}
             >
               {chartData.map((_entry, index) => (
                 <Cell key={index} fill={getChartColor(index)} />

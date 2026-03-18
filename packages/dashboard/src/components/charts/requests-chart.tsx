@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, formatBucketTime } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, ANIMATION_PROPS, formatBucketTime } from "@/lib/chart-config";
 import type { TimeseriesBucket } from "@/lib/types";
 
 interface RequestsChartProps {
@@ -55,6 +55,7 @@ export function RequestsChart({ data }: RequestsChartProps) {
               stroke={CHART_COLORS.primary}
               fill="url(#requestFill)"
               strokeWidth={2}
+              {...ANIMATION_PROPS}
             />
           </AreaChart>
         </ResponsiveContainer>

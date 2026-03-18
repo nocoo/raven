@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, BAR_RADIUS, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, ANIMATION_PROPS } from "@/lib/chart-config";
 import { formatCompact } from "@/lib/chart-config";
 import type { ModelStats } from "@/lib/types";
 
@@ -57,6 +57,7 @@ export function ModelBar({ data }: ModelBarProps) {
               fill={CHART_COLORS.primary}
               radius={BAR_RADIUS.horizontal}
               maxBarSize={30}
+              {...ANIMATION_PROPS}
             />
           </BarChart>
         </ResponsiveContainer>

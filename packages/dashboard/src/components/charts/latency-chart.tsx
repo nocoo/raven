@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, formatBucketTime } from "@/lib/chart-config";
+import { CHART_COLORS, AXIS_CONFIG, TOOLTIP_STYLES, RESPONSIVE_CONTAINER_PROPS, CHART_HEIGHTS, ANIMATION_PROPS, formatBucketTime } from "@/lib/chart-config";
 import { formatLatency } from "@/lib/chart-config";
 import type { TimeseriesBucket } from "@/lib/types";
 
@@ -51,6 +51,7 @@ export function LatencyChart({ data }: ErrorRateChartProps) {
               stroke={CHART_COLORS.warning}
               strokeWidth={2}
               dot={false}
+              {...ANIMATION_PROPS}
             />
           </LineChart>
         </ResponsiveContainer>
