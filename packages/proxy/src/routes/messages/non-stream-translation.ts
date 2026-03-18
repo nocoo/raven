@@ -145,6 +145,16 @@ function handleUserMessage(
       }
     }
 
+    // OPT-2: Reorder tool results to match tool_calls array order
+    if (state.optReorderToolResults && pendingToolCallIds.length > 0 && toolResultBlocks.length > 1) {
+      const idOrder = new Map(pendingToolCallIds.map((id, i) => [id, i]))
+      toolResultBlocks.sort((a, b) => {
+        const aIdx = idOrder.get(a.tool_use_id) ?? pendingToolCallIds.length
+        const bIdx = idOrder.get(b.tool_use_id) ?? pendingToolCallIds.length
+        return aIdx - bIdx
+      })
+    }
+
     // Tool results must come first to maintain protocol: tool_use -> tool_result -> user
     for (const block of toolResultBlocks) {
       newMessages.push({
