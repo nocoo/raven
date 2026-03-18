@@ -40,7 +40,7 @@ export function ModelPie({ data }: ModelPieProps) {
               outerRadius={100}
               labelLine={PIE_LABEL_LINE}
               label={({ x, y, model, percent, textAnchor }: { x: number; y: number; model: string; percent: number; textAnchor: "start" | "middle" | "end" }) => (
-                <text x={x} y={y} textAnchor={textAnchor} dominantBaseline="central" fontSize={11} fill="currentColor">
+                <text x={x} y={y} textAnchor={textAnchor} dominantBaseline="central" fontSize={12} fill="currentColor">
                   {`${model.split("/").pop() ?? model} ${(percent * 100).toFixed(0)}%`}
                 </text>
               )}
