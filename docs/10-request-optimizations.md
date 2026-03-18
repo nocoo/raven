@@ -214,60 +214,16 @@ export interface State {
 
 ## 原子化提交计划
 
-### Commit 1: `feat: add optimization settings with UI`
+### ✅ Commit 1: `feat: add optimization settings with UI` — `ee75d90`
 
-扩展 proxy settings 系统支持 boolean 优化项，同步更新 Dashboard 类型和 UI。API 响应 schema 变更与 Dashboard 适配必须在同一 commit，否则 Dashboard 会把新的 `optimizations` 字段当作普通 `SettingInfo` 渲染导致运行时错误。
+### ✅ Commit 2: `refactor: convert message translation to contextual loop` — `1109ace`
 
-**Proxy 文件**：
-- `packages/proxy/src/lib/state.ts` — 添加 3 个 `opt*` boolean 字段，默认 `false`
-- `packages/proxy/src/routes/settings.ts` — 扩展 `KNOWN_KEYS` 加入 `opt_` keys，添加 `OPTIMIZATION_KEYS` 数组，修改 validation 逻辑区分 semver vs boolean，扩展 `getSettingsSnapshot()` 返回 `optimizations` 字段；PUT/DELETE handler 中补调 `cacheOptimizations(db)` 使 state 立即更新
-- `packages/proxy/src/lib/utils.ts` — 新建 `cacheOptimizations(db)` 从 DB 加载所有 `opt_` keys 到 state boolean 字段
-- `packages/proxy/src/index.ts` — 在启动路径 `cacheVersions(db)` 之后补调 `cacheOptimizations(db)`（约 L40 位置）
+### ✅ Commit 3: `feat: implement OPT-1 sanitize orphaned tool results` — `58dc3a2`
 
-**Dashboard 文件**：
-- `packages/dashboard/src/lib/types.ts` — 扩展 `SettingsData` 类型，增加 `optimizations` 字段
-- `packages/dashboard/src/app/settings/settings-content.tsx` — 修改 `Object.keys(data)` 遍历逻辑，排除 `optimizations` key 只渲染 version override 行（否则 `optimizations` 对象会被当成 `SettingInfo` 渲染导致类型错误）
-- `packages/dashboard/src/app/settings/optimizations-content.tsx` — 新建，Switch toggle 列表组件
-- `packages/dashboard/src/app/settings/page.tsx` — 引入 `OptimizationsContent`，将 `data.optimizations` 传入；将剩余的 version settings 传入 `SettingsContent`
+### ✅ Commit 4: `feat: implement OPT-2 reorder tool results` — `2f60f98`
 
-### Commit 2: `refactor: convert message translation to contextual loop`
+### ✅ Commit 5: `feat: implement OPT-3 filter whitespace-only chunks` — `601994e`
 
-将 `translateAnthropicMessagesToOpenAI()` 从 `flatMap` 改为显式 `for` 循环，维护 `pendingToolCallIds` 上下文。这是 OPT-1 和 OPT-2 的共享前置重构。
+### ✅ Commit 6: `test: add tests for request optimizations` — `2515d12`
 
-此 commit 是**纯重构**，不改变行为——`pendingToolCallIds` 参数传入但尚未被消费。
-
-**文件**：
-- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 重构 `translateAnthropicMessagesToOpenAI()` 遍历方式，`handleUserMessage()` 签名添加 `pendingToolCallIds` 参数（暂不使用）
-
-### Commit 3: `feat: implement OPT-1 sanitize orphaned tool results`
-
-翻译层添加孤立 tool_result 过滤逻辑。
-
-**文件**：
-- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 在 `handleUserMessage()` 中，当 `state.optSanitizeOrphanedToolResults` 启用时，过滤 `tool_use_id` 不在 `pendingToolCallIds` 中的 `tool_result` 块
-
-### Commit 4: `feat: implement OPT-2 reorder tool results`
-
-翻译层添加 tool result 排序逻辑。
-
-**文件**：
-- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 在 `handleUserMessage()` 中，当 `state.optReorderToolResults` 启用时，按 `pendingToolCallIds` 的顺序对 `toolResultBlocks` 排序
-
-### Commit 5: `feat: implement OPT-3 filter whitespace-only chunks`
-
-流式翻译层添加空白 chunk 过滤。
-
-**文件**：
-- `packages/proxy/src/routes/messages/stream-translation.ts` — 在 `translateChunkToAnthropicEvents()` 中，当 `state.optFilterWhitespaceChunks` 启用时，增加 whitespace-only + no tool_calls + no finish_reason 的过滤条件
-
-### Commit 6: `test: add tests for request optimizations`
-
-为三个优化项添加单元测试。
-
-**文件**：
-- `packages/proxy/test/routes/messages/optimizations.test.ts` — 新建，涵盖：
-  - OPT-1：孤立 tool_result 被 drop、正常 tool_result 保留、跨 turn 的历史 ID 不误判为合法
-  - OPT-2：乱序 tool_result 被重排、未匹配的 tool_result 放末尾
-  - OPT-3：纯空白 chunk 被过滤、正常 content 通过、有 tool_calls 的空白 chunk 通过
-  - 各项 disabled 时的 passthrough 行为
-  - Commit 2 的重构不改变行为（regression test）
+**测试结果**：485 pass / 0 fail（新增 18 tests），全部绿灯。
