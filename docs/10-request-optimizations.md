@@ -27,12 +27,18 @@
 **现状**：`non-stream-translation.ts:89-123` 的 `handleUserMessage()` 直接将所有 `tool_result` 转为 `role: "tool"` 消息，不校验 `tool_use_id` 是否存在。
 
 **修复逻辑**：
-1. 在 `translateToOpenAI()` 开始时，扫描所有 `assistant` 消息，收集全部 `tool_use` block 的 `id` 到 `Set<string>`
-2. 在 `handleUserMessage()` 处理 `tool_result` 时，检查 `block.tool_use_id` 是否在集合中
-3. 不在集合中的 `tool_result` 直接 drop，记录 debug 日志
+
+校验规则：每个 `user` 消息中的 `tool_result` 只能引用**紧邻的前一条** `assistant` 消息中的 `tool_calls` ID。全局历史中存在过的 ID 不算合法——OpenAI/Copilot 要求 `role: "tool"` 消息必须对应当前 turn 的 `assistant` tool_calls。
+
+实现需要重构 `translateAnthropicMessagesToOpenAI()` 的遍历方式（见下方 OPT-2 共享的重构说明）：
+
+1. 遍历过程中维护 `pendingToolCallIds: Set<string>`，每遇到 `assistant` 消息就更新为该消息的 `tool_use` block IDs
+2. 处理 `user` 消息时，将 `pendingToolCallIds` 传入 `handleUserMessage()`
+3. `tool_result.tool_use_id` 不在 `pendingToolCallIds` 中的直接 drop，记录 debug 日志
+4. `user` 消息处理完成后清空 `pendingToolCallIds`（已消费）
 
 **涉及文件**：
-- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 添加清理逻辑
+- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 重构遍历 + 添加清理逻辑
 
 ### OPT-2: Reorder Tool Results
 
@@ -40,13 +46,48 @@
 
 **现状**：`non-stream-translation.ts:93-108` 按 `tool_result` 在原始 content 数组中出现的顺序逐一 push，未做排序。
 
+**前置重构**：OPT-1 和 OPT-2 共享同一个前置重构——当前 `translateAnthropicMessagesToOpenAI()` 在 `:65-68` 对每条消息独立 `flatMap`，`handleUserMessage()` 拿不到前序 assistant 的任何信息。需要将 `flatMap` 改为显式 `for` 循环，遍历中维护上下文状态：
+
+```typescript
+function translateAnthropicMessagesToOpenAI(
+  anthropicMessages: Array<AnthropicMessage>,
+  system: string | Array<AnthropicTextBlock> | undefined,
+): Array<Message> {
+  const systemMessages = handleSystemPrompt(system)
+  const result: Array<Message> = []
+
+  // Context state for OPT-1 and OPT-2
+  let pendingToolCallIds: string[] = []  // from most recent assistant with tool_calls
+
+  for (const message of anthropicMessages) {
+    if (message.role === "assistant") {
+      const translated = handleAssistantMessage(message)
+      result.push(...translated)
+      // Update context: extract tool_call IDs from this assistant message
+      pendingToolCallIds = extractToolUseIds(message)
+    } else {
+      const translated = handleUserMessage(message, pendingToolCallIds)
+      result.push(...translated)
+      // Consumed: clear pending after user turn processes them
+      pendingToolCallIds = []
+    }
+  }
+
+  return [...systemMessages, ...result]
+}
+```
+
+`handleUserMessage()` 签名变更为 `handleUserMessage(message, pendingToolCallIds)`:
+- **OPT-1 用途**：过滤 `tool_result.tool_use_id` 不在 `pendingToolCallIds` 中的块
+- **OPT-2 用途**：按 `pendingToolCallIds` 的顺序对 `toolResultBlocks` 排序
+
 **修复逻辑**：
-1. 在 `handleUserMessage()` 中，当遇到 `tool_result` 块时，查找前一条 `assistant` 消息的 `tool_calls` 数组
-2. 按 `tool_calls` 中 `id` 的出现顺序对 `tool_result` 块排序
-3. 找不到匹配 `tool_call_id` 的结果放在末尾（防御性）
+1. `handleUserMessage()` 接收 `pendingToolCallIds: string[]`（有序数组）
+2. 用 `pendingToolCallIds` 的 index 作为排序权重，对 `toolResultBlocks` 排序
+3. 未找到匹配的 `tool_result` 放在末尾（防御性）
 
 **涉及文件**：
-- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 添加排序逻辑
+- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 重构遍历（与 OPT-1 共享）+ 排序逻辑
 
 ### OPT-3: Filter Whitespace-Only Streaming Chunks
 
@@ -173,45 +214,49 @@ export interface State {
 
 ## 原子化提交计划
 
-### Commit 1: `feat: add optimization settings data layer`
+### Commit 1: `feat: add optimization settings with UI`
 
-扩展 proxy settings 系统支持 boolean 优化项。
+扩展 proxy settings 系统支持 boolean 优化项，同步更新 Dashboard 类型和 UI。API 响应 schema 变更与 Dashboard 适配必须在同一 commit，否则 Dashboard 会把新的 `optimizations` 字段当作普通 `SettingInfo` 渲染导致运行时错误。
 
-**文件**：
+**Proxy 文件**：
 - `packages/proxy/src/lib/state.ts` — 添加 3 个 `opt*` boolean 字段，默认 `false`
 - `packages/proxy/src/routes/settings.ts` — 扩展 `KNOWN_KEYS` 加入 `opt_` keys，添加 `OPTIMIZATION_KEYS` 数组，修改 validation 逻辑区分 semver vs boolean，扩展 `getSettingsSnapshot()` 返回 `optimizations` 字段
-- `packages/proxy/src/lib/utils.ts` — 在 `cacheVersions()`（或新建 `cacheOptimizations()`）中从 DB 加载 `opt_` keys 到 state
+- `packages/proxy/src/lib/utils.ts` — 新建 `cacheOptimizations()` 从 DB 加载 `opt_` keys 到 state
 
-### Commit 2: `feat: add optimizations UI section to settings page`
-
-Dashboard 设置页面新增 Optimizations 区域。
-
-**文件**：
+**Dashboard 文件**：
 - `packages/dashboard/src/lib/types.ts` — 扩展 `SettingsData` 类型，增加 `optimizations` 字段
 - `packages/dashboard/src/app/settings/optimizations-content.tsx` — 新建，Switch toggle 列表组件
-- `packages/dashboard/src/app/settings/settings-content.tsx` — 微调，确保两个 section 并列（或由 page.tsx 编排）
 - `packages/dashboard/src/app/settings/page.tsx` — 引入 `OptimizationsContent`
+
+### Commit 2: `refactor: convert message translation to contextual loop`
+
+将 `translateAnthropicMessagesToOpenAI()` 从 `flatMap` 改为显式 `for` 循环，维护 `pendingToolCallIds` 上下文。这是 OPT-1 和 OPT-2 的共享前置重构。
+
+此 commit 是**纯重构**，不改变行为——`pendingToolCallIds` 参数传入但尚未被消费。
+
+**文件**：
+- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 重构 `translateAnthropicMessagesToOpenAI()` 遍历方式，`handleUserMessage()` 签名添加 `pendingToolCallIds` 参数（暂不使用）
 
 ### Commit 3: `feat: implement OPT-1 sanitize orphaned tool results`
 
 翻译层添加孤立 tool_result 过滤逻辑。
 
 **文件**：
-- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 在 `translateToOpenAI()` 中收集 tool_use IDs，在 `handleUserMessage()` 中过滤孤立 tool_result
+- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 在 `handleUserMessage()` 中，当 `state.optSanitizeOrphanedToolResults` 启用时，过滤 `tool_use_id` 不在 `pendingToolCallIds` 中的 `tool_result` 块
 
 ### Commit 4: `feat: implement OPT-2 reorder tool results`
 
 翻译层添加 tool result 排序逻辑。
 
 **文件**：
-- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 在 `handleUserMessage()` 中按前一个 assistant 的 `tool_calls` 顺序排序
+- `packages/proxy/src/routes/messages/non-stream-translation.ts` — 在 `handleUserMessage()` 中，当 `state.optReorderToolResults` 启用时，按 `pendingToolCallIds` 的顺序对 `toolResultBlocks` 排序
 
 ### Commit 5: `feat: implement OPT-3 filter whitespace-only chunks`
 
 流式翻译层添加空白 chunk 过滤。
 
 **文件**：
-- `packages/proxy/src/routes/messages/stream-translation.ts` — 在 `translateChunkToAnthropicEvents()` 中增加 whitespace-only + no tool_calls + no finish_reason 的过滤条件
+- `packages/proxy/src/routes/messages/stream-translation.ts` — 在 `translateChunkToAnthropicEvents()` 中，当 `state.optFilterWhitespaceChunks` 启用时，增加 whitespace-only + no tool_calls + no finish_reason 的过滤条件
 
 ### Commit 6: `test: add tests for request optimizations`
 
@@ -219,7 +264,8 @@ Dashboard 设置页面新增 Optimizations 区域。
 
 **文件**：
 - `packages/proxy/test/routes/messages/optimizations.test.ts` — 新建，涵盖：
-  - OPT-1：孤立 tool_result 被 drop、正常 tool_result 保留
-  - OPT-2：乱序 tool_result 被重排
+  - OPT-1：孤立 tool_result 被 drop、正常 tool_result 保留、跨 turn 的历史 ID 不误判为合法
+  - OPT-2：乱序 tool_result 被重排、未匹配的 tool_result 放末尾
   - OPT-3：纯空白 chunk 被过滤、正常 content 通过、有 tool_calls 的空白 chunk 通过
   - 各项 disabled 时的 passthrough 行为
+  - Commit 2 的重构不改变行为（regression test）
