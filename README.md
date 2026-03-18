@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/runtime-Bun_≥1.3-f9f1e1?logo=bun" alt="Bun">
   <img src="https://img.shields.io/badge/proxy-Hono-e36002?logo=hono" alt="Hono">
   <img src="https://img.shields.io/badge/dashboard-Next.js_16-000?logo=nextdotjs" alt="Next.js">
-  <img src="https://img.shields.io/badge/tests-467_passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-487_passing-brightgreen" alt="Tests">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
 </p>
 
@@ -224,7 +224,7 @@ Dashboard 支持两种运行模式：
 | `bun run dev` | 同时启动 proxy + dashboard |
 | `bun run dev:proxy` | 仅启动 proxy（:7033） |
 | `bun run dev:dashboard` | 仅启动 dashboard（:7032） |
-| `bun run test` | 运行 proxy 单元测试（467 tests） |
+| `bun run test` | 运行 proxy 单元测试（487 tests） |
 | `bun run test:all` | 运行所有 workspace 测试 |
 | `bun run test:perf` | 性能基准测试（翻译层 + SSE 解析） |
 | `bun run test:e2e` | E2E 测试（需 proxy 运行中） |
@@ -315,7 +315,7 @@ cp packages/dashboard/.env.example packages/dashboard/.env.local
 
 | 层 | 内容 | 触发时机 |
 |------|------|----------|
-| Unit | 467 个测试，全部 mock 上游调用 | pre-commit |
+| Unit | 487 个测试，全部 mock 上游调用 | pre-commit |
 | Perf | SSE 解析、翻译层基准测试 | pre-push |
 | E2E | 真实 proxy → Copilot API，每个测试仅 1 个请求 | 手动 |
 
@@ -337,6 +337,7 @@ bun run test:e2e      # E2E（需 proxy 运行）
 | 07 | [Session Tracking](docs/07-session-tracking.md) | Session 识别 + 并行会话统计 UI |
 | 08 | [Local Auth Mode](docs/08-dev-auth-mode.md) | Dashboard local 模式：无 Google OAuth 时跳过认证 |
 | 09 | [Unified Auth](docs/09-unified-auth.md) | 统一认证架构：分离 AI API 认证与 Dashboard 管理认证 |
+| 10 | [Request Optimizations](docs/10-request-optimizations.md) | 可配置的请求优化项：协议兼容性修复，Settings 页面逐一开关 |
 
 <details><summary>Archive</summary>
 

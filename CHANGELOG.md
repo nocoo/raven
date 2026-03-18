@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.2.1 (2026-03-18)
+
+Configurable request optimizations — three protocol-level fixes for upstream Copilot API compatibility issues, individually toggleable from the Settings page.
+
+### Proxy — request optimizations
+
+- **OPT-1: Sanitize orphaned tool results** — drops `tool_result` blocks that reference non-existent `tool_use` IDs after client-side compaction (e.g. Claude Code auto-compaction deleting assistant messages); prevents upstream 400 errors
+- **OPT-2: Reorder tool results** — reorders parallel `tool_result` blocks to match the `tool_calls` array order expected by upstream, preventing 400 or result mismatch
+- **OPT-3: Filter whitespace-only chunks** — skips streaming chunks with whitespace-only `delta.content` that cause blank lines in some clients (e.g. VS Code Copilot extension)
+- **Optimization settings API** — `GET /api/settings` returns `optimizations` object; `PUT /api/settings` accepts `opt_*` boolean keys; all default to OFF
+- **Contextual translation loop** — refactored `translateAnthropicMessagesToOpenAI()` from `flatMap` to explicit `for` loop with `pendingToolCallIds` context tracking across assistant→user turn boundaries
+
+### Dashboard — setup wizard & settings
+
+- **First-run setup wizard** — 3-step onboarding flow (GitHub auth → API key → client config) shown on first visit, dismissible, with session-scoped re-show prevention
+- **Optimizations settings UI** — new "Optimizations" section in Settings page with Switch toggles for each optimization item, immediate PUT on toggle, description and status display
+
+### Bug fixes
+
+- **OPT-1 empty-array guard** — removed `pendingToolCallIds.length > 0` guard that caused the filter to skip when the assistant message was entirely deleted by compaction (the primary scenario OPT-1 was designed to fix)
+
+### Tests
+
+- **487 proxy tests** (was 467) — added 20 optimization tests covering all 3 OPTs, regression for contextual loop refactor, combined OPT-1+OPT-2 scenario, and assistant-deleted compaction edge case
+
+### Docs
+
+- **Design doc** — added `docs/10-request-optimizations.md` with research findings, optimization item definitions, API schema, UI mockup, and atomic commit plan
+
 ## v1.2.0 (2026-03-17)
 
 Unified auth architecture and zero-config local mode — dashboard works out of the box, AI API routes always require authentication.
