@@ -22,6 +22,9 @@ const SETTING_LABELS: Record<string, { label: string; description: string }> = {
   },
 };
 
+/** Version setting keys to render (excludes optimizations). */
+const VERSION_KEYS = ["vscode_version", "copilot_chat_version"] as const;
+
 const FALLBACK_BADGE = { label: "Fallback", className: "bg-warning/15 text-warning border-warning/20" };
 
 const SOURCE_VARIANTS: Record<string, { label: string; className: string }> = {
@@ -38,8 +41,6 @@ interface SettingsContentProps {
 }
 
 export function SettingsContent({ data }: SettingsContentProps) {
-  const keys = Object.keys(data);
-
   return (
     <section>
       <h2 className="text-sm font-medium text-muted-foreground mb-3">
@@ -51,7 +52,7 @@ export function SettingsContent({ data }: SettingsContentProps) {
         Set an override to pin a specific version.
       </p>
       <div className="grid gap-3">
-        {keys.map((key) => {
+        {VERSION_KEYS.map((key) => {
           const info = data[key];
           if (!info) return null;
           return <SettingRow key={key} settingKey={key} info={info} />;

@@ -180,5 +180,14 @@ export interface SettingInfo {
   override: string | null;
 }
 
-export type SettingsData = Record<string, SettingInfo>;
+export interface OptimizationInfo {
+  enabled: boolean;
+  key: string;
+}
+
+export interface SettingsData {
+  vscode_version: SettingInfo;
+  copilot_chat_version: SettingInfo;
+  optimizations: Record<string, OptimizationInfo>;
+}
 

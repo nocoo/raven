@@ -7,7 +7,7 @@ import { createApp } from "./app"
 import { ensurePaths } from "./lib/paths"
 import { state } from "./lib/state"
 import { setupGitHubToken, setupCopilotToken } from "./lib/token"
-import { cacheModels, cacheVersions } from "./lib/utils"
+import { cacheModels, cacheVersions, cacheOptimizations } from "./lib/utils"
 import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
 import { initApiKeys, validateApiKey } from "./db/keys"
@@ -38,6 +38,9 @@ logger.info("Database ready (WAL mode)")
 
 // 3. Cache versions (VS Code + Copilot Chat, for Copilot API headers)
 await cacheVersions(db)
+
+// 3b. Load optimization flags from DB
+cacheOptimizations(db)
 
 // 4. GitHub OAuth (loads from disk or runs device flow)
 await setupGitHubToken()

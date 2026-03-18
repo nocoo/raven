@@ -74,3 +74,16 @@ export async function cacheVersions(db: Database): Promise<void> {
     `Using Copilot Chat version: ${state.copilotChatVersion} (${state.copilotChatVersionSource})`,
   )
 }
+
+/**
+ * Load optimization flags from DB into runtime state.
+ * Called at startup and after any optimization setting change.
+ */
+export function cacheOptimizations(db: Database): void {
+  state.optSanitizeOrphanedToolResults =
+    getSetting(db, "opt_sanitize_orphaned_tool_results") === "true"
+  state.optReorderToolResults =
+    getSetting(db, "opt_reorder_tool_results") === "true"
+  state.optFilterWhitespaceChunks =
+    getSetting(db, "opt_filter_whitespace_chunks") === "true"
+}

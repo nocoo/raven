@@ -3,6 +3,7 @@ import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { SettingsData } from "@/lib/types";
 import { SettingsContent } from "./settings-content";
+import { OptimizationsContent } from "./optimizations-content";
 
 export const metadata = { title: "Settings" };
 
@@ -22,6 +23,7 @@ export default async function SettingsPage() {
       <div className="space-y-6">
         <h1 className="text-lg font-semibold font-display">Settings</h1>
         <SettingsContent data={result.data} />
+        <OptimizationsContent data={result.data.optimizations} />
       </div>
     </AppShell>
   );

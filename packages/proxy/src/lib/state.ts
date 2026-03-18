@@ -18,9 +18,17 @@ export interface State {
   // Rate limiting configuration
   rateLimitSeconds?: number
   lastRequestTimestamp?: number
+
+  // Request optimizations (default: all false)
+  optSanitizeOrphanedToolResults: boolean
+  optReorderToolResults: boolean
+  optFilterWhitespaceChunks: boolean
 }
 
 export const state: State = {
   accountType: "individual",
   rateLimitWait: false,
+  optSanitizeOrphanedToolResults: false,
+  optReorderToolResults: false,
+  optFilterWhitespaceChunks: false,
 }
