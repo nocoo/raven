@@ -177,6 +177,17 @@ function formatRequestEndSuccess(
   return parts.join("  ");
 }
 
+/**
+ * Truncate an error message to a single-line-friendly length.
+ * Strips common verbose suffixes (e.g. Bun fetch hints) before truncating.
+ */
+function truncateError(msg: string, maxLen = 60): string {
+  // Strip "For more information, ..." suffix from Bun fetch errors
+  const cleaned = msg.replace(/\.?\s*For more information,.*$/i, "");
+  if (cleaned.length <= maxLen) return cleaned;
+  return `${cleaned.slice(0, maxLen)}…`;
+}
+
 function formatRequestEndError(
   time: string,
   data: Record<string, unknown>,
@@ -185,7 +196,7 @@ function formatRequestEndError(
 ): string {
   const status = red(String(statusCode ?? "err"));
   const dur = formatDuration(Number(data.latencyMs ?? 0));
-  const errorMsg = data.error ? dim(String(data.error)) : "";
+  const errorMsg = data.error ? dim(truncateError(String(data.error))) : "";
   const client = dim(String(data.clientName ?? ""));
   const session = data.sessionId
     ? dim(`(${shortenSession(String(data.sessionId))})`)

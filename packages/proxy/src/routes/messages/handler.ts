@@ -162,11 +162,6 @@ export async function handleCompletion(c: Context) {
     const errorMsg = error instanceof Error ? error.message : String(error)
 
     logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "upstream_error", requestId,
-      msg: `upstream error for ${model}`,
-      data: { error: errorMsg, latencyMs },
-    })
-    logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
       msg: `502 ${model} ${latencyMs}ms`,
       data: {

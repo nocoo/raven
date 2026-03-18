@@ -1,4 +1,3 @@
-import { logger } from "~/util/logger"
 import { events } from "~/util/sse"
 
 import { copilotHeaders, copilotBaseUrl } from "~/lib/api-config"
@@ -33,7 +32,6 @@ export const createChatCompletions = async (
   })
 
   if (!response.ok) {
-    logger.error("Failed to create chat completions", { status: response.status })
     throw new HTTPError("Failed to create chat completions", response)
   }
 
