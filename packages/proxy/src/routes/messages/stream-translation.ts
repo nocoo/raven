@@ -5,6 +5,7 @@ import {
   type AnthropicStreamState,
 } from "./anthropic-types"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
+import { state as proxyState } from "~/lib/state"
 
 function isToolBlockOpen(state: AnthropicStreamState): boolean {
   if (!state.contentBlockOpen) {
@@ -57,36 +58,45 @@ export function translateChunkToAnthropicEvents(
   }
 
   if (delta.content) {
-    if (isToolBlockOpen(state)) {
-      // A tool block was open, so close it before starting a text block.
-      events.push({
-        type: "content_block_stop",
-        index: state.contentBlockIndex,
-      })
-      state.contentBlockIndex++
-      state.contentBlockOpen = false
-    }
+    // OPT-3: Skip whitespace-only content chunks that cause blank lines in some clients
+    const skipWhitespace =
+      proxyState.optFilterWhitespaceChunks
+      && delta.content.trim() === ""
+      && !delta.tool_calls
+      && !choice.finish_reason
 
-    if (!state.contentBlockOpen) {
+    if (!skipWhitespace) {
+      if (isToolBlockOpen(state)) {
+        // A tool block was open, so close it before starting a text block.
+        events.push({
+          type: "content_block_stop",
+          index: state.contentBlockIndex,
+        })
+        state.contentBlockIndex++
+        state.contentBlockOpen = false
+      }
+
+      if (!state.contentBlockOpen) {
+        events.push({
+          type: "content_block_start",
+          index: state.contentBlockIndex,
+          content_block: {
+            type: "text",
+            text: "",
+          },
+        })
+        state.contentBlockOpen = true
+      }
+
       events.push({
-        type: "content_block_start",
+        type: "content_block_delta",
         index: state.contentBlockIndex,
-        content_block: {
-          type: "text",
-          text: "",
+        delta: {
+          type: "text_delta",
+          text: delta.content,
         },
       })
-      state.contentBlockOpen = true
     }
-
-    events.push({
-      type: "content_block_delta",
-      index: state.contentBlockIndex,
-      delta: {
-        type: "text_delta",
-        text: delta.content,
-      },
-    })
   }
 
   if (delta.tool_calls) {
