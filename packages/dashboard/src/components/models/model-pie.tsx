@@ -39,9 +39,11 @@ export function ModelPie({ data }: ModelPieProps) {
               cy="50%"
               outerRadius={100}
               labelLine={PIE_LABEL_LINE}
-              label={({ model, percent }: { model: string; percent: number }) =>
-                `${model.split("/").pop() ?? model} ${(percent * 100).toFixed(0)}%`
-              }
+              label={({ x, y, model, percent, textAnchor }: { x: number; y: number; model: string; percent: number; textAnchor: "start" | "middle" | "end" }) => (
+                <text x={x} y={y} textAnchor={textAnchor} dominantBaseline="central" fontSize={11} fill="currentColor">
+                  {`${model.split("/").pop() ?? model} ${(percent * 100).toFixed(0)}%`}
+                </text>
+              )}
               {...ANIMATION_PROPS}
             >
               {chartData.map((_entry, index) => (
