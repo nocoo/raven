@@ -22,7 +22,7 @@ function makeState(overrides: Partial<State> = {}): State {
     accountType: "individual",
     rateLimitWait: false,
     ...overrides,
-  }
+  } as State
 }
 
 // ===========================================================================

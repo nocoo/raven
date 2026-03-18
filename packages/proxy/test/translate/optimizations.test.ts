@@ -423,7 +423,7 @@ describe("OPT-2: reorder tool results", () => {
     const toolMessages = result.messages.filter(
       (m: { role: string }) => m.role === "tool",
     )
-    expect(toolMessages.map((m: { tool_call_id: string }) => m.tool_call_id)).toEqual([
+    expect(toolMessages.map((m: { tool_call_id?: string }) => m.tool_call_id)).toEqual([
       "tu_c",
       "tu_a",
       "tu_b",
@@ -438,7 +438,7 @@ describe("OPT-2: reorder tool results", () => {
     const toolMessages = result.messages.filter(
       (m: { role: string }) => m.role === "tool",
     )
-    expect(toolMessages.map((m: { tool_call_id: string }) => m.tool_call_id)).toEqual([
+    expect(toolMessages.map((m: { tool_call_id?: string }) => m.tool_call_id)).toEqual([
       "tu_a",
       "tu_b",
       "tu_c",
