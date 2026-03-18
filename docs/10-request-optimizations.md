@@ -226,4 +226,8 @@ export interface State {
 
 ### ✅ Commit 6: `test: add tests for request optimizations` — `2515d12`
 
-**测试结果**：485 pass / 0 fail（新增 18 tests），全部绿灯。
+### ✅ Commit 7: `fix: remove pendingToolCallIds.length guard in OPT-1` — `39b1876`
+
+OPT-1 的 `pendingToolCallIds.length > 0` 守卫导致核心场景（assistant 被 compaction 完全删除后 `pendingToolCallIds` 为空）跳过过滤。移除守卫，使空数组等价于全部 `tool_result` 均为 orphan。新增 2 tests 覆盖此分支。
+
+**测试结果**：487 pass / 0 fail（新增 20 tests），全部绿灯。
