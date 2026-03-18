@@ -268,6 +268,27 @@ describe("formatEvent", () => {
       expect(line).toContain("upstream timeout")
       expect(line).toContain("Claude Code")
     })
+
+    test("truncates verbose error messages", () => {
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId: "req_456",
+        msg: "502 claude-sonnet-4-20250514 7600ms",
+        data: {
+          model: "claude-sonnet-4-20250514",
+          statusCode: 502,
+          status: "error",
+          latencyMs: 7600,
+          error: "The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()",
+        },
+      }
+      const line = formatEvent(event)!
+      expect(line).toContain("✗──")
+      expect(line).toContain("socket connection was closed unexpectedly")
+      expect(line).not.toContain("For more information")
+    })
   })
 
   describe("upstream_error", () => {

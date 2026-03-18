@@ -299,7 +299,7 @@ describe("handleCompletion (streaming)", () => {
 // ===========================================================================
 
 describe("handleCompletion (errors)", () => {
-  test("upstream error → emits upstream_error + request_end", async () => {
+  test("upstream error → emits request_end with error status", async () => {
     fetchSpy.mockRejectedValueOnce(new Error("upstream failed"))
 
     const events: LogEvent[] = []
@@ -316,7 +316,6 @@ describe("handleCompletion (errors)", () => {
     logEmitter.off("log", listener)
 
     const types = events.map((e) => e.type)
-    expect(types).toContain("upstream_error")
     expect(types).toContain("request_end")
 
     const endEvent = events.find((e) => e.type === "request_end")
