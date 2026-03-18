@@ -127,8 +127,10 @@ function handleUserMessage(
       (block) => block.type !== "tool_result",
     )
 
-    // OPT-1: Drop tool_result blocks referencing non-existent tool_use IDs
-    if (state.optSanitizeOrphanedToolResults && pendingToolCallIds.length > 0) {
+    // OPT-1: Drop tool_result blocks referencing non-existent tool_use IDs.
+    // When pendingToolCallIds is empty (assistant message was deleted by compaction),
+    // ALL tool_results are orphans and should be dropped.
+    if (state.optSanitizeOrphanedToolResults) {
       const validIds = new Set(pendingToolCallIds)
       const before = toolResultBlocks.length
       toolResultBlocks = toolResultBlocks.filter((block) => {

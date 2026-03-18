@@ -293,6 +293,75 @@ describe("OPT-1: sanitize orphaned tool results", () => {
     expect(allToolMessages[0].tool_call_id).toBe("tu_old")
     expect(allToolMessages[1].tool_call_id).toBe("tu_new")
   })
+
+  test("enabled: assistant deleted by compaction — all tool_results dropped", () => {
+    // Core scenario: auto-compaction removes the assistant message entirely,
+    // leaving orphaned tool_results with no preceding assistant.
+    // pendingToolCallIds will be [] → all tool_results are orphans.
+    state.optSanitizeOrphanedToolResults = true
+    const result = translateToOpenAI(
+      makeRequest({
+        messages: [
+          { role: "user", content: "do something" },
+          {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "tu_deleted_1",
+                content: "result from deleted assistant",
+              },
+              {
+                type: "tool_result",
+                tool_use_id: "tu_deleted_2",
+                content: "another result from deleted assistant",
+              },
+              {
+                type: "text",
+                text: "user follow-up text",
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    const toolMessages = result.messages.filter(
+      (m: { role: string }) => m.role === "tool",
+    )
+    // All tool_results should be dropped since no assistant preceded them
+    expect(toolMessages).toHaveLength(0)
+    // The text block should still be preserved as a user message
+    const userMessages = result.messages.filter(
+      (m: { role: string }) => m.role === "user",
+    )
+    expect(userMessages).toHaveLength(2)
+  })
+
+  test("disabled: assistant deleted by compaction — tool_results pass through", () => {
+    // Same scenario but with the flag off — tool_results should NOT be filtered
+    state.optSanitizeOrphanedToolResults = false
+    const result = translateToOpenAI(
+      makeRequest({
+        messages: [
+          { role: "user", content: "do something" },
+          {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "tu_deleted_1",
+                content: "result from deleted assistant",
+              },
+            ],
+          },
+        ],
+      }),
+    )
+    const toolMessages = result.messages.filter(
+      (m: { role: string }) => m.role === "tool",
+    )
+    expect(toolMessages).toHaveLength(1)
+  })
 })
 
 // ===========================================================================
