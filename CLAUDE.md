@@ -34,14 +34,18 @@ bun run test:e2e    # e2e tests (requires proxy running on :7033)
 
 ### Test status (2026-03-21)
 
-| Package | Runner | Tests | Pass | Coverage | Status |
-|---------|--------|-------|------|----------|--------|
-| proxy | bun:test | 488 | 488 | 94.7% lines, 94.3% funcs | ✅ |
-| dashboard | vitest 4 + jsdom | 209 | 209 | — (needs @vitest/coverage-v8) | ✅ |
+| Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
+|---------|--------|-------|------|-------------------|-----------|--------|
+| proxy | bun:test | 488 | 488 | 94.7% | 90% | ✅ |
+| dashboard | vitest 4 + jsdom | 209 | 209 | 41.7% | 40% | ✅ |
 
-**L1 (UT)**: All 697 tests pass. Proxy coverage 94.7% (≥90% ✅). Dashboard coverage not yet measured (missing `@vitest/coverage-v8` dep).
+**L1 (UT)**: All 697 tests pass. Proxy coverage 94.7%. Dashboard 41.7% (many UI components untested — threshold set at 40% to prevent regression, raise as tests are added).
 
 **L2 (Lint + Typecheck)**: Both packages pass `eslint` and `tsc --noEmit` with 0 errors, 0 warnings.
+
+### Pre-commit hook
+
+Runs `bun run test:all && bun run lint && bun run typecheck` — enforces L1 (all tests + coverage thresholds) and L2 (lint + types) on every commit for both packages.
 
 ### Package manager — bun only
 
