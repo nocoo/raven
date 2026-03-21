@@ -4,7 +4,6 @@ import { streamSSE, type SSEMessage } from "hono/streaming"
 
 import { checkRateLimit } from "~/lib/rate-limit"
 import { state } from "~/lib/state"
-import { getTokenCount } from "~/lib/tokenizer"
 import { isNullish } from "~/lib/utils"
 import { logEmitter } from "~/util/log-emitter"
 import { generateRequestId } from "~/util/id"
@@ -40,15 +39,6 @@ export async function handleCompletion(c: Context) {
   const selectedModel = state.models?.data.find(
     (m) => m.id === payload.model,
   )
-
-  // Calculate token count (best-effort)
-  try {
-    if (selectedModel) {
-      await getTokenCount(payload, selectedModel)
-    }
-  } catch {
-    // Token count failure is non-fatal
-  }
 
   if (isNullish(payload.max_tokens)) {
     payload = {
@@ -154,11 +144,6 @@ export async function handleCompletion(c: Context) {
     const statusCode = 502
     const errorMsg = error instanceof Error ? error.message : String(error)
 
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "upstream_error", requestId,
-      msg: `upstream error for ${model}`,
-      data: { error: errorMsg, latencyMs },
-    })
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
       msg: `${statusCode} ${model} ${latencyMs}ms`,
