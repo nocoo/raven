@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.2.2 (2026-03-21)
+
+Code cleanup — removed dead code that added unnecessary CPU overhead per request.
+
+### Proxy — performance cleanup
+
+- **Removed unused `getTokenCount` call** — the chat-completions handler was calling `getTokenCount()` on every request but discarding the result; dashboard token stats come from upstream `usage` fields, not local tokenizer calculation
+- **Removed `requestContext` middleware** — the `startTime` was injected but never read; all handlers use their own local `performance.now()` calls
+
+### Tests
+
+- **486 proxy tests** (was 488) — removed 2 obsolete `requestContext` middleware tests
+
 ## v1.2.1 (2026-03-18)
 
 Configurable request optimizations — three protocol-level fixes for upstream Copilot API compatibility issues, individually toggleable from the Settings page.
