@@ -15,8 +15,7 @@ const nextConfig: NextConfig = {
   },
   allowedDevOrigins: [
     "localhost",
-    // Add custom domains here if running behind a reverse proxy, e.g.:
-    // "*.example.com",
+    "raven.dev.hexly.ai",
   ],
   images: {
     remotePatterns: [
