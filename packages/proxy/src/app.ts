@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import type { Database } from "bun:sqlite"
 
-import { requestContext, apiKeyAuth, dashboardAuth } from "./middleware"
+import { apiKeyAuth, dashboardAuth } from "./middleware"
 import { completionRoutes } from "./routes/chat-completions/route"
 import { messageRoutes } from "./routes/messages/route"
 import { modelRoutes } from "./routes/models/route"
@@ -38,8 +38,6 @@ export function createApp(deps: AppDeps): Hono {
   const app = new Hono()
 
   // ------- middleware -------
-  app.use("*", requestContext())
-
   // AI coding routes — strict auth, no dev mode, rejects RAVEN_INTERNAL_KEY
   const aiAuth = apiKeyAuth({ db, envApiKey: apiKey })
   app.use("/v1/*", aiAuth)

@@ -4,7 +4,6 @@ import { Hono } from "hono";
 import {
   apiKeyAuth,
   dashboardAuth,
-  requestContext,
   invalidateKeyCountCache,
 } from "../src/middleware.ts";
 import { initApiKeys, createApiKey } from "../src/db/keys.ts";
@@ -18,13 +17,11 @@ function createTestDb(): Database {
 /** App with apiKeyAuth on /v1/* for AI route tests */
 function createAiApp(db: Database, envApiKey?: string) {
   const app = new Hono();
-  app.use("*", requestContext());
   const auth = apiKeyAuth({ db, envApiKey });
   app.use("/v1/*", auth);
   app.get("/v1/models", (c) => {
-    const startTime = c.get("startTime");
     const keyName = c.get("keyName");
-    return c.json({ startTime, keyName });
+    return c.json({ keyName });
   });
   app.post("/v1/chat/completions", (c) => c.json({ ok: true }));
   return app;
@@ -33,7 +30,6 @@ function createAiApp(db: Database, envApiKey?: string) {
 /** App with dashboardAuth on /api/* for management route tests */
 function createDashboardApp(db: Database, envApiKey?: string, internalKey?: string) {
   const app = new Hono();
-  app.use("*", requestContext());
   const auth = dashboardAuth({ db, envApiKey, internalKey });
   app.use("/api/*", auth);
   app.get("/api/stats/overview", (c) => {
@@ -245,37 +241,6 @@ describe("dashboardAuth middleware", () => {
       const body = await res.json();
       expect(body.keyName).toBe("internal");
     });
-  });
-});
-
-// ===========================================================================
-// requestContext middleware
-// ===========================================================================
-
-describe("requestContext middleware", () => {
-  test("injects startTime", async () => {
-    const app = createAiApp(db, "sk-test");
-    const res = await app.request("/v1/models", {
-      headers: { Authorization: "Bearer sk-test" },
-    });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.startTime).toBeNumber();
-    expect(body.startTime).toBeGreaterThan(0);
-  });
-
-  test("generates unique startTimes per request", async () => {
-    const app = createAiApp(db, "sk-test");
-    const res1 = await app.request("/v1/models", {
-      headers: { Authorization: "Bearer sk-test" },
-    });
-    await new Promise((r) => setTimeout(r, 1));
-    const res2 = await app.request("/v1/models", {
-      headers: { Authorization: "Bearer sk-test" },
-    });
-    const body1 = await res1.json();
-    const body2 = await res2.json();
-    expect(body1.startTime).not.toBe(body2.startTime);
   });
 });
 
