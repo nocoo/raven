@@ -8,7 +8,7 @@
     "start": "next start -p 7032",
     "lint": "eslint --config ../../eslint.config.js src/",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -33,6 +33,7 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.0",
     "eslint-config-next": "16.1.6",
     "jsdom": "^29.0.0",
     "tailwindcss": "^4.1.5",
