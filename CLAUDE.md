@@ -37,9 +37,9 @@ bun run test:e2e    # e2e tests (requires proxy running on :7033)
 | Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
 |---------|--------|-------|------|-------------------|-----------|--------|
 | proxy | bun:test | 488 | 488 | 94.7% | 90% | ✅ |
-| dashboard | vitest 4 + jsdom | 209 | 209 | 41.7% | 40% | ✅ |
+| dashboard | vitest 4 + jsdom | 224 | 224 | 98.2% | 90% | ✅ |
 
-**L1 (UT)**: All 697 tests pass. Proxy coverage 94.7%. Dashboard 41.7% (many UI components untested — threshold set at 40% to prevent regression, raise as tests are added).
+**L1 (UT)**: All 712 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
 
 **L2 (Lint + Typecheck)**: Both packages pass `eslint` and `tsc --noEmit` with 0 errors, 0 warnings.
 
