@@ -226,3 +226,123 @@ describe("GET /api/stats/[...path]", () => {
     expect(res.status).toBe(504);
   });
 });
+
+// ===========================================================================
+// GET /api/settings
+// ===========================================================================
+
+describe("GET /api/settings", () => {
+  it("success → returns JSON with 200", async () => {
+    const data = { theme: "dark", lang: "en" };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { GET } = await import("@/app/api/settings/route");
+    const res = await GET();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/settings");
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Server Error", 500));
+
+    const { GET } = await import("@/app/api/settings/route");
+    const res = await GET();
+
+    expect(res.status).toBe(500);
+  });
+
+  it("generic Error → returns 502", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new Error("fail"));
+
+    const { GET } = await import("@/app/api/settings/route");
+    const res = await GET();
+
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe("fail");
+  });
+});
+
+// ===========================================================================
+// PUT /api/settings
+// ===========================================================================
+
+describe("PUT /api/settings", () => {
+  it("success → returns JSON with 200", async () => {
+    const body = { theme: "light" };
+    const data = { theme: "light", lang: "en" };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { PUT } = await import("@/app/api/settings/route");
+    const req = new Request("http://localhost/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+    const res = await PUT(req);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Bad Request", 400));
+
+    const { PUT } = await import("@/app/api/settings/route");
+    const req = new Request("http://localhost/api/settings", {
+      method: "PUT",
+      body: JSON.stringify({}),
+    });
+    const res = await PUT(req);
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ===========================================================================
+// DELETE /api/settings/[key]
+// ===========================================================================
+
+describe("DELETE /api/settings/[key]", () => {
+  function makeParams(key: string) {
+    return { params: Promise.resolve({ key }) };
+  }
+
+  it("success → returns JSON with 200", async () => {
+    const data = { theme: "dark" };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { DELETE } = await import("@/app/api/settings/[key]/route");
+    const req = new Request("http://localhost/api/settings/lang", { method: "DELETE" });
+    const res = await DELETE(req, makeParams("lang"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/settings/lang", { method: "DELETE" });
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Not Found", 404));
+
+    const { DELETE } = await import("@/app/api/settings/[key]/route");
+    const req = new Request("http://localhost/api/settings/nope", { method: "DELETE" });
+    const res = await DELETE(req, makeParams("nope"));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("generic Error → returns 502", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new Error("timeout"));
+
+    const { DELETE } = await import("@/app/api/settings/[key]/route");
+    const req = new Request("http://localhost/api/settings/x", { method: "DELETE" });
+    const res = await DELETE(req, makeParams("x"));
+
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe("timeout");
+  });
+});
