@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import { resolve } from "path";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: resolve(__dirname, "../.."),
+  },
   env: {
     NEXT_PUBLIC_AUTH_ENABLED:
       process.env.GOOGLE_CLIENT_ID &&
