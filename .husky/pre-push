@@ -1,16 +1,5 @@
 #!/bin/sh
-# L2: API E2E (integration tests)
-# G2: Security gate (osv-scanner + gitleaks)
-# Run in parallel, fail if either fails
+# G2: Security gate (osv-scanner + gitleaks) — HARD gate
+# L2: E2E tests are manual-only (see CLAUDE.md anti-ban protocol)
 
-bun run test:e2e &
-PID_L2=$!
-
-bun run gate:security &
-PID_G2=$!
-
-FAIL=0
-wait $PID_L2 || FAIL=1
-wait $PID_G2 || FAIL=1
-
-exit $FAIL
+bun run gate:security

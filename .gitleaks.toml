@@ -1,0 +1,12 @@
+# Gitleaks configuration — allowlist false positives
+# All entries are test fixtures or documentation examples with fake tokens.
+
+title = "Raven gitleaks config"
+
+[allowlist]
+  description = "Test fixtures and docs with fake/example tokens"
+  paths = [
+    '''test/.*\.test\.ts$''',
+    '''e2e/.*\.spec\.ts$''',
+    '''docs/.*\.md$''',
+  ]
