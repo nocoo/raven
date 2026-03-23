@@ -59,12 +59,21 @@ function validateBearerToken(
   envApiKey?: string,
   internalKey?: string,
 ): { valid: true; keyName: string } | { valid: false; response: Response } {
+  // Accept token from Authorization: Bearer <token> or x-api-key: <token>
+  // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
   const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return { valid: false, response: unauthorized(c, "Missing or malformed Authorization header") };
+  const xApiKey = c.req.header("x-api-key");
+
+  let token: string | undefined;
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.slice(7);
+  } else if (xApiKey) {
+    token = xApiKey;
   }
 
-  const token = authHeader.slice(7); // strip "Bearer "
+  if (!token) {
+    return { valid: false, response: unauthorized(c, "Missing or malformed Authorization header") };
+  }
 
   // rk- prefix → DB lookup only, never fallback to env
   if (token.startsWith("rk-")) {

@@ -143,10 +143,30 @@ Proxy 启动后，将客户端指向 raven：
 
 <details><summary><strong>Claude Code</strong></summary>
 
+在 `~/.zshrc`（或你使用的 shell 配置文件）中添加：
+
 ```bash
-# Anthropic 格式
-claude config set --global apiUrl http://localhost:7033/v1
+export ANTHROPIC_BASE_URL=http://localhost:7033
+export ANTHROPIC_API_KEY=<你的 RAVEN_API_KEY>
 ```
+
+然后 `source ~/.zshrc` 或重开终端。
+
+**首次启动交互模式的额外步骤：**
+
+Claude Code 交互模式会对 `ANTHROPIC_API_KEY` 进行审批确认。首次运行 `claude` 时会弹出 "Do you want to use this API key?" 对话框，**选择 Yes**。
+
+如果之前误选了 No，key 会被加入拒绝列表，需要手动修复 `~/.claude.json`：
+
+```jsonc
+// 将 key 的后 20 位字符从 rejected 移到 approved
+"customApiKeyResponses": {
+  "approved": ["<key 的后 20 位>"],
+  "rejected": []
+}
+```
+
+> **注意**：`claude --print`（非交互模式）不需要这个审批步骤，直接读取环境变量即可。
 
 </details>
 
