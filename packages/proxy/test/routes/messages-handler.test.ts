@@ -82,13 +82,15 @@ beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  state.models = undefined // messages handler doesn't need models for routing
+  state.models = null // messages handler doesn't need models for routing
   fetchSpy = spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {
-  state.models = savedModels
-  state.copilotToken = savedToken
+  if (savedModels !== undefined) state.models = savedModels
+  else state.models = null
+  if (savedToken !== undefined) state.copilotToken = savedToken
+  else state.copilotToken = null
   fetchSpy.mockRestore()
 })
 

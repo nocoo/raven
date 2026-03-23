@@ -121,7 +121,7 @@ describe("revokeApiKey", () => {
     expect(ok).toBe(true);
 
     const keys = listApiKeys(db);
-    expect(keys[0].revoked_at).toBeGreaterThan(0);
+    expect(keys[0]!.revoked_at).toBeGreaterThan(0);
   });
 
   test("returns false for already-revoked key", () => {

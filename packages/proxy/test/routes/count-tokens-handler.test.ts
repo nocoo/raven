@@ -17,6 +17,7 @@ function makeModel(overrides: Partial<Model> = {}): Model {
     version: "20250514",
     preview: false,
     model_picker_enabled: true,
+    policy: null,
     capabilities: {
       family: "claude-sonnet-4",
       object: "model_capabilities",
@@ -25,10 +26,13 @@ function makeModel(overrides: Partial<Model> = {}): Model {
       limits: {
         max_context_window_tokens: 200000,
         max_output_tokens: 16384,
+        max_prompt_tokens: null,
+        max_inputs: null,
       },
       supports: {
         tool_calls: true,
         parallel_tool_calls: true,
+        dimensions: null,
       },
     },
     ...overrides,
@@ -78,7 +82,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  state.models = savedModels
+  if (savedModels !== undefined) state.models = savedModels
+  else state.models = null
 })
 
 // ===========================================================================

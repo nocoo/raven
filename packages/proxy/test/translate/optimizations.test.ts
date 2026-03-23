@@ -22,6 +22,17 @@ function makeRequest(
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     messages: [{ role: "user", content: "hello" }],
+    system: null,
+    metadata: null,
+    stop_sequences: null,
+    stream: null,
+    temperature: null,
+    top_p: null,
+    top_k: null,
+    tools: null,
+    tool_choice: null,
+    thinking: null,
+    service_tier: null,
     ...overrides,
   }
 }
@@ -37,7 +48,7 @@ function makeStreamState(): AnthropicStreamState {
 
 function makeChunk(
   overrides: Partial<ChatCompletionChunk> & {
-    delta?: ChatCompletionChunk["choices"][0]["delta"]
+    delta?: Partial<ChatCompletionChunk["choices"][0]["delta"]>
     finish_reason?: ChatCompletionChunk["choices"][0]["finish_reason"]
   } = {},
 ): ChatCompletionChunk {
@@ -47,10 +58,12 @@ function makeChunk(
     object: "chat.completion.chunk",
     created: 1700000000,
     model: "claude-sonnet-4",
+    system_fingerprint: null,
+    usage: null,
     choices: [
       {
         index: 0,
-        delta: delta ?? {},
+        delta: { content: null, role: null, tool_calls: [], ...delta },
         finish_reason: finish_reason ?? null,
         logprobs: null,
       },
@@ -82,9 +95,9 @@ describe("contextual loop refactor (regression)", () => {
       }),
     )
     expect(result.messages).toEqual([
-      { role: "user", content: "hello" },
-      { role: "assistant", content: "hi" },
-      { role: "user", content: "bye" },
+      { role: "user", content: "hello", name: null, tool_calls: null, tool_call_id: null },
+      { role: "assistant", content: "hi", name: null, tool_calls: null, tool_call_id: null },
+      { role: "user", content: "bye", name: null, tool_calls: null, tool_call_id: null },
     ])
   })
 
@@ -111,6 +124,7 @@ describe("contextual loop refactor (regression)", () => {
                 type: "tool_result",
                 tool_use_id: "tu_1",
                 content: "found X",
+                is_error: null,
               },
             ],
           },
@@ -127,6 +141,8 @@ describe("contextual loop refactor (regression)", () => {
       role: "tool",
       tool_call_id: "tu_1",
       content: "found X",
+      name: null,
+      tool_calls: null,
     })
   })
 })
@@ -155,11 +171,13 @@ describe("OPT-1: sanitize orphaned tool results", () => {
           type: "tool_result",
           tool_use_id: "tu_alive",
           content: "result A",
+          is_error: null,
         },
         {
           type: "tool_result",
           tool_use_id: "tu_orphan",
           content: "result B",
+          is_error: null,
         },
       ],
     },
@@ -185,7 +203,7 @@ describe("OPT-1: sanitize orphaned tool results", () => {
       (m: { role: string }) => m.role === "tool",
     )
     expect(toolMessages).toHaveLength(1)
-    expect(toolMessages[0].tool_call_id).toBe("tu_alive")
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_alive")
   })
 
   test("enabled: valid tool_result is preserved", () => {
@@ -211,6 +229,7 @@ describe("OPT-1: sanitize orphaned tool results", () => {
                 type: "tool_result",
                 tool_use_id: "tu_1",
                 content: "ok",
+                is_error: null,
               },
             ],
           },
@@ -247,6 +266,7 @@ describe("OPT-1: sanitize orphaned tool results", () => {
                 type: "tool_result",
                 tool_use_id: "tu_old",
                 content: "first turn result",
+                is_error: null,
               },
             ],
           },
@@ -268,21 +288,18 @@ describe("OPT-1: sanitize orphaned tool results", () => {
                 type: "tool_result",
                 tool_use_id: "tu_new",
                 content: "second turn result",
+                is_error: null,
               },
               {
                 type: "tool_result",
                 tool_use_id: "tu_old",
                 content: "stale reference",
+                is_error: null,
               },
             ],
           },
         ],
       }),
-    )
-    // The second user turn should only have tu_new, not tu_old
-    const lastToolMessages = result.messages.filter(
-      (m: { role: string; tool_call_id?: string }) =>
-        m.role === "tool" && m.tool_call_id !== "tu_old" || m.tool_call_id === "tu_new",
     )
     // Count all tool messages in the second turn (after the second assistant)
     const allToolMessages = result.messages.filter(
@@ -290,8 +307,8 @@ describe("OPT-1: sanitize orphaned tool results", () => {
     )
     // First turn: tu_old (valid), second turn: only tu_new (tu_old dropped)
     expect(allToolMessages).toHaveLength(2)
-    expect(allToolMessages[0].tool_call_id).toBe("tu_old")
-    expect(allToolMessages[1].tool_call_id).toBe("tu_new")
+    expect(allToolMessages[0]!.tool_call_id).toBe("tu_old")
+    expect(allToolMessages[1]!.tool_call_id).toBe("tu_new")
   })
 
   test("enabled: assistant deleted by compaction — all tool_results dropped", () => {
@@ -310,11 +327,13 @@ describe("OPT-1: sanitize orphaned tool results", () => {
                 type: "tool_result",
                 tool_use_id: "tu_deleted_1",
                 content: "result from deleted assistant",
+                is_error: null,
               },
               {
                 type: "tool_result",
                 tool_use_id: "tu_deleted_2",
                 content: "another result from deleted assistant",
+                is_error: null,
               },
               {
                 type: "text",
@@ -351,6 +370,7 @@ describe("OPT-1: sanitize orphaned tool results", () => {
                 type: "tool_result",
                 tool_use_id: "tu_deleted_1",
                 content: "result from deleted assistant",
+                is_error: null,
               },
             ],
           },
@@ -400,16 +420,19 @@ describe("OPT-2: reorder tool results", () => {
           type: "tool_result",
           tool_use_id: "tu_c",
           content: "result C",
+          is_error: null,
         },
         {
           type: "tool_result",
           tool_use_id: "tu_a",
           content: "result A",
+          is_error: null,
         },
         {
           type: "tool_result",
           tool_use_id: "tu_b",
           content: "result B",
+          is_error: null,
         },
       ],
     },
@@ -423,7 +446,7 @@ describe("OPT-2: reorder tool results", () => {
     const toolMessages = result.messages.filter(
       (m: { role: string }) => m.role === "tool",
     )
-    expect(toolMessages.map((m: { tool_call_id?: string }) => m.tool_call_id)).toEqual([
+    expect(toolMessages.map((m: { tool_call_id?: string | null }) => m.tool_call_id)).toEqual([
       "tu_c",
       "tu_a",
       "tu_b",
@@ -438,7 +461,7 @@ describe("OPT-2: reorder tool results", () => {
     const toolMessages = result.messages.filter(
       (m: { role: string }) => m.role === "tool",
     )
-    expect(toolMessages.map((m: { tool_call_id?: string }) => m.tool_call_id)).toEqual([
+    expect(toolMessages.map((m: { tool_call_id?: string | null }) => m.tool_call_id)).toEqual([
       "tu_a",
       "tu_b",
       "tu_c",
@@ -469,11 +492,13 @@ describe("OPT-2: reorder tool results", () => {
                 type: "tool_result",
                 tool_use_id: "tu_unknown",
                 content: "mystery",
+                is_error: null,
               },
               {
                 type: "tool_result",
                 tool_use_id: "tu_a",
                 content: "result A",
+                is_error: null,
               },
             ],
           },
@@ -484,8 +509,8 @@ describe("OPT-2: reorder tool results", () => {
       (m: { role: string }) => m.role === "tool",
     )
     // tu_a should come first (matched), tu_unknown should come last (unmatched)
-    expect(toolMessages[0].tool_call_id).toBe("tu_a")
-    expect(toolMessages[1].tool_call_id).toBe("tu_unknown")
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_a")
+    expect(toolMessages[1]!.tool_call_id).toBe("tu_unknown")
   })
 
   test("single tool_result: no change regardless of flag", () => {
@@ -511,6 +536,7 @@ describe("OPT-2: reorder tool results", () => {
                 type: "tool_result",
                 tool_use_id: "tu_1",
                 content: "ok",
+                is_error: null,
               },
             ],
           },
@@ -521,7 +547,7 @@ describe("OPT-2: reorder tool results", () => {
       (m: { role: string }) => m.role === "tool",
     )
     expect(toolMessages).toHaveLength(1)
-    expect(toolMessages[0].tool_call_id).toBe("tu_1")
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_1")
   })
 })
 
@@ -546,9 +572,9 @@ describe("OPT-1 + OPT-2 combined", () => {
           {
             role: "user",
             content: [
-              { type: "tool_result", tool_use_id: "tu_b", content: "B" },
-              { type: "tool_result", tool_use_id: "tu_orphan", content: "X" },
-              { type: "tool_result", tool_use_id: "tu_a", content: "A" },
+              { type: "tool_result", tool_use_id: "tu_b", content: "B", is_error: null },
+              { type: "tool_result", tool_use_id: "tu_orphan", content: "X", is_error: null },
+              { type: "tool_result", tool_use_id: "tu_a", content: "A", is_error: null },
             ],
           },
         ],
@@ -559,8 +585,8 @@ describe("OPT-1 + OPT-2 combined", () => {
     )
     // orphan dropped, remaining reordered to [tu_a, tu_b]
     expect(toolMessages).toHaveLength(2)
-    expect(toolMessages[0].tool_call_id).toBe("tu_a")
-    expect(toolMessages[1].tool_call_id).toBe("tu_b")
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_a")
+    expect(toolMessages[1]!.tool_call_id).toBe("tu_b")
   })
 })
 

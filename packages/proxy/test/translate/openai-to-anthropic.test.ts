@@ -13,10 +13,11 @@ function makeResponse(
     object: "chat.completion",
     created: 1700000000,
     model: "claude-sonnet-4",
+    system_fingerprint: null,
     choices: [
       {
         index: 0,
-        message: { role: "assistant", content: "Hello!" },
+        message: { role: "assistant", content: "Hello!", tool_calls: null },
         logprobs: null,
         finish_reason: "stop",
       },
@@ -25,6 +26,7 @@ function makeResponse(
       prompt_tokens: 10,
       completion_tokens: 5,
       total_tokens: 15,
+      prompt_tokens_details: null,
     },
     ...overrides,
   }
@@ -46,7 +48,7 @@ describe("text response", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: null },
+            message: { role: "assistant", content: null, tool_calls: null },
             logprobs: null,
             finish_reason: "stop",
           },
@@ -217,7 +219,7 @@ describe("stop_reason mapping", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: "done" },
+            message: { role: "assistant", content: "done", tool_calls: null },
             logprobs: null,
             finish_reason: "stop",
           },
@@ -233,7 +235,7 @@ describe("stop_reason mapping", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: "truncated..." },
+            message: { role: "assistant", content: "truncated...", tool_calls: null },
             logprobs: null,
             finish_reason: "length",
           },
@@ -275,7 +277,7 @@ describe("stop_reason mapping", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: "..." },
+            message: { role: "assistant", content: "...", tool_calls: null },
             logprobs: null,
             finish_reason: "content_filter",
           },
@@ -298,6 +300,7 @@ describe("usage mapping", () => {
           prompt_tokens: 100,
           completion_tokens: 50,
           total_tokens: 150,
+          prompt_tokens_details: null,
         },
       }),
     )
@@ -322,8 +325,7 @@ describe("usage mapping", () => {
   })
 
   test("E3: missing usage → defaults to zeros", () => {
-    const response = makeResponse()
-    delete response.usage
+    const response = makeResponse({ usage: null })
     const result = translateToAnthropic(response)
     expect(result.usage.input_tokens).toBe(0)
     expect(result.usage.output_tokens).toBe(0)

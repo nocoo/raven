@@ -33,6 +33,7 @@ describe("LogEmitter", () => {
       ts: Date.now(),
       level: "info",
       type: "system",
+      requestId: null,
       msg: "test event",
       ...overrides,
     };
@@ -45,8 +46,8 @@ describe("LogEmitter", () => {
     expect(emitter.bufferSize).toBe(2);
     const recent = emitter.getRecent();
     expect(recent).toHaveLength(2);
-    expect(recent[0].msg).toBe("first");
-    expect(recent[1].msg).toBe("second");
+    expect(recent[0]!.msg).toBe("first");
+    expect(recent[1]!.msg).toBe("second");
   });
 
   test("ring buffer caps at maxBufferSize", () => {
@@ -59,8 +60,8 @@ describe("LogEmitter", () => {
     expect(emitter.bufferSize).toBe(200);
     const recent = emitter.getRecent();
     // Oldest 10 should be evicted, first remaining is event-10
-    expect(recent[0].msg).toBe("event-10");
-    expect(recent[199].msg).toBe("event-209");
+    expect(recent[0]!.msg).toBe("event-10");
+    expect(recent[199]!.msg).toBe("event-209");
   });
 
   test("getRecent returns a copy, not a reference", () => {
@@ -80,7 +81,7 @@ describe("LogEmitter", () => {
 
     // Listener should have been called synchronously
     expect(received).toHaveLength(1);
-    expect(received[0].msg).toBe("sync-test");
+    expect(received[0]!.msg).toBe("sync-test");
   });
 
   test("multiple listeners all receive events", () => {
@@ -128,7 +129,7 @@ describe("LogEmitter", () => {
     };
     emitter.emitLog(event);
 
-    const stored = emitter.getRecent()[0];
+    const stored = emitter.getRecent()[0]!;
     expect(stored.ts).toBe(1700000000000);
     expect(stored.level).toBe("error");
     expect(stored.type).toBe("upstream_error");

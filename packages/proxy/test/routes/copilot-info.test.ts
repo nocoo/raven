@@ -28,14 +28,15 @@ beforeEach(() => {
         vendor: "openai",
         version: "2024-08-06",
         preview: false,
+        policy: null,
         model_picker_enabled: true,
         capabilities: {
           family: "gpt-4o",
           object: "model_capabilities",
           type: "chat",
           tokenizer: "o200k_base",
-          limits: { max_context_window_tokens: 128000, max_output_tokens: 16384 },
-          supports: { tool_calls: true },
+          limits: { max_context_window_tokens: 128000, max_output_tokens: 16384, max_prompt_tokens: null, max_inputs: null },
+          supports: { tool_calls: true, parallel_tool_calls: null, dimensions: null },
         },
       },
     ],
@@ -44,9 +45,12 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  state.models = savedModels
-  state.copilotToken = savedToken
-  state.githubToken = savedGithubToken
+  if (savedModels !== undefined) state.models = savedModels
+  else state.models = null
+  if (savedToken !== undefined) state.copilotToken = savedToken
+  else state.copilotToken = null
+  if (savedGithubToken !== undefined) state.githubToken = savedGithubToken
+  else state.githubToken = null
   fetchSpy.mockRestore()
 })
 
@@ -64,11 +68,11 @@ describe("GET /copilot/models", () => {
 
     const json = (await res.json()) as { object: string; data: Array<{ id: string }> }
     expect(json.object).toBe("list")
-    expect(json.data[0].id).toBe("gpt-4o")
+    expect(json.data[0]!.id).toBe("gpt-4o")
   })
 
   test("fetches models when state.models is empty", async () => {
-    state.models = undefined
+    state.models = null
     fetchSpy.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -81,7 +85,8 @@ describe("GET /copilot/models", () => {
               vendor: "openai",
               version: "2024",
               preview: false,
-              model_picker_enabled: true,
+              policy: null,
+        model_picker_enabled: true,
               capabilities: {
                 family: "gpt-4",
                 object: "model_capabilities",
@@ -117,7 +122,8 @@ describe("GET /copilot/models", () => {
               vendor: "openai",
               version: "2024",
               preview: false,
-              model_picker_enabled: true,
+              policy: null,
+        model_picker_enabled: true,
               capabilities: {
                 family: "gpt-4o-mini",
                 object: "model_capabilities",
@@ -142,7 +148,7 @@ describe("GET /copilot/models", () => {
   })
 
   test("cacheModels fails and state.models still null → 502", async () => {
-    state.models = undefined
+    state.models = null
     fetchSpy.mockRejectedValueOnce(new Error("network error"))
 
     const app = new Hono()

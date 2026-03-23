@@ -19,7 +19,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  state.copilotToken = savedToken
+  if (savedToken !== undefined) state.copilotToken = savedToken
+  else state.copilotToken = null
   fetchSpy.mockRestore()
 })
 

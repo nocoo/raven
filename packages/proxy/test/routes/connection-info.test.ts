@@ -16,13 +16,15 @@ beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  state.models = undefined
+  state.models = null
   fetchSpy = spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {
-  state.models = savedModels
-  state.copilotToken = savedToken
+  if (savedModels !== undefined) state.models = savedModels
+  else state.models = null
+  if (savedToken !== undefined) state.copilotToken = savedToken
+  else state.copilotToken = null
   fetchSpy.mockRestore()
 })
 
@@ -33,12 +35,12 @@ afterEach(() => {
 describe("GET /api/connection-info", () => {
   function createApp() {
     const app = new Hono()
-    app.route("/api", createConnectionInfoRoute({ port: 7033 }))
+    app.route("/api", createConnectionInfoRoute({ port: 7033, baseUrl: null }))
     return app
   }
 
   test("state.models undefined + cacheModels throws → returns { models: [] }", async () => {
-    state.models = undefined
+    state.models = null
     fetchSpy.mockRejectedValueOnce(new Error("network error"))
 
     const res = await createApp().request("/api/connection-info")
@@ -51,7 +53,7 @@ describe("GET /api/connection-info", () => {
   })
 
   test("state.models undefined + cacheModels succeeds → returns populated models", async () => {
-    state.models = undefined
+    state.models = null
     fetchSpy.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -64,7 +66,8 @@ describe("GET /api/connection-info", () => {
               vendor: "openai",
               version: "2024-08-06",
               preview: false,
-              model_picker_enabled: true,
+              policy: null,
+        model_picker_enabled: true,
               capabilities: {
                 family: "gpt-4o",
                 object: "model_capabilities",
@@ -98,14 +101,15 @@ describe("GET /api/connection-info", () => {
           vendor: "anthropic",
           version: "2025",
           preview: false,
-          model_picker_enabled: true,
+          policy: null,
+        model_picker_enabled: true,
           capabilities: {
             family: "claude-sonnet-4",
             object: "model_capabilities",
             type: "chat",
             tokenizer: "o200k_base",
-            limits: { max_context_window_tokens: 200000, max_output_tokens: 16384 },
-            supports: { tool_calls: true },
+            limits: { max_context_window_tokens: 200000, max_output_tokens: 16384, max_prompt_tokens: null, max_inputs: null },
+            supports: { tool_calls: true, parallel_tool_calls: null, dimensions: null },
           },
         },
       ],

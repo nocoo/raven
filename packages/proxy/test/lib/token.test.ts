@@ -43,8 +43,8 @@ const savedCopilotToken = state.copilotToken
 let fetchSpy: ReturnType<typeof spyOn>
 
 beforeEach(() => {
-  state.githubToken = undefined
-  state.copilotToken = undefined
+  state.githubToken = null
+  state.copilotToken = null
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
   fetchSpy = spyOn(globalThis, "fetch")
@@ -236,7 +236,7 @@ describe("setupCopilotToken", () => {
     expect(state.copilotToken).toBe("copilot-jwt")
     // scheduleTokenRefresh should have created one interval
     expect(fakeTimers.timers).toHaveLength(1)
-    expect(fakeTimers.timers[0].type).toBe("interval")
+    expect(fakeTimers.timers[0]!.type).toBe("interval")
   })
 
   test("refresh success: callback updates state.copilotToken", async () => {
@@ -246,11 +246,11 @@ describe("setupCopilotToken", () => {
 
     // Mock next getCopilotToken for refresh (same refresh_in → no reschedule)
     mockCopilotTokenResponse("copilot-jwt-refreshed", 1500)
-    await fakeTimers.tick(fakeTimers.timers[0].id)
+    await fakeTimers.tick(fakeTimers.timers[0]!.id)
 
     expect(state.copilotToken).toBe("copilot-jwt-refreshed")
     // Original timer still active (same interval)
-    expect(fakeTimers.timers[0].cleared).toBe(false)
+    expect(fakeTimers.timers[0]!.cleared).toBe(false)
   })
 
   test("refresh with changed refresh_in: reschedules with new interval", async () => {
@@ -260,15 +260,15 @@ describe("setupCopilotToken", () => {
 
     // Return different refresh_in → should reschedule
     mockCopilotTokenResponse("copilot-jwt-v2", 3000)
-    await fakeTimers.tick(fakeTimers.timers[0].id)
+    await fakeTimers.tick(fakeTimers.timers[0]!.id)
 
     expect(state.copilotToken).toBe("copilot-jwt-v2")
     // Original timer cleared
-    expect(fakeTimers.timers[0].cleared).toBe(true)
+    expect(fakeTimers.timers[0]!.cleared).toBe(true)
     // New timer created
     expect(fakeTimers.timers).toHaveLength(2)
-    expect(fakeTimers.timers[1].type).toBe("interval")
-    expect(fakeTimers.timers[1].cleared).toBe(false)
+    expect(fakeTimers.timers[1]!.type).toBe("interval")
+    expect(fakeTimers.timers[1]!.cleared).toBe(false)
   })
 
   test("refresh failure → switches to retry backoff (setTimeout)", async () => {
@@ -278,15 +278,15 @@ describe("setupCopilotToken", () => {
 
     // Refresh fails
     fetchSpy.mockResolvedValueOnce(new Response("error", { status: 500 }))
-    await fakeTimers.tick(fakeTimers.timers[0].id)
+    await fakeTimers.tick(fakeTimers.timers[0]!.id)
 
     // Original interval cleared
-    expect(fakeTimers.timers[0].cleared).toBe(true)
+    expect(fakeTimers.timers[0]!.cleared).toBe(true)
     // retryTokenRefresh creates a setTimeout
     expect(fakeTimers.timers).toHaveLength(2)
-    expect(fakeTimers.timers[1].type).toBe("timeout")
+    expect(fakeTimers.timers[1]!.type).toBe("timeout")
     // Initial backoff = 5000ms
-    expect(fakeTimers.timers[1].ms).toBe(5_000)
+    expect(fakeTimers.timers[1]!.ms).toBe(5_000)
   })
 
   test("retry success → resumes normal schedule (setInterval)", async () => {
@@ -296,16 +296,16 @@ describe("setupCopilotToken", () => {
 
     // Refresh fails → enters retry
     fetchSpy.mockResolvedValueOnce(new Response("error", { status: 500 }))
-    await fakeTimers.tick(fakeTimers.timers[0].id)
+    await fakeTimers.tick(fakeTimers.timers[0]!.id)
 
     // Retry succeeds
     mockCopilotTokenResponse("copilot-recovered", 1500)
-    await fakeTimers.tick(fakeTimers.timers[1].id)
+    await fakeTimers.tick(fakeTimers.timers[1]!.id)
 
     expect(state.copilotToken).toBe("copilot-recovered")
     // Should have created a new setInterval (timer index 2)
     expect(fakeTimers.timers).toHaveLength(3)
-    expect(fakeTimers.timers[2].type).toBe("interval")
+    expect(fakeTimers.timers[2]!.type).toBe("interval")
   })
 
   test("retry failure → doubles backoff (capped at MAX_BACKOFF_MS)", async () => {
@@ -315,21 +315,21 @@ describe("setupCopilotToken", () => {
 
     // Refresh fails → enters retry at 5000ms
     fetchSpy.mockResolvedValueOnce(new Response("error", { status: 500 }))
-    await fakeTimers.tick(fakeTimers.timers[0].id)
+    await fakeTimers.tick(fakeTimers.timers[0]!.id)
 
     // Retry fails → should create next timeout at 10000ms
     fetchSpy.mockResolvedValueOnce(new Response("error", { status: 500 }))
-    await fakeTimers.tick(fakeTimers.timers[1].id)
+    await fakeTimers.tick(fakeTimers.timers[1]!.id)
 
     expect(fakeTimers.timers).toHaveLength(3)
-    expect(fakeTimers.timers[2].type).toBe("timeout")
-    expect(fakeTimers.timers[2].ms).toBe(10_000)
+    expect(fakeTimers.timers[2]!.type).toBe("timeout")
+    expect(fakeTimers.timers[2]!.ms).toBe(10_000)
 
     // Retry fails again → 20000ms
     fetchSpy.mockResolvedValueOnce(new Response("error", { status: 500 }))
-    await fakeTimers.tick(fakeTimers.timers[2].id)
+    await fakeTimers.tick(fakeTimers.timers[2]!.id)
 
-    expect(fakeTimers.timers[3].type).toBe("timeout")
-    expect(fakeTimers.timers[3].ms).toBe(20_000)
+    expect(fakeTimers.timers[3]!.type).toBe("timeout")
+    expect(fakeTimers.timers[3]!.ms).toBe(20_000)
   })
 })

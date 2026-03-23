@@ -180,7 +180,7 @@ describe("queryTimeseries", () => {
     expect(result.length).toBeGreaterThanOrEqual(2);
 
     // Most recent bucket should have 2 requests
-    const latestBucket = result[result.length - 1];
+    const latestBucket = result[result.length - 1]!;
     expect(latestBucket.count).toBe(2);
   });
 
@@ -265,7 +265,7 @@ describe("queryRecent", () => {
     const result = queryRecent(db, 3);
     expect(result).toHaveLength(3);
     // Should be in desc order
-    expect(result[0].timestamp).toBeGreaterThan(result[1].timestamp);
+    expect(result[0]!.timestamp).toBeGreaterThan(result[1]!.timestamp);
   });
 
   test("default limit is 50", () => {
@@ -289,7 +289,7 @@ describe("queryRequests", () => {
 
     const result = queryRequests(db, { model: "gpt-4o" });
     expect(result.data).toHaveLength(1);
-    expect(result.data[0].model).toBe("gpt-4o");
+    expect(result.data[0]!.model).toBe("gpt-4o");
   });
 
   test("filter by status", () => {
@@ -298,7 +298,7 @@ describe("queryRequests", () => {
 
     const result = queryRequests(db, { status: "error" });
     expect(result.data).toHaveLength(1);
-    expect(result.data[0].status).toBe("error");
+    expect(result.data[0]!.status).toBe("error");
   });
 
   test("filter by format", () => {
@@ -307,7 +307,7 @@ describe("queryRequests", () => {
 
     const result = queryRequests(db, { format: "openai" });
     expect(result.data).toHaveLength(1);
-    expect(result.data[0].client_format).toBe("openai");
+    expect(result.data[0]!.client_format).toBe("openai");
   });
 
   test("sort by latency_ms desc", () => {
@@ -319,8 +319,8 @@ describe("queryRequests", () => {
       sort: "latency_ms",
       order: "desc",
     });
-    expect(result.data[0].latency_ms).toBe(500);
-    expect(result.data[2].latency_ms).toBe(100);
+    expect(result.data[0]!.latency_ms).toBe(500);
+    expect(result.data[2]!.latency_ms).toBe(100);
   });
 
   test("cursor-based pagination (sort=timestamp)", () => {
@@ -381,7 +381,7 @@ describe("queryRequests", () => {
       offset: 2,
     });
     expect(page2.data).toHaveLength(2);
-    expect(page2.data[0].latency_ms).toBeLessThan(page1.data[1].latency_ms);
+    expect(page2.data[0]!.latency_ms).toBeLessThan(page1.data[1]!.latency_ms);
   });
 
   test("limit capped at 200", () => {

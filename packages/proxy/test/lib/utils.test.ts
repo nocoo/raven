@@ -94,7 +94,7 @@ describe("cacheVersions", () => {
 
 describe("cacheModels", () => {
   test("fetches models and stores in state", async () => {
-    state.models = undefined
+    state.models = null
     fetchSpy.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -119,13 +119,13 @@ describe("cacheModels", () => {
             },
           ],
         }),
-        { status: 200, headers: { "content-type": "application/json" } },
+        { status: 200, headers: { "Content-Type": "application/json" } },
       ),
     )
 
     await cacheModels()
     expect(state.models).toBeDefined()
-    expect(state.models!.data[0].id).toBe("gpt-4")
+    expect(state.models!.data[0]!.id).toBe("gpt-4")
   })
 })
 

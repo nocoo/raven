@@ -60,7 +60,11 @@ async function consumeSSE(
       currentEvent = line.slice(7).trim();
     } else if (line.startsWith("data: ")) {
       const data = line.slice(6);
-      events.push({ event: currentEvent, data });
+      if (currentEvent !== undefined) {
+        events.push({ event: currentEvent, data });
+      } else {
+        events.push({ data });
+      }
       currentEvent = undefined;
     }
   }
@@ -276,7 +280,7 @@ describe("e2e L2: /v1/chat/completions (streaming)", () => {
 
     // Should have at least one data chunk and end with [DONE]
     expect(events.length).toBeGreaterThan(1);
-    expect(events[events.length - 1].data).toBe("[DONE]");
+    expect(events[events.length - 1]!.data).toBe("[DONE]");
 
     // At least one chunk should have model field
     const dataChunks = events

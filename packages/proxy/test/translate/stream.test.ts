@@ -9,6 +9,8 @@ import type {
   AnthropicStreamState,
 } from "../../src/routes/messages/anthropic-types"
 
+type Delta = ChatCompletionChunk["choices"][0]["delta"]
+
 // ---------------------------------------------------------------------------
 // Helper: create a fresh stream state
 // ---------------------------------------------------------------------------
@@ -26,20 +28,28 @@ function makeState(): AnthropicStreamState {
 // ---------------------------------------------------------------------------
 function makeChunk(
   overrides: Partial<ChatCompletionChunk> & {
-    delta?: ChatCompletionChunk["choices"][0]["delta"]
+    delta?: Partial<Delta>
     finish_reason?: ChatCompletionChunk["choices"][0]["finish_reason"]
   } = {},
 ): ChatCompletionChunk {
   const { delta, finish_reason, ...rest } = overrides
+  const fullDelta: Delta = {
+    content: null,
+    role: null,
+    tool_calls: [],
+    ...delta,
+  }
   return {
     id: "chatcmpl-123",
     object: "chat.completion.chunk",
     created: 1700000000,
     model: "claude-sonnet-4",
+    system_fingerprint: null,
+    usage: null,
     choices: [
       {
         index: 0,
-        delta: delta ?? {},
+        delta: fullDelta,
         finish_reason: finish_reason ?? null,
         logprobs: null,
       },
@@ -76,6 +86,8 @@ describe("message_start", () => {
           prompt_tokens: 100,
           completion_tokens: 0,
           total_tokens: 100,
+          prompt_tokens_details: null,
+          completion_tokens_details: null,
         },
       }),
       state,
@@ -102,6 +114,7 @@ describe("message_start", () => {
           completion_tokens: 0,
           total_tokens: 100,
           prompt_tokens_details: { cached_tokens: 40 },
+          completion_tokens_details: null,
         },
       }),
       state,
@@ -271,7 +284,9 @@ describe("tool call streaming", () => {
           tool_calls: [
             {
               index: 0,
-              function: { arguments: 'ty":"SF"}' },
+              id: null,
+              type: null,
+              function: { name: null, arguments: 'ty":"SF"}' },
             },
           ],
         },
@@ -420,6 +435,8 @@ describe("finish events", () => {
           prompt_tokens: 10,
           completion_tokens: 5,
           total_tokens: 15,
+          prompt_tokens_details: null,
+          completion_tokens_details: null,
         },
       }),
       state,
@@ -737,7 +754,7 @@ describe("finish while tool block open", () => {
       makeChunk({
         delta: {},
         finish_reason: "tool_calls",
-        usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
+        usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60, prompt_tokens_details: null, completion_tokens_details: null },
       }),
       state,
     )
@@ -766,6 +783,8 @@ describe("empty choices", () => {
       object: "chat.completion.chunk",
       created: 1700000000,
       model: "gpt-4o",
+      system_fingerprint: null,
+      usage: null,
       choices: [],
     }
     const events = translateChunkToAnthropicEvents(chunk, state)

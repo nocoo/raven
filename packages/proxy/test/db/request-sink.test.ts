@@ -70,19 +70,19 @@ describe("request-sink", () => {
 
     const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
     expect(rows).toHaveLength(1)
-    expect(rows[0].id).toBe("req_test_123")
-    expect(rows[0].path).toBe("/v1/chat/completions")
-    expect(rows[0].client_format).toBe("openai")
-    expect(rows[0].model).toBe("gpt-4o")
-    expect(rows[0].resolved_model).toBe("gpt-4o-2024-08-06")
-    expect(rows[0].input_tokens).toBe(100)
-    expect(rows[0].output_tokens).toBe(50)
-    expect(rows[0].latency_ms).toBe(500)
-    expect(rows[0].status).toBe("success")
-    expect(rows[0].status_code).toBe(200)
-    expect(rows[0].session_id).toBe("user_abc_a885da1234")
-    expect(rows[0].client_name).toBe("Claude Code")
-    expect(rows[0].client_version).toBe("1.2.3")
+    expect(rows[0]!.id).toBe("req_test_123")
+    expect(rows[0]!.path).toBe("/v1/chat/completions")
+    expect(rows[0]!.client_format).toBe("openai")
+    expect(rows[0]!.model).toBe("gpt-4o")
+    expect(rows[0]!.resolved_model).toBe("gpt-4o-2024-08-06")
+    expect(rows[0]!.input_tokens).toBe(100)
+    expect(rows[0]!.output_tokens).toBe(50)
+    expect(rows[0]!.latency_ms).toBe(500)
+    expect(rows[0]!.status).toBe("success")
+    expect(rows[0]!.status_code).toBe(200)
+    expect(rows[0]!.session_id).toBe("user_abc_a885da1234")
+    expect(rows[0]!.client_name).toBe("Claude Code")
+    expect(rows[0]!.client_version).toBe("1.2.3")
   })
 
   test("ignores non-request_end events", () => {
@@ -106,6 +106,7 @@ describe("request-sink", () => {
       ts: Date.now(),
       level: "info",
       type: "system",
+      requestId: null,
       msg: "system message",
     })
 
@@ -136,13 +137,13 @@ describe("request-sink", () => {
 
     const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
     expect(rows).toHaveLength(1)
-    expect(rows[0].id).toBe("req_err_456")
-    expect(rows[0].status).toBe("error")
-    expect(rows[0].status_code).toBe(502)
-    expect(rows[0].error_message).toBe("stream error: connection reset")
-    expect(rows[0].client_format).toBe("anthropic")
-    expect(rows[0].stream).toBe(1)
-    expect(rows[0].account_name).toBe("test-account")
+    expect(rows[0]!.id).toBe("req_err_456")
+    expect(rows[0]!.status).toBe("error")
+    expect(rows[0]!.status_code).toBe(502)
+    expect(rows[0]!.error_message).toBe("stream error: connection reset")
+    expect(rows[0]!.client_format).toBe("anthropic")
+    expect(rows[0]!.stream).toBe(1)
+    expect(rows[0]!.account_name).toBe("test-account")
   })
 
   test("multiple events → multiple rows", () => {
@@ -165,6 +166,7 @@ describe("request-sink", () => {
       ts: Date.now(),
       level: "info",
       type: "request_end",
+      requestId: null,
       msg: "no id",
       data: { path: "/v1/chat/completions", model: "gpt-4o" },
     })
@@ -194,9 +196,9 @@ describe("request-sink", () => {
 
     const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
     expect(rows).toHaveLength(1)
-    expect(rows[0].path).toBe("")
-    expect(rows[0].model).toBe("")
-    expect(rows[0].status).toBe("unknown")
+    expect(rows[0]!.path).toBe("")
+    expect(rows[0]!.model).toBe("")
+    expect(rows[0]!.status).toBe("unknown")
   })
 
   test("persists Anthropic format with translated model", () => {
@@ -223,9 +225,9 @@ describe("request-sink", () => {
 
     const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
     expect(rows).toHaveLength(1)
-    expect(rows[0].client_format).toBe("anthropic")
-    expect(rows[0].model).toBe("claude-sonnet-4-20250514")
-    expect(rows[0].resolved_model).toBe("Claude Sonnet 4")
+    expect(rows[0]!.client_format).toBe("anthropic")
+    expect(rows[0]!.model).toBe("claude-sonnet-4-20250514")
+    expect(rows[0]!.resolved_model).toBe("Claude Sonnet 4")
   })
 
   test("DB error does not throw", () => {
@@ -266,9 +268,9 @@ describe("request-sink", () => {
 
     const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
     expect(rows).toHaveLength(1)
-    expect(rows[0].session_id).toBe("550e8400-e29b-41d4-a716-446655440000::Claude Code::default")
-    expect(rows[0].client_name).toBe("Claude Code")
-    expect(rows[0].client_version).toBe("2.0.0-beta.1")
+    expect(rows[0]!.session_id).toBe("550e8400-e29b-41d4-a716-446655440000::Claude Code::default")
+    expect(rows[0]!.client_name).toBe("Claude Code")
+    expect(rows[0]!.client_version).toBe("2.0.0-beta.1")
   })
 
   test("persists null client_version", () => {
@@ -293,8 +295,8 @@ describe("request-sink", () => {
 
     const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
     expect(rows).toHaveLength(1)
-    expect(rows[0].session_id).toBe("user_xyz")
-    expect(rows[0].client_name).toBe("Cursor")
-    expect(rows[0].client_version).toBeNull()
+    expect(rows[0]!.session_id).toBe("user_xyz")
+    expect(rows[0]!.client_name).toBe("Cursor")
+    expect(rows[0]!.client_version).toBeNull()
   })
 })

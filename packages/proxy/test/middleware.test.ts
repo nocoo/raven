@@ -15,7 +15,7 @@ function createTestDb(): Database {
 }
 
 /** App with apiKeyAuth on /v1/* for AI route tests */
-function createAiApp(db: Database, envApiKey?: string) {
+function createAiApp(db: Database, envApiKey: string | null = null) {
   const app = new Hono();
   const auth = apiKeyAuth({ db, envApiKey });
   app.use("/v1/*", auth);
@@ -28,7 +28,7 @@ function createAiApp(db: Database, envApiKey?: string) {
 }
 
 /** App with dashboardAuth on /api/* for management route tests */
-function createDashboardApp(db: Database, envApiKey?: string, internalKey?: string) {
+function createDashboardApp(db: Database, envApiKey: string | null = null, internalKey: string | null = null) {
   const app = new Hono();
   const auth = dashboardAuth({ db, envApiKey, internalKey });
   app.use("/api/*", auth);

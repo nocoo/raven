@@ -40,6 +40,7 @@ function makeModel(overrides: Partial<Model> = {}): Model {
         dimensions: null,
       },
     },
+    policy: null,
     ...overrides,
   }
 }
@@ -369,6 +370,7 @@ describe("numTokensForTools", () => {
         type: "function",
         function: {
           name: "fn",
+          description: null,
           parameters: {
             properties: {
               primitive: "not-an-object" as unknown,
@@ -387,6 +389,7 @@ describe("numTokensForTools", () => {
         type: "function",
         function: {
           name: "fn",
+          description: null,
           parameters: {
             properties: {
               field: {
@@ -410,6 +413,7 @@ describe("numTokensForTools", () => {
         type: "function",
         function: {
           name: "fn",
+          description: null,
           parameters: {
             properties: {
               x: { type: "string", description: "Desc." },
@@ -425,6 +429,7 @@ describe("numTokensForTools", () => {
         type: "function",
         function: {
           name: "fn",
+          description: null,
           parameters: {
             properties: {
               x: { type: "string", description: "Desc" },
@@ -443,6 +448,7 @@ describe("numTokensForTools", () => {
         type: "function",
         function: {
           name: "fn",
+          description: null,
           parameters: {
             type: "object",
             required: ["x"],
@@ -460,6 +466,7 @@ describe("numTokensForTools", () => {
         type: "function",
         function: {
           name: "fn",
+          description: null,
           parameters: null as unknown as Record<string, unknown>,
         },
       },

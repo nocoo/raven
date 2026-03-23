@@ -23,7 +23,14 @@ function makeComplexRequest(): AnthropicMessagesPayload {
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     system: "You are a helpful assistant.",
+    metadata: null,
+    stop_sequences: null,
+    stream: null,
     temperature: 0.7,
+    top_p: null,
+    top_k: null,
+    thinking: null,
+    service_tier: null,
     tools: [
       {
         name: "get_weather",
@@ -47,7 +54,7 @@ function makeComplexRequest(): AnthropicMessagesPayload {
         },
       },
     ],
-    tool_choice: { type: "auto" },
+    tool_choice: { type: "auto", name: null },
     messages: [
       { role: "user", content: "What's the weather in SF?" },
       {
@@ -70,6 +77,7 @@ function makeComplexRequest(): AnthropicMessagesPayload {
             type: "tool_result",
             tool_use_id: "tu_1",
             content: "Temperature: 18°C, Conditions: Partly cloudy",
+            is_error: null,
           },
         ],
       },
@@ -115,6 +123,7 @@ function makeComplexRequest(): AnthropicMessagesPayload {
             type: "tool_result",
             tool_use_id: "tu_2",
             content: "Bun 1.x shows 3x faster startup than Node.js...",
+            is_error: null,
           },
         ],
       },
@@ -170,6 +179,7 @@ function makeComplexResponse(): ChatCompletionResponse {
       total_tokens: 620,
       prompt_tokens_details: { cached_tokens: 200 },
     },
+    system_fingerprint: null,
   };
 }
 
@@ -193,14 +203,24 @@ function makeStreamChunks(): ChatCompletionChunk[] {
     created: 1700000000,
     model: "claude-sonnet-4",
     choices: [
-      { index: 0, delta: { role: "assistant" }, finish_reason: null, logprobs: null },
+      {
+        index: 0,
+        delta: { content: null, role: "assistant", tool_calls: [] },
+        finish_reason: null,
+        logprobs: null,
+      },
     ],
     usage: {
       prompt_tokens: 100,
       completion_tokens: 0,
       total_tokens: 100,
       prompt_tokens_details: { cached_tokens: 30 },
+      completion_tokens_details: {
+        accepted_prediction_tokens: 0,
+        rejected_prediction_tokens: 0,
+      },
     },
+    system_fingerprint: null,
   });
 
   // 150 text chunks
@@ -213,11 +233,13 @@ function makeStreamChunks(): ChatCompletionChunk[] {
       choices: [
         {
           index: 0,
-          delta: { content: `word${i} ` },
+          delta: { content: `word${i} `, role: null, tool_calls: [] },
           finish_reason: null,
           logprobs: null,
         },
       ],
+      usage: null,
+      system_fingerprint: null,
     });
   }
 
@@ -227,10 +249,13 @@ function makeStreamChunks(): ChatCompletionChunk[] {
     object: "chat.completion.chunk",
     created: 1700000000,
     model: "claude-sonnet-4",
+    system_fingerprint: null,
     choices: [
       {
         index: 0,
         delta: {
+          content: null,
+          role: null,
           tool_calls: [
             {
               index: 0,
@@ -244,6 +269,7 @@ function makeStreamChunks(): ChatCompletionChunk[] {
         logprobs: null,
       },
     ],
+    usage: null,
   });
 
   // 47 tool argument continuation chunks
@@ -253,14 +279,19 @@ function makeStreamChunks(): ChatCompletionChunk[] {
       object: "chat.completion.chunk",
       created: 1700000000,
       model: "claude-sonnet-4",
+      system_fingerprint: null,
       choices: [
         {
           index: 0,
           delta: {
+            content: null,
+            role: null,
             tool_calls: [
               {
                 index: 0,
-                function: { arguments: `a${i}` },
+                id: null,
+                type: null,
+                function: { name: null, arguments: `a${i}` },
               },
             ],
           },
@@ -268,6 +299,7 @@ function makeStreamChunks(): ChatCompletionChunk[] {
           logprobs: null,
         },
       ],
+      usage: null,
     });
   }
 
@@ -277,11 +309,14 @@ function makeStreamChunks(): ChatCompletionChunk[] {
     object: "chat.completion.chunk",
     created: 1700000000,
     model: "claude-sonnet-4",
-    choices: [{ index: 0, delta: {}, finish_reason: "tool_calls", logprobs: null }],
+    system_fingerprint: null,
+    choices: [{ index: 0, delta: { content: null, role: null, tool_calls: [] }, finish_reason: "tool_calls", logprobs: null }],
     usage: {
       prompt_tokens: 100,
       completion_tokens: 200,
       total_tokens: 300,
+      prompt_tokens_details: null,
+      completion_tokens_details: null,
     },
   });
 

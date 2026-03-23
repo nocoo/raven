@@ -19,12 +19,13 @@ beforeEach(() => {
     object: "list",
     data: [{
       id: "gpt-4o", name: "GPT-4o", object: "model", vendor: "openai",
-      version: "2024-08-06", preview: false, model_picker_enabled: true,
+      version: "2024-08-06", preview: false, policy: null,
+        model_picker_enabled: true,
       capabilities: {
         family: "gpt-4o", object: "model_capabilities", type: "chat",
         tokenizer: "o200k_base",
-        limits: { max_context_window_tokens: 128000, max_output_tokens: 16384 },
-        supports: { tool_calls: true },
+        limits: { max_context_window_tokens: 128000, max_output_tokens: 16384, max_prompt_tokens: null, max_inputs: null },
+        supports: { tool_calls: true, parallel_tool_calls: null, dimensions: null },
       },
     }],
   }
@@ -32,7 +33,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  state.copilotToken = savedToken
+  if (savedToken !== undefined) state.copilotToken = savedToken
+  else state.copilotToken = null
   fetchSpy.mockRestore()
 })
 

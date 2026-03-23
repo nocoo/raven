@@ -193,8 +193,8 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"id\":1}" },
-        { data: "{\"id\":2}" },
+        { data: "{\"id\":1}", event: null, id: null, retry: null },
+        { data: "{\"id\":2}", event: null, id: null, retry: null },
       ]);
     });
 
@@ -210,8 +210,8 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"type\":\"message_start\"}", event: "message_start" },
-        { data: "{\"delta\":\"hi\"}", event: "content_block_delta" },
+        { data: "{\"type\":\"message_start\"}", event: "message_start", id: null, retry: null },
+        { data: "{\"delta\":\"hi\"}", event: "content_block_delta", id: null, retry: null },
       ]);
     });
 
@@ -224,7 +224,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "hello", id: "42" },
+        { data: "hello", event: null, id: "42", retry: null },
       ]);
     });
 
@@ -237,7 +237,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "reconnect", retry: 5000 },
+        { data: "reconnect", event: null, id: null, retry: 5000 },
       ]);
     });
 
@@ -249,7 +249,7 @@ describe("SSE Parser", () => {
         result.push(event);
       }
 
-      expect(result).toEqual([{ data: "ok" }]);
+      expect(result).toEqual([{ data: "ok", event: null, id: null, retry: null }]);
     });
 
     test("concatenates multiple data lines with newlines", async () => {
@@ -263,7 +263,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "line1\nline2\nline3" },
+        { data: "line1\nline2\nline3", event: null, id: null, retry: null },
       ]);
     });
 
@@ -278,7 +278,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "real data" },
+        { data: "real data", event: null, id: null, retry: null },
       ]);
     });
 
@@ -293,7 +293,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "after blanks" },
+        { data: "after blanks", event: null, id: null, retry: null },
       ]);
     });
 
@@ -311,8 +311,8 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"id\":1}", event: "delta" },
-        { data: "{\"id\":2}", event: "delta" },
+        { data: "{\"id\":1}", event: "delta", id: null, retry: null },
+        { data: "{\"id\":2}", event: "delta", id: null, retry: null },
       ]);
     });
 
@@ -327,7 +327,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "crlf" },
+        { data: "crlf", event: null, id: null, retry: null },
       ]);
     });
 
@@ -342,7 +342,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "cr" },
+        { data: "cr", event: null, id: null, retry: null },
       ]);
     });
 
@@ -378,7 +378,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "last" },
+        { data: "last", event: null, id: null, retry: null },
       ]);
     });
 
@@ -392,7 +392,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "tail", event: "delta" },
+        { data: "tail", event: "delta", id: null, retry: null },
       ]);
     });
 
@@ -411,8 +411,8 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"id\":1}" },
-        { data: "[DONE]" },
+        { data: "{\"id\":1}", event: null, id: null, retry: null },
+        { data: "[DONE]", event: null, id: null, retry: null },
       ]);
     });
 
@@ -425,7 +425,7 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"compact\":true}" },
+        { data: "{\"compact\":true}", event: null, id: null, retry: null },
       ]);
     });
 
@@ -457,10 +457,10 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toHaveLength(4);
-      expect(JSON.parse(result[0].data).choices[0].delta.role).toBe("assistant");
-      expect(JSON.parse(result[1].data).choices[0].delta.content).toBe("Hello");
-      expect(JSON.parse(result[2].data).choices[0].delta.content).toBe(" world");
-      expect(result[3].data).toBe("[DONE]");
+      expect(JSON.parse(result[0]!.data).choices[0]!.delta.role).toBe("assistant");
+      expect(JSON.parse(result[1]!.data).choices[0]!.delta.content).toBe("Hello");
+      expect(JSON.parse(result[2]!.data).choices[0]!.delta.content).toBe(" world");
+      expect(result[3]!.data).toBe("[DONE]");
     });
   });
 });

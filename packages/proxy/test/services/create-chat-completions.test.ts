@@ -55,7 +55,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  state.copilotToken = SAVED_TOKEN
+  if (SAVED_TOKEN !== undefined) state.copilotToken = SAVED_TOKEN
+  else state.copilotToken = null
   fetchSpy.mockRestore()
 })
 
@@ -65,7 +66,7 @@ afterEach(() => {
 
 describe("createChatCompletions", () => {
   test("throws when copilotToken is missing", async () => {
-    state.copilotToken = undefined
+    state.copilotToken = null
     try {
       await createChatCompletions(makePayload())
       expect(true).toBe(false) // should not reach

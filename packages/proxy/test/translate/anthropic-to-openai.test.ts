@@ -16,6 +16,17 @@ function makeRequest(
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
     messages: [{ role: "user", content: "hello" }],
+    system: null,
+    metadata: null,
+    stop_sequences: null,
+    stream: null,
+    temperature: null,
+    top_p: null,
+    top_k: null,
+    tools: null,
+    tool_choice: null,
+    thinking: null,
+    service_tier: null,
     ...overrides,
   }
 }
@@ -32,6 +43,9 @@ describe("system prompt", () => {
     expect(result.messages[0]).toEqual({
       role: "system",
       content: "You are helpful.",
+      name: null,
+      tool_calls: null,
+      tool_call_id: null,
     })
   })
 
@@ -47,6 +61,9 @@ describe("system prompt", () => {
     expect(result.messages[0]).toEqual({
       role: "system",
       content: "Part one.\n\nPart two.",
+      name: null,
+      tool_calls: null,
+      tool_call_id: null,
     })
   })
 
@@ -75,8 +92,8 @@ describe("text messages", () => {
       }),
     )
     expect(result.messages).toEqual([
-      { role: "user", content: "hi" },
-      { role: "assistant", content: "hello" },
+      { role: "user", content: "hi", name: null, tool_calls: null, tool_call_id: null },
+      { role: "assistant", content: "hello", name: null, tool_calls: null, tool_call_id: null },
     ])
   })
 
@@ -97,6 +114,9 @@ describe("text messages", () => {
     expect(result.messages[0]).toEqual({
       role: "user",
       content: "first\n\nsecond",
+      name: null,
+      tool_calls: null,
+      tool_call_id: null,
     })
   })
 })
@@ -124,7 +144,7 @@ describe("tool_use blocks", () => {
         ],
       }),
     )
-    const msg = result.messages[0]
+    const msg = result.messages[0]!
     expect(msg.role).toBe("assistant")
     expect(msg.content).toBeNull()
     expect(msg.tool_calls).toEqual([
@@ -158,11 +178,11 @@ describe("tool_use blocks", () => {
         ],
       }),
     )
-    const msg = result.messages[0]
+    const msg = result.messages[0]!
     expect(msg.role).toBe("assistant")
     expect(msg.content).toBe("Let me check.")
     expect(msg.tool_calls).toHaveLength(1)
-    expect(msg.tool_calls![0].function.name).toBe("search")
+    expect(msg.tool_calls![0]!.function.name).toBe("search")
   })
 
   test("multiple tool_use blocks → multiple tool_calls", () => {
@@ -189,7 +209,7 @@ describe("tool_use blocks", () => {
         ],
       }),
     )
-    expect(result.messages[0].tool_calls).toHaveLength(2)
+    expect(result.messages[0]!.tool_calls).toHaveLength(2)
   })
 })
 
@@ -209,6 +229,7 @@ describe("tool_result blocks", () => {
                 type: "tool_result",
                 tool_use_id: "tu_1",
                 content: "72°F",
+                is_error: null,
               },
             ],
           },
@@ -219,6 +240,8 @@ describe("tool_result blocks", () => {
       role: "tool",
       tool_call_id: "tu_1",
       content: "72°F",
+      name: null,
+      tool_calls: null,
     })
   })
 
@@ -236,6 +259,7 @@ describe("tool_result blocks", () => {
                 type: "tool_result",
                 tool_use_id: "tu_1",
                 content: "Line 1\nLine 2",
+                is_error: null,
               },
             ],
           },
@@ -246,6 +270,8 @@ describe("tool_result blocks", () => {
       role: "tool",
       tool_call_id: "tu_1",
       content: "Line 1\nLine 2",
+      name: null,
+      tool_calls: null,
     })
   })
 
@@ -260,11 +286,13 @@ describe("tool_result blocks", () => {
                 type: "tool_result",
                 tool_use_id: "tu_a",
                 content: "result_a",
+                is_error: null,
               },
               {
                 type: "tool_result",
                 tool_use_id: "tu_b",
                 content: "result_b",
+                is_error: null,
               },
             ],
           },
@@ -276,11 +304,15 @@ describe("tool_result blocks", () => {
       role: "tool",
       tool_call_id: "tu_a",
       content: "result_a",
+      name: null,
+      tool_calls: null,
     })
     expect(result.messages[1]).toEqual({
       role: "tool",
       tool_call_id: "tu_b",
       content: "result_b",
+      name: null,
+      tool_calls: null,
     })
   })
 
@@ -295,6 +327,7 @@ describe("tool_result blocks", () => {
                 type: "tool_result",
                 tool_use_id: "tu_1",
                 content: "ok",
+                is_error: null,
               },
               { type: "text", text: "Now continue." },
             ],
@@ -304,10 +337,13 @@ describe("tool_result blocks", () => {
     )
     // tool_result becomes tool message, text becomes user message
     expect(result.messages).toHaveLength(2)
-    expect(result.messages[0].role).toBe("tool")
+    expect(result.messages[0]!.role).toBe("tool")
     expect(result.messages[1]).toEqual({
       role: "user",
       content: "Now continue.",
+      name: null,
+      tool_calls: null,
+      tool_call_id: null,
     })
   })
 })
@@ -331,7 +367,7 @@ describe("thinking blocks", () => {
         ],
       }),
     )
-    const msg = result.messages[0]
+    const msg = result.messages[0]!
     expect(msg.role).toBe("assistant")
     // thinking is merged into text
     expect(typeof msg.content).toBe("string")
@@ -349,7 +385,7 @@ describe("thinking blocks", () => {
         ],
       }),
     )
-    const msg = result.messages[0]
+    const msg = result.messages[0]!
     expect(msg.role).toBe("assistant")
     expect(typeof msg.content).toBe("string")
     expect(msg.content as string).toContain("Hmm...")
@@ -381,15 +417,15 @@ describe("image blocks", () => {
         ],
       }),
     )
-    const msg = result.messages[0]
+    const msg = result.messages[0]!
     expect(msg.role).toBe("user")
     expect(Array.isArray(msg.content)).toBe(true)
     const content = msg.content as Array<{
       type: string
       image_url?: { url: string }
     }>
-    expect(content[0].type).toBe("image_url")
-    expect(content[0].image_url!.url).toBe("data:image/png;base64,iVBOR...")
+    expect(content[0]!.type).toBe("image_url")
+    expect(content[0]!.image_url!.url).toBe("data:image/png;base64,iVBOR...")
   })
 
   test("text + image mixed → array content with both types", () => {
@@ -413,11 +449,11 @@ describe("image blocks", () => {
         ],
       }),
     )
-    const msg = result.messages[0]
+    const msg = result.messages[0]!
     const content = msg.content as Array<{ type: string }>
     expect(content).toHaveLength(2)
-    expect(content[0].type).toBe("text")
-    expect(content[1].type).toBe("image_url")
+    expect(content[0]!.type).toBe("text")
+    expect(content[1]!.type).toBe("image_url")
   })
 })
 
@@ -447,11 +483,11 @@ describe("E6: image + thinking mixed", () => {
         ],
       }),
     )
-    const msg = result.messages[0]
+    const msg = result.messages[0]!
     const content = msg.content as Array<{ type: string }>
     expect(content).toHaveLength(2)
-    expect(content[0].type).toBe("text")
-    expect(content[1].type).toBe("image_url")
+    expect(content[0]!.type).toBe("text")
+    expect(content[1]!.type).toBe("image_url")
   })
 })
 
@@ -505,14 +541,14 @@ describe("tools translation", () => {
 describe("tool_choice translation", () => {
   test("auto → 'auto'", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "auto" } }),
+      makeRequest({ tool_choice: { type: "auto", name: null } }),
     )
     expect(result.tool_choice).toBe("auto")
   })
 
   test("any → 'required'", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "any" } }),
+      makeRequest({ tool_choice: { type: "any", name: null } }),
     )
     expect(result.tool_choice).toBe("required")
   })
@@ -643,21 +679,21 @@ describe("claude-opus model name normalization", () => {
 describe("tool_choice edge cases", () => {
   test("tool without name → undefined", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "tool" } }),
+      makeRequest({ tool_choice: { type: "tool", name: null } }),
     )
     expect(result.tool_choice).toBeUndefined()
   })
 
   test("none → 'none'", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "none" } }),
+      makeRequest({ tool_choice: { type: "none", name: null } }),
     )
     expect(result.tool_choice).toBe("none")
   })
 
   test("unknown type → undefined", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "unknown_type" as "auto" } }),
+      makeRequest({ tool_choice: { type: "unknown_type" as "auto", name: null } }),
     )
     expect(result.tool_choice).toBeUndefined()
   })
@@ -676,7 +712,7 @@ describe("mapContent edge cases", () => {
         ],
       }),
     )
-    expect(result.messages[0].content).toBeNull()
+    expect(result.messages[0]!.content).toBeNull()
   })
 })
 
@@ -692,10 +728,11 @@ function makeResponse(
     object: "chat.completion",
     created: 1700000000,
     model: "claude-sonnet-4",
+    system_fingerprint: null,
     choices: [
       {
         index: 0,
-        message: { role: "assistant", content: "Hello!" },
+        message: { role: "assistant", content: "Hello!", tool_calls: null },
         finish_reason: "stop",
         logprobs: null,
       },
@@ -704,6 +741,7 @@ function makeResponse(
       prompt_tokens: 100,
       completion_tokens: 20,
       total_tokens: 120,
+      prompt_tokens_details: null,
     },
     ...overrides,
   }
@@ -781,7 +819,7 @@ describe("translateToAnthropic", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: "partial" },
+            message: { role: "assistant", content: "partial", tool_calls: null },
             finish_reason: "length",
             logprobs: null,
           },
@@ -797,7 +835,7 @@ describe("translateToAnthropic", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: "" },
+            message: { role: "assistant", content: "", tool_calls: null },
             finish_reason: "content_filter",
             logprobs: null,
           },
@@ -809,7 +847,7 @@ describe("translateToAnthropic", () => {
 
   test("no usage → defaults to 0", () => {
     const result = translateToAnthropic(
-      makeResponse({ usage: undefined }),
+      makeResponse({ usage: null }),
     )
     expect(result.usage.input_tokens).toBe(0)
     expect(result.usage.output_tokens).toBe(0)
@@ -827,6 +865,7 @@ describe("translateToAnthropic", () => {
                 { type: "text", text: "part 1" },
                 { type: "text", text: "part 2" },
               ] as unknown as string,
+              tool_calls: null,
             },
             finish_reason: "stop",
             logprobs: null,
@@ -845,7 +884,7 @@ describe("translateToAnthropic", () => {
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: null as unknown as string },
+            message: { role: "assistant", content: null as unknown as string, tool_calls: null },
             finish_reason: "stop",
             logprobs: null,
           },

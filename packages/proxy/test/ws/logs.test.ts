@@ -27,6 +27,7 @@ function makeEvent(overrides?: Partial<LogEvent>): LogEvent {
     ts: Date.now(),
     level: "info",
     type: "system",
+    requestId: null,
     msg: "test",
     ...overrides,
   };
@@ -47,13 +48,13 @@ describe("wsHandler", () => {
       logEmitter.emitLog(makeEvent({ msg: "old-1" }));
       logEmitter.emitLog(makeEvent({ msg: "old-2" }));
 
-      const ws = createMockWs({ minLevel: "info" });
+      const ws = createMockWs({ minLevel: "info", filterRequestId: null });
       wsHandler.open(ws);
 
       // Should have received 2 backfill messages
       expect(ws.sent).toHaveLength(2);
-      expect(JSON.parse(ws.sent[0]).msg).toBe("old-1");
-      expect(JSON.parse(ws.sent[1]).msg).toBe("old-2");
+      expect(JSON.parse(ws.sent[0]!).msg).toBe("old-1");
+      expect(JSON.parse(ws.sent[1]!).msg).toBe("old-2");
     });
 
     test("filters backfill by minLevel", () => {
@@ -61,27 +62,27 @@ describe("wsHandler", () => {
       logEmitter.emitLog(makeEvent({ level: "info", msg: "info" }));
       logEmitter.emitLog(makeEvent({ level: "error", msg: "error" }));
 
-      const ws = createMockWs({ minLevel: "warn" });
+      const ws = createMockWs({ minLevel: "warn", filterRequestId: null });
       wsHandler.open(ws);
 
       // Only error should pass (warn level filters out debug + info)
       expect(ws.sent).toHaveLength(1);
-      expect(JSON.parse(ws.sent[0]).msg).toBe("error");
+      expect(JSON.parse(ws.sent[0]!).msg).toBe("error");
     });
 
     test("subscribes to new events after open", () => {
-      const ws = createMockWs({ minLevel: "info" });
+      const ws = createMockWs({ minLevel: "info", filterRequestId: null });
       wsHandler.open(ws);
 
       // Emit after open
       logEmitter.emitLog(makeEvent({ msg: "live" }));
 
       expect(ws.sent).toHaveLength(1);
-      expect(JSON.parse(ws.sent[0]).msg).toBe("live");
+      expect(JSON.parse(ws.sent[0]!).msg).toBe("live");
     });
 
     test("filters live events by minLevel", () => {
-      const ws = createMockWs({ minLevel: "warn" });
+      const ws = createMockWs({ minLevel: "warn", filterRequestId: null });
       wsHandler.open(ws);
 
       logEmitter.emitLog(makeEvent({ level: "debug", msg: "debug" }));
@@ -89,7 +90,7 @@ describe("wsHandler", () => {
       logEmitter.emitLog(makeEvent({ level: "warn", msg: "warn" }));
 
       expect(ws.sent).toHaveLength(1);
-      expect(JSON.parse(ws.sent[0]).msg).toBe("warn");
+      expect(JSON.parse(ws.sent[0]!).msg).toBe("warn");
     });
 
     test("filters live events by requestId", () => {
@@ -101,13 +102,13 @@ describe("wsHandler", () => {
       logEmitter.emitLog(makeEvent({ msg: "no-id" }));
 
       expect(ws.sent).toHaveLength(1);
-      expect(JSON.parse(ws.sent[0]).msg).toBe("match");
+      expect(JSON.parse(ws.sent[0]!).msg).toBe("match");
     });
   });
 
   describe("close", () => {
     test("unsubscribes listener on close", () => {
-      const ws = createMockWs({ minLevel: "info" });
+      const ws = createMockWs({ minLevel: "info", filterRequestId: null });
       wsHandler.open(ws);
 
       // Verify listener is active
@@ -124,7 +125,7 @@ describe("wsHandler", () => {
 
   describe("message", () => {
     test("set_level command changes minLevel", () => {
-      const ws = createMockWs({ minLevel: "info" });
+      const ws = createMockWs({ minLevel: "info", filterRequestId: null });
       wsHandler.open(ws);
 
       // Debug events should be filtered at info level
@@ -136,11 +137,11 @@ describe("wsHandler", () => {
 
       logEmitter.emitLog(makeEvent({ level: "debug", msg: "visible" }));
       expect(ws.sent).toHaveLength(1);
-      expect(JSON.parse(ws.sent[0]).msg).toBe("visible");
+      expect(JSON.parse(ws.sent[0]!).msg).toBe("visible");
     });
 
     test("set_filter command sets requestId filter", () => {
-      const ws = createMockWs({ minLevel: "info" });
+      const ws = createMockWs({ minLevel: "info", filterRequestId: null });
       wsHandler.open(ws);
 
       // Set filter
@@ -150,7 +151,7 @@ describe("wsHandler", () => {
       logEmitter.emitLog(makeEvent({ requestId: "req-y", msg: "no-match" }));
 
       expect(ws.sent).toHaveLength(1);
-      expect(JSON.parse(ws.sent[0]).msg).toBe("match");
+      expect(JSON.parse(ws.sent[0]!).msg).toBe("match");
     });
 
     test("set_filter without requestId clears filter", () => {
@@ -165,7 +166,7 @@ describe("wsHandler", () => {
     });
 
     test("ignores malformed messages", () => {
-      const ws = createMockWs({ minLevel: "info" });
+      const ws = createMockWs({ minLevel: "info", filterRequestId: null });
       wsHandler.open(ws);
 
       // Should not throw
@@ -177,7 +178,7 @@ describe("wsHandler", () => {
     });
 
     test("rejects invalid level values", () => {
-      const ws = createMockWs({ minLevel: "info" });
+      const ws = createMockWs({ minLevel: "info", filterRequestId: null });
       wsHandler.open(ws);
 
       wsHandler.message(ws, JSON.stringify({ type: "set_level", level: "invalid" }));

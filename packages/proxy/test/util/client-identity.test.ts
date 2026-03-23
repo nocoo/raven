@@ -60,7 +60,7 @@ describe("parseUserAgent", () => {
   });
 
   test("returns Unknown for undefined UA", () => {
-    const result = parseUserAgent(undefined);
+    const result = parseUserAgent(null);
     expect(result).toEqual({ name: "Unknown", version: null });
   });
 
@@ -95,6 +95,7 @@ describe("deriveClientIdentity", () => {
       "uuid-123-abc",
       "claude-code/1.0",
       "dev",
+      null,
     );
     expect(result.sessionId).toBe("uuid-123-abc");
     expect(result.clientName).toBe("Claude Code");
@@ -113,7 +114,7 @@ describe("deriveClientIdentity", () => {
 
   test("openaiUser used as heuristic with clientName and accountName", () => {
     const result = deriveClientIdentity(
-      undefined,
+      null,
       "cursor/0.5",
       "dev",
       "user-42",
@@ -125,13 +126,13 @@ describe("deriveClientIdentity", () => {
 
   test("openaiUser heuristic includes accountName to prevent cross-key merge", () => {
     const r1 = deriveClientIdentity(
-      undefined,
+      null,
       "cursor/0.5",
       "key-A",
       "shared-user",
     );
     const r2 = deriveClientIdentity(
-      undefined,
+      null,
       "cursor/0.5",
       "key-B",
       "shared-user",
@@ -143,9 +144,10 @@ describe("deriveClientIdentity", () => {
 
   test("fallback to clientName::accountName when no user IDs", () => {
     const result = deriveClientIdentity(
-      undefined,
+      null,
       "claude-code/1.0",
       "dev",
+      null,
     );
     expect(result.sessionId).toBe("Claude Code::dev");
     expect(result.clientName).toBe("Claude Code");
@@ -153,13 +155,13 @@ describe("deriveClientIdentity", () => {
   });
 
   test("fallback with different accountNames produces different sessions", () => {
-    const r1 = deriveClientIdentity(undefined, "cursor/0.5", "key-A");
-    const r2 = deriveClientIdentity(undefined, "cursor/0.5", "key-B");
+    const r1 = deriveClientIdentity(null, "cursor/0.5", "key-A", null);
+    const r2 = deriveClientIdentity(null, "cursor/0.5", "key-B", null);
     expect(r1.sessionId).not.toBe(r2.sessionId);
   });
 
   test("all undefined produces Unknown::accountName", () => {
-    const result = deriveClientIdentity(undefined, undefined, "dev");
+    const result = deriveClientIdentity(null, null, "dev", null);
     expect(result.sessionId).toBe("Unknown::dev");
     expect(result.clientName).toBe("Unknown");
     expect(result.clientVersion).toBeNull();
@@ -167,12 +169,12 @@ describe("deriveClientIdentity", () => {
 
   test("empty string anthropicUserId is not treated as present", () => {
     // Empty string is falsy, should fall through to fallback
-    const result = deriveClientIdentity("", "claude-code/1.0", "dev");
+    const result = deriveClientIdentity("", "claude-code/1.0", "dev", null);
     expect(result.sessionId).toBe("Claude Code::dev");
   });
 
   test("empty string openaiUser is not treated as present", () => {
-    const result = deriveClientIdentity(undefined, "cursor/0.5", "dev", "");
+    const result = deriveClientIdentity(null, "cursor/0.5", "dev", "");
     expect(result.sessionId).toBe("Cursor::dev");
   });
 });

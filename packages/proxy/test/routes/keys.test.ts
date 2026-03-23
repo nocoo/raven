@@ -70,7 +70,7 @@ describe("keys route", () => {
     expect(body.ok).toBe(true);
 
     const keys = listApiKeys(db);
-    expect(keys[0].revoked_at).not.toBeNull();
+    expect(keys[0]!.revoked_at).not.toBeNull();
   });
 
   test("POST /keys/:id/revoke returns 404 for unknown id", async () => {

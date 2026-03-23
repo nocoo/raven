@@ -21,8 +21,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  state.copilotToken = savedToken
-  state.githubToken = savedGithubToken
+  if (savedToken !== undefined) state.copilotToken = savedToken
+  else state.copilotToken = null
+  if (savedGithubToken !== undefined) state.githubToken = savedGithubToken
+  else state.githubToken = null
   fetchSpy.mockRestore()
 })
 
@@ -88,7 +90,7 @@ describe("createEmbeddings", () => {
   })
 
   test("throws when copilotToken is missing", async () => {
-    state.copilotToken = undefined
+    state.copilotToken = null
     try {
       await createEmbeddings({ input: "test", model: "m" })
       expect(true).toBe(false)

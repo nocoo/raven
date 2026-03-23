@@ -92,6 +92,7 @@ beforeEach(() => {
         vendor: "openai",
         version: "2024-08-06",
         preview: false,
+        policy: null,
         model_picker_enabled: true,
         capabilities: {
           family: "gpt-4o",
@@ -101,8 +102,10 @@ beforeEach(() => {
           limits: {
             max_context_window_tokens: 128000,
             max_output_tokens: 16384,
+            max_prompt_tokens: null,
+            max_inputs: null,
           },
-          supports: { tool_calls: true },
+          supports: { tool_calls: true, parallel_tool_calls: null, dimensions: null },
         },
       },
     ],
@@ -111,8 +114,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  state.models = savedModels
-  state.copilotToken = savedToken
+  if (savedModels !== undefined) state.models = savedModels
+  else state.models = null
+  if (savedToken !== undefined) state.copilotToken = savedToken
+  else state.copilotToken = null
   fetchSpy.mockRestore()
 })
 

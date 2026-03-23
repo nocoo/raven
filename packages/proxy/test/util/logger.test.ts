@@ -30,6 +30,7 @@ describe("terminal sink", () => {
       ts: Date.now(),
       level: "info",
       type: "system",
+      requestId: null,
       msg: "test info",
     })
     expect(logSpy).toHaveBeenCalledTimes(1)
@@ -41,6 +42,7 @@ describe("terminal sink", () => {
       ts: Date.now(),
       level: "error",
       type: "system",
+      requestId: null,
       msg: "test error",
     })
     expect(errorSpy).toHaveBeenCalledTimes(1)
@@ -52,6 +54,7 @@ describe("terminal sink", () => {
       ts: Date.now(),
       level: "warn",
       type: "system",
+      requestId: null,
       msg: "test warn",
     })
     expect(warnSpy).toHaveBeenCalledTimes(1)
@@ -64,6 +67,7 @@ describe("terminal sink", () => {
       ts: Date.now(),
       level: "info",
       type: "system",
+      requestId: null,
       msg: "should not appear",
     })
     expect(logSpy).not.toHaveBeenCalled()
@@ -76,6 +80,7 @@ describe("terminal sink", () => {
       ts: Date.now(),
       level: "info",
       type: "system",
+      requestId: null,
       msg: "once only",
     })
     // Should only fire once, not twice
@@ -94,6 +99,7 @@ describe("terminal sink", () => {
       ts: Date.now(),
       level: "debug",
       type: "system",
+      requestId: null,
       msg: "debug msg",
     })
     expect(logSpy).not.toHaveBeenCalled()

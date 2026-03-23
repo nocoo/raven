@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import {
   formatTime,
   shortenModel,
@@ -106,6 +106,7 @@ describe("formatEvent", () => {
         ts: Date.now(),
         level: "info",
         type: "system",
+        requestId: null,
         msg: "server listening on port 7033",
       }
       const line = formatEvent(event)!
@@ -118,6 +119,7 @@ describe("formatEvent", () => {
         ts: Date.now(),
         level: "warn",
         type: "system",
+        requestId: null,
         msg: "rate limit approaching",
       }
       const line = formatEvent(event)!
@@ -130,6 +132,7 @@ describe("formatEvent", () => {
         ts: Date.now(),
         level: "error",
         type: "system",
+        requestId: null,
         msg: "fatal error",
       }
       const line = formatEvent(event)!
@@ -142,6 +145,7 @@ describe("formatEvent", () => {
         ts: Date.now(),
         level: "debug",
         type: "system",
+        requestId: null,
         msg: "verbose debug",
       }
       const line = formatEvent(event)!
@@ -178,6 +182,7 @@ describe("formatEvent", () => {
         ts: Date.now(),
         level: "info",
         type: "request_start",
+        requestId: null,
         msg: "POST /v1/chat/completions gpt-4o",
         data: {
           model: "gpt-4o",
@@ -227,6 +232,7 @@ describe("formatEvent", () => {
         ts: Date.now(),
         level: "info",
         type: "request_end",
+        requestId: null,
         msg: "200 gpt-4o 100ms",
         data: {
           model: "gpt-4o",
