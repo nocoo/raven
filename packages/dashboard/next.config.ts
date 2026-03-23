@@ -1,9 +1,15 @@
 import type { NextConfig } from "next";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
+import { fileURLToPath } from "url";
+
+const __dir =
+  typeof __dirname !== "undefined"
+    ? __dirname
+    : dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   turbopack: {
-    root: resolve(__dirname, "../.."),
+    root: resolve(__dir, "../.."),
   },
   env: {
     NEXT_PUBLIC_AUTH_ENABLED:
