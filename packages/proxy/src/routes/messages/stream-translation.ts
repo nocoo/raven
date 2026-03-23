@@ -62,7 +62,7 @@ export function translateChunkToAnthropicEvents(
     const skipWhitespace =
       proxyState.optFilterWhitespaceChunks
       && delta.content.trim() === ""
-      && !delta.tool_calls
+      && !delta.tool_calls?.length
       && !choice.finish_reason
 
     if (!skipWhitespace) {
