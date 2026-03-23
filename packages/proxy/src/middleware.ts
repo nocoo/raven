@@ -50,10 +50,10 @@ function unauthorized(c: Context, message: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Shared Bearer token validation (used by both middlewares)
+// Shared request token validation (used by both middlewares)
 // ---------------------------------------------------------------------------
 
-function validateBearerToken(
+function validateRequestToken(
   c: Context,
   db: Database,
   envApiKey?: string,
@@ -109,7 +109,11 @@ export interface ApiKeyAuthOpts {
 /**
  * Strict API key auth for AI coding routes (/v1/*, /chat/*, /embeddings).
  *
- * No dev mode bypass. Always requires a valid Bearer token:
+ * No dev mode bypass. Always requires a valid token via:
+ * - Authorization: Bearer <token>
+ * - x-api-key: <token> (for Claude Code compatibility)
+ *
+ * Token validation:
  * - rk- prefix → DB hash lookup
  * - other → timing-safe compare vs RAVEN_API_KEY
  *
@@ -121,7 +125,7 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
 
   return createMiddleware(async (c, next) => {
     // No internalKey parameter — apiKeyAuth never accepts it
-    const result = validateBearerToken(c, db, envApiKey);
+    const result = validateRequestToken(c, db, envApiKey);
     if (!result.valid) return result.response;
     c.set("keyName", result.keyName);
     await next();
@@ -145,8 +149,11 @@ export interface DashboardAuthOpts {
  * all requests are allowed without auth. This is independent of DB keys —
  * creating/revoking DB keys does not affect dashboard access.
  *
- * When either env key is set, a valid Bearer token is required.
- * Accepts RAVEN_API_KEY, RAVEN_INTERNAL_KEY, and DB keys as Bearer tokens.
+ * When either env key is set, a valid token is required via:
+ * - Authorization: Bearer <token>
+ * - x-api-key: <token> (for Claude Code compatibility)
+ *
+ * Accepts RAVEN_API_KEY, RAVEN_INTERNAL_KEY, and DB keys.
  */
 export function dashboardAuth(opts: DashboardAuthOpts) {
   const { db, envApiKey, internalKey } = opts;
@@ -160,7 +167,7 @@ export function dashboardAuth(opts: DashboardAuthOpts) {
       return;
     }
 
-    const result = validateBearerToken(c, db, envApiKey, internalKey);
+    const result = validateRequestToken(c, db, envApiKey, internalKey);
     if (!result.valid) return result.response;
     c.set("keyName", result.keyName);
     await next();
