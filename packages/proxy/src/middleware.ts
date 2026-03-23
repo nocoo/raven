@@ -72,7 +72,7 @@ function validateBearerToken(
   }
 
   if (!token) {
-    return { valid: false, response: unauthorized(c, "Missing or malformed Authorization header") };
+    return { valid: false, response: unauthorized(c, "Missing or invalid authentication credentials") };
   }
 
   // rk- prefix → DB lookup only, never fallback to env
