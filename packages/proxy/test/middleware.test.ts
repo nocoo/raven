@@ -245,6 +245,110 @@ describe("dashboardAuth middleware", () => {
 });
 
 // ===========================================================================
+// x-api-key header authentication (Claude Code compatibility)
+// ===========================================================================
+
+describe("x-api-key header authentication", () => {
+  describe("apiKeyAuth accepts x-api-key", () => {
+    test("accepts env key via x-api-key header", async () => {
+      const app = createAiApp(db, "sk-raven-secret");
+      const res = await app.request("/v1/models", {
+        headers: { "x-api-key": "sk-raven-secret" },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.keyName).toBe("env:default");
+    });
+
+    test("accepts DB key (rk- prefix) via x-api-key header", async () => {
+      const created = createApiKey(db, "x-api-key-test");
+      invalidateKeyCountCache();
+      const app = createAiApp(db);
+      const res = await app.request("/v1/models", {
+        headers: { "x-api-key": created.key },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.keyName).toBe("x-api-key-test");
+    });
+
+    test("rejects wrong token via x-api-key → 401", async () => {
+      const app = createAiApp(db, "sk-raven-secret");
+      const res = await app.request("/v1/models", {
+        headers: { "x-api-key": "wrong-key" },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects request with no keys configured and only x-api-key → 401", async () => {
+      const app = createAiApp(db); // no env key, no DB keys
+      const res = await app.request("/v1/models", {
+        headers: { "x-api-key": "anything" },
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe("Authorization: Bearer takes precedence over x-api-key", () => {
+    test("uses Bearer token when both headers present", async () => {
+      const app = createAiApp(db, "sk-raven-secret");
+      const res = await app.request("/v1/models", {
+        headers: {
+          Authorization: "Bearer sk-raven-secret",
+          "x-api-key": "wrong-key",
+        },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.keyName).toBe("env:default");
+    });
+
+    test("fails on invalid Bearer even when x-api-key is valid", async () => {
+      const app = createAiApp(db, "sk-raven-secret");
+      const res = await app.request("/v1/models", {
+        headers: {
+          Authorization: "Bearer wrong-key",
+          "x-api-key": "sk-raven-secret",
+        },
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe("dashboardAuth accepts x-api-key", () => {
+    test("accepts env key via x-api-key for dashboard routes", async () => {
+      const app = createDashboardApp(db, "sk-raven-secret");
+      const res = await app.request("/api/stats/overview", {
+        headers: { "x-api-key": "sk-raven-secret" },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.keyName).toBe("env:default");
+    });
+
+    test("accepts internal key via x-api-key for dashboard routes", async () => {
+      const app = createDashboardApp(db, undefined, "internal-secret");
+      const res = await app.request("/api/stats/overview", {
+        headers: { "x-api-key": "internal-secret" },
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.keyName).toBe("internal");
+    });
+  });
+
+  describe("apiKeyAuth rejects internal key via x-api-key", () => {
+    test("rejects RAVEN_INTERNAL_KEY via x-api-key — cannot consume Copilot quota", async () => {
+      const app = createAiApp(db, "sk-raven-secret");
+      const res = await app.request("/v1/models", {
+        headers: { "x-api-key": "internal-secret" },
+      });
+      expect(res.status).toBe(401);
+    });
+  });
+});
+
+// ===========================================================================
 // timing-safe comparison
 // ===========================================================================
 
