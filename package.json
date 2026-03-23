@@ -16,6 +16,7 @@
     "typecheck": "bun run --filter '*' typecheck",
     "test:e2e": "bun run --filter '@raven/proxy' test:e2e",
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
+    "gate:security": "bun run scripts/gate-security.ts",
     "prepare": "husky"
   },
   "devDependencies": {
