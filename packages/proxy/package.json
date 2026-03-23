@@ -8,7 +8,7 @@
     "test": "bun run ../../scripts/check-coverage.ts 90",
     "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
-    "lint": "eslint --config ../../eslint.config.js src/",
+    "lint": "eslint --config ../../eslint.config.js --max-warnings=0 src/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

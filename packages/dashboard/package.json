@@ -6,7 +6,7 @@
     "dev": "next dev -p 7032",
     "build": "next build",
     "start": "next start -p 7032",
-    "lint": "eslint --config ../../eslint.config.js src/",
+    "lint": "eslint --config ../../eslint.config.js --max-warnings=0 src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest"
