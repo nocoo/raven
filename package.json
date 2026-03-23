@@ -19,12 +19,17 @@
     "gate:security": "bun run scripts/gate-security.ts",
     "prepare": "husky"
   },
+  "lint-staged": {
+    "packages/proxy/src/**/*.ts": "eslint --config eslint.config.js",
+    "packages/dashboard/src/**/*.{ts,tsx}": "eslint --config eslint.config.js"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/bun": "^1.3.11",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "typescript-eslint": "^8.57.0"
   }
 }

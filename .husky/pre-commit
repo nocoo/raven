@@ -1,2 +1,2 @@
 #!/bin/sh
-bun run test:all && bun run lint && bun run typecheck
+bun run test:all && bunx lint-staged && bun run typecheck
