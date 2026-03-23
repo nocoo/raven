@@ -21,7 +21,7 @@ class LogEmitter extends EventEmitter {
   private ringBuffer: LogEvent[] = [];
   private maxBufferSize: number;
 
-  constructor(bufferSize?: number) {
+  constructor(bufferSize: number | null) {
     super();
     this.maxBufferSize = bufferSize ?? DEFAULT_BUFFER_SIZE;
     // Avoid MaxListenersExceededWarning for many WS clients
@@ -55,5 +55,5 @@ class LogEmitter extends EventEmitter {
 
 const bufferSize = parseInt(process.env.RAVEN_LOG_BUFFER_SIZE ?? "", 10);
 export const logEmitter = new LogEmitter(
-  Number.isFinite(bufferSize) && bufferSize > 0 ? bufferSize : undefined,
+  Number.isFinite(bufferSize) && bufferSize > 0 ? bufferSize : null,
 );

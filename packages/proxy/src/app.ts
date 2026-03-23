@@ -19,11 +19,11 @@ import { createSettingsRoute } from "./routes/settings"
 
 export interface AppDeps {
   db: Database
-  apiKey?: string
-  internalKey?: string
+  apiKey?: string | null
+  internalKey?: string | null
   githubToken: string
-  port?: number
-  baseUrl?: string
+  port?: number | null
+  baseUrl?: string | null
 }
 
 /**
@@ -39,13 +39,17 @@ export function createApp(deps: AppDeps): Hono {
 
   // ------- middleware -------
   // AI coding routes — strict auth, no dev mode, rejects RAVEN_INTERNAL_KEY
-  const aiAuth = apiKeyAuth({ db, envApiKey: apiKey })
+  const aiAuth = apiKeyAuth({ db, envApiKey: apiKey ?? null })
   app.use("/v1/*", aiAuth)
   app.use("/chat/*", aiAuth)
   app.use("/embeddings", aiAuth)
 
   // Dashboard management routes — dev mode for bootstrap only
-  const mgmtAuth = dashboardAuth({ db, envApiKey: apiKey, internalKey })
+  const mgmtAuth = dashboardAuth({
+    db,
+    envApiKey: apiKey ?? null,
+    internalKey: internalKey ?? null,
+  })
   app.use("/api/*", mgmtAuth)
 
   // ------- health -------
@@ -66,7 +70,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createRequestsRoute(db))
   app.route("/api", createCopilotInfoRoute({ githubToken }))
   app.route("/api", createKeysRoute(db))
-  app.route("/api", createConnectionInfoRoute({ port: port ?? 7033, baseUrl }))
+  app.route("/api", createConnectionInfoRoute({ port: port ?? 7033, baseUrl: baseUrl ?? null }))
   app.route("/api", createSettingsRoute(db))
 
   return app

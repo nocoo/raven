@@ -56,8 +56,8 @@ function unauthorized(c: Context, message: string) {
 function validateRequestToken(
   c: Context,
   db: Database,
-  envApiKey?: string,
-  internalKey?: string,
+  envApiKey: string | null,
+  internalKey: string | null,
 ): { valid: true; keyName: string } | { valid: false; response: Response } {
   // Accept token from Authorization: Bearer <token> or x-api-key: <token>
   // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
@@ -103,7 +103,7 @@ function validateRequestToken(
 
 export interface ApiKeyAuthOpts {
   db: Database;
-  envApiKey?: string;
+  envApiKey: string | null;
 }
 
 /**
@@ -125,7 +125,7 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
 
   return createMiddleware(async (c, next) => {
     // No internalKey parameter — apiKeyAuth never accepts it
-    const result = validateRequestToken(c, db, envApiKey);
+    const result = validateRequestToken(c, db, envApiKey, null);
     if (!result.valid) return result.response;
     c.set("keyName", result.keyName);
     await next();
@@ -138,8 +138,8 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
 
 export interface DashboardAuthOpts {
   db: Database;
-  envApiKey?: string;
-  internalKey?: string;
+  envApiKey: string | null;
+  internalKey: string | null;
 }
 
 /**

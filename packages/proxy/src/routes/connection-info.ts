@@ -5,7 +5,7 @@ import { cacheModels } from "../lib/utils"
 
 export interface ConnectionInfoRouteOptions {
   port: number
-  baseUrl?: string
+  baseUrl: string | null
 }
 
 /**

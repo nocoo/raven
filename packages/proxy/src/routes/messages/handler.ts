@@ -36,9 +36,9 @@ export async function handleCompletion(c: Context) {
   const model = anthropicPayload.model
   const stream = !!anthropicPayload.stream
   const accountName = c.get("keyName") ?? "default"
-  const userAgent = c.req.header("user-agent")
-  const userId = anthropicPayload.metadata?.user_id
-  const { sessionId, clientName, clientVersion } = deriveClientIdentity(userId, userAgent, accountName)
+  const userAgent = c.req.header("user-agent") ?? null
+  const userId = anthropicPayload.metadata?.user_id ?? null
+  const { sessionId, clientName, clientVersion } = deriveClientIdentity(userId, userAgent, accountName, null)
 
   // --- request_start ---
   logEmitter.emitLog({

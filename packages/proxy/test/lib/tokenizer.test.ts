@@ -31,10 +31,13 @@ function makeModel(overrides: Partial<Model> = {}): Model {
       limits: {
         max_context_window_tokens: 128000,
         max_output_tokens: 16384,
+        max_prompt_tokens: null,
+        max_inputs: null,
       },
       supports: {
         tool_calls: true,
         parallel_tool_calls: true,
+        dimensions: null,
       },
     },
     ...overrides,
@@ -322,6 +325,7 @@ describe("numTokensForTools", () => {
         type: "function",
         function: {
           name: "noop",
+          description: null,
           parameters: {},
         },
       },

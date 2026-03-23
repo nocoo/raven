@@ -22,7 +22,7 @@ export interface LogEvent {
   ts: number;            // Date.now(), unix ms
   level: LogLevel;
   type: LogEventType;
-  requestId?: string;    // correlates all events for one request
+  requestId: string | null;    // correlates all events for one request
   msg: string;           // human-readable summary
-  data?: Record<string, unknown>;
+  data?: Record<string, unknown> | null;
 }

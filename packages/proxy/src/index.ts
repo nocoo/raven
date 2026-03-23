@@ -65,11 +65,11 @@ try {
 // 7. Build app with all dependencies wired
 const app = createApp({
   db,
-  apiKey: config.apiKey || undefined,
-  internalKey: config.internalKey || undefined,
+  apiKey: config.apiKey ?? null,
+  internalKey: config.internalKey ?? null,
   githubToken,
-  port: config.port,
-  baseUrl: config.baseUrl || undefined,
+  port: config.port ?? null,
+  baseUrl: config.baseUrl ?? null,
 })
 
 logger.info(`Raven proxy listening on port ${config.port}`)
@@ -79,8 +79,8 @@ logger.info(`Raven proxy listening on port ${config.port}`)
 // RAVEN_INTERNAL_KEY)
 // ---------------------------------------------------------------------------
 
-const envApiKey = config.apiKey || undefined
-const envInternalKey = config.internalKey || undefined
+const envApiKey = config.apiKey ?? null
+const envInternalKey = config.internalKey ?? null
 
 function authenticateWs(token: string | null): boolean {
   // Dev mode: no env keys configured → always allow (independent of DB keys)
@@ -113,10 +113,11 @@ export default {
         ? (levelParam as LogLevel)
         : "info"
 
+      const requestIdParam = url.searchParams.get("requestId")
       const upgraded = server.upgrade(req, {
         data: {
           minLevel,
-          filterRequestId: url.searchParams.get("requestId") ?? undefined,
+          filterRequestId: requestIdParam,
         },
       })
       if (upgraded) return undefined

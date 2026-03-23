@@ -47,8 +47,10 @@ export async function cacheVersions(db: Database): Promise<void> {
       state.vsCodeVersionSource = "local"
     } else {
       const aur = await getVSCodeVersion()
-      state.vsCodeVersion = aur
-      state.vsCodeVersionSource = aur !== VSCODE_VERSION_FALLBACK ? "aur" : "fallback"
+      if (aur !== undefined) {
+        state.vsCodeVersion = aur
+        state.vsCodeVersionSource = aur !== VSCODE_VERSION_FALLBACK ? "aur" : "fallback"
+      }
     }
   }
   logger.info(

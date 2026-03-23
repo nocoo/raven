@@ -4,25 +4,25 @@ export interface AnthropicMessagesPayload {
   model: string
   messages: Array<AnthropicMessage>
   max_tokens: number
-  system?: string | Array<AnthropicTextBlock>
-  metadata?: {
-    user_id?: string
-  }
-  stop_sequences?: Array<string>
-  stream?: boolean
-  temperature?: number
-  top_p?: number
-  top_k?: number
-  tools?: Array<AnthropicTool>
-  tool_choice?: {
+  system: string | Array<AnthropicTextBlock> | null
+  metadata: {
+    user_id: string | null
+  } | null
+  stop_sequences: Array<string> | null
+  stream: boolean | null
+  temperature: number | null
+  top_p: number | null
+  top_k: number | null
+  tools: Array<AnthropicTool> | null
+  tool_choice: {
     type: "auto" | "any" | "tool" | "none"
-    name?: string
-  }
-  thinking?: {
+    name: string | null
+  } | null
+  thinking: {
     type: "enabled"
-    budget_tokens?: number
-  }
-  service_tier?: "auto" | "standard_only"
+    budget_tokens: number | null
+  } | null
+  service_tier: "auto" | "standard_only" | null
 }
 
 export interface AnthropicTextBlock {
@@ -43,7 +43,7 @@ export interface AnthropicToolResultBlock {
   type: "tool_result"
   tool_use_id: string
   content: string
-  is_error?: boolean
+  is_error: boolean | null
 }
 
 export interface AnthropicToolUseBlock {
@@ -82,7 +82,7 @@ export type AnthropicMessage = AnthropicUserMessage | AnthropicAssistantMessage
 
 export interface AnthropicTool {
   name: string
-  description?: string
+  description: string | null
   input_schema: Record<string, unknown>
 }
 
@@ -104,9 +104,9 @@ export interface AnthropicResponse {
   usage: {
     input_tokens: number
     output_tokens: number
-    cache_creation_input_tokens?: number
-    cache_read_input_tokens?: number
-    service_tier?: "standard" | "priority" | "batch"
+    cache_creation_input_tokens: number | null
+    cache_read_input_tokens: number | null
+    service_tier: "standard" | "priority" | "batch" | null
   }
 }
 
@@ -154,15 +154,15 @@ export interface AnthropicContentBlockStopEvent {
 export interface AnthropicMessageDeltaEvent {
   type: "message_delta"
   delta: {
-    stop_reason?: AnthropicResponse["stop_reason"]
-    stop_sequence?: string | null
+    stop_reason: AnthropicResponse["stop_reason"] | null
+    stop_sequence: string | null
   }
-  usage?: {
-    input_tokens?: number
+  usage: {
+    input_tokens: number | null
     output_tokens: number
-    cache_creation_input_tokens?: number
-    cache_read_input_tokens?: number
-  }
+    cache_creation_input_tokens: number | null
+    cache_read_input_tokens: number | null
+  } | null
 }
 
 export interface AnthropicMessageStopEvent {

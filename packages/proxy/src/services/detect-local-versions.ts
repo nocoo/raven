@@ -156,7 +156,7 @@ export async function detectLocalCopilotVersion(): Promise<string | null> {
       for await (const path of glob.scan({ cwd: dir })) {
         const match = path.match(/github\.copilot-chat-(\d+\.\d+\.\d+)/);
         if (match) {
-          allVersioned.push({ dir, path, version: match[1] });
+          allVersioned.push({ dir, path, version: match[1]! });
         }
       }
     } catch {
@@ -170,6 +170,7 @@ export async function detectLocalCopilotVersion(): Promise<string | null> {
   allVersioned.sort((a, b) => compareSemver(b.version, a.version));
 
   const best = allVersioned[0];
+  if (!best) return null;
   try {
     const fullPath = join(best.dir, best.path);
     const raw = await readFile(fullPath, "utf-8");

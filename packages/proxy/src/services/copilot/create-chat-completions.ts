@@ -50,33 +50,33 @@ export interface ChatCompletionChunk {
   created: number
   model: string
   choices: Array<Choice>
-  system_fingerprint?: string
-  usage?: {
+  system_fingerprint: string | null
+  usage: {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
-    prompt_tokens_details?: {
+    prompt_tokens_details: {
       cached_tokens: number
-    }
-    completion_tokens_details?: {
+    } | null
+    completion_tokens_details: {
       accepted_prediction_tokens: number
       rejected_prediction_tokens: number
-    }
-  }
+    } | null
+  } | null
 }
 
 interface Delta {
-  content?: string | null
-  role?: "user" | "assistant" | "system" | "tool"
-  tool_calls?: Array<{
+  content: string | null
+  role: "user" | "assistant" | "system" | "tool" | null
+  tool_calls: Array<{
     index: number
-    id?: string
-    type?: "function"
-    function?: {
-      name?: string
-      arguments?: string
-    }
-  }>
+    id: string | null
+    type: "function" | null
+    function: {
+      name: string | null
+      arguments: string | null
+    } | null
+  } | null>
 }
 
 interface Choice {
@@ -94,21 +94,21 @@ export interface ChatCompletionResponse {
   created: number
   model: string
   choices: Array<ChoiceNonStreaming>
-  system_fingerprint?: string
-  usage?: {
+  system_fingerprint: string | null
+  usage: {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
-    prompt_tokens_details?: {
+    prompt_tokens_details: {
       cached_tokens: number
-    }
-  }
+    } | null
+  } | null
 }
 
 interface ResponseMessage {
   role: "assistant"
   content: string | null
-  tool_calls?: Array<ToolCall>
+  tool_calls: Array<ToolCall> | null
 }
 
 interface ChoiceNonStreaming {
@@ -150,7 +150,7 @@ export interface Tool {
   type: "function"
   function: {
     name: string
-    description?: string
+    description: string | null
     parameters: Record<string, unknown>
   }
 }
@@ -159,9 +159,9 @@ export interface Message {
   role: "user" | "assistant" | "system" | "tool" | "developer"
   content: string | Array<ContentPart> | null
 
-  name?: string
-  tool_calls?: Array<ToolCall>
-  tool_call_id?: string
+  name?: string | null
+  tool_calls?: Array<ToolCall> | null
+  tool_call_id?: string | null
 }
 
 export interface ToolCall {

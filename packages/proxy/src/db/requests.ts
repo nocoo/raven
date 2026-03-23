@@ -48,21 +48,21 @@ export interface ModelStats {
 }
 
 export interface QueryParams {
-  model?: string;
-  status?: string;
-  format?: string;
-  sort?: "timestamp" | "latency_ms" | "total_tokens";
-  order?: "asc" | "desc";
-  cursor?: string;
-  offset?: number;
-  limit?: number;
+  model?: string | null;
+  status?: string | null;
+  format?: string | null;
+  sort?: "timestamp" | "latency_ms" | "total_tokens" | null;
+  order?: "asc" | "desc" | null;
+  cursor?: string | null;
+  offset?: number | null;
+  limit?: number | null;
 }
 
 export interface QueryResult {
   data: RequestRecord[];
-  next_cursor?: string;
+  next_cursor?: string | null;
   has_more: boolean;
-  total?: number;
+  total?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ function intervalToMs(interval: string): number {
 function rangeToMs(range: string): number {
   const match = /^(\d+)(h|d|m)$/.exec(range);
   if (!match) return 86400_000; // default 24h
-  const value = parseInt(match[1], 10);
+  const value = parseInt(match[1]!, 10);
   switch (match[2]) {
     case "h":
       return value * 3600_000;
@@ -278,22 +278,31 @@ export function queryRecent(
 
 export function queryRequests(
   db: Database,
-  params: QueryParams = {},
+  params: QueryParams = {
+    model: null,
+    status: null,
+    format: null,
+    sort: null,
+    order: null,
+    cursor: null,
+    offset: null,
+    limit: null,
+  },
 ): QueryResult {
   const {
     model,
     status,
     format,
-    sort = "timestamp",
-    order = "desc",
+    sort,
+    order,
     cursor,
-    offset = 0,
-    limit: rawLimit = 50,
+    offset,
+    limit: rawLimit,
   } = params;
 
-  const limit = Math.min(rawLimit, 200);
-  const validSort = ["timestamp", "latency_ms", "total_tokens"].includes(sort)
-    ? sort
+  const limit = Math.min(rawLimit ?? 50, 200);
+  const validSort = (sort !== null && sort !== undefined && ["timestamp", "latency_ms", "total_tokens"].includes(sort))
+    ? (sort as "timestamp" | "latency_ms" | "total_tokens")
     : "timestamp";
   const validOrder = order === "asc" ? "ASC" : "DESC";
 
@@ -335,7 +344,7 @@ export function queryRequests(
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   // For offset pagination, get total count
-  let total: number | undefined;
+  let total: number | null = null;
   if (sort !== "timestamp") {
     const countRow = db
       .query(`SELECT COUNT(*) as count FROM requests ${whereClause}`)
@@ -353,7 +362,7 @@ export function queryRequests(
   const limitClause =
     sort === "timestamp"
       ? `LIMIT ${limit + 1}` // fetch one extra to detect has_more
-      : `LIMIT ${limit + 1} OFFSET ${offset}`;
+      : `LIMIT ${limit + 1} OFFSET ${offset ?? 0}`;
 
   const query = `SELECT * FROM requests ${whereClause} ${orderBy} ${limitClause}`;
   const rows = db.query(query).all(bindings) as RequestRecord[];
@@ -364,15 +373,18 @@ export function queryRequests(
   const result: QueryResult = {
     data,
     has_more: hasMore,
+    next_cursor: null,
+    total: null,
   };
 
   // Cursor for next page
   if (sort === "timestamp" && hasMore && data.length > 0) {
-    result.next_cursor = data[data.length - 1].id;
+    const last = data[data.length - 1]
+    if (last) result.next_cursor = last.id;
   }
 
   // Total for offset pagination
-  if (total !== undefined) {
+  if (total !== null) {
     result.total = total;
   }
 

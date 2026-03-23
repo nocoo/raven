@@ -18,16 +18,16 @@ export interface ModelsResponse {
 }
 
 interface ModelLimits {
-  max_context_window_tokens?: number
-  max_output_tokens?: number
-  max_prompt_tokens?: number
-  max_inputs?: number
+  max_context_window_tokens: number | null
+  max_output_tokens: number | null
+  max_prompt_tokens: number | null
+  max_inputs: number | null
 }
 
 interface ModelSupports {
-  tool_calls?: boolean
-  parallel_tool_calls?: boolean
-  dimensions?: boolean
+  tool_calls: boolean | null
+  parallel_tool_calls: boolean | null
+  dimensions: boolean | null
 }
 
 interface ModelCapabilities {
@@ -48,8 +48,8 @@ export interface Model {
   preview: boolean
   vendor: string
   version: string
-  policy?: {
+  policy: {
     state: string
     terms: string
-  }
+  } | null
 }

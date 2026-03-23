@@ -33,7 +33,7 @@ const UA_PATTERNS: [RegExp, string][] = [
  * Parse User-Agent string to extract client name and version.
  */
 export function parseUserAgent(
-  ua: string | undefined,
+  ua: string | null,
 ): { name: string; version: string | null } {
   if (!ua) return { name: "Unknown", version: null };
 
@@ -64,10 +64,10 @@ export function parseUserAgent(
  * 3. Fallback — "{clientName}::{accountName}"
  */
 export function deriveClientIdentity(
-  anthropicUserId: string | undefined,
-  userAgent: string | undefined,
+  anthropicUserId: string | null,
+  userAgent: string | null,
   accountName: string,
-  openaiUser?: string,
+  openaiUser: string | null,
 ): ClientIdentity {
   const { name, version } = parseUserAgent(userAgent);
 

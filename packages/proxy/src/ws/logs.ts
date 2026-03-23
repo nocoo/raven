@@ -19,7 +19,7 @@ import { LEVEL_ORDER, type LogEvent, type LogLevel } from "../util/log-event.ts"
 
 export interface WsData {
   minLevel: LogLevel;
-  filterRequestId?: string;
+  filterRequestId: string | null;
 }
 
 function shouldSend(event: LogEvent, data: WsData): boolean {
@@ -64,7 +64,7 @@ export const wsHandler = {
         ws.data.minLevel = cmd.level;
       }
       if (cmd.type === "set_filter") {
-        ws.data.filterRequestId = cmd.requestId ?? undefined;
+        ws.data.filterRequestId = cmd.requestId ?? null;
       }
     } catch {
       // Ignore malformed messages

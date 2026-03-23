@@ -54,11 +54,15 @@ export function shortenModel(model: string): string {
  */
 export function shortenSession(id: string): string {
   if (id.includes("::")) {
-    return id.split("::")[0].slice(0, 6);
+    const parts = id.split("::");
+    const part = parts[0];
+    if (part) return part.slice(0, 6);
+    return "unknown";
   }
   const parts = id.split("_");
-  const last = parts[parts.length - 1];
-  return last.slice(0, 6);
+  const last = parts.at(-1);
+  if (last) return last.slice(0, 6);
+  return "unknown";
 }
 
 /**
@@ -95,7 +99,7 @@ export function formatEvent(event: LogEvent): string | null {
       return formatRequestStart(time, data);
 
     case "request_end":
-      return formatRequestEnd(time, event, data);
+      return formatRequestEnd(time, data);
 
     case "upstream_error":
       return formatUpstreamError(time, event, data);
@@ -138,24 +142,23 @@ function formatRequestStart(
 
 function formatRequestEnd(
   time: string,
-  event: LogEvent,
   data: Record<string, unknown>,
 ): string {
-  const statusCode = data.statusCode as number | undefined;
-  const isError = data.status === "error" || (statusCode && statusCode >= 400);
+  const statusCode = data.statusCode as number | null | undefined;
+  const isError = data.status === "error" || (statusCode !== null && statusCode !== undefined && statusCode >= 400);
   const model = cyan(bold(shortenModel(String(data.model ?? "unknown"))));
 
   if (isError) {
-    return formatRequestEndError(time, data, model, statusCode);
+    return formatRequestEndError(time, data, model, statusCode ?? null);
   }
-  return formatRequestEndSuccess(time, data, model, statusCode);
+  return formatRequestEndSuccess(time, data, model, statusCode ?? null);
 }
 
 function formatRequestEndSuccess(
   time: string,
   data: Record<string, unknown>,
   model: string,
-  statusCode: number | undefined,
+  statusCode: number | null,
 ): string {
   const status = green(String(statusCode ?? 200));
   const dur = formatDuration(Number(data.latencyMs ?? 0));
@@ -192,7 +195,7 @@ function formatRequestEndError(
   time: string,
   data: Record<string, unknown>,
   model: string,
-  statusCode: number | undefined,
+  statusCode: number | null,
 ): string {
   const status = red(String(statusCode ?? "err"));
   const dur = formatDuration(Number(data.latencyMs ?? 0));

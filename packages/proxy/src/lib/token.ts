@@ -108,7 +108,7 @@ function retryTokenRefresh(
 }
 
 interface SetupGitHubTokenOptions {
-  force?: boolean
+  force: boolean | null
 }
 
 export async function setupGitHubToken(

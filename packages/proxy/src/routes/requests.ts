@@ -10,7 +10,16 @@ export function createRequestsRoute(db: Database): Hono {
   const route = new Hono();
 
   route.get("/requests", (c) => {
-    const params: QueryParams = {};
+    const params: QueryParams = {
+      model: null,
+      status: null,
+      format: null,
+      sort: null,
+      order: null,
+      cursor: null,
+      offset: null,
+      limit: null,
+    };
 
     const model = c.req.query("model");
     if (model) params.model = model;

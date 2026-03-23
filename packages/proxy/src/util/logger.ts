@@ -69,11 +69,11 @@ if (!process.env.BUN_TEST && process.env.NODE_ENV !== "test") {
 
 export const logger = {
   debug: (msg: string, data?: Record<string, unknown>) =>
-    logEmitter.emitLog({ ts: Date.now(), level: "debug", type: "system", msg, data }),
+    logEmitter.emitLog({ ts: Date.now(), level: "debug", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
   info: (msg: string, data?: Record<string, unknown>) =>
-    logEmitter.emitLog({ ts: Date.now(), level: "info", type: "system", msg, data }),
+    logEmitter.emitLog({ ts: Date.now(), level: "info", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
   warn: (msg: string, data?: Record<string, unknown>) =>
-    logEmitter.emitLog({ ts: Date.now(), level: "warn", type: "system", msg, data }),
+    logEmitter.emitLog({ ts: Date.now(), level: "warn", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
   error: (msg: string, data?: Record<string, unknown>) =>
-    logEmitter.emitLog({ ts: Date.now(), level: "error", type: "system", msg, data }),
+    logEmitter.emitLog({ ts: Date.now(), level: "error", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
 };

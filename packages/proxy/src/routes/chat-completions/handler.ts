@@ -24,9 +24,9 @@ export async function handleCompletion(c: Context) {
   const model = payload.model
   const stream = !!payload.stream
   const accountName = c.get("keyName") ?? "default"
-  const userAgent = c.req.header("user-agent")
-  const openaiUser = payload.user ?? undefined
-  const { sessionId, clientName, clientVersion } = deriveClientIdentity(undefined, userAgent, accountName, openaiUser)
+  const userAgent = c.req.header("user-agent") ?? null
+  const openaiUser = payload.user ?? null
+  const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, openaiUser)
 
   // --- request_start ---
   logEmitter.emitLog({
@@ -41,9 +41,10 @@ export async function handleCompletion(c: Context) {
   )
 
   if (isNullish(payload.max_tokens)) {
+    const maxOutputTokens = selectedModel?.capabilities.limits.max_output_tokens
     payload = {
       ...payload,
-      max_tokens: selectedModel?.capabilities.limits.max_output_tokens,
+      max_tokens: maxOutputTokens ?? null,
     }
   }
 

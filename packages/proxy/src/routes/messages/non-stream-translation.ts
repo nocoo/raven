@@ -31,21 +31,29 @@ import { logger } from "~/util/logger"
 export function translateToOpenAI(
   payload: AnthropicMessagesPayload,
 ): ChatCompletionsPayload {
-  return {
+  const base = {
     model: translateModelName(payload.model),
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
-      payload.system,
+      payload.system ?? undefined,
     ),
     max_tokens: payload.max_tokens,
-    stop: payload.stop_sequences,
-    stream: payload.stream,
-    temperature: payload.temperature,
-    top_p: payload.top_p,
-    user: payload.metadata?.user_id,
-    tools: translateAnthropicToolsToOpenAI(payload.tools),
-    tool_choice: translateAnthropicToolChoiceToOpenAI(payload.tool_choice),
   }
+
+  const optional: Partial<ChatCompletionsPayload> = {}
+  if (payload.stop_sequences) optional.stop = payload.stop_sequences
+  if (payload.stream !== undefined) optional.stream = payload.stream
+  if (payload.temperature !== undefined) optional.temperature = payload.temperature
+  if (payload.top_p !== undefined) optional.top_p = payload.top_p
+  if (payload.metadata?.user_id) optional.user = payload.metadata.user_id
+
+  const tools = translateAnthropicToolsToOpenAI(payload.tools)
+  if (tools) optional.tools = tools
+
+  const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice)
+  if (toolChoice) optional.tool_choice = toolChoice
+
+  return { ...base, ...optional }
 }
 
 function translateModelName(model: string): string {
@@ -105,10 +113,10 @@ function handleSystemPrompt(
   }
 
   if (typeof system === "string") {
-    return [{ role: "system", content: system }]
+    return [{ role: "system", content: system, name: null, tool_calls: null, tool_call_id: null }]
   } else {
     const systemText = system.map((block) => block.text).join("\n\n")
-    return [{ role: "system", content: systemText }]
+    return [{ role: "system", content: systemText, name: null, tool_calls: null, tool_call_id: null }]
   }
 }
 
@@ -163,6 +171,8 @@ function handleUserMessage(
         role: "tool",
         tool_call_id: block.tool_use_id,
         content: mapContent(block.content),
+        name: null,
+        tool_calls: null,
       })
     }
 
@@ -170,12 +180,18 @@ function handleUserMessage(
       newMessages.push({
         role: "user",
         content: mapContent(otherBlocks),
+        name: null,
+        tool_calls: null,
+        tool_call_id: null,
       })
     }
   } else {
     newMessages.push({
       role: "user",
       content: mapContent(message.content),
+      name: null,
+      tool_calls: null,
+      tool_call_id: null,
     })
   }
 
@@ -190,6 +206,9 @@ function handleAssistantMessage(
       {
         role: "assistant",
         content: mapContent(message.content),
+        name: null,
+        tool_calls: null,
+        tool_call_id: null,
       },
     ]
   }
@@ -225,12 +244,17 @@ function handleAssistantMessage(
               arguments: JSON.stringify(toolUse.input),
             },
           })),
+          name: null,
+          tool_call_id: null,
         },
       ]
     : [
         {
           role: "assistant",
           content: mapContent(message.content),
+          name: null,
+          tool_calls: null,
+          tool_call_id: null,
         },
       ]
 }
@@ -288,10 +312,10 @@ function mapContent(
 }
 
 function translateAnthropicToolsToOpenAI(
-  anthropicTools: Array<AnthropicTool> | undefined,
-): Array<Tool> | undefined {
+  anthropicTools: Array<AnthropicTool> | null | undefined,
+): Array<Tool> | null {
   if (!anthropicTools) {
-    return undefined
+    return null
   }
   return anthropicTools.map((tool) => ({
     type: "function",
@@ -307,7 +331,7 @@ function translateAnthropicToolChoiceToOpenAI(
   anthropicToolChoice: AnthropicMessagesPayload["tool_choice"],
 ): ChatCompletionsPayload["tool_choice"] {
   if (!anthropicToolChoice) {
-    return undefined
+    return null
   }
 
   switch (anthropicToolChoice.type) {
@@ -324,13 +348,13 @@ function translateAnthropicToolChoiceToOpenAI(
           function: { name: anthropicToolChoice.name },
         }
       }
-      return undefined
+      return null
     }
     case "none": {
       return "none"
     }
     default: {
-      return undefined
+      return null
     }
   }
 }
@@ -376,11 +400,9 @@ export function translateToAnthropic(
         (response.usage?.prompt_tokens ?? 0)
         - (response.usage?.prompt_tokens_details?.cached_tokens ?? 0),
       output_tokens: response.usage?.completion_tokens ?? 0,
-      ...(response.usage?.prompt_tokens_details?.cached_tokens
-        !== undefined && {
-        cache_read_input_tokens:
-          response.usage.prompt_tokens_details.cached_tokens,
-      }),
+      cache_creation_input_tokens: null,
+      cache_read_input_tokens: response.usage?.prompt_tokens_details?.cached_tokens ?? null,
+      service_tier: null,
     },
   }
 }
@@ -402,7 +424,7 @@ function getAnthropicTextBlocks(
 }
 
 function getAnthropicToolUseBlocks(
-  toolCalls: Array<ToolCall> | undefined,
+  toolCalls: Array<ToolCall> | null | undefined,
 ): Array<AnthropicToolUseBlock> {
   if (!toolCalls) {
     return []

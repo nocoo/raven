@@ -27,9 +27,9 @@ export interface SSEEvent {
  */
 export interface ServerSentEvent {
   data: string;
-  event?: string;
-  id?: string;
-  retry?: number;
+  event: string | null;
+  id: string | null;
+  retry: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,10 +175,12 @@ export async function* events(
 
   function buildEvent(): ServerSentEvent | null {
     if (!hasFields) return null;
-    const event: ServerSentEvent = { data: data.join("\n") };
-    if (eventType !== undefined) event.event = eventType;
-    if (id !== undefined) event.id = id;
-    if (retry !== undefined) event.retry = retry;
+    const event: ServerSentEvent = {
+      data: data.join("\n"),
+      event: eventType ?? null,
+      id: id ?? null,
+      retry: retry ?? null,
+    };
     // Reset accumulators
     data = [];
     eventType = undefined;

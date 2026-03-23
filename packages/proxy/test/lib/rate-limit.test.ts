@@ -19,10 +19,22 @@ const { checkRateLimit } = await import("../../src/lib/rate-limit")
 
 function makeState(overrides: Partial<State> = {}): State {
   return {
+    githubToken: null,
+    copilotToken: null,
     accountType: "individual",
+    models: null,
+    vsCodeVersion: null,
+    copilotChatVersion: null,
+    vsCodeVersionSource: null,
+    copilotChatVersionSource: null,
     rateLimitWait: false,
+    rateLimitSeconds: null,
+    lastRequestTimestamp: null,
+    optSanitizeOrphanedToolResults: false,
+    optReorderToolResults: false,
+    optFilterWhitespaceChunks: false,
     ...overrides,
-  } as State
+  }
 }
 
 // ===========================================================================
@@ -30,16 +42,15 @@ function makeState(overrides: Partial<State> = {}): State {
 // ===========================================================================
 
 describe("checkRateLimit", () => {
-  test("no-op when rateLimitSeconds is undefined", async () => {
-    const s = makeState({ rateLimitSeconds: undefined })
+  test("no-op when rateLimitSeconds is null", async () => {
+    const s = makeState()
     await checkRateLimit(s)
-    expect(s.lastRequestTimestamp).toBeUndefined()
+    expect(s.lastRequestTimestamp).toBeNull()
   })
 
   test("first request sets timestamp and returns", async () => {
     const s = makeState({
       rateLimitSeconds: 10,
-      lastRequestTimestamp: undefined,
     })
     await checkRateLimit(s)
     expect(s.lastRequestTimestamp).toBeGreaterThan(0)

@@ -13,8 +13,8 @@ modelRoutes.get("/", async (c) => {
   const startTime = performance.now()
   const requestId = generateRequestId()
   const accountName = c.get("keyName") ?? "default"
-  const userAgent = c.req.header("user-agent")
-  const { sessionId, clientName, clientVersion } = deriveClientIdentity(undefined, userAgent, accountName)
+  const userAgent = c.req.header("user-agent") ?? null
+  const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, null)
 
   try {
     logEmitter.emitLog({
