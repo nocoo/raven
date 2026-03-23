@@ -14,7 +14,7 @@
     "test:all": "bun run --filter '*' test",
     "lint": "bun run --filter '*' lint",
     "typecheck": "bun run --filter '*' typecheck",
-    "test:e2e": "bun run --filter '@raven/proxy' test:e2e",
+    "test:e2e": "bun run scripts/run-e2e.ts",
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
     "gate:security": "bun run scripts/gate-security.ts",
     "test:ui": "bun run scripts/run-playwright.ts",
