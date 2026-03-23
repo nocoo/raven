@@ -29,10 +29,11 @@ The proxy interacts with GitHub Copilot's upstream API. Careless testing can tri
 bun run test        # proxy unit tests only (pre-commit hook)
 bun run test:all    # proxy + dashboard unit tests
 bun run test:perf   # performance benchmarks (SSE parsing, translation)
-bun run test:e2e    # e2e tests (requires proxy running on :7033)
+bun run test:e2e    # e2e tests (auto-starts proxy if needed)
+bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers)
 ```
 
-### Test status (2026-03-23)
+### Test status (2026-03-24)
 
 | Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
 |---------|--------|-------|------|-------------------|-----------|--------|
@@ -41,11 +42,21 @@ bun run test:e2e    # e2e tests (requires proxy running on :7033)
 
 **L1 (UT)**: All 719 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
 
-**L2 (Lint + Typecheck)**: Both packages pass `eslint` and `tsc --noEmit` with 0 errors, 0 warnings.
+**L2 (API E2E)**: `bun run test:e2e` — auto-starts proxy, runs against real upstream. Manual only.
+
+**L3 (UI E2E)**: `bun run test:ui` — 7 Playwright smoke tests for dashboard. Auto-starts proxy + dashboard. Manual only.
+
+**G1 (Static Analysis)**: Both packages pass `eslint` and `tsc --noEmit` (with strict extras) with 0 errors, 0 warnings. Pre-commit runs lint-staged (incremental) + full typecheck.
+
+**G2 (Security)**: `bun run gate:security` — osv-scanner + gitleaks. Wired into pre-push hook.
 
 ### Pre-commit hook
 
-Runs `bun run test:all && bun run lint && bun run typecheck` — enforces L1 (all tests + coverage thresholds) and L2 (lint + types) on every commit for both packages.
+Runs `bun run test:all && bunx lint-staged && bun run typecheck` — enforces L1 (all tests + coverage thresholds) and G1 (incremental lint + types) on every commit.
+
+### Pre-push hook
+
+Runs `bun run test:e2e` (L2) and `bun run gate:security` (G2) in parallel.
 
 ### Package manager — bun only
 
