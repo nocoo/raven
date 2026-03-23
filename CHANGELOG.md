@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.2.3 (2026-03-23)
+
+Claude Code compatibility — proxy now accepts `x-api-key` header for authentication, matching Claude Code's behavior when `ANTHROPIC_BASE_URL` points to a non-Anthropic host.
+
+### Proxy — x-api-key support
+
+- **`x-api-key` header authentication** — accepts API tokens via `x-api-key` header alongside existing `Authorization: Bearer`; `Bearer` takes precedence when both are present
+- **Generic error message** — auth failure message changed from "Missing or malformed Authorization header" to "Missing or invalid authentication credentials" to avoid confusing `x-api-key` users
+- **Internal rename** — `validateBearerToken` → `validateRequestToken` to reflect dual-header support; updated JSDoc on `apiKeyAuth` and `dashboardAuth`
+
+### Docs
+
+- **Claude Code setup** — replaced obsolete `claude config set --global apiUrl` with `ANTHROPIC_BASE_URL` + `ANTHROPIC_API_KEY` environment variables; added interactive mode API key approval instructions
+
+### Tests
+
+- **495 proxy tests** (was 488) — added 7 x-api-key tests: env key, DB key (rk- prefix), wrong token rejection, Bearer precedence, dashboardAuth acceptance, internal key rejection via x-api-key
+
 ## v1.2.2 (2026-03-21)
 
 Code cleanup — removed dead code that added unnecessary CPU overhead per request.

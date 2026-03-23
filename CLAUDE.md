@@ -32,14 +32,14 @@ bun run test:perf   # performance benchmarks (SSE parsing, translation)
 bun run test:e2e    # e2e tests (requires proxy running on :7033)
 ```
 
-### Test status (2026-03-21)
+### Test status (2026-03-23)
 
 | Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
 |---------|--------|-------|------|-------------------|-----------|--------|
-| proxy | bun:test | 488 | 488 | 94.7% | 90% | ✅ |
+| proxy | bun:test | 495 | 495 | 94.7% | 90% | ✅ |
 | dashboard | vitest 4 + jsdom | 224 | 224 | 98.2% | 90% | ✅ |
 
-**L1 (UT)**: All 712 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
+**L1 (UT)**: All 719 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
 
 **L2 (Lint + Typecheck)**: Both packages pass `eslint` and `tsc --noEmit` with 0 errors, 0 warnings.
 
