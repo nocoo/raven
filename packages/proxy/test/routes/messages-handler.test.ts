@@ -432,3 +432,155 @@ describe("messages handler (errors)", () => {
     expect(endEvent!.data?.error).toContain("stream error")
   })
 })
+
+// ===========================================================================
+// handleCompletion — web search interception (Tavily)
+// ===========================================================================
+
+describe("messages handler (web search interception)", () => {
+  const savedTavilyKey = process.env.TAVILY_API_KEY
+
+  afterEach(() => {
+    if (savedTavilyKey !== undefined) process.env.TAVILY_API_KEY = savedTavilyKey
+    else delete process.env.TAVILY_API_KEY
+  })
+
+  test("short-circuits web search request when TAVILY_API_KEY is set", async () => {
+    process.env.TAVILY_API_KEY = "tvly-test-key"
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchJson({
+        results: [
+          { url: "https://example.com", title: "Example", content: "Test content" },
+        ],
+      }),
+    )
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-sonnet-4",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "Perform a web search for the query: latest bun version" }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Record<string, unknown>
+    expect(json.type).toBe("message")
+
+    // Should contain server_tool_use + web_search_tool_result + text
+    const content = json.content as Array<{ type: string }>
+    expect(content).toHaveLength(3)
+    expect(content[0].type).toBe("server_tool_use")
+    expect(content[1].type).toBe("web_search_tool_result")
+    expect(content[2].type).toBe("text")
+
+    // Tavily was called (not Copilot)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    const callUrl = fetchSpy.mock.calls[0][0] as string
+    expect(callUrl).toBe("https://api.tavily.com/search")
+  })
+
+  test("passes through to Copilot when TAVILY_API_KEY is not set", async () => {
+    delete process.env.TAVILY_API_KEY
+
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-sonnet-4",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "Perform a web search for the query: test" }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    // Should go through normal Copilot path (Anthropic response format)
+    const json = (await res.json()) as Record<string, unknown>
+    expect(json.type).toBe("message")
+    expect(json.stop_reason).toBe("end_turn") // from Copilot translation
+  })
+
+  test("returns empty results when Tavily is unavailable", async () => {
+    process.env.TAVILY_API_KEY = "tvly-test-key"
+
+    fetchSpy.mockRejectedValueOnce(new Error("network error"))
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-sonnet-4",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "Perform a web search for the query: test" }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Record<string, unknown>
+    const content = json.content as Array<{ type: string; text?: string }>
+    const textBlock = content.find((b) => b.type === "text")
+    expect(textBlock?.text).toBe("No results found.")
+  })
+
+  test("streaming web search returns valid SSE events", async () => {
+    process.env.TAVILY_API_KEY = "tvly-test-key"
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchJson({
+        results: [
+          { url: "https://example.com", title: "Example", content: "Result text" },
+        ],
+      }),
+    )
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-sonnet-4",
+        max_tokens: 4096,
+        stream: true,
+        messages: [{ role: "user", content: "Perform a web search for the query: test query" }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const text = await res.text()
+
+    // Should contain the expected SSE event types
+    expect(text).toContain("message_start")
+    expect(text).toContain("content_block_start")
+    expect(text).toContain("content_block_stop")
+    expect(text).toContain("input_json_delta")
+    expect(text).toContain("message_delta")
+    expect(text).toContain("message_stop")
+    expect(text).toContain("server_tool_use")
+    expect(text).toContain("web_search_tool_result")
+  })
+
+  test("does not intercept normal requests without web_search server tool", async () => {
+    process.env.TAVILY_API_KEY = "tvly-test-key"
+
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hello" }],
+        tools: [{ name: "get_weather", input_schema: { type: "object" } }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    // Should go through Copilot, not Tavily
+    const callUrl = fetchSpy.mock.calls[0][0] as string
+    expect(callUrl).not.toContain("tavily")
+  })
+})
