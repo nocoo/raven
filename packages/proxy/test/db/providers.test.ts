@@ -152,7 +152,7 @@ describe("listProviders", () => {
       $id: first.id,
     })
 
-    const second = createProvider(db, {
+    createProvider(db, {
       name: "Second",
       base_url: "https://second.com",
       format: "openai",
@@ -162,8 +162,8 @@ describe("listProviders", () => {
 
     const providers = listProviders(db)
     expect(providers.length).toBe(2)
-    expect(providers[0].name).toBe("First")
-    expect(providers[1].name).toBe("Second")
+    expect(providers[0]?.name).toBe("First")
+    expect(providers[1]?.name).toBe("Second")
   })
 
   test("includes disabled providers", () => {
@@ -186,8 +186,8 @@ describe("listProviders", () => {
 
     const providers = listProviders(db)
     expect(providers.length).toBe(2)
-    expect(providers[0].is_enabled).toBe(true)
-    expect(providers[1].is_enabled).toBe(false)
+    expect(providers[0]?.is_enabled).toBe(true)
+    expect(providers[1]?.is_enabled).toBe(false)
   })
 
   test("masks api_key", () => {
@@ -200,7 +200,7 @@ describe("listProviders", () => {
     })
 
     const providers = listProviders(db)
-    expect(providers[0].api_key_preview).toBe("sk-secre...****")
+    expect(providers[0]?.api_key_preview).toBe("sk-secre...****")
     expect(providers[0]).not.toHaveProperty("api_key")
   })
 })
@@ -350,7 +350,7 @@ describe("getEnabledProviders", () => {
 
     const enabled = getEnabledProviders(db)
     expect(enabled.length).toBe(1)
-    expect(enabled[0].name).toBe("Enabled")
+    expect(enabled[0]?.name).toBe("Enabled")
   })
 
   test("returns empty array when no providers", () => {
@@ -367,7 +367,7 @@ describe("getEnabledProviders", () => {
     })
 
     const enabled = getEnabledProviders(db)
-    expect(enabled[0].api_key).toBe("secret-key-12345")
+    expect(enabled[0]?.api_key).toBe("secret-key-12345")
   })
 
   test("orders by created_at ASC", () => {
@@ -393,8 +393,8 @@ describe("getEnabledProviders", () => {
     })
 
     const enabled = getEnabledProviders(db)
-    expect(enabled[0].name).toBe("First")
-    expect(enabled[1].name).toBe("Second")
+    expect(enabled[0]?.name).toBe("First")
+    expect(enabled[1]?.name).toBe("Second")
   })
 })
 
