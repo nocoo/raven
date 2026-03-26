@@ -207,10 +207,43 @@ describe("upstreams API", () => {
       }
     })
 
-    test("returns 409 when model pattern conflicts with existing provider", async () => {
+    test("allows glob patterns that overlap with Copilot models", async () => {
       const app = makeApp(db)
 
-      // Create first provider
+      // Set state.models to simulate Copilot models
+      const { state } = await import("../../src/lib/state")
+      const savedModels = state.models
+      state.models = { object: "list" as const, data: [
+        { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", capabilities: {
+          family: "anthropic",
+          limits: { max_context_window_tokens: 200000, max_output_tokens: 8192, max_prompt_tokens: 200000, max_inputs: 100 },
+          object: "model_capabilities",
+          supports: { tool_calls: true, parallel_tool_calls: true, dimensions: true },
+          tokenizer: "anthropic",
+          type: "chat",
+        }, model_picker_enabled: true, preview: false, vendor: "anthropic", version: "20241022", object: "model", policy: { state: "allowed", terms: "" } },
+      ]}
+
+      try {
+        // Glob pattern should be allowed even though it overlaps with Copilot model
+        const res = await app.request(req("POST", "/api/upstreams", {
+          name: "TestProvider",
+          base_url: "https://example.com",
+          format: "anthropic",
+          api_key: "sk-test-key",
+          model_patterns: ["claude-*"],  // Glob that would match claude-3-5-sonnet-20241022
+        }))
+
+        expect(res.status).toBe(201)
+      } finally {
+        state.models = savedModels
+      }
+    })
+
+    test("allows glob and exact patterns to coexist", async () => {
+      const app = makeApp(db)
+
+      // Create first provider with glob pattern
       await app.request(req("POST", "/api/upstreams", {
         name: "Provider1",
         base_url: "https://example1.com",
@@ -219,7 +252,7 @@ describe("upstreams API", () => {
         model_patterns: ["glm-*"],
       }))
 
-      // Try to create second provider with conflicting pattern
+      // Create second provider with exact pattern that matches glob
       const res = await app.request(req("POST", "/api/upstreams", {
         name: "Provider2",
         base_url: "https://example2.com",
@@ -228,9 +261,8 @@ describe("upstreams API", () => {
         model_patterns: ["glm-5"],
       }))
 
-      expect(res.status).toBe(409)
-      const json = await res.json() as { error: { conflicts: string[] } }
-      expect(json.error.conflicts).toContain("glm-5")
+      // Should succeed - exact-first routing means glm-5 routes to Provider2
+      expect(res.status).toBe(201)
     })
 
     test("accepts valid glob patterns", async () => {
@@ -245,6 +277,32 @@ describe("upstreams API", () => {
       }))
 
       expect(res.status).toBe(201)
+    })
+
+    test("returns 409 when exact pattern conflicts with existing provider", async () => {
+      const app = makeApp(db)
+
+      // Create first provider
+      await app.request(req("POST", "/api/upstreams", {
+        name: "Provider1",
+        base_url: "https://example1.com",
+        format: "anthropic",
+        api_key: "sk-key1",
+        model_patterns: ["exact-model"],
+      }))
+
+      // Try to create second provider with same exact pattern
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "Provider2",
+        base_url: "https://example2.com",
+        format: "openai",
+        api_key: "sk-key2",
+        model_patterns: ["exact-model"],
+      }))
+
+      expect(res.status).toBe(409)
+      const json = await res.json() as { error: { conflicts: string[] } }
+      expect(json.error.conflicts).toContain("exact-model")
     })
   })
 

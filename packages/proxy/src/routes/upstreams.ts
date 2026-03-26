@@ -41,8 +41,12 @@ const updateProviderSchema = z.object({
 
 /**
  * Check if any of the given model patterns conflict with:
- * 1. Copilot models (from state.models)
- * 2. Existing providers (excluding the provider being updated)
+ * 1. Copilot models (from state.models) - exact patterns only
+ * 2. Existing providers (excluding the provider being updated) - exact patterns only
+ *
+ * NOTE: Glob patterns (e.g., "glm-*") are allowed to overlap with exact patterns.
+ * The routing logic uses exact-first matching, so globs serve as fallbacks.
+ *
  * Returns array of conflicting model names.
  */
 function checkModelConflicts(
@@ -52,27 +56,21 @@ function checkModelConflicts(
 ): string[] {
   const conflicts: string[] = []
 
-  // Check against Copilot models
+  // Check exact patterns against Copilot models
   if (state.models?.data) {
     for (const pattern of patterns) {
-      if (pattern.includes("*")) {
-        // Glob pattern
-        const prefix = pattern.slice(0, -1)
-        const conflicting = state.models.data.filter((m) => m.id.startsWith(prefix))
-        for (const model of conflicting) {
-          if (!conflicts.includes(model.id)) conflicts.push(model.id)
-        }
-      } else {
-        // Exact pattern
-        const conflicting = state.models.data.find((m) => m.id === pattern)
-        if (conflicting && !conflicts.includes(pattern)) {
-          conflicts.push(pattern)
-        }
+      // Skip glob patterns - they're allowed as fallbacks
+      if (pattern.includes("*")) continue
+
+      // Exact pattern: check for conflict
+      const conflicting = state.models.data.find((m) => m.id === pattern)
+      if (conflicting && !conflicts.includes(pattern)) {
+        conflicts.push(pattern)
       }
     }
   }
 
-  // Check against other providers (including disabled ones since they can be re-enabled)
+  // Check exact patterns against other providers
   const allProviders = db
     .query("SELECT id, model_patterns, enabled FROM providers")
     .all() as Array<{ id: string; model_patterns: string; enabled: number }>
@@ -83,25 +81,16 @@ function checkModelConflicts(
     try {
       const otherPatterns: string[] = JSON.parse(other.model_patterns)
       for (const pattern of patterns) {
+        // Skip glob patterns - they're allowed as fallbacks
+        if (pattern.includes("*")) continue
+
         for (const otherPattern of otherPatterns) {
-          // Check for exact match
-          if (pattern === otherPattern) {
-            if (!conflicts.includes(pattern)) conflicts.push(pattern)
-            continue
-          }
-          // Check for glob match: pattern=exact, otherPattern=glob (e.g. "glm-5" vs "glm-*")
-          if (otherPattern.includes("*")) {
-            const prefix = otherPattern.slice(0, -1)
-            if (pattern.startsWith(prefix)) {
-              if (!conflicts.includes(pattern)) conflicts.push(pattern)
-            }
-          }
-          // Check for glob match: pattern=glob, otherPattern=exact (e.g. "glm-*" vs "glm-5")
-          if (pattern.includes("*")) {
-            const prefix = pattern.slice(0, -1)
-            if (otherPattern.startsWith(prefix)) {
-              if (!conflicts.includes(otherPattern)) conflicts.push(otherPattern)
-            }
+          // Skip glob patterns - they're allowed as fallbacks
+          if (otherPattern.includes("*")) continue
+
+          // Exact-to-exact conflict
+          if (pattern === otherPattern && !conflicts.includes(pattern)) {
+            conflicts.push(pattern)
           }
         }
       }
