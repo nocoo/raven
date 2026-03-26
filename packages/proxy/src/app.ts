@@ -12,6 +12,7 @@ import { createCopilotInfoRoute } from "./routes/copilot-info"
 import { createKeysRoute } from "./routes/keys"
 import { createConnectionInfoRoute } from "./routes/connection-info"
 import { createSettingsRoute } from "./routes/settings"
+import { createUpstreamsRoute } from "./routes/upstreams"
 
 // ---------------------------------------------------------------------------
 // App factory — pure, synchronous, testable
@@ -72,6 +73,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createKeysRoute(db))
   app.route("/api", createConnectionInfoRoute({ port: port ?? 7033, baseUrl: baseUrl ?? null }))
   app.route("/api", createSettingsRoute(db))
+  app.route("/api", createUpstreamsRoute(db))
 
   return app
 }

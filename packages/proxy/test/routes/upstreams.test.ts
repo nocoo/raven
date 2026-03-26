@@ -1,0 +1,430 @@
+import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { Hono } from "hono"
+import { Database } from "bun:sqlite"
+
+import { createUpstreamsRoute } from "../../src/routes/upstreams"
+import { initProviders, getEnabledProviders } from "../../src/db/providers"
+
+// ===========================================================================
+// Helpers
+// ============================================================================
+
+function makeApp(db: Database): Hono {
+  const app = new Hono()
+  app.route("/api", createUpstreamsRoute(db))
+  return app
+}
+
+function req(method: string, path: string, body?: unknown): Request {
+  const init: RequestInit = {
+    method,
+    headers: { "content-type": "application/json" },
+  }
+  if (body !== undefined) {
+    init.body = JSON.stringify(body)
+  }
+  return new Request(`http://localhost${path}`, init)
+}
+
+// ===========================================================================
+// Setup / teardown
+// ============================================================================
+
+let db: Database
+
+beforeEach(() => {
+  db = new Database(":memory:")
+  initProviders(db)
+})
+
+afterEach(() => {
+  db.close()
+})
+
+// ===========================================================================
+// Tests
+// ============================================================================
+
+describe("upstreams API", () => {
+  describe("GET /api/upstreams", () => {
+    test("returns empty array when no providers exist", async () => {
+      const app = makeApp(db)
+      const res = await app.request(req("GET", "/api/upstreams"))
+
+      expect(res.status).toBe(200)
+      const json = await res.json()
+      expect(json).toEqual([])
+    })
+
+    test("returns list of providers with masked api_key", async () => {
+      const app = makeApp(db)
+
+      // Create two providers
+      await app.request(req("POST", "/api/upstreams", {
+        name: "AnthropicProvider",
+        base_url: "https://anthropic.example.com",
+        format: "anthropic",
+        api_key: "sk-ant-1234567890abcdef",
+        model_patterns: ["claude-*"],
+        is_enabled: true,
+      }))
+
+      await app.request(req("POST", "/api/upstreams", {
+        name: "OpenAIProvider",
+        base_url: "https://openai.example.com",
+        format: "openai",
+        api_key: "sk-openai-1234567890abcdef",
+        model_patterns: ["gpt-*"],
+        is_enabled: false,
+      }))
+
+      const res = await app.request(req("GET", "/api/upstreams"))
+
+      expect(res.status).toBe(200)
+      const json = await res.json() as Array<{ name: string; api_key_preview: string; is_enabled: boolean }>
+      expect(json).toHaveLength(2)
+
+      const anthropic = json.find((p) => p.name === "AnthropicProvider")
+      expect(anthropic?.api_key_preview).toBe("sk-ant-1...****")
+      expect(anthropic?.is_enabled).toBe(true)
+
+      const openai = json.find((p) => p.name === "OpenAIProvider")
+      expect(openai?.api_key_preview).toBe("sk-opena...****")
+      expect(openai?.is_enabled).toBe(false)
+    })
+  })
+
+  describe("GET /api/upstreams/:id", () => {
+    test("returns 404 for non-existent provider", async () => {
+      const app = makeApp(db)
+      const res = await app.request(req("GET", "/api/upstreams/nonexistent"))
+
+      expect(res.status).toBe(404)
+      const json = await res.json() as { error: { message: string } }
+      expect(json.error.message).toBe("Provider not found")
+    })
+
+    test("returns provider with masked api_key", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-test-1234567890",
+        model_patterns: ["test-model"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      const res = await app.request(req("GET", `/api/upstreams/${created.id}`))
+
+      expect(res.status).toBe(200)
+      const json = await res.json() as { name: string; api_key_preview: string }
+      expect(json.name).toBe("TestProvider")
+      expect(json.api_key_preview).toBe("sk-test-...****")
+    })
+  })
+
+  describe("POST /api/upstreams", () => {
+    test("creates provider with valid input", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-test-key",
+        model_patterns: ["test-model"],
+      }))
+
+      expect(res.status).toBe(201)
+      const json = await res.json() as { id: string; name: string; is_enabled: boolean }
+      expect(json.id).toBeDefined()
+      expect(json.name).toBe("TestProvider")
+      expect(json.is_enabled).toBe(true) // default
+    })
+
+    test("returns 400 for invalid URL", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "not-a-url",
+        format: "anthropic",
+        api_key: "sk-test-key",
+        model_patterns: ["test-model"],
+      }))
+
+      expect(res.status).toBe(400)
+    })
+
+    test("returns 400 for invalid format", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "invalid",
+        api_key: "sk-test-key",
+        model_patterns: ["test-model"],
+      }))
+
+      expect(res.status).toBe(400)
+    })
+
+    test("returns 409 when model pattern conflicts with Copilot models", async () => {
+      const app = makeApp(db)
+
+      // Set state.models to simulate Copilot models
+      const { state } = await import("../../src/lib/state")
+      const savedModels = state.models
+      state.models = { object: "list" as const, data: [
+        { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", capabilities: {
+          family: "anthropic",
+          limits: { max_context_window_tokens: 200000, max_output_tokens: 8192, max_prompt_tokens: 200000, max_inputs: 100 },
+          object: "model_capabilities",
+          supports: { tool_calls: true, parallel_tool_calls: true, dimensions: true },
+          tokenizer: "anthropic",
+          type: "chat",
+        }, model_picker_enabled: true, preview: false, vendor: "anthropic", version: "20241022", object: "model", policy: { state: "allowed", terms: "" } },
+      ]}
+
+      try {
+        const res = await app.request(req("POST", "/api/upstreams", {
+          name: "TestProvider",
+          base_url: "https://example.com",
+          format: "anthropic",
+          api_key: "sk-test-key",
+          model_patterns: ["claude-3-5-sonnet-20241022"],
+        }))
+
+        expect(res.status).toBe(409)
+        const json = await res.json() as { error: { type: string; conflicts: string[] } }
+        expect(json.error.type).toBe("model_conflict")
+        expect(json.error.conflicts).toContain("claude-3-5-sonnet-20241022")
+      } finally {
+        state.models = savedModels
+      }
+    })
+
+    test("returns 409 when model pattern conflicts with existing provider", async () => {
+      const app = makeApp(db)
+
+      // Create first provider
+      await app.request(req("POST", "/api/upstreams", {
+        name: "Provider1",
+        base_url: "https://example1.com",
+        format: "anthropic",
+        api_key: "sk-key1",
+        model_patterns: ["glm-*"],
+      }))
+
+      // Try to create second provider with conflicting pattern
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "Provider2",
+        base_url: "https://example2.com",
+        format: "openai",
+        api_key: "sk-key2",
+        model_patterns: ["glm-5"],
+      }))
+
+      expect(res.status).toBe(409)
+      const json = await res.json() as { error: { conflicts: string[] } }
+      expect(json.error.conflicts).toContain("glm-5")
+    })
+
+    test("accepts valid glob patterns", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["gpt-*", "claude-*"],
+      }))
+
+      expect(res.status).toBe(201)
+    })
+  })
+
+  describe("PUT /api/upstreams/:id", () => {
+    test("updates provider with valid input", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "OriginalName",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-original-key",
+        model_patterns: ["original-model"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      const res = await app.request(req("PUT", `/api/upstreams/${created.id}`, {
+        name: "UpdatedName",
+        base_url: "https://updated.com",
+        model_patterns: ["updated-model"],
+      }))
+
+      expect(res.status).toBe(200)
+      const json = await res.json() as { name: string; base_url: string }
+      expect(json.name).toBe("UpdatedName")
+      expect(json.base_url).toBe("https://updated.com")
+    })
+
+    test("returns 404 for non-existent provider", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("PUT", "/api/upstreams/nonexistent", {
+        name: "UpdatedName",
+      }))
+
+      expect(res.status).toBe(404)
+    })
+
+    test("returns 409 when updated model patterns conflict", async () => {
+      const app = makeApp(db)
+
+      // Create two providers
+      const p1Res = await app.request(req("POST", "/api/upstreams", {
+        name: "Provider1",
+        base_url: "https://example1.com",
+        format: "anthropic",
+        api_key: "sk-key1",
+        model_patterns: ["model-1"],
+      }))
+      const p1 = await p1Res.json() as { id: string }
+
+      await app.request(req("POST", "/api/upstreams", {
+        name: "Provider2",
+        base_url: "https://example2.com",
+        format: "openai",
+        api_key: "sk-key2",
+        model_patterns: ["model-2"],
+      }))
+
+      // Try to update Provider1 to conflict with Provider2
+      const res = await app.request(req("PUT", `/api/upstreams/${p1.id}`, {
+        model_patterns: ["model-2"],
+      }))
+
+      expect(res.status).toBe(409)
+    })
+
+    test("allows updating provider with its own patterns unchanged", async () => {
+      const app = makeApp(db)
+
+      const p1Res = await app.request(req("POST", "/api/upstreams", {
+        name: "Provider1",
+        base_url: "https://example1.com",
+        format: "anthropic",
+        api_key: "sk-key1",
+        model_patterns: ["model-1"],
+      }))
+      const p1 = await p1Res.json() as { id: string }
+
+      // Update with same patterns should not conflict
+      const res = await app.request(req("PUT", `/api/upstreams/${p1.id}`, {
+        name: "UpdatedProvider1",
+        model_patterns: ["model-1"],
+      }))
+
+      expect(res.status).toBe(200)
+    })
+  })
+
+  describe("DELETE /api/upstreams/:id", () => {
+    test("deletes existing provider", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "ToDelete",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-key",
+        model_patterns: ["test"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      const deleteRes = await app.request(req("DELETE", `/api/upstreams/${created.id}`))
+      expect(deleteRes.status).toBe(200)
+
+      // Verify deletion
+      const getRes = await app.request(req("GET", `/api/upstreams/${created.id}`))
+      expect(getRes.status).toBe(404)
+    })
+
+    test("returns 404 for non-existent provider", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("DELETE", "/api/upstreams/nonexistent"))
+      expect(res.status).toBe(404)
+    })
+
+    test("returns success object", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "ToDelete",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-key",
+        model_patterns: ["test"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      const res = await app.request(req("DELETE", `/api/upstreams/${created.id}`))
+      const json = await res.json() as { success: boolean }
+      expect(json.success).toBe(true)
+    })
+  })
+
+  describe("state refresh", () => {
+    test("creating provider updates state.providers", async () => {
+      const app = makeApp(db)
+
+      // Check initial state
+      let providers = getEnabledProviders(db)
+      expect(providers).toHaveLength(0)
+
+      // Create provider
+      await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-key",
+        model_patterns: ["test"],
+      }))
+
+      // State should be refreshed
+      providers = getEnabledProviders(db)
+      expect(providers).toHaveLength(1)
+      expect(providers[0]?.name).toBe("TestProvider")
+    })
+
+    test("deleting provider updates state.providers", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "ToDelete",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-key",
+        model_patterns: ["test"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      // Verify provider exists
+      let providers = getEnabledProviders(db)
+      expect(providers).toHaveLength(1)
+
+      // Delete provider
+      await app.request(req("DELETE", `/api/upstreams/${created.id}`))
+
+      // State should be refreshed
+      providers = getEnabledProviders(db)
+      expect(providers).toHaveLength(0)
+    })
+  })
+})
