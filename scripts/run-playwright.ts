@@ -6,6 +6,7 @@
  *
  * References: otter/run-e2e-ui.ts pattern
  */
+import { unlinkSync } from "node:fs";
 import { $ } from "bun";
 
 const PROXY_PORT = 7033;
@@ -59,6 +60,14 @@ async function main() {
   let proxyProc: ReturnType<typeof Bun.spawn> | null = null;
   let dashboardProc: ReturnType<typeof Bun.spawn> | null = null;
 
+  // Clean slate: delete test DB before run (D1 isolation)
+  const TEST_DB = `${import.meta.dir}/../packages/proxy/data/raven-test.db`;
+  try {
+    unlinkSync(TEST_DB);
+  } catch {
+    // OK if not exists
+  }
+
   try {
     // Check if servers are already running
     const proxyAlready = await isPortReady(PROXY_PORT);
@@ -80,6 +89,7 @@ async function main() {
           // Dev mode: no auth required
           RAVEN_API_KEY: undefined,
           RAVEN_INTERNAL_KEY: undefined,
+          RAVEN_DB_PATH: "data/raven-test.db",
         },
       });
       await waitForPort(PROXY_PORT, "Proxy");

@@ -7,6 +7,7 @@
  * The proxy must have valid Copilot credentials configured
  * (GITHUB_TOKEN or cached token) for upstream tests to pass.
  */
+import { unlinkSync } from "node:fs";
 import { $ } from "bun";
 
 const PROXY_PORT = 7033;
@@ -62,6 +63,14 @@ function killProc(
 async function main() {
   let proxyProc: ReturnType<typeof Bun.spawn> | null = null;
 
+  // Clean slate: delete test DB before run (D1 isolation)
+  const TEST_DB = `${import.meta.dir}/../packages/proxy/data/raven-test.db`;
+  try {
+    unlinkSync(TEST_DB);
+  } catch {
+    // OK if not exists
+  }
+
   try {
     const alreadyRunning = await isPortReady(PROXY_PORT);
 
@@ -75,6 +84,10 @@ async function main() {
         cwd: `${import.meta.dir}/..`,
         stdout: "ignore",
         stderr: "ignore",
+        env: {
+          ...process.env,
+          RAVEN_DB_PATH: "data/raven-test.db",
+        },
       });
       await waitForPort(PROXY_PORT, "Proxy");
     }
