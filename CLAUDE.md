@@ -33,14 +33,14 @@ bun run test:e2e    # e2e tests (auto-starts proxy if needed)
 bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers)
 ```
 
-### Test status (2026-03-24)
+### Test status (2026-03-27)
 
 | Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
 |---------|--------|-------|------|-------------------|-----------|--------|
-| proxy | bun:test | 495 | 495 | 94.7% | 90% | ✅ |
-| dashboard | vitest 4 + jsdom | 224 | 224 | 98.2% | 90% | ✅ |
+| proxy | bun:test | 583 | 583 | 91.7% | 90% | ✅ |
+| dashboard | vitest 4 + jsdom | 236 | 236 | 98.2% | 90% | ✅ |
 
-**L1 (UT)**: All 719 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
+**L1 (UT)**: All 819 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
 
 **L2 (API E2E)**: `bun run test:e2e` — auto-starts proxy, runs against real upstream. Manual only.
 

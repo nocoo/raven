@@ -1,5 +1,39 @@
 # Changelog
 
+## v1.3.0 (2026-03-27)
+
+Custom upstream routing — route specific models to external providers (e.g. Zhipu GLM → Anthropic-compatible API) while everything else continues through GitHub Copilot.
+
+### Proxy — custom upstream routing
+
+- **Provider database** — new `providers` SQLite table with full CRUD for upstream provider configurations (name, base URL, format, API key, model patterns, enabled state)
+- **Model routing** — `resolveUpstream(model)` matches exact patterns first, then glob patterns (`glm-*`) as fallbacks; unmatched models fall through to Copilot
+- **Anthropic passthrough** — Anthropic-format upstream providers receive the raw payload without translation, streaming and non-streaming
+- **OpenAI upstream** — OpenAI-format upstream providers receive translated payloads via existing Anthropic→OpenAI translation
+- **Provider models in /v1/models** — exact (non-glob) model patterns from enabled providers are injected into the model list response, deduplicated against Copilot models
+- **Management API** — `GET/POST /api/upstreams`, `GET/PUT/DELETE /api/upstreams/:id` with Zod validation, model conflict detection (exact-only, globs allowed as fallbacks), and automatic state cache refresh
+- **Conflict guards** — provider creation returns 503 when Copilot models aren't loaded (conflict detection would be incomplete); provider update returns 503 only when model_patterns are being changed
+
+### Dashboard — upstreams management
+
+- **Upstreams settings page** — table listing all providers with name, format, base URL, model patterns (tags), masked API key, enabled status
+- **Create/Edit dialogs** — form with name, format (Anthropic/OpenAI), base URL, API key (password field, leave empty to keep existing on edit), comma-separated model patterns, enabled switch
+- **Delete confirmation** — destructive action dialog with provider name display
+- **Sidebar navigation** — added Upstreams link in Settings nav group
+
+### Quality gates
+
+- **Security gate** — added `osv-scanner.toml` to ignore transitive picomatch vulnerabilities (GHSA-3v7f-55p6-f55p, GHSA-c2c7-rcm5-vvqj) in dev-only dependencies
+
+### Tests
+
+- **583 proxy tests** (was 495) — added 88 tests: providers DB CRUD, upstream router (exact/glob matching, priority, disabled providers), Anthropic/OpenAI fetch services (streaming/non-streaming, error handling), handler integration (routing, passthrough, fallback), upstreams API routes (CRUD, validation, conflict detection, 503 guards), models route (provider model injection)
+- **236 dashboard tests** (was 224) — added 12 tests: upstreams API routes (proxy pass-through, error handling), sidebar navigation items
+
+### Docs
+
+- **Design doc** — added `docs/11-custom-upstream-routing.md` with architecture, routing logic, API schema, and implementation plan
+
 ## v1.2.3 (2026-03-23)
 
 Claude Code compatibility — proxy now accepts `x-api-key` header for authentication, matching Claude Code's behavior when `ANTHROPIC_BASE_URL` points to a non-Anthropic host.
