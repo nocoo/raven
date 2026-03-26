@@ -1,4 +1,5 @@
 import type { ModelsResponse } from "~/services/copilot/get-models"
+import type { ProviderRecord } from "~/db/providers"
 
 export interface State {
   githubToken: string | null
@@ -23,6 +24,9 @@ export interface State {
   optSanitizeOrphanedToolResults: boolean
   optReorderToolResults: boolean
   optFilterWhitespaceChunks: boolean
+
+  // Custom providers — cached enabled records, refreshed on CRUD operations
+  providers: ProviderRecord[]
 }
 
 export const state: State = {
@@ -40,4 +44,5 @@ export const state: State = {
   optSanitizeOrphanedToolResults: false,
   optReorderToolResults: false,
   optFilterWhitespaceChunks: false,
+  providers: [],
 }

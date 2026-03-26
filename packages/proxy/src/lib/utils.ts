@@ -7,6 +7,7 @@ import {
   detectLocalCopilotVersion,
 } from "~/services/detect-local-versions"
 import { getSetting } from "~/db/settings"
+import { getEnabledProviders } from "~/db/providers"
 
 import { state } from "./state"
 
@@ -88,4 +89,12 @@ export function cacheOptimizations(db: Database): void {
     getSetting(db, "opt_reorder_tool_results") === "true"
   state.optFilterWhitespaceChunks =
     getSetting(db, "opt_filter_whitespace_chunks") === "true"
+}
+
+/**
+ * Load enabled providers from DB into runtime state.
+ * Called at startup and after any provider CRUD operation.
+ */
+export function cacheProviders(db: Database): void {
+  state.providers = getEnabledProviders(db)
 }
