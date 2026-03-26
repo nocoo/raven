@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Terminal,
   Settings,
+  ArrowUpDown,
 } from "lucide-react";
 import { cn, getAvatarColor } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -71,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/settings/upstreams", label: "Upstreams", icon: ArrowUpDown },
       { href: "/connect", label: "Connect", icon: Cable },
     ],
   },
