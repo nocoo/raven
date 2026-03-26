@@ -346,3 +346,209 @@ describe("DELETE /api/settings/[key]", () => {
     expect((await res.json()).error).toBe("timeout");
   });
 });
+
+// ===========================================================================
+// GET /api/upstreams
+// ===========================================================================
+
+describe("GET /api/upstreams", () => {
+  it("success → returns JSON with 200", async () => {
+    const data = [
+      { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic" as const,
+        api_key_preview: "sk-test...****", model_patterns: ["test"], is_enabled: true,
+        created_at: 1234567890, updated_at: 1234567890 },
+    ];
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { GET } = await import("@/app/api/upstreams/route");
+    const res = await GET();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/upstreams");
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Server Error", 500));
+
+    const { GET } = await import("@/app/api/upstreams/route");
+    const res = await GET();
+
+    expect(res.status).toBe(500);
+  });
+
+  it("generic Error → returns 502", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new Error("network down"));
+
+    const { GET } = await import("@/app/api/upstreams/route");
+    const res = await GET();
+
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe("network down");
+  });
+});
+
+// ===========================================================================
+// POST /api/upstreams
+// ===========================================================================
+
+describe("POST /api/upstreams", () => {
+  it("success → returns JSON with 201", async () => {
+    const body = { name: "NewProvider", base_url: "https://example.com", format: "openai" as const,
+      api_key: "sk-test", model_patterns: ["gpt-*"] };
+    const data = { id: "p1", ...body, api_key_preview: "sk-test...****", is_enabled: true,
+      created_at: 1234567890, updated_at: 1234567890 };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { POST } = await import("@/app/api/upstreams/route");
+    const req = new Request("http://localhost/api/upstreams", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/upstreams", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Conflict", 409));
+
+    const { POST } = await import("@/app/api/upstreams/route");
+    const req = new Request("http://localhost/api/upstreams", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(409);
+  });
+});
+
+// ===========================================================================
+// GET /api/upstreams/[id]
+// ===========================================================================
+
+describe("GET /api/upstreams/[id]", () => {
+  function makeParams(id: string) {
+    return { params: Promise.resolve({ id }) };
+  }
+
+  it("success → returns JSON with 200", async () => {
+    const data = { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic" as const,
+      api_key_preview: "sk-test...****", model_patterns: ["test"], is_enabled: true,
+      created_at: 1234567890, updated_at: 1234567890 };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { GET } = await import("@/app/api/upstreams/[id]/route");
+    const req = new Request("http://localhost/api/upstreams/p1");
+    const res = await GET(req, makeParams("p1"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/upstreams/p1");
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Not Found", 404));
+
+    const { GET } = await import("@/app/api/upstreams/[id]/route");
+    const req = new Request("http://localhost/api/upstreams/p1");
+    const res = await GET(req, makeParams("p1"));
+
+    expect(res.status).toBe(404);
+  });
+});
+
+// ===========================================================================
+// PUT /api/upstreams/[id]
+// ===========================================================================
+
+describe("PUT /api/upstreams/[id]", () => {
+  function makeParams(id: string) {
+    return { params: Promise.resolve({ id }) };
+  }
+
+  it("success → returns JSON with 200", async () => {
+    const body = { name: "UpdatedProvider" };
+    const data = { id: "p1", name: "UpdatedProvider", base_url: "https://example.com", format: "anthropic" as const,
+      api_key_preview: "sk-test...****", model_patterns: ["test"], is_enabled: true,
+      created_at: 1234567890, updated_at: 1234567891 };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { PUT } = await import("@/app/api/upstreams/[id]/route");
+    const req = new Request("http://localhost/api/upstreams/p1", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+    const res = await PUT(req, makeParams("p1"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/upstreams/p1", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Validation Error", 400));
+
+    const { PUT } = await import("@/app/api/upstreams/[id]/route");
+    const req = new Request("http://localhost/api/upstreams/p1", {
+      method: "PUT",
+      body: JSON.stringify({}),
+    });
+    const res = await PUT(req, makeParams("p1"));
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ===========================================================================
+// DELETE /api/upstreams/[id]
+// ===========================================================================
+
+describe("DELETE /api/upstreams/[id]", () => {
+  function makeParams(id: string) {
+    return { params: Promise.resolve({ id }) };
+  }
+
+  it("success → returns JSON with 200", async () => {
+    const data = { success: true };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { DELETE } = await import("@/app/api/upstreams/[id]/route");
+    const req = new Request("http://localhost/api/upstreams/p1", { method: "DELETE" });
+    const res = await DELETE(req, makeParams("p1"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/upstreams/p1", { method: "DELETE" });
+  });
+
+  it("ProxyError → returns error status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Not Found", 404));
+
+    const { DELETE } = await import("@/app/api/upstreams/[id]/route");
+    const req = new Request("http://localhost/api/upstreams/p1", { method: "DELETE" });
+    const res = await DELETE(req, makeParams("p1"));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("generic Error → returns 502", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new Error("timeout"));
+
+    const { DELETE } = await import("@/app/api/upstreams/[id]/route");
+    const req = new Request("http://localhost/api/upstreams/p1", { method: "DELETE" });
+    const res = await DELETE(req, makeParams("p1"));
+
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe("timeout");
+  });
+});

@@ -191,3 +191,39 @@ export interface SettingsData {
   optimizations: Record<string, OptimizationInfo>;
 }
 
+// ---------------------------------------------------------------------------
+// Provider types
+// ---------------------------------------------------------------------------
+
+export type ProviderFormat = "openai" | "anthropic";
+
+export interface ProviderPublic {
+  id: string;
+  name: string;
+  base_url: string;
+  format: ProviderFormat;
+  api_key_preview: string;
+  model_patterns: string[];
+  is_enabled: boolean;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface CreateProviderInput {
+  name: string;
+  base_url: string;
+  format: ProviderFormat;
+  api_key: string;
+  model_patterns: string[];
+  is_enabled?: boolean;
+}
+
+export interface UpdateProviderInput {
+  name?: string;
+  base_url?: string;
+  format?: ProviderFormat;
+  api_key?: string;
+  model_patterns?: string[];
+  is_enabled?: boolean;
+}
+
