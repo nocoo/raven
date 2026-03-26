@@ -29,8 +29,10 @@ setLogLevel(config.logLevel)
 await ensurePaths()
 
 // 2. Database
-mkdirSync("data", { recursive: true })
-const db = new Database("data/raven.db")
+const dbDir = config.dbPath.substring(0, config.dbPath.lastIndexOf("/"))
+mkdirSync(dbDir || "data", { recursive: true })
+const db = new Database(config.dbPath)
+logger.info(`Database opened: ${config.dbPath}`)
 initDatabase(db)
 initApiKeys(db)
 initSettings(db)

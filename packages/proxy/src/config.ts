@@ -3,6 +3,7 @@ export interface Config {
   apiKey: string;
   internalKey: string;
   tokenPath: string;
+  dbPath: string;
   logLevel: "debug" | "info" | "warn" | "error";
   baseUrl: string;
 }
@@ -12,8 +13,9 @@ export function loadConfig(): Config {
   const apiKey = process.env.RAVEN_API_KEY ?? "";
   const internalKey = process.env.RAVEN_INTERNAL_KEY ?? "";
   const tokenPath = process.env.RAVEN_TOKEN_PATH ?? "data/github_token";
+  const dbPath = process.env.RAVEN_DB_PATH ?? "data/raven.db";
   const logLevel = (process.env.RAVEN_LOG_LEVEL ?? "info") as Config["logLevel"];
   const baseUrl = process.env.RAVEN_BASE_URL ?? "";
 
-  return { port, apiKey, internalKey, tokenPath, logLevel, baseUrl };
+  return { port, apiKey, internalKey, tokenPath, dbPath, logLevel, baseUrl };
 }
