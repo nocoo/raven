@@ -34,7 +34,8 @@
     "typescript-eslint": "^8.57.2"
   },
   "overrides": {
-    "flatted": ">=3.4.2"
+    "flatted": ">=3.4.2",
+    "brace-expansion": ">=5.0.5"
   },
   "dependencies": {
     "micromatch": "^4.0.8",
