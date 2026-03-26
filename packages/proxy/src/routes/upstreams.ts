@@ -11,6 +11,8 @@ import {
 } from "~/db/providers"
 import { cacheProviders } from "~/lib/utils"
 import { state } from "~/lib/state"
+import { logEmitter } from "~/util/log-emitter"
+import { generateRequestId } from "~/util/id"
 import type { CreateProviderInput, UpdateProviderInput } from "~/db/providers"
 
 // ===========================================================================
@@ -134,7 +136,21 @@ export function createUpstreamsRoute(db: Database): Hono {
       return c.json({ error: { message: "Invalid input" } }, 400)
     }
 
+    // Log warning if Copilot models aren't loaded (conflict detection incomplete)
+    if (!state.models?.data) {
+      const requestId = generateRequestId()
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "warn",
+        type: "system",
+        requestId,
+        msg: "Creating provider without Copilot models loaded - conflict detection incomplete",
+        data: { provider: input.name, patterns: input.model_patterns },
+      })
+    }
+
     // Check for model conflicts
+    // Note: if state.models is not loaded, we only check against other providers
     const conflicts = checkModelConflicts(db, input.model_patterns)
     if (conflicts.length > 0) {
       return c.json(
