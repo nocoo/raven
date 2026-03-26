@@ -9,6 +9,7 @@ import { modelRoutes } from "../../src/routes/models/route"
 // ---------------------------------------------------------------------------
 
 const savedModels = state.models
+const savedProviders = state.providers
 const savedToken = state.copilotToken
 let fetchSpy: ReturnType<typeof spyOn>
 
@@ -16,6 +17,7 @@ beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
+  state.providers = [] // Clear providers before each test
   state.models = {
     object: "list",
     data: [{
@@ -36,6 +38,8 @@ beforeEach(() => {
 afterEach(() => {
   if (savedModels !== undefined) state.models = savedModels
   else state.models = null
+  if (savedProviders !== undefined) state.providers = savedProviders
+  else state.providers = []
   if (savedToken !== undefined) state.copilotToken = savedToken
   else state.copilotToken = null
   fetchSpy.mockRestore()

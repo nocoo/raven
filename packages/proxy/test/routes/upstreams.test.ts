@@ -4,6 +4,7 @@ import { Database } from "bun:sqlite"
 
 import { createUpstreamsRoute } from "../../src/routes/upstreams"
 import { initProviders, getEnabledProviders } from "../../src/db/providers"
+import { state } from "../../src/lib/state"
 
 // ===========================================================================
 // Helpers
@@ -31,14 +32,18 @@ function req(method: string, path: string, body?: unknown): Request {
 // ============================================================================
 
 let db: Database
+const savedModels = state.models
 
 beforeEach(() => {
   db = new Database(":memory:")
   initProviders(db)
+  // Set state.models to avoid 503 errors
+  state.models = { object: "list" as const, data: [] }
 })
 
 afterEach(() => {
   db.close()
+  state.models = savedModels
 })
 
 // ===========================================================================
@@ -483,6 +488,77 @@ describe("upstreams API", () => {
       // State should be refreshed
       providers = getEnabledProviders(db)
       expect(providers).toHaveLength(0)
+    })
+  })
+
+  describe("when Copilot models are not loaded", () => {
+    test("POST returns 503 when state.models is null", async () => {
+      const app = makeApp(db)
+
+      // Set state.models to null
+      state.models = null
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-test-key",
+        model_patterns: ["test-model"],
+      }))
+
+      expect(res.status).toBe(503)
+      const json = await res.json() as { error: { type: string } }
+      expect(json.error.type).toBe("service_unavailable")
+    })
+
+    test("PUT returns 503 when updating model_patterns and state.models is null", async () => {
+      const app = makeApp(db)
+
+      // Create a provider first (with models loaded)
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-test-key",
+        model_patterns: ["test-model"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      // Set state.models to null
+      state.models = null
+
+      // Try to update model_patterns
+      const res = await app.request(req("PUT", `/api/upstreams/${created.id}`, {
+        model_patterns: ["new-model"],
+      }))
+
+      expect(res.status).toBe(503)
+      const json = await res.json() as { error: { type: string } }
+      expect(json.error.type).toBe("service_unavailable")
+    })
+
+    test("PUT succeeds when updating other fields without model_patterns", async () => {
+      const app = makeApp(db)
+
+      // Create a provider first (with models loaded)
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-test-key",
+        model_patterns: ["test-model"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      // Set state.models to null
+      state.models = null
+
+      // Update other fields (not model_patterns) should still work
+      const res = await app.request(req("PUT", `/api/upstreams/${created.id}`, {
+        name: "UpdatedProvider",
+      }))
+
+      expect(res.status).toBe(200)
     })
   })
 })
