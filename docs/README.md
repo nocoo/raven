@@ -11,6 +11,7 @@
 | 08 | [Local Auth Mode](./08-dev-auth-mode.md) | Dashboard local 模式：无 Google OAuth 时跳过认证 |
 | 09 | [Unified Auth](./09-unified-auth.md) | 统一认证架构：分离 AI API 认证与 Dashboard 管理认证 |
 | 10 | [Request Optimizations](./10-request-optimizations.md) | 可配置的请求优化项：协议兼容性修复，Settings 页面逐一开关 |
+| 11 | [Custom Upstream Routing](./11-custom-upstream-routing.md) | AI Providers：多 provider 模型路由 + Copilot 查重 + Dashboard 管理 |
 
 ## Archive
 

@@ -203,7 +203,7 @@ describe("messages handler with provider routing", () => {
       expect(text).toContain("event: message_stop")
     })
 
-    test("returns 502 on upstream error", async () => {
+    test("forwards upstream error status", async () => {
       fetchSpy.mockResolvedValueOnce(
         new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
       )
@@ -211,7 +211,9 @@ describe("messages handler with provider routing", () => {
       const app = makeApp()
       const res = await app.request(req(mockAnthropicPayload))
 
-      expect(res.status).toBe(502)
+      expect(res.status).toBe(401)
+      const json = await res.json() as { error: { message: string } }
+      expect(json.error.message).toContain("Unauthorized")
     })
   })
 

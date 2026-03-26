@@ -17,6 +17,7 @@ import {
   type ChatCompletionResponse,
   type ChatCompletionsPayload,
 } from "~/services/copilot/create-chat-completions"
+import { forwardError, HTTPError } from "~/lib/error"
 
 import {
   type AnthropicMessagesPayload,
@@ -331,19 +332,22 @@ async function handleAnthropicPassthrough(
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
     const errorMsg = error instanceof Error ? error.message : String(error)
+    // Extract upstream status from HTTPError for accurate logging
+    const upstreamStatus = error instanceof HTTPError ? error.response.status : null
+    const statusCode = upstreamStatus ?? 502
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `502 ${model} ${latencyMs}ms`,
+      msg: `${statusCode} ${model} ${latencyMs}ms`,
       data: {
         path: "/v1/messages", format: "anthropic", model, stream,
-        latencyMs, status: "error", statusCode: 502,
-        upstreamStatus: null, error: errorMsg,
+        latencyMs, status: "error", statusCode,
+        upstreamStatus, error: errorMsg,
         upstream: provider.name, upstreamFormat: provider.format,
         accountName, sessionId, clientName, clientVersion,
       },
     })
-    return c.json({ error: { message: "Upstream error", type: "upstream_error" } }, 502)
+    return forwardError(c, error)
   }
 }
 
@@ -467,19 +471,22 @@ async function handleOpenAIUpstream(
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
     const errorMsg = error instanceof Error ? error.message : String(error)
+    // Extract upstream status from HTTPError for accurate logging
+    const upstreamStatus = error instanceof HTTPError ? error.response.status : null
+    const statusCode = upstreamStatus ?? 502
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `502 ${model} ${latencyMs}ms`,
+      msg: `${statusCode} ${model} ${latencyMs}ms`,
       data: {
         path: "/v1/messages", format: "anthropic", model: originalModel, stream,
-        latencyMs, status: "error", statusCode: 502,
-        upstreamStatus: null, error: errorMsg,
+        latencyMs, status: "error", statusCode,
+        upstreamStatus, error: errorMsg,
         upstream: provider.name, upstreamFormat: provider.format,
         accountName, sessionId, clientName, clientVersion,
       },
     })
-    throw error
+    return forwardError(c, error)
   }
 }
 

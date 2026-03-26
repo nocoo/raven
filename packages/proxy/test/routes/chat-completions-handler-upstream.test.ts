@@ -171,7 +171,7 @@ describe("chat-completions handler with provider routing", () => {
       expect(text).toContain("data: [DONE]")
     })
 
-    test("returns 502 on upstream error", async () => {
+    test("forwards upstream error status", async () => {
       fetchSpy.mockResolvedValueOnce(
         new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429 }),
       )
@@ -179,7 +179,9 @@ describe("chat-completions handler with provider routing", () => {
       const app = makeApp()
       const res = await app.request(req(mockOpenAIPayload))
 
-      expect(res.status).toBe(502)
+      expect(res.status).toBe(429)
+      const json = await res.json() as { error: { message: string } }
+      expect(json.error.message).toContain("Rate limit exceeded")
     })
   })
 
