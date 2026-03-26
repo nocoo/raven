@@ -28,6 +28,29 @@ modelRoutes.get("/", async (c) => {
       await cacheModels()
     }
 
+    // Collect all model IDs: Copilot models + provider exact patterns
+    const copilotModelIds = new Set(state.models?.data.map((m) => m.id) ?? [])
+    const providerModelIds: string[] = []
+
+    // Extract exact model names from provider patterns (exclude globs)
+    if (state.providers?.length) {
+      for (const provider of state.providers) {
+        try {
+          const patterns: string[] = JSON.parse(provider.model_patterns)
+          for (const pattern of patterns) {
+            // Only include exact patterns (no wildcards)
+            if (!pattern.includes("*") && !copilotModelIds.has(pattern)) {
+              providerModelIds.push(pattern)
+              copilotModelIds.add(pattern) // Deduplicate within providers too
+            }
+          }
+        } catch {
+          // Skip invalid JSON
+        }
+      }
+    }
+
+    // Map Copilot models to response format
     const models = state.models?.data.map((model) => ({
       id: model.id,
       object: "model",
@@ -36,7 +59,20 @@ modelRoutes.get("/", async (c) => {
       created_at: new Date(0).toISOString(), // No date available from source
       owned_by: model.vendor,
       display_name: model.name,
-    }))
+    })) ?? []
+
+    // Add provider exact models (sorted for consistency)
+    for (const modelId of providerModelIds.sort()) {
+      models.push({
+        id: modelId,
+        object: "model",
+        type: "model",
+        created: 0,
+        created_at: new Date(0).toISOString(),
+        owned_by: "provider", // Generic owner for provider models
+        display_name: modelId,
+      })
+    }
 
     const latencyMs = Math.round(performance.now() - startTime)
 
