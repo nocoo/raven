@@ -288,30 +288,32 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                       <Badge variant="success" className="text-[10px]">Active</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="pr-3">
                     {key.revoked_at ? (
                       <Button
-                        size="icon-xs"
-                        variant="ghost"
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleAction(key.id, "delete")}
                         disabled={actionLoading !== null}
-                        aria-label="Delete key"
+                        className="h-7 text-xs text-destructive border-destructive/40 hover:text-destructive gap-1.5"
                       >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" strokeWidth={1.5} />
+                        <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                        Delete
                       </Button>
                     ) : (
                       <Button
-                        size="icon-xs"
-                        variant="ghost"
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleAction(key.id, "revoke")}
                         disabled={actionLoading !== null}
-                        aria-label="Revoke key"
+                        className="h-7 text-xs gap-1.5"
                       >
                         {actionLoading === key.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                          <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
                         ) : (
-                          <Ban className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          <Ban className="h-3 w-3" strokeWidth={1.5} />
                         )}
+                        Revoke
                       </Button>
                     )}
                   </TableCell>

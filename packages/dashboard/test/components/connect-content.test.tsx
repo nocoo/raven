@@ -87,7 +87,7 @@ describe("ApiKeysSection", () => {
       );
 
       const user = userEvent.setup();
-      const revokeButton = screen.getByRole("button", { name: /Revoke key/i });
+      const revokeButton = screen.getByRole("button", { name: /^Revoke$/i });
       await user.click(revokeButton);
 
       await waitFor(() => {
@@ -106,7 +106,7 @@ describe("ApiKeysSection", () => {
       );
 
       const user = userEvent.setup();
-      const revokeButton = screen.getByRole("button", { name: /Revoke key/i });
+      const revokeButton = screen.getByRole("button", { name: /^Revoke$/i });
       await user.click(revokeButton);
 
       await waitFor(() => {
@@ -125,7 +125,7 @@ describe("ApiKeysSection", () => {
       );
 
       const user = userEvent.setup();
-      const revokeButton = screen.getByRole("button", { name: /Revoke key/i });
+      const revokeButton = screen.getByRole("button", { name: /^Revoke$/i });
       await user.click(revokeButton);
 
       // After bug fix: should show error to user, NOT throw unhandled
@@ -147,7 +147,7 @@ describe("ApiKeysSection", () => {
       );
 
       const user = userEvent.setup();
-      const deleteButton = screen.getByRole("button", { name: /Delete key/i });
+      const deleteButton = screen.getByRole("button", { name: /^Delete$/i });
       await user.click(deleteButton);
 
       await waitFor(() => {
@@ -166,7 +166,7 @@ describe("ApiKeysSection", () => {
       );
 
       const user = userEvent.setup();
-      const deleteButton = screen.getByRole("button", { name: /Delete key/i });
+      const deleteButton = screen.getByRole("button", { name: /^Delete$/i });
       await user.click(deleteButton);
 
       await waitFor(() => {
@@ -185,7 +185,7 @@ describe("ApiKeysSection", () => {
       );
 
       const user = userEvent.setup();
-      const deleteButton = screen.getByRole("button", { name: /Delete key/i });
+      const deleteButton = screen.getByRole("button", { name: /^Delete$/i });
       await user.click(deleteButton);
 
       // After bug fix: should show error to user
