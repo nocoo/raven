@@ -4,6 +4,7 @@ import { safeFetch } from "@/lib/proxy";
 import type { SettingsData } from "@/lib/types";
 import { SettingsContent } from "./settings-content";
 import { OptimizationsContent } from "./optimizations-content";
+import { DebugContent } from "./debug-content";
 
 export const metadata = { title: "Settings" };
 
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
         <h1 className="text-lg font-semibold font-display">Settings</h1>
         <SettingsContent data={result.data} />
         <OptimizationsContent data={result.data.optimizations} />
+        <DebugContent data={result.data.debug} />
       </div>
     </AppShell>
   );
