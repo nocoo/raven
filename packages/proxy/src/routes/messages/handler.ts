@@ -69,7 +69,7 @@ export async function handleCompletion(c: Context) {
       ts: Date.now(), level: "debug", type: "request_start", requestId,
       msg: `tool definitions: ${anthropicPayload.tools.length}`,
       data: {
-        toolDefinitions: anthropicPayload.tools.map((t: { name: string }) => t.name),
+        toolDefinitions: anthropicPayload.tools.map((t: { name: string; type?: string }) => ({ name: t.name, type: t.type ?? "none" })),
         toolDefinitionCount: anthropicPayload.tools.length,
       },
     })
@@ -109,6 +109,19 @@ export async function handleCompletion(c: Context) {
   // Check if we need to handle server-side tools (web_search)
   const hasServerSideTools = serverSideToolNames.length > 0
   const webSearchEnabled = state.stWebSearchEnabled && state.stWebSearchApiKey !== null
+
+  // Debug: log server-tool detection result
+  if (state.optToolCallDebug) {
+    logEmitter.emitLog({
+      ts: Date.now(), level: "debug", type: "request_start", requestId,
+      msg: `server-tool check: hasServerSideTools=${hasServerSideTools}, webSearchEnabled=${webSearchEnabled}, serverSideToolNames=${JSON.stringify(serverSideToolNames)}`,
+      data: {
+        hasServerSideTools, webSearchEnabled, serverSideToolNames,
+        stWebSearchEnabled: state.stWebSearchEnabled,
+        stWebSearchApiKey: state.stWebSearchApiKey ? "***" : null,
+      },
+    })
+  }
 
   // tool_choice rewrite: if tool_choice points to a server-side tool, rewrite to "auto"
   // This ensures the upstream model can freely decide to call the tool
@@ -314,15 +327,19 @@ const isNonStreaming = (
 // ===========================================================================
 
 /**
- * Internal loop for handling server-side tools (e.g., web_search).
+ * Handle requests that include server-side tools (e.g., web_search).
  *
- * The loop:
- * 1. Calls upstream with stream: true (streaming) to work around Copilot API
- *    non-streaming responses missing tool_calls data
- * 2. Consumes the full stream and reassembles a ChatCompletionResponse
- * 3. Checks if response contains tool_use for a server-side tool
- * 4. If yes: calls third-party API (Tavily), injects result, loops back to step 1
- * 5. If no: returns final reassembled response
+ * Two modes:
+ *
+ * **Pure server-side** (all tools are server-side, e.g. only web_search):
+ *   - Extract query from messages, call Tavily directly (no upstream call)
+ *   - Inject search results into messages, then call upstream without tools
+ *     to let the model synthesize a final answer
+ *
+ * **Mixed** (has both client and server-side tools):
+ *   - Strip server-side tool definitions, send to upstream with client tools only
+ *   - If upstream returns a tool_call matching a server-side tool name, execute it
+ *   - Inject results and loop (up to maxIterations)
  *
  * This is done server-side, transparent to the client.
  */
@@ -332,65 +349,156 @@ export async function handleServerToolLoop(
   requestId: string,
   _clientRequestedStream: boolean,
 ): Promise<ChatCompletionResponse> {
-  const maxIterations = 5 // Prevent infinite loops
+  // Separate client-side and server-side tools
+  const clientTools = payload.tools?.filter(
+    (t) => !serverSideToolNames.includes(t.function.name),
+  )
+  const hasClientTools = clientTools && clientTools.length > 0
+
+  // --- Pure server-side mode: all tools are server-side ---
+  if (!hasClientTools) {
+    return handlePureServerSideTools(payload, serverSideToolNames, requestId)
+  }
+
+  // --- Mixed mode: has both client and server-side tools ---
+  return handleMixedTools(payload, serverSideToolNames, clientTools, requestId)
+}
+
+/**
+ * Pure server-side tool handling.
+ * Extract query from user message, call Tavily, inject results,
+ * then call upstream (no tools) for the model to synthesize an answer.
+ */
+async function handlePureServerSideTools(
+  payload: ExtendedChatCompletionsPayload,
+  serverSideToolNames: string[],
+  requestId: string,
+): Promise<ChatCompletionResponse> {
+  // Extract search query from the last user message
+  const lastUserMessage = [...payload.messages].reverse().find((m) => m.role === "user")
+  const query = extractTextContent(lastUserMessage?.content)
+
+  if (!query) {
+    // No extractable query — fall through to upstream without tools
+    const streamResponse = await createChatCompletions({
+      ...payload,
+      stream: true,
+      tools: null,
+      tool_choice: null,
+    })
+    return consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+  }
+
+  // Execute web_search via Tavily
+  const toolName = serverSideToolNames.find((n) => n === "web_search") ?? serverSideToolNames[0] ?? "web_search"
+
+  logEmitter.emitLog({
+    ts: Date.now(), level: "info", type: "sse_chunk", requestId,
+    msg: `server-side tool direct call: ${toolName}`,
+    data: { eventType: "server_tool_direct", toolName, query },
+  })
+
+  let searchResult: Awaited<ReturnType<typeof searchTavily>>
+  if (state.stWebSearchApiKey) {
+    try {
+      searchResult = await searchTavily(state.stWebSearchApiKey, { query })
+    } catch (err) {
+      if (err instanceof TavilyError) {
+        logEmitter.emitLog({
+          ts: Date.now(), level: "error", type: "sse_chunk", requestId,
+          msg: `server tool error: ${toolName} - ${err.message}`,
+          data: { eventType: "server_tool_error", toolName, errorType: err.type, statusCode: err.statusCode },
+        })
+        throw new HTTPError(err.message, new Response(err.message, { status: err.statusCode }))
+      }
+      throw err
+    }
+  } else {
+    throw new HTTPError(`Server tool ${toolName} is not available`, new Response(`Server tool ${toolName} is not available`, { status: 500 }))
+  }
+
+  logEmitter.emitLog({
+    ts: Date.now(), level: "info", type: "sse_chunk", requestId,
+    msg: `server tool result obtained: ${toolName}`,
+    data: { eventType: "server_tool_result", toolName, resultLength: searchResult.content.length },
+  })
+
+  // Inject search results and call upstream for synthesis (no tools)
+  const synthesisPayload: ChatCompletionsPayload = {
+    ...payload,
+    stream: true,
+    tools: null,
+    tool_choice: null,
+    messages: [
+      ...payload.messages,
+      {
+        role: "user",
+        content: `[web_search results for "${query}"]\n\n${searchResult.content}`,
+        name: null,
+        tool_calls: null,
+        tool_call_id: null,
+      },
+    ],
+  }
+
+  const streamResponse = await createChatCompletions(synthesisPayload)
+  return consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+}
+
+/**
+ * Mixed tool handling: client tools + server-side tools.
+ * Strip server-side tool defs, send to upstream with client tools only.
+ * If model calls a server-side tool name, execute it and loop.
+ */
+async function handleMixedTools(
+  payload: ExtendedChatCompletionsPayload,
+  serverSideToolNames: string[],
+  clientTools: NonNullable<ChatCompletionsPayload["tools"]>,
+  requestId: string,
+): Promise<ChatCompletionResponse> {
+  const maxIterations = 5
   let iteration = 0
   let currentPayload: ChatCompletionsPayload = payload
 
   while (iteration < maxIterations) {
     iteration++
 
-    // Use streaming internally — Copilot's non-streaming API doesn't return
-    // tool_calls data even when finish_reason is "tool_calls"
     const loopPayload: ChatCompletionsPayload = {
       ...currentPayload,
       stream: true,
-      // Reset tool_choice to "auto" after first iteration to allow model to decide
+      tools: clientTools,
       tool_choice: iteration > 1 ? "auto" : (currentPayload.tool_choice ?? "auto"),
     }
 
     const streamResponse = await createChatCompletions(loopPayload)
-
-    // Consume the stream and reassemble into a ChatCompletionResponse
     const response = await consumeStreamToResponse(
       streamResponse as AsyncGenerator<ServerSentEvent>,
     )
 
-    // Check if response contains a tool_use for a server-side tool
     const toolCalls = response.choices[0]?.message.tool_calls
-
     if (!toolCalls || toolCalls.length === 0) {
-      // No tool calls, return final response
       return response
     }
 
-    // Find the first tool call that matches a server-side tool
     const serverToolCall = toolCalls.find((tc: { function?: { name: string } }) =>
-      tc.function && serverSideToolNames.includes(tc.function.name)
+      tc.function && serverSideToolNames.includes(tc.function.name),
     )
 
     if (!serverToolCall) {
-      // Tool call is for a client-side tool, return response
+      // Client-side tool call — return to client
       return response
     }
 
-    // Found a server-side tool call - intercept and execute
+    // Execute server-side tool
     const toolName = serverToolCall.function.name
     const toolInput = JSON.parse(serverToolCall.function.arguments)
 
     logEmitter.emitLog({
-      ts: Date.now(),
-      level: "info",
-      type: "sse_chunk",
-      requestId,
+      ts: Date.now(), level: "info", type: "sse_chunk", requestId,
       msg: `intercepting server-side tool: ${toolName}`,
-      data: {
-        eventType: "server_tool_intercept",
-        toolName,
-        toolInput,
-      },
+      data: { eventType: "server_tool_intercept", toolName, toolInput },
     })
 
-    // Execute the server-side tool (currently only web_search)
     let toolResult
     if (toolName === "web_search" && state.stWebSearchApiKey) {
       try {
@@ -401,32 +509,20 @@ export async function handleServerToolLoop(
         })
       } catch (err) {
         if (err instanceof TavilyError) {
-          // Log and rethrow as HTTPError for proper error handling
           logEmitter.emitLog({
-            ts: Date.now(),
-            level: "error",
-            type: "sse_chunk",
-            requestId,
+            ts: Date.now(), level: "error", type: "sse_chunk", requestId,
             msg: `server tool error: ${toolName} - ${err.message}`,
-            data: {
-              eventType: "server_tool_error",
-              toolName,
-              errorType: err.type,
-              statusCode: err.statusCode,
-            },
+            data: { eventType: "server_tool_error", toolName, errorType: err.type, statusCode: err.statusCode },
           })
-
-          // Return error response
           throw new HTTPError(err.message, new Response(err.message, { status: err.statusCode }))
         }
         throw err
       }
     } else {
-      // Server tool enabled but not configured
       throw new HTTPError(`Server tool ${toolName} is not available`, new Response(`Server tool ${toolName} is not available`, { status: 500 }))
     }
 
-    // Append the tool_use and tool_result to the conversation history
+    // Inject tool result and loop
     const assistantMessage: ChatCompletionsPayload["messages"][0] = {
       role: "assistant",
       content: response.choices[0]?.message.content || "",
@@ -445,29 +541,30 @@ export async function handleServerToolLoop(
 
     currentPayload = {
       ...currentPayload,
-      messages: [
-        ...currentPayload.messages,
-        assistantMessage,
-        toolMessage,
-      ],
+      messages: [...currentPayload.messages, assistantMessage, toolMessage],
     }
 
     logEmitter.emitLog({
-      ts: Date.now(),
-      level: "info",
-      type: "sse_chunk",
-      requestId,
+      ts: Date.now(), level: "info", type: "sse_chunk", requestId,
       msg: `server tool result injected: ${toolName}`,
-      data: {
-        eventType: "server_tool_result",
-        toolName,
-        resultLength: JSON.stringify(toolResult).length,
-      },
+      data: { eventType: "server_tool_result", toolName, resultLength: JSON.stringify(toolResult).length },
     })
   }
 
-  // Should not reach here, but just in case
   throw new Error("Server tool loop exceeded maximum iterations")
+}
+
+/** Extract plain text from a message content field. */
+function extractTextContent(content: string | Array<{ type: string; text?: string }> | null | undefined): string {
+  if (!content) return ""
+  if (typeof content === "string") return content
+  if (Array.isArray(content)) {
+    return content
+      .filter((p): p is { type: "text"; text: string } => p.type === "text" && typeof p.text === "string")
+      .map((p) => p.text)
+      .join("\n")
+  }
+  return ""
 }
 
 /**

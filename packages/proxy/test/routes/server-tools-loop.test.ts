@@ -2,9 +2,11 @@
  * Integration tests for handleServerToolLoop function.
  * Uses spyOn to mock dependencies.
  *
- * Since handleServerToolLoop now uses streaming internally (to work around
- * Copilot's non-streaming API not returning tool_calls), mocks must return
- * AsyncGenerator<ServerSentEvent> instead of ChatCompletionResponse.
+ * handleServerToolLoop has two modes:
+ * 1. Pure server-side: all tools are server-side (e.g., only web_search)
+ *    → directly calls Tavily, injects results, sends to upstream for synthesis
+ * 2. Mixed: client + server-side tools
+ *    → strips server-side tools, sends to upstream, intercepts server tool calls
  */
 
 import { describe, expect, test, beforeEach, spyOn } from "bun:test"
@@ -16,8 +18,7 @@ import type { ExtendedChatCompletionsPayload } from "../../src/routes/messages/n
 import type { ServerSentEvent } from "../../src/util/sse"
 
 /**
- * Create a mock streaming response (AsyncGenerator<ServerSentEvent>)
- * that simulates how Copilot's streaming API sends tool_calls via deltas.
+ * Create a mock streaming response (AsyncGenerator<ServerSentEvent>).
  */
 function createMockStream(opts: {
   content?: string | null
@@ -34,332 +35,177 @@ function createMockStream(opts: {
 
   const chunks: ServerSentEvent[] = []
 
-  // First chunk: message_start with model + usage
   chunks.push({
     data: JSON.stringify({
-      id: "chatcmpl-test",
-      object: "chat.completion.chunk",
-      created: Math.floor(Date.now() / 1000),
-      model,
+      id: "chatcmpl-test", object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1000), model,
       choices: [{ index: 0, delta: { role: "assistant", content: null, tool_calls: [] }, finish_reason: null, logprobs: null }],
-      system_fingerprint: null,
-      usage: null,
+      system_fingerprint: null, usage: null,
     }),
     event: null, id: null, retry: null,
   })
 
-  // Content chunks
   if (content) {
     chunks.push({
       data: JSON.stringify({
-        id: "chatcmpl-test",
-        object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model,
+        id: "chatcmpl-test", object: "chat.completion.chunk",
+        created: Math.floor(Date.now() / 1000), model,
         choices: [{ index: 0, delta: { content, role: null, tool_calls: [] }, finish_reason: null, logprobs: null }],
-        system_fingerprint: null,
-        usage: null,
+        system_fingerprint: null, usage: null,
       }),
       event: null, id: null, retry: null,
     })
   }
 
-  // Tool call chunks
   if (toolCalls) {
     for (let i = 0; i < toolCalls.length; i++) {
       const tc = toolCalls[i]!
-      // First chunk for this tool call: id + name
       chunks.push({
         data: JSON.stringify({
-          id: "chatcmpl-test",
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model,
+          id: "chatcmpl-test", object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000), model,
           choices: [{
-            index: 0,
-            delta: {
-              content: null,
-              role: null,
-              tool_calls: [{
-                index: i,
-                id: tc.id,
-                type: "function",
-                function: { name: tc.name, arguments: "" },
-              }],
-            },
-            finish_reason: null,
-            logprobs: null,
+            index: 0, delta: {
+              content: null, role: null,
+              tool_calls: [{ index: i, id: tc.id, type: "function", function: { name: tc.name, arguments: "" } }],
+            }, finish_reason: null, logprobs: null,
           }],
-          system_fingerprint: null,
-          usage: null,
+          system_fingerprint: null, usage: null,
         }),
         event: null, id: null, retry: null,
       })
-      // Second chunk: arguments
       chunks.push({
         data: JSON.stringify({
-          id: "chatcmpl-test",
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model,
+          id: "chatcmpl-test", object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000), model,
           choices: [{
-            index: 0,
-            delta: {
-              content: null,
-              role: null,
-              tool_calls: [{
-                index: i,
-                id: null,
-                type: null,
-                function: { name: null, arguments: tc.arguments },
-              }],
-            },
-            finish_reason: null,
-            logprobs: null,
+            index: 0, delta: {
+              content: null, role: null,
+              tool_calls: [{ index: i, id: null, type: null, function: { name: null, arguments: tc.arguments } }],
+            }, finish_reason: null, logprobs: null,
           }],
-          system_fingerprint: null,
-          usage: null,
+          system_fingerprint: null, usage: null,
         }),
         event: null, id: null, retry: null,
       })
     }
   }
 
-  // Final chunk: finish_reason + usage
   chunks.push({
     data: JSON.stringify({
-      id: "chatcmpl-test",
-      object: "chat.completion.chunk",
-      created: Math.floor(Date.now() / 1000),
-      model,
+      id: "chatcmpl-test", object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1000), model,
       choices: [{ index: 0, delta: { content: null, role: null, tool_calls: [] }, finish_reason: finishReason, logprobs: null }],
       system_fingerprint: null,
       usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30, prompt_tokens_details: { cached_tokens: 0 }, completion_tokens_details: null },
     }),
     event: null, id: null, retry: null,
   })
-
-  // [DONE] sentinel
   chunks.push({ data: "[DONE]", event: null, id: null, retry: null })
 
-  return (async function* () {
-    for (const chunk of chunks) {
-      yield chunk
-    }
-  })()
+  return (async function* () { for (const c of chunks) yield c })()
 }
 
-describe("handleServerToolLoop integration tests", () => {
+/** Helper: create a pure server-side payload (only web_search tool). */
+function purePayload(content: string): ExtendedChatCompletionsPayload {
+  return {
+    model: "claude-sonnet-4-20250514",
+    messages: [{ role: "user", content, name: null, tool_calls: null, tool_call_id: null }],
+    max_tokens: 4096,
+    tool_choice: null,
+    tools: [{ type: "function", function: { name: "web_search", description: "Search", parameters: {} } }],
+    serverSideToolNames: ["web_search"],
+  }
+}
+
+/** Helper: create a mixed payload (web_search + client tool). */
+function mixedPayload(content: string): ExtendedChatCompletionsPayload {
+  return {
+    model: "claude-sonnet-4-20250514",
+    messages: [{ role: "user", content, name: null, tool_calls: null, tool_call_id: null }],
+    max_tokens: 4096,
+    tool_choice: null,
+    tools: [
+      { type: "function", function: { name: "web_search", description: "Search", parameters: {} } },
+      { type: "function", function: { name: "get_weather", description: "Weather", parameters: {} } },
+    ],
+    serverSideToolNames: ["web_search"],
+  }
+}
+
+describe("handleServerToolLoop — pure server-side mode", () => {
   beforeEach(() => {
-    // Reset state
     state.stWebSearchEnabled = true
     state.stWebSearchApiKey = "tvly-test-key"
   })
 
-  test("returns final response when no tool calls present", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({ content: "Final answer" })))
-
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "hello", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
-
-    const response = await handleServerToolLoop(
-      payload,
-      ["web_search"],
-      "test-request-id",
-      false,
-    )
-
-    expect(response.choices[0]?.message.content).toBe("Final answer")
-    expect(response.choices[0]?.message.tool_calls).toBeNull()
-    expect(mockCreate).toHaveBeenCalledTimes(1)
-    mockCreate.mockRestore()
-  })
-
-  test("returns response for client-side tool call", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({
-        toolCalls: [{ id: "call_1", name: "get_weather", arguments: '{"location":"NYC"}' }],
-        finishReason: "tool_calls",
-      })))
-
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "what's the weather?", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
-
-    const response = await handleServerToolLoop(
-      payload,
-      ["web_search"],
-      "test-request-id",
-      false,
-    )
-
-    expect(response.choices[0]?.message.tool_calls?.[0]?.function?.name).toBe("get_weather")
-    expect(mockCreate).toHaveBeenCalledTimes(1)
-    mockCreate.mockRestore()
-  })
-
-  test("executes server-side tool and returns final response", async () => {
-    // First call: model requests web_search
-    // Second call: model responds with final answer
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({
-        content: "I'll search for that.",
-        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"test query","count":5}' }],
-        finishReason: "tool_calls",
-      })))
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({
-        content: "Here are the search results.",
-      })))
-
+  test("calls Tavily directly and returns synthesized response", async () => {
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
-      content: "Search results for: test query",
-      citations: [
-        { url: "https://example.com/1", title: "Result 1", index: 0 },
-        { url: "https://example.com/2", title: "Result 2", index: 1 },
-      ],
+      content: "Search results for: latest news",
+      citations: [{ url: "https://example.com", title: "News", index: 0 }],
       encrypted_content: null,
     })
 
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "search for something", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
+    // Upstream call for synthesis (after injecting search results)
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({ content: "Here is the latest news." })))
 
     const response = await handleServerToolLoop(
-      payload,
+      purePayload("Search for latest news"),
       ["web_search"],
       "test-request-id",
       false,
     )
 
-    expect(response.choices[0]?.message.content).toBe("Here are the search results.")
-    expect(mockCreate).toHaveBeenCalledTimes(2)
     expect(mockSearch).toHaveBeenCalledTimes(1)
+    expect(mockSearch.mock.calls[0]?.[0]).toBe("tvly-test-key")
+    expect(mockSearch.mock.calls[0]?.[1]).toEqual({ query: "Search for latest news" })
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(response.choices[0]?.message.content).toBe("Here is the latest news.")
 
-    // Verify Tavily was called with correct params
-    const tavilyCall = mockSearch.mock.calls[0]
-    if (tavilyCall) {
-      expect(tavilyCall[0]).toBe("tvly-test-key")
-      const searchInput = tavilyCall[1]
-      expect(searchInput).toEqual({
-        query: "test query",
-        count: 5,
-        // offset omitted when not provided
-      })
-    }
-
-    mockCreate.mockRestore()
     mockSearch.mockRestore()
-  })
-
-  test("handles empty tool calls gracefully", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({ content: "Empty tool calls" })))
-
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "hello", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
-
-    const response = await handleServerToolLoop(
-      payload,
-      ["web_search"],
-      "test-request-id",
-      false,
-    )
-
-    expect(response.choices[0]?.message.content).toBe("Empty tool calls")
     mockCreate.mockRestore()
   })
 
-  test("throws HTTPError when Tavily API returns auth error", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({
-        content: "I'll search.",
-        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"test"}' }],
-        finishReason: "tool_calls",
-      })))
-
-    const mockSearch = spyOn(tavilyModule, "searchTavily").mockImplementationOnce(() => {
-      throw new tavilyModule.TavilyError("Invalid API key", 401, "auth")
+  test("injects search results into messages for synthesis", async () => {
+    const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
+      type: "web_search_tool_result",
+      content: "Result content here",
+      citations: [],
+      encrypted_content: null,
     })
 
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "search", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
+    let capturedPayload: createChatCompletionsModule.ChatCompletionsPayload | null = null
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce((payload) => {
+        capturedPayload = payload
+        return Promise.resolve(createMockStream({ content: "Answer" }))
+      })
 
-    let threwError = false
-    let errorStatus: number | null = null
-    try {
-      await handleServerToolLoop(
-        payload,
-        ["web_search"],
-        "test-request-id",
-        false,
-      )
-    } catch (err: unknown) {
-      threwError = true
-      // HTTPError has response.status property
-      if (err && typeof err === "object" && "response" in err && err.response instanceof Response) {
-        errorStatus = err.response.status
-      }
-    }
+    await handleServerToolLoop(purePayload("search query"), ["web_search"], "req-id", false)
 
-    expect(threwError).toBe(true)
-    expect(errorStatus).toBe(401)
+    // Synthesis payload should have no tools and extra message with search results
+    expect(capturedPayload).not.toBeNull()
+    expect(capturedPayload!.tools).toBeNull()
+    expect(capturedPayload!.tool_choice).toBeNull()
+    expect(capturedPayload!.stream).toBe(true)
+    // Last message should contain search results
+    const lastMsg = capturedPayload!.messages[capturedPayload!.messages.length - 1]
+    expect(lastMsg?.role).toBe("user")
+    expect(typeof lastMsg?.content === "string" && lastMsg.content.includes("Result content here")).toBe(true)
 
-    mockCreate.mockRestore()
     mockSearch.mockRestore()
+    mockCreate.mockRestore()
   })
 
-  test("throws when server tool enabled but API key not configured", async () => {
+  test("throws HTTPError when Tavily API key missing", async () => {
     state.stWebSearchApiKey = null
-
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({
-        content: "I'll search.",
-        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"test"}' }],
-        finishReason: "tool_calls",
-      })))
-
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "search", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
 
     let threwError = false
     let errorStatus: number | null = null
     try {
-      await handleServerToolLoop(
-        payload,
-        ["web_search"],
-        "test-request-id",
-        false,
-      )
+      await handleServerToolLoop(purePayload("search"), ["web_search"], "req-id", false)
     } catch (err: unknown) {
       threwError = true
       if (err && typeof err === "object" && "response" in err && err.response instanceof Response) {
@@ -369,74 +215,79 @@ describe("handleServerToolLoop integration tests", () => {
 
     expect(threwError).toBe(true)
     expect(errorStatus).toBe(500)
-
-    mockCreate.mockRestore()
   })
 
-  test("handles tool call with missing query parameter", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({
-        content: "I'll search.",
-        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"count":5}' }],
-        finishReason: "tool_calls",
-      })))
-      .mockImplementationOnce(() => Promise.resolve(createMockStream({
-        content: "Results.",
-      })))
-
-    const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
-      type: "web_search_tool_result",
-      content: "Results",
-      citations: [],
-      encrypted_content: null,
+  test("throws HTTPError on Tavily auth error", async () => {
+    const mockSearch = spyOn(tavilyModule, "searchTavily").mockImplementationOnce(() => {
+      throw new tavilyModule.TavilyError("Invalid API key", 401, "auth")
     })
 
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "search", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
+    let threwError = false
+    let errorStatus: number | null = null
+    try {
+      await handleServerToolLoop(purePayload("search"), ["web_search"], "req-id", false)
+    } catch (err: unknown) {
+      threwError = true
+      if (err && typeof err === "object" && "response" in err && err.response instanceof Response) {
+        errorStatus = err.response.status
+      }
     }
 
+    expect(threwError).toBe(true)
+    expect(errorStatus).toBe(401)
+    mockSearch.mockRestore()
+  })
+})
+
+describe("handleServerToolLoop — mixed mode", () => {
+  beforeEach(() => {
+    state.stWebSearchEnabled = true
+    state.stWebSearchApiKey = "tvly-test-key"
+  })
+
+  test("returns response with client-side tool call (no server tool interception)", async () => {
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        toolCalls: [{ id: "call_1", name: "get_weather", arguments: '{"city":"NYC"}' }],
+        finishReason: "tool_calls",
+      })))
+
     const response = await handleServerToolLoop(
-      payload,
+      mixedPayload("what's the weather?"),
       ["web_search"],
       "test-request-id",
       false,
     )
 
-    expect(response.choices[0]?.message.content).toBe("Results.")
+    expect(response.choices[0]?.message.tool_calls?.[0]?.function.name).toBe("get_weather")
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+
+    // Verify server-side tool was stripped from payload
+    const sentPayload = mockCreate.mock.calls[0]?.[0] as createChatCompletionsModule.ChatCompletionsPayload
+    const toolNames = sentPayload?.tools?.map((t) => t.function.name) ?? []
+    expect(toolNames).toContain("get_weather")
+    expect(toolNames).not.toContain("web_search")
+
     mockCreate.mockRestore()
-    mockSearch.mockRestore()
   })
 
-  test("sets stream: true on internal loop payload", async () => {
-    let capturedPayload: createChatCompletionsModule.ChatCompletionsPayload | null = null
-
+  test("returns final response when no tool calls", async () => {
     const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementationOnce((payload) => {
-        capturedPayload = payload
-        return Promise.resolve(createMockStream({ content: "answer" }))
-      })
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({ content: "No tools needed." })))
 
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "hello", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
+    const response = await handleServerToolLoop(
+      mixedPayload("hello"),
+      ["web_search"],
+      "test-request-id",
+      false,
+    )
 
-    await handleServerToolLoop(payload, ["web_search"], "test-request-id", false)
-
-    expect(capturedPayload).not.toBeNull()
-    expect(capturedPayload!.stream).toBe(true)
-
+    expect(response.choices[0]?.message.content).toBe("No tools needed.")
+    expect(response.choices[0]?.message.tool_calls).toBeNull()
     mockCreate.mockRestore()
   })
 
-  test("appends tool result as role:tool message (not user)", async () => {
+  test("appends tool result as role:tool message in mixed mode", async () => {
     let secondPayload: createChatCompletionsModule.ChatCompletionsPayload | null = null
 
     const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
@@ -457,22 +308,20 @@ describe("handleServerToolLoop integration tests", () => {
       encrypted_content: null,
     })
 
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "search", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      serverSideToolNames: ["web_search"],
-    }
+    const response = await handleServerToolLoop(
+      mixedPayload("search something"),
+      ["web_search"],
+      "test-request-id",
+      false,
+    )
 
-    await handleServerToolLoop(payload, ["web_search"], "test-request-id", false)
-
+    expect(response.choices[0]?.message.content).toBe("Done.")
     expect(secondPayload).not.toBeNull()
-    // Should have 3 messages: user, assistant (with tool_calls), tool (result)
-    expect(secondPayload!.messages.length).toBe(3)
-    expect(secondPayload!.messages[1]?.role).toBe("assistant")
-    expect(secondPayload!.messages[2]?.role).toBe("tool")
-    expect(secondPayload!.messages[2]?.tool_call_id).toBe("call_1")
+    // Should have: user, assistant (tool_calls), tool (result)
+    const msgs = secondPayload!.messages
+    expect(msgs[msgs.length - 2]?.role).toBe("assistant")
+    expect(msgs[msgs.length - 1]?.role).toBe("tool")
+    expect(msgs[msgs.length - 1]?.tool_call_id).toBe("call_1")
 
     mockCreate.mockRestore()
     mockSearch.mockRestore()
