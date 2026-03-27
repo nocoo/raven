@@ -1,5 +1,5 @@
 import { state } from "./state"
-import type { ProviderRecord } from "~/db/providers"
+import type { ProviderRecord } from "./../db/providers"
 
 export interface ResolvedProvider {
   provider: ProviderRecord

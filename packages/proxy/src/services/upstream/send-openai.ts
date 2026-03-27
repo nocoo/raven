@@ -1,10 +1,10 @@
-import type { ProviderRecord } from "~/db/providers"
+import type { ProviderRecord } from "./../../db/providers"
 import type {
   ChatCompletionsPayload,
   ChatCompletionResponse,
-} from "~/services/copilot/create-chat-completions"
-import { events, type ServerSentEvent } from "~/util/sse"
-import { HTTPError } from "~/lib/error"
+} from "./../../services/copilot/create-chat-completions"
+import { events, type ServerSentEvent } from "./../../util/sse"
+import { HTTPError } from "./../../lib/error"
 
 /**
  * Send an OpenAI-format payload to a custom OpenAI-compatible upstream.

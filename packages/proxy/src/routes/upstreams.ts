@@ -8,10 +8,10 @@ import {
   getProvider,
   listProviders,
   updateProvider,
-} from "~/db/providers"
-import { cacheProviders } from "~/lib/utils"
-import { state } from "~/lib/state"
-import type { CreateProviderInput, UpdateProviderInput } from "~/db/providers"
+} from "./../db/providers"
+import { cacheProviders } from "./../lib/utils"
+import { state } from "./../lib/state"
+import type { CreateProviderInput, UpdateProviderInput } from "./../db/providers"
 
 // ===========================================================================
 // Validation schemas

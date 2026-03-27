@@ -1,11 +1,11 @@
 import fs from "node:fs/promises"
 
-import { logger } from "~/util/logger"
-import { PATHS } from "~/lib/paths"
-import { getCopilotToken } from "~/services/github/get-copilot-token"
-import { getDeviceCode } from "~/services/github/get-device-code"
-import { getGitHubUser } from "~/services/github/get-user"
-import { pollAccessToken } from "~/services/github/poll-access-token"
+import { logger } from "./../util/logger"
+import { PATHS } from "./../lib/paths"
+import { getCopilotToken } from "./../services/github/get-copilot-token"
+import { getDeviceCode } from "./../services/github/get-device-code"
+import { getGitHubUser } from "./../services/github/get-user"
+import { pollAccessToken } from "./../services/github/poll-access-token"
 
 import { HTTPError } from "./error"
 import { state } from "./state"

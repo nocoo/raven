@@ -4,10 +4,6 @@
     "rootDir": ".",
     "types": ["bun"],
     "allowImportingTsExtensions": true,
-    "baseUrl": ".",
-    "paths": {
-      "~/*": ["./src/*"]
-    },
     // TS strict extras (aligned with dashboard)
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,

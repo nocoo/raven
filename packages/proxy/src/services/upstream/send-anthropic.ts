@@ -1,10 +1,10 @@
-import type { ProviderRecord } from "~/db/providers"
+import type { ProviderRecord } from "./../../db/providers"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
-} from "~/routes/messages/anthropic-types"
-import { events, type ServerSentEvent } from "~/util/sse"
-import { HTTPError } from "~/lib/error"
+} from "./../../routes/messages/anthropic-types"
+import { events, type ServerSentEvent } from "./../../util/sse"
+import { HTTPError } from "./../../lib/error"
 
 /**
  * Send an Anthropic-format payload to a custom Anthropic-compatible upstream.

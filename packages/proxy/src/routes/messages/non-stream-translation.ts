@@ -6,7 +6,7 @@ import {
   type TextPart,
   type Tool,
   type ToolCall,
-} from "~/services/copilot/create-chat-completions"
+} from "./../../services/copilot/create-chat-completions"
 
 import {
   type AnthropicAssistantContentBlock,
@@ -23,8 +23,8 @@ import {
   type AnthropicUserMessage,
 } from "./anthropic-types"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
-import { state } from "~/lib/state"
-import { logger } from "~/util/logger"
+import { state } from "./../../lib/state"
+import { logger } from "./../../util/logger"
 
 // Payload translation
 

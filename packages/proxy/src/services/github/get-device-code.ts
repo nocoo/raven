@@ -3,8 +3,8 @@ import {
   GITHUB_BASE_URL,
   GITHUB_CLIENT_ID,
   standardHeaders,
-} from "~/lib/api-config"
-import { HTTPError } from "~/lib/error"
+} from "./../../lib/api-config"
+import { HTTPError } from "./../../lib/error"
 
 export async function getDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await fetch(`${GITHUB_BASE_URL}/login/device/code`, {

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 
-import { loadConfig } from "~/config"
+import { loadConfig } from "./../config"
 
 const config = loadConfig()
 const APP_DIR = path.resolve(config.tokenPath, "..")

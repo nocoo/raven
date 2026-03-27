@@ -1,8 +1,8 @@
 import type { Context } from "hono"
 
-import { logger } from "~/util/logger"
-import { state } from "~/lib/state"
-import { getTokenCount } from "~/lib/tokenizer"
+import { logger } from "./../../util/logger"
+import { state } from "./../../lib/state"
+import { getTokenCount } from "./../../lib/tokenizer"
 
 import { type AnthropicMessagesPayload } from "./anthropic-types"
 import { translateToOpenAI } from "./non-stream-translation"

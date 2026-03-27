@@ -1,11 +1,11 @@
 import { Hono } from "hono"
 
-import { forwardError } from "~/lib/error"
-import { state } from "~/lib/state"
-import { cacheModels } from "~/lib/utils"
-import { logEmitter } from "~/util/log-emitter"
-import { generateRequestId } from "~/util/id"
-import { deriveClientIdentity } from "~/util/client-identity"
+import { forwardError } from "./../../lib/error"
+import { state } from "./../../lib/state"
+import { cacheModels } from "./../../lib/utils"
+import { logEmitter } from "./../../util/log-emitter"
+import { generateRequestId } from "./../../util/id"
+import { deriveClientIdentity } from "./../../util/client-identity"
 
 export const modelRoutes = new Hono()
 

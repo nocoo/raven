@@ -1,13 +1,13 @@
 import type { Database } from "bun:sqlite"
-import { logger } from "~/util/logger"
-import { getModels } from "~/services/copilot/get-models"
-import { getVSCodeVersion } from "~/services/get-vscode-version"
+import { logger } from "./../util/logger"
+import { getModels } from "./../services/copilot/get-models"
+import { getVSCodeVersion } from "./../services/get-vscode-version"
 import {
   detectLocalVSCodeVersion,
   detectLocalCopilotVersion,
-} from "~/services/detect-local-versions"
-import { getSetting } from "~/db/settings"
-import { getEnabledProviders } from "~/db/providers"
+} from "./../services/detect-local-versions"
+import { getSetting } from "./../db/settings"
+import { getEnabledProviders } from "./../db/providers"
 
 import { state } from "./state"
 

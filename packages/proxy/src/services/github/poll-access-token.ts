@@ -1,11 +1,11 @@
-import { logger } from "~/util/logger"
+import { logger } from "./../../util/logger"
 
 import {
   GITHUB_BASE_URL,
   GITHUB_CLIENT_ID,
   standardHeaders,
-} from "~/lib/api-config"
-import { sleep } from "~/lib/utils"
+} from "./../../lib/api-config"
+import { sleep } from "./../../lib/utils"
 
 import type { DeviceCodeResponse } from "./get-device-code"
 

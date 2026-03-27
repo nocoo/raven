@@ -2,22 +2,22 @@ import type { Context } from "hono"
 
 import { streamSSE } from "hono/streaming"
 
-import { checkRateLimit } from "~/lib/rate-limit"
-import { state } from "~/lib/state"
-import { resolveProvider } from "~/lib/upstream-router"
-import type { ProviderRecord } from "~/db/providers"
-import { logEmitter } from "~/util/log-emitter"
-import { generateRequestId } from "~/util/id"
-import { deriveClientIdentity } from "~/util/client-identity"
-import { sendAnthropicDirect } from "~/services/upstream/send-anthropic"
-import { sendOpenAIDirect } from "~/services/upstream/send-openai"
+import { checkRateLimit } from "./../../lib/rate-limit"
+import { state } from "./../../lib/state"
+import { resolveProvider } from "./../../lib/upstream-router"
+import type { ProviderRecord } from "./../../db/providers"
+import { logEmitter } from "./../../util/log-emitter"
+import { generateRequestId } from "./../../util/id"
+import { deriveClientIdentity } from "./../../util/client-identity"
+import { sendAnthropicDirect } from "./../../services/upstream/send-anthropic"
+import { sendOpenAIDirect } from "./../../services/upstream/send-openai"
 import {
   createChatCompletions,
   type ChatCompletionChunk,
   type ChatCompletionResponse,
   type ChatCompletionsPayload,
-} from "~/services/copilot/create-chat-completions"
-import { forwardError, HTTPError } from "~/lib/error"
+} from "./../../services/copilot/create-chat-completions"
+import { forwardError, HTTPError } from "./../../lib/error"
 
 import {
   type AnthropicMessagesPayload,

@@ -2,7 +2,7 @@ import { Hono } from "hono"
 
 import { state } from "../lib/state"
 import { cacheModels } from "../lib/utils"
-import { getCopilotUsage } from "~/services/github/get-copilot-usage"
+import { getCopilotUsage } from "./../services/github/get-copilot-usage"
 
 // ---------------------------------------------------------------------------
 // Copilot info routes — cached models + user subscription data

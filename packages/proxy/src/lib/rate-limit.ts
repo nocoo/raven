@@ -1,6 +1,6 @@
 import type { State } from "./state"
 
-import { logger } from "~/util/logger"
+import { logger } from "./../util/logger"
 import { HTTPError } from "./error"
 import { sleep } from "./utils"
 

@@ -1,5 +1,5 @@
-import type { ModelsResponse } from "~/services/copilot/get-models"
-import type { ProviderRecord } from "~/db/providers"
+import type { ModelsResponse } from "./../services/copilot/get-models"
+import type { ProviderRecord } from "./../db/providers"
 
 export interface State {
   githubToken: string | null
