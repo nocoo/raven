@@ -37,18 +37,20 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 | Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
 |---------|--------|-------|------|-------------------|-----------|--------|
-| proxy | bun:test | 583 | 583 | 91.7% | 90% | ✅ |
+| proxy | bun:test | 584 | 584 | 91.8% | 90% | ✅ |
 | dashboard | vitest 4 + jsdom | 236 | 236 | 98.2% | 90% | ✅ |
 
-**L1 (UT)**: All 819 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
+**L1 (UT)**: All 820 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
 
-**L2 (API E2E)**: `bun run test:e2e` — auto-starts proxy, runs against real upstream. Manual only.
+**L2 (API E2E)**: `bun run test:e2e` — auto-starts proxy, runs against real upstream. Manual only (anti-ban protocol).
 
-**L3 (UI E2E)**: `bun run test:ui` — 7 Playwright smoke tests for dashboard. Auto-starts proxy + dashboard. Manual only.
+**L3 (UI E2E)**: `bun run test:ui` — 25 Playwright tests across 5 specs for dashboard. Auto-starts proxy + dashboard. Runs in CI via `.github/workflows/ci.yml`.
 
 **G1 (Static Analysis)**: Both packages pass `eslint` and `tsc --noEmit` (with strict extras) with 0 errors, 0 warnings. Pre-commit runs lint-staged (incremental) + full typecheck.
 
 **G2 (Security)**: `bun run gate:security` — osv-scanner + gitleaks. Wired into pre-push hook.
+
+**D1 (Test Isolation)**: E2E and Playwright tests use isolated `data/raven-test.db` via `RAVEN_DB_PATH` env var. Test data never touches production `data/raven.db`.
 
 ### Pre-commit hook
 
@@ -56,7 +58,15 @@ Runs `bun run test:all && bunx lint-staged && bun run typecheck` — enforces L1
 
 ### Pre-push hook
 
-Runs `bun run test:e2e` (L2) and `bun run gate:security` (G2) in parallel.
+Runs `bun run gate:security` (G2). L2 E2E tests are manual-only (anti-ban protocol). L3 Playwright runs in CI.
+
+### CI (GitHub Actions)
+
+`.github/workflows/ci.yml` runs on every push to main and PR:
+- **quality-gate job**: L1 (tests + coverage) + G1 (lint + typecheck) + G2 (osv-scanner + gitleaks)
+- **playwright job**: L3 (25 Playwright tests, fully mocked via route interception)
+
+L2 is excluded from CI — requires real Copilot API credentials (manual-only).
 
 ### Package manager — bun only
 

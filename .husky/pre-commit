@@ -1,2 +1,4 @@
 #!/bin/sh
+# L1: Unit tests + coverage (proxy ≥90%, dashboard ≥90%)
+# G1: Static analysis (lint-staged + typecheck, 0 errors/warnings)
 bun run test:all && bunx lint-staged && bun run typecheck
