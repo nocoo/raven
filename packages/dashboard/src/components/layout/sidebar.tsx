@@ -15,7 +15,8 @@ import {
   ChevronUp,
   Terminal,
   Settings,
-  ArrowUpDown,
+  Wrench,
+  Globe,
 } from "lucide-react";
 import { cn, getAvatarColor } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -68,12 +69,18 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Tools",
+    defaultOpen: true,
+    items: [
+      { href: "/settings/server-tools", label: "Server Tools", icon: Wrench },
+      { href: "/settings/upstreams", label: "Upstreams", icon: Globe },
+    ],
+  },
+  {
     label: "Settings",
     defaultOpen: true,
     items: [
       { href: "/settings", label: "General", icon: Settings },
-      { href: "/settings/server-tools", label: "Server Tools", icon: ArrowUpDown },
-      { href: "/settings/upstreams", label: "Upstreams", icon: ArrowUpDown },
       { href: "/connect", label: "Connect", icon: Cable },
     ],
   },
@@ -125,7 +132,7 @@ function NavGroupSection({
               const isActive =
                 item.href === "/"
                   ? pathname === "/"
-                  : pathname === item.href || pathname.startsWith(item.href + "/");
+                  : pathname === item.href;
 
               return (
                 <Link
@@ -214,7 +221,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                 const isActive =
                   item.href === "/"
                     ? pathname === "/"
-                    : pathname === item.href || pathname.startsWith(item.href + "/");
+                    : pathname === item.href;
 
                 return (
                   <Tooltip key={item.href}>
