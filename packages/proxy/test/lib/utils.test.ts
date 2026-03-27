@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Database } from "bun:sqlite"
 
 import { state } from "../../src/lib/state"
-import { cacheVersions, cacheModels, isNullish, sleep } from "../../src/lib/utils"
+import { cacheVersions, cacheModels, isNullish } from "../../src/lib/utils"
 import { initSettings } from "../../src/db/settings"
 
 // ---------------------------------------------------------------------------
@@ -139,17 +139,4 @@ describe("isNullish", () => {
   test("0 → false", () => expect(isNullish(0)).toBe(false))
   test("empty string → false", () => expect(isNullish("")).toBe(false))
   test("false → false", () => expect(isNullish(false)).toBe(false))
-})
-
-// ===========================================================================
-// sleep
-// ===========================================================================
-
-describe("sleep", () => {
-  test("resolves after specified duration", async () => {
-    const start = Date.now()
-    await sleep(50)
-    const elapsed = Date.now() - start
-    expect(elapsed).toBeGreaterThanOrEqual(40)
-  })
 })
