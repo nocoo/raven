@@ -84,6 +84,19 @@ export interface AnthropicTool {
   name: string
   description: string | null
   input_schema: Record<string, unknown>
+  type?: string  // e.g. "custom", "web_search_20260209", "code_execution_20250522"
+}
+
+/**
+ * Server-side tools have a type suffix like "web_search_20260209".
+ * Custom tools have type "custom" or no type field at all.
+ */
+const SERVER_SIDE_TOOL_TYPE_RE = /^\w+_\d{8}$/
+
+export function isServerSideTool(tool: AnthropicTool): boolean {
+  return tool.type !== undefined &&
+    tool.type !== "custom" &&
+    SERVER_SIDE_TOOL_TYPE_RE.test(tool.type)
 }
 
 export interface AnthropicResponse {

@@ -21,6 +21,7 @@ import {
   type AnthropicToolUseBlock,
   type AnthropicUserContentBlock,
   type AnthropicUserMessage,
+  isServerSideTool,
 } from "./anthropic-types"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
 import { state } from "./../../lib/state"
@@ -28,9 +29,17 @@ import { logger } from "./../../util/logger"
 
 // Payload translation
 
+/**
+ * Extended payload type that includes server-side tool names tracking.
+ * This is used by the handler to identify which tools need interception.
+ */
+export interface ExtendedChatCompletionsPayload extends ChatCompletionsPayload {
+  serverSideToolNames?: string[]
+}
+
 export function translateToOpenAI(
   payload: AnthropicMessagesPayload,
-): ChatCompletionsPayload {
+): ExtendedChatCompletionsPayload {
   const base = {
     model: translateModelName(payload.model),
     messages: translateAnthropicMessagesToOpenAI(
@@ -47,13 +56,17 @@ export function translateToOpenAI(
   if (payload.top_p !== undefined) optional.top_p = payload.top_p
   if (payload.metadata?.user_id) optional.user = payload.metadata.user_id
 
-  const tools = translateAnthropicToolsToOpenAI(payload.tools)
-  if (tools) optional.tools = tools
+  const { tools: openAITools, serverSideToolNames } = translateAnthropicToolsToOpenAI(payload.tools)
+  if (openAITools) optional.tools = openAITools
 
   const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice)
   if (toolChoice) optional.tool_choice = toolChoice
 
-  return { ...base, ...optional }
+  return {
+    ...base,
+    ...optional,
+    serverSideToolNames,
+  } as ExtendedChatCompletionsPayload
 }
 
 function translateModelName(model: string): string {
@@ -313,18 +326,33 @@ function mapContent(
 
 function translateAnthropicToolsToOpenAI(
   anthropicTools: Array<AnthropicTool> | null | undefined,
-): Array<Tool> | null {
+): {
+  tools: Array<Tool> | null
+  serverSideToolNames: string[]
+} {
   if (!anthropicTools) {
-    return null
+    return { tools: null, serverSideToolNames: [] }
   }
-  return anthropicTools.map((tool) => ({
-    type: "function",
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.input_schema,
-    },
-  }))
+
+  const serverSideToolNames: string[] = []
+
+  const tools: Tool[] = anthropicTools.map((tool) => {
+    // Track server-side tools for handler interception
+    if (isServerSideTool(tool)) {
+      serverSideToolNames.push(tool.name)
+    }
+
+    return {
+      type: "function",
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.input_schema,
+      },
+    }
+  })
+
+  return { tools, serverSideToolNames }
 }
 
 function translateAnthropicToolChoiceToOpenAI(

@@ -532,6 +532,84 @@ describe("tools translation", () => {
     const result = translateToOpenAI(makeRequest())
     expect(result.tools).toBeUndefined()
   })
+
+  test("server-side tools are preserved and tracked", () => {
+    const result = translateToOpenAI(
+      makeRequest({
+        tools: [
+          {
+            name: "web_search",
+            description: "Search the web",
+            input_schema: { type: "object" },
+            type: "web_search_20260209",
+          },
+          {
+            name: "get_weather",
+            description: "Get weather",
+            input_schema: { type: "object" },
+            type: "custom",
+          },
+        ],
+      }),
+    )
+
+    // All tools should be translated to OpenAI format
+    expect(result.tools).toHaveLength(2)
+    expect(result.tools?.[0]).toEqual({
+      type: "function",
+      function: {
+        name: "web_search",
+        description: "Search the web",
+        parameters: { type: "object" },
+      },
+    })
+    expect(result.tools?.[1]).toEqual({
+      type: "function",
+      function: {
+        name: "get_weather",
+        description: "Get weather",
+        parameters: { type: "object" },
+      },
+    })
+
+    // Server-side tool names should be tracked
+    expect((result as any).serverSideToolNames).toEqual(["web_search"])
+  })
+
+  test("custom tools are not tracked as server-side", () => {
+    const result = translateToOpenAI(
+      makeRequest({
+        tools: [
+          {
+            name: "my_tool",
+            description: "My tool",
+            input_schema: { type: "object" },
+            type: "custom",
+          },
+        ],
+      }),
+    )
+
+    expect(result.tools).toHaveLength(1)
+    expect((result as any).serverSideToolNames).toEqual([])
+  })
+
+  test("tools without type field are not server-side", () => {
+    const result = translateToOpenAI(
+      makeRequest({
+        tools: [
+          {
+            name: "legacy_tool",
+            description: "Legacy tool",
+            input_schema: { type: "object" },
+          },
+        ],
+      }),
+    )
+
+    expect(result.tools).toHaveLength(1)
+    expect((result as any).serverSideToolNames).toEqual([])
+  })
 })
 
 // ===========================================================================
