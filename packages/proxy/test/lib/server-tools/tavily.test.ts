@@ -114,16 +114,18 @@ describe("tavily", () => {
       const result = await searchTavily(apiKey, { query: "test query" })
 
       expect(result.type).toBe("web_search_tool_result")
-      expect(result.content).toContain("AI summary")
-      expect(result.content).toContain("Test Result")
-      expect(result.content).toContain("https://example.com")
-      expect(result.citations).toHaveLength(1)
-      expect(result.citations[0]).toMatchObject({
+      // content is array of web_search_result items
+      expect(result.content).toHaveLength(1)
+      expect(result.content[0]).toMatchObject({
+        type: "web_search_result",
         url: "https://example.com",
         title: "Test Result",
-        index: 0,
       })
-      expect(result.encrypted_content).toBeNull()
+      expect(result.content[0]!.encrypted_content).toBeTruthy()
+      // textContent contains formatted text for synthesis
+      expect(result.textContent).toContain("AI summary")
+      expect(result.textContent).toContain("Test Result")
+      expect(result.textContent).toContain("https://example.com")
     })
 
     test("handles empty results", async () => {
@@ -136,8 +138,8 @@ describe("tavily", () => {
 
       const result = await searchTavily(apiKey, { query: "test" })
 
-      expect(result.content).toBe("No results found")
-      expect(result.citations).toHaveLength(0)
+      expect(result.content).toHaveLength(0)
+      expect(result.textContent).toBe("No results found")
     })
 
     describe("error handling", () => {
@@ -229,17 +231,24 @@ describe("tavily", () => {
       const result = formatWebSearchResult(tavilyResponse)
 
       expect(result.type).toBe("web_search_tool_result")
-      expect(result.content).toContain("First Result")
-      expect(result.content).toContain("https://example.com/1")
-      expect(result.content).toContain("First content")
-      expect(result.content).toContain("Second Result")
-      expect(result.citations).toHaveLength(2)
-      expect(result.citations[0]).toMatchObject({
+      // content is array of web_search_result items
+      expect(result.content).toHaveLength(2)
+      expect(result.content[0]).toMatchObject({
+        type: "web_search_result",
         url: "https://example.com/1",
         title: "First Result",
-        index: 0,
-        extract: "First content",
       })
+      expect(result.content[1]).toMatchObject({
+        type: "web_search_result",
+        url: "https://example.com/2",
+        title: "Second Result",
+      })
+      // encrypted_content is base64 encoded
+      expect(result.content[0]!.encrypted_content).toBeTruthy()
+      // textContent has formatted text for synthesis
+      expect(result.textContent).toContain("First Result")
+      expect(result.textContent).toContain("https://example.com/1")
+      expect(result.textContent).toContain("First content")
     })
 
     test("includes AI answer when present", () => {
@@ -259,8 +268,8 @@ describe("tavily", () => {
 
       const result = formatWebSearchResult(tavilyResponse)
 
-      expect(result.content).toStartWith("This is an AI-generated summary")
-      expect(result.content).toContain("Result")
+      expect(result.textContent).toStartWith("This is an AI-generated summary")
+      expect(result.textContent).toContain("Result")
     })
 
     test("handles empty results", () => {
@@ -272,20 +281,18 @@ describe("tavily", () => {
 
       const result = formatWebSearchResult(tavilyResponse)
 
-      expect(result.content).toBe("No results found")
-      expect(result.citations).toHaveLength(0)
+      expect(result.content).toHaveLength(0)
+      expect(result.textContent).toBe("No results found")
     })
 
-    test("extract truncates at 200 chars", () => {
-      const longContent = "a".repeat(300)
-
+    test("encrypted_content is base64 of actual content", () => {
       const tavilyResponse: TavilySearchResponse = {
         query: "test",
         results: [
           {
-            title: "Long Content",
+            title: "Result",
             url: "https://example.com",
-            content: longContent,
+            content: "Hello World",
             score: 0.9,
           },
         ],
@@ -294,10 +301,12 @@ describe("tavily", () => {
 
       const result = formatWebSearchResult(tavilyResponse)
 
-      expect(result.citations[0]?.extract).toHaveLength(200)
+      // encrypted_content should be base64 of "Hello World"
+      const decoded = Buffer.from(result.content[0]!.encrypted_content, "base64").toString()
+      expect(decoded).toBe("Hello World")
     })
 
-    test("sets encrypted_content to null", () => {
+    test("includes page_age from published_date", () => {
       const tavilyResponse: TavilySearchResponse = {
         query: "test",
         results: [
@@ -306,6 +315,7 @@ describe("tavily", () => {
             url: "https://example.com",
             content: "Content",
             score: 0.9,
+            published_date: "March 27, 2026",
           },
         ],
         response_time: 0.5,
@@ -313,7 +323,7 @@ describe("tavily", () => {
 
       const result = formatWebSearchResult(tavilyResponse)
 
-      expect(result.encrypted_content).toBeNull()
+      expect(result.content[0]!.page_age).toBe("March 27, 2026")
     })
   })
 })

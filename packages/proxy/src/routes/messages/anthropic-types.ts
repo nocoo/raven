@@ -70,17 +70,18 @@ export interface AnthropicServerToolUseBlock {
   input: Record<string, unknown>
 }
 
+export interface AnthropicWebSearchResult {
+  type: "web_search_result"
+  url: string
+  title: string
+  encrypted_content: string
+  page_age?: string
+}
+
 export interface AnthropicWebSearchToolResultBlock {
   type: "web_search_tool_result"
   tool_use_id: string
-  content: string
-  citations?: Array<{
-    url: string
-    title: string
-    index: number
-    extract?: string
-  }>
-  encrypted_content?: string | null
+  content: AnthropicWebSearchResult[]
 }
 
 export type AnthropicAssistantContentBlock =
@@ -142,6 +143,9 @@ export interface AnthropicResponse {
     cache_creation_input_tokens: number | null
     cache_read_input_tokens: number | null
     service_tier: "standard" | "priority" | "batch" | null
+    server_tool_use?: {
+      web_search_requests: number
+    } | null
   }
 }
 

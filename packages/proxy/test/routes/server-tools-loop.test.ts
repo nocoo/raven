@@ -148,9 +148,10 @@ describe("handleServerToolLoop — pure server-side mode", () => {
   test("calls Tavily directly and returns synthesized response", async () => {
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
-      content: "Search results for: latest news",
-      citations: [{ url: "https://example.com", title: "News", index: 0 }],
-      encrypted_content: null,
+      content: [
+        { type: "web_search_result", url: "https://example.com", title: "News", encrypted_content: "YmFzZTY0" },
+      ],
+      textContent: "Search results for: latest news",
     })
 
     // Upstream call for synthesis (after injecting search results)
@@ -178,9 +179,15 @@ describe("handleServerToolLoop — pure server-side mode", () => {
     expect(blocks).toHaveLength(3)
     expect(blocks[0]).toEqual({ type: "server_tool_use", id: expect.any(String), name: "web_search", input: { query: "Search for latest news" } })
     expect(blocks[1]!.type).toBe("web_search_tool_result")
-    expect((blocks[1] as { type: "web_search_tool_result"; content: string }).content).toBe("Search results for: latest news")
+    // content is now an array of web_search_result items
+    const wsResult = blocks[1] as { type: "web_search_tool_result"; content: Array<{ type: string; url: string }> }
+    expect(wsResult.content).toHaveLength(1)
+    expect(wsResult.content[0]!.url).toBe("https://example.com")
     expect(blocks[2]).toEqual({ type: "text", text: "Here is the latest news." })
     expect((response as Exclude<ServerToolResult, ChatCompletionResponse>).stop_reason).toBe("end_turn")
+    // usage should include server_tool_use count
+    const usage = (response as Exclude<ServerToolResult, ChatCompletionResponse>).usage
+    expect(usage.server_tool_use).toEqual({ web_search_requests: 1 })
 
     mockSearch.mockRestore()
     mockCreate.mockRestore()
@@ -189,9 +196,10 @@ describe("handleServerToolLoop — pure server-side mode", () => {
   test("injects search results into messages for synthesis", async () => {
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
-      content: "Result content here",
-      citations: [],
-      encrypted_content: null,
+      content: [
+        { type: "web_search_result", url: "https://example.com", title: "Result", encrypted_content: "UmVzdWx0IGNvbnRlbnQgaGVyZQ==" },
+      ],
+      textContent: "Result content here",
     })
 
     let capturedPayload: createChatCompletionsModule.ChatCompletionsPayload | null = null
@@ -325,9 +333,10 @@ describe("handleServerToolLoop — mixed mode", () => {
 
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
-      content: "Results",
-      citations: [],
-      encrypted_content: null,
+      content: [
+        { type: "web_search_result", url: "https://example.com", title: "Result", encrypted_content: "UmVzdWx0cw==" },
+      ],
+      textContent: "Results",
     })
 
     const response = await handleServerToolLoop(

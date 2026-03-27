@@ -59,18 +59,25 @@ export interface TavilyResult {
 }
 
 /**
+ * Single web search result item (Anthropic API format).
+ */
+export interface WebSearchResultItem {
+  type: "web_search_result"
+  url: string
+  title: string
+  encrypted_content: string
+  page_age?: string}
+
+/**
  * Anthropic web_search_tool_result format.
+ * `content` is an array of web_search_result items.
+ * `textContent` is the plain-text representation for synthesis prompts.
  */
 export interface WebSearchToolResult {
   type: "web_search_tool_result"
-  content: string
-  citations: Array<{
-    url: string
-    title: string
-    index: number
-    extract?: string
-  }>
-  encrypted_content: null
+  content: WebSearchResultItem[]
+  /** Plain text for synthesis (not sent in API response) */
+  textContent: string
 }
 
 // ---------------------------------------------------------------------------
@@ -191,50 +198,39 @@ export async function searchTavily(
 
 /**
  * Format Tavily response as Anthropic web_search_tool_result.
+ *
+ * Returns:
+ * - `content`: Anthropic-format array of `web_search_result` items
+ * - `textContent`: plain-text representation for synthesis prompts
  */
 export function formatWebSearchResult(
   tavilyResponse: TavilySearchResponse,
 ): WebSearchToolResult {
   const results = tavilyResponse.results
 
-  // Handle empty results
-  if (results.length === 0) {
-    return {
-      type: "web_search_tool_result",
-      content: "No results found",
-      citations: [],
-      encrypted_content: null,
-    }
-  }
+  // Build Anthropic-format content array
+  const content: WebSearchResultItem[] = results.map((r) => ({
+    type: "web_search_result" as const,
+    url: r.url,
+    title: r.title,
+    encrypted_content: r.content
+      ? Buffer.from(r.content).toString("base64")
+      : "",
+    ...(r.published_date ? { page_age: r.published_date } : {}),
+  }))
 
-  // Build content text
+  // Build plain text for synthesis
   let text = ""
-
-  // Add AI-generated answer if available
   if (tavilyResponse.answer) {
     text += tavilyResponse.answer + "\n\n"
   }
-
-  // Add search results
   text += results
-    .map(
-      (r, i) =>
-        `[${i + 1}] ${r.title}\n${r.url}\n${r.content}`,
-    )
+    .map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.content}`)
     .join("\n\n")
-
-  // Build citations
-  const citations = results.map((r, i) => ({
-    url: r.url,
-    title: r.title,
-    index: i,
-    extract: r.content.slice(0, 200),
-  }))
 
   return {
     type: "web_search_tool_result",
-    content: text,
-    citations,
-    encrypted_content: null,
+    content,
+    textContent: text || "No results found",
   }
 }
