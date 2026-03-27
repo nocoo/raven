@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.5.0 (2026-03-27)
+
+Server-side tool interception — web_search via Tavily, tool call debug logging, dashboard settings.
+
+### Features
+
+- **Server-side web_search interception** — Claude Code's `web_search` (type: `web_search_20250305`) is intercepted by the proxy and executed via Tavily Search API instead of forwarding to Copilot (which returns 502)
+- **Anthropic-native response format** — Returns `server_tool_use` + `web_search_tool_result` + `text` content blocks matching the official Anthropic streaming SSE format, with `encrypted_content` (base64), `page_age`, and `server_tool_use` usage tracking
+- **Tool call debug logging** — `optToolCallDebug` toggle emits debug-level events for tool definitions, tool call starts, stop reasons, and tool counts; visible in dashboard Logs page with debug filter
+- **Dashboard Server Tools settings** — Settings page now has a "Server Tools" section to enable web search and configure the Tavily API key
+
+### Architecture
+
+- **Pure mode** — when all tools are server-side (e.g., Claude Code's WebSearch sub-agent), the proxy calls Tavily directly, injects results for synthesis, and returns an Anthropic-native response
+- **Mixed mode** — when both client and server-side tools are present, server-side tool definitions are stripped before forwarding to Copilot; server-side tool calls are intercepted and executed via Tavily in a loop (max 5 iterations)
+
+### Docs
+
+- **13-server-tools.md** — design document for server-side tool interception architecture
+
 ## v1.4.1 (2026-03-27)
 
 Maintenance — remove GitHub Actions CI, fix test stability, and clean up import paths.
