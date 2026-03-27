@@ -105,7 +105,9 @@ state.stWebSearchApiKey   // string | null
 `searchTavily(apiKey, params)` 封装了 Tavily Search API v2：
 
 - Endpoint: `https://api.tavily.com/search`
-- 返回: `WebSearchToolResult { type, content, citations, encrypted_content }`
+- 返回: `WebSearchToolResult { type, content: WebSearchResultItem[], textContent }`
+  - `content`: Anthropic 原生格式 — `web_search_result` 数组，每项含 `url`, `title`, `encrypted_content`（base64）, `page_age`
+  - `textContent`: 纯文本格式， 用于 synthesis 提示
 - 错误处理: `TavilyError` 区分 auth/rate_limit/server 错误类型
 
 ### 结果注入
@@ -151,10 +153,23 @@ state.stWebSearchApiKey   // string | null
 | `test/routes/server-tools-loop.test.ts` | `handleServerToolLoop` pure/mixed mode integration |
 | `test/routes/server-tools-loop-logic.test.ts` | loop logic: iteration, tool call routing |
 | `test/routes/server-tools-tavily.test.ts` | Tavily API mock tests |
+| `test/routes/stream-anthropic-response.test.ts` | `streamAnthropicResponse` SSE event format |
 
 ---
 
 ## Status
+
+- [x] Server-side tool 识别 (`isServerSideTool`)
+- [x] Tavily API 封装 + 错误处理
+- [x] Pure server-side mode (直接拦截，不发 Copilot)
+- [x] Mixed mode (剥离 server tools，拦截 tool calls)
+- [x] `consumeStreamToResponse` 流式内部消费
+- [x] Anthropic 宿生 SSE 格式 (`streamAnthropicResponse`)
+- [x] Dashboard Settings UI
+- [x] Debug logging (behind `optToolCallDebug`)
+- [x] Unit tests (673 pass, 92.2% coverage)
+- [x] Live test 验证 (Claude Code WebSearch → Tavily → 成功返回)
+- [ ] Claude Code 搜索计数修复（响应格式对齐 Anthropic API 规范）## Status
 
 - [x] Server-side tool 识别 (`isServerSideTool`)
 - [x] Tavily API 封装 + 错误处理
