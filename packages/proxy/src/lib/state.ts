@@ -25,6 +25,9 @@ export interface State {
   optReorderToolResults: boolean
   optFilterWhitespaceChunks: boolean
 
+  // Debug logging (default: all false)
+  optToolCallDebug: boolean
+
   // Custom providers — cached enabled records, refreshed on CRUD operations
   providers: ProviderRecord[]
 }
@@ -44,5 +47,7 @@ export const state: State = {
   optSanitizeOrphanedToolResults: false,
   optReorderToolResults: false,
   optFilterWhitespaceChunks: false,
+
+  optToolCallDebug: false,
   providers: [],
 }

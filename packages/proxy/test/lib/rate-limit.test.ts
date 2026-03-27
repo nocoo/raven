@@ -33,6 +33,7 @@ function makeState(overrides: Partial<State> = {}): State {
     optSanitizeOrphanedToolResults: false,
     optReorderToolResults: false,
     optFilterWhitespaceChunks: false,
+    optToolCallDebug: false,
     providers: [],
     ...overrides,
   }
