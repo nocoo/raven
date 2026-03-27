@@ -5,7 +5,7 @@ import type { DeviceCodeResponse } from "../../src/services/github/get-device-co
 // Mock sleep → instant resolve (eliminates ~1s real wait per retry)
 // ---------------------------------------------------------------------------
 
-mock.module("~/lib/utils", () => ({
+mock.module("../../src/lib/utils", () => ({
   sleep: () => Promise.resolve(),
   isNullish: (v: unknown) => v === null || v === undefined,
 }))

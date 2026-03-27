@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { sendOpenAIDirect } from "~/services/upstream/send-openai"
-import type { ProviderRecord } from "~/db/providers"
-import type { ChatCompletionsPayload } from "~/services/copilot/create-chat-completions"
+import { sendOpenAIDirect } from "./../../../src/services/upstream/send-openai"
+import type { ProviderRecord } from "./../../../src/db/providers"
+import type { ChatCompletionsPayload } from "./../../../src/services/copilot/create-chat-completions"
 
 function makeProvider(
   overrides: Partial<ProviderRecord> = {},

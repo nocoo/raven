@@ -24,7 +24,7 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true })
 })
 
-mock.module("~/lib/paths", () => ({
+mock.module("../../src/lib/paths", () => ({
   PATHS: {
     get APP_DIR() { return path.dirname(tmpTokenPath) },
     get GITHUB_TOKEN_PATH() { return tmpTokenPath },
