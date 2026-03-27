@@ -60,7 +60,7 @@ function killProc(
   }
 }
 
-async function main() {
+async function main(): Promise<number> {
   let proxyProc: ReturnType<typeof Bun.spawn> | null = null;
 
   // Clean slate: delete test DB + WAL/SHM sidecars before run (D1 isolation)
@@ -85,7 +85,7 @@ async function main() {
       console.error(`  ❌ Proxy already running on :${PROXY_PORT}`);
       console.error(`     D1 isolation requires a fresh proxy with RAVEN_DB_PATH=data/raven-test.db`);
       console.error(`     Stop the running proxy and try again.`);
-      process.exit(1);
+      return 1;
     }
 
     console.log("  ⏳ Starting proxy...");
@@ -109,10 +109,10 @@ async function main() {
         `${import.meta.dir}/../packages/proxy`,
       ).nothrow();
 
-    process.exit(result.exitCode);
+    return result.exitCode;
   } finally {
     killProc(proxyProc, "Proxy");
   }
 }
 
-main();
+main().then((code) => process.exit(code));

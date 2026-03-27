@@ -56,7 +56,7 @@ function killProc(proc: ReturnType<typeof Bun.spawn> | null, label: string) {
 
 // ── Main ─────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<number> {
   let proxyProc: ReturnType<typeof Bun.spawn> | null = null;
   let dashboardProc: ReturnType<typeof Bun.spawn> | null = null;
 
@@ -85,7 +85,7 @@ async function main() {
       console.error(`  ❌ Proxy already running on :${PROXY_PORT}`);
       console.error(`     D1 isolation requires a fresh proxy with RAVEN_DB_PATH=data/raven-test.db`);
       console.error(`     Stop the running proxy and try again.`);
-      process.exit(1);
+      return 1;
     }
 
     console.log("  ⏳ Starting proxy...");
@@ -125,7 +125,7 @@ async function main() {
         `${import.meta.dir}/..`,
       ).nothrow();
 
-    process.exit(result.exitCode);
+    return result.exitCode;
   } finally {
     // Cleanup: only kill servers we started
     killProc(dashboardProc, "Dashboard");
@@ -133,4 +133,4 @@ async function main() {
   }
 }
 
-main();
+main().then((code) => process.exit(code));
