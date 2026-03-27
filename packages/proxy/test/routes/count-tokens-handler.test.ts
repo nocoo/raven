@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test"
 import { Hono } from "hono"
 import { handleCountTokens } from "../../src/routes/messages/count-tokens-handler"
 import { state } from "../../src/lib/state"
@@ -84,6 +84,7 @@ beforeEach(() => {
 afterEach(() => {
   if (savedModels !== undefined) state.models = savedModels
   else state.models = null
+  mock.restore() // Clear any mocks from other test files
 })
 
 // ===========================================================================
