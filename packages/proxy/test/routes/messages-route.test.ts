@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn, mock } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, afterAll, spyOn, mock } from "bun:test"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -60,6 +60,10 @@ afterEach(() => {
   if (savedToken !== undefined) state.copilotToken = savedToken
   else state.copilotToken = null
   fetchSpy.mockRestore()
+})
+
+afterAll(() => {
+  mock.restore()
 })
 
 // ===========================================================================
