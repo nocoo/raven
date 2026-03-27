@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.4.0 (2026-03-27)
+
+Quality system upgrade from A- to S tier — D1 test isolation, GitHub Actions CI, and documentation sync.
+
+### Quality system — S tier
+
+- **D1: Test DB isolation** — `RAVEN_DB_PATH` env var controls SQLite database location; E2E and Playwright runners use isolated `data/raven-test.db`, never touching production `data/raven.db`
+- **D1: WAL/SHM cleanup** — test runners delete `.db-wal` and `.db-shm` sidecar files for complete isolation
+- **D1: Proxy reuse guard** — test runners reject if proxy already running (cannot guarantee DB isolation without fresh start)
+- **D1: finally cleanup fix** — refactored test runners to return exit code instead of `process.exit()` inside try block, ensuring `finally` cleanup always runs
+- **CI: GitHub Actions** — `.github/workflows/ci.yml` runs L1 (tests + coverage) + G1 (lint + typecheck) + G2 (security) + L3 (Playwright) on every push/PR
+- **CI: osv-scanner config** — added `osv-scanner.toml` to ignore transitive picomatch vulnerabilities in dev-only dependencies
+
+### Linear issues
+
+- **MY-33** — closed as Won't Fix; L2 manual-only is the correct design (anti-ban protocol)
+- **MY-34** — closed as Done; D1 SQLite isolation via `RAVEN_DB_PATH`
+
+### Tests
+
+- **584 proxy tests** (was 583) — added `RAVEN_DB_PATH` config tests
+
+### Docs
+
+- **CLAUDE.md** — updated test counts, added CI section, corrected L3 from "7 smoke tests" to "25 tests across 5 specs"
+- **Hook comments** — added quality dimension annotations (L1/G1, G2)
+- **Design doc** — added `docs/12-quality-system-upgrade.md` with full implementation plan
+
 ## v1.3.0 (2026-03-27)
 
 Custom upstream routing — route specific models to external providers (e.g. Zhipu GLM → Anthropic-compatible API) while everything else continues through GitHub Copilot.
