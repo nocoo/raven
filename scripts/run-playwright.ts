@@ -6,7 +6,7 @@
  *
  * References: otter/run-e2e-ui.ts pattern
  */
-import { unlinkSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
 import { $ } from "bun";
 
 const PROXY_PORT = 7033;
@@ -60,12 +60,17 @@ async function main() {
   let proxyProc: ReturnType<typeof Bun.spawn> | null = null;
   let dashboardProc: ReturnType<typeof Bun.spawn> | null = null;
 
-  // Clean slate: delete test DB before run (D1 isolation)
+  // Clean slate: delete test DB + WAL/SHM sidecars before run (D1 isolation)
   const TEST_DB = `${import.meta.dir}/../packages/proxy/data/raven-test.db`;
-  try {
-    unlinkSync(TEST_DB);
-  } catch {
-    // OK if not exists
+  for (const ext of ["", "-wal", "-shm"]) {
+    const file = TEST_DB + ext;
+    if (existsSync(file)) {
+      try {
+        unlinkSync(file);
+      } catch {
+        // OK if deletion fails (file in use, etc.)
+      }
+    }
   }
 
   try {
@@ -75,27 +80,30 @@ async function main() {
 
     console.log("🎭 L3 Playwright E2E\n");
 
-    // Start proxy if not already running
+    // D1 isolation: proxy must use test DB, reject if already running
     if (proxyAlready) {
-      console.log(`  ⤳ Proxy already running on :${PROXY_PORT}`);
-    } else {
-      console.log("  ⏳ Starting proxy...");
-      proxyProc = Bun.spawn(["bun", "run", "dev:proxy"], {
-        cwd: `${import.meta.dir}/..`,
-        stdout: "ignore",
-        stderr: "ignore",
-        env: {
-          ...process.env,
-          // Dev mode: no auth required
-          RAVEN_API_KEY: undefined,
-          RAVEN_INTERNAL_KEY: undefined,
-          RAVEN_DB_PATH: "data/raven-test.db",
-        },
-      });
-      await waitForPort(PROXY_PORT, "Proxy");
+      console.error(`  ❌ Proxy already running on :${PROXY_PORT}`);
+      console.error(`     D1 isolation requires a fresh proxy with RAVEN_DB_PATH=data/raven-test.db`);
+      console.error(`     Stop the running proxy and try again.`);
+      process.exit(1);
     }
 
-    // Start dashboard if not already running
+    console.log("  ⏳ Starting proxy...");
+    proxyProc = Bun.spawn(["bun", "run", "dev:proxy"], {
+      cwd: `${import.meta.dir}/..`,
+      stdout: "ignore",
+      stderr: "ignore",
+      env: {
+        ...process.env,
+        // Dev mode: no auth required
+        RAVEN_API_KEY: undefined,
+        RAVEN_INTERNAL_KEY: undefined,
+        RAVEN_DB_PATH: "data/raven-test.db",
+      },
+    });
+    await waitForPort(PROXY_PORT, "Proxy");
+
+    // Dashboard can be reused (doesn't touch DB directly)
     if (dashboardAlready) {
       console.log(`  ⤳ Dashboard already running on :${DASHBOARD_PORT}`);
     } else {

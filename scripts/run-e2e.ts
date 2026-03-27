@@ -7,7 +7,7 @@
  * The proxy must have valid Copilot credentials configured
  * (GITHUB_TOKEN or cached token) for upstream tests to pass.
  */
-import { unlinkSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
 import { $ } from "bun";
 
 const PROXY_PORT = 7033;
@@ -63,12 +63,17 @@ function killProc(
 async function main() {
   let proxyProc: ReturnType<typeof Bun.spawn> | null = null;
 
-  // Clean slate: delete test DB before run (D1 isolation)
+  // Clean slate: delete test DB + WAL/SHM sidecars before run (D1 isolation)
   const TEST_DB = `${import.meta.dir}/../packages/proxy/data/raven-test.db`;
-  try {
-    unlinkSync(TEST_DB);
-  } catch {
-    // OK if not exists
+  for (const ext of ["", "-wal", "-shm"]) {
+    const file = TEST_DB + ext;
+    if (existsSync(file)) {
+      try {
+        unlinkSync(file);
+      } catch {
+        // OK if deletion fails (file in use, etc.)
+      }
+    }
   }
 
   try {
@@ -77,20 +82,23 @@ async function main() {
     console.log("🔌 L2 API E2E\n");
 
     if (alreadyRunning) {
-      console.log(`  ⤳ Proxy already running on :${PROXY_PORT}`);
-    } else {
-      console.log("  ⏳ Starting proxy...");
-      proxyProc = Bun.spawn(["bun", "run", "dev:proxy"], {
-        cwd: `${import.meta.dir}/..`,
-        stdout: "ignore",
-        stderr: "ignore",
-        env: {
-          ...process.env,
-          RAVEN_DB_PATH: "data/raven-test.db",
-        },
-      });
-      await waitForPort(PROXY_PORT, "Proxy");
+      console.error(`  ❌ Proxy already running on :${PROXY_PORT}`);
+      console.error(`     D1 isolation requires a fresh proxy with RAVEN_DB_PATH=data/raven-test.db`);
+      console.error(`     Stop the running proxy and try again.`);
+      process.exit(1);
     }
+
+    console.log("  ⏳ Starting proxy...");
+    proxyProc = Bun.spawn(["bun", "run", "dev:proxy"], {
+      cwd: `${import.meta.dir}/..`,
+      stdout: "ignore",
+      stderr: "ignore",
+      env: {
+        ...process.env,
+        RAVEN_DB_PATH: "data/raven-test.db",
+      },
+    });
+    await waitForPort(PROXY_PORT, "Proxy");
 
     console.log("");
 
