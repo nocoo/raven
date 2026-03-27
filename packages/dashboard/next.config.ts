@@ -21,7 +21,6 @@ const nextConfig: NextConfig = {
   },
   allowedDevOrigins: [
     "localhost",
-    "raven.dev.hexly.ai",
   ],
   images: {
     remotePatterns: [

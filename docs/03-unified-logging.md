@@ -401,7 +401,7 @@ export function useLogStream(options?: { level?: string }) {
   const [paused, setPaused] = useState(false);
   const bufferRef = useRef<LogEvent[]>([]);
 
-  // WS 连接到 dashboard BFF: ws://raven.dev.hexly.ai/api/ws/logs?level=info
+  // WS 连接到 dashboard BFF: ws://your-raven-host/api/ws/logs?level=info
   // 鉴权通过 NextAuth session cookie 自动携带，无需传 token
   // 自动重连（exponential backoff）
   // paused 时 buffer 到 bufferRef，resume 时 flush
