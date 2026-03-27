@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Key, Trash2, Ban, AlertTriangle, Cable, Terminal, Code2 } from "lucide-react";
+import { Plus, Key, Trash2, Ban, AlertTriangle, Cable, Terminal, Code2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -194,6 +194,7 @@ console.log(message.content);`,
 function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const handleCreated = useCallback(() => {
@@ -203,15 +204,23 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
 
   const handleAction = useCallback(async (id: string, action: "revoke" | "delete") => {
     setActionError(null);
+    setActionLoading(id);
     try {
-      if (action === "revoke") {
-        await fetch(`/api/keys/${id}/revoke`, { method: "POST" });
-      } else {
-        await fetch(`/api/keys/${id}`, { method: "DELETE" });
+      const res = await fetch(
+        action === "revoke" ? `/api/keys/${id}/revoke` : `/api/keys/${id}`,
+        { method: action === "revoke" ? "POST" : "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const msg = data?.error?.message ?? `Request failed (${res.status})`;
+        setActionError(msg);
+        return;
       }
       router.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      setActionLoading(null);
     }
   }, [router]);
 
@@ -234,7 +243,10 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
       </div>
 
       {actionError && (
-        <p className="text-xs text-destructive">{actionError}</p>
+        <div className="flex items-center gap-2 rounded-widget border border-destructive/40 bg-destructive/10 px-3 py-2 mb-3">
+          <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" strokeWidth={1.5} />
+          <p className="text-xs text-destructive">{actionError}</p>
+        </div>
       )}
 
       {initialKeys.length === 0 ? (
@@ -282,6 +294,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                         size="icon-xs"
                         variant="ghost"
                         onClick={() => handleAction(key.id, "delete")}
+                        disabled={actionLoading !== null}
                         aria-label="Delete key"
                       >
                         <Trash2 className="h-3.5 w-3.5 text-destructive" strokeWidth={1.5} />
@@ -291,9 +304,14 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                         size="icon-xs"
                         variant="ghost"
                         onClick={() => handleAction(key.id, "revoke")}
+                        disabled={actionLoading !== null}
                         aria-label="Revoke key"
                       >
-                        <Ban className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        {actionLoading === key.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.5} />
+                        ) : (
+                          <Ban className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        )}
                       </Button>
                     )}
                   </TableCell>
