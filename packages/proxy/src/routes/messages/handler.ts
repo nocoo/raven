@@ -59,6 +59,18 @@ export async function handleCompletion(c: Context) {
     },
   })
 
+  // Debug: log tool definitions
+  if (state.optToolCallDebug && anthropicPayload.tools) {
+    logEmitter.emitLog({
+      ts: Date.now(), level: "debug", type: "request_start", requestId,
+      msg: `tool definitions: ${anthropicPayload.tools.length}`,
+      data: {
+        toolDefinitions: anthropicPayload.tools.map((t: { name: string }) => t.name),
+        toolDefinitionCount: anthropicPayload.tools.length,
+      },
+    })
+  }
+
   // Check for custom upstream provider
   const resolved = resolveProvider(model)
   if (resolved) {
@@ -122,6 +134,7 @@ export async function handleCompletion(c: Context) {
     let outputTokens = 0
     let streamError: string | null = null
     let firstChunkTime: number | null = null
+    let lastToolCallCount = 0
 
     return streamSSE(c, async (sseStream) => {
       const streamState: AnthropicStreamState = {
@@ -150,6 +163,31 @@ export async function handleCompletion(c: Context) {
 
           const events = translateChunkToAnthropicEvents(chunk, streamState)
 
+          // Debug: detect new tool calls
+          if (state.optToolCallDebug) {
+            const currentToolCallCount = Object.keys(streamState.toolCalls).length
+            if (currentToolCallCount > lastToolCallCount) {
+              // Find the new tool call (by highest block index)
+              const newToolCall = Object.values(streamState.toolCalls).reduce((newest, tc) =>
+                tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
+                { id: "", name: "", anthropicBlockIndex: -1 },
+              )
+              if (newToolCall.id) {
+                logEmitter.emitLog({
+                  ts: Date.now(), level: "debug", type: "sse_chunk", requestId,
+                  msg: `tool_use started: ${newToolCall.name}`,
+                  data: {
+                    eventType: "tool_use_start",
+                    toolName: newToolCall.name,
+                    toolId: newToolCall.id,
+                    blockIndex: newToolCall.anthropicBlockIndex,
+                  },
+                })
+              }
+            }
+            lastToolCallCount = currentToolCallCount
+          }
+
           for (const event of events) {
             await sseStream.writeSSE({
               event: event.type,
@@ -175,18 +213,32 @@ export async function handleCompletion(c: Context) {
         const latencyMs = Math.round(endTime - startTime)
         const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
         const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
+
+        // Build base request_end data
+        const baseData = {
+          path: "/v1/messages", format: "anthropic", model,
+          resolvedModel, translatedModel: openAIPayload.model,
+          inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
+          stream: true, status: streamError ? "error" : "success",
+          statusCode: streamError ? 502 : 200,
+          upstreamStatus: streamError ? null : 200,
+          accountName, sessionId, clientName, clientVersion,
+        }
+
+        // Add debug info if enabled
+        const debugData = state.optToolCallDebug && !streamError ? {
+          stopReason: "tool_use", // Will be derived from stream state if tools were called
+          toolCallCount: Object.keys(streamState.toolCalls).length,
+          toolCallNames: Object.values(streamState.toolCalls).map(tc => tc.name),
+        } : {}
+
         logEmitter.emitLog({
           ts: Date.now(), level: streamError ? "error" : "info",
           type: "request_end", requestId,
           msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
           data: {
-            path: "/v1/messages", format: "anthropic", model,
-            resolvedModel, translatedModel: openAIPayload.model,
-            inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
-            stream: true, status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
-            upstreamStatus: streamError ? null : 200,
-            accountName, sessionId, clientName, clientVersion,
+            ...baseData,
+            ...debugData,
             ...(streamError && { error: streamError }),
           },
         })
@@ -404,6 +456,7 @@ async function handleOpenAIUpstream(
     let outputTokens = 0
     let streamError: string | null = null
     let firstChunkTime: number | null = null
+    let lastToolCallCount = 0
 
     return streamSSE(c, async (sseStream) => {
       try {
@@ -424,6 +477,30 @@ async function handleOpenAIUpstream(
           }
 
           const events = translateChunkToAnthropicEvents(chunk, streamState)
+
+          // Debug: detect new tool calls
+          if (state.optToolCallDebug) {
+            const currentToolCallCount = Object.keys(streamState.toolCalls).length
+            if (currentToolCallCount > lastToolCallCount) {
+              const newToolCall = Object.values(streamState.toolCalls).reduce((newest, tc) =>
+                tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
+                { id: "", name: "", anthropicBlockIndex: -1 },
+              )
+              if (newToolCall.id) {
+                logEmitter.emitLog({
+                  ts: Date.now(), level: "debug", type: "sse_chunk", requestId,
+                  msg: `tool_use started: ${newToolCall.name}`,
+                  data: {
+                    eventType: "tool_use_start",
+                    toolName: newToolCall.name,
+                    toolId: newToolCall.id,
+                    blockIndex: newToolCall.anthropicBlockIndex,
+                  },
+                })
+              }
+            }
+            lastToolCallCount = currentToolCallCount
+          }
 
           for (const event of events) {
             await sseStream.writeSSE({
@@ -450,19 +527,30 @@ async function handleOpenAIUpstream(
         const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
         const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
 
+        const baseData = {
+          path: "/v1/messages", format: "anthropic", model: originalModel,
+          resolvedModel, translatedModel: model,
+          inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
+          stream: true, status: streamError ? "error" : "success",
+          statusCode: streamError ? 502 : 200,
+          upstreamStatus: streamError ? null : 200,
+          upstream: provider.name, upstreamFormat: provider.format,
+          accountName, sessionId, clientName, clientVersion,
+        }
+
+        const debugData = state.optToolCallDebug && !streamError ? {
+          stopReason: "tool_use",
+          toolCallCount: Object.keys(streamState.toolCalls).length,
+          toolCallNames: Object.values(streamState.toolCalls).map(tc => tc.name),
+        } : {}
+
         logEmitter.emitLog({
           ts: Date.now(), level: streamError ? "error" : "info",
           type: "request_end", requestId,
           msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
           data: {
-            path: "/v1/messages", format: "anthropic", model: originalModel,
-            resolvedModel, translatedModel: model,
-            inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
-            stream: true, status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
-            upstreamStatus: streamError ? null : 200,
-            upstream: provider.name, upstreamFormat: provider.format,
-            accountName, sessionId, clientName, clientVersion,
+            ...baseData,
+            ...debugData,
             ...(streamError && { error: streamError }),
           },
         })
