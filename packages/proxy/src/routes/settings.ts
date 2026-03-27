@@ -16,6 +16,7 @@ const OPTIMIZATION_KEYS = [
   "opt_sanitize_orphaned_tool_results",
   "opt_reorder_tool_results",
   "opt_filter_whitespace_chunks",
+  "tool_call_debug",
 ] as const;
 
 type VersionKey = (typeof VERSION_KEYS)[number];
@@ -104,6 +105,10 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
       filter_whitespace_chunks: {
         enabled: state.optFilterWhitespaceChunks,
         key: "opt_filter_whitespace_chunks",
+      },
+      tool_call_debug: {
+        enabled: state.optToolCallDebug,
+        key: "tool_call_debug",
       },
     },
   };
