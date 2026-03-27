@@ -7,7 +7,7 @@ import { createApp } from "./app"
 import { ensurePaths } from "./lib/paths"
 import { state } from "./lib/state"
 import { setupGitHubToken, setupCopilotToken } from "./lib/token"
-import { cacheModels, cacheVersions, cacheOptimizations, cacheProviders } from "./lib/utils"
+import { cacheModels, cacheVersions, cacheOptimizations, cacheProviders, cacheServerTools } from "./lib/utils"
 import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
 import { initApiKeys, validateApiKey } from "./db/keys"
@@ -48,6 +48,9 @@ cacheOptimizations(db)
 
 // 3c. Load enabled providers from DB
 cacheProviders(db)
+
+// 3d. Load server tool settings from DB
+cacheServerTools(db)
 
 // 4. GitHub OAuth (loads from disk or runs device flow)
 await setupGitHubToken()

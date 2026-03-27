@@ -99,3 +99,12 @@ export function cacheOptimizations(db: Database): void {
 export function cacheProviders(db: Database): void {
   state.providers = getEnabledProviders(db)
 }
+
+/**
+ * Load server tool settings from DB into runtime state.
+ * Called at startup and after any server tool setting change.
+ */
+export function cacheServerTools(db: Database): void {
+  state.stWebSearchEnabled = getSetting(db, "st_web_search_enabled") === "true"
+  state.stWebSearchApiKey = getSetting(db, "st_web_search_api_key") ?? null
+}

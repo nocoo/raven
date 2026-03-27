@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Database } from "bun:sqlite"
 
 import { state } from "../../src/lib/state"
-import { cacheVersions, cacheModels, isNullish } from "../../src/lib/utils"
+import { cacheVersions, cacheModels, cacheServerTools, isNullish } from "../../src/lib/utils"
 import { initSettings } from "../../src/db/settings"
 
 // ---------------------------------------------------------------------------
@@ -139,4 +139,59 @@ describe("isNullish", () => {
   test("0 → false", () => expect(isNullish(0)).toBe(false))
   test("empty string → false", () => expect(isNullish("")).toBe(false))
   test("false → false", () => expect(isNullish(false)).toBe(false))
+})
+
+// ===========================================================================
+// cacheServerTools
+// ===========================================================================
+
+describe("cacheServerTools", () => {
+  const savedStWebSearchEnabled = state.stWebSearchEnabled
+  const savedStWebSearchApiKey = state.stWebSearchApiKey
+
+  afterEach(() => {
+    state.stWebSearchEnabled = savedStWebSearchEnabled
+    state.stWebSearchApiKey = savedStWebSearchApiKey
+  })
+
+  test("loads defaults when DB is empty", () => {
+    cacheServerTools(db)
+    expect(state.stWebSearchEnabled).toBe(false)
+    expect(state.stWebSearchApiKey).toBeNull()
+  })
+
+  test("loads st_web_search_enabled from DB", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "st_web_search_enabled",
+      $value: "true",
+    })
+
+    cacheServerTools(db)
+    expect(state.stWebSearchEnabled).toBe(true)
+  })
+
+  test("loads st_web_search_api_key from DB", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "st_web_search_api_key",
+      $value: "tvly-test-key-12345",
+    })
+
+    cacheServerTools(db)
+    expect(state.stWebSearchApiKey).toBe("tvly-test-key-12345")
+  })
+
+  test("loads both settings from DB", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "st_web_search_enabled",
+      $value: "true",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "st_web_search_api_key",
+      $value: "tvly-secret-key",
+    })
+
+    cacheServerTools(db)
+    expect(state.stWebSearchEnabled).toBe(true)
+    expect(state.stWebSearchApiKey).toBe("tvly-secret-key")
+  })
 })

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import { getSetting, setSetting, deleteSetting } from "../db/settings";
-import { cacheVersions, cacheOptimizations } from "../lib/utils";
+import { cacheVersions, cacheOptimizations, cacheServerTools } from "../lib/utils";
 import { state } from "../lib/state";
 
 // ---------------------------------------------------------------------------
@@ -19,11 +19,21 @@ const OPTIMIZATION_KEYS = [
   "tool_call_debug",
 ] as const;
 
+/** Server tool setting keys. */
+const SERVER_TOOL_KEYS = [
+  "st_web_search_enabled",
+  "st_web_search_api_key",
+] as const;
+
+/** Server tool boolean keys (for validation). */
+const SERVER_TOOL_BOOLEAN_KEYS = ["st_web_search_enabled"] as const;
+
 type VersionKey = (typeof VERSION_KEYS)[number];
 type OptimizationKey = (typeof OPTIMIZATION_KEYS)[number];
+type ServerToolKey = (typeof SERVER_TOOL_KEYS)[number];
 
 /** All known setting keys accepted by the API. */
-const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS] as const;
+const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS] as const;
 type SettingKey = (typeof KNOWN_KEYS)[number];
 
 function isKnownKey(key: string): key is SettingKey {
@@ -36,6 +46,14 @@ function isVersionKey(key: string): key is VersionKey {
 
 function isOptimizationKey(key: string): key is OptimizationKey {
   return (OPTIMIZATION_KEYS as readonly string[]).includes(key);
+}
+
+function isServerToolKey(key: string): key is ServerToolKey {
+  return (SERVER_TOOL_KEYS as readonly string[]).includes(key);
+}
+
+function isServerToolBooleanKey(key: string): key is ServerToolKey {
+  return (SERVER_TOOL_BOOLEAN_KEYS as readonly string[]).includes(key);
 }
 
 // ---------------------------------------------------------------------------
@@ -71,11 +89,17 @@ export interface OptimizationInfo {
   key: string;
 }
 
+export interface ServerToolInfo {
+  enabled: boolean;
+  has_api_key: boolean;
+}
+
 export interface SettingsSnapshot {
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
   optimizations: Record<string, OptimizationInfo>;
   debug: Record<string, OptimizationInfo>;
+  server_tools: Record<string, ServerToolInfo>;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +140,12 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
       tool_call_debug: {
         enabled: state.optToolCallDebug,
         key: "tool_call_debug",
+      },
+    },
+    server_tools: {
+      web_search: {
+        enabled: state.stWebSearchEnabled,
+        has_api_key: state.stWebSearchApiKey !== null,
       },
     },
   };
@@ -193,12 +223,26 @@ export function createSettingsRoute(db: Database): Hono {
           400,
         );
       }
+    } else if (isServerToolBooleanKey(key)) {
+      if (!isValidBoolean(trimmed)) {
+        return c.json(
+          {
+            error: {
+              type: "validation_error",
+              message: `invalid boolean value: "${trimmed}". Expected "true" or "false"`,
+            },
+          },
+          400,
+        );
+      }
     }
 
     // Persist to DB and refresh caches
     setSetting(db, key, trimmed);
     if (isVersionKey(key)) {
       await cacheVersions(db);
+    } else if (isServerToolKey(key)) {
+      cacheServerTools(db);
     } else {
       cacheOptimizations(db);
     }
@@ -225,6 +269,8 @@ export function createSettingsRoute(db: Database): Hono {
     deleteSetting(db, key);
     if (isVersionKey(key)) {
       await cacheVersions(db);
+    } else if (isServerToolKey(key)) {
+      cacheServerTools(db);
     } else {
       cacheOptimizations(db);
     }

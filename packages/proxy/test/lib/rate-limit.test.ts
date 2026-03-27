@@ -34,6 +34,8 @@ function makeState(overrides: Partial<State> = {}): State {
     optReorderToolResults: false,
     optFilterWhitespaceChunks: false,
     optToolCallDebug: false,
+    stWebSearchEnabled: false,
+    stWebSearchApiKey: null,
     providers: [],
     ...overrides,
   }

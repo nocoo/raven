@@ -28,6 +28,10 @@ export interface State {
   // Debug logging (default: all false)
   optToolCallDebug: boolean
 
+  // Server tools — replace Anthropic server-side tools with third-party APIs
+  stWebSearchEnabled: boolean
+  stWebSearchApiKey: string | null
+
   // Custom providers — cached enabled records, refreshed on CRUD operations
   providers: ProviderRecord[]
 }
@@ -49,5 +53,7 @@ export const state: State = {
   optFilterWhitespaceChunks: false,
 
   optToolCallDebug: false,
+  stWebSearchEnabled: false,
+  stWebSearchApiKey: null,
   providers: [],
 }
