@@ -397,3 +397,142 @@ describe("handleCompletion (errors)", () => {
     expect(endEvent!.data?.error).toContain("stream error")
   })
 })
+
+// ===========================================================================
+// handleCompletion — tool call debug logging
+// ===========================================================================
+
+describe("handleCompletion (tool call debug)", () => {
+  let savedDebugState: boolean
+
+  beforeEach(() => {
+    savedDebugState = state.optToolCallDebug
+  })
+
+  afterEach(() => {
+    state.optToolCallDebug = savedDebugState
+  })
+
+  test("emits debug events for tool definitions when enabled", async () => {
+    state.optToolCallDebug = true
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchJson(makeNonStreamResponse()),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "gpt-4o",
+        tools: [
+          { type: "function", function: { name: "test_tool", description: "Test" } },
+        ],
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const debugStartEvents = events.filter(
+      (e) => e.type === "request_start" && e.level === "debug",
+    )
+    expect(debugStartEvents.length).toBe(1)
+    expect(debugStartEvents[0]?.data?.toolDefinitions).toEqual(["test_tool"])
+    expect(debugStartEvents[0]?.data?.toolDefinitionCount).toBe(1)
+  })
+
+  test("emits debug events for tool calls in streaming when enabled", async () => {
+    state.optToolCallDebug = true
+
+    const chunk1 = JSON.stringify({
+      id: "c1",
+      model: "gpt-4o-2024-08-06",
+      choices: [
+        {
+          delta: {
+            tool_calls: [
+              { index: 0, id: "call_123", function: { name: "test_function", arguments: "{}" } },
+            ],
+          },
+          index: 0,
+        },
+      ],
+    })
+    const chunk2 = JSON.stringify({
+      id: "c1",
+      model: "gpt-4o-2024-08-06",
+      choices: [],
+      usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
+      finish_reason: "tool_calls",
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        `data: ${chunk1}\n\n`,
+        `data: ${chunk2}\n\n`,
+        "data: [DONE]\n\n",
+      ]),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "gpt-4o",
+        stream: true,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    )
+
+    await res.text()
+    await new Promise((r) => setTimeout(r, 50))
+
+    logEmitter.off("log", listener)
+
+    const debugChunkEvents = events.filter(
+      (e) => e.type === "sse_chunk" && e.level === "debug",
+    )
+    expect(debugChunkEvents.length).toBeGreaterThan(0)
+    expect(debugChunkEvents[0]?.data?.eventType).toBe("tool_call_start")
+    expect(debugChunkEvents[0]?.data?.toolName).toBe("test_function")
+
+    const endEvents = events.filter((e) => e.type === "request_end")
+    expect(endEvents.length).toBeGreaterThan(0)
+    const endEvent = endEvents[endEvents.length - 1]
+    expect(endEvent?.data?.stopReason).toBe("tool_calls")
+    expect(endEvent?.data?.toolCallCount).toBeGreaterThan(0)
+  })
+
+  test("does not emit debug events when disabled", async () => {
+    state.optToolCallDebug = false
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchJson(makeNonStreamResponse()),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "gpt-4o",
+        tools: [{ type: "function", function: { name: "test_tool" } }],
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const debugEvents = events.filter((e) => e.level === "debug")
+    expect(debugEvents.length).toBe(0)
+  })
+})

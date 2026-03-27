@@ -39,6 +39,18 @@ export async function handleCompletion(c: Context) {
     data: { path: "/v1/chat/completions", format: "openai", model, stream, accountName, sessionId, clientName, clientVersion },
   })
 
+  // Debug: log tool definitions
+  if (state.optToolCallDebug && payload.tools) {
+    logEmitter.emitLog({
+      ts: Date.now(), level: "debug", type: "request_start", requestId,
+      msg: `tool definitions: ${payload.tools.length}`,
+      data: {
+        toolDefinitions: payload.tools.map((t: { function: { name: string } }) => t.function.name),
+        toolDefinitionCount: payload.tools.length,
+      },
+    })
+  }
+
   // Check for custom upstream provider
   const resolved = resolveProvider(model)
   if (resolved) {
@@ -122,6 +134,7 @@ export async function handleCompletion(c: Context) {
     let outputTokens = 0
     let streamError: string | null = null
     let firstChunkTime: number | null = null
+    const toolCallIds = new Set<string>()
 
     return streamSSE(c, async (sseStream) => {
       try {
@@ -139,6 +152,25 @@ export async function handleCompletion(c: Context) {
                 const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
                 inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
                 outputTokens = parsed.usage.completion_tokens ?? 0
+              }
+
+              // Debug: detect new tool calls
+              if (state.optToolCallDebug && parsed.choices?.[0]?.delta?.tool_calls) {
+                for (const tc of parsed.choices[0].delta.tool_calls) {
+                  if (tc.id && tc.function?.name && !toolCallIds.has(tc.id)) {
+                    toolCallIds.add(tc.id)
+                    logEmitter.emitLog({
+                      ts: Date.now(), level: "debug", type: "sse_chunk", requestId,
+                      msg: `tool_call started: ${tc.function.name}`,
+                      data: {
+                        eventType: "tool_call_start",
+                        toolName: tc.function.name,
+                        toolId: tc.id,
+                        index: tc.index,
+                      },
+                    })
+                  }
+                }
               }
             } catch {
               // Parse error for metrics — don't break stream
@@ -167,18 +199,30 @@ export async function handleCompletion(c: Context) {
         const latencyMs = Math.round(endTime - startTime)
         const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
         const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
+
+        const baseData = {
+          path: "/v1/chat/completions", format: "openai", model,
+          resolvedModel, inputTokens, outputTokens, latencyMs,
+          ttftMs, processingMs,
+          stream: true, status: streamError ? "error" : "success",
+          statusCode: streamError ? 502 : 200,
+          upstreamStatus: streamError ? null : 200,
+          accountName, sessionId, clientName, clientVersion,
+        }
+
+        const debugData = state.optToolCallDebug && !streamError ? {
+          stopReason: toolCallIds.size > 0 ? "tool_calls" : "stop",
+          toolCallCount: toolCallIds.size,
+          toolCallNames: Array.from(toolCallIds),
+        } : {}
+
         logEmitter.emitLog({
           ts: Date.now(), level: streamError ? "error" : "info",
           type: "request_end", requestId,
           msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
           data: {
-            path: "/v1/chat/completions", format: "openai", model,
-            resolvedModel, inputTokens, outputTokens, latencyMs,
-            ttftMs, processingMs,
-            stream: true, status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
-            upstreamStatus: streamError ? null : 200,
-            accountName, sessionId, clientName, clientVersion,
+            ...baseData,
+            ...debugData,
             ...(streamError && { error: streamError }),
           },
         })
