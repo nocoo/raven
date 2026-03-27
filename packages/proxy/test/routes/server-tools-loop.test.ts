@@ -11,11 +11,17 @@
 
 import { describe, expect, test, beforeEach, spyOn } from "bun:test"
 import { state } from "../../src/lib/state"
-import { handleServerToolLoop } from "../../src/routes/messages/handler"
+import { handleServerToolLoop, type ServerToolResult } from "../../src/routes/messages/handler"
+import type { ChatCompletionResponse } from "../../src/services/copilot/create-chat-completions"
 import * as createChatCompletionsModule from "../../src/services/copilot/create-chat-completions"
 import * as tavilyModule from "../../src/lib/server-tools/tavily"
 import type { ExtendedChatCompletionsPayload } from "../../src/routes/messages/non-stream-translation"
 import type { ServerSentEvent } from "../../src/util/sse"
+
+/** Type guard: check if result is ChatCompletionResponse (mixed mode) */
+function isOpenAIResponse(result: ServerToolResult): result is ChatCompletionResponse {
+  return "choices" in result
+}
 
 /**
  * Create a mock streaming response (AsyncGenerator<ServerSentEvent>).
@@ -162,7 +168,19 @@ describe("handleServerToolLoop — pure server-side mode", () => {
     expect(mockSearch.mock.calls[0]?.[0]).toBe("tvly-test-key")
     expect(mockSearch.mock.calls[0]?.[1]).toEqual({ query: "Search for latest news" })
     expect(mockCreate).toHaveBeenCalledTimes(1)
-    expect(response.choices[0]?.message.content).toBe("Here is the latest news.")
+
+    // Pure mode returns AnthropicResponse with server_tool_use + web_search_tool_result + text blocks
+    expect(isOpenAIResponse(response)).toBe(false)
+    if (isOpenAIResponse(response)) throw new Error("Expected AnthropicResponse")
+
+    const blocks = (response as Exclude<ServerToolResult, ChatCompletionResponse>).content
+    expect((response as Exclude<ServerToolResult, ChatCompletionResponse>).type).toBe("message")
+    expect(blocks).toHaveLength(3)
+    expect(blocks[0]).toEqual({ type: "server_tool_use", id: expect.any(String), name: "web_search", input: { query: "Search for latest news" } })
+    expect(blocks[1]!.type).toBe("web_search_tool_result")
+    expect((blocks[1] as { type: "web_search_tool_result"; content: string }).content).toBe("Search results for: latest news")
+    expect(blocks[2]).toEqual({ type: "text", text: "Here is the latest news." })
+    expect((response as Exclude<ServerToolResult, ChatCompletionResponse>).stop_reason).toBe("end_turn")
 
     mockSearch.mockRestore()
     mockCreate.mockRestore()
@@ -259,6 +277,8 @@ describe("handleServerToolLoop — mixed mode", () => {
       false,
     )
 
+    expect(isOpenAIResponse(response)).toBe(true)
+    if (!isOpenAIResponse(response)) throw new Error("Expected ChatCompletionResponse")
     expect(response.choices[0]?.message.tool_calls?.[0]?.function.name).toBe("get_weather")
     expect(mockCreate).toHaveBeenCalledTimes(1)
 
@@ -282,6 +302,8 @@ describe("handleServerToolLoop — mixed mode", () => {
       false,
     )
 
+    expect(isOpenAIResponse(response)).toBe(true)
+    if (!isOpenAIResponse(response)) throw new Error("Expected ChatCompletionResponse")
     expect(response.choices[0]?.message.content).toBe("No tools needed.")
     expect(response.choices[0]?.message.tool_calls).toBeNull()
     mockCreate.mockRestore()
@@ -315,6 +337,8 @@ describe("handleServerToolLoop — mixed mode", () => {
       false,
     )
 
+    expect(isOpenAIResponse(response)).toBe(true)
+    if (!isOpenAIResponse(response)) throw new Error("Expected ChatCompletionResponse")
     expect(response.choices[0]?.message.content).toBe("Done.")
     expect(secondPayload).not.toBeNull()
     // Should have: user, assistant (tool_calls), tool (result)

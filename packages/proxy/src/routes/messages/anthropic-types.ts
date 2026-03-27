@@ -63,10 +63,32 @@ export type AnthropicUserContentBlock =
   | AnthropicImageBlock
   | AnthropicToolResultBlock
 
+export interface AnthropicServerToolUseBlock {
+  type: "server_tool_use"
+  id: string
+  name: string
+  input: Record<string, unknown>
+}
+
+export interface AnthropicWebSearchToolResultBlock {
+  type: "web_search_tool_result"
+  tool_use_id: string
+  content: string
+  citations?: Array<{
+    url: string
+    title: string
+    index: number
+    extract?: string
+  }>
+  encrypted_content?: string | null
+}
+
 export type AnthropicAssistantContentBlock =
   | AnthropicTextBlock
   | AnthropicToolUseBlock
   | AnthropicThinkingBlock
+  | AnthropicServerToolUseBlock
+  | AnthropicWebSearchToolResultBlock
 
 export interface AnthropicUserMessage {
   role: "user"

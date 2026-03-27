@@ -146,16 +146,45 @@ export async function handleCompletion(c: Context) {
   }
 
   try {
+    // Server-side tool interception loop may return AnthropicResponse directly
+    // (pure mode) or ChatCompletionResponse (mixed mode / normal flow)
+    let serverToolResult: ServerToolResult | undefined
     let response: Awaited<ReturnType<typeof createChatCompletions>>
 
-    // Server-side tool interception loop
     if (hasServerSideTools && webSearchEnabled) {
-      response = await handleServerToolLoop(
+      serverToolResult = await handleServerToolLoop(
         finalPayload,
         serverSideToolNames,
         requestId,
         stream,
       )
+      // Pure server-side mode returns AnthropicResponse directly
+      if (isAnthropicResponse(serverToolResult)) {
+        const latencyMs = Math.round(performance.now() - startTime)
+
+        logEmitter.emitLog({
+          ts: Date.now(), level: "info", type: "request_end", requestId,
+          msg: `200 ${model} ${latencyMs}ms`,
+          data: {
+            path: "/v1/messages", format: "anthropic", model,
+            resolvedModel: serverToolResult.model,
+            translatedModel: finalPayload.model,
+            inputTokens: serverToolResult.usage.input_tokens,
+            outputTokens: serverToolResult.usage.output_tokens,
+            latencyMs,
+            ttftMs: null, processingMs: null,
+            stream: false, status: "success", statusCode: 200,
+            upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
+          },
+        })
+
+        // Client requested streaming — emit as SSE events
+        if (stream) {
+          return streamAnthropicResponse(c, serverToolResult)
+        }
+        return c.json(serverToolResult)
+      }
+      response = serverToolResult
     } else {
       response = await createChatCompletions(finalPayload)
     }
@@ -343,12 +372,14 @@ const isNonStreaming = (
  *
  * This is done server-side, transparent to the client.
  */
+export type ServerToolResult = ChatCompletionResponse | AnthropicResponse
+
 export async function handleServerToolLoop(
   payload: ExtendedChatCompletionsPayload,
   serverSideToolNames: string[],
   requestId: string,
   _clientRequestedStream: boolean,
-): Promise<ChatCompletionResponse> {
+): Promise<ServerToolResult> {
   // Separate client-side and server-side tools
   const clientTools = payload.tools?.filter(
     (t) => !serverSideToolNames.includes(t.function.name),
@@ -368,25 +399,31 @@ export async function handleServerToolLoop(
  * Pure server-side tool handling.
  * Extract query from user message, call Tavily, inject results,
  * then call upstream (no tools) for the model to synthesize an answer.
+ *
+ * Returns an AnthropicResponse directly (bypasses translateToAnthropic)
+ * with proper server_tool_use + web_search_tool_result + text blocks.
  */
 async function handlePureServerSideTools(
   payload: ExtendedChatCompletionsPayload,
   serverSideToolNames: string[],
   requestId: string,
-): Promise<ChatCompletionResponse> {
+): Promise<AnthropicResponse> {
   // Extract search query from the last user message
   const lastUserMessage = [...payload.messages].reverse().find((m) => m.role === "user")
   const query = extractTextContent(lastUserMessage?.content)
 
   if (!query) {
-    // No extractable query — fall through to upstream without tools
+    // No extractable query — fall through to upstream without tools,
+    // return as plain text response
     const streamResponse = await createChatCompletions({
       ...payload,
       stream: true,
       tools: null,
       tool_choice: null,
     })
-    return consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+    const resp = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+    const anthropicResp = translateToAnthropic(resp)
+    return anthropicResp
   }
 
   // Execute web_search via Tavily
@@ -442,7 +479,49 @@ async function handlePureServerSideTools(
   }
 
   const streamResponse = await createChatCompletions(synthesisPayload)
-  return consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+  const synthesisResp = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+
+  // Build Anthropic-native response with server_tool_use + web_search_tool_result + text
+  const toolUseId = `srvtoolu_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  const synthesizedText = synthesisResp.choices[0]?.message.content || ""
+  const cachedTokens = synthesisResp.usage?.prompt_tokens_details?.cached_tokens ?? 0
+  const inputTokens = (synthesisResp.usage?.prompt_tokens ?? 0) - cachedTokens
+  const outputTokens = synthesisResp.usage?.completion_tokens ?? 0
+
+  return {
+    id: synthesisResp.id || `msg_${Date.now()}`,
+    type: "message",
+    role: "assistant",
+    model: synthesisResp.model || payload.model,
+    stop_reason: "end_turn",
+    stop_sequence: null,
+    content: [
+      {
+        type: "server_tool_use",
+        id: toolUseId,
+        name: toolName,
+        input: { query },
+      },
+      {
+        type: "web_search_tool_result",
+        tool_use_id: toolUseId,
+        content: searchResult.content,
+        citations: searchResult.citations,
+        encrypted_content: null,
+      },
+      {
+        type: "text",
+        text: synthesizedText,
+      },
+    ],
+    usage: {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cache_creation_input_tokens: null,
+      cache_read_input_tokens: cachedTokens || null,
+      service_tier: null,
+    },
+  }
 }
 
 /**
@@ -1000,6 +1079,94 @@ function isAnthropicNonStreaming(
   response: Awaited<ReturnType<typeof sendAnthropicDirect>>,
 ): response is AnthropicResponse {
   return typeof response === "object" && "type" in response && response.type === "message"
+}
+
+/** Type guard: distinguish AnthropicResponse from ChatCompletionResponse in server-tool result */
+function isAnthropicResponse(
+  result: ServerToolResult,
+): result is AnthropicResponse {
+  return typeof result === "object" && "type" in result && result.type === "message"
+}
+
+/** Stream a pre-built AnthropicResponse as SSE events (for clients that requested streaming) */
+function streamAnthropicResponse(c: Context, resp: AnthropicResponse) {
+  return streamSSE(c, async (sseStream) => {
+    // message_start
+    await sseStream.writeSSE({
+      event: "message_start",
+      data: JSON.stringify({
+        type: "message_start",
+        message: {
+          id: resp.id,
+          type: "message",
+          role: "assistant",
+          content: [],
+          model: resp.model,
+          stop_reason: null,
+          stop_sequence: null,
+          usage: resp.usage,
+        },
+      }),
+    })
+
+    // content blocks
+    for (let i = 0; i < resp.content.length; i++) {
+      const block = resp.content[i]!
+
+      // content_block_start
+      await sseStream.writeSSE({
+        event: "content_block_start",
+        data: JSON.stringify({
+          type: "content_block_start",
+          index: i,
+          content_block: block,
+        }),
+      })
+
+      // content_block_delta — send text in chunks for text blocks
+      if (block.type === "text" && block.text) {
+        // Send the full text as one delta (already synthesized)
+        await sseStream.writeSSE({
+          event: "content_block_delta",
+          data: JSON.stringify({
+            type: "content_block_delta",
+            index: i,
+            delta: { type: "text_delta", text: block.text },
+          }),
+        })
+      }
+
+      // content_block_stop
+      await sseStream.writeSSE({
+        event: "content_block_stop",
+        data: JSON.stringify({ type: "content_block_stop", index: i }),
+      })
+    }
+
+    // message_delta
+    await sseStream.writeSSE({
+      event: "message_delta",
+      data: JSON.stringify({
+        type: "message_delta",
+        delta: {
+          stop_reason: resp.stop_reason,
+          stop_sequence: resp.stop_sequence,
+        },
+        usage: {
+          input_tokens: null,
+          output_tokens: resp.usage.output_tokens,
+          cache_creation_input_tokens: resp.usage.cache_creation_input_tokens,
+          cache_read_input_tokens: resp.usage.cache_read_input_tokens,
+        },
+      }),
+    })
+
+    // message_stop
+    await sseStream.writeSSE({
+      event: "message_stop",
+      data: JSON.stringify({ type: "message_stop" }),
+    })
+  })
 }
 
 /** Type guard for OpenAI non-streaming response */
