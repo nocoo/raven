@@ -221,7 +221,7 @@ describe("server tool result injection", () => {
     expect(assistantMessage.role).toBe("assistant")
   })
 
-  test("correctly formats user message with tool_result", () => {
+  test("correctly formats tool result as role:tool message", () => {
     const toolResult = {
       type: "web_search_tool_result",
       content: "Search results",
@@ -229,16 +229,17 @@ describe("server tool result injection", () => {
       encrypted_content: null,
     }
 
-    const userMessage = {
-      role: "user" as const,
+    // handleServerToolLoop now sends tool results as role:"tool" (OpenAI protocol)
+    const toolMessage = {
+      role: "tool" as const,
       content: JSON.stringify(toolResult),
       tool_call_id: "test_id",
       name: null,
       tool_calls: null,
     }
 
-    expect(userMessage.tool_call_id).toBe("test_id")
-    expect(userMessage.role).toBe("user")
-    expect(JSON.parse(userMessage.content)).toEqual(toolResult)
+    expect(toolMessage.tool_call_id).toBe("test_id")
+    expect(toolMessage.role).toBe("tool")
+    expect(JSON.parse(toolMessage.content)).toEqual(toolResult)
   })
 })

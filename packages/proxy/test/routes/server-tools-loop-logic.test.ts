@@ -70,7 +70,7 @@ describe("handleServerToolLoop logic simulation", () => {
     expect(serverToolCall).toBeUndefined()
   })
 
-  test("correctly constructs loop payload with stream: false", () => {
+  test("correctly constructs loop payload with stream: true", () => {
     const basePayload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
       messages: [{ role: "user", content: "hello", name: null, tool_calls: null, tool_call_id: null }],
@@ -78,13 +78,15 @@ describe("handleServerToolLoop logic simulation", () => {
       tool_choice: null,
     }
 
+    // handleServerToolLoop now uses stream: true internally because
+    // Copilot's non-streaming API doesn't return tool_calls data
     const loopPayload = {
       ...basePayload,
-      stream: false,
+      stream: true,
       tool_choice: "auto" as const,
     }
 
-    expect(loopPayload.stream).toBe(false)
+    expect(loopPayload.stream).toBe(true)
     expect(loopPayload.tool_choice).toBe("auto")
   })
 })

@@ -1,6 +1,10 @@
 /**
  * Integration tests for handleServerToolLoop function.
  * Uses spyOn to mock dependencies.
+ *
+ * Since handleServerToolLoop now uses streaming internally (to work around
+ * Copilot's non-streaming API not returning tool_calls), mocks must return
+ * AsyncGenerator<ServerSentEvent> instead of ChatCompletionResponse.
  */
 
 import { describe, expect, test, beforeEach, spyOn } from "bun:test"
@@ -9,32 +13,141 @@ import { handleServerToolLoop } from "../../src/routes/messages/handler"
 import * as createChatCompletionsModule from "../../src/services/copilot/create-chat-completions"
 import * as tavilyModule from "../../src/lib/server-tools/tavily"
 import type { ExtendedChatCompletionsPayload } from "../../src/routes/messages/non-stream-translation"
-import type { ChatCompletionResponse } from "../../src/services/copilot/create-chat-completions"
+import type { ServerSentEvent } from "../../src/util/sse"
 
-const createMockResponse = (
-  message: any,
-  finishReason: "stop" | "tool_calls" | "length" | "content_filter",
-): ChatCompletionResponse => ({
-  id: "chatcmpl-test",
-  object: "chat.completion",
-  created: Date.now(),
-  model: "claude-sonnet-4-20250514",
-  choices: [
-    {
-      index: 0,
-      message,
-      logprobs: null,
-      finish_reason: finishReason,
-    },
-  ],
-  system_fingerprint: null,
-  usage: {
-    prompt_tokens: 10,
-    completion_tokens: 20,
-    total_tokens: 30,
-    prompt_tokens_details: { cached_tokens: 0 },
-  },
-})
+/**
+ * Create a mock streaming response (AsyncGenerator<ServerSentEvent>)
+ * that simulates how Copilot's streaming API sends tool_calls via deltas.
+ */
+function createMockStream(opts: {
+  content?: string | null
+  toolCalls?: Array<{ id: string; name: string; arguments: string }> | null
+  finishReason?: "stop" | "tool_calls" | "length" | "content_filter"
+  model?: string
+}): AsyncGenerator<ServerSentEvent> {
+  const {
+    content = null,
+    toolCalls = null,
+    finishReason = "stop",
+    model = "claude-sonnet-4-20250514",
+  } = opts
+
+  const chunks: ServerSentEvent[] = []
+
+  // First chunk: message_start with model + usage
+  chunks.push({
+    data: JSON.stringify({
+      id: "chatcmpl-test",
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{ index: 0, delta: { role: "assistant", content: null, tool_calls: [] }, finish_reason: null, logprobs: null }],
+      system_fingerprint: null,
+      usage: null,
+    }),
+    event: null, id: null, retry: null,
+  })
+
+  // Content chunks
+  if (content) {
+    chunks.push({
+      data: JSON.stringify({
+        id: "chatcmpl-test",
+        object: "chat.completion.chunk",
+        created: Math.floor(Date.now() / 1000),
+        model,
+        choices: [{ index: 0, delta: { content, role: null, tool_calls: [] }, finish_reason: null, logprobs: null }],
+        system_fingerprint: null,
+        usage: null,
+      }),
+      event: null, id: null, retry: null,
+    })
+  }
+
+  // Tool call chunks
+  if (toolCalls) {
+    for (let i = 0; i < toolCalls.length; i++) {
+      const tc = toolCalls[i]!
+      // First chunk for this tool call: id + name
+      chunks.push({
+        data: JSON.stringify({
+          id: "chatcmpl-test",
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model,
+          choices: [{
+            index: 0,
+            delta: {
+              content: null,
+              role: null,
+              tool_calls: [{
+                index: i,
+                id: tc.id,
+                type: "function",
+                function: { name: tc.name, arguments: "" },
+              }],
+            },
+            finish_reason: null,
+            logprobs: null,
+          }],
+          system_fingerprint: null,
+          usage: null,
+        }),
+        event: null, id: null, retry: null,
+      })
+      // Second chunk: arguments
+      chunks.push({
+        data: JSON.stringify({
+          id: "chatcmpl-test",
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model,
+          choices: [{
+            index: 0,
+            delta: {
+              content: null,
+              role: null,
+              tool_calls: [{
+                index: i,
+                id: null,
+                type: null,
+                function: { name: null, arguments: tc.arguments },
+              }],
+            },
+            finish_reason: null,
+            logprobs: null,
+          }],
+          system_fingerprint: null,
+          usage: null,
+        }),
+        event: null, id: null, retry: null,
+      })
+    }
+  }
+
+  // Final chunk: finish_reason + usage
+  chunks.push({
+    data: JSON.stringify({
+      id: "chatcmpl-test",
+      object: "chat.completion.chunk",
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{ index: 0, delta: { content: null, role: null, tool_calls: [] }, finish_reason: finishReason, logprobs: null }],
+      system_fingerprint: null,
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30, prompt_tokens_details: { cached_tokens: 0 }, completion_tokens_details: null },
+    }),
+    event: null, id: null, retry: null,
+  })
+
+  // [DONE] sentinel
+  chunks.push({ data: "[DONE]", event: null, id: null, retry: null })
+
+  return (async function* () {
+    for (const chunk of chunks) {
+      yield chunk
+    }
+  })()
+}
 
 describe("handleServerToolLoop integration tests", () => {
   beforeEach(() => {
@@ -44,16 +157,8 @@ describe("handleServerToolLoop integration tests", () => {
   })
 
   test("returns final response when no tool calls present", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
-      createMockResponse(
-        {
-          role: "assistant",
-          content: "Final answer",
-          tool_calls: null,
-        },
-        "stop",
-      ),
-    )
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({ content: "Final answer" })))
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -77,25 +182,11 @@ describe("handleServerToolLoop integration tests", () => {
   })
 
   test("returns response for client-side tool call", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
-      createMockResponse(
-        {
-          role: "assistant",
-          content: null,
-          tool_calls: [
-            {
-              id: "call_1",
-              type: "function",
-              function: {
-                name: "get_weather",
-                arguments: '{"location":"NYC"}',
-              },
-            },
-          ],
-        },
-        "tool_calls",
-      ),
-    )
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        toolCalls: [{ id: "call_1", name: "get_weather", arguments: '{"location":"NYC"}' }],
+        finishReason: "tool_calls",
+      })))
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -121,35 +212,14 @@ describe("handleServerToolLoop integration tests", () => {
     // First call: model requests web_search
     // Second call: model responds with final answer
     const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockResolvedValueOnce(
-        createMockResponse(
-          {
-            role: "assistant",
-            content: "I'll search for that.",
-            tool_calls: [
-              {
-                id: "call_1",
-                type: "function",
-                function: {
-                  name: "web_search",
-                  arguments: '{"query":"test query","count":5}',
-                },
-              },
-            ],
-          },
-          "tool_calls",
-        ),
-      )
-      .mockResolvedValueOnce(
-        createMockResponse(
-          {
-            role: "assistant",
-            content: "Here are the search results.",
-            tool_calls: null,
-          },
-          "stop",
-        ),
-      )
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        content: "I'll search for that.",
+        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"test query","count":5}' }],
+        finishReason: "tool_calls",
+      })))
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        content: "Here are the search results.",
+      })))
 
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
@@ -196,17 +266,9 @@ describe("handleServerToolLoop integration tests", () => {
     mockSearch.mockRestore()
   })
 
-  test("handles empty array tool calls gracefully", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
-      createMockResponse(
-        {
-          role: "assistant",
-          content: "Empty tool calls",
-          tool_calls: [],
-        },
-        "stop",
-      ),
-    )
+  test("handles empty tool calls gracefully", async () => {
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({ content: "Empty tool calls" })))
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -228,25 +290,12 @@ describe("handleServerToolLoop integration tests", () => {
   })
 
   test("throws HTTPError when Tavily API returns auth error", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
-      createMockResponse(
-        {
-          role: "assistant",
-          content: "I'll search.",
-          tool_calls: [
-            {
-              id: "call_1",
-              type: "function",
-              function: {
-                name: "web_search",
-                arguments: '{"query":"test"}',
-              },
-            },
-          ],
-        },
-        "tool_calls",
-      ),
-    )
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        content: "I'll search.",
+        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"test"}' }],
+        finishReason: "tool_calls",
+      })))
 
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockImplementationOnce(() => {
       throw new tavilyModule.TavilyError("Invalid API key", 401, "auth")
@@ -287,25 +336,12 @@ describe("handleServerToolLoop integration tests", () => {
   test("throws when server tool enabled but API key not configured", async () => {
     state.stWebSearchApiKey = null
 
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
-      createMockResponse(
-        {
-          role: "assistant",
-          content: "I'll search.",
-          tool_calls: [
-            {
-              id: "call_1",
-              type: "function",
-              function: {
-                name: "web_search",
-                arguments: '{"query":"test"}',
-              },
-            },
-          ],
-        },
-        "tool_calls",
-      ),
-    )
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        content: "I'll search.",
+        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"test"}' }],
+        finishReason: "tool_calls",
+      })))
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -339,36 +375,14 @@ describe("handleServerToolLoop integration tests", () => {
 
   test("handles tool call with missing query parameter", async () => {
     const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockResolvedValueOnce(
-        createMockResponse(
-          {
-            role: "assistant",
-            content: "I'll search.",
-            tool_calls: [
-              {
-                id: "call_1",
-                type: "function",
-                function: {
-                  name: "web_search",
-                  // Missing query
-                  arguments: '{"count":5}',
-                },
-              },
-            ],
-          },
-          "tool_calls",
-        ),
-      )
-      .mockResolvedValueOnce(
-        createMockResponse(
-          {
-            role: "assistant",
-            content: "Results.",
-            tool_calls: null,
-          },
-          "stop",
-        ),
-      )
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        content: "I'll search.",
+        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"count":5}' }],
+        finishReason: "tool_calls",
+      })))
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        content: "Results.",
+      })))
 
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
@@ -393,6 +407,73 @@ describe("handleServerToolLoop integration tests", () => {
     )
 
     expect(response.choices[0]?.message.content).toBe("Results.")
+    mockCreate.mockRestore()
+    mockSearch.mockRestore()
+  })
+
+  test("sets stream: true on internal loop payload", async () => {
+    let capturedPayload: createChatCompletionsModule.ChatCompletionsPayload | null = null
+
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce((payload) => {
+        capturedPayload = payload
+        return Promise.resolve(createMockStream({ content: "answer" }))
+      })
+
+    const payload: ExtendedChatCompletionsPayload = {
+      model: "claude-sonnet-4-20250514",
+      messages: [{ role: "user", content: "hello", name: null, tool_calls: null, tool_call_id: null }],
+      max_tokens: 4096,
+      tool_choice: null,
+      serverSideToolNames: ["web_search"],
+    }
+
+    await handleServerToolLoop(payload, ["web_search"], "test-request-id", false)
+
+    expect(capturedPayload).not.toBeNull()
+    expect(capturedPayload!.stream).toBe(true)
+
+    mockCreate.mockRestore()
+  })
+
+  test("appends tool result as role:tool message (not user)", async () => {
+    let secondPayload: createChatCompletionsModule.ChatCompletionsPayload | null = null
+
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
+      .mockImplementationOnce(() => Promise.resolve(createMockStream({
+        content: "Searching...",
+        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"test"}' }],
+        finishReason: "tool_calls",
+      })))
+      .mockImplementationOnce((payload) => {
+        secondPayload = payload
+        return Promise.resolve(createMockStream({ content: "Done." }))
+      })
+
+    const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
+      type: "web_search_tool_result",
+      content: "Results",
+      citations: [],
+      encrypted_content: null,
+    })
+
+    const payload: ExtendedChatCompletionsPayload = {
+      model: "claude-sonnet-4-20250514",
+      messages: [{ role: "user", content: "search", name: null, tool_calls: null, tool_call_id: null }],
+      max_tokens: 4096,
+      tool_choice: null,
+      serverSideToolNames: ["web_search"],
+    }
+
+    await handleServerToolLoop(payload, ["web_search"], "test-request-id", false)
+
+    expect(secondPayload).not.toBeNull()
+    // Should have 3 messages: user, assistant (with tool_calls), tool (result)
+    expect(secondPayload!.messages.length).toBe(3)
+    expect(secondPayload!.messages[1]?.role).toBe("assistant")
+    expect(secondPayload!.messages[2]?.role).toBe("tool")
+    expect(secondPayload!.messages[2]?.tool_call_id).toBe("call_1")
+
     mockCreate.mockRestore()
     mockSearch.mockRestore()
   })
