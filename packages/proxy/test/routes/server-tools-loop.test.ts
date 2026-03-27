@@ -9,6 +9,32 @@ import { handleServerToolLoop } from "../../src/routes/messages/handler"
 import * as createChatCompletionsModule from "../../src/services/copilot/create-chat-completions"
 import * as tavilyModule from "../../src/lib/server-tools/tavily"
 import type { ExtendedChatCompletionsPayload } from "../../src/routes/messages/non-stream-translation"
+import type { ChatCompletionResponse } from "../../src/services/copilot/create-chat-completions"
+
+const createMockResponse = (
+  message: any,
+  finishReason: "stop" | "tool_calls" | "length" | "content_filter",
+): ChatCompletionResponse => ({
+  id: "chatcmpl-test",
+  object: "chat.completion",
+  created: Date.now(),
+  model: "claude-sonnet-4-20250514",
+  choices: [
+    {
+      index: 0,
+      message,
+      logprobs: null,
+      finish_reason: finishReason,
+    },
+  ],
+  system_fingerprint: null,
+  usage: {
+    prompt_tokens: 10,
+    completion_tokens: 20,
+    total_tokens: 30,
+    prompt_tokens_details: { cached_tokens: 0 },
+  },
+})
 
 describe("handleServerToolLoop integration tests", () => {
   beforeEach(() => {
@@ -18,24 +44,16 @@ describe("handleServerToolLoop integration tests", () => {
   })
 
   test("returns final response when no tool calls present", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce({
-      id: "chatcmpl-test",
-      object: "chat.completion",
-      created: Date.now(),
-      model: "claude-sonnet-4-20250514",
-      choices: [
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
+      createMockResponse(
         {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: "Final answer",
-            tool_calls: null,
-          },
-          logprobs: null,
-          finish_reason: "stop",
+          role: "assistant",
+          content: "Final answer",
+          tool_calls: null,
         },
-      ],
-    })
+        "stop",
+      ),
+    )
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -59,33 +77,25 @@ describe("handleServerToolLoop integration tests", () => {
   })
 
   test("returns response for client-side tool call", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce({
-      id: "chatcmpl-test",
-      object: "chat.completion",
-      created: Date.now(),
-      model: "claude-sonnet-4-20250514",
-      choices: [
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
+      createMockResponse(
         {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: null,
-            tool_calls: [
-              {
-                id: "call_1",
-                type: "function",
-                function: {
-                  name: "get_weather",
-                  arguments: '{"location":"NYC"}',
-                },
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "get_weather",
+                arguments: '{"location":"NYC"}',
               },
-            ],
-          },
-          logprobs: null,
-          finish_reason: "tool_calls",
+            },
+          ],
         },
-      ],
-    })
+        "tool_calls",
+      ),
+    )
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -111,51 +121,35 @@ describe("handleServerToolLoop integration tests", () => {
     // First call: model requests web_search
     // Second call: model responds with final answer
     const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockResolvedValueOnce({
-        id: "chatcmpl-test",
-        object: "chat.completion",
-        created: Date.now(),
-        model: "claude-sonnet-4-20250514",
-        choices: [
+      .mockResolvedValueOnce(
+        createMockResponse(
           {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: "I'll search for that.",
-              tool_calls: [
-                {
-                  id: "call_1",
-                  type: "function",
-                  function: {
-                    name: "web_search",
-                    arguments: '{"query":"test query","count":5}',
-                  },
+            role: "assistant",
+            content: "I'll search for that.",
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: {
+                  name: "web_search",
+                  arguments: '{"query":"test query","count":5}',
                 },
-              ],
-            },
-            logprobs: null,
-            finish_reason: "tool_calls",
+              },
+            ],
           },
-        ],
-      })
-      .mockResolvedValueOnce({
-        id: "chatcmpl-test2",
-        object: "chat.completion",
-        created: Date.now(),
-        model: "claude-sonnet-4-20250514",
-        choices: [
+          "tool_calls",
+        ),
+      )
+      .mockResolvedValueOnce(
+        createMockResponse(
           {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: "Here are the search results.",
-              tool_calls: null,
-            },
-            logprobs: null,
-            finish_reason: "stop",
+            role: "assistant",
+            content: "Here are the search results.",
+            tool_calls: null,
           },
-        ],
-      })
+          "stop",
+        ),
+      )
 
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
@@ -190,10 +184,11 @@ describe("handleServerToolLoop integration tests", () => {
     const tavilyCall = mockSearch.mock.calls[0]
     if (tavilyCall) {
       expect(tavilyCall[0]).toBe("tvly-test-key")
-      expect(tavilyCall[1]).toEqual({
+      const searchInput = tavilyCall[1]
+      expect(searchInput).toEqual({
         query: "test query",
         count: 5,
-        offset: undefined,
+        // offset omitted when not provided
       })
     }
 
@@ -202,24 +197,16 @@ describe("handleServerToolLoop integration tests", () => {
   })
 
   test("handles empty array tool calls gracefully", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce({
-      id: "chatcmpl-test",
-      object: "chat.completion",
-      created: Date.now(),
-      model: "claude-sonnet-4-20250514",
-      choices: [
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
+      createMockResponse(
         {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: "Empty tool calls",
-            tool_calls: [],
-          },
-          logprobs: null,
-          finish_reason: "stop",
+          role: "assistant",
+          content: "Empty tool calls",
+          tool_calls: [],
         },
-      ],
-    })
+        "stop",
+      ),
+    )
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -241,33 +228,25 @@ describe("handleServerToolLoop integration tests", () => {
   })
 
   test("throws HTTPError when Tavily API returns auth error", async () => {
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce({
-      id: "chatcmpl-test",
-      object: "chat.completion",
-      created: Date.now(),
-      model: "claude-sonnet-4-20250514",
-      choices: [
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
+      createMockResponse(
         {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: "I'll search.",
-            tool_calls: [
-              {
-                id: "call_1",
-                type: "function",
-                function: {
-                  name: "web_search",
-                  arguments: '{"query":"test"}',
-                },
+          role: "assistant",
+          content: "I'll search.",
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "web_search",
+                arguments: '{"query":"test"}',
               },
-            ],
-          },
-          logprobs: null,
-          finish_reason: "tool_calls",
+            },
+          ],
         },
-      ],
-    })
+        "tool_calls",
+      ),
+    )
 
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockImplementationOnce(() => {
       throw new tavilyModule.TavilyError("Invalid API key", 401, "auth")
@@ -308,33 +287,25 @@ describe("handleServerToolLoop integration tests", () => {
   test("throws when server tool enabled but API key not configured", async () => {
     state.stWebSearchApiKey = null
 
-    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce({
-      id: "chatcmpl-test",
-      object: "chat.completion",
-      created: Date.now(),
-      model: "claude-sonnet-4-20250514",
-      choices: [
+    const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions").mockResolvedValueOnce(
+      createMockResponse(
         {
-          index: 0,
-          message: {
-            role: "assistant",
-            content: "I'll search.",
-            tool_calls: [
-              {
-                id: "call_1",
-                type: "function",
-                function: {
-                  name: "web_search",
-                  arguments: '{"query":"test"}',
-                },
+          role: "assistant",
+          content: "I'll search.",
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "web_search",
+                arguments: '{"query":"test"}',
               },
-            ],
-          },
-          logprobs: null,
-          finish_reason: "tool_calls",
+            },
+          ],
         },
-      ],
-    })
+        "tool_calls",
+      ),
+    )
 
     const payload: ExtendedChatCompletionsPayload = {
       model: "claude-sonnet-4-20250514",
@@ -368,52 +339,36 @@ describe("handleServerToolLoop integration tests", () => {
 
   test("handles tool call with missing query parameter", async () => {
     const mockCreate = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockResolvedValueOnce({
-        id: "chatcmpl-test",
-        object: "chat.completion",
-        created: Date.now(),
-        model: "claude-sonnet-4-20250514",
-        choices: [
+      .mockResolvedValueOnce(
+        createMockResponse(
           {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: "I'll search.",
-              tool_calls: [
-                {
-                  id: "call_1",
-                  type: "function",
-                  function: {
-                    name: "web_search",
-                    // Missing query
-                    arguments: '{"count":5}',
-                  },
+            role: "assistant",
+            content: "I'll search.",
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: {
+                  name: "web_search",
+                  // Missing query
+                  arguments: '{"count":5}',
                 },
-              ],
-            },
-            logprobs: null,
-            finish_reason: "tool_calls",
+              },
+            ],
           },
-        ],
-      })
-      .mockResolvedValueOnce({
-        id: "chatcmpl-test2",
-        object: "chat.completion",
-        created: Date.now(),
-        model: "claude-sonnet-4-20250514",
-        choices: [
+          "tool_calls",
+        ),
+      )
+      .mockResolvedValueOnce(
+        createMockResponse(
           {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: "Results.",
-              tool_calls: null,
-            },
-            logprobs: null,
-            finish_reason: "stop",
+            role: "assistant",
+            content: "Results.",
+            tool_calls: null,
           },
-        ],
-      })
+          "stop",
+        ),
+      )
 
     const mockSearch = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",

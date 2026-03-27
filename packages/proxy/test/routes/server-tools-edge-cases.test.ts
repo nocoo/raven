@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, spyOn, mock } from "bun:test"
+import { describe, expect, test, beforeEach, spyOn } from "bun:test"
 import { state } from "../../src/lib/state"
 import { TavilyError } from "../../src/lib/server-tools/tavily"
 

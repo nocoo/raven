@@ -131,7 +131,7 @@ export async function handleCompletion(c: Context) {
   }
 
   try {
-    let response: ChatCompletionResponse | AsyncIterable<ChatCompletionChunk>
+    let response: Awaited<ReturnType<typeof createChatCompletions>>
 
     // Server-side tool interception loop
     if (hasServerSideTools && webSearchEnabled) {
@@ -304,7 +304,7 @@ export async function handleCompletion(c: Context) {
 }
 
 const isNonStreaming = (
-  response: Awaited<ReturnType<typeof createChatCompletions>>,
+  response: Awaited<ReturnType<typeof createChatCompletions>> | ChatCompletionResponse,
 ): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
 
 // ===========================================================================
@@ -340,7 +340,7 @@ export async function handleServerToolLoop(
       ...currentPayload,
       stream: false,
       // Reset tool_choice to "auto" after first iteration to allow model to decide
-      tool_choice: iteration > 1 ? "auto" : (currentPayload.tool_choice as ChatCompletionsPayload["tool_choice"]),
+      tool_choice: iteration > 1 ? "auto" : (currentPayload.tool_choice ?? "auto"),
     }
 
     const response = await createChatCompletions(loopPayload)
