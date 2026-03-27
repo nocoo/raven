@@ -322,7 +322,7 @@ const isNonStreaming = (
  *
  * This is done server-side, transparent to the client.
  */
-async function handleServerToolLoop(
+export async function handleServerToolLoop(
   payload: ExtendedChatCompletionsPayload,
   serverSideToolNames: string[],
   requestId: string,
@@ -414,13 +414,13 @@ async function handleServerToolLoop(
           })
 
           // Return error response
-          throw new HTTPError(err.statusCode, err.message)
+          throw new HTTPError(err.message, new Response(err.message, { status: err.statusCode }))
         }
         throw err
       }
     } else {
       // Server tool enabled but not configured
-      throw new HTTPError(500, `Server tool ${toolName} is not available`)
+      throw new HTTPError(`Server tool ${toolName} is not available`, new Response(`Server tool ${toolName} is not available`, { status: 500 }))
     }
 
     // Append the tool_use and tool_result to the conversation history
