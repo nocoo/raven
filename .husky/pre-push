@@ -3,6 +3,6 @@
 #
 # Not in this hook (by design):
 #   L2 — manual-only: bun run test:e2e (real Copilot API, anti-ban)
-#   L3 — CI-only: .github/workflows/ci.yml (Playwright, fully mocked)
+#   L3 — manual-only: bun run test:ui (Playwright, fully mocked)
 
 bun run gate:security

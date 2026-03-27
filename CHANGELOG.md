@@ -1,8 +1,32 @@
 # Changelog
 
+## v1.4.1 (2026-03-27)
+
+Maintenance — remove GitHub Actions CI, fix test stability, and clean up import paths.
+
+### Removed
+
+- **GitHub Actions CI** — removed `.github/workflows/ci.yml` and all workflow runs; quality gates remain enforced via local hooks (pre-commit: L1+G1, pre-push: G2)
+
+### Proxy — test stability
+
+- **Mock isolation** — eliminated `mock.module` cross-test pollution; restored mocks at module load time in count-tokens-handler and messages-route tests
+- **Flaky test removal** — removed sleep timing test that was non-deterministic across environments
+- **Lockfile tracking** — committed `bun.lock` changes for reproducible dependency resolution
+
+### Proxy — refactoring
+
+- **Relative imports** — replaced `~/` path aliases with relative imports across all proxy source and test files; removed `baseUrl` from tsconfig to suppress TypeScript 7.0 deprecation warning
+
+### Docs
+
+- **CLAUDE.md** — removed CI section, updated L3 from "CI" to "manual only"
+- **Design doc** — removed Phase 2 (CI) from `docs/12-quality-system-upgrade.md`
+- **Hook comments** — updated pre-push L3 annotation from "CI-only" to "manual-only"
+
 ## v1.4.0 (2026-03-27)
 
-Quality system upgrade from A- to S tier — D1 test isolation, GitHub Actions CI, and documentation sync.
+Quality system upgrade from A- to S tier — D1 test isolation and documentation sync.
 
 ### Quality system — S tier
 
@@ -10,7 +34,6 @@ Quality system upgrade from A- to S tier — D1 test isolation, GitHub Actions C
 - **D1: WAL/SHM cleanup** — test runners delete `.db-wal` and `.db-shm` sidecar files for complete isolation
 - **D1: Proxy reuse guard** — test runners reject if proxy already running (cannot guarantee DB isolation without fresh start)
 - **D1: finally cleanup fix** — refactored test runners to return exit code instead of `process.exit()` inside try block, ensuring `finally` cleanup always runs
-- **CI: GitHub Actions** — `.github/workflows/ci.yml` runs L1 (tests + coverage) + G1 (lint + typecheck) + G2 (security) + L3 (Playwright) on every push/PR
 - **CI: osv-scanner config** — added `osv-scanner.toml` to ignore transitive picomatch vulnerabilities in dev-only dependencies
 
 ### Linear issues

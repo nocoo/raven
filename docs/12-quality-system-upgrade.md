@@ -10,7 +10,7 @@
 |-----------|-------------|------|
 | **L1** Unit Tests | ≥ 90% coverage | pre-commit |
 | **L2** API E2E | Real HTTP to all API endpoints | manual (anti-ban) |
-| **L3** Playwright | Core business flows, browser E2E | CI |
+| **L3** Playwright | Core business flows, browser E2E | manual |
 | **G1** Static Analysis | ESLint strict + TS strict, 0 warnings | pre-commit |
 | **G2** Security | osv-scanner + gitleaks, hard-fail | pre-push |
 | **D1** Test Isolation | Automated tests must not touch production resources | enforced |
@@ -30,11 +30,10 @@ raven is currently rated **A-**. Per the 2026-03-24 audit, two open Linear issue
 |-----------|--------|--------|
 | **L1** | ✅ | 583 proxy (bun:test) + 236 dashboard (vitest), both ≥ 90% coverage, pre-commit |
 | **L2** | ✅ | 9 tests in `proxy.e2e.test.ts`, real proxy → real Copilot API. Manual-only due to anti-ban protocol. Tests exist and cover all endpoints — the dimension is met. |
-| **L3** | ✅ | 25 tests across 5 Playwright specs, fully mocked via route interception. Currently manual (`bun run test:ui`), planned for CI. |
+| **L3** | ✅ | 25 tests across 5 Playwright specs, fully mocked via route interception. Manual (`bun run test:ui`). |
 | **G1** | ✅ | ESLint `tseslint.configs.strict` + `--max-warnings=0`, TS strict + 5 extra flags, pre-commit |
 | **G2** | ✅ | osv-scanner + gitleaks, hard-fail, pre-push |
 | **D1** | ❌ | E2E and Playwright tests start the proxy with the default `data/raven.db` — test request logs, API keys, providers pollute the dev database |
-| **CI** | ❌ | No GitHub Actions; all quality gates rely on local hooks only |
 
 ### Linear Issue Re-evaluation
 
@@ -80,12 +79,6 @@ Both files resolve to `packages/proxy/data/` because the proxy's CWD is `package
 1. **Env var override**: `RAVEN_DB_PATH=data/raven-test.db` passed to proxy process in test runners
 2. **Clean slate**: Test runner deletes `raven-test.db` before each run (fresh DB every time)
 3. **Startup log**: Proxy logs which DB path it opens (visible at `info` level)
-
-### Gap 2: No CI (GitHub Actions)
-
-**Problem**: All quality gates are local hooks only. A `--no-verify` push bypasses everything.
-
-**Solution**: Wire `nocoo/ci/.github/workflows/bun-quality.yml@main` as a reusable workflow. Runs L1 + G1 + G2 on every push/PR. L3 (Playwright) runs in a parallel CI job — all Playwright tests use route interception (no real API calls), so they are deterministic and safe in CI. L2 is excluded from CI — it requires real Copilot API credentials and must remain manual.
 
 ---
 
@@ -216,61 +209,7 @@ test("reads dbPath from RAVEN_DB_PATH", () => {
 
 ---
 
-### Phase 2: GitHub Actions CI
-
-Wire `nocoo/ci/.github/workflows/bun-quality.yml@main` for remote quality enforcement.
-
-#### Files to Create
-
-| File | Purpose |
-|------|---------|
-| `.github/workflows/ci.yml` | Caller workflow using `nocoo/ci` reusable workflow |
-
-#### Commit 4: Add GitHub Actions CI workflow
-
-```
-feat(ci): add GitHub Actions CI via nocoo/ci reusable workflow
-
-quality-gate job: L1 (tests + coverage) + G1 (lint + typecheck) + G2 (osv + gitleaks).
-playwright job: L3 (25 Playwright tests, fully mocked via route interception).
-L2 excluded — requires real Copilot API credentials (manual-only).
-Triggers on push to main and pull requests.
-```
-
-**`.github/workflows/ci.yml`**:
-```yaml
-name: CI
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  ci:
-    uses: nocoo/ci/.github/workflows/bun-quality.yml@main
-    with:
-      bun-version: "1.3.11"
-      pre-command: "bun run --filter dashboard build"
-      test-command: "bun run test:all"
-      lint-command: "bun run lint"
-      typecheck-command: "bun run typecheck"
-      enable-security: "true"
-      osv-lockfile: "bun.lock"
-      osv-config: "osv-scanner.toml"
-      enable-l2: "false"
-      enable-l3: "true"
-      l3-command: "bun run test:ui"
-    secrets: inherit
-```
-
-**L2 excluded from CI**: L2 requires a cached GitHub OAuth token and live Copilot API access. These are not available in CI runners. L2 remains manual-only per the anti-ban protocol.
-
-**L3 safe in CI**: All 25 Playwright tests use `page.route()` interception to mock every proxy API call. No real proxy or Copilot API traffic. The `run-playwright.ts` script handles all server lifecycle (start proxy + dashboard → run Playwright → kill). The test DB isolation from Phase 1 ensures no file conflicts.
-
----
-
-### Phase 3: Update Documentation
+### Phase 2: Update Documentation
 
 Update hook comments, CLAUDE.md quality status, and docs index.
 
@@ -280,15 +219,15 @@ Update hook comments, CLAUDE.md quality status, and docs index.
 |------|--------|
 | `.husky/pre-commit` | Add L1/G1 dimension annotations (comment-only, no behavior change) |
 | `.husky/pre-push` | Update comments to reflect full mapping (comment-only, no behavior change) |
-| `CLAUDE.md` | Update test counts, add CI section, update L3 description, update D1 status |
+| `CLAUDE.md` | Update test counts, update L3 description, update D1 status |
 
-#### Commit 5: Update documentation for S tier quality system
+#### Commit 4: Update documentation for quality system
 
 ```
-docs: update quality system documentation for S tier
+docs: update quality system documentation
 
 Hooks: added quality dimension annotations (L1/G1, G2).
-CLAUDE.md: updated test counts (≥ 821), added CI section, D1 isolation,
+CLAUDE.md: updated test counts (≥ 821), D1 isolation,
 corrected L3 from "7 smoke tests" to "25 tests across 5 specs".
 ```
 
@@ -307,14 +246,14 @@ bun run test:all && bunx lint-staged && bun run typecheck
 #
 # Not in this hook (by design):
 #   L2 — manual-only: bun run test:e2e (real Copilot API, anti-ban)
-#   L3 — CI-only: .github/workflows/ci.yml (Playwright, fully mocked)
+#   L3 — manual-only: bun run test:ui (Playwright, fully mocked)
 
 bun run gate:security
 ```
 
 ---
 
-### Phase 4: Close Linear Issues
+### Phase 3: Close Linear Issues
 
 | Issue | Action | Reason | Status |
 |-------|--------|--------|--------|
@@ -336,7 +275,6 @@ No commit for this phase — Linear issue updates only.
 | **G2** | `bun run gate:security` | osv-scanner + gitleaks pass |
 | **D1** | See D1 verification below | Test DB isolated from dev DB |
 | **Hooks** | `git commit` / `git push` | pre-commit: L1+G1; pre-push: G2 |
-| **CI** | Push to main, check Actions tab | quality-gate + playwright jobs green |
 
 ### D1 Isolation Verification
 
@@ -360,13 +298,10 @@ sqlite3 packages/proxy/data/raven-test.db "SELECT COUNT(*) FROM requests"  # > 0
 ```
 L1: ✅  820 tests, 90%+ coverage, pre-commit
 L2: ✅  9 E2E tests, real Copilot API, manual-only (by design)
-L3: ✅  25 Playwright tests, fully mocked, CI
+L3: ✅  25 Playwright tests, fully mocked, manual
 G1: ✅  ESLint strict + --max-warnings=0 + TS strict, pre-commit
 G2: ✅  osv-scanner + gitleaks, pre-push
 D1: ✅  Test DB isolated via RAVEN_DB_PATH=data/raven-test.db
-CI: ✅  GitHub Actions (L1 + G1 + G2 + L3)
-
-→ Tier S ✅
 ```
 
 ---
@@ -378,8 +313,7 @@ CI: ✅  GitHub Actions (L1 + G1 + G2 + L3)
 | 1 | D1 | `feat(d1): make SQLite DB path configurable via RAVEN_DB_PATH` | 1 | ✅ `3b6981d` |
 | 2 | D1 | `feat(d1): wire E2E and Playwright runners to use raven-test.db` | 1 | ✅ `9d0eebf` |
 | 3 | D1 | `test(d1): add config tests for RAVEN_DB_PATH default and override` | 1 | ✅ `a6f4da7` |
-| 4 | CI | `feat(ci): add GitHub Actions CI via nocoo/ci reusable workflow` | 2 | ✅ `712f9df` |
-| 5 | docs | `docs: update quality system documentation for S tier` | 3 | ✅ `4f12557` |
+| 4 | docs | `docs: update quality system documentation` | 2 | ✅ `4f12557` |
 
 ---
 
@@ -389,6 +323,4 @@ CI: ✅  GitHub Actions (L1 + G1 + G2 + L3)
 |------|-----------|
 | Env var not set in some startup context | Default `"data/raven.db"` — zero behavior change for `bun run dev:proxy` |
 | Test runner and proxy disagree on DB path | Proxy logs active DB path at startup; runner uses `import.meta.dir` for absolute path |
-| CI L3 Playwright flaky in headless | Timeout 20 min, retries: 0, screenshot + trace on failure |
-| `--no-verify` bypasses hooks | CI is the backstop — runs on every push to main and every PR |
 | Real Copilot API changes break L2 | Manual test cadence catches drift; L1 mocks prevent cascade |
