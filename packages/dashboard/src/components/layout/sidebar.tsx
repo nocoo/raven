@@ -71,7 +71,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Settings",
     defaultOpen: true,
     items: [
-      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/settings", label: "General", icon: Settings },
+      { href: "/settings/server-tools", label: "Server Tools", icon: ArrowUpDown },
       { href: "/settings/upstreams", label: "Upstreams", icon: ArrowUpDown },
       { href: "/connect", label: "Connect", icon: Cable },
     ],
@@ -124,7 +125,7 @@ function NavGroupSection({
               const isActive =
                 item.href === "/"
                   ? pathname === "/"
-                  : pathname.startsWith(item.href);
+                  : pathname === item.href || pathname.startsWith(item.href + "/");
 
               return (
                 <Link
@@ -213,7 +214,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                 const isActive =
                   item.href === "/"
                     ? pathname === "/"
-                    : pathname.startsWith(item.href);
+                    : pathname === item.href || pathname.startsWith(item.href + "/");
 
                 return (
                   <Tooltip key={item.href}>

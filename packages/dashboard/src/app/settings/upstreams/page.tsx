@@ -19,7 +19,7 @@ export default async function UpstreamsPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Settings" }, { label: "Upstreams" }]}>
-      <div className="space-y-6">
+      <div className="space-y-8">
         <h1 className="text-lg font-semibold font-display">Upstreams</h1>
         <UpstreamsContent providers={result.data} />
       </div>
