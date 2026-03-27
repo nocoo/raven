@@ -2,23 +2,31 @@ import { Hono } from "hono"
 
 import { forwardError } from "./../../lib/error"
 
-import { handleCountTokens } from "./count-tokens-handler"
+import { handleCountTokens as defaultCountTokens } from "./count-tokens-handler"
 import { handleCompletion } from "./handler"
 
-export const messageRoutes = new Hono()
+export function createMessageRoutes(
+  countTokensHandler = defaultCountTokens
+) {
+  const routes = new Hono()
 
-messageRoutes.post("/", async (c) => {
-  try {
-    return await handleCompletion(c)
-  } catch (error) {
-    return await forwardError(c, error)
-  }
-})
+  routes.post("/", async (c) => {
+    try {
+      return await handleCompletion(c)
+    } catch (error) {
+      return await forwardError(c, error)
+    }
+  })
 
-messageRoutes.post("/count_tokens", async (c) => {
-  try {
-    return await handleCountTokens(c)
-  } catch (error) {
-    return await forwardError(c, error)
-  }
-})
+  routes.post("/count_tokens", async (c) => {
+    try {
+      return await countTokensHandler(c)
+    } catch (error) {
+      return await forwardError(c, error)
+    }
+  })
+
+  return routes
+}
+
+export const messageRoutes = createMessageRoutes()

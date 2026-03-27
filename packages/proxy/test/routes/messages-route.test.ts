@@ -1,31 +1,23 @@
-import { describe, expect, test, beforeEach, afterEach, afterAll, spyOn, mock } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
+import { handleCountTokens as realHandleCountTokens } from "../../src/routes/messages/count-tokens-handler"
+import { createMessageRoutes } from "../../src/routes/messages/route"
 
 // ---------------------------------------------------------------------------
-// Controllable mock for count-tokens-handler.
-// Default: delegates to the real handler. Tests can override via shouldThrow.
-// This mock.module only affects ~/routes/messages/count-tokens-handler which
-// is exclusively imported by messages/route.ts — no cross-file poisoning.
+// Controllable mock for count-tokens-handler via factory injection.
+// No mock.module → no cross-file poisoning.
 // ---------------------------------------------------------------------------
 
 let shouldThrow = false
 
-// Grab the real implementation via relative path before mock.module intercepts the alias
-const { handleCountTokens: realHandleCountTokens } = await import(
-  "../../src/routes/messages/count-tokens-handler"
-)
-
-mock.module("../../src/routes/messages/count-tokens-handler", () => ({
-  handleCountTokens: (...args: Parameters<typeof realHandleCountTokens>) => {
+function makeRoutes() {
+  return createMessageRoutes((...args: Parameters<typeof realHandleCountTokens>) => {
     if (shouldThrow) throw new Error("handler exploded")
     return realHandleCountTokens(...args)
-  },
-}))
-
-// Import route AFTER mock is registered
-const { messageRoutes } = await import("../../src/routes/messages/route")
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -62,10 +54,6 @@ afterEach(() => {
   fetchSpy.mockRestore()
 })
 
-afterAll(() => {
-  mock.restore()
-})
-
 // ===========================================================================
 // POST /v1/messages — route wrapper (try/catch → forwardError)
 // ===========================================================================
@@ -87,7 +75,7 @@ describe("POST /v1/messages (route wrapper)", () => {
     )
 
     const app = new Hono()
-    app.route("/v1/messages", messageRoutes)
+    app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages", { method: "POST", headers, body })
 
     expect(res.status).toBe(200)
@@ -97,7 +85,7 @@ describe("POST /v1/messages (route wrapper)", () => {
     fetchSpy.mockRejectedValueOnce(new Error("upstream boom"))
 
     const app = new Hono()
-    app.route("/v1/messages", messageRoutes)
+    app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages", { method: "POST", headers, body })
 
     expect(res.status).toBe(500)
@@ -119,7 +107,7 @@ describe("POST /v1/messages/count_tokens (route wrapper)", () => {
 
   test("success → returns token count", async () => {
     const app = new Hono()
-    app.route("/v1/messages", messageRoutes)
+    app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages/count_tokens", { method: "POST", headers, body })
 
     expect(res.status).toBe(200)
@@ -131,7 +119,7 @@ describe("POST /v1/messages/count_tokens (route wrapper)", () => {
     state.models = null
 
     const app = new Hono()
-    app.route("/v1/messages", messageRoutes)
+    app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages/count_tokens", {
       method: "POST", headers,
       body: JSON.stringify({ model: "nonexistent", messages: [{ role: "user", content: "x" }] }),
@@ -146,7 +134,7 @@ describe("POST /v1/messages/count_tokens (route wrapper)", () => {
     shouldThrow = true
 
     const app = new Hono()
-    app.route("/v1/messages", messageRoutes)
+    app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages/count_tokens", { method: "POST", headers, body })
 
     expect(res.status).toBe(500)
