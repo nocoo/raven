@@ -189,6 +189,7 @@ export interface SettingsData {
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
   optimizations: Record<string, OptimizationInfo>;
+  debug: Record<string, OptimizationInfo>;
 }
 
 // ---------------------------------------------------------------------------

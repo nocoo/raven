@@ -75,6 +75,7 @@ export interface SettingsSnapshot {
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
   optimizations: Record<string, OptimizationInfo>;
+  debug: Record<string, OptimizationInfo>;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,6 +107,12 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
         enabled: state.optFilterWhitespaceChunks,
         key: "opt_filter_whitespace_chunks",
       },
+      tool_call_debug: {
+        enabled: state.optToolCallDebug,
+        key: "tool_call_debug",
+      },
+    },
+    debug: {
       tool_call_debug: {
         enabled: state.optToolCallDebug,
         key: "tool_call_debug",
