@@ -29,5 +29,4 @@ Thumbs.db
 # test
 coverage/
 
-# bun
-bun.lock
+# bun (keep bun.lock tracked for reproducible builds)
