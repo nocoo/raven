@@ -27,11 +27,13 @@ import {
 import {
   translateToAnthropic,
   translateToOpenAI,
+  type ExtendedChatCompletionsPayload,
 } from "./non-stream-translation"
 import {
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
 } from "./stream-translation"
+import { searchTavily, TavilyError } from "./../../lib/server-tools/tavily"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -100,9 +102,48 @@ export async function handleCompletion(c: Context) {
   }
 
   const openAIPayload = translateToOpenAI(anthropicPayload)
+  const serverSideToolNames = openAIPayload.serverSideToolNames ?? []
+
+  // Check if we need to handle server-side tools (web_search)
+  const hasServerSideTools = serverSideToolNames.length > 0
+  const webSearchEnabled = state.stWebSearchEnabled && state.stWebSearchApiKey !== null
+
+  // tool_choice rewrite: if tool_choice points to a server-side tool, rewrite to "auto"
+  // This ensures the upstream model can freely decide to call the tool
+  let finalPayload = openAIPayload
+  if (hasServerSideTools && webSearchEnabled && openAIPayload.tool_choice) {
+    const tc = openAIPayload.tool_choice
+    if (typeof tc === "object" && tc.type === "function" &&
+        serverSideToolNames.includes(tc.function.name)) {
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "info",
+        type: "request_start",
+        requestId,
+        msg: `tool_choice rewritten: ${tc.function.name} → auto (server-side tool)`,
+        data: {
+          originalToolChoice: tc.function.name,
+          newToolChoice: "auto",
+        },
+      })
+      finalPayload = { ...openAIPayload, tool_choice: "auto" }
+    }
+  }
 
   try {
-    const response = await createChatCompletions(openAIPayload)
+    let response: ChatCompletionResponse | AsyncIterable<ChatCompletionChunk>
+
+    // Server-side tool interception loop
+    if (hasServerSideTools && webSearchEnabled) {
+      response = await handleServerToolLoop(
+        finalPayload,
+        serverSideToolNames,
+        requestId,
+        stream,
+      )
+    } else {
+      response = await createChatCompletions(finalPayload)
+    }
 
     if (isNonStreaming(response)) {
       const anthropicResponse = translateToAnthropic(response)
@@ -117,7 +158,7 @@ export async function handleCompletion(c: Context) {
         data: {
           path: "/v1/messages", format: "anthropic", model,
           resolvedModel: response.model,
-          translatedModel: openAIPayload.model,
+          translatedModel: finalPayload.model,
           inputTokens, outputTokens, latencyMs,
           ttftMs: null, processingMs: null,
           stream: false, status: "success", statusCode: 200,
@@ -217,7 +258,7 @@ export async function handleCompletion(c: Context) {
         // Build base request_end data
         const baseData = {
           path: "/v1/messages", format: "anthropic", model,
-          resolvedModel, translatedModel: openAIPayload.model,
+          resolvedModel, translatedModel: finalPayload.model,
           inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
           stream: true, status: streamError ? "error" : "success",
           statusCode: streamError ? 502 : 200,
@@ -265,6 +306,166 @@ export async function handleCompletion(c: Context) {
 const isNonStreaming = (
   response: Awaited<ReturnType<typeof createChatCompletions>>,
 ): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
+
+// ===========================================================================
+// Server-side tool interception
+// ===========================================================================
+
+/**
+ * Internal loop for handling server-side tools (e.g., web_search).
+ *
+ * The loop:
+ * 1. Calls upstream with stream: false (non-streaming)
+ * 2. Checks if response contains tool_use for a server-side tool
+ * 3. If yes: calls third-party API (Tavily), injects result, loops back to step 1
+ * 4. If no: returns final response
+ *
+ * This is done server-side, transparent to the client.
+ */
+async function handleServerToolLoop(
+  payload: ExtendedChatCompletionsPayload,
+  serverSideToolNames: string[],
+  requestId: string,
+  _clientRequestedStream: boolean,
+): Promise<ChatCompletionResponse> {
+  const maxIterations = 5 // Prevent infinite loops
+  let iteration = 0
+  let currentPayload: ChatCompletionsPayload = payload
+
+  while (iteration < maxIterations) {
+    iteration++
+
+    // Force non-streaming for internal loop
+    const loopPayload: ChatCompletionsPayload = {
+      ...currentPayload,
+      stream: false,
+      // Reset tool_choice to "auto" after first iteration to allow model to decide
+      tool_choice: iteration > 1 ? "auto" : (currentPayload.tool_choice as ChatCompletionsPayload["tool_choice"]),
+    }
+
+    const response = await createChatCompletions(loopPayload)
+
+    // Ensure response is non-streaming (should always be true with stream: false)
+    if (!Object.hasOwn(response, "choices")) {
+      // Unexpected streaming response, return as-is
+      return response as unknown as ChatCompletionResponse
+    }
+
+    const nonStreamingResponse = response as ChatCompletionResponse
+
+    // Check if response contains a tool_use for a server-side tool
+    const toolCalls = nonStreamingResponse.choices[0]?.message.tool_calls
+    if (!toolCalls || toolCalls.length === 0) {
+      // No tool calls, return final response
+      return nonStreamingResponse
+    }
+
+    // Find the first tool call that matches a server-side tool
+    const serverToolCall = toolCalls.find((tc: { function?: { name: string } }) =>
+      tc.function && serverSideToolNames.includes(tc.function.name)
+    )
+
+    if (!serverToolCall) {
+      // Tool call is for a client-side tool, return response
+      return nonStreamingResponse
+    }
+
+    // Found a server-side tool call - intercept and execute
+    const toolName = serverToolCall.function!.name
+    const toolInput = JSON.parse(serverToolCall.function!.arguments)
+
+    logEmitter.emitLog({
+      ts: Date.now(),
+      level: "info",
+      type: "sse_chunk",
+      requestId,
+      msg: `intercepting server-side tool: ${toolName}`,
+      data: {
+        eventType: "server_tool_intercept",
+        toolName,
+        toolInput,
+      },
+    })
+
+    // Execute the server-side tool (currently only web_search)
+    let toolResult
+    if (toolName === "web_search" && state.stWebSearchApiKey) {
+      try {
+        toolResult = await searchTavily(state.stWebSearchApiKey, {
+          query: toolInput.query || "",
+          count: toolInput.count,
+          offset: toolInput.offset,
+        })
+      } catch (err) {
+        if (err instanceof TavilyError) {
+          // Log and rethrow as HTTPError for proper error handling
+          logEmitter.emitLog({
+            ts: Date.now(),
+            level: "error",
+            type: "sse_chunk",
+            requestId,
+            msg: `server tool error: ${toolName} - ${err.message}`,
+            data: {
+              eventType: "server_tool_error",
+              toolName,
+              errorType: err.type,
+              statusCode: err.statusCode,
+            },
+          })
+
+          // Return error response
+          throw new HTTPError(err.statusCode, err.message)
+        }
+        throw err
+      }
+    } else {
+      // Server tool enabled but not configured
+      throw new HTTPError(500, `Server tool ${toolName} is not available`)
+    }
+
+    // Append the tool_use and tool_result to the conversation history
+    const assistantMessage: ChatCompletionsPayload["messages"][0] = {
+      role: "assistant",
+      content: nonStreamingResponse.choices[0]?.message.content || "",
+      tool_calls: [serverToolCall],
+      name: null,
+      tool_call_id: null,
+    }
+
+    const userMessage: ChatCompletionsPayload["messages"][0] = {
+      role: "user",
+      content: JSON.stringify(toolResult),
+      tool_call_id: serverToolCall.id,
+      name: null,
+      tool_calls: null,
+    }
+
+    currentPayload = {
+      ...currentPayload,
+      messages: [
+        ...currentPayload.messages,
+        assistantMessage,
+        userMessage,
+      ],
+    }
+
+    logEmitter.emitLog({
+      ts: Date.now(),
+      level: "info",
+      type: "sse_chunk",
+      requestId,
+      msg: `server tool result injected: ${toolName}`,
+      data: {
+        eventType: "server_tool_result",
+        toolName,
+        resultLength: JSON.stringify(toolResult).length,
+      },
+    })
+  }
+
+  // Should not reach here, but just in case
+  throw new Error("Server tool loop exceeded maximum iterations")
+}
 
 // ===========================================================================
 // Custom upstream provider handlers
