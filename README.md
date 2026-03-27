@@ -60,6 +60,8 @@ raven 是一个运行在本地的 GitHub Copilot API 反向代理。它让你可
 - **Anthropic 格式入口** — `POST /v1/messages`，自动翻译为 OpenAI 格式转发 Copilot，响应翻译回 Anthropic 格式
 - **OpenAI 格式透传** — `POST /v1/chat/completions`，直接转发并采集 metrics
 - **流式 SSE 翻译** — 状态机实现 OpenAI SSE chunks → Anthropic stream events 的实时转换
+- **自定义上游路由** — 按模型名（精确/Glob 模式）将请求路由到第三方 API 提供商（如智谱 GLM），绕过 Copilot 不认识的模型返回 502 的问题；支持 OpenAI / Anthropic 两种协议格式
+- **Tavily 网络搜索** — 拦截 Claude Code 的 `web_search` (type: `web_search_20250305`) server-side tool，替换为 Tavily API 执行，返回 Anthropic 原生 `web_search_tool_result` 格式；支持纯服务端模式（直接返回搜索结果）和混合模式（搜索结果注入上下文后再发给 Copilot 综合回答）
 - **双层认证** — GitHub OAuth Device Flow + Copilot JWT 自动刷新，token 持久化到磁盘
 - **请求日志** — 所有请求自动记录到 SQLite（模型、tokens、延迟、TTFT、状态码）
 - **统计查询 API** — 概览、时序、模型分布、最近请求，支持过滤/排序/分页
@@ -74,6 +76,8 @@ raven 是一个运行在本地的 GitHub Copilot API 反向代理。它让你可
 - **模型统计** — 饼图（请求分布）+ 柱状图（token 消耗）+ 详情表
 - **Copilot 模型** — 按厂商分组的模型表格，一键复制 model ID
 - **Copilot 账户** — 订阅信息、SVG 环形进度条展示配额、特性开关列表
+- **自定义上游** — 可视化配置第三方 API 提供商（名称、URL、格式、API Key、模型匹配规则），支持增删改和启用/禁用；冲突检测防止模型名重复
+- **搜索工具配置** — 设置 Tavily API Key，配置 web_search 工具的默认搜索深度和结果数量
 - **版本设置** — 查看当前生效版本及来源（本地检测/AUR/回退），支持手动覆盖和重置
 - **连接信息** — 所有端点地址、可用模型列表、API Key 管理
 
