@@ -292,21 +292,25 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                     {key.revoked_at ? (
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => handleAction(key.id, "delete")}
                         disabled={actionLoading !== null}
-                        className="h-7 text-xs text-destructive border-destructive/40 hover:text-destructive gap-1.5"
+                        className="h-7 w-[72px] text-xs text-destructive hover:bg-destructive/10 gap-1.5"
                       >
-                        <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                        {actionLoading === key.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
+                        ) : (
+                          <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+                        )}
                         Delete
                       </Button>
                     ) : (
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => handleAction(key.id, "revoke")}
                         disabled={actionLoading !== null}
-                        className="h-7 text-xs gap-1.5"
+                        className="h-7 w-[72px] text-xs hover:bg-accent gap-1.5"
                       >
                         {actionLoading === key.id ? (
                           <Loader2 className="h-3 w-3 animate-spin" strokeWidth={1.5} />
