@@ -234,8 +234,8 @@ describe("handleServerToolLoop — pure server-side mode", () => {
       await handleServerToolLoop(purePayload("search"), ["web_search"], "req-id", false)
     } catch (err: unknown) {
       threwError = true
-      if (err && typeof err === "object" && "response" in err && err.response instanceof Response) {
-        errorStatus = err.response.status
+      if (err && typeof err === "object" && "status" in err && typeof err.status === "number") {
+        errorStatus = err.status
       }
     }
 
@@ -254,8 +254,8 @@ describe("handleServerToolLoop — pure server-side mode", () => {
       await handleServerToolLoop(purePayload("search"), ["web_search"], "req-id", false)
     } catch (err: unknown) {
       threwError = true
-      if (err && typeof err === "object" && "response" in err && err.response instanceof Response) {
-        errorStatus = err.response.status
+      if (err && typeof err === "object" && "status" in err && typeof err.status === "number") {
+        errorStatus = err.status
       }
     }
 

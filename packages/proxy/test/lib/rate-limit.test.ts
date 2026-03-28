@@ -82,8 +82,8 @@ describe("checkRateLimit", () => {
       expect(true).toBe(false)
     } catch (err: unknown) {
       expect(err).toBeDefined()
-      const httpErr = err as { response: Response }
-      expect(httpErr.response.status).toBe(429)
+      const httpErr = err as { status: number }
+      expect(httpErr.status).toBe(429)
     }
   })
 
