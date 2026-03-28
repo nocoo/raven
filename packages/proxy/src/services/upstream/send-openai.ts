@@ -27,7 +27,7 @@ export async function sendOpenAIDirect(
   })
 
   if (!response.ok) {
-    throw new HTTPError(
+    throw await HTTPError.fromResponse(
       `Upstream ${provider.name} returned ${response.status}`,
       response,
     )
