@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.5.1 (2026-03-28)
+
+Dashboard polish — settings layout, API key UX, sidebar stability, version display.
+
+### Improvements
+
+- **Settings layout overhaul** — extracted Server Tools and Upstreams into separate top-level nav groups with dedicated pages, replacing the single crowded settings page
+- **Sidebar version badge** — display `vX.Y.Z` next to app name in expanded sidebar, sourced from root package.json via `NEXT_PUBLIC_APP_VERSION`
+- **Sidebar logo stability** — fixed 4px jitter on collapse/expand by aligning padding (`pl-5` → `pl-6`) to match the expanded state's `px-3 + px-3`
+
+### Fixes
+
+- **API key button consistency** — unified Delete/Revoke button widths (`w-[72px]`) and added loading spinner to the Delete button (previously had no visual feedback)
+- **Auth origin restored** — re-added `raven.dev.hexly.ai` to `allowedDevOrigins` after accidental removal broke the entire dashboard via Caddy reverse proxy (session cookies, API routes, and log streaming all failed)
+- **Removed leaked hostname** — stripped hardcoded `raven.dev.hexly.ai` from README (public repo)
+
 ## v1.5.0 (2026-03-27)
 
 Server-side tool interception — web_search via Tavily, tool call debug logging, dashboard settings.
