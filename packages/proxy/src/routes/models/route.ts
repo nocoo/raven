@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 
-import { forwardError } from "./../../lib/error"
+import { extractErrorDetails, forwardError } from "./../../lib/error"
 import { state } from "./../../lib/state"
 import { cacheModels } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
@@ -95,15 +95,15 @@ modelRoutes.get("/", async (c) => {
     })
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
-    const errorMsg = error instanceof Error ? error.message : String(error)
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `500 models ${latencyMs}ms`,
+      msg: `${statusCode} models ${latencyMs}ms`,
       data: {
         path: "/v1/models", format: "openai", latencyMs,
-        stream: false, status: "error", statusCode: 500,
-        error: errorMsg, accountName,
+        stream: false, status: "error", statusCode,
+        upstreamStatus, error: errorDetail, accountName,
         sessionId, clientName, clientVersion,
       },
     })
