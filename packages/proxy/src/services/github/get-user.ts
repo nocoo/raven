@@ -10,7 +10,7 @@ export async function getGitHubUser() {
     },
   })
 
-  if (!response.ok) throw new HTTPError("Failed to get GitHub user", response)
+  if (!response.ok) throw await HTTPError.fromResponse("Failed to get GitHub user", response)
 
   return (await response.json()) as GithubUserResponse
 }

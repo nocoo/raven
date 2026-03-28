@@ -8,7 +8,7 @@ export const getCopilotUsage = async (): Promise<CopilotUsageResponse> => {
   })
 
   if (!response.ok) {
-    throw new HTTPError("Failed to get Copilot usage", response)
+    throw await HTTPError.fromResponse("Failed to get Copilot usage", response)
   }
 
   return (await response.json()) as CopilotUsageResponse
