@@ -30,7 +30,9 @@ import {
   Collapsible,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
 import { useSidebar } from "./sidebar-context";
+import { APP_VERSION } from "@/lib/version";
 
 const isAuthEnabled = !!process.env.NEXT_PUBLIC_AUTH_ENABLED;
 
@@ -189,7 +191,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
           /* ── Collapsed (icon-only) view ── */
           <div className="flex h-screen w-[68px] flex-col items-center">
             {/* Logo */}
-            <div className="flex h-14 w-full items-center justify-start pl-5 pr-3">
+            <div className="flex h-14 w-full items-center justify-start pl-6 pr-3">
               <img
                 src="/logo-24.png"
                 alt="Raven"
@@ -302,6 +304,12 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                     className="shrink-0"
                   />
                   <span className="text-lg font-bold tracking-tighter">raven</span>
+                  <Badge
+                    variant="secondary"
+                    className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground"
+                  >
+                    v{APP_VERSION}
+                  </Badge>
                 </div>
                 <button
                   onClick={toggle}
