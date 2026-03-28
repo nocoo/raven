@@ -19,7 +19,7 @@ import {
   type ToolCall,
 } from "./../../services/copilot/create-chat-completions"
 import type { ServerSentEvent } from "./../../util/sse"
-import { forwardError, HTTPError } from "./../../lib/error"
+import { extractErrorDetails, forwardError, HTTPError } from "./../../lib/error"
 
 import {
   type AnthropicMessagesPayload,
@@ -331,15 +331,15 @@ export async function handleCompletion(c: Context) {
     })
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
-    const errorMsg = error instanceof Error ? error.message : String(error)
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `502 ${model} ${latencyMs}ms`,
+      msg: `${statusCode} ${model} ${latencyMs}ms`,
       data: {
         path: "/v1/messages", format: "anthropic", model, stream,
-        latencyMs, status: "error", statusCode: 502,
-        upstreamStatus: null, error: errorMsg, accountName,
+        latencyMs, status: "error", statusCode,
+        upstreamStatus, error: errorDetail, accountName,
         sessionId, clientName, clientVersion,
       },
     })
@@ -446,12 +446,12 @@ async function handlePureServerSideTools(
           msg: `server tool error: ${toolName} - ${err.message}`,
           data: { eventType: "server_tool_error", toolName, errorType: err.type, statusCode: err.statusCode },
         })
-        throw new HTTPError(err.message, new Response(err.message, { status: err.statusCode }))
+        throw new HTTPError(err.message, err.statusCode, err.message)
       }
       throw err
     }
   } else {
-    throw new HTTPError(`Server tool ${toolName} is not available`, new Response(`Server tool ${toolName} is not available`, { status: 500 }))
+    throw new HTTPError(`Server tool ${toolName} is not available`, 500, `Server tool ${toolName} is not available`)
   }
 
   logEmitter.emitLog({
@@ -592,12 +592,12 @@ async function handleMixedTools(
             msg: `server tool error: ${toolName} - ${err.message}`,
             data: { eventType: "server_tool_error", toolName, errorType: err.type, statusCode: err.statusCode },
           })
-          throw new HTTPError(err.message, new Response(err.message, { status: err.statusCode }))
+          throw new HTTPError(err.message, err.statusCode, err.message)
         }
         throw err
       }
     } else {
-      throw new HTTPError(`Server tool ${toolName} is not available`, new Response(`Server tool ${toolName} is not available`, { status: 500 }))
+      throw new HTTPError(`Server tool ${toolName} is not available`, 500, `Server tool ${toolName} is not available`)
     }
 
     // Inject tool result and loop
@@ -878,10 +878,7 @@ async function handleAnthropicPassthrough(
     })
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    // Extract upstream status from HTTPError for accurate logging
-    const upstreamStatus = error instanceof HTTPError ? error.response.status : null
-    const statusCode = upstreamStatus ?? 502
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
@@ -889,7 +886,7 @@ async function handleAnthropicPassthrough(
       data: {
         path: "/v1/messages", format: "anthropic", model, stream,
         latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorMsg,
+        upstreamStatus, error: errorDetail,
         upstream: provider.name, upstreamFormat: provider.format,
         accountName, sessionId, clientName, clientVersion,
       },
@@ -1053,10 +1050,7 @@ async function handleOpenAIUpstream(
     })
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    // Extract upstream status from HTTPError for accurate logging
-    const upstreamStatus = error instanceof HTTPError ? error.response.status : null
-    const statusCode = upstreamStatus ?? 502
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
@@ -1064,7 +1058,7 @@ async function handleOpenAIUpstream(
       data: {
         path: "/v1/messages", format: "anthropic", model: originalModel, stream,
         latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorMsg,
+        upstreamStatus, error: errorDetail,
         upstream: provider.name, upstreamFormat: provider.format,
         accountName, sessionId, clientName, clientVersion,
       },
