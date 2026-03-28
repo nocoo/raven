@@ -16,7 +16,7 @@ import {
   type ChatCompletionResponse,
   type ChatCompletionsPayload,
 } from "./../../services/copilot/create-chat-completions"
-import { forwardError, HTTPError } from "./../../lib/error"
+import { extractErrorDetails, forwardError } from "./../../lib/error"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -230,8 +230,7 @@ export async function handleCompletion(c: Context) {
     })
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
-    const statusCode = 502
-    const errorMsg = error instanceof Error ? error.message : String(error)
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
@@ -239,7 +238,7 @@ export async function handleCompletion(c: Context) {
       data: {
         path: "/v1/chat/completions", format: "openai", model, stream,
         latencyMs, status: "error", statusCode,
-        upstreamStatus: null, error: errorMsg, accountName,
+        upstreamStatus, error: errorDetail, accountName,
         sessionId, clientName, clientVersion,
       },
     })
@@ -371,10 +370,7 @@ async function handleOpenAIPassthrough(
     })
   } catch (error) {
     const latencyMs = Math.round(performance.now() - startTime)
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    // Extract upstream status from HTTPError for accurate logging
-    const upstreamStatus = error instanceof HTTPError ? error.response.status : null
-    const statusCode = upstreamStatus ?? 502
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
 
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
@@ -382,7 +378,7 @@ async function handleOpenAIPassthrough(
       data: {
         path: "/v1/chat/completions", format: "openai", model, stream,
         latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorMsg,
+        upstreamStatus, error: errorDetail,
         upstream: provider.name, upstreamFormat: provider.format,
         accountName, sessionId, clientName, clientVersion,
       },
