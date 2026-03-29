@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.5.2 (2026-03-30)
+
+HTTPError enrichment refactor and basalt spec compliance fixes.
+
+### Improvements
+
+- **HTTPError enrichment** — extended HTTPError with response body and status via new `fromResponse` factory; replaced all upstream service throw sites to use enriched errors
+- **Dashboard animation** — added `fade-up` entrance animation with staggered delays to stat cards on the home page
+- **Sidebar transition polish** — increased transition duration from 150ms to 200–300ms for smoother collapse/expand and group toggle
+
+### Fixes
+
+- **Login page layout** — restructured to `flex-col` with centered content area and footer; added `aria-hidden` to decorative Google SVG icon
+- **Sidebar active state** — switched from exact match to `startsWith` for sub-route highlighting (home/dashboard excepted)
+- **Request table accessibility** — added `aria-sort` attributes to sortable columns
+- **Skeleton color** — changed from `bg-accent` to `bg-muted` for better visual hierarchy
+- **App shell border radius** — replaced `rounded-island` token with explicit `rounded-[16px]`/`rounded-[20px]`
+- **Docker ignore** — added `.dockerignore` excluding `logo.png` and `*.md` from Docker builds
+
 ## v1.5.1 (2026-03-28)
 
 Dashboard polish — settings layout, API key UX, sidebar stability, version display.
