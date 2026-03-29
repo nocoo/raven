@@ -82,24 +82,28 @@ export default async function HomePage({ searchParams }: PageProps) {
             label="Total Requests"
             value={formatCompact(overview.total_requests)}
             sparkline={requestsSpark}
+            className="animate-fade-up stagger-1"
           />
           <StatCard
             icon={Zap}
             label="Total Tokens"
             value={formatCompact(overview.total_tokens)}
             sparkline={tokensSpark}
+            className="animate-fade-up stagger-2"
           />
           <StatCard
             icon={Clock}
             label="Avg Latency"
             value={formatLatency(overview.avg_latency_ms)}
             sparkline={latencySpark}
+            className="animate-fade-up stagger-3"
           />
           <StatCard
             icon={AlertTriangle}
             label="Error Rate"
             value={formatPercent(errorRate)}
             detail={`${overview.error_count} errors`}
+            className="animate-fade-up stagger-4"
           />
         </div>
 

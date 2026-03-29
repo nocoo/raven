@@ -136,21 +136,26 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
     );
   }
 
+  function getAriaSort(column: SortColumn): "ascending" | "descending" | "none" {
+    if (currentSort !== column) return "none";
+    return currentOrder === "asc" ? "ascending" : "descending";
+  }
+
   return (
     <div>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>
+            <TableHead aria-sort={getAriaSort("timestamp")}>
               <SortButton column="timestamp">Time</SortButton>
             </TableHead>
             <TableHead>Model</TableHead>
             <TableHead>Format</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>
+            <TableHead aria-sort={getAriaSort("latency_ms")}>
               <SortButton column="latency_ms">Latency</SortButton>
             </TableHead>
-            <TableHead>
+            <TableHead aria-sort={getAriaSort("total_tokens")}>
               <SortButton column="total_tokens">Tokens (in/out)</SortButton>
             </TableHead>
             <TableHead>Stream</TableHead>
