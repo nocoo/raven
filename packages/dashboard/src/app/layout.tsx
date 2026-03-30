@@ -16,7 +16,7 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXTAUTH_URL || "http://localhost:7032"
+    process.env.NEXTAUTH_URL || "http://localhost:7023"
   ),
   title: {
     default: "raven — GitHub Copilot Proxy Dashboard",

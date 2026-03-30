@@ -3,7 +3,7 @@
  * Dashboard Route Handlers use these to forward requests to the proxy server.
  */
 
-const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7033";
+const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7024";
 const API_KEY = process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
 
 export class ProxyError extends Error {

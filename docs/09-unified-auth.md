@@ -195,11 +195,11 @@ The `authenticateWs` function in `index.ts` is updated to use `getActiveKeyCount
 
 1. `bun run dev` — proxy + dashboard start, zero configuration needed
 2. GitHub Device Flow — user authorizes in browser
-3. Dashboard opens at `:7032` — all pages load (dashboard local mode + proxy dev mode for `/api/*`)
+3. Dashboard opens at `:7023` — all pages load (dashboard local mode + proxy dev mode for `/api/*`)
 4. AI API requests return 401 — no key configured yet
 5. User goes to Connect page → creates a DB key via dashboard UI
 6. Dashboard continues working (dev mode unaffected by DB keys)
-7. User configures Claude Code: `claude config set --global apiUrl http://localhost:7033/v1` and sets the DB key
+7. User configures Claude Code: `claude config set --global apiUrl http://localhost:7024/v1` and sets the DB key
 8. AI API requests now work with the key
 
 **Optional:** Set `RAVEN_INTERNAL_KEY` in both proxy and dashboard `.env.local` to protect `/api/*` on shared networks. Not required for local use.

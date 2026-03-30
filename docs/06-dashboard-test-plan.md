@@ -7,7 +7,7 @@ The dashboard package (`packages/dashboard`) is a Next.js 16 + NextAuth v5 app t
 ### Architecture
 
 ```
-Browser ──SSE/fetch──► Dashboard (Next.js :7032) ──fetch/WS──► Proxy (Hono :7033)
+Browser ──SSE/fetch──► Dashboard (Next.js :7023) ──fetch/WS──► Proxy (Hono :7024)
                           │
                           ├── proxy.ts          Auth enforcement (replaces middleware.ts)
                           ├── auth.ts           NextAuth v5 config (Google OAuth)

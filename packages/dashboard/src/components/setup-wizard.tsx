@@ -90,7 +90,7 @@ function StepDashboard() {
 
       <p className="text-sm text-muted-foreground">
         Raven runs locally on your machine. By default, the dashboard is open to
-        anyone who can reach <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">localhost:7032</code> — no login required.
+        anyone who can reach <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
       </p>
 
       <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-3">
@@ -215,7 +215,7 @@ function StepApiKey() {
         <CodeBlock
           code={`"env": {
   "ANTHROPIC_AUTH_TOKEN": "rk-your-api-key",
-  "ANTHROPIC_BASE_URL": "http://localhost:7033",
+  "ANTHROPIC_BASE_URL": "http://localhost:7024",
   "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-opus-4.6",
   "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4.6",
   "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-4.6",

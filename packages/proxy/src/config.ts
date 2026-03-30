@@ -9,7 +9,7 @@ export interface Config {
 }
 
 export function loadConfig(): Config {
-  const port = parseInt(process.env.RAVEN_PORT ?? "7033", 10);
+  const port = parseInt(process.env.RAVEN_PORT ?? "7024", 10);
   const apiKey = process.env.RAVEN_API_KEY ?? "";
   const internalKey = process.env.RAVEN_INTERNAL_KEY ?? "";
   const tokenPath = process.env.RAVEN_TOKEN_PATH ?? "data/github_token";

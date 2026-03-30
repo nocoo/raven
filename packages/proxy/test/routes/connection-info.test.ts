@@ -35,7 +35,7 @@ afterEach(() => {
 describe("GET /api/connection-info", () => {
   function createApp() {
     const app = new Hono()
-    app.route("/api", createConnectionInfoRoute({ port: 7033, baseUrl: null }))
+    app.route("/api", createConnectionInfoRoute({ port: 7024, baseUrl: null }))
     return app
   }
 

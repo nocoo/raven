@@ -9,8 +9,8 @@
 import { existsSync, unlinkSync } from "node:fs";
 import { $ } from "bun";
 
-const PROXY_PORT = 7033;
-const DASHBOARD_PORT = 7032;
+const PROXY_PORT = 7024;
+const DASHBOARD_PORT = 7023;
 const STARTUP_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 500;
 

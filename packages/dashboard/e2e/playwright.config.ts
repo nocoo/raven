@@ -12,7 +12,7 @@ export default defineConfig({
   retries: 0,
   workers: 1, // serial — dashboard depends on proxy state
   use: {
-    baseURL: "http://localhost:7032",
+    baseURL: "http://localhost:7023",
     headless: true,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",

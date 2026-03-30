@@ -1,7 +1,7 @@
 /**
  * E2E tests for Raven proxy.
  *
- * Prerequisites: proxy must be running on localhost:7033
+ * Prerequisites: proxy must be running on localhost:7024
  *   cd packages/proxy && bun run dev
  *
  * Anti-ban protocol:
@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeAll } from "bun:test";
 
-const PROXY = process.env.RAVEN_PROXY_URL ?? "http://localhost:7033";
+const PROXY = process.env.RAVEN_PROXY_URL ?? "http://localhost:7024";
 const API_KEY = process.env.RAVEN_API_KEY ?? "";
 
 // Headers for authenticated requests

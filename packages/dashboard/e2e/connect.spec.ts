@@ -29,7 +29,7 @@ test.describe("connect page", () => {
     await page.route("**/api/connection-info", async (route) => {
       await route.fulfill({
         json: {
-          host: "localhost:7033",
+          host: "localhost:7024",
           endpoints: {
             messages: "/v1/messages",
             chat: "/v1/chat/completions",

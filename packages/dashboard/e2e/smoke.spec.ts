@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 /**
  * L3 Dashboard smoke tests — read-only UI verification.
  *
- * Requires both proxy (:7033) and dashboard (:7032) running in dev mode
+ * Requires both proxy (:7024) and dashboard (:7023) running in dev mode
  * (no RAVEN_API_KEY / RAVEN_INTERNAL_KEY set, so auth is bypassed).
  *
  * Use `bun run test:ui` or `bun run scripts/run-playwright.ts` to auto

@@ -29,7 +29,7 @@ beforeEach(() => {
 
 describe("GET /api/connection-info", () => {
   it("success → returns JSON with 200", async () => {
-    const data = { base_url: "http://localhost:7033", endpoints: {} };
+    const data = { base_url: "http://localhost:7024", endpoints: {} };
     mockProxyFetch.mockResolvedValueOnce(data);
 
     const { GET } = await import("@/app/api/connection-info/route");

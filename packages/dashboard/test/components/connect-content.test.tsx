@@ -36,7 +36,7 @@ import type { ApiKeyPublic, ConnectionInfo } from "@/lib/types";
 
 function makeConnectionInfo(): ConnectionInfo {
   return {
-    base_url: "http://localhost:7033",
+    base_url: "http://localhost:7024",
     endpoints: {
       chat_completions: "/v1/chat/completions",
       messages: "/v1/messages",

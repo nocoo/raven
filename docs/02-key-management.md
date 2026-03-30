@@ -212,10 +212,10 @@ cd packages/dashboard && npx shadcn@latest add dialog input label
 
 | 字段 | 示例值 | 说明 |
 |------|--------|------|
-| Base URL | `http://localhost:7033` | 一键复制 |
-| OpenAI Endpoint | `http://localhost:7033/v1/chat/completions` | 一键复制 |
-| Anthropic Endpoint | `http://localhost:7033/v1/messages` | 一键复制 |
-| Models Endpoint | `http://localhost:7033/v1/models` | 一键复制 |
+| Base URL | `http://localhost:7024` | 一键复制 |
+| OpenAI Endpoint | `http://localhost:7024/v1/chat/completions` | 一键复制 |
+| Anthropic Endpoint | `http://localhost:7024/v1/messages` | 一键复制 |
+| Models Endpoint | `http://localhost:7024/v1/models` | 一键复制 |
 
 **代码示例区（tab 切换，每个 tab 内有复制按钮）：**
 
@@ -265,7 +265,7 @@ const [keysResult, connResult] = await Promise.all([
 ```typescript
 // GET /api/connection-info
 {
-  base_url: "http://localhost:7033",   // 从 config.port 构建
+  base_url: "http://localhost:7024",   // 从 config.port 构建
   endpoints: {
     chat_completions: "/v1/chat/completions",
     messages: "/v1/messages",

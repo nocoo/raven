@@ -15,7 +15,7 @@ import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7033";
+const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7024";
 const API_KEY =
   process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
 

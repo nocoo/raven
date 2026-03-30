@@ -785,7 +785,7 @@ const extraModels = providerModels.filter((m) => !copilotIds.has(m.id))
 
 1. 启动 proxy → Dashboard → Providers
 2. 添加 provider：name="Zhipu GLM", base_url=`https://open.bigmodel.cn/api/anthropic`, format=anthropic, patterns=`["glm-5"]`
-3. `curl POST localhost:7033/v1/messages` with `model: "glm-5"` → 验证响应
+3. `curl POST localhost:7024/v1/messages` with `model: "glm-5"` → 验证响应
 4. 同上但 `stream: true` → 验证 SSE 事件正确透传
 5. `model: "claude-sonnet-4"` → 仍走 Copilot（回归）
 6. 尝试添加 `model: "claude-sonnet-4"` 到新 provider → 400 查重拒绝

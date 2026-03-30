@@ -12,7 +12,7 @@ Raven proxy has high error rates from hand-written SSE parsing, stream lifecycle
 
 1. Move `packages/proxy` → `proxy-legacy/` (out of workspace, reference only)
 2. Copy copilot-api source into `packages/proxy` as the new core
-3. Strip CLI/UX deps, write `createApp()` factory with DI, wire to Bun.serve on :7033
+3. Strip CLI/UX deps, write `createApp()` factory with DI, wire to Bun.serve on :7024
 4. Glue Raven features back **including logging** -- `db/`, `middleware.ts`, dashboard API routes, `count-tokens`, `logEmitter.emitLog()` event instrumentation
 5. Get MVP running (proxy forwards requests, dashboard loads **with live data**)
 6. Iterate: add tests, refactor
@@ -82,7 +82,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createRequestsRoute(db))
   app.route("/api", createCopilotInfoRoute({ client, getJwt, githubToken }))
   app.route("/api", createKeysRoute(db))
-  app.route("/api", createConnectionInfoRoute({ client, getJwt, port: port ?? 7033 }))
+  app.route("/api", createConnectionInfoRoute({ client, getJwt, port: port ?? 7024 }))
 
   return app
 }
@@ -538,21 +538,21 @@ app.get("/health", (c) => c.json({ status: "ok" }))
 bun run dev
 
 # === Core proxy ===
-curl http://localhost:7033/health
-curl http://localhost:7033/v1/models
+curl http://localhost:7024/health
+curl http://localhost:7024/v1/models
 
-curl -X POST http://localhost:7033/v1/chat/completions \
+curl -X POST http://localhost:7024/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4o","messages":[{"role":"user","content":"hi"}]}'
 
-curl -X POST http://localhost:7033/v1/messages \
+curl -X POST http://localhost:7024/v1/messages \
   -H "Content-Type: application/json" \
   -d '{"model":"claude-sonnet-4","messages":[{"role":"user","content":"hi"}],"max_tokens":100}'
 
 # === count_tokens (Claude Code compatibility — critical) ===
 # copilot-api's messageRoutes registers POST /count_tokens as a sub-route,
 # so it's accessible at POST /v1/messages/count_tokens
-curl -X POST http://localhost:7033/v1/messages/count_tokens \
+curl -X POST http://localhost:7024/v1/messages/count_tokens \
   -H "Content-Type: application/json" \
   -d '{"model":"claude-sonnet-4","messages":[{"role":"user","content":"hello world"}],"max_tokens":1024}'
 # → expect: { "input_tokens": <number> }
@@ -562,15 +562,15 @@ curl -X POST http://localhost:7033/v1/messages/count_tokens \
 
 ```bash
 # === Dashboard stats (from SQLite) ===
-curl http://localhost:7033/api/stats/overview
-curl http://localhost:7033/api/stats/timeseries?interval=hour&range=24h
-curl http://localhost:7033/api/stats/models
-curl http://localhost:7033/api/stats/recent?limit=5
-curl http://localhost:7033/api/requests?limit=10
+curl http://localhost:7024/api/stats/overview
+curl http://localhost:7024/api/stats/timeseries?interval=hour&range=24h
+curl http://localhost:7024/api/stats/models
+curl http://localhost:7024/api/stats/recent?limit=5
+curl http://localhost:7024/api/requests?limit=10
 
 # === Copilot info (from upstream cache) ===
-curl http://localhost:7033/api/copilot/models
-curl http://localhost:7033/api/copilot/user
+curl http://localhost:7024/api/copilot/models
+curl http://localhost:7024/api/copilot/user
 ```
 
 All 7 endpoints must return correct JSON shapes. **After sending a chat request in 3.1, re-check stats endpoints to confirm the new request appears in the data.** This validates the logging pipeline end-to-end.
@@ -582,22 +582,22 @@ All 7 endpoints must return correct JSON shapes. **After sending a chat request 
 export RAVEN_API_KEY=test-key
 
 # Should 401 without auth:
-curl http://localhost:7033/v1/models
+curl http://localhost:7024/v1/models
 # → 401
 
 # Should 200 with auth:
-curl http://localhost:7033/v1/models -H "Authorization: Bearer test-key"
+curl http://localhost:7024/v1/models -H "Authorization: Bearer test-key"
 # → 200
 
 # Dashboard API also protected:
-curl http://localhost:7033/api/stats/overview
+curl http://localhost:7024/api/stats/overview
 # → 401
 
-curl http://localhost:7033/api/stats/overview -H "Authorization: Bearer test-key"
+curl http://localhost:7024/api/stats/overview -H "Authorization: Bearer test-key"
 # → 200
 
 # Health is NOT protected:
-curl http://localhost:7033/health
+curl http://localhost:7024/health
 # → 200 (no auth needed)
 ```
 

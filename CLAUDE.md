@@ -6,7 +6,7 @@ Research-oriented, open-source, personal-use only. Not designed for multi-user d
 
 ## Architecture
 
-Bun workspace monorepo: `packages/proxy` (Hono, port 7033) + `packages/dashboard` (Next.js 16, port 7032).
+Bun workspace monorepo: `packages/proxy` (Hono, port 7024) + `packages/dashboard` (Next.js 16, port 7023).
 
 ## Testing
 
@@ -16,7 +16,7 @@ The proxy interacts with GitHub Copilot's upstream API. Careless testing can tri
 
 **Unit tests** (`bun run test`): Always mock upstream HTTP calls. Never use real tokens in fixtures.
 
-**E2E tests** (`bun run test:e2e`): Hit the real running proxy (localhost:7033) which forwards to real Copilot API. Rules:
+**E2E tests** (`bun run test:e2e`): Hit the real running proxy (localhost:7024) which forwards to real Copilot API. Rules:
 - **Fail fast**: stop the entire suite on first upstream error (non-2xx from Copilot). Do not retry, do not continue.
 - **Minimal requests**: each test sends exactly 1 request. No loops, no load testing, no rapid-fire.
 - **Never commit real tokens** into test files or fixtures.
@@ -75,7 +75,7 @@ Connect to the WebSocket endpoint while the proxy is running:
 ```bash
 # listen to all levels (debug/info/warn/error)
 bun -e '
-const ws = new WebSocket("ws://localhost:7033/ws/logs?level=debug");
+const ws = new WebSocket("ws://localhost:7024/ws/logs?level=debug");
 ws.onmessage = (e) => {
   const ev = JSON.parse(e.data);
   const ts = new Date(ev.ts).toISOString().slice(11, 23);

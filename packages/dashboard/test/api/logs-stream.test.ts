@@ -91,7 +91,7 @@ describe("GET /api/logs/stream", () => {
     MockWebSocket.shouldThrow = false;
     WSFactory = createMockWSFactory();
     vi.stubGlobal("WebSocket", WSFactory);
-    vi.stubEnv("RAVEN_PROXY_URL", "http://localhost:7033");
+    vi.stubEnv("RAVEN_PROXY_URL", "http://localhost:7024");
     vi.stubEnv("RAVEN_API_KEY", "test-api-key");
     // Ensure RAVEN_INTERNAL_KEY is undefined so ?? falls through to RAVEN_API_KEY
     delete process.env.RAVEN_INTERNAL_KEY;
@@ -113,7 +113,7 @@ describe("GET /api/logs/stream", () => {
       await importAndCall("http://localhost/api/logs/stream");
       const ws = MockWebSocket.lastInstance!;
 
-      expect(ws.url).toMatch(/^ws:\/\/localhost:7033\/ws\/logs\?/);
+      expect(ws.url).toMatch(/^ws:\/\/localhost:7024\/ws\/logs\?/);
       // Consume stream to avoid dangling
       ws.onclose?.();
     });

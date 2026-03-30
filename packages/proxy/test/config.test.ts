@@ -12,7 +12,7 @@ describe("loadConfig", () => {
 
     const config = loadConfig();
 
-    expect(config.port).toBe(7033);
+    expect(config.port).toBe(7024);
     expect(config.apiKey).toBe("");
     expect(config.tokenPath).toBe("data/github_token");
     expect(config.dbPath).toBe("data/raven.db");

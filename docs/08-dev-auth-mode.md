@@ -410,7 +410,7 @@ bun run lint                          # ESLint
 
 ### Manual verification
 
-1. Remove all Google OAuth vars from `packages/dashboard/.env.local` → `bun run dev` → dashboard loads at `:7032` without redirect to `/login`
+1. Remove all Google OAuth vars from `packages/dashboard/.env.local` → `bun run dev` → dashboard loads at `:7023` without redirect to `/login`
 2. All pages accessible: `/`, `/logs`, `/models`, `/connect`, `/settings`, `/copilot/account`, `/copilot/models`, `/requests`
 3. Sidebar shows "Local" / "Local mode", no sign-out button
 4. Navigate to `/login` manually → redirects to `/`

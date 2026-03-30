@@ -71,7 +71,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createRequestsRoute(db))
   app.route("/api", createCopilotInfoRoute({ githubToken }))
   app.route("/api", createKeysRoute(db))
-  app.route("/api", createConnectionInfoRoute({ port: port ?? 7033, baseUrl: baseUrl ?? null }))
+  app.route("/api", createConnectionInfoRoute({ port: port ?? 7024, baseUrl: baseUrl ?? null }))
   app.route("/api", createSettingsRoute(db))
   app.route("/api", createUpstreamsRoute(db))
 

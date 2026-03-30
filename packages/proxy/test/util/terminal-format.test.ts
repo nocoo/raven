@@ -107,11 +107,11 @@ describe("formatEvent", () => {
         level: "info",
         type: "system",
         requestId: null,
-        msg: "server listening on port 7033",
+        msg: "server listening on port 7024",
       }
       const line = formatEvent(event)!
       expect(line).toContain("INF")
-      expect(line).toContain("server listening on port 7033")
+      expect(line).toContain("server listening on port 7024")
     })
 
     test("warn system event includes WRN tag", () => {

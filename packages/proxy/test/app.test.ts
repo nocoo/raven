@@ -176,7 +176,7 @@ describe("createApp", () => {
   })
 
   test("connection-info endpoint returns correct structure", async () => {
-    const app = createApp({ db, apiKey: null, internalKey: null, githubToken: "gh-test", port: 7033, baseUrl: null })
+    const app = createApp({ db, apiKey: null, internalKey: null, githubToken: "gh-test", port: 7024, baseUrl: null })
     const res = await app.request("/api/connection-info")
     expect(res.status).toBe(200)
     const body = await res.json()
