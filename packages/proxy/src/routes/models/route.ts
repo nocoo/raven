@@ -20,7 +20,7 @@ modelRoutes.get("/", async (c) => {
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_start", requestId,
       msg: "GET /v1/models",
-      data: { path: "/v1/models", format: "openai", stream: false, accountName, sessionId, clientName, clientVersion },
+      data: { path: "/v1/models", format: "openai", model: "models", stream: false, accountName, sessionId, clientName, clientVersion },
     })
 
     if (!state.models) {
@@ -80,7 +80,7 @@ modelRoutes.get("/", async (c) => {
       ts: Date.now(), level: "info", type: "request_end", requestId,
       msg: `200 models ${latencyMs}ms`,
       data: {
-        path: "/v1/models", format: "openai", latencyMs,
+        path: "/v1/models", format: "openai", model: "models", latencyMs,
         ttftMs: null, processingMs: null,
         stream: false, status: "success", statusCode: 200,
         modelCount: models?.length ?? 0, accountName,
@@ -101,7 +101,7 @@ modelRoutes.get("/", async (c) => {
       ts: Date.now(), level: "error", type: "request_end", requestId,
       msg: `${statusCode} models ${latencyMs}ms`,
       data: {
-        path: "/v1/models", format: "openai", latencyMs,
+        path: "/v1/models", format: "openai", model: "models", latencyMs,
         stream: false, status: "error", statusCode,
         upstreamStatus, error: errorDetail, accountName,
         sessionId, clientName, clientVersion,
