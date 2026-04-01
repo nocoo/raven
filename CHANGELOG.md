@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.6.0 (2026-04-02)
+
+Extended thinking support and message sanitization for Claude Code compatibility.
+
+### Features
+
+- **Extended thinking support** — Added `supports_reasoning` capability to providers; translates Anthropic `thinking.budget_tokens` to OpenAI `reasoning_effort` for reasoning-capable upstreams (o1/o3 models)
+- **Message sanitization pipeline** — Filters Anthropic-only content blocks (server_tool_use, mcp_tool_use, tool_reference, redacted_thinking, etc.) when routing to Copilot, preventing 400 errors from incompatible fields
+- **Dashboard Supports Reasoning toggle** — New toggle in upstreams form to mark providers that support reasoning_effort parameter
+
+### Improvements
+
+- **Proxy port migration** — Changed default ports from 7032/7033 to 7023/7024 for consistency
+- **Terminal log clarity** — Thinking-dropped warnings now use `type: "system"` for correct display; demoted to debug level to reduce noise for Copilot-only users
+- **Models endpoint logging** — `/v1/models` now shows "models" instead of "unknown" in terminal logs
+
+### Technical
+
+- 37 new sanitization tests with 92.5% coverage
+- Tool schema cleaning: strips `cache_control`, `defer_loading`, `strict`, `eager_input_streaming`
+- Block metadata cleaning: strips `cache_control`, `citations` from content blocks
+- Empty assistant messages (all content filtered) are now dropped entirely
+
 ## v1.5.2 (2026-03-30)
 
 HTTPError enrichment refactor and basalt spec compliance fixes.

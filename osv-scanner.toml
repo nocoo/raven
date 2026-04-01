@@ -13,3 +13,7 @@ reason = "Transitive dependency picomatch 2.3.1/4.0.3, used only in dev tooling 
 [[IgnoredVulns]]
 id = "GHSA-c2c7-rcm5-vvqj"
 reason = "Transitive dependency picomatch 2.3.1/4.0.3, used only in dev tooling (micromatch, vite, vitest). Waiting for upstream packages to update to picomatch 2.3.2/4.0.4."
+
+[[IgnoredVulns]]
+id = "GHSA-5f7q-jpqc-wp7h"
+reason = "False positive: CVE-2025-59472 affects Next.js canary versions (15.0.0-canary.0 ~ 15.5.9-canary.0) and 16.1.0. Fixed in 16.1.5+. We use next@16.2.1 which is patched. See https://github.com/vercel/next.js/security/advisories/GHSA-5f7q-jpqc-wp7h"
