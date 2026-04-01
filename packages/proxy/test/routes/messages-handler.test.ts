@@ -432,3 +432,64 @@ describe("messages handler (errors)", () => {
     expect(endEvent!.data?.error).toContain("stream error")
   })
 })
+
+// ===========================================================================
+// handleCompletion — thinking parameter drop warnings
+// ===========================================================================
+
+describe("messages handler (thinking drop warnings)", () => {
+  test("emits warning when thinking is dropped for Copilot path", async () => {
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hi" }],
+        thinking: { type: "enabled", budget_tokens: 10000 },
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const warnEvents = events.filter((e) => e.level === "warn")
+    expect(warnEvents.length).toBeGreaterThan(0)
+
+    const thinkingWarn = warnEvents.find((e) =>
+      e.msg.includes("thinking parameter dropped"),
+    )
+    expect(thinkingWarn).toBeDefined()
+    expect(thinkingWarn!.msg).toContain("Copilot does not support")
+    expect(thinkingWarn!.data?.budgetTokens).toBe(10000)
+    expect(thinkingWarn!.data?.hint).toContain("Anthropic provider")
+  })
+
+  test("does not emit warning when thinking is not present", async () => {
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const thinkingWarn = events.find(
+      (e) => e.level === "warn" && e.msg.includes("thinking parameter dropped"),
+    )
+    expect(thinkingWarn).toBeUndefined()
+  })
+})

@@ -105,6 +105,22 @@ export async function handleCompletion(c: Context) {
   }
 
   const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot" })
+
+  // Warn if thinking was requested but dropped (Copilot doesn't support it)
+  if (anthropicPayload.thinking?.type === "enabled") {
+    logEmitter.emitLog({
+      ts: Date.now(),
+      level: "warn",
+      type: "request_start",
+      requestId,
+      msg: "thinking parameter dropped: Copilot does not support extended thinking",
+      data: {
+        budgetTokens: anthropicPayload.thinking.budget_tokens,
+        hint: "Configure an Anthropic provider to use thinking",
+      },
+    })
+  }
+
   const serverSideToolNames = openAIPayload.serverSideToolNames ?? []
 
   // Check if we need to handle server-side tools (web_search)
