@@ -2,6 +2,8 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 import { handleCompletion } from "../../src/routes/messages/handler"
 import { state } from "../../src/lib/state"
+import { logEmitter } from "../../src/util/log-emitter"
+import type { LogEvent } from "../../src/util/log-event"
 import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
 import type { ProviderRecord } from "../../src/db/providers"
 
@@ -340,6 +342,50 @@ describe("messages handler with provider routing", () => {
       const body = JSON.parse(requestInit.body as string) as { reasoning_effort?: string }
 
       expect(body.reasoning_effort).toBeUndefined()
+    })
+
+    test("emits warning when thinking dropped for non-reasoning OpenAI provider", async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+      const events: LogEvent[] = []
+      const listener = (e: LogEvent) => events.push(e)
+      logEmitter.on("log", listener)
+
+      const app = makeApp()
+      await app.request(req({
+        ...thinkingPayload,
+        model: "gpt-4-turbo",
+      }))
+
+      logEmitter.off("log", listener)
+
+      const warnEvents = events.filter((e) => e.level === "warn")
+      const thinkingWarn = warnEvents.find((e) =>
+        e.msg.includes("provider does not declare supports_reasoning"),
+      )
+
+      expect(thinkingWarn).toBeDefined()
+      expect(thinkingWarn!.data?.provider).toBe("OpenAIProvider")
+      expect(thinkingWarn!.data?.budgetTokens).toBe(10000)
+      expect(thinkingWarn!.data?.hint).toContain("supports_reasoning: true")
+    })
+
+    test("does not emit warning when reasoning provider handles thinking", async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({ model: "o1-reasoning-model" })))
+
+      const events: LogEvent[] = []
+      const listener = (e: LogEvent) => events.push(e)
+      logEmitter.on("log", listener)
+
+      const app = makeApp()
+      await app.request(req(thinkingPayload))
+
+      logEmitter.off("log", listener)
+
+      const thinkingWarn = events.find(
+        (e) => e.level === "warn" && e.msg.includes("thinking parameter dropped"),
+      )
+      expect(thinkingWarn).toBeUndefined()
     })
   })
 })

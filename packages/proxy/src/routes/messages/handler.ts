@@ -92,6 +92,23 @@ export async function handleCompletion(c: Context) {
     }
     // OpenAI provider: translate then forward
     const targetFormat = provider.supports_reasoning ? "openai-reasoning" : "openai"
+
+    // Warn if thinking is dropped for non-reasoning OpenAI provider
+    if (!provider.supports_reasoning && anthropicPayload.thinking?.type === "enabled") {
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "warn",
+        type: "request_start",
+        requestId,
+        msg: "thinking parameter dropped: provider does not declare supports_reasoning",
+        data: {
+          provider: provider.name,
+          budgetTokens: anthropicPayload.thinking.budget_tokens,
+          hint: "Add supports_reasoning: true to provider config if upstream supports reasoning_effort",
+        },
+      })
+    }
+
     const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat })
     return handleOpenAIUpstream(
       c,
