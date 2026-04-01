@@ -212,6 +212,7 @@ export interface ProviderPublic {
   api_key_preview: string;
   model_patterns: string[];
   is_enabled: boolean;
+  supports_reasoning: boolean;
   created_at: number;
   updated_at: number;
 }
@@ -223,6 +224,7 @@ export interface CreateProviderInput {
   api_key: string;
   model_patterns: string[];
   is_enabled?: boolean;
+  supports_reasoning?: boolean;
 }
 
 export interface UpdateProviderInput {
@@ -232,5 +234,6 @@ export interface UpdateProviderInput {
   api_key?: string;
   model_patterns?: string[];
   is_enabled?: boolean;
+  supports_reasoning?: boolean;
 }
 
