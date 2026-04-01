@@ -33,17 +33,21 @@ function req(method: string, path: string, body?: unknown): Request {
 
 let db: Database
 const savedModels = state.models
+const savedProviders = state.providers
 
 beforeEach(() => {
   db = new Database(":memory:")
   initProviders(db)
   // Set state.models to avoid 503 errors
   state.models = { object: "list" as const, data: [] }
+  // Clear providers to avoid polluting other tests
+  state.providers = []
 })
 
 afterEach(() => {
   db.close()
   state.models = savedModels
+  state.providers = savedProviders
 })
 
 // ===========================================================================
@@ -559,6 +563,130 @@ describe("upstreams API", () => {
       }))
 
       expect(res.status).toBe(200)
+    })
+  })
+
+  describe("supports_reasoning field", () => {
+    test("POST accepts supports_reasoning: true", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "ReasoningProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["o1*"],
+        supports_reasoning: true,
+      }))
+
+      expect(res.status).toBe(201)
+      const json = await res.json() as { supports_reasoning: boolean }
+      expect(json.supports_reasoning).toBe(true)
+    })
+
+    test("POST defaults supports_reasoning to false when not specified", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "DefaultProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["gpt-*"],
+      }))
+
+      expect(res.status).toBe(201)
+      const json = await res.json() as { supports_reasoning: boolean }
+      expect(json.supports_reasoning).toBe(false)
+    })
+
+    test("POST rejects supports_reasoning with non-boolean value", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "InvalidProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["model"],
+        supports_reasoning: "yes",
+      }))
+
+      expect(res.status).toBe(400)
+    })
+
+    test("PUT can update supports_reasoning field", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["o1*"],
+        supports_reasoning: false,
+      }))
+      const created = await createRes.json() as { id: string; supports_reasoning: boolean }
+      expect(created.supports_reasoning).toBe(false)
+
+      const updateRes = await app.request(req("PUT", `/api/upstreams/${created.id}`, {
+        supports_reasoning: true,
+      }))
+
+      expect(updateRes.status).toBe(200)
+      const updated = await updateRes.json() as { supports_reasoning: boolean }
+      expect(updated.supports_reasoning).toBe(true)
+    })
+
+    test("GET returns supports_reasoning field", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "ReasoningProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["o1*"],
+        supports_reasoning: true,
+      }))
+      const created = await createRes.json() as { id: string }
+
+      const res = await app.request(req("GET", `/api/upstreams/${created.id}`))
+      expect(res.status).toBe(200)
+      const json = await res.json() as { supports_reasoning: boolean }
+      expect(json.supports_reasoning).toBe(true)
+    })
+
+    test("GET /api/upstreams returns supports_reasoning in list", async () => {
+      const app = makeApp(db)
+
+      await app.request(req("POST", "/api/upstreams", {
+        name: "ReasoningProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["o1*"],
+        supports_reasoning: true,
+      }))
+
+      await app.request(req("POST", "/api/upstreams", {
+        name: "RegularProvider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "sk-test-key",
+        model_patterns: ["gpt-*"],
+      }))
+
+      const res = await app.request(req("GET", "/api/upstreams"))
+      expect(res.status).toBe(200)
+      const json = await res.json() as Array<{ name: string; supports_reasoning: boolean }>
+      expect(json).toHaveLength(2)
+
+      const reasoning = json.find((p) => p.name === "ReasoningProvider")
+      expect(reasoning?.supports_reasoning).toBe(true)
+
+      const regular = json.find((p) => p.name === "RegularProvider")
+      expect(regular?.supports_reasoning).toBe(false)
     })
   })
 })

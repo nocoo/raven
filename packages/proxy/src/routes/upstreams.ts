@@ -24,6 +24,7 @@ const createProviderSchema = z.object({
   api_key: z.string().min(1),
   model_patterns: z.array(z.string()).min(1),
   is_enabled: z.boolean().optional().default(true),
+  supports_reasoning: z.boolean().optional().default(false),
 })
 
 const updateProviderSchema = z.object({
@@ -33,6 +34,7 @@ const updateProviderSchema = z.object({
   api_key: z.string().min(1).optional(),
   model_patterns: z.array(z.string()).min(1).optional(),
   is_enabled: z.boolean().optional(),
+  supports_reasoning: z.boolean().optional(),
 })
 
 // ===========================================================================
