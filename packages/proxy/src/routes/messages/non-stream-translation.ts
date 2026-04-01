@@ -23,11 +23,141 @@ import {
   type AnthropicUserMessage,
   isServerSideTool,
 } from "./anthropic-types"
+
+// ---------------------------------------------------------------------------
+// Sanitization Constants
+// ---------------------------------------------------------------------------
+
+/**
+ * Content block types that are NOT supported by OpenAI/Copilot and must be filtered out.
+ * These come from Claude Code's extended features (MCP, tool search, server-side execution, etc.)
+ */
+export const UNSUPPORTED_CONTENT_TYPES = new Set([
+  // Server-side tool related (Anthropic API executes these)
+  "server_tool_use",
+  "web_search_tool_result",
+  "web_fetch_tool_result",
+  "code_execution_tool_result",
+  "bash_code_execution_tool_result",
+  "text_editor_code_execution_tool_result",
+  // MCP (Model Context Protocol) related
+  "mcp_tool_use",
+  "mcp_tool_result",
+  // Tool search beta feature
+  "tool_reference",
+  // Extended thinking (opaque, cannot be processed)
+  "redacted_thinking",
+  // Container/connector features
+  "container_upload",
+  "connector_text",
+  // Search/citations
+  "search_result",
+  "citations",
+  "citation",
+])
+
+/**
+ * Metadata fields on content blocks that should be stripped (Anthropic caching).
+ */
+export const BLOCK_METADATA_TO_STRIP = ["cache_control", "citations"] as const
+
+/**
+ * Extended fields on tool_use blocks that should be stripped (tool search beta).
+ */
+export const TOOL_USE_FIELDS_TO_STRIP = ["caller"] as const
+
+/**
+ * Extended fields on tool schema definitions that should be stripped.
+ */
+export const TOOL_SCHEMA_FIELDS_TO_STRIP = [
+  "cache_control",
+  "defer_loading",
+  "strict",
+  "eager_input_streaming",
+] as const
+
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
 import { state } from "./../../lib/state"
 import { logger } from "./../../util/logger"
 
+// ---------------------------------------------------------------------------
+// Sanitization Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Filter out unsupported content block types and strip metadata from remaining blocks.
+ * Returns a new array with only supported blocks.
+ */
+export function filterContentBlocks<T extends { type: string }>(
+  blocks: T[],
+): T[] {
+  const filtered: T[] = []
+  for (const block of blocks) {
+    // Skip unsupported block types
+    if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) {
+      logger.debug(`Sanitization: filtering unsupported block type="${block.type}"`)
+      continue
+    }
+    // Strip metadata from remaining blocks
+    stripBlockMetadata(block)
+    filtered.push(block)
+  }
+  return filtered
+}
+
+/**
+ * Strip Anthropic-only metadata fields from a content block (mutates in place).
+ */
+export function stripBlockMetadata(block: Record<string, unknown>): void {
+  if ("cache_control" in block) {
+    delete block.cache_control
+    logger.debug('Sanitization: stripped block metadata field="cache_control"')
+  }
+  if ("citations" in block) {
+    delete block.citations
+    logger.debug('Sanitization: stripped block metadata field="citations"')
+  }
+}
+
+/**
+ * Strip extended fields from a tool_use block (mutates in place).
+ */
+export function stripToolUseFields(block: AnthropicToolUseBlock): void {
+  const blockAny = block as unknown as Record<string, unknown>
+  if ("caller" in blockAny) {
+    delete blockAny.caller
+    logger.debug('Sanitization: stripped tool_use field="caller"')
+  }
+}
+
+/**
+ * Strip extended fields from tool schema definitions (mutates in place).
+ */
+export function sanitizeToolDefinitions(tools: AnthropicTool[]): void {
+  for (const tool of tools) {
+    const toolAny = tool as unknown as Record<string, unknown>
+    if ("cache_control" in toolAny) {
+      delete toolAny.cache_control
+      logger.debug(`Sanitization: stripped tool schema field="cache_control" from tool="${tool.name}"`)
+    }
+    if ("defer_loading" in toolAny) {
+      delete toolAny.defer_loading
+      logger.debug(`Sanitization: stripped tool schema field="defer_loading" from tool="${tool.name}"`)
+    }
+    if ("strict" in toolAny) {
+      delete toolAny.strict
+      logger.debug(`Sanitization: stripped tool schema field="strict" from tool="${tool.name}"`)
+    }
+    if ("eager_input_streaming" in toolAny) {
+      delete toolAny.eager_input_streaming
+      logger.debug(`Sanitization: stripped tool schema field="eager_input_streaming" from tool="${tool.name}"`)
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Payload translation
+// ---------------------------------------------------------------------------
 
 /**
  * Extended payload type that includes server-side tool names tracking.
@@ -168,11 +298,14 @@ function handleUserMessage(
   const newMessages: Array<Message> = []
 
   if (Array.isArray(message.content)) {
-    let toolResultBlocks = message.content.filter(
+    // Filter unsupported content blocks first
+    const filteredContent = filterContentBlocks(message.content)
+
+    let toolResultBlocks = filteredContent.filter(
       (block): block is AnthropicToolResultBlock =>
         block.type === "tool_result",
     )
-    const otherBlocks = message.content.filter(
+    const otherBlocks = filteredContent.filter(
       (block) => block.type !== "tool_result",
     )
 
@@ -254,15 +387,23 @@ function handleAssistantMessage(
     ]
   }
 
-  const toolUseBlocks = message.content.filter(
+  // Filter unsupported content blocks first
+  const filteredContent = filterContentBlocks(message.content)
+
+  const toolUseBlocks = filteredContent.filter(
     (block): block is AnthropicToolUseBlock => block.type === "tool_use",
   )
 
-  const textBlocks = message.content.filter(
+  // Strip extended fields from tool_use blocks
+  for (const block of toolUseBlocks) {
+    stripToolUseFields(block)
+  }
+
+  const textBlocks = filteredContent.filter(
     (block): block is AnthropicTextBlock => block.type === "text",
   )
 
-  const thinkingBlocks = message.content.filter(
+  const thinkingBlocks = filteredContent.filter(
     (block): block is AnthropicThinkingBlock => block.type === "thinking",
   )
 
@@ -292,7 +433,7 @@ function handleAssistantMessage(
     : [
         {
           role: "assistant",
-          content: mapContent(message.content),
+          content: mapContent(filteredContent),
           name: null,
           tool_calls: null,
           tool_call_id: null,
@@ -365,10 +506,13 @@ function translateAnthropicToolsToOpenAI(
   const serverSideToolNames: string[] = []
 
   const tools: Tool[] = anthropicTools.map((tool) => {
-    // Track server-side tools for handler interception
+    // Track server-side tools for handler interception (must check BEFORE sanitizing)
     if (isServerSideTool(tool)) {
       serverSideToolNames.push(tool.name)
     }
+
+    // Sanitize tool schema - strip Anthropic-only fields
+    sanitizeToolDefinitions([tool])
 
     return {
       type: "function",
