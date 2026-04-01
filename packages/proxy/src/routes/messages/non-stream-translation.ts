@@ -37,8 +37,21 @@ export interface ExtendedChatCompletionsPayload extends ChatCompletionsPayload {
   serverSideToolNames?: string[]
 }
 
+/**
+ * Target format for translation, determining how certain features are handled:
+ * - "openai-reasoning": OpenAI upstream that supports reasoning_effort (o1/o3)
+ * - "openai": OpenAI upstream without reasoning support
+ * - "copilot": Default Copilot path
+ */
+export type TranslateTargetFormat = "openai-reasoning" | "openai" | "copilot"
+
+export interface TranslateToOpenAIOptions {
+  targetFormat?: TranslateTargetFormat
+}
+
 export function translateToOpenAI(
   payload: AnthropicMessagesPayload,
+  options?: TranslateToOpenAIOptions,
 ): ExtendedChatCompletionsPayload {
   const base = {
     model: translateModelName(payload.model),
@@ -61,6 +74,21 @@ export function translateToOpenAI(
 
   const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice)
   if (toolChoice) optional.tool_choice = toolChoice
+
+  // Thinking → reasoning_effort translation (only for reasoning-capable OpenAI upstreams)
+  if (options?.targetFormat === "openai-reasoning" && payload.thinking?.type === "enabled") {
+    const budget = payload.thinking.budget_tokens ?? 0
+    if (budget >= 10000) {
+      optional.reasoning_effort = "high"
+    } else if (budget >= 5000) {
+      optional.reasoning_effort = "medium"
+    } else if (budget >= 2000) {
+      optional.reasoning_effort = "low"
+    } else {
+      optional.reasoning_effort = "minimal"
+    }
+  }
+  // For "openai" (non-reasoning) and "copilot": thinking param is dropped
 
   return {
     ...base,

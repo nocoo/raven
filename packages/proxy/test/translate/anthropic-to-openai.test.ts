@@ -1000,3 +1000,80 @@ describe("translateToAnthropic", () => {
     expect(result.content[1]).toMatchObject({ type: "tool_use", name: "search" })
   })
 })
+
+// ===========================================================================
+// thinking → reasoning_effort translation
+// ===========================================================================
+
+describe("thinking → reasoning_effort", () => {
+  test("openai-reasoning with budget >= 10000 → high", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: 15000 } }),
+      { targetFormat: "openai-reasoning" },
+    )
+    expect(result.reasoning_effort).toBe("high")
+  })
+
+  test("openai-reasoning with budget >= 5000 → medium", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: 5000 } }),
+      { targetFormat: "openai-reasoning" },
+    )
+    expect(result.reasoning_effort).toBe("medium")
+  })
+
+  test("openai-reasoning with budget >= 2000 → low", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: 3000 } }),
+      { targetFormat: "openai-reasoning" },
+    )
+    expect(result.reasoning_effort).toBe("low")
+  })
+
+  test("openai-reasoning with budget < 2000 → minimal", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: 1000 } }),
+      { targetFormat: "openai-reasoning" },
+    )
+    expect(result.reasoning_effort).toBe("minimal")
+  })
+
+  test("openai-reasoning with null budget → minimal", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: null } }),
+      { targetFormat: "openai-reasoning" },
+    )
+    expect(result.reasoning_effort).toBe("minimal")
+  })
+
+  test("openai (non-reasoning) drops thinking", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: 10000 } }),
+      { targetFormat: "openai" },
+    )
+    expect(result.reasoning_effort).toBeUndefined()
+  })
+
+  test("copilot drops thinking", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: 10000 } }),
+      { targetFormat: "copilot" },
+    )
+    expect(result.reasoning_effort).toBeUndefined()
+  })
+
+  test("no targetFormat drops thinking", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: { type: "enabled", budget_tokens: 10000 } }),
+    )
+    expect(result.reasoning_effort).toBeUndefined()
+  })
+
+  test("no thinking param → no reasoning_effort", () => {
+    const result = translateToOpenAI(
+      makeRequest({ thinking: null }),
+      { targetFormat: "openai-reasoning" },
+    )
+    expect(result.reasoning_effort).toBeUndefined()
+  })
+})
