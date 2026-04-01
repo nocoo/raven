@@ -271,4 +271,75 @@ describe("messages handler with provider routing", () => {
       expect(json.type).toBe("message")
     })
   })
+
+  describe("thinking to reasoning_effort translation", () => {
+    const thinkingPayload: AnthropicMessagesPayload = {
+      ...mockAnthropicPayload,
+      model: "o1-reasoning-model",
+      thinking: { type: "enabled", budget_tokens: 10000 },
+    }
+
+    beforeEach(() => {
+      // Add a reasoning-capable OpenAI provider
+      state.providers = [
+        ...mockProviders,
+        {
+          id: "p3",
+          name: "ReasoningProvider",
+          base_url: "https://reasoning.example.com",
+          format: "openai",
+          api_key: "reasoning-key",
+          model_patterns: '["o1-*"]',
+          enabled: 1,
+          created_at: 3,
+          updated_at: 3,
+          supports_reasoning: 1,
+        },
+      ]
+    })
+
+    test("translates thinking to reasoning_effort for supports_reasoning provider", async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({ model: "o1-reasoning-model" })))
+
+      const app = makeApp()
+      await app.request(req(thinkingPayload))
+
+      const [, requestInit] = fetchSpy.mock.calls[0] as [string, RequestInit]
+      const body = JSON.parse(requestInit.body as string) as { reasoning_effort?: string }
+
+      expect(body.reasoning_effort).toBe("high")
+    })
+
+    test("does not include reasoning_effort for non-reasoning OpenAI provider", async () => {
+      // Use the standard OpenAI provider (gpt-*)
+      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+      const app = makeApp()
+      await app.request(req({
+        ...thinkingPayload,
+        model: "gpt-4-turbo",
+      }))
+
+      const [, requestInit] = fetchSpy.mock.calls[0] as [string, RequestInit]
+      const body = JSON.parse(requestInit.body as string) as { reasoning_effort?: string }
+
+      expect(body.reasoning_effort).toBeUndefined()
+    })
+
+    test("does not include reasoning_effort for Copilot path", async () => {
+      // Use a model that doesn't match any provider
+      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({ model: "unknown-model" })))
+
+      const app = makeApp()
+      await app.request(req({
+        ...thinkingPayload,
+        model: "unknown-model",
+      }))
+
+      const [, requestInit] = fetchSpy.mock.calls[0] as [string, RequestInit]
+      const body = JSON.parse(requestInit.body as string) as { reasoning_effort?: string }
+
+      expect(body.reasoning_effort).toBeUndefined()
+    })
+  })
 })

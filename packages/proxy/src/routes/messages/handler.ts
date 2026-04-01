@@ -91,7 +91,8 @@ export async function handleCompletion(c: Context) {
       )
     }
     // OpenAI provider: translate then forward
-    const openAIPayload = translateToOpenAI(anthropicPayload)
+    const targetFormat = provider.supports_reasoning ? "openai-reasoning" : "openai"
+    const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat })
     return handleOpenAIUpstream(
       c,
       requestId,
@@ -103,7 +104,7 @@ export async function handleCompletion(c: Context) {
     )
   }
 
-  const openAIPayload = translateToOpenAI(anthropicPayload)
+  const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot" })
   const serverSideToolNames = openAIPayload.serverSideToolNames ?? []
 
   // Check if we need to handle server-side tools (web_search)
