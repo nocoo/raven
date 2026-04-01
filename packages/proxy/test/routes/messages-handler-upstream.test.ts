@@ -361,7 +361,7 @@ describe("messages handler with provider routing", () => {
 
       const warnEvents = events.filter((e) => e.level === "warn")
       const thinkingWarn = warnEvents.find((e) =>
-        e.msg.includes("provider does not declare supports_reasoning"),
+        e.msg.includes("does not declare supports_reasoning"),
       )
 
       expect(thinkingWarn).toBeDefined()

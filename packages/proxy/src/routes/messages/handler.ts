@@ -98,9 +98,9 @@ export async function handleCompletion(c: Context) {
       logEmitter.emitLog({
         ts: Date.now(),
         level: "warn",
-        type: "request_start",
+        type: "system",
         requestId,
-        msg: "thinking parameter dropped: provider does not declare supports_reasoning",
+        msg: `thinking parameter dropped: provider "${provider.name}" does not declare supports_reasoning (budget=${anthropicPayload.thinking.budget_tokens})`,
         data: {
           provider: provider.name,
           budgetTokens: anthropicPayload.thinking.budget_tokens,
@@ -128,9 +128,9 @@ export async function handleCompletion(c: Context) {
     logEmitter.emitLog({
       ts: Date.now(),
       level: "warn",
-      type: "request_start",
+      type: "system",
       requestId,
-      msg: "thinking parameter dropped: Copilot does not support extended thinking",
+      msg: `thinking parameter dropped: Copilot does not support extended thinking (budget=${anthropicPayload.thinking.budget_tokens})`,
       data: {
         budgetTokens: anthropicPayload.thinking.budget_tokens,
         hint: "Configure an Anthropic provider to use thinking",
