@@ -437,8 +437,8 @@ describe("messages handler (errors)", () => {
 // handleCompletion — thinking parameter drop warnings
 // ===========================================================================
 
-describe("messages handler (thinking drop warnings)", () => {
-  test("emits warning when thinking is dropped for Copilot path", async () => {
+describe("messages handler (thinking drop logs)", () => {
+  test("emits debug log when thinking is dropped for Copilot path", async () => {
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
 
     const events: LogEvent[] = []
@@ -457,19 +457,17 @@ describe("messages handler (thinking drop warnings)", () => {
 
     logEmitter.off("log", listener)
 
-    const warnEvents = events.filter((e) => e.level === "warn")
-    expect(warnEvents.length).toBeGreaterThan(0)
-
-    const thinkingWarn = warnEvents.find((e) =>
+    const debugEvents = events.filter((e) => e.level === "debug")
+    const thinkingDebug = debugEvents.find((e) =>
       e.msg.includes("thinking parameter dropped"),
     )
-    expect(thinkingWarn).toBeDefined()
-    expect(thinkingWarn!.msg).toContain("Copilot does not support")
-    expect(thinkingWarn!.data?.budgetTokens).toBe(10000)
-    expect(thinkingWarn!.data?.hint).toContain("Anthropic provider")
+    expect(thinkingDebug).toBeDefined()
+    expect(thinkingDebug!.msg).toContain("Copilot does not support")
+    expect(thinkingDebug!.data?.budgetTokens).toBe(10000)
+    expect(thinkingDebug!.data?.hint).toContain("Anthropic provider")
   })
 
-  test("does not emit warning when thinking is not present", async () => {
+  test("does not emit debug log when thinking is not present", async () => {
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
 
     const events: LogEvent[] = []
@@ -487,9 +485,9 @@ describe("messages handler (thinking drop warnings)", () => {
 
     logEmitter.off("log", listener)
 
-    const thinkingWarn = events.find(
-      (e) => e.level === "warn" && e.msg.includes("thinking parameter dropped"),
+    const thinkingDebug = events.find(
+      (e) => e.level === "debug" && e.msg.includes("thinking parameter dropped"),
     )
-    expect(thinkingWarn).toBeUndefined()
+    expect(thinkingDebug).toBeUndefined()
   })
 })

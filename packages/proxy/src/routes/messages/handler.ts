@@ -93,11 +93,11 @@ export async function handleCompletion(c: Context) {
     // OpenAI provider: translate then forward
     const targetFormat = provider.supports_reasoning ? "openai-reasoning" : "openai"
 
-    // Warn if thinking is dropped for non-reasoning OpenAI provider
+    // Debug log if thinking is dropped for non-reasoning OpenAI provider
     if (!provider.supports_reasoning && anthropicPayload.thinking?.type === "enabled") {
       logEmitter.emitLog({
         ts: Date.now(),
-        level: "warn",
+        level: "debug",
         type: "system",
         requestId,
         msg: `thinking parameter dropped: provider "${provider.name}" does not declare supports_reasoning (budget=${anthropicPayload.thinking.budget_tokens})`,
@@ -123,11 +123,11 @@ export async function handleCompletion(c: Context) {
 
   const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot" })
 
-  // Warn if thinking was requested but dropped (Copilot doesn't support it)
+  // Debug log if thinking was requested but dropped (Copilot doesn't support it)
   if (anthropicPayload.thinking?.type === "enabled") {
     logEmitter.emitLog({
       ts: Date.now(),
-      level: "warn",
+      level: "debug",
       type: "system",
       requestId,
       msg: `thinking parameter dropped: Copilot does not support extended thinking (budget=${anthropicPayload.thinking.budget_tokens})`,

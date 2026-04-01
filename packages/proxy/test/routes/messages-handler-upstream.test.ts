@@ -344,7 +344,7 @@ describe("messages handler with provider routing", () => {
       expect(body.reasoning_effort).toBeUndefined()
     })
 
-    test("emits warning when thinking dropped for non-reasoning OpenAI provider", async () => {
+    test("emits debug log when thinking dropped for non-reasoning OpenAI provider", async () => {
       fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
 
       const events: LogEvent[] = []
@@ -359,18 +359,18 @@ describe("messages handler with provider routing", () => {
 
       logEmitter.off("log", listener)
 
-      const warnEvents = events.filter((e) => e.level === "warn")
-      const thinkingWarn = warnEvents.find((e) =>
+      const debugEvents = events.filter((e) => e.level === "debug")
+      const thinkingDebug = debugEvents.find((e) =>
         e.msg.includes("does not declare supports_reasoning"),
       )
 
-      expect(thinkingWarn).toBeDefined()
-      expect(thinkingWarn!.data?.provider).toBe("OpenAIProvider")
-      expect(thinkingWarn!.data?.budgetTokens).toBe(10000)
-      expect(thinkingWarn!.data?.hint).toContain("supports_reasoning: true")
+      expect(thinkingDebug).toBeDefined()
+      expect(thinkingDebug!.data?.provider).toBe("OpenAIProvider")
+      expect(thinkingDebug!.data?.budgetTokens).toBe(10000)
+      expect(thinkingDebug!.data?.hint).toContain("supports_reasoning: true")
     })
 
-    test("does not emit warning when reasoning provider handles thinking", async () => {
+    test("does not emit debug log when reasoning provider handles thinking", async () => {
       fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({ model: "o1-reasoning-model" })))
 
       const events: LogEvent[] = []
@@ -382,10 +382,10 @@ describe("messages handler with provider routing", () => {
 
       logEmitter.off("log", listener)
 
-      const thinkingWarn = events.find(
-        (e) => e.level === "warn" && e.msg.includes("thinking parameter dropped"),
+      const thinkingDebug = events.find(
+        (e) => e.level === "debug" && e.msg.includes("thinking parameter dropped"),
       )
-      expect(thinkingWarn).toBeUndefined()
+      expect(thinkingDebug).toBeUndefined()
     })
   })
 })
