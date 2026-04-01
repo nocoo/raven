@@ -144,6 +144,12 @@ export interface ChatCompletionsPayload {
     | { type: "function"; function: { name: string } }
     | null
   user?: string | null
+
+  /**
+   * Controls reasoning effort for o1/o3 style models.
+   * See: https://platform.openai.com/docs/api-reference/chat/create
+   */
+  reasoning_effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh"
 }
 
 export interface Tool {
