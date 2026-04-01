@@ -143,6 +143,7 @@ function CreateProviderDialog() {
     api_key: "",
     model_patterns: [],
     is_enabled: true,
+    supports_reasoning: false,
   });
 
   const handleSubmit = async () => {
@@ -179,6 +180,7 @@ function CreateProviderDialog() {
         api_key: "",
         model_patterns: [],
         is_enabled: true,
+        supports_reasoning: false,
       });
       router.refresh();
     } catch (err) {
@@ -235,6 +237,7 @@ function EditProviderDialog({ provider }: { provider: ProviderPublic }) {
     format: provider.format,
     model_patterns: provider.model_patterns,
     is_enabled: provider.is_enabled,
+    supports_reasoning: provider.supports_reasoning,
   });
 
   const handleSubmit = async () => {
@@ -474,6 +477,20 @@ function ProviderForm<T extends CreateProviderInput | UpdateProviderInput>({
           id="enabled"
           checked={data.is_enabled ?? true}
           onCheckedChange={(checked) => onChange({ ...data, is_enabled: checked })}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="supports_reasoning">Supports Reasoning</Label>
+          <p className="text-xs text-muted-foreground">
+            Enable for o1/o3-style models that accept reasoning_effort parameter
+          </p>
+        </div>
+        <Switch
+          id="supports_reasoning"
+          checked={data.supports_reasoning ?? false}
+          onCheckedChange={(checked) => onChange({ ...data, supports_reasoning: checked })}
         />
       </div>
 
