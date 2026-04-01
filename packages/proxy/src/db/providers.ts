@@ -15,6 +15,7 @@ export interface ProviderRecord {
   api_key: string
   model_patterns: string // JSON array
   enabled: number // 0 | 1
+  supports_reasoning: number // 0 | 1
   created_at: number
   updated_at: number
 }
@@ -28,6 +29,7 @@ export interface ProviderPublic {
   api_key_preview: string // "6b69d7c2...****"
   model_patterns: string[]
   is_enabled: boolean
+  supports_reasoning: boolean
   created_at: number
   updated_at: number
 }
@@ -40,6 +42,7 @@ export interface CreateProviderInput {
   api_key: string
   model_patterns: string[]
   is_enabled?: boolean
+  supports_reasoning?: boolean
 }
 
 /** Update input — all fields optional. */
@@ -50,6 +53,7 @@ export interface UpdateProviderInput {
   api_key?: string
   model_patterns?: string[]
   is_enabled?: boolean
+  supports_reasoning?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -58,15 +62,16 @@ export interface UpdateProviderInput {
 
 const CREATE_TABLE = `
 CREATE TABLE IF NOT EXISTS providers (
-  id             TEXT PRIMARY KEY,
-  name           TEXT NOT NULL,
-  base_url       TEXT NOT NULL,
-  format         TEXT NOT NULL CHECK(format IN ('openai', 'anthropic')),
-  api_key        TEXT NOT NULL,
-  model_patterns TEXT NOT NULL DEFAULT '[]',
-  enabled        INTEGER NOT NULL DEFAULT 1,
-  created_at     INTEGER NOT NULL,
-  updated_at     INTEGER NOT NULL
+  id                 TEXT PRIMARY KEY,
+  name               TEXT NOT NULL,
+  base_url           TEXT NOT NULL,
+  format             TEXT NOT NULL CHECK(format IN ('openai', 'anthropic')),
+  api_key            TEXT NOT NULL,
+  model_patterns     TEXT NOT NULL DEFAULT '[]',
+  enabled            INTEGER NOT NULL DEFAULT 1,
+  supports_reasoning INTEGER NOT NULL DEFAULT 0,
+  created_at         INTEGER NOT NULL,
+  updated_at         INTEGER NOT NULL
 );
 `
 
@@ -76,6 +81,16 @@ CREATE TABLE IF NOT EXISTS providers (
 
 export function initProviders(db: Database): void {
   db.exec(CREATE_TABLE)
+
+  // Migration: add supports_reasoning column (idempotent)
+  const safeAddColumn = (sql: string) => {
+    try {
+      db.exec(sql)
+    } catch (e) {
+      if (!(e instanceof Error && e.message.includes("duplicate column"))) throw e
+    }
+  }
+  safeAddColumn("ALTER TABLE providers ADD COLUMN supports_reasoning INTEGER NOT NULL DEFAULT 0")
 }
 
 // ---------------------------------------------------------------------------
@@ -107,6 +122,7 @@ function toPublic(row: ProviderRecord): ProviderPublic {
     api_key_preview: maskApiKey(row.api_key),
     model_patterns: JSON.parse(row.model_patterns) as string[],
     is_enabled: row.enabled === 1,
+    supports_reasoning: row.supports_reasoning === 1,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }
@@ -117,8 +133,8 @@ function toPublic(row: ProviderRecord): ProviderPublic {
 // ---------------------------------------------------------------------------
 
 const INSERT_SQL = `
-INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, created_at, updated_at)
-VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $created_at, $updated_at)
+INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, created_at, updated_at)
+VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $supports_reasoning, $created_at, $updated_at)
 `
 
 export function createProvider(
@@ -136,6 +152,7 @@ export function createProvider(
     $api_key: input.api_key,
     $model_patterns: JSON.stringify(input.model_patterns),
     $enabled: input.is_enabled === false ? 0 : 1,
+    $supports_reasoning: input.supports_reasoning === true ? 1 : 0,
     $created_at: now,
     $updated_at: now,
   })
@@ -189,13 +206,20 @@ export function updateProvider(
           ? 1
           : 0
         : existing.enabled,
+    supports_reasoning:
+      input.supports_reasoning !== undefined
+        ? input.supports_reasoning
+          ? 1
+          : 0
+        : existing.supports_reasoning,
   }
 
   db.query(
     `UPDATE providers
      SET name = $name, base_url = $base_url, format = $format,
          api_key = $api_key, model_patterns = $model_patterns,
-         enabled = $enabled, updated_at = $updated_at
+         enabled = $enabled, supports_reasoning = $supports_reasoning,
+         updated_at = $updated_at
      WHERE id = $id`,
   ).run({
     $id: id,
@@ -205,6 +229,7 @@ export function updateProvider(
     $api_key: updated.api_key,
     $model_patterns: updated.model_patterns,
     $enabled: updated.enabled,
+    $supports_reasoning: updated.supports_reasoning,
     $updated_at: now,
   })
 

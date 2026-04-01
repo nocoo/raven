@@ -443,3 +443,138 @@ describe("api_key masking", () => {
     expect(result.api_key_preview).toBe("sk-secre...****")
   })
 })
+
+describe("supports_reasoning field", () => {
+  test("createProvider defaults supports_reasoning to false", () => {
+    const result = createProvider(db, {
+      name: "Test",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["model"],
+    })
+    expect(result.supports_reasoning).toBe(false)
+  })
+
+  test("createProvider accepts supports_reasoning: true", () => {
+    const result = createProvider(db, {
+      name: "Test",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["o1*"],
+      supports_reasoning: true,
+    })
+    expect(result.supports_reasoning).toBe(true)
+  })
+
+  test("createProvider accepts supports_reasoning: false explicitly", () => {
+    const result = createProvider(db, {
+      name: "Test",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["model"],
+      supports_reasoning: false,
+    })
+    expect(result.supports_reasoning).toBe(false)
+  })
+
+  test("updateProvider can toggle supports_reasoning to true", () => {
+    const created = createProvider(db, {
+      name: "Test",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["model"],
+    })
+    expect(created.supports_reasoning).toBe(false)
+
+    const updated = updateProvider(db, created.id, { supports_reasoning: true })
+    expect(updated!.supports_reasoning).toBe(true)
+  })
+
+  test("updateProvider can toggle supports_reasoning to false", () => {
+    const created = createProvider(db, {
+      name: "Test",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["o1*"],
+      supports_reasoning: true,
+    })
+    expect(created.supports_reasoning).toBe(true)
+
+    const updated = updateProvider(db, created.id, { supports_reasoning: false })
+    expect(updated!.supports_reasoning).toBe(false)
+  })
+
+  test("updateProvider preserves supports_reasoning when not specified", () => {
+    const created = createProvider(db, {
+      name: "Test",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["o1*"],
+      supports_reasoning: true,
+    })
+
+    const updated = updateProvider(db, created.id, { name: "Updated" })
+    expect(updated!.supports_reasoning).toBe(true)
+  })
+
+  test("getEnabledProviders returns supports_reasoning in record", () => {
+    createProvider(db, {
+      name: "Reasoning",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["o1*"],
+      supports_reasoning: true,
+    })
+
+    const enabled = getEnabledProviders(db)
+    expect(enabled[0]?.supports_reasoning).toBe(1)
+  })
+
+  test("listProviders returns supports_reasoning as boolean", () => {
+    createProvider(db, {
+      name: "Reasoning",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["o1*"],
+      supports_reasoning: true,
+    })
+    createProvider(db, {
+      name: "Non-Reasoning",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["gpt-4"],
+    })
+
+    const providers = listProviders(db)
+    expect(providers[0]?.supports_reasoning).toBe(true)
+    expect(providers[1]?.supports_reasoning).toBe(false)
+  })
+
+  test("migration adds column to existing table without error", () => {
+    // Create a fresh DB and run init twice to verify safeAddColumn is idempotent
+    const db2 = new Database(":memory:")
+    initProviders(db2)
+    initProviders(db2)  // Should not throw
+
+    // Verify the column exists by inserting with supports_reasoning
+    const result = createProvider(db2, {
+      name: "Test",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["model"],
+      supports_reasoning: true,
+    })
+    expect(result.supports_reasoning).toBe(true)
+    db2.close()
+  })
+})
