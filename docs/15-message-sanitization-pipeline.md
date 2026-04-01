@@ -162,74 +162,59 @@ function sanitizeToolDefinitions(tools: AnthropicTool[]): void {
 
 **实现位置**: `translateAnthropicToolsToOpenAI()` 开始时调用。
 
+#### Rule 5: Empty Message Dropping
+
+当 assistant message 的所有 content blocks 都被过滤后，整条消息应该被丢弃，避免产生空的 assistant turn：
+
+```typescript
+// In handleAssistantMessage()
+const filteredContent = filterContentBlocks(message.content)
+
+// If all content was filtered out, drop the entire message
+if (filteredContent.length === 0) {
+  return []  // Drop the message
+}
+```
+
+**触发场景**: 历史消息仅包含 `server_tool_use` + `web_search_tool_result` + `redacted_thinking`，全部被过滤后不应留下空 assistant message。
+
 ---
 
-## Implementation Plan
+## Implementation
 
-### Commit 1: Add content block filtering
+### 文件结构
 
-**Files**:
-- `packages/proxy/src/routes/messages/non-stream-translation.ts`
-  - Add `UNSUPPORTED_CONTENT_TYPES` constant
-  - Add `filterContentBlocks()` helper
-  - Integrate into `handleAssistantMessage()` and `handleUserMessage()`
+```
+packages/proxy/src/routes/messages/non-stream-translation.ts
+  - UNSUPPORTED_CONTENT_TYPES        # 不支持的 content block types
+  - BLOCK_METADATA_TO_STRIP          # 需要清理的 block metadata
+  - TOOL_USE_FIELDS_TO_STRIP         # 需要清理的 tool_use 扩展字段
+  - TOOL_SCHEMA_FIELDS_TO_STRIP      # 需要清理的 tool schema 字段
+  - filterContentBlocks()            # 过滤 + 清理 metadata
+  - stripBlockMetadata()             # 清理 block metadata
+  - stripToolUseFields()             # 清理 tool_use 扩展字段
+  - sanitizeToolDefinitions()        # 清理 tool schema
 
-**Tests**:
-- `packages/proxy/test/translate/content-block-filtering.test.ts`
-  - Test each unsupported type is filtered
-  - Test supported types are preserved
-  - Test mixed content arrays
-  - Test edge cases (empty arrays, all filtered, etc.)
+packages/proxy/test/translate/sanitization.test.ts
+  - filterContentBlocks tests        # 覆盖所有 15 种不支持类型
+  - stripBlockMetadata tests         # cache_control, citations
+  - stripToolUseFields tests         # caller
+  - sanitizeToolDefinitions tests    # 4 种 tool schema 字段
+  - translateToOpenAI integration    # 端到端集成测试
+```
 
-### Commit 2: Add block metadata cleaning
+### 测试覆盖
 
-**Files**:
-- `packages/proxy/src/routes/messages/non-stream-translation.ts`
-  - Add `BLOCK_METADATA_TO_STRIP` constant
-  - Add `stripBlockMetadata()` helper
-  - Call in `filterContentBlocks()`
+| 测试类别 | 测试数量 | 覆盖内容 |
+|----------|----------|----------|
+| Content block filtering | 12 | 所有 15 种不支持类型 |
+| Block metadata | 5 | cache_control, citations |
+| Tool use fields | 3 | caller |
+| Tool schema fields | 7 | 所有 4 种扩展字段 |
+| Integration | 10 | 端到端、server-side tool 兼容 |
+| **Total** | **37** | |
 
-**Tests**:
-- `packages/proxy/test/translate/block-metadata-cleaning.test.ts`
-  - Test `cache_control` is stripped from text blocks
-  - Test `citations` is stripped from text blocks
-  - Test other fields are preserved
-
-### Commit 3: Add tool_use field cleaning
-
-**Files**:
-- `packages/proxy/src/routes/messages/non-stream-translation.ts`
-  - Add `TOOL_USE_FIELDS_TO_STRIP` constant
-  - Add `stripToolUseFields()` helper
-  - Call in `handleAssistantMessage()` when processing tool_use
-
-**Tests**:
-- `packages/proxy/test/translate/tool-use-cleaning.test.ts`
-  - Test `caller` field is stripped
-  - Test standard fields preserved (id, name, input)
-
-### Commit 4: Add tool schema cleaning
-
-**Files**:
-- `packages/proxy/src/routes/messages/non-stream-translation.ts`
-  - Add `TOOL_SCHEMA_FIELDS_TO_STRIP` constant
-  - Add `sanitizeToolDefinitions()` function
-  - Call in `translateAnthropicToolsToOpenAI()`
-
-**Tests**:
-- `packages/proxy/test/translate/tool-schema-cleaning.test.ts`
-  - Test each extended field is stripped
-  - Test standard fields preserved (name, description, input_schema, type)
-  - Test server-side tool detection still works after cleaning
-
-### Commit 5: Integration tests and edge cases
-
-**Files**:
-- `packages/proxy/test/translate/sanitization-integration.test.ts`
-  - Real Claude Code conversation samples
-  - Mixed content with all sanitization rules
-  - Verify server-side tool flow unchanged
-  - Verify OPT-1/2/3 still work correctly
+**覆盖率**: 92.5% lines（阈值 90%）
 
 ---
 
@@ -283,38 +268,16 @@ Handler 生成的 `server_tool_use` 和 `web_search_tool_result` blocks 是**输
 
 创建真实的 Claude Code 消息样本：
 
-```typescript
-// fixtures/claude-code-samples.ts
-export const CONVERSATION_WITH_CACHE_CONTROL = { ... }
-export const CONVERSATION_WITH_MCP_TOOLS = { ... }
-export const CONVERSATION_WITH_TOOL_SEARCH = { ... }
-export const CONVERSATION_WITH_THINKING = { ... }
-export const CONVERSATION_WITH_WEB_SEARCH = { ... }
-```
-
 ---
 
 ## Rollout
 
-### Phase 1: 默认启用
-
-所有清洗规则默认启用，因为它们只过滤 Copilot 不支持的内容。
-
-### Phase 2: 可配置 (可选)
-
-如果需要调试，可以添加配置项禁用特定规则：
-
-| 配置项 | 默认值 | 描述 |
-|--------|--------|------|
-| `opt_filter_unsupported_blocks` | `true` | Rule 1 |
-| `opt_strip_block_metadata` | `true` | Rule 2 |
-| `opt_strip_tool_use_fields` | `true` | Rule 3 |
-| `opt_strip_tool_schema_fields` | `true` | Rule 4 |
+所有清洗规则**默认启用且无配置开关**，因为它们只过滤 Copilot 不支持的内容，不需要关闭。
 
 ---
 
 ## References
 
-- [Claude Code Source Analysis](#) — 本项目 reference/claude-code 分析
+- Claude Code 源码分析 — `/Users/nocoo/workspace/reference/claude-code`
 - [Anthropic Messages API](https://docs.anthropic.com/en/api/messages)
 - [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat/create)

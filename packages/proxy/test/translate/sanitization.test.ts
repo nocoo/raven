@@ -432,6 +432,44 @@ describe("translateToOpenAI with sanitization", () => {
     expect(assistantMsg?.tool_calls).toBeNull()
   })
 
+  test("drops assistant message entirely when all content is filtered", () => {
+    const payload: AnthropicMessagesPayload = {
+      model: "claude-sonnet-4",
+      max_tokens: 1024,
+      messages: [
+        { role: "user", content: "Hello" },
+        {
+          role: "assistant",
+          content: [
+            // All Anthropic-only blocks that should be filtered
+            { type: "server_tool_use", id: "srv_1", name: "web_search", input: {} } as any,
+            { type: "web_search_tool_result", tool_use_id: "srv_1", content: [] } as any,
+            { type: "redacted_thinking", data: "opaque" } as any,
+          ],
+        },
+        { role: "user", content: "Continue" },
+      ],
+      system: null,
+      metadata: null,
+      stop_sequences: null,
+      stream: false,
+      temperature: null,
+      top_p: null,
+      top_k: null,
+      tools: null,
+      tool_choice: null,
+      thinking: null,
+      service_tier: null,
+    }
+    const result = translateToOpenAI(payload)
+    // The assistant message should be completely dropped
+    const assistantMsgs = result.messages.filter(m => m.role === "assistant")
+    expect(assistantMsgs).toHaveLength(0)
+    // Should have two user messages
+    const userMsgs = result.messages.filter(m => m.role === "user")
+    expect(userMsgs).toHaveLength(2)
+  })
+
   test("sanitizes tool schema fields", () => {
     const payload: AnthropicMessagesPayload = {
       model: "claude-sonnet-4",

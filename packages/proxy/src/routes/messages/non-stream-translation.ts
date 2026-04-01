@@ -390,6 +390,12 @@ function handleAssistantMessage(
   // Filter unsupported content blocks first
   const filteredContent = filterContentBlocks(message.content)
 
+  // If all content was filtered out, drop the entire message
+  if (filteredContent.length === 0) {
+    logger.debug("Sanitization: dropping assistant message with no remaining content after filtering")
+    return []
+  }
+
   const toolUseBlocks = filteredContent.filter(
     (block): block is AnthropicToolUseBlock => block.type === "tool_use",
   )
