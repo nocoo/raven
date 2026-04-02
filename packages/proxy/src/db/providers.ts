@@ -16,6 +16,7 @@ export interface ProviderRecord {
   model_patterns: string // JSON array
   enabled: number // 0 | 1
   supports_reasoning: number // 0 | 1
+  supports_models_endpoint: number // 0 | 1 | null (null = unknown)
   created_at: number
   updated_at: number
 }
@@ -30,6 +31,7 @@ export interface ProviderPublic {
   model_patterns: string[]
   is_enabled: boolean
   supports_reasoning: boolean
+  supports_models_endpoint: boolean | null // null = unknown
   created_at: number
   updated_at: number
 }
@@ -91,6 +93,7 @@ export function initProviders(db: Database): void {
     }
   }
   safeAddColumn("ALTER TABLE providers ADD COLUMN supports_reasoning INTEGER NOT NULL DEFAULT 0")
+  safeAddColumn("ALTER TABLE providers ADD COLUMN supports_models_endpoint INTEGER DEFAULT NULL")
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +126,7 @@ function toPublic(row: ProviderRecord): ProviderPublic {
     model_patterns: JSON.parse(row.model_patterns) as string[],
     is_enabled: row.enabled === 1,
     supports_reasoning: row.supports_reasoning === 1,
+    supports_models_endpoint: row.supports_models_endpoint === null ? null : row.supports_models_endpoint === 1,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }
@@ -257,4 +261,22 @@ export function getEnabledProviders(db: Database): ProviderRecord[] {
       "SELECT * FROM providers WHERE enabled = 1 ORDER BY created_at ASC",
     )
     .all() as ProviderRecord[]
+}
+
+/**
+ * Update supports_models_endpoint flag for a provider.
+ * Called after probing the upstream's /v1/models endpoint.
+ */
+export function updateProviderModelsSupport(
+  db: Database,
+  id: string,
+  supports: boolean,
+): void {
+  db.query(
+    "UPDATE providers SET supports_models_endpoint = $supports, updated_at = $updated_at WHERE id = $id",
+  ).run({
+    $id: id,
+    $supports: supports ? 1 : 0,
+    $updated_at: Date.now(),
+  })
 }

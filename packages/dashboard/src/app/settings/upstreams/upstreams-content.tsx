@@ -144,9 +144,12 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<UpstreamModelsResponse | null>(null);
 
+  // If we already know models endpoint isn't supported, show that immediately
+  const notSupported = provider.supports_models_endpoint === false;
+
   const handleOpen = async (isOpen: boolean) => {
     setOpen(isOpen);
-    if (isOpen && !data) {
+    if (isOpen && !data && !notSupported) {
       setLoading(true);
       try {
         const res = await fetch(`/api/upstreams/${provider.id}/models`);
@@ -174,6 +177,9 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
     }
   };
 
+  // Determine if models endpoint is not supported (from provider or from probe result)
+  const modelsNotSupported = notSupported || data?.supports_models_endpoint === false;
+
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <TooltipProvider>
@@ -192,8 +198,10 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {provider.name}
-            {data && (
-              data.healthy ? (
+            {(notSupported || data) && (
+              modelsNotSupported ? (
+                <Badge variant="secondary" className="text-[10px]">Models API N/A</Badge>
+              ) : data?.healthy ? (
                 <Badge variant="success" className="text-[10px]">Healthy</Badge>
               ) : (
                 <Badge variant="destructive" className="text-[10px]">Unhealthy</Badge>
@@ -201,7 +209,9 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
             )}
           </DialogTitle>
           <DialogDescription>
-            {loading ? "Checking upstream..." : data?.healthy ? `${data.total} models available` : "Connection status"}
+            {loading ? "Checking upstream..." :
+              modelsNotSupported ? "This provider does not support the models endpoint" :
+              data?.healthy ? `${data.total} models available` : "Connection status"}
           </DialogDescription>
         </DialogHeader>
 
@@ -209,6 +219,19 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : modelsNotSupported ? (
+            <div className="rounded-md border border-border/40 bg-secondary/30 p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Models endpoint not supported</p>
+                  <p className="text-xs text-muted-foreground">
+                    This provider&apos;s API does not expose a /v1/models endpoint.
+                    The provider may still work for chat completions.
+                  </p>
+                </div>
+              </div>
             </div>
           ) : data?.error ? (
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
@@ -239,9 +262,11 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
-            {loading ? "Checking..." : "Refresh"}
-          </Button>
+          {!modelsNotSupported && (
+            <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+              {loading ? "Checking..." : "Refresh"}
+            </Button>
+          )}
           <Button onClick={() => setOpen(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>

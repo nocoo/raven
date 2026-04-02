@@ -689,4 +689,50 @@ describe("upstreams API", () => {
       expect(regular?.supports_reasoning).toBe(false)
     })
   })
+
+  describe("supports_models_endpoint field", () => {
+    test("POST creates provider with null supports_models_endpoint initially", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-test-key",
+        model_patterns: ["test-*"],
+      }))
+
+      expect(res.status).toBe(201)
+      const json = await res.json() as { supports_models_endpoint: boolean | null }
+      // Initially null until probed
+      expect(json.supports_models_endpoint).toBeNull()
+    })
+
+    test("GET returns supports_models_endpoint field", async () => {
+      const app = makeApp(db)
+
+      const createRes = await app.request(req("POST", "/api/upstreams", {
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-test-key",
+        model_patterns: ["test-*"],
+      }))
+      const created = await createRes.json() as { id: string }
+
+      const res = await app.request(req("GET", `/api/upstreams/${created.id}`))
+      expect(res.status).toBe(200)
+      const json = await res.json() as { supports_models_endpoint: boolean | null }
+      expect("supports_models_endpoint" in json).toBe(true)
+    })
+  })
+
+  describe("GET /api/upstreams/:id/models", () => {
+    test("returns 404 for non-existent provider", async () => {
+      const app = makeApp(db)
+
+      const res = await app.request(req("GET", "/api/upstreams/nonexistent/models"))
+      expect(res.status).toBe(404)
+    })
+  })
 })

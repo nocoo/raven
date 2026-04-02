@@ -86,7 +86,7 @@ const mockProviders: ProviderRecord[] = [
     enabled: 1,
     created_at: 1,
     updated_at: 1,
-          supports_reasoning: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0,
   },
   {
     id: "p2",
@@ -98,7 +98,7 @@ const mockProviders: ProviderRecord[] = [
     enabled: 1,
     created_at: 2,
     updated_at: 2,
-          supports_reasoning: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0,
   },
 ]
 

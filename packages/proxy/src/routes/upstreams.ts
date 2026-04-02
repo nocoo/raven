@@ -8,6 +8,7 @@ import {
   getProvider,
   listProviders,
   updateProvider,
+  updateProviderModelsSupport,
 } from "./../db/providers"
 import { cacheProviders } from "./../lib/utils"
 import { state } from "./../lib/state"
@@ -104,6 +105,43 @@ function checkModelConflicts(
   return conflicts
 }
 
+/**
+ * Probe upstream to check if /v1/models endpoint is supported.
+ * Updates the database with the result.
+ */
+async function probeModelsEndpoint(
+  db: Database,
+  providerId: string,
+  baseUrl: string,
+  apiKey: string,
+): Promise<boolean> {
+  const url = `${baseUrl.replace(/\/+$/, "")}/v1/models`
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(5000), // 5s timeout for probe
+    })
+
+    const supports = res.ok
+    try {
+      updateProviderModelsSupport(db, providerId, supports)
+    } catch {
+      // DB may be closed in tests, ignore
+    }
+    return supports
+  } catch {
+    try {
+      updateProviderModelsSupport(db, providerId, false)
+    } catch {
+      // DB may be closed in tests, ignore
+    }
+    return false
+  }
+}
+
 // ===========================================================================
 // Route factory
 // ===========================================================================
@@ -169,6 +207,11 @@ export function createUpstreamsRoute(db: Database): Hono {
     // Refresh state so new provider is immediately routable
     cacheProviders(db)
 
+    // Probe models endpoint in background (don't block response)
+    // Note: we don't need to refresh cache after probe since supports_models_endpoint
+    // is only used by the health check endpoint, not the routing engine
+    probeModelsEndpoint(db, provider.id, input.base_url, input.api_key)
+
     return c.json(provider, 201)
   })
 
@@ -231,6 +274,17 @@ export function createUpstreamsRoute(db: Database): Hono {
     // Refresh state
     cacheProviders(db)
 
+    // Re-probe if base_url or api_key changed
+    if (input.base_url !== undefined || input.api_key !== undefined) {
+      // Get full record to access api_key
+      const row = db
+        .query("SELECT base_url, api_key FROM providers WHERE id = $id")
+        .get({ $id: id }) as { base_url: string; api_key: string } | null
+      if (row) {
+        probeModelsEndpoint(db, id, row.base_url, row.api_key)
+      }
+    }
+
     return c.json(updated)
   })
 
@@ -278,6 +332,8 @@ export function createUpstreamsRoute(db: Database): Hono {
 
       if (!res.ok) {
         const text = await res.text().catch(() => "")
+        // Update DB: models endpoint not supported
+        updateProviderModelsSupport(db, id, false)
         return c.json(
           {
             error: {
@@ -285,6 +341,7 @@ export function createUpstreamsRoute(db: Database): Hono {
               type: "upstream_error",
             },
             healthy: false,
+            supports_models_endpoint: false,
           },
           502,
         )
@@ -292,6 +349,9 @@ export function createUpstreamsRoute(db: Database): Hono {
 
       const data = (await res.json()) as { data?: Array<{ id: string; owned_by?: string }> }
       const models = data.data ?? []
+
+      // Update DB: models endpoint supported
+      updateProviderModelsSupport(db, id, true)
 
       // Group models by owned_by
       const grouped: Record<string, string[]> = {}
@@ -313,6 +373,8 @@ export function createUpstreamsRoute(db: Database): Hono {
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error"
+      // Update DB: models endpoint not supported (connection error)
+      updateProviderModelsSupport(db, id, false)
       return c.json(
         {
           error: {
@@ -320,6 +382,7 @@ export function createUpstreamsRoute(db: Database): Hono {
             type: "connection_error",
           },
           healthy: false,
+          supports_models_endpoint: false,
         },
         502,
       )

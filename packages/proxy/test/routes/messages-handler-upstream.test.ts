@@ -108,7 +108,7 @@ const mockProviders: ProviderRecord[] = [
     enabled: 1,
     created_at: 1,
     updated_at: 1,
-          supports_reasoning: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0,
   },
   {
     id: "p2",
@@ -120,7 +120,7 @@ const mockProviders: ProviderRecord[] = [
     enabled: 1,
     created_at: 2,
     updated_at: 2,
-          supports_reasoning: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0,
   },
 ]
 
@@ -295,7 +295,7 @@ describe("messages handler with provider routing", () => {
           enabled: 1,
           created_at: 3,
           updated_at: 3,
-          supports_reasoning: 1,
+          supports_reasoning: 1, supports_models_endpoint: 0,
         },
       ]
     })

@@ -220,6 +220,7 @@ export interface ProviderPublic {
   model_patterns: string[];
   is_enabled: boolean;
   supports_reasoning: boolean;
+  supports_models_endpoint: boolean | null;
   created_at: number;
   updated_at: number;
 }
@@ -252,6 +253,7 @@ export interface UpstreamModelsResponse {
   healthy: boolean;
   total?: number;
   models?: Record<string, string[]>;
+  supports_models_endpoint?: boolean;
   error?: {
     message: string;
     type: string;
