@@ -182,11 +182,11 @@ sudo chmod 600 /etc/raven/*.env
 
 ## 5. 首次构建
 
-dashboard 生产模式需要先 build：
+dashboard 生产模式需要先 build。**必须在 build 时加载 dashboard 环境变量**，因为 Next.js 会在构建期间将 `GOOGLE_CLIENT_ID`、`NEXTAUTH_SECRET` 等变量静态嵌入产物。如果不加载环境变量直接 build，dashboard 会以 Local mode 构建，导致登录页面卡在 "redirecting" 无法跳转 Google OAuth。
 
 ```bash
 cd /srv/raven
-bun run --filter dashboard build
+sudo -u raven bash -c 'export BUN_INSTALL=/home/raven/.bun && export PATH=$BUN_INSTALL/bin:$PATH && export $(cat /etc/raven/dashboard.env | xargs) && bun run --filter dashboard build'
 ```
 
 proxy 直接使用 `start` 脚本即可，无需单独 build。
