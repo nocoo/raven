@@ -35,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type {
@@ -175,16 +176,18 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DialogTrigger asChild>
-            <Button size="icon-xs" variant="ghost" aria-label="Health check">
-              <Activity className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </Button>
-          </DialogTrigger>
-        </TooltipTrigger>
-        <TooltipContent>Health Check</TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
+              <Button size="icon-xs" variant="ghost" aria-label="Health check">
+                <Activity className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Health Check</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
