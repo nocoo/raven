@@ -108,3 +108,12 @@ export function cacheServerTools(db: Database): void {
   state.stWebSearchEnabled = getSetting(db, "st_web_search_enabled") === "true"
   state.stWebSearchApiKey = getSetting(db, "st_web_search_api_key") ?? null
 }
+
+/**
+ * Load sound notification settings from DB into runtime state.
+ * Called at startup and after any sound setting change.
+ */
+export function cacheSoundSettings(db: Database): void {
+  state.soundEnabled = getSetting(db, "sound_enabled") === "true"
+  state.soundName = getSetting(db, "sound_name") ?? "Basso"
+}

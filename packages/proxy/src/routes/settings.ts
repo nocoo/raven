@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import { getSetting, setSetting, deleteSetting } from "../db/settings";
-import { cacheVersions, cacheOptimizations, cacheServerTools } from "../lib/utils";
+import { cacheVersions, cacheOptimizations, cacheServerTools, cacheSoundSettings } from "../lib/utils";
 import { state } from "../lib/state";
+import { SYSTEM_SOUNDS, isValidSound } from "./sound";
 
 // ---------------------------------------------------------------------------
 // Key definitions
@@ -28,12 +29,19 @@ const SERVER_TOOL_KEYS = [
 /** Server tool boolean keys (for validation). */
 const SERVER_TOOL_BOOLEAN_KEYS = ["st_web_search_enabled"] as const;
 
+/** Sound setting keys. */
+const SOUND_KEYS = ["sound_enabled", "sound_name"] as const;
+
+/** Sound boolean keys (for validation). */
+const SOUND_BOOLEAN_KEYS = ["sound_enabled"] as const;
+
 type VersionKey = (typeof VERSION_KEYS)[number];
 type OptimizationKey = (typeof OPTIMIZATION_KEYS)[number];
 type ServerToolKey = (typeof SERVER_TOOL_KEYS)[number];
+type SoundKey = (typeof SOUND_KEYS)[number];
 
 /** All known setting keys accepted by the API. */
-const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS] as const;
+const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...SOUND_KEYS] as const;
 type SettingKey = (typeof KNOWN_KEYS)[number];
 
 function isKnownKey(key: string): key is SettingKey {
@@ -54,6 +62,14 @@ function isServerToolKey(key: string): key is ServerToolKey {
 
 function isServerToolBooleanKey(key: string): key is ServerToolKey {
   return (SERVER_TOOL_BOOLEAN_KEYS as readonly string[]).includes(key);
+}
+
+function isSoundKey(key: string): key is SoundKey {
+  return (SOUND_KEYS as readonly string[]).includes(key);
+}
+
+function isSoundBooleanKey(key: string): key is SoundKey {
+  return (SOUND_BOOLEAN_KEYS as readonly string[]).includes(key);
 }
 
 // ---------------------------------------------------------------------------
@@ -94,12 +110,19 @@ export interface ServerToolInfo {
   has_api_key: boolean;
 }
 
+export interface SoundInfo {
+  enabled: boolean;
+  sound_name: string;
+  available_sounds: readonly string[];
+}
+
 export interface SettingsSnapshot {
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
   optimizations: Record<string, OptimizationInfo>;
   debug: Record<string, OptimizationInfo>;
   server_tools: Record<string, ServerToolInfo>;
+  sound: SoundInfo;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +170,11 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
         enabled: state.stWebSearchEnabled,
         has_api_key: state.stWebSearchApiKey !== null,
       },
+    },
+    sound: {
+      enabled: state.soundEnabled,
+      sound_name: state.soundName,
+      available_sounds: SYSTEM_SOUNDS,
     },
   };
 }
@@ -235,6 +263,30 @@ export function createSettingsRoute(db: Database): Hono {
           400,
         );
       }
+    } else if (isSoundBooleanKey(key)) {
+      if (!isValidBoolean(trimmed)) {
+        return c.json(
+          {
+            error: {
+              type: "validation_error",
+              message: `invalid boolean value: "${trimmed}". Expected "true" or "false"`,
+            },
+          },
+          400,
+        );
+      }
+    } else if (key === "sound_name") {
+      if (!isValidSound(trimmed)) {
+        return c.json(
+          {
+            error: {
+              type: "validation_error",
+              message: `invalid sound name: "${trimmed}". Must be one of: ${SYSTEM_SOUNDS.join(", ")}`,
+            },
+          },
+          400,
+        );
+      }
     }
 
     // Persist to DB and refresh caches
@@ -243,6 +295,8 @@ export function createSettingsRoute(db: Database): Hono {
       await cacheVersions(db);
     } else if (isServerToolKey(key)) {
       cacheServerTools(db);
+    } else if (isSoundKey(key)) {
+      cacheSoundSettings(db);
     } else {
       cacheOptimizations(db);
     }
@@ -271,6 +325,8 @@ export function createSettingsRoute(db: Database): Hono {
       await cacheVersions(db);
     } else if (isServerToolKey(key)) {
       cacheServerTools(db);
+    } else if (isSoundKey(key)) {
+      cacheSoundSettings(db);
     } else {
       cacheOptimizations(db);
     }

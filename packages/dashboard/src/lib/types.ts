@@ -190,12 +190,19 @@ export interface ServerToolInfo {
   has_api_key: boolean;
 }
 
+export interface SoundInfo {
+  enabled: boolean;
+  sound_name: string;
+  available_sounds: string[];
+}
+
 export interface SettingsData {
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
   optimizations: Record<string, OptimizationInfo>;
   debug: Record<string, OptimizationInfo>;
   server_tools: Record<string, ServerToolInfo>;
+  sound: SoundInfo;
 }
 
 // ---------------------------------------------------------------------------

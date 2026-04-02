@@ -37,6 +37,8 @@ function makeState(overrides: Partial<State> = {}): State {
     stWebSearchEnabled: false,
     stWebSearchApiKey: null,
     providers: [],
+    soundEnabled: false,
+    soundName: "Basso",
     ...overrides,
   }
 }

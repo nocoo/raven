@@ -34,6 +34,10 @@ export interface State {
 
   // Custom providers — cached enabled records, refreshed on CRUD operations
   providers: ProviderRecord[]
+
+  // Sound notifications on error
+  soundEnabled: boolean
+  soundName: string
 }
 
 export const state: State = {
@@ -56,4 +60,6 @@ export const state: State = {
   stWebSearchEnabled: false,
   stWebSearchApiKey: null,
   providers: [],
+  soundEnabled: false,
+  soundName: "Basso",
 }
