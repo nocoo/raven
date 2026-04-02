@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.6.1 (2026-04-03)
+
+Sound notifications for error alerts.
+
+### Features
+
+- **Sound notifications** — Play macOS system sounds when proxy encounters errors; configurable via Settings page with 14 built-in sounds (Basso, Glass, Ping, etc.) and preview button
+
+### Dashboard
+
+- **Sound settings UI** — New "Sound Notifications" section in Settings with enable toggle, sound selector dropdown, and preview button
+- **Sound preview API** — `POST /api/sound/preview` route to trigger sound playback via proxy
+
+### Proxy
+
+- **Sound settings persistence** — `sound_enabled` and `sound_name` keys in settings DB
+- **Sound playback service** — `playSound()` function using macOS `afplay` command (non-blocking)
+- **Sound preview endpoint** — `POST /api/sound/preview` accepts sound name and plays via afplay
+
 ## v1.6.0 (2026-04-02)
 
 Extended thinking support and message sanitization for Claude Code compatibility.
