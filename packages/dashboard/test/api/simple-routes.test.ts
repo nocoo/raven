@@ -552,3 +552,66 @@ describe("DELETE /api/upstreams/[id]", () => {
     expect((await res.json()).error).toBe("timeout");
   });
 });
+
+// ===========================================================================
+// GET /api/upstreams/[id]/models
+// ===========================================================================
+
+describe("GET /api/upstreams/[id]/models", () => {
+  function makeParams(id: string) {
+    return { params: Promise.resolve({ id }) };
+  }
+
+  it("success → returns healthy response with models", async () => {
+    const data = {
+      healthy: true,
+      total: 3,
+      models: { omlx: ["model-a", "model-b", "model-c"] },
+    };
+    mockProxyFetch.mockResolvedValueOnce(data);
+
+    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
+    const req = new Request("http://localhost/api/upstreams/p1/models");
+    const res = await GET(req, makeParams("p1"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(data);
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/upstreams/p1/models");
+  });
+
+  it("ProxyError with 502 → returns unhealthy response", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Upstream returned 500", 502));
+
+    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
+    const req = new Request("http://localhost/api/upstreams/p1/models");
+    const res = await GET(req, makeParams("p1"));
+
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.healthy).toBe(false);
+    expect(body.error).toBeDefined();
+  });
+
+  it("generic Error → returns 502 with unhealthy status", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new Error("network down"));
+
+    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
+    const req = new Request("http://localhost/api/upstreams/p1/models");
+    const res = await GET(req, makeParams("p1"));
+
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.healthy).toBe(false);
+    expect(body.error.message).toBe("network down");
+  });
+
+  it("provider not found → returns 404 via ProxyError", async () => {
+    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Provider not found", 404));
+
+    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
+    const req = new Request("http://localhost/api/upstreams/nonexistent/models");
+    const res = await GET(req, makeParams("nonexistent"));
+
+    expect(res.status).toBe(404);
+  });
+});

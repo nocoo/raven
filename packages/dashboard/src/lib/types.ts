@@ -244,3 +244,18 @@ export interface UpdateProviderInput {
   supports_reasoning?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Upstream health check / models
+// ---------------------------------------------------------------------------
+
+export interface UpstreamModelsResponse {
+  healthy: boolean;
+  total?: number;
+  models?: Record<string, string[]>;
+  error?: {
+    message: string;
+    type: string;
+  };
+}
+
+

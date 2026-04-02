@@ -250,5 +250,81 @@ export function createUpstreamsRoute(db: Database): Hono {
     return c.json({ success: true })
   })
 
+  // GET /upstreams/:id/models — health check + list models from upstream
+  app.get("/upstreams/:id/models", async (c) => {
+    const id = c.req.param("id")
+
+    // Get full provider record (with api_key) from DB
+    const row = db
+      .query("SELECT * FROM providers WHERE id = $id")
+      .get({ $id: id }) as import("./../db/providers").ProviderRecord | null
+
+    if (!row) {
+      return c.json({ error: { message: "Provider not found" } }, 404)
+    }
+
+    // Build models endpoint URL
+    const baseUrl = row.base_url.replace(/\/+$/, "")
+    const modelsUrl = `${baseUrl}/v1/models`
+
+    try {
+      const res = await fetch(modelsUrl, {
+        headers: {
+          Authorization: `Bearer ${row.api_key}`,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(10000), // 10s timeout
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "")
+        return c.json(
+          {
+            error: {
+              message: `Upstream returned ${res.status}: ${text.slice(0, 200)}`,
+              type: "upstream_error",
+            },
+            healthy: false,
+          },
+          502,
+        )
+      }
+
+      const data = (await res.json()) as { data?: Array<{ id: string; owned_by?: string }> }
+      const models = data.data ?? []
+
+      // Group models by owned_by
+      const grouped: Record<string, string[]> = {}
+      for (const model of models) {
+        const owner = model.owned_by ?? "unknown"
+        if (!grouped[owner]) grouped[owner] = []
+        grouped[owner].push(model.id)
+      }
+
+      // Sort models within each group
+      for (const owner of Object.keys(grouped)) {
+        grouped[owner]!.sort()
+      }
+
+      return c.json({
+        healthy: true,
+        total: models.length,
+        models: grouped,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error"
+      return c.json(
+        {
+          error: {
+            message: `Failed to connect: ${message}`,
+            type: "connection_error",
+          },
+          healthy: false,
+        },
+        502,
+      )
+    }
+  })
+
   return app
 }

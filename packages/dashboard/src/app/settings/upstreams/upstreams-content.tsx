@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Edit2, ArrowUpDown } from "lucide-react";
+import { Plus, Trash2, Edit2, ArrowUpDown, Activity, Loader2, Check, Copy, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,11 +32,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type {
   ProviderPublic,
   CreateProviderInput,
   UpdateProviderInput,
   ProviderFormat,
+  UpstreamModelsResponse,
 } from "@/lib/types";
 
 interface UpstreamsContentProps {
@@ -115,6 +121,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      <HealthCheckDialog provider={provider} />
                       <EditProviderDialog provider={provider} />
                       <DeleteProviderButton id={provider.id} name={provider.name} />
                     </div>
@@ -126,6 +133,151 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
         </div>
       )}
     </section>
+  );
+}
+
+// ── Health Check Dialog ──
+
+function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<UpstreamModelsResponse | null>(null);
+
+  const handleOpen = async (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen && !data) {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/upstreams/${provider.id}/models`);
+        const json = await res.json() as UpstreamModelsResponse;
+        setData(json);
+      } catch {
+        setData({ healthy: false, error: { message: "Network error", type: "network_error" } });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    setData(null);
+    try {
+      const res = await fetch(`/api/upstreams/${provider.id}/models`);
+      const json = await res.json() as UpstreamModelsResponse;
+      setData(json);
+    } catch {
+      setData({ healthy: false, error: { message: "Network error", type: "network_error" } });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DialogTrigger asChild>
+            <Button size="icon-xs" variant="ghost" aria-label="Health check">
+              <Activity className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Button>
+          </DialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Health Check</TooltipContent>
+      </Tooltip>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {provider.name}
+            {data && (
+              data.healthy ? (
+                <Badge variant="success" className="text-[10px]">Healthy</Badge>
+              ) : (
+                <Badge variant="destructive" className="text-[10px]">Unhealthy</Badge>
+              )
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            {loading ? "Checking upstream..." : data?.healthy ? `${data.total} models available` : "Connection status"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : data?.error ? (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-destructive">Connection Failed</p>
+                  <p className="text-xs text-muted-foreground">{data.error.message}</p>
+                </div>
+              </div>
+            </div>
+          ) : data?.models ? (
+            <div className="space-y-4">
+              {Object.entries(data.models).map(([owner, models]) => (
+                <div key={owner} className="space-y-2">
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {owner} ({models.length})
+                  </h4>
+                  <div className="space-y-1">
+                    {models.map((model) => (
+                      <ModelItem key={model} model={model} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+            {loading ? "Checking..." : "Refresh"}
+          </Button>
+          <Button onClick={() => setOpen(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Model Item with Copy ──
+
+function ModelItem({ model }: { model: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(model);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 800);
+    } catch {
+      // Clipboard API may fail
+    }
+  };
+
+  return (
+    <div className="group flex items-center justify-between rounded-md border border-border/40 bg-secondary/30 px-3 py-1.5">
+      <code className="text-xs font-mono truncate">{model}</code>
+      <Button
+        size="icon-xs"
+        variant="ghost"
+        onClick={handleCopy}
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        aria-label="Copy model name"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-green-500" strokeWidth={1.5} />
+        ) : (
+          <Copy className="h-3 w-3" strokeWidth={1.5} />
+        )}
+      </Button>
+    </div>
   );
 }
 
