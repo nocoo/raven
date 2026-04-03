@@ -381,3 +381,84 @@ describe("handleResponses (logging)", () => {
     expect(endEvent!.data?.statusCode).toBe(404)
   })
 })
+
+// ===========================================================================
+// handleResponses — rate limiting
+// ===========================================================================
+
+describe("handleResponses (rate limiting)", () => {
+  test("calls checkRateLimit before processing request", async () => {
+    // Verify that rate limiting is applied by checking that
+    // when rate limit throws, the request fails before reaching upstream
+    const savedRateLimitSeconds = state.rateLimitSeconds
+    const savedRateLimitWait = state.rateLimitWait
+    const savedLastRequestTimestamp = state.lastRequestTimestamp
+
+    state.rateLimitSeconds = 60 // 60 seconds between requests
+    state.rateLimitWait = false // throw instead of wait
+    state.lastRequestTimestamp = Date.now() // just made a request
+
+    fetchSpy.mockResolvedValue(mockFetchJson(makeResponsesResponse()))
+
+    const app = makeApp()
+
+    // Request should fail due to rate limit (fetch should NOT be called)
+    await app.request(req({ model: "gpt-4o", input: "hello" }))
+
+    // The key assertion: upstream was never called because rate limit blocked it
+    expect(fetchSpy).not.toHaveBeenCalled()
+
+    // Restore
+    state.rateLimitSeconds = savedRateLimitSeconds
+    state.rateLimitWait = savedRateLimitWait
+    state.lastRequestTimestamp = savedLastRequestTimestamp
+  })
+})
+
+// ===========================================================================
+// handleResponses — mid-stream error
+// ===========================================================================
+
+describe("handleResponses (mid-stream error)", () => {
+  test("sends error event on mid-stream upstream failure", async () => {
+    // Ensure rate limit is not active
+    state.rateLimitSeconds = null
+
+    // Create a stream that errors mid-way (after first chunk is enqueued)
+    const encoder = new TextEncoder()
+    let controller: ReadableStreamDefaultController<Uint8Array>
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c
+        // First chunk goes through
+        controller.enqueue(encoder.encode('event: response.created\ndata: {"id":"resp_1"}\n\n'))
+      },
+      pull() {
+        // Error on second pull
+        controller.error(new Error("connection reset"))
+      },
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      new Response(stream, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      }),
+    )
+
+    const app = makeApp()
+    const res = await app.request(
+      req({ model: "gpt-4o", input: "hello", stream: true }),
+    )
+
+    const text = await res.text()
+
+    // Should contain the initial event
+    expect(text).toContain("response.created")
+
+    // Should contain the error event (best-effort)
+    expect(text).toContain("event: error")
+    expect(text).toContain("server_error")
+  })
+})

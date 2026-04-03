@@ -3,6 +3,8 @@ import { streamSSE } from "hono/streaming"
 
 import { createResponses, type ResponsesPayload } from "../../services/copilot/create-responses"
 import { extractErrorDetails, forwardError } from "../../lib/error"
+import { checkRateLimit } from "../../lib/rate-limit"
+import { state } from "../../lib/state"
 import type { ServerSentEvent } from "../../util/sse"
 import { logEmitter } from "../../util/log-emitter"
 import { generateRequestId } from "../../util/id"
@@ -11,6 +13,8 @@ import { deriveClientIdentity } from "../../util/client-identity"
 export const handleResponses = async (c: Context) => {
   const startTime = performance.now()
   const requestId = generateRequestId()
+
+  await checkRateLimit(state)
 
   let payload: ResponsesPayload
 
@@ -69,6 +73,22 @@ export const handleResponses = async (c: Context) => {
           }
         } catch (err) {
           streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
+
+          // Best-effort: send error event so client knows stream failed
+          try {
+            await sseStream.writeSSE({
+              event: "error",
+              data: JSON.stringify({
+                type: "error",
+                error: {
+                  type: "server_error",
+                  message: "An upstream error occurred during streaming.",
+                },
+              }),
+            })
+          } catch {
+            // Connection may already be closed
+          }
         } finally {
           const endTime = performance.now()
           const latencyMs = Math.round(endTime - startTime)
