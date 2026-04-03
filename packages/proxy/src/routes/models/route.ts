@@ -6,8 +6,55 @@ import { cacheModels } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
+import type { ProviderRecord } from "./../../db/providers"
 
 export const modelRoutes = new Hono()
+
+interface ModelEntry {
+  id: string
+  object: string
+  type: string
+  created: number
+  created_at: string
+  owned_by: string
+  display_name: string
+}
+
+/**
+ * Fetch models from an upstream provider that supports /v1/models.
+ * Returns model IDs on success, empty array on failure.
+ */
+async function fetchUpstreamModels(provider: ProviderRecord): Promise<string[]> {
+  try {
+    const baseUrl = provider.base_url.replace(/\/+$/, "")
+    const url = `${baseUrl}/v1/models`
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+    if (provider.api_key) {
+      headers["Authorization"] = `Bearer ${provider.api_key}`
+    }
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(5000), // 5s timeout
+    })
+
+    if (!response.ok) {
+      return []
+    }
+
+    const data = await response.json() as { data?: Array<{ id: string }> }
+    if (!data.data || !Array.isArray(data.data)) {
+      return []
+    }
+
+    return data.data.map((m) => m.id)
+  } catch {
+    return []
+  }
+}
 
 modelRoutes.get("/", async (c) => {
   const startTime = performance.now()
@@ -28,50 +75,77 @@ modelRoutes.get("/", async (c) => {
       await cacheModels()
     }
 
-    // Collect all model IDs: Copilot models + provider exact patterns
-    const copilotModelIds = new Set(state.models?.data.map((m) => m.id) ?? [])
-    const providerModelIds: string[] = []
+    // Collect all model IDs to avoid duplicates
+    const seenModelIds = new Set(state.models?.data.map((m) => m.id) ?? [])
 
-    // Extract exact model names from provider patterns (exclude globs)
+    // Map Copilot models to response format
+    const models: ModelEntry[] = state.models?.data.map((model) => ({
+      id: model.id,
+      object: "model",
+      type: "model",
+      created: 0, // No date available from source
+      created_at: new Date(0).toISOString(),
+      owned_by: model.vendor,
+      display_name: model.name,
+    })) ?? []
+
+    // Process each provider
     if (state.providers?.length) {
+      // Fetch models from upstreams that support /v1/models in parallel
+      const fetchPromises = state.providers
+        .filter((p) => p.enabled === 1 && p.supports_models_endpoint === 1)
+        .map(async (provider) => {
+          const upstreamModels = await fetchUpstreamModels(provider)
+          return { provider, models: upstreamModels }
+        })
+
+      const fetchResults = await Promise.all(fetchPromises)
+
+      // Add models from upstreams that support /v1/models
+      for (const { provider, models: upstreamModels } of fetchResults) {
+        for (const modelId of upstreamModels) {
+          if (!seenModelIds.has(modelId)) {
+            seenModelIds.add(modelId)
+            models.push({
+              id: modelId,
+              object: "model",
+              type: "model",
+              created: 0,
+              created_at: new Date(0).toISOString(),
+              owned_by: provider.name,
+              display_name: modelId,
+            })
+          }
+        }
+      }
+
+      // Add exact model patterns from providers that don't support /v1/models
       for (const provider of state.providers) {
+        if (provider.enabled !== 1) continue
+        // Skip providers that support /v1/models (already handled above)
+        if (provider.supports_models_endpoint === 1) continue
+
         try {
           const patterns: string[] = JSON.parse(provider.model_patterns)
           for (const pattern of patterns) {
             // Only include exact patterns (no wildcards)
-            if (!pattern.includes("*") && !copilotModelIds.has(pattern)) {
-              providerModelIds.push(pattern)
-              copilotModelIds.add(pattern) // Deduplicate within providers too
+            if (!pattern.includes("*") && !seenModelIds.has(pattern)) {
+              seenModelIds.add(pattern)
+              models.push({
+                id: pattern,
+                object: "model",
+                type: "model",
+                created: 0,
+                created_at: new Date(0).toISOString(),
+                owned_by: provider.name,
+                display_name: pattern,
+              })
             }
           }
         } catch {
           // Skip invalid JSON
         }
       }
-    }
-
-    // Map Copilot models to response format
-    const models = state.models?.data.map((model) => ({
-      id: model.id,
-      object: "model",
-      type: "model",
-      created: 0, // No date available from source
-      created_at: new Date(0).toISOString(), // No date available from source
-      owned_by: model.vendor,
-      display_name: model.name,
-    })) ?? []
-
-    // Add provider exact models (sorted for consistency)
-    for (const modelId of providerModelIds.sort()) {
-      models.push({
-        id: modelId,
-        object: "model",
-        type: "model",
-        created: 0,
-        created_at: new Date(0).toISOString(),
-        owned_by: "provider", // Generic owner for provider models
-        display_name: modelId,
-      })
     }
 
     const latencyMs = Math.round(performance.now() - startTime)
