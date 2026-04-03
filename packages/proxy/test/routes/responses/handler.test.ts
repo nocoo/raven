@@ -387,9 +387,7 @@ describe("handleResponses (logging)", () => {
 // ===========================================================================
 
 describe("handleResponses (rate limiting)", () => {
-  test("calls checkRateLimit before processing request", async () => {
-    // Verify that rate limiting is applied by checking that
-    // when rate limit throws, the request fails before reaching upstream
+  test("returns 429 with error message when rate limited", async () => {
     const savedRateLimitSeconds = state.rateLimitSeconds
     const savedRateLimitWait = state.rateLimitWait
     const savedLastRequestTimestamp = state.lastRequestTimestamp
@@ -402,10 +400,14 @@ describe("handleResponses (rate limiting)", () => {
 
     const app = makeApp()
 
-    // Request should fail due to rate limit (fetch should NOT be called)
-    await app.request(req({ model: "gpt-4o", input: "hello" }))
+    const res = await app.request(req({ model: "gpt-4o", input: "hello" }))
 
-    // The key assertion: upstream was never called because rate limit blocked it
+    // Should return 429 with proper error structure
+    expect(res.status).toBe(429)
+    const json = await res.json()
+    expect(json.error.message).toContain("Rate limit exceeded")
+
+    // Upstream was never called because rate limit blocked it
     expect(fetchSpy).not.toHaveBeenCalled()
 
     // Restore

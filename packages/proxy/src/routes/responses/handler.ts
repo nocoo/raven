@@ -14,9 +14,14 @@ export const handleResponses = async (c: Context) => {
   const startTime = performance.now()
   const requestId = generateRequestId()
 
-  await checkRateLimit(state)
-
   let payload: ResponsesPayload
+
+  try {
+    await checkRateLimit(state)
+  } catch (error) {
+    // Rate limit error — forward with proper status
+    return forwardError(c, error)
+  }
 
   try {
     payload = await c.req.json<ResponsesPayload>()
