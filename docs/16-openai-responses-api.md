@@ -211,65 +211,82 @@ Raven 作为 passthrough 代理，**不做**：
 
 ## Codex CLI 配置指南
 
-### 配置文件
+### 配置文件（推荐）
 
-Codex CLI 通过 `~/.codex/config.toml` 配置：
+Codex CLI 使用 provider-based 配置体系。在 `~/.codex/config.toml` 中定义 Raven provider：
 
 ```toml
-# 指向 Raven 代理
-base_url = "http://localhost:7024"
-
-# 使用的模型
+# 默认使用 Raven provider
+model_provider = "raven"
 model = "gpt-5.4"
 
 # 可选：上下文窗口配置
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
+
+# 定义 Raven provider
+[model_providers.raven]
+name = "Raven Proxy"
+base_url = "http://localhost:7024/v1"
+wire_api = "responses"
+env_key = "RAVEN_API_KEY"  # 可选，Raven 未配置 API key 时可省略
 ```
 
-### 环境变量
+### Profile 配置
 
-```bash
-# API Key（Raven 需要配置 RAVEN_API_KEY 时使用）
-export OPENAI_API_KEY="your-raven-api-key"
-
-# 或通过 base_url 覆盖（优先级低于 config.toml）
-export OPENAI_BASE_URL="http://localhost:7024"
-```
-
-### 命令行参数
-
-```bash
-# 临时覆盖配置
-codex -c 'base_url="http://localhost:7024"' -c 'model="gpt-5.4"' "your prompt"
-
-# 使用 profile
-codex -p raven "your prompt"
-```
-
-### Profile 配置（推荐）
-
-在 `~/.codex/config.toml` 中定义 profile：
+使用 profile 切换不同模型：
 
 ```toml
-[profiles.raven]
-base_url = "http://localhost:7024"
+# 默认配置
+model_provider = "raven"
 model = "gpt-5.4"
 
+[model_providers.raven]
+name = "Raven Proxy"
+base_url = "http://localhost:7024/v1"
+wire_api = "responses"
+
+# GPT 模型 profile
+[profiles.raven-gpt]
+model_provider = "raven"
+model = "gpt-5.4"
+
+# Claude 模型 profile
 [profiles.raven-claude]
-base_url = "http://localhost:7024"
+model_provider = "raven"
 model = "claude-sonnet-4"
 ```
 
 使用：
 ```bash
-codex -p raven "your prompt"
+codex -p raven-gpt "your prompt"
+codex -p raven-claude "your prompt"
+```
+
+### 环境变量（可选）
+
+如果 Raven 配置了 `RAVEN_API_KEY`：
+
+```bash
+# 设置 API key（对应 provider 的 env_key）
+export RAVEN_API_KEY="your-raven-api-key"
+```
+
+**注意**：`OPENAI_BASE_URL` 是内置 OpenAI provider 的覆盖变量，不适用于自定义 provider。使用 Raven 应通过 `model_providers.raven` 配置 `base_url`。
+
+### 命令行参数
+
+```bash
+# 临时覆盖 model
+codex -c 'model="gpt-5-mini"' "your prompt"
+
+# 使用 profile
 codex -p raven-claude "your prompt"
 ```
 
 ### API Key 登录
 
-如果 Raven 配置了 `RAVEN_API_KEY`：
+如果 Raven 配置了 API key 认证：
 
 ```bash
 # 通过 stdin 传入 API key
