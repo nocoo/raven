@@ -245,6 +245,17 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
             </div>
           ) : data?.models ? (
             <div className="space-y-4">
+              {/* Context window warning for local models */}
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Claude Code requires ~40K tokens context window. Models with smaller context may fail with &quot;prompt too long&quot; errors.
+                    </p>
+                  </div>
+                </div>
+              </div>
               {Object.entries(data.models).map(([owner, models]) => (
                 <div key={owner} className="space-y-2">
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
