@@ -14,9 +14,9 @@ GitHub Copilot 后端原生支持 `/responses` 端点（与 OpenAI Responses API
 ┌─────────────────────────────────────────────────────────────────┐
 │                     /v1/responses handler                       │
 ├─────────────────────────────────────────────────────────────────┤
-│  1. Validate model supports /responses                          │
-│  2. Forward payload to Copilot /responses                       │
-│  3. Return response (JSON or SSE stream passthrough)            │
+│  1. Forward payload to Copilot /responses                       │
+│  2. Return response (JSON or SSE stream passthrough)            │
+│  3. On error: forwardError() with upstream status/body          │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -24,6 +24,19 @@ GitHub Copilot 后端原生支持 `/responses` 端点（与 OpenAI Responses API
 ```
 
 **不做翻译**：请求和响应原样透传，Raven 只是代理层。
+
+---
+
+## 上游契约假设
+
+Raven 依赖以下上游行为，**不做协议修复**：
+
+| 条件 | 期望上游行为 | Raven 行为 |
+|------|-------------|-----------|
+| `stream: true` | 返回 `Content-Type: text/event-stream`，SSE 格式 | 原样透传 SSE |
+| `stream: false` 或省略 | 返回单个 JSON response object | 原样返回 JSON |
+| 上游 4xx/5xx | 返回 JSON 错误体 | `forwardError()` 透传状态码和错误体 |
+| 上游违反契约 | — | 直接转发/报错，不做修复 |
 
 ---
 
@@ -35,7 +48,6 @@ GitHub Copilot 后端原生支持 `/responses` 端点（与 OpenAI Responses API
 packages/proxy/src/routes/responses/
 ├── route.ts                    # Hono router
 ├── handler.ts                  # Passthrough handler
-└── types.ts                    # Minimal type definitions (optional)
 
 packages/proxy/src/services/copilot/
 └── create-responses.ts         # Upstream fetch wrapper
@@ -119,26 +131,38 @@ import type { Context } from "hono"
 import { streamSSE } from "hono/streaming"
 
 import { createResponses, type ResponsesPayload } from "../../services/copilot/create-responses"
+import { forwardError } from "../../lib/error"
 
 export const handleResponses = async (c: Context) => {
-  const payload = await c.req.json<ResponsesPayload>()
+  let payload: ResponsesPayload
 
-  const response = await createResponses(payload)
-
-  // Streaming: passthrough SSE events
-  if (payload.stream && isAsyncIterable(response)) {
-    return streamSSE(c, async (stream) => {
-      for await (const chunk of response) {
-        await stream.writeSSE({
-          event: chunk.event,
-          data: typeof chunk.data === "string" ? chunk.data : JSON.stringify(chunk.data),
-        })
-      }
-    })
+  try {
+    payload = await c.req.json<ResponsesPayload>()
+  } catch {
+    return c.json({ error: { message: "Invalid JSON", type: "invalid_request_error" } }, 400)
   }
 
-  // Non-streaming: return JSON
-  return c.json(response)
+  try {
+    const response = await createResponses(payload)
+
+    // Streaming: passthrough SSE events
+    if (payload.stream && isAsyncIterable(response)) {
+      return streamSSE(c, async (stream) => {
+        for await (const chunk of response) {
+          await stream.writeSSE({
+            event: chunk.event,
+            data: typeof chunk.data === "string" ? chunk.data : JSON.stringify(chunk.data),
+          })
+        }
+      })
+    }
+
+    // Non-streaming: return JSON
+    return c.json(response)
+  } catch (error) {
+    // 使用现有 forwardError() 保持错误响应格式一致
+    return forwardError(c, error)
+  }
 }
 
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
@@ -180,7 +204,7 @@ Raven 作为 passthrough 代理，**不做**：
 - 字段验证（交给上游）
 - 内置工具过滤
 - previous_response_id 管理
-- Model capability 检查（除非上游返回错误）
+- Model capability 检查（交给上游返回错误）
 
 上游返回什么，Raven 就返回什么。
 
@@ -329,10 +353,10 @@ Wire up Responses API:
 - Returns Content-Type: text/event-stream for streaming
 - Passthrough SSE events with correct format
 - Handles function_call streaming
-- Returns upstream error format on failure
+- Returns 400 on invalid JSON body
+- Returns upstream error via forwardError() (preserves status code)
+- Returns upstream error body in response
 - Handles empty stream gracefully
-- Respects stream: false
-- Respects stream: true
 
 ---
 
