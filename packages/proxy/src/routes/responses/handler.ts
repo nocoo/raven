@@ -63,8 +63,13 @@ export const handleResponses = async (c: Context) => {
               await sseStream.writeSSE({ data: chunk.data })
             }
 
-            // Extract usage from response.completed event
-            if (chunk.event === "response.completed" || chunk.event === "response.done") {
+            // Extract usage from terminal response events
+            // Covers: response.completed, response.done, response.incomplete, response.failed
+            if (chunk.event?.startsWith("response.") &&
+                (chunk.event === "response.completed" ||
+                 chunk.event === "response.done" ||
+                 chunk.event === "response.incomplete" ||
+                 chunk.event === "response.failed")) {
               try {
                 const parsed = JSON.parse(chunk.data)
                 if (parsed.response?.usage) {
@@ -84,9 +89,9 @@ export const handleResponses = async (c: Context) => {
             await sseStream.writeSSE({
               event: "error",
               data: JSON.stringify({
-                type: "error",
                 error: {
                   type: "server_error",
+                  code: "stream_error",
                   message: "An upstream error occurred during streaming.",
                 },
               }),

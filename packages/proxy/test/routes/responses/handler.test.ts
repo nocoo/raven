@@ -357,6 +357,43 @@ describe("handleResponses (logging)", () => {
     expect(endEvent!.data?.stream).toBe(true)
   })
 
+  test("extracts usage from streaming response.incomplete event", async () => {
+    const incompleteData = JSON.stringify({
+      response: {
+        id: "resp_1",
+        status: "incomplete",
+        incomplete_details: { reason: "max_output_tokens" },
+        usage: { input_tokens: 200, output_tokens: 4096 },
+      },
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        'event: response.created\ndata: {"id":"resp_1"}\n\n',
+        `event: response.incomplete\ndata: ${incompleteData}\n\n`,
+      ]),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    const res = await app.request(
+      req({ model: "gpt-4o", input: "hello", stream: true }),
+    )
+
+    await res.text()
+    await new Promise((r) => setTimeout(r, 50))
+
+    logEmitter.off("log", listener)
+
+    const endEvent = events.find((e) => e.type === "request_end")
+    expect(endEvent).toBeDefined()
+    expect(endEvent!.data?.inputTokens).toBe(200)
+    expect(endEvent!.data?.outputTokens).toBe(4096)
+  })
+
   test("emits error log on upstream failure", async () => {
     const errorBody = JSON.stringify({ error: { message: "model not found" } })
     fetchSpy.mockResolvedValueOnce(
@@ -459,8 +496,9 @@ describe("handleResponses (mid-stream error)", () => {
     // Should contain the initial event
     expect(text).toContain("response.created")
 
-    // Should contain the error event (best-effort)
+    // Should contain the error event (best-effort) with code
     expect(text).toContain("event: error")
     expect(text).toContain("server_error")
+    expect(text).toContain("stream_error")
   })
 })
