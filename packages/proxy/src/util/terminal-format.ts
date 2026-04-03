@@ -34,16 +34,16 @@ export function formatTime(ts: number): string {
 }
 
 /**
- * Shorten model name by stripping common prefixes:
- *   "claude-3-5-sonnet-20241022" → "3-5-sonnet-20241022"
- *   "claude-sonnet-4-20250514"   → "sonnet-4-20250514"
- *   "gpt-4o"                     → "4o"
- *   "o3-mini"                    → "o3-mini" (no prefix to strip)
+ * Shorten model name by stripping trailing date patterns:
+ *   "claude-3-5-sonnet-20241022"   → "claude-3-5-sonnet"
+ *   "claude-sonnet-4-20250514"     → "claude-sonnet-4"
+ *   "gpt-5.4-2026-03-05"          → "gpt-5.4"
+ *   "gpt-4o"                       → "gpt-4o" (no date to strip)
+ *   "o3-mini"                      → "o3-mini"
  */
 export function shortenModel(model: string): string {
-  if (model.startsWith("claude-")) return model.slice(7);
-  if (model.startsWith("gpt-")) return model.slice(4);
-  return model;
+  // Strip trailing -YYYYMMDD (e.g. -20241022)
+  return model.replace(/-\d{8}$/, "").replace(/-\d{4}-\d{2}-\d{2}$/, "");
 }
 
 /**

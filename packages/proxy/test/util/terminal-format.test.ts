@@ -28,26 +28,17 @@ describe("formatTime", () => {
 })
 
 describe("shortenModel", () => {
-  test("strips claude- prefix", () => {
-    expect(shortenModel("claude-3-5-sonnet-20241022")).toBe(
-      "3-5-sonnet-20241022",
-    )
+  test("strips trailing -YYYYMMDD date", () => {
+    expect(shortenModel("claude-3-5-sonnet-20241022")).toBe("claude-3-5-sonnet")
   })
 
-  test("strips claude- prefix for newer naming", () => {
-    expect(shortenModel("claude-sonnet-4-20250514")).toBe(
-      "sonnet-4-20250514",
-    )
+  test("strips trailing -YYYY-MM-DD date", () => {
+    expect(shortenModel("gpt-5.4-2026-03-05")).toBe("gpt-5.4")
   })
 
-  test("strips gpt- prefix", () => {
-    expect(shortenModel("gpt-4o")).toBe("4o")
-    expect(shortenModel("gpt-4o-mini")).toBe("4o-mini")
-  })
-
-  test("keeps model names without known prefix", () => {
+  test("keeps model names without date suffix", () => {
+    expect(shortenModel("gpt-4o")).toBe("gpt-4o")
     expect(shortenModel("o3-mini")).toBe("o3-mini")
-    expect(shortenModel("o1")).toBe("o1")
   })
 })
 
@@ -154,7 +145,7 @@ describe("formatEvent", () => {
   })
 
   describe("request_start", () => {
-    test("includes arrow, shortened model, stream mode, client, session", () => {
+    test("includes arrow, model (date stripped), stream mode, client, session", () => {
       const event: LogEvent = {
         ts: Date.now(),
         level: "info",
@@ -170,8 +161,8 @@ describe("formatEvent", () => {
       }
       const line = formatEvent(event)!
       expect(line).toContain("──▶")
-      expect(line).toContain("sonnet-4-20250514") // shortened
-      expect(line).not.toContain("claude-sonnet") // prefix stripped
+      expect(line).toContain("claude-sonnet-4") // date stripped
+      expect(line).not.toContain("20250514") // date removed
       expect(line).toContain("stream")
       expect(line).toContain("Claude Code")
       expect(line).toContain("a885da")
@@ -192,7 +183,7 @@ describe("formatEvent", () => {
       }
       const line = formatEvent(event)!
       expect(line).toContain("sync")
-      expect(line).toContain("4o") // shortened
+      expect(line).toContain("gpt-4o") // no date to strip
     })
   })
 
@@ -218,7 +209,7 @@ describe("formatEvent", () => {
       }
       const line = formatEvent(event)!
       expect(line).toContain("◀──")
-      expect(line).toContain("sonnet-4-20250514")
+      expect(line).toContain("claude-sonnet-4")
       expect(line).toContain("200")
       expect(line).toContain("7.5s")
       expect(line).toContain("ttft 2.4s")
