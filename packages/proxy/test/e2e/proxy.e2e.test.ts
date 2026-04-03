@@ -404,3 +404,72 @@ describe("e2e L4: tool_choice none", () => {
     expect(hasToolUse).toBe(false);
   });
 });
+
+// ===========================================================================
+// Layer 5: Responses API (OpenAI native)
+// ===========================================================================
+
+describe("e2e L5: /v1/responses (non-streaming)", () => {
+  test("POST /v1/responses returns valid response structure", async () => {
+    if (!proxyReachable) return;
+
+    const res = await fetch(`${PROXY}/v1/responses`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        model: "gpt-5-mini",
+        input: "Reply with exactly: hello",
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) {
+      failFastOnError(res, await res.text());
+    }
+
+    const body = await res.json();
+
+    // Validate Responses API response shape
+    expect(body.id).toMatch(/^resp_/);
+    expect(body.object).toBe("response");
+    expect(body.status).toBe("completed");
+    expect(body.output).toBeArray();
+    expect(body.output.length).toBeGreaterThan(0);
+    expect(body.usage).toBeDefined();
+    expect(typeof body.usage.input_tokens).toBe("number");
+    expect(typeof body.usage.output_tokens).toBe("number");
+  });
+});
+
+describe("e2e L5: /v1/responses (streaming)", () => {
+  test("POST /v1/responses streaming returns SSE events", async () => {
+    if (!proxyReachable) return;
+
+    const res = await fetch(`${PROXY}/v1/responses`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        model: "gpt-5-mini",
+        input: "Reply with exactly: hello",
+        stream: true,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) {
+      failFastOnError(res, await res.text());
+    }
+
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+    const events = await consumeSSE(res);
+    const eventTypes = events
+      .filter((e) => e.event)
+      .map((e) => e.event);
+
+    // Verify Responses API SSE lifecycle
+    expect(eventTypes).toContain("response.created");
+    expect(eventTypes).toContain("response.completed");
+  });
+});
