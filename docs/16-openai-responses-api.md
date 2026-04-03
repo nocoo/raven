@@ -16,14 +16,14 @@ GitHub Copilot 后端原生支持 `/responses` 端点（与 OpenAI Responses API
 ├─────────────────────────────────────────────────────────────────┤
 │  1. Forward payload to Copilot /responses                       │
 │  2. Return response (JSON or SSE stream passthrough)            │
-│  3. On error: forwardError() with upstream status/body          │
+│  3. On error: forwardError() 保留状态码，封装 error.message     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
                   https://api.githubcopilot.com/responses
 ```
 
-**不做翻译**：请求和响应原样透传，Raven 只是代理层。
+**成功响应与 SSE 事件原样透传；错误响应保留 HTTP 状态码，但按 `forwardError()` 格式封装为 `{ error: { message, type } }`。**
 
 ---
 
@@ -35,7 +35,7 @@ Raven 依赖以下上游行为，**不做协议修复**：
 |------|-------------|-----------|
 | `stream: true` | 返回 `Content-Type: text/event-stream`，SSE 格式 | 原样透传 SSE |
 | `stream: false` 或省略 | 返回单个 JSON response object | 原样返回 JSON |
-| 上游 4xx/5xx | 返回 JSON 错误体 | `forwardError()` 透传状态码和错误体 |
+| 上游 4xx/5xx | 返回错误体 | `forwardError()` 保留状态码，上游 body 作为 `error.message` |
 | 上游违反契约 | — | 直接转发/报错，不做修复 |
 
 ---
@@ -205,8 +205,7 @@ Raven 作为 passthrough 代理，**不做**：
 - 内置工具过滤
 - previous_response_id 管理
 - Model capability 检查（交给上游返回错误）
-
-上游返回什么，Raven 就返回什么。
+- 错误体原样透传（错误响应按 `forwardError()` 封装）
 
 ---
 
@@ -354,8 +353,8 @@ Wire up Responses API:
 - Passthrough SSE events with correct format
 - Handles function_call streaming
 - Returns 400 on invalid JSON body
-- Returns upstream error via forwardError() (preserves status code)
-- Returns upstream error body in response
+- Returns upstream status code via forwardError()
+- Returns error.message containing upstream body
 - Handles empty stream gracefully
 
 ---
