@@ -26,10 +26,12 @@ Raven 当前支持：
 | `item_reference` 输入项 | 依赖 previous_response_id | 400: unsupported input item: item_reference |
 | `input_file` 内容块 | 需要文件存储和解析 | 400: unsupported content part: input_file |
 | `input_image.file_id` | 需要文件 ID 解析 | 400: input_image.file_id not supported, use image_url |
-| 内置工具 (web_search, file_search, code_interpreter) | 需要服务端实现 | 透传到上游，上游返回错误 |
-| Computer Use | 需要特殊运行环境 | 透传到上游 |
+| 内置工具 (web_search, file_search, code_interpreter) | Responses→Chat 翻译层无法表达 | 400: unsupported tool type: {type} |
+| Computer Use | 需要特殊运行环境 | 400: unsupported tool type: computer_use |
 
-**设计原则：不支持的功能必须明确报错，绝不静默丢弃数据。**
+**设计原则：**
+1. 不支持的功能必须明确报错，绝不静默丢弃数据
+2. 架构是 Responses → Chat Completions 翻译，内置工具无法透传（Chat Completions 只支持 function tools）
 
 ---
 
@@ -423,7 +425,12 @@ export interface ResponsesIncompleteEventData {
 ```typescript
 // request-translation.ts
 
-import type { ChatCompletionsPayload, Message, Tool } from "../../services/copilot/create-chat-completions"
+import type {
+  ChatCompletionsPayload,
+  Message,
+  Tool,
+  ContentPart,  // 用于 translateContent 返回类型
+} from "../../services/copilot/create-chat-completions"
 import type {
   ResponsesRequest,
   ResponsesInputItem,
@@ -431,6 +438,7 @@ import type {
   ResponsesFunctionCallOutputItem,
   ResponsesTool,
   ResponsesToolChoice,
+  ResponsesContentPart,
 } from "./responses-types"
 
 export function translateResponsesToOpenAI(
@@ -568,12 +576,40 @@ function translateContent(content: string | ResponsesContentPart[]): string | Co
   return result
 }
 
-// Tools 必须保持嵌套结构，直接透传
+// 内置工具类型 — Chat Completions 无法表达，必须拒绝
+const BUILTIN_TOOL_TYPES = new Set([
+  "web_search",
+  "file_search",
+  "code_interpreter",
+  "computer_use",
+])
+
+// Tools 翻译 — 只支持 function tools
 function translateTools(tools?: ResponsesTool[] | null): Tool[] | null {
   if (!tools) return null
-  // ResponsesTool 已经是正确的嵌套结构 { type, function: { name, ... } }
-  // 可以直接使用，类型兼容 createChatCompletions 的 Tool
-  return tools as Tool[]
+
+  const result: Tool[] = []
+  for (const tool of tools) {
+    // 检查是否是内置工具（Responses API 特有，Chat Completions 不支持）
+    if (BUILTIN_TOOL_TYPES.has(tool.type)) {
+      throw new UnsupportedInputError(
+        tool.type,
+        `Unsupported tool type: ${tool.type}. Only function tools are supported.`
+      )
+    }
+
+    // function tool — 透传（类型已经匹配）
+    if (tool.type === "function") {
+      result.push(tool)
+    } else {
+      // 未知 tool 类型
+      throw new UnsupportedInputError(
+        tool.type,
+        `Unknown tool type: ${tool.type}`
+      )
+    }
+  }
+  return result.length > 0 ? result : null
 }
 
 // tool_choice 也保持嵌套结构
@@ -1004,7 +1040,7 @@ Handle edge cases in request translation:
 | `src/routes/responses/request-translation.ts` | extend | +60 |
 | `test/routes/responses/request-translation.test.ts` | extend | +100 |
 
-**Test Cases (12):**
+**Test Cases (16):**
 ```typescript
 describe("translateResponsesToOpenAI edge cases", () => {
   // Validation errors
@@ -1024,6 +1060,12 @@ describe("translateResponsesToOpenAI edge cases", () => {
   it("throws UnsupportedInputError on item_reference")
   it("throws UnsupportedInputError on input_file content part")
   it("throws UnsupportedInputError on unknown content part type")
+
+  // Unsupported tool types → 400 (Chat Completions 无法表达)
+  it("throws UnsupportedInputError on web_search tool")
+  it("throws UnsupportedInputError on file_search tool")
+  it("throws UnsupportedInputError on code_interpreter tool")
+  it("throws UnsupportedInputError on computer_use tool")
 
   // Reasoning
   it("maps reasoning.effort to reasoning_effort")
@@ -1386,38 +1428,38 @@ describe("handleResponses (validation)", () => {
 
 | Dimension | Description | Trigger | Target |
 |-----------|-------------|---------|--------|
-| **L1** | Unit Tests | pre-commit | +96 tests, ≥90% coverage |
+| **L1** | Unit Tests | pre-commit | +102 tests, ≥90% coverage |
 | **L2** | API E2E | manual | 4 new test cases |
 | **L3** | Playwright | N/A | 无新增（dashboard 无 UI 变更） |
 | **G1** | Static Analysis | pre-commit | 0 errors, 0 warnings |
 | **G2** | Security | pre-push | osv-scanner + gitleaks pass |
 | **D1** | Test Isolation | enforced | 使用 `raven-test.db` |
 
-### L1: Unit Tests (+100 tests)
+### L1: Unit Tests (+102 tests)
 
 | Test File | Cases | Coverage |
 |-----------|-------|----------|
-| `request-translation.test.ts` | 24 | 100% |
+| `request-translation.test.ts` | 28 | 100% |
 | `response-translation.test.ts` | 14 | 100% |
-| `stream-translation.test.ts` | 32 | 100% |
+| `stream-translation.test.ts` | 30 | 100% |
 | `handler.test.ts` | 30 | 90% |
-| **Total** | **100** | **≥90%** |
+| **Total** | **102** | **≥90%** |
 
 #### Test Matrix by Commit
 
 | Commit | Test File | New Tests | Cumulative |
 |--------|-----------|-----------|------------|
 | 3 | request-translation.test.ts | +12 | 12 |
-| 4 | request-translation.test.ts | +12 | 24 |
-| 5 | response-translation.test.ts | +14 | 38 |
-| 6 | handler.test.ts | +6 | 44 |
-| 7 | stream-translation.test.ts | +12 | 56 |
-| 8 | stream-translation.test.ts | +10 | 66 |
-| 9 | stream-translation.test.ts | +10 | 76 |
-| 10 | handler.test.ts | +8 | 84 |
-| 11 | handler.test.ts | +6 | 90 |
-| 12 | handler.test.ts | +4 | 94 |
-| 13 | handler.test.ts | +6 | 100 |
+| 4 | request-translation.test.ts | +16 | 28 |
+| 5 | response-translation.test.ts | +14 | 42 |
+| 6 | handler.test.ts | +6 | 48 |
+| 7 | stream-translation.test.ts | +12 | 60 |
+| 8 | stream-translation.test.ts | +8 | 68 |
+| 9 | stream-translation.test.ts | +10 | 78 |
+| 10 | handler.test.ts | +8 | 86 |
+| 11 | handler.test.ts | +6 | 92 |
+| 12 | handler.test.ts | +4 | 96 |
+| 13 | handler.test.ts | +6 | 102 |
 
 #### Verification Command
 
