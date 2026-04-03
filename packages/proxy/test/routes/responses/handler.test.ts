@@ -2,6 +2,8 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 
 import { state } from "../../../src/lib/state"
+import { logEmitter } from "../../../src/util/log-emitter"
+import type { LogEvent } from "../../../src/util/log-event"
 import { handleResponses } from "../../../src/routes/responses/handler"
 
 // ---------------------------------------------------------------------------
@@ -259,5 +261,123 @@ describe("handleResponses (errors)", () => {
     expect(res.status).toBe(429)
     const json = await res.json()
     expect(json.error.message).toContain("rate limit exceeded")
+  })
+})
+
+// ===========================================================================
+// handleResponses — logging
+// ===========================================================================
+
+describe("handleResponses (logging)", () => {
+  test("emits request_start log event", async () => {
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeResponsesResponse()))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({ model: "gpt-4o", input: "hello" }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const startEvent = events.find((e) => e.type === "request_start")
+    expect(startEvent).toBeDefined()
+    expect(startEvent!.data?.path).toBe("/v1/responses")
+    expect(startEvent!.data?.format).toBe("responses")
+    expect(startEvent!.data?.model).toBe("gpt-4o")
+    expect(startEvent!.data?.stream).toBe(false)
+  })
+
+  test("emits request_end log event with usage", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchJson(
+        makeResponsesResponse({
+          usage: { input_tokens: 50, output_tokens: 25, total_tokens: 75 },
+        }),
+      ),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({ model: "gpt-4o", input: "hello" }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const endEvent = events.find((e) => e.type === "request_end")
+    expect(endEvent).toBeDefined()
+    expect(endEvent!.data?.inputTokens).toBe(50)
+    expect(endEvent!.data?.outputTokens).toBe(25)
+    expect(endEvent!.data?.status).toBe("success")
+    expect(endEvent!.data?.statusCode).toBe(200)
+  })
+
+  test("extracts usage from streaming response.completed event", async () => {
+    const completedData = JSON.stringify({
+      response: {
+        id: "resp_1",
+        status: "completed",
+        usage: { input_tokens: 100, output_tokens: 50 },
+      },
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        'event: response.created\ndata: {"id":"resp_1"}\n\n',
+        `event: response.completed\ndata: ${completedData}\n\n`,
+      ]),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    const res = await app.request(
+      req({ model: "gpt-4o", input: "hello", stream: true }),
+    )
+
+    // Must consume the response body to trigger finally block
+    await res.text()
+    await new Promise((r) => setTimeout(r, 50))
+
+    logEmitter.off("log", listener)
+
+    const endEvent = events.find((e) => e.type === "request_end")
+    expect(endEvent).toBeDefined()
+    expect(endEvent!.data?.inputTokens).toBe(100)
+    expect(endEvent!.data?.outputTokens).toBe(50)
+    expect(endEvent!.data?.stream).toBe(true)
+  })
+
+  test("emits error log on upstream failure", async () => {
+    const errorBody = JSON.stringify({ error: { message: "model not found" } })
+    fetchSpy.mockResolvedValueOnce(
+      new Response(errorBody, { status: 404, headers: { "content-type": "application/json" } }),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({ model: "nonexistent-model", input: "hello" }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const endEvent = events.find((e) => e.type === "request_end")
+    expect(endEvent).toBeDefined()
+    expect(endEvent!.level).toBe("error")
+    expect(endEvent!.data?.status).toBe("error")
+    expect(endEvent!.data?.statusCode).toBe(404)
   })
 })
