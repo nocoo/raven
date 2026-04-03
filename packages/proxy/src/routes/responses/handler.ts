@@ -47,6 +47,7 @@ export const handleResponses = async (c: Context) => {
 
     // Streaming: passthrough SSE events
     if (stream && isAsyncIterable(response)) {
+      let resolvedModel = model
       let inputTokens = 0
       let outputTokens = 0
       let streamError: string | null = null
@@ -61,6 +62,18 @@ export const handleResponses = async (c: Context) => {
               await sseStream.writeSSE({ event: chunk.event, data: chunk.data })
             } else {
               await sseStream.writeSSE({ data: chunk.data })
+            }
+
+            // Extract model from response.created event
+            if (chunk.event === "response.created") {
+              try {
+                const parsed = JSON.parse(chunk.data)
+                if (parsed.response?.model) {
+                  resolvedModel = parsed.response.model
+                }
+              } catch {
+                // Parse error — don't break stream
+              }
             }
 
             // Extract usage from terminal response events
@@ -108,10 +121,10 @@ export const handleResponses = async (c: Context) => {
           logEmitter.emitLog({
             ts: Date.now(), level: streamError ? "error" : "info",
             type: "request_end", requestId,
-            msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
+            msg: `${streamError ? "error" : "200"} ${resolvedModel} ${latencyMs}ms`,
             data: {
               path: "/v1/responses", format: "responses", model,
-              inputTokens, outputTokens, latencyMs,
+              resolvedModel, inputTokens, outputTokens, latencyMs,
               ttftMs, processingMs,
               stream: true, status: streamError ? "error" : "success",
               statusCode: streamError ? 502 : 200,
@@ -127,16 +140,17 @@ export const handleResponses = async (c: Context) => {
     // Non-streaming: return JSON
     const latencyMs = Math.round(performance.now() - startTime)
     const resp = response as Record<string, unknown>
+    const resolvedModel = (resp.model as string) ?? model
     const usage = resp.usage as { input_tokens?: number; output_tokens?: number } | undefined
     const inputTokens = usage?.input_tokens ?? 0
     const outputTokens = usage?.output_tokens ?? 0
 
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_end", requestId,
-      msg: `200 ${model} ${latencyMs}ms`,
+      msg: `200 ${resolvedModel} ${latencyMs}ms`,
       data: {
         path: "/v1/responses", format: "responses", model,
-        inputTokens, outputTokens, latencyMs,
+        resolvedModel, inputTokens, outputTokens, latencyMs,
         ttftMs: null, processingMs: null,
         stream: false, status: "success", statusCode: 200,
         upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
