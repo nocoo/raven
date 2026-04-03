@@ -172,9 +172,113 @@ app.route("/v1/responses", responsesRoutes)
 
 ---
 
-## Implementation Plan
+## Non-Goals
 
-### Atomic Commits (3 commits)
+Raven 作为 passthrough 代理，**不做**：
+
+- 请求/响应翻译
+- 字段验证（交给上游）
+- 内置工具过滤
+- previous_response_id 管理
+- Model capability 检查（除非上游返回错误）
+
+上游返回什么，Raven 就返回什么。
+
+---
+
+## Codex CLI 配置指南
+
+### 配置文件
+
+Codex CLI 通过 `~/.codex/config.toml` 配置：
+
+```toml
+# 指向 Raven 代理
+base_url = "http://localhost:7024"
+
+# 使用的模型
+model = "gpt-5.4"
+
+# 可选：上下文窗口配置
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+### 环境变量
+
+```bash
+# API Key（Raven 需要配置 RAVEN_API_KEY 时使用）
+export OPENAI_API_KEY="your-raven-api-key"
+
+# 或通过 base_url 覆盖（优先级低于 config.toml）
+export OPENAI_BASE_URL="http://localhost:7024"
+```
+
+### 命令行参数
+
+```bash
+# 临时覆盖配置
+codex -c 'base_url="http://localhost:7024"' -c 'model="gpt-5.4"' "your prompt"
+
+# 使用 profile
+codex -p raven "your prompt"
+```
+
+### Profile 配置（推荐）
+
+在 `~/.codex/config.toml` 中定义 profile：
+
+```toml
+[profiles.raven]
+base_url = "http://localhost:7024"
+model = "gpt-5.4"
+
+[profiles.raven-claude]
+base_url = "http://localhost:7024"
+model = "claude-sonnet-4"
+```
+
+使用：
+```bash
+codex -p raven "your prompt"
+codex -p raven-claude "your prompt"
+```
+
+### API Key 登录
+
+如果 Raven 配置了 `RAVEN_API_KEY`：
+
+```bash
+# 通过 stdin 传入 API key
+echo "your-raven-api-key" | codex login --with-api-key
+```
+
+### 调试验证
+
+```bash
+# 检查当前配置
+cat ~/.codex/config.toml
+
+# 检查登录状态
+codex login status
+
+# 验证连接（简单请求）
+codex -c 'model="gpt-5-mini"' "say hello"
+```
+
+### 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 连接被拒绝 | 确认 Raven 在 7024 端口运行：`curl http://localhost:7024/health` |
+| 401 Unauthorized | 检查 `OPENAI_API_KEY` 环境变量或 Raven 的 API key 配置 |
+| Model not found | 使用 `/v1/models` 检查可用模型：`curl http://localhost:7024/v1/models` |
+
+---
+
+## Implementation Plan（更新）
+
+### Atomic Commits (4 commits)
 
 #### Commit 1: Add create-responses service
 
@@ -253,6 +357,26 @@ Instrument handler:
 
 ---
 
+#### Commit 4: Add E2E tests for /v1/responses
+
+```
+test(proxy): add E2E tests for /v1/responses endpoint
+
+Add manual E2E tests following anti-ban protocol:
+- Non-streaming: verify JSON response structure
+- Streaming: verify SSE event format
+```
+
+| File | Change |
+|------|--------|
+| `test/e2e/proxy.e2e.test.ts` | extend |
+
+**Tests (2):**
+- POST /v1/responses non-streaming returns valid response
+- POST /v1/responses streaming returns SSE events
+
+---
+
 ## 6DQ Test Plan
 
 | Dimension | Target |
@@ -263,7 +387,7 @@ Instrument handler:
 | **G2** | osv-scanner + gitleaks pass |
 | **D1** | Uses `raven-test.db` |
 
-### L1 Tests
+### L1 Unit Tests
 
 | File | Tests |
 |------|-------|
@@ -274,46 +398,40 @@ Instrument handler:
 ### L2 E2E Tests (Manual)
 
 ```typescript
-test("POST /v1/responses non-streaming", async () => {
-  const res = await fetch(`${PROXY}/v1/responses`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({
-      model: "gpt-5-mini",
-      input: "Say hello",
-      stream: false,
-    }),
+describe("e2e: /v1/responses", () => {
+  test("POST /v1/responses non-streaming", async () => {
+    const res = await fetch(`${PROXY}/v1/responses`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        model: "gpt-5-mini",
+        input: "Reply with exactly: hello",
+        stream: false,
+      }),
+    })
+    expect(res.ok).toBe(true)
+    const body = await res.json()
+    expect(body.id).toMatch(/^resp_/)
+    expect(body.output).toBeArray()
+    expect(body.status).toBe("completed")
   })
-  expect(res.ok).toBe(true)
-  const body = await res.json()
-  expect(body.output).toBeDefined()
-})
 
-test("POST /v1/responses streaming", async () => {
-  const res = await fetch(`${PROXY}/v1/responses`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({
-      model: "gpt-5-mini",
-      input: "Say hello",
-      stream: true,
-    }),
+  test("POST /v1/responses streaming", async () => {
+    const res = await fetch(`${PROXY}/v1/responses`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        model: "gpt-5-mini",
+        input: "Reply with exactly: hello",
+        stream: true,
+      }),
+    })
+    expect(res.headers.get("content-type")).toContain("text/event-stream")
+    
+    // Verify SSE format: event: xxx\ndata: {...}\n\n
+    const text = await res.text()
+    expect(text).toContain("event: response.created")
+    expect(text).toContain("event: response.completed")
   })
-  expect(res.headers.get("content-type")).toContain("text/event-stream")
-  // Verify SSE format: event: xxx\ndata: {...}\n\n
 })
 ```
-
----
-
-## Non-Goals
-
-Raven 作为 passthrough 代理，**不做**：
-
-- 请求/响应翻译
-- 字段验证（交给上游）
-- 内置工具过滤
-- previous_response_id 管理
-- Model capability 检查（除非上游返回错误）
-
-上游返回什么，Raven 就返回什么。
