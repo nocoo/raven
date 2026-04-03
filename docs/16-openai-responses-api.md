@@ -320,7 +320,7 @@ codex -c 'model="gpt-5-mini"' "say hello"
 
 ### Atomic Commits (4 commits)
 
-#### Commit 1: Add create-responses service
+#### Commit 1: Add create-responses service ✅
 
 ```
 feat(proxy): add Copilot /responses service
@@ -346,7 +346,7 @@ Add upstream service for Responses API passthrough:
 
 ---
 
-#### Commit 2: Add /v1/responses handler and route
+#### Commit 2: Add /v1/responses handler and route ✅
 
 ```
 feat(proxy): add /v1/responses passthrough endpoint
@@ -376,7 +376,7 @@ Wire up Responses API:
 
 ---
 
-#### Commit 3: Add logging
+#### Commit 3: Add logging ✅
 
 ```
 feat(proxy): add logging for /v1/responses
@@ -397,7 +397,7 @@ Instrument handler:
 
 ---
 
-#### Commit 4: Add E2E tests for /v1/responses
+#### Commit 4: Add E2E tests for /v1/responses ✅
 
 ```
 test(proxy): add E2E tests for /v1/responses endpoint
@@ -475,3 +475,32 @@ describe("e2e: /v1/responses", () => {
   })
 })
 ```
+
+---
+
+## Implementation Summary
+
+**Completed: 2026-04-04**
+
+| Metric | Target | Actual |
+|--------|--------|--------|
+| Commits | 4 | 4 |
+| Unit Tests | 16 | 25 |
+| E2E Tests | 2 | 2 |
+| Coverage | 90% | 91.2% |
+
+### Commits
+
+1. `c1a45a4` feat(proxy): add Copilot /responses service
+2. `c5ee894` feat(proxy): add /v1/responses route and handler
+3. `921119c` feat(proxy): add logging for /v1/responses
+4. `464c942` test(proxy): add E2E tests for /v1/responses endpoint
+
+### Test Coverage
+
+| File | Tests |
+|------|-------|
+| `create-responses.test.ts` | 12 |
+| `handler.test.ts` | 13 |
+| `proxy.e2e.test.ts` | +2 |
+| **Total** | **27** |
