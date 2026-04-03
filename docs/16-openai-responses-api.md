@@ -311,7 +311,7 @@ codex -c 'model="gpt-5-mini"' "say hello"
 | 问题 | 解决方案 |
 |------|----------|
 | 连接被拒绝 | 确认 Raven 在 7024 端口运行：`curl http://localhost:7024/health` |
-| 401 Unauthorized | 检查 `OPENAI_API_KEY` 环境变量或 Raven 的 API key 配置 |
+| 401 Unauthorized | 检查 provider 的 `env_key` 对应环境变量（如 `RAVEN_API_KEY`）和 Raven 的 API key 配置 |
 | Model not found | 使用 `/v1/models` 检查可用模型：`curl http://localhost:7024/v1/models` |
 
 ---
