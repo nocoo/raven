@@ -16,11 +16,20 @@ Raven 当前支持：
 2. **复用现有架构** — 遵循 messages handler 的 translation 模式
 3. **渐进式实现** — 先支持核心功能，后续迭代扩展
 
-## Non-Goals
+## Non-Goals (MVP)
 
-- 内置工具（web_search, file_search, code_interpreter）— Raven 不是 OpenAI，这些需要服务端实现
-- `previous_response_id` 状态管理 — 需要服务端存储，MVP 阶段不支持
-- Computer Use — 需要特殊运行环境
+以下功能 **明确不支持**，请求时返回 400 错误：
+
+| 功能 | 原因 | 错误响应 |
+|------|------|----------|
+| `previous_response_id` | 需要服务端状态存储 | 400: previous_response_id not supported |
+| `item_reference` 输入项 | 依赖 previous_response_id | 400: unsupported input item: item_reference |
+| `input_file` 内容块 | 需要文件存储和解析 | 400: unsupported content part: input_file |
+| `input_image.file_id` | 需要文件 ID 解析 | 400: input_image.file_id not supported, use image_url |
+| 内置工具 (web_search, file_search, code_interpreter) | 需要服务端实现 | 透传到上游，上游返回错误 |
+| Computer Use | 需要特殊运行环境 | 透传到上游 |
+
+**设计原则：不支持的功能必须明确报错，绝不静默丢弃数据。**
 
 ---
 
@@ -78,17 +87,21 @@ interface ResponsesFunctionCallOutputItem {
   output: string                   // 工具执行结果（JSON string 或纯文本）
 }
 
-// 项引用（用于 stateless 模式下引用之前的输出）
+// 项引用 — MVP 不支持，handler 层返回 400
+// 原因：需要 previous_response_id 状态管理（已列为 non-goal）
 interface ResponsesItemReference {
   type: "item_reference"
-  id: string                       // 之前响应中 output item 的 id
+  id: string
 }
 
 // 内容块类型
+// MVP 限制：
+// - input_image 仅支持 image_url（data URL 或 http URL）
+// - input_image.file_id 不支持 → 返回 400
+// - input_file 不支持 → 返回 400
 type ResponsesContentPart =
   | { type: "input_text"; text: string }
-  | { type: "input_image"; image_url?: string; file_id?: string }
-  | { type: "input_file"; file_id: string }
+  | { type: "input_image"; image_url: string }  // MVP: 仅支持 URL，不支持 file_id
 
 // ===== Tool Types =====
 // 必须匹配 OpenAI Chat Completions 的嵌套结构
@@ -276,16 +289,18 @@ export interface ResponsesFunctionCallOutputItem {
   output: string
 }
 
-// 项引用（stateless 模式）
+// 项引用 — MVP 不支持，handler 返回 400
 export interface ResponsesItemReference {
   type: "item_reference"
   id: string
 }
 
+// MVP 限制：仅支持 input_text 和 input_image (URL only)
+// input_image.file_id → 400
+// input_file → 400
 export type ResponsesContentPart =
   | { type: "input_text"; text: string }
-  | { type: "input_image"; image_url?: string; file_id?: string }
-  | { type: "input_file"; file_id: string }
+  | { type: "input_image"; image_url: string }  // MVP: URL only, no file_id
 
 // ===== Tool Types =====
 // 必须匹配 createChatCompletions 的 Tool 类型（嵌套结构）
@@ -375,6 +390,7 @@ export interface ResponsesStreamState {
   functionCalls: Map<number, { id: string; name: string; arguments: string }>
   inputTokens: number
   outputTokens: number
+  finishReason: string | null  // 记录 finish_reason 用于最终 status 映射
 }
 
 export type ResponsesStreamEvent =
@@ -389,8 +405,15 @@ export type ResponsesStreamEvent =
   | { event: "response.output_item.done"; data: ResponsesOutputItemDoneEventData }
   | { event: "response.content_part.done"; data: ResponsesContentPartDoneEventData }
   | { event: "response.completed"; data: ResponsesCompletedEventData }
+  | { event: "response.incomplete"; data: ResponsesIncompleteEventData }  // 截断/过滤
   | { event: "response.failed"; data: ResponsesFailedEventData }
   | { event: "error"; data: ResponsesErrorEventData }
+
+// incomplete 事件的 data 类型
+export interface ResponsesIncompleteEventData {
+  response: ResponsesResponse  // status=incomplete, 含 incomplete_details
+  sequence_number: number
+}
 ```
 
 ### Translation 逻辑
@@ -471,13 +494,27 @@ function translateInputToMessages(
         break
 
       case "item_reference":
-        // item_reference 需要 previous_response_id 支持，MVP 阶段跳过
-        // 记录警告日志
-        break
+        // MVP 不支持 item_reference（需要 previous_response_id 状态管理）
+        // 不能静默跳过，必须明确报错，否则客户端以为引用生效了
+        throw new UnsupportedInputError(
+          "item_reference",
+          "item_reference requires previous_response_id support which is not implemented"
+        )
     }
   }
 
   return messages
+}
+
+// 自定义错误类型，handler 层捕获后返回 400
+export class UnsupportedInputError extends Error {
+  constructor(
+    public readonly inputType: string,
+    message: string
+  ) {
+    super(message)
+    this.name = "UnsupportedInputError"
+  }
 }
 
 function translateMessageItem(item: ResponsesMessageItem): Message {
@@ -504,19 +541,31 @@ function translateFunctionCallOutput(item: ResponsesFunctionCallOutputItem): Mes
 function translateContent(content: string | ResponsesContentPart[]): string | ContentPart[] {
   if (typeof content === "string") return content
 
-  return content.map((part) => {
+  const result: ContentPart[] = []
+  for (const part of content) {
     switch (part.type) {
       case "input_text":
-        return { type: "text", text: part.text }
+        result.push({ type: "text", text: part.text })
+        break
+
       case "input_image":
-        return {
+        // MVP: 仅支持 image_url (data URL 或 http URL)
+        // 类型定义已经限制为 { image_url: string }，不会有 file_id
+        result.push({
           type: "image_url",
-          image_url: { url: part.image_url ?? part.file_id ?? "" },
-        }
+          image_url: { url: part.image_url },
+        })
+        break
+
       default:
-        return { type: "text", text: "" }
+        // 未知类型 → 明确报错，不静默丢弃
+        throw new UnsupportedInputError(
+          (part as { type: string }).type,
+          `Unsupported content part type: ${(part as { type: string }).type}`
+        )
     }
-  })
+  }
+  return result
 }
 
 // Tools 必须保持嵌套结构，直接透传
@@ -953,19 +1002,30 @@ Handle edge cases in request translation:
 | File | Change | Lines |
 |------|--------|-------|
 | `src/routes/responses/request-translation.ts` | extend | +60 |
-| `test/routes/responses/request-translation.test.ts` | extend | +80 |
+| `test/routes/responses/request-translation.test.ts` | extend | +100 |
 
-**Test Cases (8):**
+**Test Cases (12):**
 ```typescript
 describe("translateResponsesToOpenAI edge cases", () => {
+  // Validation errors
   it("throws on empty input string")
   it("throws on empty input array")
   it("throws on missing model")
+
+  // Optional field handling
   it("handles null optional fields gracefully")
   it("handles undefined optional fields gracefully")
+
+  // function_call_output (supported)
   it("translates function_call_output to tool message with call_id")
   it("translates function_call_output.output to tool message content")
-  it("skips item_reference with warning (MVP limitation)")
+
+  // Unsupported input types → 400 (不能静默丢弃)
+  it("throws UnsupportedInputError on item_reference")
+  it("throws UnsupportedInputError on input_file content part")
+  it("throws UnsupportedInputError on unknown content part type")
+
+  // Reasoning
   it("maps reasoning.effort to reasoning_effort")
   it("ignores reasoning when effort is not set")
 })
@@ -1333,31 +1393,31 @@ describe("handleResponses (validation)", () => {
 | **G2** | Security | pre-push | osv-scanner + gitleaks pass |
 | **D1** | Test Isolation | enforced | 使用 `raven-test.db` |
 
-### L1: Unit Tests (+96 tests)
+### L1: Unit Tests (+100 tests)
 
 | Test File | Cases | Coverage |
 |-----------|-------|----------|
-| `request-translation.test.ts` | 22 | 100% |
+| `request-translation.test.ts` | 24 | 100% |
 | `response-translation.test.ts` | 14 | 100% |
-| `stream-translation.test.ts` | 30 | 100% |
+| `stream-translation.test.ts` | 32 | 100% |
 | `handler.test.ts` | 30 | 90% |
-| **Total** | **96** | **≥90%** |
+| **Total** | **100** | **≥90%** |
 
 #### Test Matrix by Commit
 
 | Commit | Test File | New Tests | Cumulative |
 |--------|-----------|-----------|------------|
 | 3 | request-translation.test.ts | +12 | 12 |
-| 4 | request-translation.test.ts | +10 | 22 |
-| 5 | response-translation.test.ts | +14 | 36 |
-| 6 | handler.test.ts | +6 | 42 |
-| 7 | stream-translation.test.ts | +12 | 54 |
-| 8 | stream-translation.test.ts | +8 | 62 |
-| 9 | stream-translation.test.ts | +10 | 72 |
-| 10 | handler.test.ts | +8 | 80 |
-| 11 | handler.test.ts | +6 | 86 |
-| 12 | handler.test.ts | +4 | 90 |
-| 13 | handler.test.ts | +6 | 96 |
+| 4 | request-translation.test.ts | +12 | 24 |
+| 5 | response-translation.test.ts | +14 | 38 |
+| 6 | handler.test.ts | +6 | 44 |
+| 7 | stream-translation.test.ts | +12 | 56 |
+| 8 | stream-translation.test.ts | +10 | 66 |
+| 9 | stream-translation.test.ts | +10 | 76 |
+| 10 | handler.test.ts | +8 | 84 |
+| 11 | handler.test.ts | +6 | 90 |
+| 12 | handler.test.ts | +4 | 94 |
+| 13 | handler.test.ts | +6 | 100 |
 
 #### Verification Command
 
@@ -1545,14 +1605,14 @@ codex --model claude-sonnet-4.6
 | 5 | Response | `feat(proxy): implement OpenAI → Responses response translation` | +14 L1 | ⬜ |
 | 6 | Handler | `feat(proxy): add /v1/responses route and non-streaming handler` | +6 L1 | ⬜ |
 | 7 | Stream | `feat(proxy): implement Responses stream translation (lifecycle)` | +12 L1 | ⬜ |
-| 8 | Stream | `feat(proxy): implement Responses stream translation (text)` | +8 L1 | ⬜ |
+| 8 | Stream | `feat(proxy): implement Responses stream translation (text)` | +10 L1 | ⬜ |
 | 9 | Stream | `feat(proxy): implement Responses stream translation (function calls)` | +10 L1 | ⬜ |
 | 10 | Handler | `feat(proxy): implement /v1/responses streaming handler` | +8 L1 | ⬜ |
 | 11 | Handler | `feat(proxy): add Responses stream error handling` | +6 L1 | ⬜ |
 | 12 | Polish | `feat(proxy): add logging for /v1/responses endpoint` | +4 L1 | ⬜ |
 | 13 | Polish | `feat(proxy): add Responses request validation` | +6 L1 | ⬜ |
 
-**Total: 13 commits, +96 tests**
+**Total: 13 commits, +100 tests**
 
 ---
 
