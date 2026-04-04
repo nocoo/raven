@@ -452,6 +452,63 @@ describe("handleResponses (rate limiting)", () => {
     state.rateLimitWait = savedRateLimitWait
     state.lastRequestTimestamp = savedLastRequestTimestamp
   })
+
+  test("429 error body is not double-encoded", async () => {
+    const savedRateLimitSeconds = state.rateLimitSeconds
+    const savedRateLimitWait = state.rateLimitWait
+    const savedLastRequestTimestamp = state.lastRequestTimestamp
+
+    state.rateLimitSeconds = 60
+    state.rateLimitWait = false
+    state.lastRequestTimestamp = Date.now()
+
+    fetchSpy.mockResolvedValue(mockFetchJson(makeResponsesResponse()))
+
+    const app = makeApp()
+
+    const res = await app.request(req({ model: "gpt-4o", input: "hello" }))
+
+    expect(res.status).toBe(429)
+    const json = await res.json()
+
+    // The error.message should be a plain string, NOT double-encoded JSON
+    expect(typeof json.error.message).toBe("string")
+    expect(json.error.message).not.toContain('{"message"')
+    expect(json.error.message).not.toContain('\\"')
+
+    // Restore
+    state.rateLimitSeconds = savedRateLimitSeconds
+    state.rateLimitWait = savedRateLimitWait
+    state.lastRequestTimestamp = savedLastRequestTimestamp
+  })
+})
+
+// ===========================================================================
+// handleResponses — SSE passthrough (id/retry fields)
+// ===========================================================================
+
+describe("handleResponses (SSE passthrough)", () => {
+  test("preserves SSE id and retry fields in streaming response", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        'id: evt_001\nevent: response.created\ndata: {"id":"resp_1"}\n\n',
+        'id: evt_002\nretry: 1500\nevent: response.completed\ndata: {"id":"resp_1"}\n\n',
+      ]),
+    )
+
+    const app = makeApp()
+    const res = await app.request(
+      req({ model: "gpt-4o", input: "hello", stream: true }),
+    )
+
+    const text = await res.text()
+
+    // Should preserve id fields
+    expect(text).toContain("id: evt_001")
+    expect(text).toContain("id: evt_002")
+    // Should preserve retry field
+    expect(text).toContain("retry: 1500")
+  })
 })
 
 // ===========================================================================

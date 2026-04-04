@@ -58,11 +58,15 @@ export const handleResponses = async (c: Context) => {
           for await (const chunk of response as AsyncIterable<ServerSentEvent>) {
             if (firstChunkTime === null) firstChunkTime = performance.now()
 
-            if (chunk.event) {
-              await sseStream.writeSSE({ event: chunk.event, data: chunk.data })
-            } else {
-              await sseStream.writeSSE({ data: chunk.data })
+            // Passthrough all SSE fields: event, data, id, retry
+            const sseMsg: { data: string; event?: string; id?: string; retry?: number } = {
+              data: chunk.data,
             }
+            if (chunk.event) sseMsg.event = chunk.event
+            if (chunk.id) sseMsg.id = chunk.id
+            if (chunk.retry !== null) sseMsg.retry = chunk.retry
+
+            await sseStream.writeSSE(sseMsg)
 
             // Extract model from response.created event
             if (chunk.event === "response.created") {
