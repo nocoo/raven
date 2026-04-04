@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.7.1 (2026-04-04)
+
+Connect page UX improvements and B-5 compliance fix.
+
+### Dashboard
+
+- **Click-to-copy models** — Model IDs in the Models tab are now clickable to copy directly to clipboard
+- **B-5 dark mode fix** — Corrected `--input` lightness from 12% to 18% per Basalt B-5 color brightness system spec; L3 interactive controls now have proper visual distinction from L2 containers
+
 ## v1.6.1 (2026-04-03)
 
 Sound notifications for error alerts.
