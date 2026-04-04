@@ -28,9 +28,9 @@ export async function checkRateLimit(state: State) {
   if (!state.rateLimitWait) {
     logger.warn(`Rate limit exceeded. Need to wait ${waitTimeSeconds} more seconds.`)
     throw new HTTPError(
-      "Rate limit exceeded",
+      `Rate limit exceeded. Try again in ${waitTimeSeconds} seconds.`,
       429,
-      JSON.stringify({ message: "Rate limit exceeded" }),
+      "", // Empty responseBody — forwardError will use error.message
     )
   }
 
