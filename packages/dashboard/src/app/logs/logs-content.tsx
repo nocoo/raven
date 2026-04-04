@@ -438,6 +438,8 @@ function RequestCard({
               <button
                 type="button"
                 onClick={() => setFocusedPhase(focusedPhase === "start" ? null : "start")}
+                aria-label="View request start details"
+                aria-expanded={focusedPhase === "start"}
                 className={cn(
                   "flex items-center justify-center rounded-full size-7 border-2 cursor-pointer transition-shadow",
                   isError
@@ -445,8 +447,9 @@ function RequestCard({
                     : "border-info/40 bg-info/10",
                   focusedPhase === "start" && "ring-2 ring-info/50",
                   "hover:ring-2 hover:ring-info/30",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 )}>
-                <span className="text-[9px] font-bold text-info">S</span>
+                <span className="text-[9px] font-bold text-info" aria-hidden="true">S</span>
               </button>
               <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
                 {startEvent ? formatTime(startEvent.ts) : "—"}
@@ -501,12 +504,15 @@ function RequestCard({
                   <button
                     type="button"
                     onClick={() => setFocusedPhase(focusedPhase === "error" ? null : "error")}
+                    aria-label="View upstream error details"
+                    aria-expanded={focusedPhase === "error"}
                     className={cn(
                       "flex items-center justify-center rounded-full size-7 border-2 border-destructive/50 bg-destructive/10 cursor-pointer transition-shadow",
                       focusedPhase === "error" && "ring-2 ring-destructive/50",
                       "hover:ring-2 hover:ring-destructive/30",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     )}>
-                    <span className="text-[9px] font-bold text-destructive">!</span>
+                    <span className="text-[9px] font-bold text-destructive" aria-hidden="true">!</span>
                   </button>
                   <span className="mt-1 text-[10px] text-destructive whitespace-nowrap">
                     upstream
@@ -525,6 +531,8 @@ function RequestCard({
                 <button
                   type="button"
                   onClick={() => setFocusedPhase(focusedPhase === "end" ? null : "end")}
+                  aria-label={isError ? "View request error details" : "View request completion details"}
+                  aria-expanded={focusedPhase === "end"}
                   className={cn(
                     "flex items-center justify-center rounded-full size-7 border-2 cursor-pointer transition-shadow",
                     isError
@@ -532,11 +540,12 @@ function RequestCard({
                       : "border-success/50 bg-success/10",
                     focusedPhase === "end" && (isError ? "ring-2 ring-destructive/50" : "ring-2 ring-success/50"),
                     isError ? "hover:ring-2 hover:ring-destructive/30" : "hover:ring-2 hover:ring-success/30",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   )}>
                   <span className={cn(
                     "text-[9px] font-bold",
                     isError ? "text-destructive" : "text-success",
-                  )}>
+                  )} aria-hidden="true">
                     {isError ? "E" : "OK"}
                   </span>
                 </button>
@@ -582,7 +591,9 @@ function RequestCard({
             <button
               type="button"
               onClick={() => setExpanded(!expanded)}
-              className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-muted/50 transition-colors"
+              aria-expanded={expanded}
+              aria-controls={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`}
+              className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
               {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
               {events.length} raw events
@@ -593,7 +604,7 @@ function RequestCard({
               )}
             </button>
             {expanded && (
-              <div className="border-t border-border bg-muted/20 px-3 py-2 space-y-1">
+              <div id={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`} className="border-t border-border bg-muted/20 px-3 py-2 space-y-1">
                 {events.map((event, i) => (
                   <RawEventLine key={`${event.ts}-${i}`} event={event} />
                 ))}
