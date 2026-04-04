@@ -146,7 +146,8 @@ function formatRequestEnd(
 ): string {
   const statusCode = data.statusCode as number | null | undefined;
   const isError = data.status === "error" || (statusCode !== null && statusCode !== undefined && statusCode >= 400);
-  const model = cyan(bold(shortenModel(String(data.model ?? "unknown"))));
+  // Prefer resolvedModel (actual model used) over model (request alias)
+  const model = cyan(bold(shortenModel(String(data.resolvedModel ?? data.model ?? "unknown"))));
 
   if (isError) {
     return formatRequestEndError(time, data, model, statusCode ?? null);

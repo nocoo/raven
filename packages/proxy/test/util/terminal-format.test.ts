@@ -238,6 +238,30 @@ describe("formatEvent", () => {
       const line = formatEvent(event)!
       expect(line).not.toContain("ttft")
     })
+
+    test("prefers resolvedModel over model alias", () => {
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "info",
+        type: "request_end",
+        requestId: "req_123",
+        msg: "200 gpt-5-mini 1000ms",
+        data: {
+          model: "gpt-5-mini", // request alias
+          resolvedModel: "gpt-5.4-2026-03-05", // actual model used
+          statusCode: 200,
+          status: "success",
+          latencyMs: 1000,
+          ttftMs: 200,
+          inputTokens: 100,
+          outputTokens: 50,
+        },
+      }
+      const line = formatEvent(event)!
+      // Should display resolved model (date stripped), not the alias
+      expect(line).toContain("gpt-5.4")
+      expect(line).not.toContain("gpt-5-mini")
+    })
   })
 
   describe("request_end — error", () => {
