@@ -47,15 +47,18 @@ import {
 import { CopyButton } from "@/components/copy-button";
 import { CodeBlock } from "@/components/code-block";
 import { cn } from "@/lib/utils";
-import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelEntry } from "@/lib/types";
+import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/lib/types";
 
 interface ConnectContentProps {
   keys: ApiKeyPublic[];
   connectionInfo: ConnectionInfo;
-  models: ModelEntry[];
 }
 
-export function ConnectContent({ keys, connectionInfo, models }: ConnectContentProps) {
+export function ConnectContent({ keys, connectionInfo }: ConnectContentProps) {
+  // Use model_list if available, otherwise fall back to models array
+  const models: ModelInfo[] = connectionInfo.model_list ??
+    connectionInfo.models.map((id) => ({ id, owned_by: "unknown" }));
+
   return (
     <Tabs defaultValue="keys" className="w-full">
       <TabsList className="mb-6">
@@ -351,7 +354,7 @@ const COPILOT_VENDORS = new Set([
   "ai21",
 ]);
 
-function ModelsSection({ models }: { models: ModelEntry[] }) {
+function ModelsSection({ models }: { models: ModelInfo[] }) {
   if (models.length === 0) {
     return (
       <div className="rounded-widget border border-border/40 bg-secondary/30 px-6 py-8 text-center">
@@ -365,7 +368,7 @@ function ModelsSection({ models }: { models: ModelEntry[] }) {
   }
 
   // Group models by owned_by
-  const grouped = models.reduce<Record<string, ModelEntry[]>>((acc, model) => {
+  const grouped = models.reduce<Record<string, ModelInfo[]>>((acc, model) => {
     const key = model.owned_by || "unknown";
     if (!acc[key]) acc[key] = [];
     acc[key].push(model);
@@ -373,8 +376,8 @@ function ModelsSection({ models }: { models: ModelEntry[] }) {
   }, {});
 
   // Separate into Copilot vs Upstream
-  const copilotGroups: [string, ModelEntry[]][] = [];
-  const upstreamGroups: [string, ModelEntry[]][] = [];
+  const copilotGroups: [string, ModelInfo[]][] = [];
+  const upstreamGroups: [string, ModelInfo[]][] = [];
 
   for (const [vendor, vendorModels] of Object.entries(grouped)) {
     if (COPILOT_VENDORS.has(vendor.toLowerCase())) {
@@ -452,7 +455,7 @@ function ModelsSection({ models }: { models: ModelEntry[] }) {
   );
 }
 
-function ModelGroup({ vendor, models }: { vendor: string; models: ModelEntry[] }) {
+function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] }) {
   // Capitalize vendor name
   const displayName = vendor.charAt(0).toUpperCase() + vendor.slice(1);
 

@@ -617,59 +617,6 @@ describe("GET /api/upstreams/[id]/models", () => {
 });
 
 // ===========================================================================
-// GET /api/models
-// ===========================================================================
-
-describe("GET /api/models", () => {
-  it("success → returns JSON with 200", async () => {
-    const data = {
-      object: "list",
-      data: [{ id: "claude-sonnet-4", owned_by: "anthropic" }],
-      has_more: false,
-    };
-    mockProxyFetch.mockResolvedValueOnce(data);
-
-    const { GET } = await import("@/app/api/models/route");
-    const res = await GET();
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(data);
-    expect(mockProxyFetch).toHaveBeenCalledWith("/v1/models");
-  });
-
-  it("ProxyError with statusCode → returns that status", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Not Found", 404));
-
-    const { GET } = await import("@/app/api/models/route");
-    const res = await GET();
-
-    expect(res.status).toBe(404);
-    const body = await res.json();
-    expect(body.error).toContain("Not Found");
-  });
-
-  it("ProxyError without statusCode → returns 502", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new ProxyError("timeout"));
-
-    const { GET } = await import("@/app/api/models/route");
-    const res = await GET();
-
-    expect(res.status).toBe(502);
-  });
-
-  it("generic Error → returns 502 with error message", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new Error("network down"));
-
-    const { GET } = await import("@/app/api/models/route");
-    const res = await GET();
-
-    expect(res.status).toBe(502);
-    const body = await res.json();
-    expect(body.error).toBe("network down");
-  });
-});
-
-// ===========================================================================
 // POST /api/sound/preview
 // ===========================================================================
 

@@ -159,6 +159,11 @@ export interface ApiKeyCreated extends ApiKeyPublic {
 // Connection info types
 // ---------------------------------------------------------------------------
 
+export interface ModelInfo {
+  id: string;
+  owned_by: string;
+}
+
 export interface ConnectionInfo {
   base_url: string;
   endpoints: {
@@ -168,26 +173,7 @@ export interface ConnectionInfo {
     embeddings: string;
   };
   models: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Models API types (from /v1/models)
-// ---------------------------------------------------------------------------
-
-export interface ModelEntry {
-  id: string;
-  object: string;
-  type: string;
-  created: number;
-  created_at: string;
-  owned_by: string;
-  display_name: string;
-}
-
-export interface ModelsResponse {
-  object: string;
-  data: ModelEntry[];
-  has_more: boolean;
+  model_list?: ModelInfo[]; // new: with owned_by for grouping
 }
 
 // ---------------------------------------------------------------------------
