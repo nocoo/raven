@@ -35,10 +35,19 @@ function CustomTooltip({ active, payload, label }: {
 }
 
 export function LatencyChart({ data }: ErrorRateChartProps) {
+  // Generate accessible summary
+  const validLatencies = data.filter((b) => b.avg_latency_ms > 0);
+  const avgLatency = validLatencies.length > 0
+    ? validLatencies.reduce((sum, b) => sum + b.avg_latency_ms, 0) / validLatencies.length
+    : 0;
+  const peak = Math.max(...data.map((b) => b.avg_latency_ms));
+  const peakTime = data.find((b) => b.avg_latency_ms === peak);
+  const summary = `Latency chart showing average response times over ${data.length} time periods. Overall average: ${formatLatency(avgLatency)}. Peak: ${formatLatency(peak)}${peakTime ? ` at ${formatBucketTime(peakTime.bucket)}` : ""}.`;
+
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Avg Latency</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
+      <div style={{ height: CHART_HEIGHTS.standard }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />

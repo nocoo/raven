@@ -33,10 +33,16 @@ function CustomTooltip({ active, payload, label }: {
 }
 
 export function RequestsChart({ data }: RequestsChartProps) {
+  // Generate accessible summary
+  const total = data.reduce((sum, b) => sum + b.count, 0);
+  const peak = Math.max(...data.map((b) => b.count));
+  const peakTime = data.find((b) => b.count === peak);
+  const summary = `Request volume chart showing ${total.toLocaleString()} total requests over ${data.length} time periods. Peak: ${peak.toLocaleString()} requests${peakTime ? ` at ${formatBucketTime(peakTime.bucket)}` : ""}.`;
+
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Request Volume</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
+      <div style={{ height: CHART_HEIGHTS.standard }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <AreaChart data={data}>
             <defs>

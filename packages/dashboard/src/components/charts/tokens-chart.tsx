@@ -34,10 +34,16 @@ function CustomTooltip({ active, payload, label }: {
 }
 
 export function TokensChart({ data }: TokensChartProps) {
+  // Generate accessible summary
+  const total = data.reduce((sum, b) => sum + b.total_tokens, 0);
+  const peak = Math.max(...data.map((b) => b.total_tokens));
+  const peakTime = data.find((b) => b.total_tokens === peak);
+  const summary = `Token consumption chart showing ${formatCompact(total)} total tokens over ${data.length} time periods. Peak: ${formatCompact(peak)} tokens${peakTime ? ` at ${formatBucketTime(peakTime.bucket)}` : ""}.`;
+
   return (
     <div className="bg-secondary rounded-card p-4">
       <h3 className="text-sm font-medium mb-3">Token Consumption</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
+      <div style={{ height: CHART_HEIGHTS.standard }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />

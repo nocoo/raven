@@ -593,12 +593,16 @@ function ModelCards({ stats, hasData }: {
 
 function ChartRpm({ data }: { data: MinuteBucket[] }) {
   if (data.length < 2) return null;
+  const total = data.reduce((sum, b) => sum + b.count, 0);
+  const peak = Math.max(...data.map((b) => b.count));
+  const summary = `Requests per minute chart. ${total} total requests over ${data.length} minutes. Peak: ${peak} requests/min.`;
+
   return (
     <div className="bg-secondary rounded-lg p-3">
       <h4 className="text-xs font-medium text-muted-foreground mb-2">
         Requests / min
       </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }}>
+      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <AreaChart data={data}>
             <defs>
@@ -628,12 +632,16 @@ function ChartRpm({ data }: { data: MinuteBucket[] }) {
 
 function ChartModels({ data }: { data: ModelCount[] }) {
   if (data.length === 0) return null;
+  const total = data.reduce((sum, m) => sum + m.count, 0);
+  const topModel = data[0];
+  const summary = `Model distribution chart. ${data.length} models, ${total} total requests. Most used: ${topModel?.model ?? "none"} with ${topModel?.count ?? 0} requests.`;
+
   return (
     <div className="bg-secondary rounded-lg p-3">
       <h4 className="text-xs font-medium text-muted-foreground mb-2">
         Models
       </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }}>
+      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <BarChart
             data={data}
@@ -669,6 +677,10 @@ function ChartModels({ data }: { data: ModelCount[] }) {
 
 function ChartTiming({ data }: { data: TimingPoint[] }) {
   if (data.length < 2) return null;
+  const avgLatency = data.reduce((sum, p) => sum + p.latencyMs, 0) / data.length;
+  const peak = Math.max(...data.map((p) => p.latencyMs));
+  const summary = `Request timing chart showing last ${data.length} requests. Average duration: ${fmtLatency(avgLatency)}. Peak: ${fmtLatency(peak)}.`;
+
   return (
     <div className="bg-secondary rounded-lg p-3">
       <h4 className="text-xs font-medium text-muted-foreground mb-2">
@@ -677,7 +689,7 @@ function ChartTiming({ data }: { data: TimingPoint[] }) {
           (last {data.length})
         </span>
       </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }}>
+      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
@@ -752,6 +764,10 @@ function ConcurrencyTooltip({
 
 function ChartConcurrency({ data }: { data: ConcurrencyPoint[] }) {
   if (data.length < 2) return null;
+  const peak = Math.max(...data.map((p) => p.sessions));
+  const current = data[data.length - 1]?.sessions ?? 0;
+  const summary = `Parallel sessions chart over ${data.length} minutes. Current: ${current} sessions. Peak: ${peak} sessions.`;
+
   return (
     <div className="bg-secondary rounded-lg p-3">
       <h4 className="text-xs font-medium text-muted-foreground mb-2">
@@ -760,7 +776,7 @@ function ChartConcurrency({ data }: { data: ConcurrencyPoint[] }) {
           / min
         </span>
       </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }}>
+      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <AreaChart data={data}>
             <defs>
