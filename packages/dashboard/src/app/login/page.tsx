@@ -50,23 +50,7 @@ function LoginContent() {
   return (
     <div className="relative flex min-h-screen flex-col bg-background overflow-hidden">
       {/* Radial glow */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: [
-            "radial-gradient(ellipse 70% 55% at 50% 50%,",
-            "hsl(var(--foreground) / 0.045) 0%,",
-            "hsl(var(--foreground) / 0.042) 10%,",
-            "hsl(var(--foreground) / 0.036) 20%,",
-            "hsl(var(--foreground) / 0.028) 32%,",
-            "hsl(var(--foreground) / 0.020) 45%,",
-            "hsl(var(--foreground) / 0.012) 58%,",
-            "hsl(var(--foreground) / 0.006) 72%,",
-            "hsl(var(--foreground) / 0.002) 86%,",
-            "transparent 100%)",
-          ].join(" "),
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0 login-glow" />
 
       {/* Top-right controls */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
@@ -85,29 +69,12 @@ function LoginContent() {
       <div className="flex flex-1 items-center justify-center p-4">
       <div className="flex flex-col items-center">
         {/* Badge card — bank card flipped vertical: 54/86 */}
-        <div
-          className="relative aspect-[54/86] w-72 overflow-hidden rounded-2xl bg-card flex flex-col ring-1 ring-black/[0.08] dark:ring-white/[0.06]"
-          style={{
-            boxShadow: [
-              "0 1px 2px rgba(0,0,0,0.06)",
-              "0 4px 8px rgba(0,0,0,0.04)",
-              "0 12px 24px rgba(0,0,0,0.06)",
-              "0 24px 48px rgba(0,0,0,0.04)",
-              "0 0 0 0.5px rgba(0,0,0,0.02)",
-              "0 0 60px rgba(0,0,0,0.03)",
-            ].join(", "),
-          }}
-        >
+        <div className="relative aspect-[54/86] w-72 overflow-hidden rounded-2xl bg-card flex flex-col ring-1 ring-black/[0.08] dark:ring-white/[0.06] login-card-shadow">
           {/* Header strip with barcode */}
           <div className="bg-primary px-5 py-4">
             <div className="flex items-center justify-between">
               {/* Punch hole */}
-              <div
-                className="h-4 w-8 rounded-full bg-background/80"
-                style={{
-                  boxShadow: "inset 0 1.5px 3px rgba(0,0,0,0.35), inset 0 -0.5px 1px rgba(255,255,255,0.1)",
-                }}
-              />
+              <div className="h-4 w-8 rounded-full bg-background/80 login-punch-hole" />
               <div className="flex items-center gap-2">
                 <Bird className="h-4 w-4 text-primary-foreground" strokeWidth={1.5} />
                 <span className="text-sm font-semibold text-primary-foreground">raven</span>
