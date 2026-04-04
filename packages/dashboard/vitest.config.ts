@@ -34,6 +34,7 @@ export default defineConfig({
         "src/app/logs/logs-stats.tsx",
         "src/app/settings/**",
         "src/app/requests/requests-content.tsx",
+        "src/app/connect/connect-content.tsx",
         "src/app/copilot/account/account-content.tsx",
         "src/app/copilot/models/models-content.tsx",
         "src/app/models/models-content.tsx",

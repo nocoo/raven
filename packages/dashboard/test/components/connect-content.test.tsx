@@ -28,7 +28,7 @@ Object.defineProperty(navigator, "clipboard", {
 // ---------------------------------------------------------------------------
 
 import { ConnectContent } from "@/app/connect/connect-content";
-import type { ApiKeyPublic, ConnectionInfo } from "@/lib/types";
+import type { ApiKeyPublic, ConnectionInfo, ModelEntry } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -45,6 +45,20 @@ function makeConnectionInfo(): ConnectionInfo {
     },
     models: ["claude-sonnet-4"],
   };
+}
+
+function makeModels(): ModelEntry[] {
+  return [
+    {
+      id: "claude-sonnet-4",
+      object: "model",
+      type: "model",
+      created: 0,
+      created_at: new Date(0).toISOString(),
+      owned_by: "anthropic",
+      display_name: "claude-sonnet-4",
+    },
+  ];
 }
 
 function makeKey(overrides: Partial<ApiKeyPublic> = {}): ApiKeyPublic {
@@ -83,6 +97,7 @@ describe("ApiKeysSection", () => {
         <ConnectContent
           keys={[makeKey({ id: "key-abc" })]}
           connectionInfo={makeConnectionInfo()}
+          models={makeModels()}
         />,
       );
 
@@ -102,6 +117,7 @@ describe("ApiKeysSection", () => {
         <ConnectContent
           keys={[makeKey()]}
           connectionInfo={makeConnectionInfo()}
+          models={makeModels()}
         />,
       );
 
@@ -121,6 +137,7 @@ describe("ApiKeysSection", () => {
         <ConnectContent
           keys={[makeKey()]}
           connectionInfo={makeConnectionInfo()}
+          models={makeModels()}
         />,
       );
 
@@ -143,6 +160,7 @@ describe("ApiKeysSection", () => {
         <ConnectContent
           keys={[makeKey({ id: "key-xyz", revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
+          models={makeModels()}
         />,
       );
 
@@ -162,6 +180,7 @@ describe("ApiKeysSection", () => {
         <ConnectContent
           keys={[makeKey({ revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
+          models={makeModels()}
         />,
       );
 
@@ -181,6 +200,7 @@ describe("ApiKeysSection", () => {
         <ConnectContent
           keys={[makeKey({ revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
+          models={makeModels()}
         />,
       );
 
@@ -206,6 +226,7 @@ describe("CreateKeyDialog", () => {
       <ConnectContent
         keys={[]}
         connectionInfo={makeConnectionInfo()}
+        models={makeModels()}
       />,
     );
   }

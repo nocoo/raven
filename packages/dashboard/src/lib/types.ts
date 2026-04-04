@@ -171,6 +171,26 @@ export interface ConnectionInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Models API types (from /v1/models)
+// ---------------------------------------------------------------------------
+
+export interface ModelEntry {
+  id: string;
+  object: string;
+  type: string;
+  created: number;
+  created_at: string;
+  owned_by: string;
+  display_name: string;
+}
+
+export interface ModelsResponse {
+  object: string;
+  data: ModelEntry[];
+  has_more: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Settings types
 // ---------------------------------------------------------------------------
 
