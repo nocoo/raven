@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const accentColors = {
 
 /** Lightweight SVG sparkline — no recharts overhead for a tiny inline chart. */
 function Sparkline({ data }: { data: number[] }) {
+  const gradientId = useId();
   if (data.length < 2) return null;
   const w = 80;
   const h = 24;
@@ -55,12 +57,12 @@ function Sparkline({ data }: { data: number[] }) {
       aria-hidden
     >
       <defs>
-        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
           <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
         </linearGradient>
       </defs>
-      <polygon points={areaPoints} fill="url(#sparkFill)" />
+      <polygon points={areaPoints} fill={`url(#${gradientId})`} />
       <polyline
         points={points.join(" ")}
         fill="none"
