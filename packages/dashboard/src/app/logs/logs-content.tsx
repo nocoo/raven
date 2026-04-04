@@ -138,14 +138,14 @@ function CopyButton({ events }: { events: LogEvent[] }) {
         copy(serializeEvents(events));
       }}
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-md size-6 transition-colors",
+        "flex shrink-0 items-center justify-center min-h-11 min-w-11 transition-colors",
         copied
           ? "text-success"
-          : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted",
+          : "text-muted-foreground/40 hover:text-muted-foreground",
       )}
       title="Copy raw events"
     >
-      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
     </button>
   );
 }
@@ -276,9 +276,10 @@ function PhaseDetail({
         <button
           type="button"
           onClick={onClose}
-          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
+          aria-label="Close phase details"
+          className="flex items-center justify-center min-h-11 min-w-11 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
         >
-          ✕
+          <span className="text-sm">✕</span>
         </button>
       </div>
       {phaseEvents.map((ev, i) => {
@@ -441,15 +442,19 @@ function RequestCard({
                 aria-label="View request start details"
                 aria-expanded={focusedPhase === "start"}
                 className={cn(
-                  "flex items-center justify-center rounded-full size-7 border-2 cursor-pointer transition-shadow",
+                  "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-full",
+                )}>
+                <span className={cn(
+                  "flex items-center justify-center rounded-full size-7 border-2 transition-shadow",
                   isError
                     ? "border-destructive/40 bg-destructive/10"
                     : "border-info/40 bg-info/10",
                   focusedPhase === "start" && "ring-2 ring-info/50",
-                  "hover:ring-2 hover:ring-info/30",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "group-hover:ring-2 group-hover:ring-info/30",
                 )}>
-                <span className="text-[9px] font-bold text-info" aria-hidden="true">S</span>
+                  <span className="text-[9px] font-bold text-info" aria-hidden="true">S</span>
+                </span>
               </button>
               <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
                 {startEvent ? formatTime(startEvent.ts) : "—"}
@@ -507,12 +512,15 @@ function RequestCard({
                     aria-label="View upstream error details"
                     aria-expanded={focusedPhase === "error"}
                     className={cn(
-                      "flex items-center justify-center rounded-full size-7 border-2 border-destructive/50 bg-destructive/10 cursor-pointer transition-shadow",
-                      focusedPhase === "error" && "ring-2 ring-destructive/50",
-                      "hover:ring-2 hover:ring-destructive/30",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-full",
                     )}>
-                    <span className="text-[9px] font-bold text-destructive" aria-hidden="true">!</span>
+                    <span className={cn(
+                      "flex items-center justify-center rounded-full size-7 border-2 border-destructive/50 bg-destructive/10 transition-shadow",
+                      focusedPhase === "error" && "ring-2 ring-destructive/50",
+                    )}>
+                      <span className="text-[9px] font-bold text-destructive" aria-hidden="true">!</span>
+                    </span>
                   </button>
                   <span className="mt-1 text-[10px] text-destructive whitespace-nowrap">
                     upstream
@@ -534,19 +542,22 @@ function RequestCard({
                   aria-label={isError ? "View request error details" : "View request completion details"}
                   aria-expanded={focusedPhase === "end"}
                   className={cn(
-                    "flex items-center justify-center rounded-full size-7 border-2 cursor-pointer transition-shadow",
+                    "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-full",
+                  )}>
+                  <span className={cn(
+                    "flex items-center justify-center rounded-full size-7 border-2 transition-shadow",
                     isError
                       ? "border-destructive/50 bg-destructive/10"
                       : "border-success/50 bg-success/10",
                     focusedPhase === "end" && (isError ? "ring-2 ring-destructive/50" : "ring-2 ring-success/50"),
-                    isError ? "hover:ring-2 hover:ring-destructive/30" : "hover:ring-2 hover:ring-success/30",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   )}>
-                  <span className={cn(
-                    "text-[9px] font-bold",
-                    isError ? "text-destructive" : "text-success",
-                  )} aria-hidden="true">
-                    {isError ? "E" : "OK"}
+                    <span className={cn(
+                      "text-[9px] font-bold",
+                      isError ? "text-destructive" : "text-success",
+                    )} aria-hidden="true">
+                      {isError ? "E" : "OK"}
+                    </span>
                   </span>
                 </button>
               ) : (
