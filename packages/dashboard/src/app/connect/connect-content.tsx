@@ -38,12 +38,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { CopyButton } from "@/components/copy-button";
 import { CodeBlock } from "@/components/code-block";
 import { cn } from "@/lib/utils";
@@ -408,49 +402,25 @@ function ModelsSection({ models }: { models: ModelInfo[] }) {
         )}
       </div>
 
-      <Accordion type="multiple" defaultValue={["copilot"]} className="w-full">
-        {/* Copilot Models */}
-        {copilotGroups.length > 0 && (
-          <AccordionItem value="copilot">
-            <AccordionTrigger className="text-sm">
-              <div className="flex items-center gap-2">
-                <span>Copilot Models</span>
-                <Badge variant="secondary" className="text-xs font-normal">
-                  {copilotGroups.reduce((sum, [, m]) => sum + m.length, 0)}
-                </Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4">
-                {copilotGroups.map(([vendor, vendorModels]) => (
-                  <ModelGroup key={vendor} vendor={vendor} models={vendorModels} />
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        )}
+      {/* Copilot Models */}
+      {copilotGroups.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground">Copilot Models</h3>
+          {copilotGroups.map(([vendor, vendorModels]) => (
+            <ModelGroup key={vendor} vendor={vendor} models={vendorModels} />
+          ))}
+        </div>
+      )}
 
-        {/* Upstream Models */}
-        {upstreamGroups.length > 0 && (
-          <AccordionItem value="upstream">
-            <AccordionTrigger className="text-sm">
-              <div className="flex items-center gap-2">
-                <span>Upstream Providers</span>
-                <Badge variant="outline" className="text-xs font-normal">
-                  {upstreamGroups.reduce((sum, [, m]) => sum + m.length, 0)}
-                </Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4">
-                {upstreamGroups.map(([provider, providerModels]) => (
-                  <ModelGroup key={provider} vendor={provider} models={providerModels} />
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        )}
-      </Accordion>
+      {/* Upstream Models */}
+      {upstreamGroups.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground">Upstream Providers</h3>
+          {upstreamGroups.map(([provider, providerModels]) => (
+            <ModelGroup key={provider} vendor={provider} models={providerModels} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -460,25 +430,26 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
   const displayName = vendor.charAt(0).toUpperCase() + vendor.slice(1);
 
   return (
-    <div className="rounded-widget border border-border/40 overflow-hidden">
-      <div className="flex items-center justify-between bg-secondary/30 px-4 py-2">
-        <span className="text-sm font-medium">{displayName}</span>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h4 className="text-sm font-medium">{displayName}</h4>
         <Badge variant="secondary" className="text-xs">{models.length}</Badge>
       </div>
-      <div className="p-2">
-        <div className="flex flex-wrap gap-2">
-          {models.map((model) => (
-            <div key={model.id} className="group flex items-center gap-1">
-              <Badge variant="outline" className="font-mono text-xs">
-                {model.id}
-              </Badge>
-              <CopyButton
-                value={model.id}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-            </div>
-          ))}
-        </div>
+      <div className="rounded-widget border border-border/40 overflow-hidden">
+        <Table>
+          <TableBody>
+            {models.map((model) => (
+              <TableRow key={model.id}>
+                <TableCell className="py-2">
+                  <div className="flex items-center gap-2">
+                    <code className="font-mono text-xs">{model.id}</code>
+                    <CopyButton value={model.id} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
