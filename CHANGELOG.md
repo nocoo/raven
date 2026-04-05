@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.7.2 (2026-04-05)
+
+Accessibility improvements and design system refinements.
+
+### Dashboard
+
+- **WCAG touch targets** — Expanded interactive elements to 44×44px minimum touch target size for accessibility compliance
+- **Chart accessibility** — Added ARIA labels to all Recharts components (area chart, bar chart, pie chart, sparkline)
+- **Log timeline accessibility** — Added ARIA labels, roles, and keyboard focus indicators to timeline nodes
+- **Sparkline SVG fix** — Fixed gradient ID collision causing fill issues when multiple sparklines rendered on same page
+- **Secondary background tint** — Changed L2 `--secondary` from pure white to subtle warm tint (220 14% 99%) for better visual hierarchy
+- **Login page refactor** — Extracted inline styles to design system utilities (`login-glow`, `login-card-shadow`, `login-punch-hole`)
+
 ## v1.7.1 (2026-04-04)
 
 Connect page UX improvements and B-5 compliance fix.
