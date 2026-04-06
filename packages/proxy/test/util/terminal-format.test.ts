@@ -310,6 +310,71 @@ describe("formatEvent", () => {
       expect(line).toContain("socket connection was closed unexpectedly")
       expect(line).not.toContain("For more information")
     })
+
+    test("extracts message from JSON error response (OpenAI format)", () => {
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId: "req_456",
+        msg: "400 claude-opus-4 1700ms",
+        data: {
+          model: "claude-opus-4",
+          statusCode: 400,
+          status: "error",
+          latencyMs: 1700,
+          error: 'Failed to create chat completions: {"error":{"message":"The model `claude-opus-4` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"}}',
+        },
+      }
+      const line = formatEvent(event)!
+      expect(line).toContain("✗──")
+      expect(line).toContain("400")
+      // Should extract the actual error message, not show raw JSON
+      expect(line).toContain("does not exist or you do not have access")
+      expect(line).not.toContain('{"error"')
+      expect(line).not.toContain("Failed to create chat completions")
+    })
+
+    test("extracts message from simple JSON error response", () => {
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId: "req_456",
+        msg: "429 claude-opus-4 500ms",
+        data: {
+          model: "claude-opus-4",
+          statusCode: 429,
+          status: "error",
+          latencyMs: 500,
+          error: 'Rate limit exceeded: {"message":"Too many requests, please slow down"}',
+        },
+      }
+      const line = formatEvent(event)!
+      expect(line).toContain("429")
+      expect(line).toContain("Too many requests, please slow down")
+      expect(line).not.toContain('{"message"')
+    })
+
+    test("falls back to plain message when JSON is invalid", () => {
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId: "req_456",
+        msg: "500 claude-opus-4 1000ms",
+        data: {
+          model: "claude-opus-4",
+          statusCode: 500,
+          status: "error",
+          latencyMs: 1000,
+          error: 'Connection failed: {invalid json here',
+        },
+      }
+      const line = formatEvent(event)!
+      expect(line).toContain("500")
+      expect(line).toContain("Connection failed")
+    })
   })
 
   describe("upstream_error", () => {

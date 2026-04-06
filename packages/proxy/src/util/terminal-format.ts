@@ -182,10 +182,38 @@ function formatRequestEndSuccess(
 }
 
 /**
- * Truncate an error message to a single-line-friendly length.
- * Strips common verbose suffixes (e.g. Bun fetch hints) before truncating.
+ * Extract the meaningful error message from a potentially JSON-wrapped error.
+ *
+ * Handles formats like:
+ *   "Failed to create chat completions: {"error":{"message":"The real error"}}"
+ *   → "The real error"
+ *
+ * Falls back to truncating the raw message if not JSON.
  */
-function truncateError(msg: string, maxLen = 60): string {
+function truncateError(msg: string, maxLen = 80): string {
+  // Try to extract JSON error message from pattern: "prefix: {json}"
+  const jsonStart = msg.indexOf("{");
+  if (jsonStart !== -1) {
+    try {
+      const jsonPart = msg.slice(jsonStart);
+      const parsed = JSON.parse(jsonPart);
+      // OpenAI/Anthropic style: { "error": { "message": "..." } }
+      if (parsed?.error?.message) {
+        const extracted = String(parsed.error.message);
+        if (extracted.length <= maxLen) return extracted;
+        return `${extracted.slice(0, maxLen)}…`;
+      }
+      // Simple style: { "message": "..." }
+      if (parsed?.message) {
+        const extracted = String(parsed.message);
+        if (extracted.length <= maxLen) return extracted;
+        return `${extracted.slice(0, maxLen)}…`;
+      }
+    } catch {
+      // Not valid JSON, fall through to plain truncation
+    }
+  }
+
   // Strip "For more information, ..." suffix from Bun fetch errors
   const cleaned = msg.replace(/\.?\s*For more information,.*$/i, "");
   if (cleaned.length <= maxLen) return cleaned;
