@@ -241,6 +241,17 @@ Dashboard 支持两种运行模式：
 - 设置 `NEXTAUTH_URL` 为 dashboard 的公开地址
 - 启用 `USE_SECURE_COOKIES=true`（如果 HTTPS）
 
+### Azure VM 部署
+
+如需在 Ubuntu Azure VM 上以生产模式运行 raven：
+
+- 使用 Bun 安装依赖并运行 workspace
+- 用 systemd 分别托管 proxy (`7024`) 和 dashboard (`7023`)
+- 用 Nginx 暴露两个 HTTPS 域名，避免直接开放应用端口
+- 首次启动 proxy 时完成 GitHub Device Flow 授权，并持久化 `data/github_token`
+
+完整步骤见 [docs/14-azure-vm-deployment.md](docs/14-azure-vm-deployment.md)。
+
 ## 命令一览
 
 | 命令 | 说明 |
@@ -362,6 +373,10 @@ bun run test:e2e      # E2E（需 proxy 运行）
 | 08 | [Local Auth Mode](docs/08-dev-auth-mode.md) | Dashboard local 模式：无 Google OAuth 时跳过认证 |
 | 09 | [Unified Auth](docs/09-unified-auth.md) | 统一认证架构：分离 AI API 认证与 Dashboard 管理认证 |
 | 10 | [Request Optimizations](docs/10-request-optimizations.md) | 可配置的请求优化项：协议兼容性修复，Settings 页面逐一开关 |
+| 11 | [Custom Upstream Routing](docs/11-custom-upstream-routing.md) | AI Providers：多 provider 模型路由 + Copilot 查重 + Dashboard 管理 |
+| 12 | [Quality System Upgrade](docs/12-quality-system-upgrade.md) | 质量体系升级：A- → S 级，D1 隔离 + 文档同步 |
+| 13 | [Server-Side Tools](docs/13-server-tools.md) | Server-side tool 拦截替换：web_search → Tavily，pure/mixed 双模式 |
+| 14 | [Azure VM Deployment](docs/14-azure-vm-deployment.md) | Ubuntu 单机部署：Bun + systemd + Nginx + HTTPS + Device Flow 首次授权 |
 
 <details><summary>Archive</summary>
 
