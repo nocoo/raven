@@ -5,8 +5,11 @@ import {
   apiKeyAuth,
   dashboardAuth,
   invalidateKeyCountCache,
+  ipWhitelistMiddleware,
 } from "../src/middleware.ts";
 import { initApiKeys, createApiKey } from "../src/db/keys.ts";
+import { state } from "../src/lib/state.ts";
+import { parseIPRange } from "../src/lib/ip-whitelist.ts";
 
 function createTestDb(): Database {
   const db = new Database(":memory:");
@@ -367,5 +370,164 @@ describe("timing-safe comparison", () => {
       headers: { Authorization: "Bearer sk-raven-secre!" },
     });
     expect(res.status).toBe(401);
+  });
+});
+
+// ===========================================================================
+// ipWhitelistMiddleware — IP-based access control
+// ===========================================================================
+
+describe("ipWhitelistMiddleware", () => {
+  // Save original state
+  let originalEnabled: boolean;
+  let originalRanges: typeof state.ipWhitelistRanges;
+
+  beforeEach(() => {
+    originalEnabled = state.ipWhitelistEnabled;
+    originalRanges = state.ipWhitelistRanges;
+  });
+
+  afterEach(() => {
+    state.ipWhitelistEnabled = originalEnabled;
+    state.ipWhitelistRanges = originalRanges;
+  });
+
+  function createWhitelistApp() {
+    const app = new Hono();
+    app.use("*", ipWhitelistMiddleware());
+    app.get("/test", (c) => c.json({ ok: true }));
+    return app;
+  }
+
+  describe("disabled (default)", () => {
+    test("allows all requests when whitelist is disabled", async () => {
+      state.ipWhitelistEnabled = false;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test");
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("enabled with no ranges", () => {
+    test("allows all requests when no ranges configured (fail-open)", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [];
+      const app = createWhitelistApp();
+      const res = await app.request("/test");
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("enabled with ranges", () => {
+    test("allows request with whitelisted x-forwarded-for IP", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "192.168.1.50" },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("rejects request with non-whitelisted x-forwarded-for IP", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "10.0.0.1" },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    test("handles x-forwarded-for with multiple IPs (uses first)", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "192.168.1.50, 10.0.0.1, 8.8.8.8" },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("allows request with whitelisted x-real-ip", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("10.0.0.1")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-real-ip": "10.0.0.1" },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("rejects request with non-whitelisted x-real-ip", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("10.0.0.1")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-real-ip": "10.0.0.2" },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    test("handles IPv6-mapped IPv4 (::ffff:x.x.x.x)", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "::ffff:192.168.1.100" },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("handles IPv6 loopback (::1) as 127.0.0.1", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("127.0.0.1")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "::1" },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("rejects pure IPv6 addresses", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [parseIPRange("0.0.0.0/0")!]; // Allow all IPv4
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "2001:db8::1" },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    test("checks against multiple ranges (any match passes)", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistRanges = [
+        parseIPRange("192.168.1.0/24")!,
+        parseIPRange("10.0.0.0/8")!,
+        parseIPRange("172.16.0.1")!,
+      ];
+      const app = createWhitelistApp();
+
+      const res1 = await app.request("/test", {
+        headers: { "x-forwarded-for": "192.168.1.50" },
+      });
+      expect(res1.status).toBe(200);
+
+      const res2 = await app.request("/test", {
+        headers: { "x-forwarded-for": "10.255.255.255" },
+      });
+      expect(res2.status).toBe(200);
+
+      const res3 = await app.request("/test", {
+        headers: { "x-forwarded-for": "172.16.0.1" },
+      });
+      expect(res3.status).toBe(200);
+
+      const res4 = await app.request("/test", {
+        headers: { "x-forwarded-for": "8.8.8.8" },
+      });
+      expect(res4.status).toBe(403);
+    });
   });
 });

@@ -2,6 +2,8 @@ import type { Database } from "bun:sqlite";
 import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { validateApiKey } from "./db/keys.ts";
+import { state } from "./lib/state.ts";
+import { extractIPv4, parseIPv4, isIPInRanges } from "./lib/ip-whitelist.ts";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -180,3 +182,93 @@ export function dashboardAuth(opts: DashboardAuthOpts) {
 
 /** @deprecated Use apiKeyAuth or dashboardAuth instead */
 export const multiKeyAuth = apiKeyAuth;
+
+// ---------------------------------------------------------------------------
+// IP whitelist middleware — silently drop requests from non-whitelisted IPs
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the client IP from a Hono context.
+ * Checks x-forwarded-for header first (for reverse proxy setups),
+ * then falls back to the direct connection IP.
+ */
+function getClientIP(c: Context): string | null {
+  // Check x-forwarded-for for reverse proxy setups
+  const forwarded = c.req.header("x-forwarded-for");
+  if (forwarded) {
+    // Take the first IP (original client)
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+
+  // Try x-real-ip (nginx)
+  const realIP = c.req.header("x-real-ip");
+  if (realIP) return realIP.trim();
+
+  // Fall back to direct connection info
+  // Bun provides this via the request info
+  const info = c.env?.info;
+  if (info?.remoteAddress) {
+    return info.remoteAddress;
+  }
+
+  return null;
+}
+
+/**
+ * IP whitelist middleware.
+ *
+ * When IP whitelist is enabled (state.ipWhitelistEnabled = true),
+ * requests from IPs not in the whitelist are silently dropped
+ * (connection closed with no response).
+ *
+ * When disabled, all requests pass through.
+ *
+ * This middleware should be applied at the app level, before any routes.
+ */
+export function ipWhitelistMiddleware() {
+  return createMiddleware(async (c, next) => {
+    // Skip if whitelist is disabled
+    if (!state.ipWhitelistEnabled) {
+      await next();
+      return;
+    }
+
+    // Skip if no ranges configured (fail-open to avoid lockout)
+    if (state.ipWhitelistRanges.length === 0) {
+      await next();
+      return;
+    }
+
+    const clientIP = getClientIP(c);
+    if (!clientIP) {
+      // Cannot determine IP — fail-open with warning header
+      c.header("X-Raven-IP-Warning", "could-not-determine-ip");
+      await next();
+      return;
+    }
+
+    // Extract IPv4 from potentially IPv6-wrapped address
+    const ipv4 = extractIPv4(clientIP);
+    if (!ipv4) {
+      // Not an IPv4 address — silently reject
+      // Return empty response with connection close
+      return new Response(null, { status: 403, headers: { Connection: "close" } });
+    }
+
+    const ipNum = parseIPv4(ipv4);
+    if (ipNum === null) {
+      // Invalid IP format — silently reject
+      return new Response(null, { status: 403, headers: { Connection: "close" } });
+    }
+
+    // Check if IP is in any whitelisted range
+    if (!isIPInRanges(ipNum, state.ipWhitelistRanges)) {
+      // Not whitelisted — silently reject
+      return new Response(null, { status: 403, headers: { Connection: "close" } });
+    }
+
+    // IP is whitelisted — proceed
+    await next();
+  });
+}

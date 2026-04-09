@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import { getSetting, setSetting, deleteSetting } from "../db/settings";
-import { cacheVersions, cacheOptimizations, cacheServerTools, cacheSoundSettings } from "../lib/utils";
+import { cacheVersions, cacheOptimizations, cacheServerTools, cacheSoundSettings, cacheIPWhitelist } from "../lib/utils";
 import { state } from "../lib/state";
 import { SYSTEM_SOUNDS, isValidSound, SOUND_AVAILABLE } from "./sound";
+import { parseIPRanges, serializeIPRanges } from "../lib/ip-whitelist";
 
 // ---------------------------------------------------------------------------
 // Key definitions
@@ -35,13 +36,20 @@ const SOUND_KEYS = ["sound_enabled", "sound_name"] as const;
 /** Sound boolean keys (for validation). */
 const SOUND_BOOLEAN_KEYS = ["sound_enabled"] as const;
 
+/** IP whitelist setting keys. */
+const IP_WHITELIST_KEYS = ["ip_whitelist_enabled", "ip_whitelist_ranges"] as const;
+
+/** IP whitelist boolean keys (for validation). */
+const IP_WHITELIST_BOOLEAN_KEYS = ["ip_whitelist_enabled"] as const;
+
 type VersionKey = (typeof VERSION_KEYS)[number];
 type OptimizationKey = (typeof OPTIMIZATION_KEYS)[number];
 type ServerToolKey = (typeof SERVER_TOOL_KEYS)[number];
 type SoundKey = (typeof SOUND_KEYS)[number];
+type IPWhitelistKey = (typeof IP_WHITELIST_KEYS)[number];
 
 /** All known setting keys accepted by the API. */
-const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...SOUND_KEYS] as const;
+const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...SOUND_KEYS, ...IP_WHITELIST_KEYS] as const;
 type SettingKey = (typeof KNOWN_KEYS)[number];
 
 function isKnownKey(key: string): key is SettingKey {
@@ -70,6 +78,14 @@ function isSoundKey(key: string): key is SoundKey {
 
 function isSoundBooleanKey(key: string): key is SoundKey {
   return (SOUND_BOOLEAN_KEYS as readonly string[]).includes(key);
+}
+
+function isIPWhitelistKey(key: string): key is IPWhitelistKey {
+  return (IP_WHITELIST_KEYS as readonly string[]).includes(key);
+}
+
+function isIPWhitelistBooleanKey(key: string): key is IPWhitelistKey {
+  return (IP_WHITELIST_BOOLEAN_KEYS as readonly string[]).includes(key);
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +133,11 @@ export interface SoundInfo {
   available_sounds: readonly string[];
 }
 
+export interface IPWhitelistInfo {
+  enabled: boolean;
+  ranges: string[];
+}
+
 export interface SettingsSnapshot {
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
@@ -124,6 +145,7 @@ export interface SettingsSnapshot {
   debug: Record<string, OptimizationInfo>;
   server_tools: Record<string, ServerToolInfo>;
   sound: SoundInfo;
+  ip_whitelist: IPWhitelistInfo;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +199,10 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
       enabled: state.soundEnabled,
       sound_name: state.soundName,
       available_sounds: SYSTEM_SOUNDS,
+    },
+    ip_whitelist: {
+      enabled: state.ipWhitelistEnabled,
+      ranges: state.ipWhitelistRanges.map((r) => r.original),
     },
   };
 }
@@ -277,6 +303,18 @@ export function createSettingsRoute(db: Database): Hono {
           400,
         );
       }
+    } else if (isIPWhitelistBooleanKey(key)) {
+      if (!isValidBoolean(trimmed)) {
+        return c.json(
+          {
+            error: {
+              type: "validation_error",
+              message: `invalid boolean value: "${trimmed}". Expected "true" or "false"`,
+            },
+          },
+          400,
+        );
+      }
     } else if (key === "sound_name") {
       if (!isValidSound(trimmed)) {
         return c.json(
@@ -289,6 +327,25 @@ export function createSettingsRoute(db: Database): Hono {
           400,
         );
       }
+    } else if (key === "ip_whitelist_ranges") {
+      // Validate JSON array of IP ranges
+      const { ranges, errors } = parseIPRanges(trimmed);
+      if (errors.length > 0) {
+        return c.json(
+          {
+            error: {
+              type: "validation_error",
+              message: `invalid IP ranges: ${errors.join("; ")}`,
+            },
+          },
+          400,
+        );
+      }
+      // Re-serialize to ensure consistent format
+      const normalized = serializeIPRanges(ranges);
+      setSetting(db, key, normalized);
+      cacheIPWhitelist(db);
+      return c.json(getSettingsSnapshot(db));
     }
 
     // Persist to DB and refresh caches
@@ -299,6 +356,8 @@ export function createSettingsRoute(db: Database): Hono {
       cacheServerTools(db);
     } else if (isSoundKey(key)) {
       cacheSoundSettings(db);
+    } else if (isIPWhitelistKey(key)) {
+      cacheIPWhitelist(db);
     } else {
       cacheOptimizations(db);
     }
@@ -329,6 +388,8 @@ export function createSettingsRoute(db: Database): Hono {
       cacheServerTools(db);
     } else if (isSoundKey(key)) {
       cacheSoundSettings(db);
+    } else if (isIPWhitelistKey(key)) {
+      cacheIPWhitelist(db);
     } else {
       cacheOptimizations(db);
     }

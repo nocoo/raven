@@ -5,6 +5,7 @@ import type { SettingsData } from "@/lib/types";
 import { SettingsContent } from "./settings-content";
 import { OptimizationsContent } from "./optimizations-content";
 import { SoundContent } from "./sound-content";
+import { IPWhitelistContent } from "./ip-whitelist-content";
 
 export const metadata = { title: "Settings" };
 
@@ -25,6 +26,7 @@ export default async function SettingsPage() {
         <h1 className="text-lg font-semibold font-display">Settings</h1>
         <SettingsContent data={result.data} />
         {result.data.sound.available && <SoundContent data={result.data.sound} />}
+        <IPWhitelistContent data={result.data.ip_whitelist} />
         <OptimizationsContent data={result.data.optimizations} />
       </div>
     </AppShell>

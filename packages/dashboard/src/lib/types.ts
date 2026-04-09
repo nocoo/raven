@@ -203,6 +203,11 @@ export interface SoundInfo {
   available_sounds: string[];
 }
 
+export interface IPWhitelistInfo {
+  enabled: boolean;
+  ranges: string[];
+}
+
 export interface SettingsData {
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
@@ -210,6 +215,7 @@ export interface SettingsData {
   debug: Record<string, OptimizationInfo>;
   server_tools: Record<string, ServerToolInfo>;
   sound: SoundInfo;
+  ip_whitelist: IPWhitelistInfo;
 }
 
 // ---------------------------------------------------------------------------

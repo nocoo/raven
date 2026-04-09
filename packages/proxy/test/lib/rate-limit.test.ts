@@ -39,6 +39,8 @@ function makeState(overrides: Partial<State> = {}): State {
     providers: [],
     soundEnabled: false,
     soundName: "Basso",
+    ipWhitelistEnabled: false,
+    ipWhitelistRanges: [],
     ...overrides,
   }
 }

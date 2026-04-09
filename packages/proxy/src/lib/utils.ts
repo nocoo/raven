@@ -8,6 +8,7 @@ import {
 } from "./../services/detect-local-versions"
 import { getSetting } from "./../db/settings"
 import { getEnabledProviders } from "./../db/providers"
+import { parseIPRanges } from "./ip-whitelist"
 
 import { state } from "./state"
 
@@ -116,4 +117,23 @@ export function cacheServerTools(db: Database): void {
 export function cacheSoundSettings(db: Database): void {
   state.soundEnabled = getSetting(db, "sound_enabled") === "true"
   state.soundName = getSetting(db, "sound_name") ?? "Basso"
+}
+
+/**
+ * Load IP whitelist settings from DB into runtime state.
+ * Called at startup and after any IP whitelist setting change.
+ */
+export function cacheIPWhitelist(db: Database): void {
+  state.ipWhitelistEnabled = getSetting(db, "ip_whitelist_enabled") === "true"
+
+  const rangesJson = getSetting(db, "ip_whitelist_ranges")
+  if (rangesJson) {
+    const { ranges, errors } = parseIPRanges(rangesJson)
+    if (errors.length > 0) {
+      logger.warn(`IP whitelist parse errors: ${errors.join(", ")}`)
+    }
+    state.ipWhitelistRanges = ranges
+  } else {
+    state.ipWhitelistRanges = []
+  }
 }

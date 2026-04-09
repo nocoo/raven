@@ -7,7 +7,7 @@ import { createApp } from "./app"
 import { ensurePaths } from "./lib/paths"
 import { state } from "./lib/state"
 import { setupGitHubToken, setupCopilotToken } from "./lib/token"
-import { cacheModels, cacheVersions, cacheOptimizations, cacheProviders, cacheServerTools, cacheSoundSettings } from "./lib/utils"
+import { cacheModels, cacheVersions, cacheOptimizations, cacheProviders, cacheServerTools, cacheSoundSettings, cacheIPWhitelist } from "./lib/utils"
 import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
 import { initApiKeys, validateApiKey } from "./db/keys"
@@ -54,6 +54,9 @@ cacheServerTools(db)
 
 // 3e. Load sound settings from DB
 cacheSoundSettings(db)
+
+// 3f. Load IP whitelist settings from DB
+cacheIPWhitelist(db)
 
 // 4. GitHub OAuth (loads from disk or runs device flow)
 await setupGitHubToken()

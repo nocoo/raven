@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import type { Database } from "bun:sqlite"
 
-import { apiKeyAuth, dashboardAuth } from "./middleware"
+import { apiKeyAuth, dashboardAuth, ipWhitelistMiddleware } from "./middleware"
 import { completionRoutes } from "./routes/chat-completions/route"
 import { messageRoutes } from "./routes/messages/route"
 import { responsesRoutes } from "./routes/responses/route"
@@ -39,6 +39,10 @@ export interface AppDeps {
 export function createApp(deps: AppDeps): Hono {
   const { db, apiKey, internalKey, githubToken, port, baseUrl } = deps
   const app = new Hono()
+
+  // ------- IP whitelist (first, applies to all routes) -------
+  // When enabled, silently drops requests from non-whitelisted IPs
+  app.use("*", ipWhitelistMiddleware())
 
   // ------- middleware -------
   // AI coding routes — strict auth, no dev mode, rejects RAVEN_INTERNAL_KEY

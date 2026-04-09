@@ -1,5 +1,6 @@
 import type { ModelsResponse } from "./../services/copilot/get-models"
 import type { ProviderRecord } from "./../db/providers"
+import type { IPRange } from "./ip-whitelist"
 
 export interface State {
   githubToken: string | null
@@ -38,6 +39,10 @@ export interface State {
   // Sound notifications on error
   soundEnabled: boolean
   soundName: string
+
+  // IP whitelist — access control (default: disabled)
+  ipWhitelistEnabled: boolean
+  ipWhitelistRanges: IPRange[]
 }
 
 export const state: State = {
@@ -62,4 +67,6 @@ export const state: State = {
   providers: [],
   soundEnabled: false,
   soundName: "Basso",
+  ipWhitelistEnabled: false,
+  ipWhitelistRanges: [],
 }
