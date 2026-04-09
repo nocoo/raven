@@ -3,7 +3,7 @@ import type { Database } from "bun:sqlite";
 import { getSetting, setSetting, deleteSetting } from "../db/settings";
 import { cacheVersions, cacheOptimizations, cacheServerTools, cacheSoundSettings } from "../lib/utils";
 import { state } from "../lib/state";
-import { SYSTEM_SOUNDS, isValidSound } from "./sound";
+import { SYSTEM_SOUNDS, isValidSound, SOUND_AVAILABLE } from "./sound";
 
 // ---------------------------------------------------------------------------
 // Key definitions
@@ -111,6 +111,7 @@ export interface ServerToolInfo {
 }
 
 export interface SoundInfo {
+  available: boolean;
   enabled: boolean;
   sound_name: string;
   available_sounds: readonly string[];
@@ -172,6 +173,7 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
       },
     },
     sound: {
+      available: SOUND_AVAILABLE,
       enabled: state.soundEnabled,
       sound_name: state.soundName,
       available_sounds: SYSTEM_SOUNDS,

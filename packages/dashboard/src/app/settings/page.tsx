@@ -24,7 +24,7 @@ export default async function SettingsPage() {
       <div className="space-y-8">
         <h1 className="text-lg font-semibold font-display">Settings</h1>
         <SettingsContent data={result.data} />
-        <SoundContent data={result.data.sound} />
+        {result.data.sound.available && <SoundContent data={result.data.sound} />}
         <OptimizationsContent data={result.data.optimizations} />
       </div>
     </AppShell>

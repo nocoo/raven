@@ -197,6 +197,7 @@ export interface ServerToolInfo {
 }
 
 export interface SoundInfo {
+  available: boolean;
   enabled: boolean;
   sound_name: string;
   available_sounds: string[];

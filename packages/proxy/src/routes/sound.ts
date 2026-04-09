@@ -2,6 +2,16 @@ import { Hono } from "hono";
 import { spawn } from "child_process";
 
 // ---------------------------------------------------------------------------
+// Platform check — sound feature is macOS-only
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether the sound feature is available on this platform.
+ * Currently only macOS is supported (requires afplay and system sounds).
+ */
+export const SOUND_AVAILABLE = process.platform === "darwin";
+
+// ---------------------------------------------------------------------------
 // Available system sounds (macOS built-in)
 // ---------------------------------------------------------------------------
 
@@ -35,8 +45,11 @@ export function isValidSound(name: string): name is SystemSound {
 /**
  * Play a macOS system sound asynchronously.
  * Uses afplay which is built into macOS.
+ * No-op on non-macOS platforms.
  */
 export function playSound(name: SystemSound): void {
+  if (!SOUND_AVAILABLE) return;
+
   const path = `/System/Library/Sounds/${name}.aiff`;
   spawn("afplay", [path], {
     stdio: "ignore",
