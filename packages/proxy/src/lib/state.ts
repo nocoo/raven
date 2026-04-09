@@ -43,6 +43,9 @@ export interface State {
   // IP whitelist — access control (default: disabled)
   ipWhitelistEnabled: boolean
   ipWhitelistRanges: IPRange[]
+  // Trust proxy headers (x-forwarded-for, x-real-ip) only when true
+  // When false, only direct connection IP is used for whitelist checks
+  ipWhitelistTrustProxy: boolean
 }
 
 export const state: State = {
@@ -69,4 +72,5 @@ export const state: State = {
   soundName: "Basso",
   ipWhitelistEnabled: false,
   ipWhitelistRanges: [],
+  ipWhitelistTrustProxy: false,
 }

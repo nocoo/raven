@@ -125,6 +125,7 @@ export function cacheSoundSettings(db: Database): void {
  */
 export function cacheIPWhitelist(db: Database): void {
   state.ipWhitelistEnabled = getSetting(db, "ip_whitelist_enabled") === "true"
+  state.ipWhitelistTrustProxy = getSetting(db, "ip_whitelist_trust_proxy") === "true"
 
   const rangesJson = getSetting(db, "ip_whitelist_ranges")
   if (rangesJson) {

@@ -189,30 +189,96 @@ export const multiKeyAuth = apiKeyAuth;
 
 /**
  * Get the client IP from a Hono context.
- * Checks x-forwarded-for header first (for reverse proxy setups),
- * then falls back to the direct connection IP.
+ *
+ * SECURITY: Only trusts x-forwarded-for/x-real-ip headers when
+ * state.ipWhitelistTrustProxy is explicitly true. Otherwise,
+ * only the direct connection IP is used to prevent header spoofing.
  */
 function getClientIP(c: Context): string | null {
-  // Check x-forwarded-for for reverse proxy setups
-  const forwarded = c.req.header("x-forwarded-for");
-  if (forwarded) {
-    // Take the first IP (original client)
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
+  // Only trust proxy headers when explicitly configured
+  if (state.ipWhitelistTrustProxy) {
+    // Check x-forwarded-for for reverse proxy setups
+    const forwarded = c.req.header("x-forwarded-for");
+    if (forwarded) {
+      // Take the first IP (original client)
+      const first = forwarded.split(",")[0]?.trim();
+      if (first) return first;
+    }
+
+    // Try x-real-ip (nginx)
+    const realIP = c.req.header("x-real-ip");
+    if (realIP) return realIP.trim();
   }
 
-  // Try x-real-ip (nginx)
-  const realIP = c.req.header("x-real-ip");
-  if (realIP) return realIP.trim();
-
-  // Fall back to direct connection info
-  // Bun provides this via the request info
+  // Direct connection IP from Bun server info
   const info = c.env?.info;
   if (info?.remoteAddress) {
     return info.remoteAddress;
   }
 
   return null;
+}
+
+/**
+ * Check if a client IP is allowed by the whitelist.
+ * Exported for use in WebSocket upgrade path.
+ *
+ * Returns: { allowed: true } | { allowed: false, reason: string }
+ */
+export function checkIPWhitelist(clientIP: string | null): { allowed: true } | { allowed: false; reason: string } {
+  // Skip if whitelist is disabled
+  if (!state.ipWhitelistEnabled) {
+    return { allowed: true };
+  }
+
+  // Skip if no ranges configured (fail-open to avoid lockout)
+  if (state.ipWhitelistRanges.length === 0) {
+    return { allowed: true };
+  }
+
+  if (!clientIP) {
+    // Cannot determine IP — fail-open
+    return { allowed: true };
+  }
+
+  // Extract IPv4 from potentially IPv6-wrapped address
+  const ipv4 = extractIPv4(clientIP);
+  if (!ipv4) {
+    return { allowed: false, reason: "not-ipv4" };
+  }
+
+  const ipNum = parseIPv4(ipv4);
+  if (ipNum === null) {
+    return { allowed: false, reason: "invalid-ip" };
+  }
+
+  // Check if IP is in any whitelisted range
+  if (!isIPInRanges(ipNum, state.ipWhitelistRanges)) {
+    return { allowed: false, reason: "not-whitelisted" };
+  }
+
+  return { allowed: true };
+}
+
+/**
+ * Extract client IP from request for use outside of Hono context.
+ * Used by WebSocket upgrade path.
+ *
+ * SECURITY: Only trusts proxy headers when state.ipWhitelistTrustProxy is true.
+ */
+export function getClientIPFromRequest(req: Request, remoteAddress: string | null): string | null {
+  if (state.ipWhitelistTrustProxy) {
+    const forwarded = req.headers.get("x-forwarded-for");
+    if (forwarded) {
+      const first = forwarded.split(",")[0]?.trim();
+      if (first) return first;
+    }
+
+    const realIP = req.headers.get("x-real-ip");
+    if (realIP) return realIP.trim();
+  }
+
+  return remoteAddress;
 }
 
 /**
@@ -224,51 +290,21 @@ function getClientIP(c: Context): string | null {
  *
  * When disabled, all requests pass through.
  *
+ * SECURITY: Proxy headers (x-forwarded-for, x-real-ip) are only trusted
+ * when state.ipWhitelistTrustProxy is explicitly true. This prevents
+ * clients from spoofing their IP via headers.
+ *
  * This middleware should be applied at the app level, before any routes.
  */
 export function ipWhitelistMiddleware() {
   return createMiddleware(async (c, next) => {
-    // Skip if whitelist is disabled
-    if (!state.ipWhitelistEnabled) {
-      await next();
-      return;
-    }
-
-    // Skip if no ranges configured (fail-open to avoid lockout)
-    if (state.ipWhitelistRanges.length === 0) {
-      await next();
-      return;
-    }
-
     const clientIP = getClientIP(c);
-    if (!clientIP) {
-      // Cannot determine IP — fail-open with warning header
-      c.header("X-Raven-IP-Warning", "could-not-determine-ip");
-      await next();
-      return;
-    }
+    const result = checkIPWhitelist(clientIP);
 
-    // Extract IPv4 from potentially IPv6-wrapped address
-    const ipv4 = extractIPv4(clientIP);
-    if (!ipv4) {
-      // Not an IPv4 address — silently reject
-      // Return empty response with connection close
+    if (!result.allowed) {
       return new Response(null, { status: 403, headers: { Connection: "close" } });
     }
 
-    const ipNum = parseIPv4(ipv4);
-    if (ipNum === null) {
-      // Invalid IP format — silently reject
-      return new Response(null, { status: 403, headers: { Connection: "close" } });
-    }
-
-    // Check if IP is in any whitelisted range
-    if (!isIPInRanges(ipNum, state.ipWhitelistRanges)) {
-      // Not whitelisted — silently reject
-      return new Response(null, { status: 403, headers: { Connection: "close" } });
-    }
-
-    // IP is whitelisted — proceed
     await next();
   });
 }

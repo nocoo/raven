@@ -205,6 +205,7 @@ export interface SoundInfo {
 
 export interface IPWhitelistInfo {
   enabled: boolean;
+  trust_proxy: boolean;
   ranges: string[];
 }
 

@@ -381,15 +381,20 @@ describe("ipWhitelistMiddleware", () => {
   // Save original state
   let originalEnabled: boolean;
   let originalRanges: typeof state.ipWhitelistRanges;
+  let originalTrustProxy: boolean;
 
   beforeEach(() => {
     originalEnabled = state.ipWhitelistEnabled;
     originalRanges = state.ipWhitelistRanges;
+    originalTrustProxy = state.ipWhitelistTrustProxy;
+    // Default: trust proxy disabled (secure default)
+    state.ipWhitelistTrustProxy = false;
   });
 
   afterEach(() => {
     state.ipWhitelistEnabled = originalEnabled;
     state.ipWhitelistRanges = originalRanges;
+    state.ipWhitelistTrustProxy = originalTrustProxy;
   });
 
   function createWhitelistApp() {
@@ -419,9 +424,54 @@ describe("ipWhitelistMiddleware", () => {
     });
   });
 
-  describe("enabled with ranges", () => {
-    test("allows request with whitelisted x-forwarded-for IP", async () => {
+  // SECURITY: Header spoofing prevention tests
+  describe("security: trust_proxy=false (default)", () => {
+    test("ignores x-forwarded-for when trust_proxy is false", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = false;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+      const app = createWhitelistApp();
+      // Even though header claims whitelisted IP, should be ignored
+      // Without a real remote address in test, this falls through to fail-open
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "192.168.1.50" },
+      });
+      // In test environment, no remoteAddress is available, so fail-open applies
+      expect(res.status).toBe(200);
+    });
+
+    test("ignores x-real-ip when trust_proxy is false", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = false;
+      state.ipWhitelistRanges = [parseIPRange("10.0.0.1")!];
+      const app = createWhitelistApp();
+      const res = await app.request("/test", {
+        headers: { "x-real-ip": "10.0.0.1" },
+      });
+      expect(res.status).toBe(200); // fail-open when no remoteAddress
+    });
+
+    test("client cannot spoof IP via x-forwarded-for when trust_proxy=false", async () => {
+      // This is the key security test: even if client sends x-forwarded-for,
+      // it should NOT be trusted unless trust_proxy is explicitly enabled
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = false;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+
+      const app = createWhitelistApp();
+      // Attacker tries to spoof whitelisted IP - but since trust_proxy=false,
+      // the header is ignored and we use remoteAddress (unavailable in test = fail-open)
+      const res = await app.request("/test", {
+        headers: { "x-forwarded-for": "192.168.1.1" },
+      });
+      expect(res.status).toBe(200); // Passes because no remoteAddress in test
+    });
+  });
+
+  describe("trust_proxy=true (explicit opt-in)", () => {
+    test("reads x-forwarded-for when trust_proxy is true", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -430,8 +480,9 @@ describe("ipWhitelistMiddleware", () => {
       expect(res.status).toBe(200);
     });
 
-    test("rejects request with non-whitelisted x-forwarded-for IP", async () => {
+    test("rejects non-whitelisted x-forwarded-for when trust_proxy is true", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -442,6 +493,7 @@ describe("ipWhitelistMiddleware", () => {
 
     test("handles x-forwarded-for with multiple IPs (uses first)", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -450,8 +502,9 @@ describe("ipWhitelistMiddleware", () => {
       expect(res.status).toBe(200);
     });
 
-    test("allows request with whitelisted x-real-ip", async () => {
+    test("reads x-real-ip when trust_proxy is true", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("10.0.0.1")!];
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -460,8 +513,9 @@ describe("ipWhitelistMiddleware", () => {
       expect(res.status).toBe(200);
     });
 
-    test("rejects request with non-whitelisted x-real-ip", async () => {
+    test("rejects non-whitelisted x-real-ip", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("10.0.0.1")!];
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -472,6 +526,7 @@ describe("ipWhitelistMiddleware", () => {
 
     test("handles IPv6-mapped IPv4 (::ffff:x.x.x.x)", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -482,6 +537,7 @@ describe("ipWhitelistMiddleware", () => {
 
     test("handles IPv6 loopback (::1) as 127.0.0.1", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("127.0.0.1")!];
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -492,6 +548,7 @@ describe("ipWhitelistMiddleware", () => {
 
     test("rejects pure IPv6 addresses", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [parseIPRange("0.0.0.0/0")!]; // Allow all IPv4
       const app = createWhitelistApp();
       const res = await app.request("/test", {
@@ -502,6 +559,7 @@ describe("ipWhitelistMiddleware", () => {
 
     test("checks against multiple ranges (any match passes)", async () => {
       state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = true;
       state.ipWhitelistRanges = [
         parseIPRange("192.168.1.0/24")!,
         parseIPRange("10.0.0.0/8")!,

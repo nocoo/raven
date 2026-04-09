@@ -68,6 +68,9 @@ export interface IPRange {
  * - Range: "192.168.1.1-192.168.1.100"
  *
  * Returns null if invalid.
+ *
+ * SECURITY: Strictly validates format - rejects inputs with extra segments
+ * like "192.168.1.0/24/garbage" or "192.168.1.1-192.168.1.2-192.168.1.3".
  */
 export function parseIPRange(input: string): IPRange | null {
   const trimmed = input.trim();
@@ -75,12 +78,18 @@ export function parseIPRange(input: string): IPRange | null {
 
   // CIDR notation: "192.168.1.0/24"
   if (trimmed.includes("/")) {
-    const [ipPart, prefixPart] = trimmed.split("/");
+    const parts = trimmed.split("/");
+    // Reject if more than exactly 2 parts (e.g., "192.168.1.0/24/garbage")
+    if (parts.length !== 2) return null;
+
+    const [ipPart, prefixPart] = parts;
     if (!ipPart || !prefixPart) return null;
 
     const ip = parseIPv4(ipPart);
     if (ip === null) return null;
 
+    // Strict prefix validation: must be digits only, no extra chars
+    if (!/^\d+$/.test(prefixPart)) return null;
     const prefix = parseInt(prefixPart, 10);
     if (isNaN(prefix) || prefix < 0 || prefix > 32) return null;
 
@@ -94,7 +103,11 @@ export function parseIPRange(input: string): IPRange | null {
 
   // Range notation: "192.168.1.1-192.168.1.100"
   if (trimmed.includes("-")) {
-    const [startPart, endPart] = trimmed.split("-");
+    const parts = trimmed.split("-");
+    // Reject if more than exactly 2 parts (e.g., "192.168.1.1-192.168.1.2-192.168.1.3")
+    if (parts.length !== 2) return null;
+
+    const [startPart, endPart] = parts;
     if (!startPart || !endPart) return null;
 
     const start = parseIPv4(startPart.trim());
@@ -199,6 +212,14 @@ export function serializeIPRanges(ranges: IPRange[]): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Validate that a string is a valid 4-digit hex number (0000-ffff).
+ */
+function isValidHex16(s: string): boolean {
+  if (!s || s.length === 0 || s.length > 4) return false;
+  return /^[0-9a-fA-F]+$/.test(s);
+}
+
+/**
  * Extract IPv4 address from various formats.
  * Handles:
  * - Plain IPv4: "192.168.1.1"
@@ -206,6 +227,9 @@ export function serializeIPRanges(ranges: IPRange[]): string {
  * - Loopback variations: "::1" -> "127.0.0.1"
  *
  * Returns null if cannot extract IPv4.
+ *
+ * SECURITY: Strictly validates hex format - rejects invalid chars like
+ * "::ffff:1g:0101" which would previously be parsed as 0.1.1.1
  */
 export function extractIPv4(ip: string): string | null {
   if (!ip) return null;
@@ -227,11 +251,18 @@ export function extractIPv4(ip: string): string | null {
     // Hex format (c0a8:0101 for 192.168.1.1)
     const hexParts = v4Part.split(":");
     if (hexParts.length === 2) {
-      const high = parseInt(hexParts[0]!, 16);
-      const low = parseInt(hexParts[1]!, 16);
-      if (!isNaN(high) && !isNaN(low)) {
-        return `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`;
+      const [highPart, lowPart] = hexParts;
+      // Strict hex validation
+      if (!isValidHex16(highPart!) || !isValidHex16(lowPart!)) {
+        return null;
       }
+      const high = parseInt(highPart!, 16);
+      const low = parseInt(lowPart!, 16);
+      // Additional range check (should be 0-65535 for uint16)
+      if (high > 0xffff || low > 0xffff) {
+        return null;
+      }
+      return `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`;
     }
   }
 

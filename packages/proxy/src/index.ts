@@ -14,6 +14,7 @@ import { initApiKeys, validateApiKey } from "./db/keys"
 import { initSettings } from "./db/settings"
 import { initProviders } from "./db/providers"
 import { timingSafeEqual } from "./middleware"
+import { checkIPWhitelist, getClientIPFromRequest } from "./middleware"
 import { wsHandler, type WsData } from "./ws/logs"
 import type { LogLevel } from "./util/log-event"
 import { LEVEL_ORDER } from "./util/log-event"
@@ -119,6 +120,14 @@ export default {
 
     // WebSocket upgrade for /ws/logs
     if (url.pathname === "/ws/logs") {
+      // IP whitelist check (before auth, to avoid leaking auth status)
+      const remoteAddr = server.requestIP(req)?.address ?? null
+      const clientIP = getClientIPFromRequest(req, remoteAddr)
+      const ipResult = checkIPWhitelist(clientIP)
+      if (!ipResult.allowed) {
+        return new Response(null, { status: 403, headers: { Connection: "close" } })
+      }
+
       const token = url.searchParams.get("token")
       if (!authenticateWs(token)) {
         return new Response("Unauthorized", { status: 401 })

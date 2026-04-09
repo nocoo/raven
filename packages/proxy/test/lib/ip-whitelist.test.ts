@@ -112,6 +112,20 @@ describe("ip-whitelist", () => {
         expect(parseIPRange("/24")).toBeNull();
         expect(parseIPRange("192.168.1.0/")).toBeNull();
       });
+
+      // SECURITY: Reject extra segments
+      it("rejects CIDR with extra segments (security)", () => {
+        expect(parseIPRange("192.168.1.0/24/garbage")).toBeNull();
+        expect(parseIPRange("192.168.1.0/24/32")).toBeNull();
+        expect(parseIPRange("10.0.0.0/8/extra/more")).toBeNull();
+      });
+
+      // SECURITY: Reject non-numeric prefix
+      it("rejects CIDR with non-numeric prefix (security)", () => {
+        expect(parseIPRange("192.168.1.0/24a")).toBeNull();
+        expect(parseIPRange("192.168.1.0/abc")).toBeNull();
+        expect(parseIPRange("192.168.1.0/24.0")).toBeNull();
+      });
     });
 
     describe("range notation", () => {
@@ -136,6 +150,13 @@ describe("ip-whitelist", () => {
         expect(parseIPRange("192.168.1.1-invalid")).toBeNull();
         expect(parseIPRange("-192.168.1.1")).toBeNull();
         expect(parseIPRange("192.168.1.1-")).toBeNull();
+      });
+
+      // SECURITY: Reject extra segments
+      it("rejects range with extra segments (security)", () => {
+        expect(parseIPRange("192.168.1.1-192.168.1.2-192.168.1.3")).toBeNull();
+        expect(parseIPRange("10.0.0.1-10.0.0.10-10.0.0.20")).toBeNull();
+        expect(parseIPRange("1.1.1.1-2.2.2.2-3.3.3.3-4.4.4.4")).toBeNull();
       });
     });
   });
@@ -282,6 +303,25 @@ describe("ip-whitelist", () => {
 
     it("returns null for invalid input", () => {
       expect(extractIPv4("invalid")).toBeNull();
+    });
+
+    // SECURITY: Reject invalid hex chars in IPv4-mapped IPv6
+    describe("security: invalid hex rejection", () => {
+      it("rejects invalid hex char 'g' in mapped IPv6", () => {
+        // '1g' is not valid hex - should NOT parse as 0.1.x.x
+        expect(extractIPv4("::ffff:1g:0101")).toBeNull();
+      });
+
+      it("rejects other invalid hex chars", () => {
+        expect(extractIPv4("::ffff:zzzz:0101")).toBeNull();
+        expect(extractIPv4("::ffff:gggg:hhhh")).toBeNull();
+        expect(extractIPv4("::ffff:c0a8:01g1")).toBeNull();
+      });
+
+      it("rejects hex segments that are too long", () => {
+        expect(extractIPv4("::ffff:c0a80:0101")).toBeNull(); // 5 chars
+        expect(extractIPv4("::ffff:c0a8:01012")).toBeNull(); // 5 chars
+      });
     });
   });
 });

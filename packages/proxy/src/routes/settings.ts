@@ -37,10 +37,10 @@ const SOUND_KEYS = ["sound_enabled", "sound_name"] as const;
 const SOUND_BOOLEAN_KEYS = ["sound_enabled"] as const;
 
 /** IP whitelist setting keys. */
-const IP_WHITELIST_KEYS = ["ip_whitelist_enabled", "ip_whitelist_ranges"] as const;
+const IP_WHITELIST_KEYS = ["ip_whitelist_enabled", "ip_whitelist_ranges", "ip_whitelist_trust_proxy"] as const;
 
 /** IP whitelist boolean keys (for validation). */
-const IP_WHITELIST_BOOLEAN_KEYS = ["ip_whitelist_enabled"] as const;
+const IP_WHITELIST_BOOLEAN_KEYS = ["ip_whitelist_enabled", "ip_whitelist_trust_proxy"] as const;
 
 type VersionKey = (typeof VERSION_KEYS)[number];
 type OptimizationKey = (typeof OPTIMIZATION_KEYS)[number];
@@ -135,6 +135,7 @@ export interface SoundInfo {
 
 export interface IPWhitelistInfo {
   enabled: boolean;
+  trust_proxy: boolean;
   ranges: string[];
 }
 
@@ -202,6 +203,7 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
     },
     ip_whitelist: {
       enabled: state.ipWhitelistEnabled,
+      trust_proxy: state.ipWhitelistTrustProxy,
       ranges: state.ipWhitelistRanges.map((r) => r.original),
     },
   };

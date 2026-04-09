@@ -19,6 +19,7 @@ beforeEach(() => {
   state.stWebSearchApiKey = null;
   state.ipWhitelistEnabled = false;
   state.ipWhitelistRanges = [];
+  state.ipWhitelistTrustProxy = false;
 });
 
 afterEach(() => {
@@ -204,7 +205,7 @@ describe("settings route", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body).toHaveProperty("ip_whitelist");
-      expect(body.ip_whitelist).toEqual({ enabled: false, ranges: [] });
+      expect(body.ip_whitelist).toEqual({ enabled: false, trust_proxy: false, ranges: [] });
     });
 
     test("sets ip_whitelist_enabled to true", async () => {
@@ -319,6 +320,74 @@ describe("settings route", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.ip_whitelist.ranges).toEqual([]);
+    });
+
+    test("sets ip_whitelist_trust_proxy to true", async () => {
+      const app = createSettingsRoute(db);
+      const res = await app.request("/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "ip_whitelist_trust_proxy", value: "true" }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ip_whitelist.trust_proxy).toBe(true);
+      expect(state.ipWhitelistTrustProxy).toBe(true);
+    });
+
+    test("sets ip_whitelist_trust_proxy to false", async () => {
+      setSetting(db, "ip_whitelist_trust_proxy", "true");
+      cacheIPWhitelist(db);
+
+      const app = createSettingsRoute(db);
+      const res = await app.request("/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "ip_whitelist_trust_proxy", value: "false" }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ip_whitelist.trust_proxy).toBe(false);
+      expect(state.ipWhitelistTrustProxy).toBe(false);
+    });
+
+    test("rejects invalid boolean for ip_whitelist_trust_proxy", async () => {
+      const app = createSettingsRoute(db);
+      const res = await app.request("/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "ip_whitelist_trust_proxy", value: "yes" }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error.type).toBe("validation_error");
+    });
+
+    // SECURITY: Test that malformed IP ranges are rejected
+    test("rejects IP range with extra CIDR segments (security)", async () => {
+      const app = createSettingsRoute(db);
+      const res = await app.request("/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "ip_whitelist_ranges",
+          value: JSON.stringify(["192.168.1.0/24/garbage"]),
+        }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    test("rejects IP range with extra dash segments (security)", async () => {
+      const app = createSettingsRoute(db);
+      const res = await app.request("/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "ip_whitelist_ranges",
+          value: JSON.stringify(["192.168.1.1-192.168.1.2-192.168.1.3"]),
+        }),
+      });
+      expect(res.status).toBe(400);
     });
   });
 });
