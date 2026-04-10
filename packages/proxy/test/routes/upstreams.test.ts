@@ -1,9 +1,9 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 import { Database } from "bun:sqlite"
 
 import { createUpstreamsRoute } from "../../src/routes/upstreams"
-import { initProviders, getEnabledProviders } from "../../src/db/providers"
+import { createProvider, getEnabledProviders, getProvider, initProviders } from "../../src/db/providers"
 import { state } from "../../src/lib/state"
 
 // ===========================================================================
@@ -32,6 +32,7 @@ function req(method: string, path: string, body?: unknown): Request {
 // ============================================================================
 
 let db: Database
+let fetchSpy: ReturnType<typeof spyOn>
 const savedModels = state.models
 const savedProviders = state.providers
 
@@ -42,9 +43,11 @@ beforeEach(() => {
   state.models = { object: "list" as const, data: [] }
   // Clear providers to avoid polluting other tests
   state.providers = []
+  fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"))
 })
 
 afterEach(() => {
+  fetchSpy.mockRestore()
   db.close()
   state.models = savedModels
   state.providers = savedProviders
@@ -348,6 +351,26 @@ describe("upstreams API", () => {
       }))
 
       expect(res.status).toBe(404)
+    })
+
+    test("returns 400 for invalid input", async () => {
+      const app = makeApp(db)
+
+      const created = createProvider(db, {
+        name: "Provider1",
+        base_url: "https://example.com",
+        format: "anthropic",
+        api_key: "sk-key1",
+        model_patterns: ["model-1"],
+      })
+
+      const res = await app.request(req("PUT", `/api/upstreams/${created.id}`, {
+        base_url: "not-a-url",
+      }))
+
+      expect(res.status).toBe(400)
+      const json = await res.json() as { error: { message: string } }
+      expect(json.error.message).toBe("Invalid input")
     })
 
     test("returns 409 when updated model patterns conflict", async () => {
@@ -733,6 +756,154 @@ describe("upstreams API", () => {
 
       const res = await app.request(req("GET", "/api/upstreams/nonexistent/models"))
       expect(res.status).toBe(404)
+    })
+
+    test("returns grouped upstream models and marks the endpoint as supported", async () => {
+      const app = makeApp(db)
+      const provider = createProvider(db, {
+        name: "GroupedProvider",
+        base_url: "https://models.example.com///",
+        format: "openai",
+        api_key: "sk-grouped",
+        model_patterns: ["grouped-*"],
+      })
+
+      fetchSpy.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: [
+              { id: "zeta", owned_by: "vendor-b" },
+              { id: "alpha", owned_by: "vendor-b" },
+              { id: "orphan" },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+
+      const res = await app.request(req("GET", `/api/upstreams/${provider.id}/models`))
+
+      expect(res.status).toBe(200)
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(fetchSpy.mock.calls[0]?.[0]).toBe("https://models.example.com/v1/models")
+
+      const json = await res.json() as {
+        healthy: boolean
+        total: number
+        models: Record<string, string[]>
+      }
+      expect(json).toEqual({
+        healthy: true,
+        total: 3,
+        models: {
+          "vendor-b": ["alpha", "zeta"],
+          "unknown": ["orphan"],
+        },
+      })
+
+      const updated = getProvider(db, provider.id)
+      expect(updated?.supports_models_endpoint).toBe(true)
+    })
+
+    test("returns upstream errors and marks the endpoint as unsupported", async () => {
+      const app = makeApp(db)
+      const provider = createProvider(db, {
+        name: "BrokenProvider",
+        base_url: "https://broken.example.com",
+        format: "openai",
+        api_key: "sk-broken",
+        model_patterns: ["broken-*"],
+      })
+
+      fetchSpy.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }))
+
+      const res = await app.request(req("GET", `/api/upstreams/${provider.id}/models`))
+
+      expect(res.status).toBe(502)
+      const json = await res.json() as {
+        error: { message: string; type: string }
+        healthy: boolean
+        supports_models_endpoint: boolean
+      }
+      expect(json).toEqual({
+        error: {
+          message: "Upstream returned 401: Unauthorized",
+          type: "upstream_error",
+        },
+        healthy: false,
+        supports_models_endpoint: false,
+      })
+
+      const updated = getProvider(db, provider.id)
+      expect(updated?.supports_models_endpoint).toBe(false)
+    })
+
+    test("returns connection errors and marks the endpoint as unsupported", async () => {
+      const app = makeApp(db)
+      const provider = createProvider(db, {
+        name: "OfflineProvider",
+        base_url: "https://offline.example.com",
+        format: "anthropic",
+        api_key: "sk-offline",
+        model_patterns: ["offline-*"],
+      })
+
+      fetchSpy.mockRejectedValueOnce(new Error("socket hang up"))
+
+      const res = await app.request(req("GET", `/api/upstreams/${provider.id}/models`))
+
+      expect(res.status).toBe(502)
+      const json = await res.json() as {
+        error: { message: string; type: string }
+        healthy: boolean
+        supports_models_endpoint: boolean
+      }
+      expect(json).toEqual({
+        error: {
+          message: "Failed to connect: socket hang up",
+          type: "connection_error",
+        },
+        healthy: false,
+        supports_models_endpoint: false,
+      })
+
+      const updated = getProvider(db, provider.id)
+      expect(updated?.supports_models_endpoint).toBe(false)
+    })
+
+    test("ignores probe updates when the database closes before the background request finishes", async () => {
+      const app = makeApp(db)
+      let resolveFetch: ((response: Response) => void) | undefined
+
+      fetchSpy.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFetch = resolve as (response: Response) => void
+          }),
+      )
+
+      const res = await app.request(req("POST", "/api/upstreams", {
+        name: "DelayedProbeProvider",
+        base_url: "https://delayed.example.com",
+        format: "openai",
+        api_key: "sk-delayed",
+        model_patterns: ["delayed-*"],
+      }))
+
+      expect(res.status).toBe(201)
+
+      const probingDb = db
+      probingDb.close()
+      resolveFetch?.(
+        new Response(
+          JSON.stringify({ data: [{ id: "delayed-model" }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      await Promise.resolve()
+
+      db = new Database(":memory:")
+      initProviders(db)
     })
   })
 })
