@@ -228,12 +228,33 @@ export function translateToOpenAI(
 }
 
 function translateModelName(model: string): string {
-  // Subagent requests use a specific model number which Copilot doesn't support
-  if (model.startsWith("claude-sonnet-4-")) {
-    return model.replace(/^claude-sonnet-4-.*/, "claude-sonnet-4")
-  } else if (model.startsWith("claude-opus-")) {
-    return model.replace(/^claude-opus-4-.*/, "claude-opus-4")
+  // Map from Anthropic SDK model identifiers (hyphenated, with date suffixes)
+  // to Copilot model IDs (dot-separated, no date suffix).
+  //
+  // Examples:
+  //   claude-opus-4-6-20250820     → claude-opus-4.6
+  //   claude-opus-4-6-1m-20250820  → claude-opus-4.6-1m
+  //   claude-sonnet-4-5-20250514   → claude-sonnet-4.5
+  //   claude-sonnet-4-20250514     → claude-sonnet-4
+  //   claude-haiku-4-5-20251001    → claude-haiku-4.5
+  const match = model.match(
+    /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:-(1m))?(?:-\d{8})?$/
+  )
+  if (match) {
+    const [, family, major, minor, suffix] = match
+    const base = `${family}-${major}.${minor}`
+    return suffix ? `${base}-${suffix}` : base
   }
+
+  // No minor version: claude-{family}-{major}[-date]
+  const matchNoMinor = model.match(
+    /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
+  )
+  if (matchNoMinor) {
+    const [, family, major] = matchNoMinor
+    return `${family}-${major}`
+  }
+
   return model
 }
 
