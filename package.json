@@ -39,6 +39,7 @@
     "vite": "^8.0.5"
   },
   "dependencies": {
+    "hono": "^4.12.12",
     "micromatch": "^4.0.8",
     "vite": "^8.0.5",
     "vitest": "^4.1.1"
