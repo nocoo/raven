@@ -134,8 +134,8 @@ sudo -u raven -H bash -lc "
 如果你已经切换到 `raven` 用户，也可以直接将仓库放到 `/home/raven/raven`；核心要求是：
 
 - repo 在持久化目录下
-- `data/` 目录不会因重启消失
-- 运行用户对 repo 和 `data/` 有写权限
+- 运行用户对 repo 有写权限
+- 数据目录（默认在 `~/.config/raven` 和 `~/.local/share/raven`）有持久化存储
 
 ---
 
@@ -157,7 +157,8 @@ sudo chmod 700 /etc/raven
 RAVEN_PORT=7024
 RAVEN_API_KEY=replace-with-a-long-random-secret
 RAVEN_INTERNAL_KEY=replace-with-another-long-random-secret
-RAVEN_TOKEN_PATH=/srv/raven/data/github_token
+RAVEN_CONFIG_DIR=/srv/raven/config
+RAVEN_DATA_DIR=/srv/raven/data
 RAVEN_LOG_LEVEL=info
 RAVEN_BASE_URL=https://raven-api.example.com
 ```
@@ -167,7 +168,8 @@ RAVEN_BASE_URL=https://raven-api.example.com
 - 密钥可用 `openssl rand -base64 32` 生成
 - `RAVEN_API_KEY`：给 Claude Code / Cursor 等 AI API 客户端使用
 - `RAVEN_INTERNAL_KEY`：dashboard 管理接口与日志流使用
-- `RAVEN_TOKEN_PATH`：必须放在持久化磁盘上
+- `RAVEN_CONFIG_DIR`：配置目录（存储 `github_token`）
+- `RAVEN_DATA_DIR`：数据目录（存储 `raven.db`）
 - `RAVEN_BASE_URL`：必须是 proxy 的**公开 HTTPS 地址**
 
 ### Dashboard: `/etc/raven/dashboard.env`
@@ -440,7 +442,7 @@ sudo systemctl restart raven-dashboard.service
 至少备份以下内容：
 
 - `/srv/raven/data/raven.db`
-- `/srv/raven/data/github_token`
+- `/srv/raven/config/github_token`
 - `/etc/raven/proxy.env`
 - `/etc/raven/dashboard.env`
 

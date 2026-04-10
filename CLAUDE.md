@@ -8,6 +8,30 @@ Research-oriented, open-source, personal-use only. Not designed for multi-user d
 
 Bun workspace monorepo: `packages/proxy` (Hono, port 7024) + `packages/dashboard` (Next.js 16, port 7023).
 
+## Data Directory Structure
+
+Runtime data is stored in platform-standard user directories, not in the source tree:
+
+**macOS:**
+- Config: `~/Library/Application Support/raven/`
+  - `github_token` (0600 permissions)
+- Data: `~/Library/Application Support/raven/`
+  - `raven.db` (SQLite database)
+
+**Linux:**
+- Config: `~/.config/raven/`
+  - `github_token` (0600 permissions)
+- Data: `~/.local/share/raven/`
+  - `raven.db` (SQLite database)
+
+**Environment overrides:**
+- `RAVEN_CONFIG_DIR` — override config directory
+- `RAVEN_DATA_DIR` — override data directory
+- `RAVEN_TOKEN_PATH` — override token file path
+- `RAVEN_DB_PATH` — override database path
+
+**Migration:** Legacy `./data/` files are automatically migrated to new locations on first run.
+
 ## Testing
 
 ### Proxy tests — anti-ban protocol
@@ -50,7 +74,7 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 **G2 (Security)**: `bun run gate:security` — osv-scanner + gitleaks. Wired into pre-push hook.
 
-**D1 (Test Isolation)**: E2E and Playwright tests use isolated `data/raven-test.db` via `RAVEN_DB_PATH` env var. Test data never touches production `data/raven.db`.
+**D1 (Test Isolation)**: E2E and Playwright tests use isolated test database via `RAVEN_DB_PATH` env var. Test data never touches production database (in user directory).
 
 ### Pre-commit hook
 

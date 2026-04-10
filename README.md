@@ -123,9 +123,11 @@ bun run dev          # 同时启动 proxy (:7024) + dashboard (:7023)
 
 | 自动步骤 | 说明 |
 |----------|------|
-| 创建 `data/` 目录 | 存放 SQLite 和 token 文件 |
-| 创建 `data/raven.db` | SQLite 数据库（WAL 模式），自动建表 |
-| 创建 `data/github_token` | GitHub OAuth token 文件（权限 `0600`） |
+| 创建用户目录 | macOS: `~/Library/Application Support/raven/`<br>Linux: `~/.config/raven/` (token), `~/.local/share/raven/` (db) |
+| 创建 `raven.db` | SQLite 数据库（WAL 模式），自动建表 |
+| 创建 `github_token` | GitHub OAuth token 文件（权限 `0600`） |
+
+**目录迁移**：如果检测到旧的 `./data/` 目录，会自动迁移文件到新位置。
 
 ### 4. GitHub 授权（首次必需）
 
@@ -139,7 +141,7 @@ Please enter the code "ABCD-1234" in https://github.com/login/device/code
 2. 输入终端显示的验证码
 3. 授权 raven 访问你的 GitHub 账号
 
-授权完成后 proxy 自动继续启动，token 持久化到 `data/github_token`。后续重启无需重复授权。
+授权完成后 proxy 自动继续启动，token 持久化到用户目录。后续重启无需重复授权。
 
 ### 5. 配置客户端
 
@@ -317,9 +319,12 @@ cp packages/dashboard/.env.example packages/dashboard/.env.local
 | `RAVEN_PORT` | `7024` | 监听端口 |
 | `RAVEN_API_KEY` | _(空)_ | AI API 认证，空 = 需通过 dashboard 创建 DB key |
 | `RAVEN_INTERNAL_KEY` | _(空)_ | Dashboard → Proxy 管理凭证，AI API 不接受 |
-| `RAVEN_TOKEN_PATH` | `data/github_token` | GitHub OAuth token 持久化路径 |
+| `RAVEN_CONFIG_DIR` | *(平台感知)* | 配置目录：`~/Library/Application Support/raven` (macOS) 或 `~/.config/raven` (Linux) |
+| `RAVEN_DATA_DIR` | *(平台感知)* | 数据目录：`~/Library/Application Support/raven` (macOS) 或 `~/.local/share/raven` (Linux) |
+| `RAVEN_TOKEN_PATH` | `$RAVEN_CONFIG_DIR/github_token` | GitHub OAuth token 持久化路径（覆盖） |
+| `RAVEN_DB_PATH` | `$RAVEN_DATA_DIR/raven.db` | SQLite 数据库路径（覆盖） |
 | `RAVEN_LOG_LEVEL` | `info` | 最低日志级别：`debug` / `info` / `warn` / `error` |
-| `RAVEN_BASE_URL` | _(空)_ | 公开 base URL，空 = `http://localhost:$RAVEN_PORT` |
+| `RAVEN_BASE_URL` | *(空)_ | 公开 base URL，空 = `http://localhost:$RAVEN_PORT` |
 
 #### Dashboard (`packages/dashboard`)
 
