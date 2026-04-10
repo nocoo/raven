@@ -13,6 +13,7 @@ Security hardening, platform-aware data directories, and model name fix.
 ### Security
 
 - **IP whitelist spoofing hardening** — Harden IP whitelist against `X-Forwarded-For` spoofing and bypass attacks
+- **hono 4.12.8 → 4.12.12** — Fix 5 medium-severity vulnerabilities
 
 ### Proxy
 
