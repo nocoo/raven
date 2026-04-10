@@ -14,7 +14,7 @@
 | 11 | [Custom Upstream Routing](./11-custom-upstream-routing.md) | AI Providers：多 provider 模型路由 + Copilot 查重 + Dashboard 管理 |
 | 12 | [Quality System Upgrade](./12-quality-system-upgrade.md) | 质量体系升级：A- → S 级，D1 隔离 + 文档同步 |
 | 13 | [Server-Side Tools](./13-server-tools.md) | Server-side tool 拦截替换：web_search → Tavily，pure/mixed 双模式 |
-| 14 | [Azure VM Deployment](./14-azure-vm-deployment.md) | Ubuntu 单机部署：Bun + systemd + Nginx + HTTPS + Device Flow 首次授权 |
+| 14 | [VPS Deployment](./14-vps-deployment.md) | 远程部署：Bun + systemd + Nginx + HTTPS + 安全须知 |
 | 15 | [Message Sanitization](./15-message-sanitization-pipeline.md) | Copilot 兼容性清洗：过滤不支持的 block 类型与字段 |
 | 16 | [OpenAI Responses API](./16-openai-responses-api.md) | `/v1/responses` 端点支持：Codex CLI 兼容 |
 

@@ -241,16 +241,11 @@ Dashboard 支持两种运行模式：
 - 设置 `NEXTAUTH_URL` 为 dashboard 的公开地址
 - 启用 `USE_SECURE_COOKIES=true`（如果 HTTPS）
 
-### Azure VM 部署
+### 远程部署（VPS）
 
-如需在 Ubuntu Azure VM 上以生产模式运行 raven：
+如需在 VPS / 云虚拟机上以生产模式运行 raven，见 [docs/14-vps-deployment.md](docs/14-vps-deployment.md)。
 
-- 使用 Bun 安装依赖并运行 workspace
-- 用 systemd 分别托管 proxy (`7024`) 和 dashboard (`7023`)
-- 用 Nginx 暴露两个 HTTPS 域名，避免直接开放应用端口
-- 首次启动 proxy 时完成 GitHub Device Flow 授权，并持久化 `data/github_token`
-
-完整步骤见 [docs/14-azure-vm-deployment.md](docs/14-azure-vm-deployment.md)。
+> ⚠️ **重要**：远程部署时 Dashboard **必须启用 Google OAuth**（不能用 Local 模式），并建议启用 **IP 白名单**限制 API 访问范围。
 
 ## 命令一览
 
@@ -376,7 +371,7 @@ bun run test:e2e      # E2E（需 proxy 运行）
 | 11 | [Custom Upstream Routing](docs/11-custom-upstream-routing.md) | AI Providers：多 provider 模型路由 + Copilot 查重 + Dashboard 管理 |
 | 12 | [Quality System Upgrade](docs/12-quality-system-upgrade.md) | 质量体系升级：A- → S 级，D1 隔离 + 文档同步 |
 | 13 | [Server-Side Tools](docs/13-server-tools.md) | Server-side tool 拦截替换：web_search → Tavily，pure/mixed 双模式 |
-| 14 | [Azure VM Deployment](docs/14-azure-vm-deployment.md) | Ubuntu 单机部署：Bun + systemd + Nginx + HTTPS + Device Flow 首次授权 |
+| 14 | [VPS Deployment](docs/14-vps-deployment.md) | 远程部署：Bun + systemd + Nginx + HTTPS + 安全须知 |
 | 15 | [Message Sanitization](docs/15-message-sanitization-pipeline.md) | Copilot 兼容性清洗：过滤不支持的 block 类型与字段 |
 | 16 | [OpenAI Responses API](docs/16-openai-responses-api.md) | `/v1/responses` 端点支持：Codex CLI 兼容 |
 

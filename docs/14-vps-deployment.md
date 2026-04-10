@@ -1,8 +1,38 @@
-# 14 — Azure VM Deployment
+# 14 — VPS Deployment
 
-在 Azure VM 上以**单机自托管**方式部署 raven。目标是稳定运行 proxy (`:7024`) + dashboard (`:7023`)，使用反向代理暴露 HTTPS 域名，并通过 systemd 做进程守护。
+在 VPS / 云虚拟机上以**单机自托管**方式部署 raven。目标是稳定运行 proxy (`:7024`) + dashboard (`:7023`)，使用反向代理暴露 HTTPS 域名，并通过 systemd 做进程守护。
 
 > **定位提醒**：raven 是研究性、个人使用项目；推荐部署到单台 Ubuntu VM，仅供自己使用，不按多租户服务设计。
+
+---
+
+## ⚠️ 远程部署安全须知
+
+在 VPS 上部署时，务必注意以下两点：
+
+### 1. Dashboard 必须启用 Google OAuth
+
+**不要使用 Local 模式**。Local 模式会跳过所有认证，任何人访问 dashboard URL 都能直接查看统计数据、管理 API Key、修改设置。
+
+远程部署时必须配置 Google OAuth：
+
+```bash
+# /etc/raven/dashboard.env
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+NEXTAUTH_SECRET=<openssl rand -base64 32>
+ALLOWED_EMAILS=you@example.com  # 限制可登录的邮箱
+```
+
+### 2. 建议启用 IP 白名单
+
+Proxy 支持 IP 白名单功能，可以限制只有特定 IP 范围能够访问 AI API 端点。在 Dashboard Settings 页面启用：
+
+- **IP Whitelist** → 开启
+- 添加你的客户端 IP（单个 IP、CIDR 如 `192.168.1.0/24`、或 IP 范围如 `10.0.0.1-10.0.0.100`）
+- 如果前端有 Nginx 反向代理，启用 **Trust Proxy** 以读取 `X-Forwarded-For` 头
+
+即使有 API Key 保护，IP 白名单也是一道额外的防线，防止 key 泄露后被滥用。
 
 ---
 
@@ -23,22 +53,21 @@
 
 ---
 
-## 1. 准备 Azure VM
+## 1. 准备 VPS
 
 ### 推荐规格
 
-- OS: Ubuntu 24.04 LTS
-- Size: B2s 或更高
-- Disk: Premium SSD / Standard SSD，确保数据目录持久化
+- OS: Ubuntu 24.04 LTS（或其他现代 Linux 发行版）
+- CPU/RAM: 1 vCPU / 1 GB 起步，2 vCPU / 2 GB 更从容
+- Disk: SSD，确保数据目录持久化
 
-### Azure 网络建议
+### 防火墙配置
 
-1. 创建 NSG（Network Security Group）
-2. 入站仅允许：
-   - `22`（最好限制到你的固定 IP，例如 `203.0.113.10/32`）
-   - `80`
-   - `443`
-3. 不开放：
+1. 云平台安全组 / 防火墙仅允许入站：
+   - `22`（SSH，最好限制到你的固定 IP）
+   - `80`（HTTP，用于 HTTPS 证书签发和跳转）
+   - `443`（HTTPS）
+2. 不开放：
    - `7023`
    - `7024`
 
@@ -445,11 +474,11 @@ sudo systemctl restart raven-dashboard.service
 
 ### 2) 直接暴露 7023 / 7024
 
-这两个端口应只监听本机并通过 Nginx 暴露；不要直接在 Azure NSG 中开放。
+这两个端口应只监听本机并通过 Nginx 暴露；不要在云平台安全组中直接开放。
 
 ### 3) 公开 dashboard 但仍使用 local mode
 
-如果 dashboard 对公网开放，应启用 Google OAuth，并限制 `ALLOWED_EMAILS`。
+如果 dashboard 对公网开放，**必须启用 Google OAuth**，并限制 `ALLOWED_EMAILS`。见上方「远程部署安全须知」。
 
 ### 4) `RAVEN_BASE_URL` / `NEXTAUTH_URL` 仍指向 localhost
 

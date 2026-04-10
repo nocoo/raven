@@ -97,6 +97,13 @@ If `RAVEN_API_KEY` is set or DB has API keys, append `&token=<key>` to the query
 - **Three sinks**: terminal (JSON lines → stdout), WebSocket (real-time push), DB (`request_end` → SQLite).
 - **Dashboard path**: proxy WebSocket → dashboard SSE bridge (`/api/logs/stream`) → `useLogStream` hook → `/logs` page UI.
 
+## Remote Deployment (VPS)
+
+See [docs/14-vps-deployment.md](docs/14-vps-deployment.md) for full guide. Key security requirements:
+
+1. **Dashboard must use Google OAuth** — never deploy with Local mode on a public server. Local mode skips all authentication.
+2. **Enable IP whitelist** — restrict API access to known client IPs via Dashboard Settings → IP Whitelist. Even with API key protection, IP whitelist provides defense-in-depth against key leakage.
+
 ## Retrospective
 
 - `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.
