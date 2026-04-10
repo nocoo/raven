@@ -2,8 +2,19 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Database } from "bun:sqlite"
 
 import { state } from "../../src/lib/state"
-import { cacheVersions, cacheModels, cacheServerTools, isNullish } from "../../src/lib/utils"
+import {
+  cacheVersions,
+  cacheModels,
+  cacheServerTools,
+  cacheOptimizations,
+  cacheProviders,
+  cacheSoundSettings,
+  cacheIPWhitelist,
+  isNullish,
+  sleep,
+} from "../../src/lib/utils"
 import { initSettings } from "../../src/db/settings"
+import { initProviders, createProvider } from "../../src/db/providers"
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -193,5 +204,330 @@ describe("cacheServerTools", () => {
     cacheServerTools(db)
     expect(state.stWebSearchEnabled).toBe(true)
     expect(state.stWebSearchApiKey).toBe("tvly-secret-key")
+  })
+})
+
+// ===========================================================================
+// sleep
+// ===========================================================================
+
+describe("sleep", () => {
+  test("resolves after specified delay", async () => {
+    const start = Date.now()
+    await sleep(50)
+    const elapsed = Date.now() - start
+    // Allow some tolerance for timer variance
+    expect(elapsed).toBeGreaterThanOrEqual(40)
+    expect(elapsed).toBeLessThan(200)
+  })
+
+  test("resolves with undefined", async () => {
+    const result = await sleep(1)
+    expect(result).toBeUndefined()
+  })
+})
+
+// ===========================================================================
+// cacheOptimizations
+// ===========================================================================
+
+describe("cacheOptimizations", () => {
+  const savedOptSanitize = state.optSanitizeOrphanedToolResults
+  const savedOptReorder = state.optReorderToolResults
+  const savedOptFilter = state.optFilterWhitespaceChunks
+  const savedOptDebug = state.optToolCallDebug
+
+  afterEach(() => {
+    state.optSanitizeOrphanedToolResults = savedOptSanitize
+    state.optReorderToolResults = savedOptReorder
+    state.optFilterWhitespaceChunks = savedOptFilter
+    state.optToolCallDebug = savedOptDebug
+  })
+
+  test("loads defaults when DB is empty (all false)", () => {
+    cacheOptimizations(db)
+    expect(state.optSanitizeOrphanedToolResults).toBe(false)
+    expect(state.optReorderToolResults).toBe(false)
+    expect(state.optFilterWhitespaceChunks).toBe(false)
+    expect(state.optToolCallDebug).toBe(false)
+  })
+
+  test("loads opt_sanitize_orphaned_tool_results = true", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_sanitize_orphaned_tool_results",
+      $value: "true",
+    })
+    cacheOptimizations(db)
+    expect(state.optSanitizeOrphanedToolResults).toBe(true)
+  })
+
+  test("loads opt_reorder_tool_results = true", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_reorder_tool_results",
+      $value: "true",
+    })
+    cacheOptimizations(db)
+    expect(state.optReorderToolResults).toBe(true)
+  })
+
+  test("loads opt_filter_whitespace_chunks = true", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_filter_whitespace_chunks",
+      $value: "true",
+    })
+    cacheOptimizations(db)
+    expect(state.optFilterWhitespaceChunks).toBe(true)
+  })
+
+  test("loads tool_call_debug = true", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "tool_call_debug",
+      $value: "true",
+    })
+    cacheOptimizations(db)
+    expect(state.optToolCallDebug).toBe(true)
+  })
+
+  test("loads all optimizations enabled", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_sanitize_orphaned_tool_results",
+      $value: "true",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_reorder_tool_results",
+      $value: "true",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_filter_whitespace_chunks",
+      $value: "true",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "tool_call_debug",
+      $value: "true",
+    })
+
+    cacheOptimizations(db)
+    expect(state.optSanitizeOrphanedToolResults).toBe(true)
+    expect(state.optReorderToolResults).toBe(true)
+    expect(state.optFilterWhitespaceChunks).toBe(true)
+    expect(state.optToolCallDebug).toBe(true)
+  })
+
+  test("non-'true' value treated as false", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_sanitize_orphaned_tool_results",
+      $value: "false",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "opt_reorder_tool_results",
+      $value: "1",
+    })
+    cacheOptimizations(db)
+    expect(state.optSanitizeOrphanedToolResults).toBe(false)
+    expect(state.optReorderToolResults).toBe(false)
+  })
+})
+
+// ===========================================================================
+// cacheProviders
+// ===========================================================================
+
+describe("cacheProviders", () => {
+  const savedProviders = state.providers
+
+  beforeEach(() => {
+    initProviders(db)
+  })
+
+  afterEach(() => {
+    state.providers = savedProviders
+  })
+
+  test("loads empty array when no providers exist", () => {
+    cacheProviders(db)
+    expect(state.providers).toEqual([])
+  })
+
+  test("loads enabled providers", () => {
+    createProvider(db, {
+      name: "TestProvider",
+      base_url: "https://api.test.com",
+      format: "openai",
+      api_key: "sk-test-key-123456789",
+      model_patterns: ["gpt-*"],
+      is_enabled: true,
+    })
+
+    cacheProviders(db)
+    expect(state.providers.length).toBe(1)
+    expect(state.providers[0]!.name).toBe("TestProvider")
+  })
+
+  test("excludes disabled providers", () => {
+    createProvider(db, {
+      name: "EnabledProvider",
+      base_url: "https://api.enabled.com",
+      format: "openai",
+      api_key: "sk-enabled-key",
+      model_patterns: ["*"],
+      is_enabled: true,
+    })
+    createProvider(db, {
+      name: "DisabledProvider",
+      base_url: "https://api.disabled.com",
+      format: "anthropic",
+      api_key: "sk-disabled-key",
+      model_patterns: ["claude-*"],
+      is_enabled: false,
+    })
+
+    cacheProviders(db)
+    expect(state.providers.length).toBe(1)
+    expect(state.providers[0]!.name).toBe("EnabledProvider")
+  })
+})
+
+// ===========================================================================
+// cacheSoundSettings
+// ===========================================================================
+
+describe("cacheSoundSettings", () => {
+  const savedSoundEnabled = state.soundEnabled
+  const savedSoundName = state.soundName
+
+  afterEach(() => {
+    state.soundEnabled = savedSoundEnabled
+    state.soundName = savedSoundName
+  })
+
+  test("loads defaults when DB is empty", () => {
+    cacheSoundSettings(db)
+    expect(state.soundEnabled).toBe(false)
+    expect(state.soundName).toBe("Basso")
+  })
+
+  test("loads sound_enabled = true", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "sound_enabled",
+      $value: "true",
+    })
+    cacheSoundSettings(db)
+    expect(state.soundEnabled).toBe(true)
+  })
+
+  test("loads custom sound_name", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "sound_name",
+      $value: "Ping",
+    })
+    cacheSoundSettings(db)
+    expect(state.soundName).toBe("Ping")
+  })
+
+  test("loads both sound settings from DB", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "sound_enabled",
+      $value: "true",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "sound_name",
+      $value: "Hero",
+    })
+    cacheSoundSettings(db)
+    expect(state.soundEnabled).toBe(true)
+    expect(state.soundName).toBe("Hero")
+  })
+})
+
+// ===========================================================================
+// cacheIPWhitelist
+// ===========================================================================
+
+describe("cacheIPWhitelist", () => {
+  const savedIPWhitelistEnabled = state.ipWhitelistEnabled
+  const savedIPWhitelistTrustProxy = state.ipWhitelistTrustProxy
+  const savedIPWhitelistRanges = state.ipWhitelistRanges
+
+  afterEach(() => {
+    state.ipWhitelistEnabled = savedIPWhitelistEnabled
+    state.ipWhitelistTrustProxy = savedIPWhitelistTrustProxy
+    state.ipWhitelistRanges = savedIPWhitelistRanges
+  })
+
+  test("loads defaults when DB is empty", () => {
+    cacheIPWhitelist(db)
+    expect(state.ipWhitelistEnabled).toBe(false)
+    expect(state.ipWhitelistTrustProxy).toBe(false)
+    expect(state.ipWhitelistRanges).toEqual([])
+  })
+
+  test("loads ip_whitelist_enabled = true", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "ip_whitelist_enabled",
+      $value: "true",
+    })
+    cacheIPWhitelist(db)
+    expect(state.ipWhitelistEnabled).toBe(true)
+  })
+
+  test("loads ip_whitelist_trust_proxy = true", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "ip_whitelist_trust_proxy",
+      $value: "true",
+    })
+    cacheIPWhitelist(db)
+    expect(state.ipWhitelistTrustProxy).toBe(true)
+  })
+
+  test("parses valid IP ranges from DB", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "ip_whitelist_ranges",
+      $value: JSON.stringify(["192.168.1.1", "10.0.0.0/8"]),
+    })
+    cacheIPWhitelist(db)
+    expect(state.ipWhitelistRanges.length).toBe(2)
+    expect(state.ipWhitelistRanges[0]!.original).toBe("192.168.1.1")
+    expect(state.ipWhitelistRanges[1]!.original).toBe("10.0.0.0/8")
+  })
+
+  test("handles empty ip_whitelist_ranges (resets to empty array)", () => {
+    // First set some ranges
+    state.ipWhitelistRanges = [{ start: 0, end: 0, original: "test" }]
+    // Then call without any DB setting
+    cacheIPWhitelist(db)
+    expect(state.ipWhitelistRanges).toEqual([])
+  })
+
+  test("logs warning and still parses valid ranges on partial errors", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "ip_whitelist_ranges",
+      $value: JSON.stringify(["192.168.1.1", "invalid-ip", "10.0.0.1"]),
+    })
+    cacheIPWhitelist(db)
+    // Should have 2 valid ranges (skipping "invalid-ip")
+    expect(state.ipWhitelistRanges.length).toBe(2)
+    expect(state.ipWhitelistRanges[0]!.original).toBe("192.168.1.1")
+    expect(state.ipWhitelistRanges[1]!.original).toBe("10.0.0.1")
+  })
+
+  test("loads all IP whitelist settings together", () => {
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "ip_whitelist_enabled",
+      $value: "true",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "ip_whitelist_trust_proxy",
+      $value: "true",
+    })
+    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
+      $key: "ip_whitelist_ranges",
+      $value: JSON.stringify(["192.168.0.0/16"]),
+    })
+
+    cacheIPWhitelist(db)
+    expect(state.ipWhitelistEnabled).toBe(true)
+    expect(state.ipWhitelistTrustProxy).toBe(true)
+    expect(state.ipWhitelistRanges.length).toBe(1)
+    expect(state.ipWhitelistRanges[0]!.original).toBe("192.168.0.0/16")
   })
 })
