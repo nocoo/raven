@@ -71,6 +71,23 @@ async function migrateFile(
     // Copy file to new location
     await fs.copyFile(source, dest);
 
+    // For SQLite databases, also copy WAL (-wal) and SHM (-shm) files
+    if (source.endsWith(".db")) {
+      const walSource = source + "-wal";
+      const shmSource = source + "-shm";
+      const walDest = dest + "-wal";
+      const shmDest = dest + "-shm";
+
+      if (await exists(walSource)) {
+        await fs.copyFile(walSource, walDest);
+        logger.debug(`Migrated ${description}-wal`);
+      }
+      if (await exists(shmSource)) {
+        await fs.copyFile(shmSource, shmDest);
+        logger.debug(`Migrated ${description}-shm`);
+      }
+    }
+
     // Verify the copy was successful
     const destStats = await fs.stat(dest);
     if (!destStats.isFile()) {
