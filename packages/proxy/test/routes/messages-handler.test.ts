@@ -491,3 +491,664 @@ describe("messages handler (thinking drop logs)", () => {
     expect(thinkingDebug).toBeUndefined()
   })
 })
+
+// ===========================================================================
+// handleCompletion — optToolCallDebug logging
+// ===========================================================================
+
+describe("messages handler (optToolCallDebug)", () => {
+  let savedOptToolCallDebug: boolean
+
+  beforeEach(() => {
+    savedOptToolCallDebug = state.optToolCallDebug
+  })
+
+  afterEach(() => {
+    state.optToolCallDebug = savedOptToolCallDebug
+  })
+
+  test("emits tool definitions debug log when optToolCallDebug is true", async () => {
+    state.optToolCallDebug = true
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hi" }],
+        tools: [
+          { name: "get_weather", input_schema: { type: "object" } },
+          { name: "search", input_schema: { type: "object" } },
+        ],
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const debugEvents = events.filter((e) => e.level === "debug")
+    const toolDefsLog = debugEvents.find((e) =>
+      e.msg.includes("tool definitions"),
+    )
+    expect(toolDefsLog).toBeDefined()
+    expect(toolDefsLog!.data?.toolDefinitionCount).toBe(2)
+    expect(toolDefsLog!.data?.toolDefinitions).toHaveLength(2)
+  })
+
+  test("emits server-tool check debug log when optToolCallDebug is true", async () => {
+    state.optToolCallDebug = true
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const debugEvents = events.filter((e) => e.level === "debug")
+    const serverToolCheck = debugEvents.find((e) =>
+      e.msg.includes("server-tool check"),
+    )
+    expect(serverToolCheck).toBeDefined()
+    expect(serverToolCheck!.data?.hasServerSideTools).toBe(false)
+    expect(serverToolCheck!.data?.webSearchEnabled).toBe(false)
+  })
+
+  test("does not emit debug logs when optToolCallDebug is false", async () => {
+    state.optToolCallDebug = false
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hi" }],
+        tools: [{ name: "get_weather", input_schema: { type: "object" } }],
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const debugEvents = events.filter((e) => e.level === "debug")
+    const toolDefsLog = debugEvents.find((e) =>
+      e.msg.includes("tool definitions"),
+    )
+    expect(toolDefsLog).toBeUndefined()
+  })
+})
+
+// ===========================================================================
+// handleCompletion — custom upstream provider (resolveProvider)
+// ===========================================================================
+
+describe("messages handler (custom providers)", () => {
+  let savedProviders: typeof state.providers
+
+  beforeEach(() => {
+    savedProviders = state.providers
+  })
+
+  afterEach(() => {
+    state.providers = savedProviders
+  })
+
+  test("routes to OpenAI provider and translates request/response", async () => {
+    state.providers = [
+      {
+        id: "prov-1",
+        name: "test-openai",
+        base_url: "https://api.example.com/v1",
+        format: "openai",
+        api_key: "sk-test",
+        model_patterns: '["gpt-4o", "gpt-*"]',
+        enabled: 1,
+        supports_reasoning: 0,
+        supports_models_endpoint: 0,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      },
+    ]
+
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
+      model: "gpt-4o",
+    })))
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "gpt-4o",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Record<string, unknown>
+    // Response should be in Anthropic format
+    expect(json.type).toBe("message")
+    expect(json.role).toBe("assistant")
+
+    // Verify fetch was called with correct base_url
+    expect(fetchSpy).toHaveBeenCalled()
+    const fetchCall = fetchSpy.mock.calls[0]
+    expect(fetchCall[0]).toContain("https://api.example.com/v1")
+  })
+
+  test("routes to Anthropic provider and passthroughs request", async () => {
+    state.providers = [
+      {
+        id: "prov-2",
+        name: "test-anthropic",
+        base_url: "https://api.anthropic.com",
+        format: "anthropic",
+        api_key: "sk-ant-test",
+        model_patterns: '["claude-3-*"]',
+        enabled: 1,
+        supports_reasoning: 0,
+        supports_models_endpoint: 0,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      },
+    ]
+
+    // Anthropic format response
+    fetchSpy.mockResolvedValueOnce(mockFetchJson({
+      id: "msg_test",
+      type: "message",
+      role: "assistant",
+      model: "claude-3-opus-20240229",
+      content: [{ type: "text", text: "Hello from Anthropic!" }],
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage: { input_tokens: 10, output_tokens: 5 },
+    }))
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-3-opus-20240229",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as Record<string, unknown>
+    expect(json.type).toBe("message")
+    expect(json.model).toBe("claude-3-opus-20240229")
+
+    // Verify fetch was called with Anthropic base_url
+    expect(fetchSpy).toHaveBeenCalled()
+    const fetchCall = fetchSpy.mock.calls[0]
+    expect(fetchCall[0]).toContain("https://api.anthropic.com")
+  })
+
+  test("emits thinking drop log for OpenAI provider without supports_reasoning", async () => {
+    state.providers = [
+      {
+        id: "prov-3",
+        name: "test-openai-no-reasoning",
+        base_url: "https://api.example.com/v1",
+        format: "openai",
+        api_key: "sk-test",
+        model_patterns: '["custom-model"]',
+        enabled: 1,
+        supports_reasoning: 0,
+        supports_models_endpoint: 0,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      },
+    ]
+
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
+      model: "custom-model",
+    })))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "custom-model",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hi" }],
+        thinking: { type: "enabled", budget_tokens: 5000 },
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    const debugEvents = events.filter((e) => e.level === "debug")
+    const thinkingDebug = debugEvents.find((e) =>
+      e.msg.includes("thinking parameter dropped"),
+    )
+    expect(thinkingDebug).toBeDefined()
+    expect(thinkingDebug!.msg).toContain("does not declare supports_reasoning")
+    expect(thinkingDebug!.data?.provider).toBe("test-openai-no-reasoning")
+    expect(thinkingDebug!.data?.budgetTokens).toBe(5000)
+  })
+
+  test("OpenAI provider with supports_reasoning uses reasoning format", async () => {
+    state.providers = [
+      {
+        id: "prov-4",
+        name: "test-openai-with-reasoning",
+        base_url: "https://api.example.com/v1",
+        format: "openai",
+        api_key: "sk-test",
+        model_patterns: '["o1-preview"]',
+        enabled: 1,
+        supports_reasoning: 1,
+        supports_models_endpoint: 0,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      },
+    ]
+
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
+      model: "o1-preview",
+    })))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "o1-preview",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hi" }],
+        thinking: { type: "enabled", budget_tokens: 5000 },
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    // Should NOT emit "does not declare supports_reasoning" debug log
+    const thinkingDebug = events.find((e) =>
+      e.level === "debug" && e.msg.includes("does not declare supports_reasoning"),
+    )
+    expect(thinkingDebug).toBeUndefined()
+  })
+
+  test("glob pattern matching for provider model routing", async () => {
+    state.providers = [
+      {
+        id: "prov-5",
+        name: "test-glob-provider",
+        base_url: "https://api.example.com/v1",
+        format: "openai",
+        api_key: "sk-test",
+        model_patterns: '["my-model-*"]',
+        enabled: 1,
+        supports_reasoning: 0,
+        supports_models_endpoint: 0,
+        created_at: Date.now(),
+        updated_at: Date.now(),
+      },
+    ]
+
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
+      model: "my-model-v2",
+    })))
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "my-model-v2",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    // Verify it routed to the custom provider
+    expect(fetchSpy).toHaveBeenCalled()
+    const fetchCall = fetchSpy.mock.calls[0]
+    expect(fetchCall[0]).toContain("https://api.example.com/v1")
+  })
+})
+
+// ===========================================================================
+// handleCompletion — tool_choice rewrite for server-side tools
+// ===========================================================================
+
+describe("messages handler (tool_choice rewrite)", () => {
+  let savedOptToolCallDebug: boolean
+  let savedStWebSearchEnabled: boolean
+  let savedStWebSearchApiKey: string | null
+
+  beforeEach(() => {
+    savedOptToolCallDebug = state.optToolCallDebug
+    savedStWebSearchEnabled = state.stWebSearchEnabled
+    savedStWebSearchApiKey = state.stWebSearchApiKey
+  })
+
+  afterEach(() => {
+    state.optToolCallDebug = savedOptToolCallDebug
+    state.stWebSearchEnabled = savedStWebSearchEnabled
+    state.stWebSearchApiKey = savedStWebSearchApiKey
+  })
+
+  test("rewrites tool_choice to 'auto' when targeting server-side tool (mixed mode)", async () => {
+    state.stWebSearchEnabled = true
+    state.stWebSearchApiKey = "test-tavily-key"
+
+    // Mock the stream response (no tool call, just text) — mixed mode uses streaming internally
+    const chunk = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        { index: 0, delta: { role: "assistant", content: "Search results..." }, finish_reason: null },
+      ],
+    })
+    const finalChunk = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        { index: 0, delta: {}, finish_reason: "stop" },
+      ],
+      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        `data: ${chunk}\n\n`,
+        `data: ${finalChunk}\n\n`,
+        "data: [DONE]\n\n",
+      ]),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "search for news" }],
+        // Include both client and server-side tools for mixed mode
+        // Server-side tool must have type matching pattern: web_search_20250305
+        tools: [
+          { name: "get_weather", input_schema: { type: "object" } },
+          {
+            name: "web_search",
+            type: "web_search_20250305",
+            input_schema: { type: "object" },
+          },
+        ],
+        // Anthropic format: { type: "tool", name: "web_search" }
+        tool_choice: { type: "tool", name: "web_search" },
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    // Should emit log about tool_choice being rewritten
+    const rewriteLog = events.find((e) =>
+      e.msg.includes("tool_choice rewritten"),
+    )
+    expect(rewriteLog).toBeDefined()
+    expect(rewriteLog!.data?.originalToolChoice).toBe("web_search")
+    expect(rewriteLog!.data?.newToolChoice).toBe("auto")
+  })
+
+  test("does not rewrite tool_choice when targeting client-side tool", async () => {
+    state.stWebSearchEnabled = true
+    state.stWebSearchApiKey = "test-tavily-key"
+
+    // Mock the stream response
+    const chunk = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        { index: 0, delta: { role: "assistant", content: "Weather is sunny" }, finish_reason: null },
+      ],
+    })
+    const finalChunk = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        { index: 0, delta: {}, finish_reason: "stop" },
+      ],
+      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        `data: ${chunk}\n\n`,
+        `data: ${finalChunk}\n\n`,
+        "data: [DONE]\n\n",
+      ]),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "get weather" }],
+        tools: [
+          { name: "get_weather", input_schema: { type: "object" } },
+          {
+            name: "web_search",
+            type: "web_search_20250305",
+            input_schema: { type: "object" },
+          },
+        ],
+        // Anthropic format: target client-side tool
+        tool_choice: { type: "tool", name: "get_weather" },
+      }),
+    )
+
+    logEmitter.off("log", listener)
+
+    // Should NOT emit tool_choice rewrite log for client-side tool
+    const rewriteLog = events.find((e) =>
+      e.msg.includes("tool_choice rewritten"),
+    )
+    expect(rewriteLog).toBeUndefined()
+  })
+})
+
+// ===========================================================================
+// handleCompletion — streaming with tool calls (optToolCallDebug)
+// ===========================================================================
+
+describe("messages handler (streaming tool call debug)", () => {
+  let savedOptToolCallDebug: boolean
+
+  beforeEach(() => {
+    savedOptToolCallDebug = state.optToolCallDebug
+  })
+
+  afterEach(() => {
+    state.optToolCallDebug = savedOptToolCallDebug
+  })
+
+  test("emits tool_use started debug log during streaming", async () => {
+    state.optToolCallDebug = true
+
+    // Create stream with tool call deltas
+    const chunk1 = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            role: "assistant",
+            tool_calls: [
+              {
+                index: 0,
+                id: "call_123",
+                type: "function",
+                function: { name: "get_weather", arguments: "" },
+              },
+            ],
+          },
+          finish_reason: null,
+        },
+      ],
+    })
+    const chunk2 = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                function: { arguments: '{"loc' },
+              },
+            ],
+          },
+          finish_reason: null,
+        },
+      ],
+    })
+    const chunk3 = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                function: { arguments: 'ation":"NYC"}' },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        `data: ${chunk1}\n\n`,
+        `data: ${chunk2}\n\n`,
+        `data: ${chunk3}\n\n`,
+        "data: [DONE]\n\n",
+      ]),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        stream: true,
+        messages: [{ role: "user", content: "what is the weather in NYC?" }],
+        tools: [{ name: "get_weather", input_schema: { type: "object" } }],
+      }),
+    )
+
+    await res.text()
+    await new Promise((r) => setTimeout(r, 50))
+
+    logEmitter.off("log", listener)
+
+    // Should emit tool_use started debug log
+    const toolUseLog = events.find((e) =>
+      e.level === "debug" && e.msg.includes("tool_use started"),
+    )
+    expect(toolUseLog).toBeDefined()
+    expect(toolUseLog!.data?.toolName).toBe("get_weather")
+    expect(toolUseLog!.data?.toolId).toBe("call_123")
+  })
+
+  test("includes debug data in request_end for streaming with tools", async () => {
+    state.optToolCallDebug = true
+
+    const chunk1 = JSON.stringify({
+      id: "c1",
+      model: "claude-sonnet-4",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            role: "assistant",
+            tool_calls: [
+              {
+                index: 0,
+                id: "call_abc",
+                type: "function",
+                function: { name: "calculator", arguments: '{"x":1}' },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+    })
+
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        `data: ${chunk1}\n\n`,
+        "data: [DONE]\n\n",
+      ]),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        stream: true,
+        messages: [{ role: "user", content: "calculate 1+1" }],
+        tools: [{ name: "calculator", input_schema: { type: "object" } }],
+      }),
+    )
+
+    await res.text()
+    await new Promise((r) => setTimeout(r, 50))
+
+    logEmitter.off("log", listener)
+
+    const endEvent = events.find((e) => e.type === "request_end")
+    expect(endEvent).toBeDefined()
+    expect(endEvent!.data?.toolCallCount).toBe(1)
+    expect(endEvent!.data?.toolCallNames).toEqual(["calculator"])
+  })
+})
