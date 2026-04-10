@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.7.3 (2026-04-10)
+
+Security hardening, platform-aware data directories, and model name fix.
+
+### Features
+
+- **Platform-aware directories** — Runtime data (SQLite DB, GitHub token) now stored in platform-standard locations (`~/Library/Application Support/raven/` on macOS, `~/.config/raven/` + `~/.local/share/raven/` on Linux) with automatic migration from legacy `./data/` directory
+- **IP whitelist** — Restrict API access to known client IPs via Dashboard Settings for defense-in-depth against key leakage
+- **Non-macOS sound disable** — Sound notification feature gracefully disabled on non-macOS platforms
+
+### Security
+
+- **IP whitelist spoofing hardening** — Harden IP whitelist against `X-Forwarded-For` spoofing and bypass attacks
+
+### Proxy
+
+- **Preserve original model name** — Client-requested model name (e.g. `claude-opus-4-6-20250820`) is now returned in Anthropic responses instead of upstream's truncated name (e.g. `claude-opus-4`)
+- **Model name translation fix** — Correct model name translation for versioned Claude models
+- **WAL migration** — Migrate SQLite WAL files (`-wal`, `-shm`) along with main database during directory migration
+- **JSON error extraction** — Extract meaningful message from JSON error responses in terminal logs
+
+### Docs
+
+- **VPS deployment guide** — Generalized Azure VM deployment guide to any VPS with security requirements
+
 ## v1.7.2 (2026-04-05)
 
 Accessibility improvements and design system refinements.
