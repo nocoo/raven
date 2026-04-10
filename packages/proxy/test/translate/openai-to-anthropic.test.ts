@@ -354,7 +354,7 @@ describe("response envelope", () => {
     expect(result.role).toBe("assistant")
   })
 
-  test("model is passed through", () => {
+  test("model defaults to upstream response.model when originalModel omitted", () => {
     const result = translateToAnthropic(
       makeResponse({ model: "claude-sonnet-4" }),
     )
@@ -364,5 +364,42 @@ describe("response envelope", () => {
   test("stop_sequence is always null", () => {
     const result = translateToAnthropic(makeResponse())
     expect(result.stop_sequence).toBeNull()
+  })
+})
+
+// ===========================================================================
+// originalModel override
+// ===========================================================================
+
+describe("originalModel override", () => {
+  test("uses client-requested model name instead of upstream's truncated name", () => {
+    const result = translateToAnthropic(
+      makeResponse({ model: "claude-opus-4" }),
+      "claude-opus-4-6-20250820",
+    )
+    expect(result.model).toBe("claude-opus-4-6-20250820")
+  })
+
+  test("1m variant with date suffix preserved", () => {
+    const result = translateToAnthropic(
+      makeResponse({ model: "claude-sonnet-4" }),
+      "claude-sonnet-4-5-1m-20250514",
+    )
+    expect(result.model).toBe("claude-sonnet-4-5-1m-20250514")
+  })
+
+  test("no originalModel → falls back to upstream response.model", () => {
+    const result = translateToAnthropic(
+      makeResponse({ model: "claude-sonnet-4" }),
+    )
+    expect(result.model).toBe("claude-sonnet-4")
+  })
+
+  test("originalModel same as upstream → no change", () => {
+    const result = translateToAnthropic(
+      makeResponse({ model: "gpt-4o" }),
+      "gpt-4o",
+    )
+    expect(result.model).toBe("gpt-4o")
   })
 })

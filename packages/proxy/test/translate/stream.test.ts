@@ -791,3 +791,58 @@ describe("empty choices", () => {
     expect(events).toHaveLength(0)
   })
 })
+
+// ===========================================================================
+// originalModel override in stream
+// ===========================================================================
+
+describe("originalModel override", () => {
+  test("message_start uses client-requested model name", () => {
+    const state = makeState()
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ model: "claude-opus-4", delta: { role: "assistant" } }),
+      state,
+      "claude-opus-4-6-20250820",
+    )
+
+    const msgStart = events.find(
+      (e) => e.type === "message_start",
+    ) as Extract<AnthropicStreamEventData, { type: "message_start" }>
+    expect(msgStart).toBeDefined()
+    expect(msgStart.message.model).toBe("claude-opus-4-6-20250820")
+  })
+
+  test("no originalModel → falls back to chunk.model", () => {
+    const state = makeState()
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ model: "claude-sonnet-4", delta: { role: "assistant" } }),
+      state,
+    )
+
+    const msgStart = events.find(
+      (e) => e.type === "message_start",
+    ) as Extract<AnthropicStreamEventData, { type: "message_start" }>
+    expect(msgStart.message.model).toBe("claude-sonnet-4")
+  })
+
+  test("originalModel only appears in message_start, not in subsequent chunks", () => {
+    const state = makeState()
+
+    // First chunk → message_start
+    translateChunkToAnthropicEvents(
+      makeChunk({ model: "claude-opus-4", delta: { role: "assistant" } }),
+      state,
+      "claude-opus-4-6-20250820",
+    )
+
+    // Second chunk → text content, no message_start
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ model: "claude-opus-4", delta: { content: "Hello" } }),
+      state,
+      "claude-opus-4-6-20250820",
+    )
+
+    const msgStarts = events.filter((e) => e.type === "message_start")
+    expect(msgStarts).toHaveLength(0)
+  })
+})

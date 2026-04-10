@@ -224,7 +224,7 @@ export async function handleCompletion(c: Context) {
     }
 
     if (isNonStreaming(response)) {
-      const anthropicResponse = translateToAnthropic(response)
+      const anthropicResponse = translateToAnthropic(response, model)
       const latencyMs = Math.round(performance.now() - startTime)
       const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0
       const inputTokens = (response.usage?.prompt_tokens ?? 0) - cachedTokens
@@ -280,7 +280,7 @@ export async function handleCompletion(c: Context) {
             outputTokens = chunk.usage.completion_tokens ?? 0
           }
 
-          const events = translateChunkToAnthropicEvents(chunk, streamState)
+          const events = translateChunkToAnthropicEvents(chunk, streamState, model)
 
           // Debug: detect new tool calls
           if (state.optToolCallDebug) {
@@ -947,7 +947,7 @@ async function handleOpenAIUpstream(
     const response = await sendOpenAIDirect(provider, payload)
 
     if (isChatCompletionResponse(response)) {
-      const anthropicResponse = translateToAnthropic(response)
+      const anthropicResponse = translateToAnthropic(response, originalModel)
       const latencyMs = Math.round(performance.now() - startTime)
       const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0
       const inputTokens = (response.usage?.prompt_tokens ?? 0) - cachedTokens
@@ -1002,7 +1002,7 @@ async function handleOpenAIUpstream(
             outputTokens = chunk.usage.completion_tokens ?? 0
           }
 
-          const events = translateChunkToAnthropicEvents(chunk, streamState)
+          const events = translateChunkToAnthropicEvents(chunk, streamState, originalModel)
 
           // Debug: detect new tool calls
           if (state.optToolCallDebug) {
