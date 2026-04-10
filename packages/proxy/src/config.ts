@@ -1,3 +1,5 @@
+import { getDefaultTokenPath, getDefaultDbPath } from "./lib/app-dirs";
+
 export interface Config {
   port: number;
   apiKey: string;
@@ -12,8 +14,8 @@ export function loadConfig(): Config {
   const port = parseInt(process.env.RAVEN_PORT ?? "7024", 10);
   const apiKey = process.env.RAVEN_API_KEY ?? "";
   const internalKey = process.env.RAVEN_INTERNAL_KEY ?? "";
-  const tokenPath = process.env.RAVEN_TOKEN_PATH ?? "data/github_token";
-  const dbPath = process.env.RAVEN_DB_PATH ?? "data/raven.db";
+  const tokenPath = getDefaultTokenPath();
+  const dbPath = getDefaultDbPath();
   const logLevel = (process.env.RAVEN_LOG_LEVEL ?? "info") as Config["logLevel"];
   const baseUrl = process.env.RAVEN_BASE_URL ?? "";
 

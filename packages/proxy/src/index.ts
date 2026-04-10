@@ -5,6 +5,8 @@ import { loadConfig } from "./config"
 import { logger, setLogLevel } from "./util/logger"
 import { createApp } from "./app"
 import { ensurePaths } from "./lib/paths"
+import { runMigrations } from "./lib/migration"
+import { DIR_MODE } from "./lib/app-dirs"
 import { state } from "./lib/state"
 import { setupGitHubToken, setupCopilotToken } from "./lib/token"
 import { cacheModels, cacheVersions, cacheOptimizations, cacheProviders, cacheServerTools, cacheSoundSettings, cacheIPWhitelist } from "./lib/utils"
@@ -26,12 +28,15 @@ import { LEVEL_ORDER } from "./util/log-event"
 const config = loadConfig()
 setLogLevel(config.logLevel)
 
-// 1. Ensure data/ dir + token file exist before anything reads them
+// 0. Migrate legacy ./data/ files to platform-aware user directories
+await runMigrations()
+
+// 1. Ensure config dir + token file exist before anything reads them
 await ensurePaths()
 
 // 2. Database
 const dbDir = config.dbPath.substring(0, config.dbPath.lastIndexOf("/"))
-mkdirSync(dbDir || "data", { recursive: true })
+mkdirSync(dbDir || "data", { recursive: true, mode: DIR_MODE })
 const db = new Database(config.dbPath)
 logger.info(`Database opened: ${config.dbPath}`)
 initDatabase(db)

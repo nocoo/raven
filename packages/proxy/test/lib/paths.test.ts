@@ -1,46 +1,46 @@
-import { describe, expect, test, afterAll } from "bun:test"
-import fs from "node:fs/promises"
-import os from "node:os"
-import path from "node:path"
+import { describe, expect, test, afterAll } from "bun:test";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { DIR_MODE, FILE_MODE } from "../../src/lib/app-dirs";
 
 // ---------------------------------------------------------------------------
-// Set env BEFORE importing paths.ts (which calls loadConfig at module level)
+// Set env BEFORE importing anything that uses app-dirs
 // ---------------------------------------------------------------------------
 
-const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "raven-paths-test-"))
-const tmpTokenPath = path.join(tmpDir, "subdir", "github_token")
+const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "raven-paths-test-"));
+const tmpConfigDir = path.join(tmpDir, "config");
 
 // Save and override env
-const savedTokenPath = process.env.RAVEN_TOKEN_PATH
-process.env.RAVEN_TOKEN_PATH = tmpTokenPath
+const savedConfigDir = process.env.RAVEN_CONFIG_DIR;
+process.env.RAVEN_CONFIG_DIR = tmpConfigDir;
 
 afterAll(async () => {
   // Restore env
-  if (savedTokenPath !== undefined) {
-    process.env.RAVEN_TOKEN_PATH = savedTokenPath
+  if (savedConfigDir !== undefined) {
+    process.env.RAVEN_CONFIG_DIR = savedConfigDir;
   } else {
-    delete process.env.RAVEN_TOKEN_PATH
+    delete process.env.RAVEN_CONFIG_DIR;
   }
-  await fs.rm(tmpDir, { recursive: true, force: true })
-})
+  await fs.rm(tmpDir, { recursive: true, force: true });
+});
 
 // ---------------------------------------------------------------------------
-// Test the ensurePaths logic directly without mock.module.
-// We replicate the same logic as paths.ts to avoid module caching issues.
+// Test the ensurePaths logic directly
 // ---------------------------------------------------------------------------
 
 async function ensureFile(filePath: string): Promise<void> {
   try {
-    await fs.access(filePath, fs.constants.W_OK)
+    await fs.access(filePath, fs.constants.W_OK);
   } catch {
-    await fs.writeFile(filePath, "")
-    await fs.chmod(filePath, 0o600)
+    await fs.writeFile(filePath, "");
+    await fs.chmod(filePath, FILE_MODE);
   }
 }
 
-async function ensurePaths(appDir: string, tokenPath: string): Promise<void> {
-  await fs.mkdir(appDir, { recursive: true })
-  await ensureFile(tokenPath)
+async function ensurePaths(configDir: string, tokenPath: string): Promise<void> {
+  await fs.mkdir(configDir, { recursive: true, mode: DIR_MODE });
+  await ensureFile(tokenPath);
 }
 
 // ===========================================================================
@@ -48,32 +48,33 @@ async function ensurePaths(appDir: string, tokenPath: string): Promise<void> {
 // ===========================================================================
 
 describe("ensurePaths", () => {
-  const appDir = path.dirname(tmpTokenPath)
+  const tmpTokenPath = path.join(tmpConfigDir, "github_token");
 
-  test("creates directory when it doesn't exist", async () => {
-    await ensurePaths(appDir, tmpTokenPath)
+  test("creates directory with 0o700 permissions when it doesn't exist", async () => {
+    await ensurePaths(tmpConfigDir, tmpTokenPath);
 
-    const stat = await fs.stat(appDir)
-    expect(stat.isDirectory()).toBe(true)
-  })
+    const stat = await fs.stat(tmpConfigDir);
+    expect(stat.isDirectory()).toBe(true);
+    const mode = stat.mode & 0o777;
+    expect(mode).toBe(DIR_MODE);
+  });
 
   test("creates file with 0o600 permissions when it doesn't exist", async () => {
     // ensurePaths already called above; file should exist
-    const stat = await fs.stat(tmpTokenPath)
-    expect(stat.isFile()).toBe(true)
-    // 0o600 = owner read+write, no group/other
-    const mode = stat.mode & 0o777
-    expect(mode).toBe(0o600)
-  })
+    const stat = await fs.stat(tmpTokenPath);
+    expect(stat.isFile()).toBe(true);
+    const mode = stat.mode & 0o777;
+    expect(mode).toBe(FILE_MODE);
+  });
 
   test("idempotent when dir + file already exist", async () => {
     // Write something to prove file isn't overwritten
-    await fs.writeFile(tmpTokenPath, "existing-content")
+    await fs.writeFile(tmpTokenPath, "existing-content");
 
     // Second call should not error or overwrite
-    await ensurePaths(appDir, tmpTokenPath)
+    await ensurePaths(tmpConfigDir, tmpTokenPath);
 
-    const content = await fs.readFile(tmpTokenPath, "utf8")
-    expect(content).toBe("existing-content")
-  })
-})
+    const content = await fs.readFile(tmpTokenPath, "utf8");
+    expect(content).toBe("existing-content");
+  });
+});
