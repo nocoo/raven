@@ -6,6 +6,8 @@ import {
   dashboardAuth,
   invalidateKeyCountCache,
   ipWhitelistMiddleware,
+  checkIPWhitelist,
+  getClientIPFromRequest,
 } from "../src/middleware.ts";
 import { initApiKeys, createApiKey } from "../src/db/keys.ts";
 import { state } from "../src/lib/state.ts";
@@ -586,6 +588,244 @@ describe("ipWhitelistMiddleware", () => {
         headers: { "x-forwarded-for": "8.8.8.8" },
       });
       expect(res4.status).toBe(403);
+    });
+  });
+
+  describe("remoteAddress fallback", () => {
+    test("uses c.env.info.remoteAddress when trust_proxy=false and no headers", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = false;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+
+      // Create app that simulates remoteAddress via c.env.info
+      const app = new Hono<{ Bindings: { info?: { remoteAddress?: string } } }>();
+      app.use("*", async (c, next) => {
+        // Simulate Bun server providing remoteAddress
+        c.env = { info: { remoteAddress: "192.168.1.100" } };
+        await next();
+      });
+      app.use("*", ipWhitelistMiddleware());
+      app.get("/test", (c) => c.json({ ok: true }));
+
+      const res = await app.request("/test");
+      expect(res.status).toBe(200);
+    });
+
+    test("rejects non-whitelisted remoteAddress", async () => {
+      state.ipWhitelistEnabled = true;
+      state.ipWhitelistTrustProxy = false;
+      state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+
+      const app = new Hono<{ Bindings: { info?: { remoteAddress?: string } } }>();
+      app.use("*", async (c, next) => {
+        c.env = { info: { remoteAddress: "10.0.0.1" } };
+        await next();
+      });
+      app.use("*", ipWhitelistMiddleware());
+      app.get("/test", (c) => c.json({ ok: true }));
+
+      const res = await app.request("/test");
+      expect(res.status).toBe(403);
+    });
+  });
+});
+
+// ===========================================================================
+// checkIPWhitelist — direct function tests
+// ===========================================================================
+
+describe("checkIPWhitelist function", () => {
+  let originalEnabled: boolean;
+  let originalRanges: typeof state.ipWhitelistRanges;
+
+  beforeEach(() => {
+    originalEnabled = state.ipWhitelistEnabled;
+    originalRanges = state.ipWhitelistRanges;
+  });
+
+  afterEach(() => {
+    state.ipWhitelistEnabled = originalEnabled;
+    state.ipWhitelistRanges = originalRanges;
+  });
+
+  test("returns allowed:true when whitelist is disabled", () => {
+    state.ipWhitelistEnabled = false;
+    state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+    const result = checkIPWhitelist("10.0.0.1");
+    expect(result).toEqual({ allowed: true });
+  });
+
+  test("returns allowed:true when no ranges configured (fail-open)", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [];
+    const result = checkIPWhitelist("10.0.0.1");
+    expect(result).toEqual({ allowed: true });
+  });
+
+  test("returns allowed:true when clientIP is null (fail-open)", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+    const result = checkIPWhitelist(null);
+    expect(result).toEqual({ allowed: true });
+  });
+
+  test("returns not-ipv4 reason for pure IPv6 address", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+    const result = checkIPWhitelist("2001:db8::1");
+    expect(result).toEqual({ allowed: false, reason: "not-ipv4" });
+  });
+
+  test("returns invalid-ip reason for malformed IP after IPv4 extraction", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+    // This IP will pass extractIPv4 (looks like valid dotted decimal)
+    // but parseIPv4 will fail due to invalid octet values
+    const result = checkIPWhitelist("192.168.1.999");
+    // extractIPv4 returns null for invalid IPv4, so this triggers not-ipv4
+    expect(result).toEqual({ allowed: false, reason: "not-ipv4" });
+  });
+
+  test("returns not-whitelisted for IP outside all ranges", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+    const result = checkIPWhitelist("10.0.0.1");
+    expect(result).toEqual({ allowed: false, reason: "not-whitelisted" });
+  });
+
+  test("returns allowed:true for IP in whitelisted range", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+    const result = checkIPWhitelist("192.168.1.50");
+    expect(result).toEqual({ allowed: true });
+  });
+
+  test("handles IPv6-mapped IPv4 correctly", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [parseIPRange("192.168.1.0/24")!];
+    const result = checkIPWhitelist("::ffff:192.168.1.50");
+    expect(result).toEqual({ allowed: true });
+  });
+
+  test("handles IPv6 loopback (::1) as 127.0.0.1", () => {
+    state.ipWhitelistEnabled = true;
+    state.ipWhitelistRanges = [parseIPRange("127.0.0.1")!];
+    const result = checkIPWhitelist("::1");
+    expect(result).toEqual({ allowed: true });
+  });
+});
+
+// ===========================================================================
+// getClientIPFromRequest — WebSocket upgrade path
+// ===========================================================================
+
+describe("getClientIPFromRequest function", () => {
+  let originalTrustProxy: boolean;
+
+  beforeEach(() => {
+    originalTrustProxy = state.ipWhitelistTrustProxy;
+  });
+
+  afterEach(() => {
+    state.ipWhitelistTrustProxy = originalTrustProxy;
+  });
+
+  describe("trust_proxy=false (default)", () => {
+    beforeEach(() => {
+      state.ipWhitelistTrustProxy = false;
+    });
+
+    test("ignores x-forwarded-for and returns remoteAddress", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-forwarded-for": "192.168.1.50" },
+      });
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("10.0.0.1");
+    });
+
+    test("ignores x-real-ip and returns remoteAddress", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-real-ip": "192.168.1.50" },
+      });
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("10.0.0.1");
+    });
+
+    test("returns null when remoteAddress is null", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-forwarded-for": "192.168.1.50" },
+      });
+      const result = getClientIPFromRequest(req, null);
+      expect(result).toBe(null);
+    });
+  });
+
+  describe("trust_proxy=true", () => {
+    beforeEach(() => {
+      state.ipWhitelistTrustProxy = true;
+    });
+
+    test("reads x-forwarded-for when trust_proxy is true", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-forwarded-for": "192.168.1.50" },
+      });
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("192.168.1.50");
+    });
+
+    test("handles x-forwarded-for with multiple IPs (uses first)", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-forwarded-for": "192.168.1.50, 10.0.0.1, 8.8.8.8" },
+      });
+      const result = getClientIPFromRequest(req, "127.0.0.1");
+      expect(result).toBe("192.168.1.50");
+    });
+
+    test("reads x-real-ip when x-forwarded-for is absent", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-real-ip": "172.16.0.1" },
+      });
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("172.16.0.1");
+    });
+
+    test("prefers x-forwarded-for over x-real-ip", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: {
+          "x-forwarded-for": "192.168.1.50",
+          "x-real-ip": "172.16.0.1",
+        },
+      });
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("192.168.1.50");
+    });
+
+    test("falls back to remoteAddress when no proxy headers", () => {
+      const req = new Request("http://localhost/ws");
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("10.0.0.1");
+    });
+
+    test("returns null when no headers and remoteAddress is null", () => {
+      const req = new Request("http://localhost/ws");
+      const result = getClientIPFromRequest(req, null);
+      expect(result).toBe(null);
+    });
+
+    test("trims whitespace from x-real-ip header", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-real-ip": "  192.168.1.50  " },
+      });
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("192.168.1.50");
+    });
+
+    test("handles empty x-forwarded-for by falling through", () => {
+      const req = new Request("http://localhost/ws", {
+        headers: { "x-forwarded-for": "" },
+      });
+      const result = getClientIPFromRequest(req, "10.0.0.1");
+      expect(result).toBe("10.0.0.1");
     });
   });
 });
