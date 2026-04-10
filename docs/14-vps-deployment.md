@@ -4,6 +4,10 @@
 
 > **定位提醒**：raven 是研究性、个人使用项目；推荐部署到单台 Ubuntu VM，仅供自己使用，不按多租户服务设计。
 
+本文档提供两种反向代理方案：
+- **方案 A: Nginx + Let's Encrypt** — 传统方案，需要开放 80/443 端口
+- **方案 B: Cloudflare Tunnel** — 零端口暴露，自动 HTTPS，推荐
+
 ---
 
 ## ⚠️ 远程部署安全须知
@@ -34,6 +38,23 @@ Proxy 支持 IP 白名单功能，可以限制只有特定 IP 范围能够访问
 
 即使有 API Key 保护，IP 白名单也是一道额外的防线，防止 key 泄露后被滥用。
 
+### 3. Cloudflare WAF IP 限制（使用 Tunnel 方案时）
+
+如果使用 Cloudflare Tunnel 方案，可以在 Cloudflare WAF 层添加 IP 限制，实现双重防护：
+
+1. 进入 Cloudflare Dashboard → 你的域名 → Security → WAF → Custom rules
+2. 创建规则，Expression 填入：
+
+```
+(http.host in {"raven-api.example.com" "raven.example.com"}) and not (ip.src in {你的IP/24 另一个IP/32})
+```
+
+3. Action 选择 **Block**
+
+这条规则的含义：匹配 raven 域名 + IP 不在白名单 → 拦截。其他子域名不受影响。
+
+> **注意**：如果你的网络出口 IP 不固定，可以用较宽的 CIDR（如 `/23` 覆盖 512 个 IP）。多个 IP 段用空格分隔。
+
 ---
 
 ## 0. 部署拓扑
@@ -43,7 +64,9 @@ Proxy 支持 IP 白名单功能，可以限制只有特定 IP 范围能够访问
 - `raven-api.example.com` → proxy → `127.0.0.1:7024`
 - `raven.example.com` → dashboard → `127.0.0.1:7023`
 
-公网只暴露：
+### 方案 A: Nginx + Let's Encrypt
+
+公网开放端口：
 
 - `22/tcp`（SSH，建议限制来源 IP）
 - `80/tcp`（签证书 / HTTP 跳转）
@@ -51,32 +74,46 @@ Proxy 支持 IP 白名单功能，可以限制只有特定 IP 范围能够访问
 
 不要直接向公网开放 `7023` 和 `7024`。
 
+### 方案 B: Cloudflare Tunnel（推荐）
+
+公网仅开放：
+
+- `22/tcp`（SSH，建议限制来源 IP）
+
+Cloudflare Tunnel 通过出站连接建立隧道，无需开放任何入站端口给 HTTP 流量。优势：
+
+- 零端口暴露 — VPS 防火墙只需开 SSH
+- 自动 HTTPS — Cloudflare 边缘自动处理证书
+- 内置 DDoS 防护 — Cloudflare 网络过滤恶意流量
+- 简化运维 — 无需管理 Nginx 和 certbot
+
 ---
 
 ## 1. 准备 VPS
 
 ### 推荐规格
 
-- OS: Ubuntu 24.04 LTS（或其他现代 Linux 发行版）
-- CPU/RAM: 1 vCPU / 1 GB 起步，2 vCPU / 2 GB 更从容
+- OS: Ubuntu 24.04 LTS / Debian 12（或其他现代 Linux 发行版）
+- CPU/RAM: 1 vCPU / 1 GB 足够（Raven 实际内存占用约 100-150MB）
 - Disk: SSD，确保数据目录持久化
 
 ### 防火墙配置
 
-1. 云平台安全组 / 防火墙仅允许入站：
-   - `22`（SSH，最好限制到你的固定 IP）
-   - `80`（HTTP，用于 HTTPS 证书签发和跳转）
-   - `443`（HTTPS）
-2. 不开放：
-   - `7023`
-   - `7024`
+**方案 A (Nginx)**：云平台安全组仅允许入站 22、80、443
 
-VM 内再配合 UFW：
+**方案 B (Tunnel)**：云平台安全组仅允许入站 22
+
+VM 内配合 UFW：
 
 ```bash
+# 方案 A
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
+sudo ufw enable
+
+# 方案 B（仅 SSH）
+sudo ufw allow OpenSSH
 sudo ufw enable
 ```
 
@@ -86,8 +123,24 @@ sudo ufw enable
 
 ```bash
 sudo apt update
-sudo apt install -y curl unzip git nginx
+sudo apt install -y curl unzip git
 curl -fsSL https://bun.sh/install | bash
+```
+
+如果使用**方案 A (Nginx)**，还需安装：
+
+```bash
+sudo apt install -y nginx
+```
+
+如果使用**方案 B (Cloudflare Tunnel)**，安装 cloudflared：
+
+```bash
+# Debian/Ubuntu
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-archive-keyring.gpg >/dev/null
+echo 'deb [signed-by=/usr/share/keyrings/cloudflare-archive-keyring.gpg] https://pkg.cloudflare.com/cloudflared bookworm main' | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt update
+sudo apt install -y cloudflared
 ```
 
 重新登录 shell，或执行：
@@ -102,7 +155,6 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 ```bash
 bun --version
 git --version
-nginx -v
 ```
 
 > 本仓库是 **bun workspace**。不要在 VM 上运行 `npm install` 或 `pnpm install`。
@@ -329,7 +381,11 @@ sudo journalctl -u raven-dashboard.service -f
 
 ---
 
-## 8. Nginx 反向代理
+## 8. 反向代理
+
+选择下面其中一种方案。
+
+### 方案 A: Nginx + Let's Encrypt
 
 安装证书最简单的方式通常是 Nginx + Let's Encrypt（例如 certbot）。
 
@@ -339,7 +395,7 @@ sudo journalctl -u raven-dashboard.service -f
 sudo apt install -y certbot python3-certbot-nginx
 ```
 
-### API: `/etc/nginx/sites-available/raven-api`
+#### API: `/etc/nginx/sites-available/raven-api`
 
 ```nginx
 server {
@@ -359,7 +415,7 @@ server {
 }
 ```
 
-### Dashboard: `/etc/nginx/sites-available/raven-dashboard`
+#### Dashboard: `/etc/nginx/sites-available/raven-dashboard`
 
 ```nginx
 server {
@@ -374,7 +430,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        # dashboard 不走 SSE 上游转发，这里通常不需要关闭 buffering
     }
 }
 ```
@@ -399,6 +454,81 @@ sudo certbot --nginx -d raven-api.example.com -d raven.example.com
 - `RAVEN_BASE_URL=https://raven-api.example.com`
 - `NEXTAUTH_URL=https://raven.example.com`
 - `USE_SECURE_COOKIES=true`
+
+### 方案 B: Cloudflare Tunnel（推荐）
+
+Cloudflare Tunnel 通过出站连接建立加密隧道，无需开放任何入站端口，无需管理证书。
+
+#### 1) 登录 Cloudflare
+
+```bash
+cloudflared tunnel login
+```
+
+会输出一个 URL，在浏览器打开并选择你的域名授权。授权成功后 cert 会保存到 `~/.cloudflared/cert.pem`。
+
+#### 2) 创建 Tunnel
+
+```bash
+cloudflared tunnel create raven
+```
+
+记下输出的 Tunnel ID（形如 `89a016b0-24cc-4d07-a2b5-32f6a8073f03`）。
+
+#### 3) 配置 DNS 路由
+
+```bash
+cloudflared tunnel route dns raven raven.example.com
+cloudflared tunnel route dns raven raven-api.example.com
+```
+
+这会在 Cloudflare DNS 自动创建指向 Tunnel 的 CNAME 记录。
+
+#### 4) 创建配置文件
+
+创建 `~/.cloudflared/config.yml`：
+
+```yaml
+tunnel: <你的Tunnel-ID>
+credentials-file: /home/<用户>/.cloudflared/<Tunnel-ID>.json
+
+ingress:
+  - hostname: raven-api.example.com
+    service: http://127.0.0.1:7024
+  - hostname: raven.example.com
+    service: http://127.0.0.1:7023
+  - service: http_status:404
+```
+
+#### 5) 安装为系统服务
+
+```bash
+sudo mkdir -p /etc/cloudflared
+sudo cp ~/.cloudflared/config.yml /etc/cloudflared/
+sudo cp ~/.cloudflared/<Tunnel-ID>.json /etc/cloudflared/
+sudo cloudflared service install
+```
+
+验证状态：
+
+```bash
+sudo systemctl status cloudflared
+```
+
+应该看到多个 `Registered tunnel connection` 日志，表示隧道已建立。
+
+#### 6) 可选：Cloudflare WAF IP 限制
+
+如果需要限制访问 IP，在 Cloudflare Dashboard → Security → WAF → Custom rules 添加规则：
+
+**Expression:**
+```
+(http.host in {"raven-api.example.com" "raven.example.com"}) and not (ip.src in {你的IP/24})
+```
+
+**Action:** Block
+
+这样只有白名单 IP 才能访问，其他请求在 Cloudflare 边缘就被拦截。
 
 ---
 
@@ -476,7 +606,7 @@ sudo systemctl restart raven-dashboard.service
 
 ### 2) 直接暴露 7023 / 7024
 
-这两个端口应只监听本机并通过 Nginx 暴露；不要在云平台安全组中直接开放。
+这两个端口应只监听本机并通过反向代理（Nginx 或 Cloudflare Tunnel）暴露；不要在云平台安全组中直接开放。
 
 ### 3) 公开 dashboard 但仍使用 local mode
 
@@ -485,3 +615,22 @@ sudo systemctl restart raven-dashboard.service
 ### 4) `RAVEN_BASE_URL` / `NEXTAUTH_URL` 仍指向 localhost
 
 这会导致 connection info、登录回调或 cookie 行为异常；生产环境必须改成公网 HTTPS 地址。
+
+---
+
+## 14. 安全架构总结
+
+完整部署后的安全层级：
+
+| 层 | 措施 | 效果 |
+|---|------|------|
+| 网络层 | Cloudflare Tunnel / Nginx | 零端口暴露或最小端口暴露 |
+| CDN 层 | Cloudflare WAF IP 白名单 | 只有指定 IP 段能访问 |
+| 应用层 | Dashboard Google OAuth | 只有指定邮箱能登录 |
+| API 层 | API Key (`rk-xxx`) | 请求需要携带有效 key |
+| 应用层 | Raven IP Whitelist (可选) | 双重 IP 校验 |
+
+**关键资产保护**：
+
+- `github_token` — 存储 GitHub / Copilot 授权，是核心敏感文件。确保 VPS 安全（SSH 密钥登录、fail2ban）。
+- API Key — 建议定期轮换，可在 Dashboard 创建多个 key 按用途区分。
