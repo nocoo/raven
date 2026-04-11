@@ -211,8 +211,6 @@ describe("cacheServerTools", () => {
 // sleep
 // ===========================================================================
 
-import { mock } from "bun:test"
-
 describe("sleep", () => {
   test("resolves after specified delay", async () => {
     // Use mock timers to avoid flaky timing on CI runners
