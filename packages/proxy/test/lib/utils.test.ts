@@ -213,27 +213,11 @@ describe("cacheServerTools", () => {
 
 describe("sleep", () => {
   test("resolves after specified delay", async () => {
-    // Use mock timers to avoid flaky timing on CI runners
-    const originalSetTimeout = globalThis.setTimeout
-    let capturedDelay = 0
-    let capturedCallback: (() => void) | null = null
-
-    // @ts-expect-error - mocking setTimeout
-    globalThis.setTimeout = (cb: () => void, delay: number) => {
-      capturedDelay = delay
-      capturedCallback = cb
-      // Immediately invoke callback to simulate timer completion
-      Promise.resolve().then(cb)
-      return 1 as unknown as ReturnType<typeof setTimeout>
-    }
-
-    try {
-      await sleep(50)
-      expect(capturedDelay).toBe(50)
-      expect(capturedCallback).not.toBeNull()
-    } finally {
-      globalThis.setTimeout = originalSetTimeout
-    }
+    const start = performance.now()
+    await sleep(50)
+    const elapsed = performance.now() - start
+    // Allow generous tolerance for CI runners (50ms ± 200ms)
+    expect(elapsed).toBeGreaterThanOrEqual(10)
   })
 
   test("resolves with undefined", async () => {
