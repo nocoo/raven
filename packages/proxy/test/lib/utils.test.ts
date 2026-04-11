@@ -211,14 +211,31 @@ describe("cacheServerTools", () => {
 // sleep
 // ===========================================================================
 
+import { mock } from "bun:test"
+
 describe("sleep", () => {
   test("resolves after specified delay", async () => {
-    const start = Date.now()
-    await sleep(50)
-    const elapsed = Date.now() - start
-    // Allow some tolerance for timer variance
-    expect(elapsed).toBeGreaterThanOrEqual(40)
-    expect(elapsed).toBeLessThan(200)
+    // Use mock timers to avoid flaky timing on CI runners
+    const originalSetTimeout = globalThis.setTimeout
+    let capturedDelay = 0
+    let capturedCallback: (() => void) | null = null
+
+    // @ts-expect-error - mocking setTimeout
+    globalThis.setTimeout = (cb: () => void, delay: number) => {
+      capturedDelay = delay
+      capturedCallback = cb
+      // Immediately invoke callback to simulate timer completion
+      Promise.resolve().then(cb)
+      return 1 as unknown as ReturnType<typeof setTimeout>
+    }
+
+    try {
+      await sleep(50)
+      expect(capturedDelay).toBe(50)
+      expect(capturedCallback).not.toBeNull()
+    } finally {
+      globalThis.setTimeout = originalSetTimeout
+    }
   })
 
   test("resolves with undefined", async () => {
