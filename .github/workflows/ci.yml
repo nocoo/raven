@@ -1,0 +1,14 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: nocoo/ci/.github/workflows/bun-quality.yml@main
+    with:
+        test-command: "bun run test"
+        typecheck-command: "bun run typecheck"
