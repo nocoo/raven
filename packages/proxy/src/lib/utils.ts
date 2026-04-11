@@ -12,10 +12,7 @@ import { parseIPRanges } from "./ip-whitelist"
 
 import { state } from "./state"
 
-export const sleep = (ms: number) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
+export const sleep = (ms: number) => Bun.sleep(ms)
 
 export const isNullish = (value: unknown): value is null | undefined =>
   value === null || value === undefined
