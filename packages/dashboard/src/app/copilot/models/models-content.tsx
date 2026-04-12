@@ -65,12 +65,12 @@ function groupAndSort(data: CopilotModel[]): VendorGroup[] {
     }
   }
 
-  // Sort models within each group by max_prompt_tokens descending
+  // Sort models within each group by max_context_window_tokens descending
   const groups: VendorGroup[] = [];
   for (const [vendor, models] of map) {
     models.sort((a, b) => {
-      const ap = a.capabilities.limits?.max_prompt_tokens ?? 0;
-      const bp = b.capabilities.limits?.max_prompt_tokens ?? 0;
+      const ap = a.capabilities.limits?.max_context_window_tokens ?? 0;
+      const bp = b.capabilities.limits?.max_context_window_tokens ?? 0;
       return bp - ap;
     });
     groups.push({ vendor, models });
@@ -144,7 +144,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                 <TableHead className="w-[8%]">Version</TableHead>
                 <TableHead className="w-[10%]">Family</TableHead>
                 <TableHead className="w-[7%]">Type</TableHead>
-                <TableHead className="w-[11%] text-right">Max Prompt</TableHead>
+                <TableHead className="w-[11%] text-right">Context</TableHead>
                 <TableHead className="w-[10%] text-right">Max Output</TableHead>
                 <TableHead className="w-[5%]">Picker</TableHead>
                 <TableHead className="w-[5%]">Preview</TableHead>
@@ -170,7 +170,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs">
-                    {model.capabilities.limits?.max_prompt_tokens?.toLocaleString() ??
+                    {model.capabilities.limits?.max_context_window_tokens?.toLocaleString() ??
                       "-"}
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs">

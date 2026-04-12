@@ -43,7 +43,7 @@ function makeModel(overrides: Partial<CopilotModel> = {}): CopilotModel {
       family: "claude",
       type: "chat",
       tokenizer: "cl100k",
-      limits: { max_prompt_tokens: 200000, max_output_tokens: 8192 },
+      limits: { max_context_window_tokens: 200000, max_output_tokens: 8192 },
     },
     vendor: "anthropic",
     ...overrides,
