@@ -75,10 +75,10 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Format</TableHead>
-                <TableHead>Base URL</TableHead>
-                <TableHead>Model Patterns</TableHead>
-                <TableHead>API Key</TableHead>
+                <TableHead className="hidden sm:table-cell">Format</TableHead>
+                <TableHead className="hidden lg:table-cell">Base URL</TableHead>
+                <TableHead className="hidden md:table-cell">Model Patterns</TableHead>
+                <TableHead className="hidden xl:table-cell">API Key</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-24">Actions</TableHead>
               </TableRow>
@@ -87,17 +87,17 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
               {providers.map((provider) => (
                 <TableRow key={provider.id}>
                   <TableCell className="font-medium">{provider.name}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Badge variant="outline" className="text-[10px]">
                       {provider.format}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <code className="text-xs text-muted-foreground truncate max-w-48 block">
                       {provider.base_url}
                     </code>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {provider.model_patterns.length === 0 ? (
                         <span className="text-xs text-muted-foreground">None</span>
@@ -110,7 +110,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden xl:table-cell">
                     <code className="text-xs text-muted-foreground">{provider.api_key_preview}</code>
                   </TableCell>
                   <TableCell>
