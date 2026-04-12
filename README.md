@@ -253,15 +253,21 @@ Dashboard 支持两种运行模式：
 
 | 命令 | 说明 |
 |------|------|
-| `bun run dev` | 同时启动 proxy + dashboard |
-| `bun run dev:proxy` | 仅启动 proxy（:7024） |
-| `bun run dev:dashboard` | 仅启动 dashboard（:7023） |
-| `bun run test` | 运行 proxy 单元测试（487 tests） |
+| `bun run dev` | 同时启动 proxy + dashboard（开发模式，带 watch） |
+| `bun run dev:proxy` | 仅启动 proxy（:7024，开发模式） |
+| `bun run dev:dashboard` | 仅启动 dashboard（:7023，开发模式） |
+| `bun run start` | **生产模式**：自动构建 dashboard + 启动全部服务（无 watch） |
+| `bun run start:proxy` | 仅启动 proxy（:7024，生产模式） |
+| `bun run start:dashboard` | 仅启动 dashboard（:7023，生产模式，需先 build） |
+| `bun run build` | 构建 dashboard 生产产物 |
+| `bun run test` | 运行 proxy 单元测试 |
 | `bun run test:all` | 运行所有 workspace 测试 |
 | `bun run test:perf` | 性能基准测试（翻译层 + SSE 解析） |
 | `bun run test:e2e` | E2E 测试（需 proxy 运行中） |
 | `bun run lint` | ESLint 检查 |
 | `bun run typecheck` | TypeScript 类型检查 |
+
+> **生产部署推荐**：在 VPS / VM 上使用 `bun run start`，它会自动执行 `bun run build` 后再启动服务，无需手动分步操作。
 
 ## 项目结构
 

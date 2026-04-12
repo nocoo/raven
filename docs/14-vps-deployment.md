@@ -267,9 +267,18 @@ sudo chmod 600 /etc/raven/*.env
 
 dashboard 生产模式需要先 build。**必须在 build 时加载 dashboard 环境变量**，因为 Next.js 会在构建期间将 `GOOGLE_CLIENT_ID`、`NEXTAUTH_SECRET` 等变量静态嵌入产物。如果不加载环境变量直接 build，dashboard 会以 Local mode 构建，导致登录页面卡在 "redirecting" 无法跳转 Google OAuth。
 
+**推荐方式**：使用 `bun run start`，它会自动执行 build 再启动服务：
+
 ```bash
 cd /srv/raven
-sudo -u raven bash -c 'export BUN_INSTALL=/home/raven/.bun && export PATH=$BUN_INSTALL/bin:$PATH && export $(cat /etc/raven/dashboard.env | xargs) && bun run --filter dashboard build'
+sudo -u raven bash -c 'export BUN_INSTALL=/home/raven/.bun && export PATH=$BUN_INSTALL/bin:$PATH && export $(cat /etc/raven/dashboard.env | xargs) && bun run start'
+```
+
+如果只需单独构建 dashboard（不启动服务）：
+
+```bash
+cd /srv/raven
+sudo -u raven bash -c 'export BUN_INSTALL=/home/raven/.bun && export PATH=$BUN_INSTALL/bin:$PATH && export $(cat /etc/raven/dashboard.env | xargs) && bun run build'
 ```
 
 proxy 直接使用 `start` 脚本即可，无需单独 build。
@@ -552,18 +561,16 @@ API Key:  <your RAVEN_API_KEY>
 
 ## 10. 升级流程
 
-每次升级建议按这个顺序：
+使用 `bun run start` 一键完成构建和启动：
 
 ```bash
 cd /srv/raven
 git pull
 bun install
-bun run --filter dashboard build
-sudo systemctl restart raven-proxy.service
-sudo systemctl restart raven-dashboard.service
+sudo systemctl restart raven-proxy.service raven-dashboard.service
 ```
 
-如果仅 proxy 代码变更，dashboard 不一定要重新 build；但保守做法是每次更新后重新 build 一次 dashboard。
+> **注意**：systemd 服务使用 `bun run --filter <pkg> start` 启动单个包。如果你想在命令行手动启动全部服务并自动重新构建，可以直接运行 `bun run start`（它会先执行 `bun run build` 再启动）。
 
 ---
 
