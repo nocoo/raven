@@ -140,14 +140,14 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[28%]">Model ID</TableHead>
-                <TableHead className="w-[16%]">Name</TableHead>
-                <TableHead className="w-[8%]">Version</TableHead>
-                <TableHead className="w-[10%]">Family</TableHead>
-                <TableHead className="w-[7%]">Type</TableHead>
+                <TableHead className="hidden sm:table-cell w-[16%]">Name</TableHead>
+                <TableHead className="hidden xl:table-cell w-[8%]">Version</TableHead>
+                <TableHead className="hidden lg:table-cell w-[10%]">Family</TableHead>
+                <TableHead className="hidden md:table-cell w-[7%]">Type</TableHead>
                 <TableHead className="w-[11%] text-right">Context</TableHead>
-                <TableHead className="w-[10%] text-right">Max Output</TableHead>
-                <TableHead className="w-[5%]">Picker</TableHead>
-                <TableHead className="w-[5%]">Preview</TableHead>
+                <TableHead className="hidden sm:table-cell w-[10%] text-right">Max Output</TableHead>
+                <TableHead className="hidden lg:table-cell w-[5%]">Picker</TableHead>
+                <TableHead className="hidden xl:table-cell w-[5%]">Preview</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,12 +159,12 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                       <CopyButton text={model.id} />
                     </span>
                   </TableCell>
-                  <TableCell className="font-medium truncate">{model.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="hidden sm:table-cell font-medium truncate">{model.name}</TableCell>
+                  <TableCell className="hidden xl:table-cell text-muted-foreground">
                     {model.version}
                   </TableCell>
-                  <TableCell>{model.capabilities.family}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">{model.capabilities.family}</TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <Badge variant="secondary">
                       {model.capabilities.type}
                     </Badge>
@@ -173,18 +173,18 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                     {model.capabilities.limits?.max_context_window_tokens?.toLocaleString() ??
                       "-"}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs">
+                  <TableCell className="hidden sm:table-cell text-right font-mono text-xs">
                     {model.capabilities.limits?.max_output_tokens?.toLocaleString() ??
                       "-"}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {model.model_picker_enabled ? (
                       <Badge variant="success">Yes</Badge>
                     ) : (
                       <Badge variant="secondary">No</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden xl:table-cell">
                     {model.preview_state ? (
                       <Badge variant="info">{model.preview_state}</Badge>
                     ) : (
