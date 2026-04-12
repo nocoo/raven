@@ -28,6 +28,13 @@ interface UpstreamModelInfo {
   max_completion_tokens?: number | null
 }
 
+/** Coerce a value to a positive integer or return null. */
+function toPositiveInt(v: unknown): number | null {
+  if (v == null) return null
+  const n = typeof v === "number" ? v : Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+}
+
 /**
  * Fetch models from an upstream provider that supports /v1/models.
  * Returns model info with context limits on success, empty array on failure.
@@ -60,8 +67,8 @@ async function fetchUpstreamModels(provider: ProviderRecord): Promise<UpstreamMo
 
     return data.data.map((m) => ({
       id: m.id as string,
-      context_length: (m.context_length ?? m.max_model_len ?? m.max_context_length ?? m.max_input_tokens ?? null) as number | null,
-      max_completion_tokens: (m.max_completion_tokens ?? m.max_output_tokens ?? m.max_tokens ?? null) as number | null,
+      context_length: toPositiveInt(m.context_length ?? m.max_model_len ?? m.max_context_length ?? m.max_input_tokens),
+      max_completion_tokens: toPositiveInt(m.max_completion_tokens ?? m.max_output_tokens ?? m.max_tokens),
     }))
   } catch {
     return []
@@ -99,8 +106,8 @@ modelRoutes.get("/", async (c) => {
       created_at: new Date(0).toISOString(),
       owned_by: model.vendor,
       display_name: model.name,
-      context_length: model.capabilities?.limits?.max_context_window_tokens ?? null,
-      max_completion_tokens: model.capabilities?.limits?.max_output_tokens ?? null,
+      context_length: toPositiveInt(model.capabilities?.limits?.max_context_window_tokens),
+      max_completion_tokens: toPositiveInt(model.capabilities?.limits?.max_output_tokens),
     })) ?? []
 
     // Process each provider
