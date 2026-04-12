@@ -538,8 +538,8 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Key</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last Used</TableHead>
+                <TableHead className="hidden sm:table-cell">Created</TableHead>
+                <TableHead className="hidden md:table-cell">Last Used</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-20">Actions</TableHead>
               </TableRow>
@@ -553,10 +553,10 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                       {key.key_prefix}...
                     </code>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
                     {new Date(key.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                     {key.last_used_at
                       ? new Date(key.last_used_at).toLocaleDateString()
                       : "Never"}
