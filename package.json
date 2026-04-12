@@ -10,7 +10,7 @@
     "dev": "bun run --filter '*' dev",
     "dev:proxy": "bun run --filter '@raven/proxy' dev",
     "dev:dashboard": "bun run --filter dashboard dev",
-    "start": "bun run --filter '*' start",
+    "start": "bun run build && bun run --filter '*' start",
     "start:proxy": "bun run --filter '@raven/proxy' start",
     "start:dashboard": "bun run --filter dashboard start",
     "build": "bun run --filter dashboard build",
