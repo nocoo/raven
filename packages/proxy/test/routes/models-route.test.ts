@@ -395,6 +395,56 @@ describe("GET /v1/models (route wrapper)", () => {
     expect(invalidModel3!.max_completion_tokens).toBeNull()
   })
 
+  test("upstream models with alternative field names are parsed correctly", async () => {
+    state.providers = [{
+      id: "vllm-provider",
+      name: "vLLM API",
+      base_url: "http://api.vllm.example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: JSON.stringify(["vllm-*"]),
+      enabled: 1,
+      supports_reasoning: 0,
+      supports_models_endpoint: 1,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    }]
+
+    // Mock upstream returning vLLM-style field names (max_model_len, max_tokens)
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({
+      data: [
+        { id: "vllm-model-1", max_model_len: 32768, max_tokens: 4096 },
+        { id: "vllm-model-2", max_context_length: 65536, max_output_tokens: 8192 },
+        { id: "vllm-model-3", max_input_tokens: 100000 },
+      ]
+    }), { status: 200 }))
+
+    const app = new Hono()
+    app.route("/v1/models", modelRoutes)
+    const res = await app.request("/v1/models")
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as { object: string; data: Array<{ id: string; context_length: number | null; max_completion_tokens: number | null }> }
+
+    // vLLM style: max_model_len -> context_length, max_tokens -> max_completion_tokens
+    const vllmModel1 = json.data.find(m => m.id === "vllm-model-1")
+    expect(vllmModel1).toBeDefined()
+    expect(vllmModel1!.context_length).toBe(32768)
+    expect(vllmModel1!.max_completion_tokens).toBe(4096)
+
+    // Alternative style: max_context_length, max_output_tokens
+    const vllmModel2 = json.data.find(m => m.id === "vllm-model-2")
+    expect(vllmModel2).toBeDefined()
+    expect(vllmModel2!.context_length).toBe(65536)
+    expect(vllmModel2!.max_completion_tokens).toBe(8192)
+
+    // LiteLLM style: max_input_tokens only
+    const vllmModel3 = json.data.find(m => m.id === "vllm-model-3")
+    expect(vllmModel3).toBeDefined()
+    expect(vllmModel3!.context_length).toBe(100000)
+    expect(vllmModel3!.max_completion_tokens).toBeNull()
+  })
+
   test("pattern-only models have null context fields", async () => {
     state.providers = [{
       id: "pattern-provider",
