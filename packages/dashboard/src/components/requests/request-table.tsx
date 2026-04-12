@@ -150,15 +150,15 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
               <SortButton column="timestamp">Time</SortButton>
             </TableHead>
             <TableHead>Model</TableHead>
-            <TableHead>Format</TableHead>
+            <TableHead className="hidden sm:table-cell">Format</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead aria-sort={getAriaSort("latency_ms")}>
+            <TableHead className="hidden md:table-cell" aria-sort={getAriaSort("latency_ms")}>
               <SortButton column="latency_ms">Latency</SortButton>
             </TableHead>
-            <TableHead aria-sort={getAriaSort("total_tokens")}>
+            <TableHead className="hidden lg:table-cell" aria-sort={getAriaSort("total_tokens")}>
               <SortButton column="total_tokens">Tokens (in/out)</SortButton>
             </TableHead>
-            <TableHead>Stream</TableHead>
+            <TableHead className="hidden xl:table-cell">Stream</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -175,7 +175,7 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
                   {formatTimestamp(req.timestamp)}
                 </TableCell>
                 <TableCell className="font-mono text-xs">{req.model}</TableCell>
-                <TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <Badge variant="secondary" className="text-[10px]">
                     {req.client_format}
                   </Badge>
@@ -185,13 +185,13 @@ export function RequestTable({ data, hasMore, nextCursor, total }: RequestTableP
                     {req.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-mono text-xs">
+                <TableCell className="hidden md:table-cell font-mono text-xs">
                   {formatLatency(req.latency_ms)}
                 </TableCell>
-                <TableCell className="font-mono text-xs">
+                <TableCell className="hidden lg:table-cell font-mono text-xs">
                   {formatTokens(req.input_tokens, req.output_tokens)}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="hidden xl:table-cell text-xs text-muted-foreground">
                   {req.stream ? "yes" : "no"}
                 </TableCell>
               </TableRow>
