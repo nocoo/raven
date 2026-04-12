@@ -18,13 +18,28 @@ interface ModelEntry {
   created_at: string
   owned_by: string
   display_name: string
+  context_length?: number | null
+  max_completion_tokens?: number | null
+}
+
+interface UpstreamModelInfo {
+  id: string
+  context_length?: number | null
+  max_completion_tokens?: number | null
+}
+
+/** Coerce a value to a positive integer or return null. */
+function toPositiveInt(v: unknown): number | null {
+  if (v == null) return null
+  const n = typeof v === "number" ? v : Number(v)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
 }
 
 /**
  * Fetch models from an upstream provider that supports /v1/models.
- * Returns model IDs on success, empty array on failure.
+ * Returns model info with context limits on success, empty array on failure.
  */
-async function fetchUpstreamModels(provider: ProviderRecord): Promise<string[]> {
+async function fetchUpstreamModels(provider: ProviderRecord): Promise<UpstreamModelInfo[]> {
   try {
     const baseUrl = provider.base_url.replace(/\/+$/, "")
     const url = `${baseUrl}/v1/models`
@@ -45,12 +60,16 @@ async function fetchUpstreamModels(provider: ProviderRecord): Promise<string[]> 
       return []
     }
 
-    const data = await response.json() as { data?: Array<{ id: string }> }
+    const data = await response.json() as { data?: Array<Record<string, unknown>> }
     if (!data.data || !Array.isArray(data.data)) {
       return []
     }
 
-    return data.data.map((m) => m.id)
+    return data.data.map((m) => ({
+      id: m.id as string,
+      context_length: toPositiveInt(m.context_length ?? m.max_model_len ?? m.max_context_length ?? m.max_input_tokens),
+      max_completion_tokens: toPositiveInt(m.max_completion_tokens ?? m.max_output_tokens ?? m.max_tokens),
+    }))
   } catch {
     return []
   }
@@ -87,6 +106,8 @@ modelRoutes.get("/", async (c) => {
       created_at: new Date(0).toISOString(),
       owned_by: model.vendor,
       display_name: model.name,
+      context_length: toPositiveInt(model.capabilities?.limits?.max_context_window_tokens),
+      max_completion_tokens: toPositiveInt(model.capabilities?.limits?.max_output_tokens),
     })) ?? []
 
     // Process each provider
@@ -103,17 +124,19 @@ modelRoutes.get("/", async (c) => {
 
       // Add models from upstreams that support /v1/models
       for (const { provider, models: upstreamModels } of fetchResults) {
-        for (const modelId of upstreamModels) {
-          if (!seenModelIds.has(modelId)) {
-            seenModelIds.add(modelId)
+        for (const modelInfo of upstreamModels) {
+          if (!seenModelIds.has(modelInfo.id)) {
+            seenModelIds.add(modelInfo.id)
             models.push({
-              id: modelId,
+              id: modelInfo.id,
               object: "model",
               type: "model",
               created: 0,
               created_at: new Date(0).toISOString(),
               owned_by: provider.name,
-              display_name: modelId,
+              display_name: modelInfo.id,
+              context_length: modelInfo.context_length ?? null,
+              max_completion_tokens: modelInfo.max_completion_tokens ?? null,
             })
           }
         }
@@ -139,6 +162,8 @@ modelRoutes.get("/", async (c) => {
                 created_at: new Date(0).toISOString(),
                 owned_by: provider.name,
                 display_name: pattern,
+                context_length: null,
+                max_completion_tokens: null,
               })
             }
           }
