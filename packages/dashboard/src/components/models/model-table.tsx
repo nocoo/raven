@@ -22,8 +22,8 @@ export function ModelTable({ data }: ModelTableProps) {
           <TableRow>
             <TableHead>Model</TableHead>
             <TableHead className="text-right">Requests</TableHead>
-            <TableHead className="text-right">Total Tokens</TableHead>
-            <TableHead className="text-right">Avg Latency</TableHead>
+            <TableHead className="hidden sm:table-cell text-right">Total Tokens</TableHead>
+            <TableHead className="hidden md:table-cell text-right">Avg Latency</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -40,10 +40,10 @@ export function ModelTable({ data }: ModelTableProps) {
                 <TableCell className="text-right font-mono text-xs">
                   {model.count.toLocaleString()}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs">
+                <TableCell className="hidden sm:table-cell text-right font-mono text-xs">
                   {formatCompact(model.total_tokens)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-xs">
+                <TableCell className="hidden md:table-cell text-right font-mono text-xs">
                   {formatLatency(model.avg_latency_ms)}
                 </TableCell>
               </TableRow>
