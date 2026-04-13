@@ -168,14 +168,35 @@ interface SidebarProps {
 export function Sidebar({ mobile = false }: SidebarProps) {
   const pathname = usePathname();
   const { collapsed, toggle, setMobileOpen } = useSidebar();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const { authEnabled, isLoading: authLoading, hasError } = useAuthConfig();
 
   // Determine whether to show auth mode UI:
-  // - While loading: use session presence as hint (avoids "Local mode" flash)
-  // - On error: use session presence (fail closed — don't assume local mode)
+  // - While auth config loading: use session presence as hint
+  // - On auth config error: use session presence IF session has resolved,
+  //   otherwise stay in "unknown" state (treat as auth to fail closed)
   // - On success: use authEnabled from API
-  const showAsAuth = (authLoading || hasError) ? !!session?.user : authEnabled;
+  //
+  // Key insight: useSession() status can be "loading" | "authenticated" | "unauthenticated"
+  // If status is "loading", we can't trust !session?.user — session might exist but hasn't loaded yet.
+  const sessionLoading = sessionStatus === "loading";
+  const hasSession = !!session?.user;
+
+  let showAsAuth: boolean;
+  if (authLoading) {
+    // Auth config loading: use session as hint if available
+    showAsAuth = hasSession;
+  } else if (hasError) {
+    // Auth config failed: fail closed
+    // If session is still loading, assume auth mode (fail closed)
+    // If session loaded and exists, show as auth
+    // If session loaded and empty, we truly don't know — but since this is
+    // the sidebar (post-login UI), empty session + error is rare; show as local
+    showAsAuth = sessionLoading || hasSession;
+  } else {
+    // Auth config succeeded: use the actual value
+    showAsAuth = authEnabled;
+  }
 
   const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
   const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
