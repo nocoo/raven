@@ -80,7 +80,34 @@ function StepIndicator({
 // ---------------------------------------------------------------------------
 
 function StepDashboard() {
-  const { authEnabled } = useAuthConfig();
+  const { authEnabled, isLoading } = useAuthConfig();
+
+  // Show a neutral loading state to avoid "Local mode" flash
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-primary" strokeWidth={1.5} />
+          <h3 className="text-base font-semibold">Dashboard Access</h3>
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          Raven runs locally on your machine. By default, the dashboard is open to
+          anyone who can reach <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
+        </p>
+
+        <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Current mode</span>
+            <Badge variant="secondary">
+              <div className="h-3 w-3 animate-spin rounded-full border border-muted-foreground border-t-transparent" />
+              Loading…
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

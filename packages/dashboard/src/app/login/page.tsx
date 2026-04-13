@@ -25,15 +25,17 @@ function Barcode() {
 function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { authEnabled, isLoading } = useAuthConfig();
+  const { authEnabled, isLoading, hasError } = useAuthConfig();
   const error = searchParams.get("error");
   const year = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 
   // Local mode: no login needed, redirect home
+  // IMPORTANT: Only redirect if we successfully confirmed local mode.
+  // If hasError is true, we fail closed and show the login form.
   useEffect(() => {
-    if (!isLoading && !authEnabled) router.replace("/");
-  }, [router, isLoading, authEnabled]);
+    if (!isLoading && !hasError && !authEnabled) router.replace("/");
+  }, [router, isLoading, hasError, authEnabled]);
 
   // Show spinner while loading auth config
   if (isLoading) {
@@ -44,13 +46,16 @@ function LoginContent() {
     );
   }
 
-  if (!authEnabled) {
+  // Confirmed local mode — redirect home
+  if (!hasError && !authEnabled) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">Redirecting…</p>
       </div>
     );
   }
+
+  // Auth enabled OR error fetching config — show login form (fail closed)
 
   const handleGoogleLogin = () => {
     signIn("google", { callbackUrl: "/" });

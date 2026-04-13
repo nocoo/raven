@@ -169,11 +169,17 @@ export function Sidebar({ mobile = false }: SidebarProps) {
   const pathname = usePathname();
   const { collapsed, toggle, setMobileOpen } = useSidebar();
   const { data: session } = useSession();
-  const { authEnabled } = useAuthConfig();
+  const { authEnabled, isLoading: authLoading } = useAuthConfig();
 
-  const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
-  const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
-  const userImage = authEnabled ? session?.user?.image : undefined;
+  // While loading auth config, use session presence as a hint:
+  // - If session exists, likely auth mode → show session user
+  // - If no session and still loading, show neutral placeholder
+  // This prevents "Local mode" flash for Google OAuth users.
+  const showAsAuth = authLoading ? !!session?.user : authEnabled;
+
+  const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
+  const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
+  const userImage = showAsAuth ? session?.user?.image : undefined;
   const userInitial = userName[0] ?? "?";
 
   const handleNavigate = () => setMobileOpen(false);
@@ -251,7 +257,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
 
             {/* User avatar + sign out */}
             <div className="py-3 flex justify-center w-full">
-              {authEnabled ? (
+              {showAsAuth ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -346,7 +352,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                   <p className="text-sm font-medium text-foreground truncate">{userName}</p>
                   <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
                 </div>
-                {authEnabled && (
+                {showAsAuth && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button

@@ -28,6 +28,7 @@ describe("sidebar module — auth config hook", () => {
       authEnabled: false,
       provider: "local",
       isLoading: false,
+      hasError: false,
     });
 
     vi.resetModules();
@@ -44,6 +45,21 @@ describe("sidebar module — auth config hook", () => {
       authEnabled: true,
       provider: "google",
       isLoading: false,
+      hasError: false,
+    });
+
+    vi.resetModules();
+
+    const mod = await import("@/components/layout/sidebar");
+    expect(mod.Sidebar).toBeDefined();
+  });
+
+  it("loading state: module loads while isLoading=true", async () => {
+    mockUseAuthConfig.mockReturnValue({
+      authEnabled: false,
+      provider: "local",
+      isLoading: true,
+      hasError: false,
     });
 
     vi.resetModules();
@@ -54,29 +70,69 @@ describe("sidebar module — auth config hook", () => {
 });
 
 describe("sidebar display logic (unit)", () => {
-  // Test the display logic directly without rendering
-  it("local mode: userName=Local, userEmail=Local mode when authEnabled=false", () => {
+  // Test the showAsAuth logic: while loading, use session presence as hint
+  it("loading with session: shows session user (avoids Local mode flash)", () => {
+    const authLoading = true;
+    const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } } as
+      { user: { name: string; email: string; image: string } } | null;
+    const authEnabled = false; // hasn't resolved yet
+
+    // showAsAuth = authLoading ? !!session?.user : authEnabled
+    const showAsAuth = authLoading ? !!session?.user : authEnabled;
+
+    const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
+    const userImage = showAsAuth ? session?.user?.image : undefined;
+
+    expect(showAsAuth).toBe(true); // session exists, so treat as auth
+    expect(userName).toBe("Real User");
+    expect(userEmail).toBe("real@user.com");
+    expect(userImage).toBe("http://img");
+  });
+
+  it("loading without session: shows Local (neutral placeholder)", () => {
+    const authLoading = true;
+    const session = null as { user: { name: string; email: string; image: string } } | null;
+    const authEnabled = false;
+
+    const showAsAuth = authLoading ? !!session?.user : authEnabled;
+
+    const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
+
+    expect(showAsAuth).toBe(false);
+    expect(userName).toBe("Local");
+    expect(userEmail).toBe("Local mode");
+  });
+
+  it("local mode confirmed: userName=Local, userEmail=Local mode", () => {
+    const authLoading = false;
     const authEnabled = false;
     const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } } as
       { user: { name: string; email: string; image: string } } | null;
 
-    const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
-    const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
-    const userImage = authEnabled ? session?.user?.image : undefined;
+    const showAsAuth = authLoading ? !!session?.user : authEnabled;
+
+    const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
+    const userImage = showAsAuth ? session?.user?.image : undefined;
 
     expect(userName).toBe("Local");
     expect(userEmail).toBe("Local mode");
     expect(userImage).toBeUndefined();
   });
 
-  it("auth mode: uses session data when authEnabled=true", () => {
+  it("auth mode confirmed: uses session data", () => {
+    const authLoading = false;
     const authEnabled = true;
     const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } } as
       { user: { name: string; email: string; image: string } } | null;
 
-    const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
-    const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
-    const userImage = authEnabled ? session?.user?.image : undefined;
+    const showAsAuth = authLoading ? !!session?.user : authEnabled;
+
+    const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
+    const userImage = showAsAuth ? session?.user?.image : undefined;
 
     expect(userName).toBe("Real User");
     expect(userEmail).toBe("real@user.com");
@@ -84,12 +140,15 @@ describe("sidebar display logic (unit)", () => {
   });
 
   it("auth mode: null session falls back to defaults", () => {
+    const authLoading = false;
     const authEnabled = true;
     const session = null as { user: { name: string; email: string; image: string } } | null;
 
-    const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
-    const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
-    const userImage = authEnabled ? session?.user?.image : undefined;
+    const showAsAuth = authLoading ? !!session?.user : authEnabled;
+
+    const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
+    const userImage = showAsAuth ? session?.user?.image : undefined;
 
     expect(userName).toBe("User");
     expect(userEmail).toBe("");

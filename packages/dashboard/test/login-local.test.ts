@@ -41,11 +41,12 @@ beforeEach(() => {
 
 describe("login page — local mode (auth disabled)", () => {
   it("calls router.replace('/') when auth is disabled", async () => {
-    // Simulate local mode: authEnabled=false, isLoading=false
+    // Simulate local mode: authEnabled=false, isLoading=false, no error
     mockUseAuthConfig.mockReturnValue({
       authEnabled: false,
       provider: "local",
       isLoading: false,
+      hasError: false,
     });
 
     vi.resetModules();
@@ -63,6 +64,7 @@ describe("login page — local mode (auth disabled)", () => {
       authEnabled: false,
       provider: "local",
       isLoading: true,
+      hasError: false,
     });
 
     vi.resetModules();
@@ -80,6 +82,25 @@ describe("login page — auth mode (Google OAuth)", () => {
       authEnabled: true,
       provider: "google",
       isLoading: false,
+      hasError: false,
+    });
+
+    vi.resetModules();
+
+    const mod = await import("@/app/login/page");
+    expect(mod.default).toBeDefined();
+    expect(typeof mod.default).toBe("function");
+  });
+});
+
+describe("login page — error handling (fail closed)", () => {
+  it("shows login form when fetch fails (does not redirect to /)", async () => {
+    // Simulate fetch error — should fail closed, show login form
+    mockUseAuthConfig.mockReturnValue({
+      authEnabled: false,
+      provider: "local",
+      isLoading: false,
+      hasError: true,
     });
 
     vi.resetModules();
