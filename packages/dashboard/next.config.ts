@@ -17,12 +17,10 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_APP_VERSION: rootPkg.version,
-    NEXT_PUBLIC_AUTH_ENABLED:
-      process.env.GOOGLE_CLIENT_ID &&
-      process.env.GOOGLE_CLIENT_SECRET &&
-      process.env.NEXTAUTH_SECRET
-        ? "1"
-        : "",
+    // NOTE: Auth mode detection moved to runtime API (/api/auth/config).
+    // Build-time NEXT_PUBLIC_AUTH_ENABLED was removed to fix the mismatch
+    // when building without env vars then running with them (VPS deployment).
+    // See: docs/14-vps-deployment.md
   },
   allowedDevOrigins: [
     "localhost",

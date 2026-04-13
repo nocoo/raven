@@ -33,8 +33,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useSidebar } from "./sidebar-context";
 import { APP_VERSION } from "@/lib/version";
-
-const isAuthEnabled = !!process.env.NEXT_PUBLIC_AUTH_ENABLED;
+import { useAuthConfig } from "@/hooks/use-auth-config";
 
 // ── Types ──
 
@@ -170,10 +169,11 @@ export function Sidebar({ mobile = false }: SidebarProps) {
   const pathname = usePathname();
   const { collapsed, toggle, setMobileOpen } = useSidebar();
   const { data: session } = useSession();
+  const { authEnabled } = useAuthConfig();
 
-  const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
-  const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";
-  const userImage = isAuthEnabled ? session?.user?.image : undefined;
+  const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
+  const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
+  const userImage = authEnabled ? session?.user?.image : undefined;
   const userInitial = userName[0] ?? "?";
 
   const handleNavigate = () => setMobileOpen(false);
@@ -251,7 +251,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
 
             {/* User avatar + sign out */}
             <div className="py-3 flex justify-center w-full">
-              {isAuthEnabled ? (
+              {authEnabled ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -346,7 +346,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
                   <p className="text-sm font-medium text-foreground truncate">{userName}</p>
                   <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
                 </div>
-                {isAuthEnabled && (
+                {authEnabled && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button

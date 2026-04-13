@@ -1,23 +1,37 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
-// Test sidebar's local mode logic without DOM rendering.
-// Verify the module reads NEXT_PUBLIC_AUTH_ENABLED correctly
-// and exports the expected constants.
+// Mock useAuthConfig hook
 // ---------------------------------------------------------------------------
+
+const mockUseAuthConfig = vi.fn();
+
+vi.mock("@/hooks/use-auth-config", () => ({
+  useAuthConfig: () => mockUseAuthConfig(),
+}));
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  mockUseAuthConfig.mockClear();
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("sidebar module — local mode flag", () => {
-  it("local mode: NEXT_PUBLIC_AUTH_ENABLED unset → isAuthEnabled is falsy at module scope", async () => {
-    vi.stubEnv("NEXT_PUBLIC_AUTH_ENABLED", "");
+describe("sidebar module — auth config hook", () => {
+  it("local mode: module loads with useAuthConfig returning authEnabled=false", async () => {
+    mockUseAuthConfig.mockReturnValue({
+      authEnabled: false,
+      provider: "local",
+      isLoading: false,
+    });
+
     vi.resetModules();
 
-    // Read the module source to verify the flag is defined
-    // Since we can't render (React hook compat issue), we verify
-    // that the module loads without error and exports the component
     const mod = await import("@/components/layout/sidebar");
     expect(mod.Sidebar).toBeDefined();
     expect(typeof mod.Sidebar).toBe("function");
@@ -25,8 +39,13 @@ describe("sidebar module — local mode flag", () => {
     expect(mod.ALL_NAV_ITEMS).toBeDefined();
   });
 
-  it("auth mode: NEXT_PUBLIC_AUTH_ENABLED set → module loads", async () => {
-    vi.stubEnv("NEXT_PUBLIC_AUTH_ENABLED", "1");
+  it("auth mode: module loads with useAuthConfig returning authEnabled=true", async () => {
+    mockUseAuthConfig.mockReturnValue({
+      authEnabled: true,
+      provider: "google",
+      isLoading: false,
+    });
+
     vi.resetModules();
 
     const mod = await import("@/components/layout/sidebar");
@@ -34,35 +53,30 @@ describe("sidebar module — local mode flag", () => {
   });
 });
 
-describe("sidebar local mode display logic (unit)", () => {
-  // Helper to simulate env-based flag (avoids TS "always truthy/falsy" errors)
-  function authEnabled(envValue: string): boolean {
-    return !!envValue;
-  }
-
+describe("sidebar display logic (unit)", () => {
   // Test the display logic directly without rendering
-  it("local mode: userName=Local, userEmail=Local mode when env unset", () => {
-    const isAuthEnabled = authEnabled(""); // simulates NEXT_PUBLIC_AUTH_ENABLED=""
+  it("local mode: userName=Local, userEmail=Local mode when authEnabled=false", () => {
+    const authEnabled = false;
     const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } } as
       { user: { name: string; email: string; image: string } } | null;
 
-    const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
-    const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";
-    const userImage = isAuthEnabled ? session?.user?.image : undefined;
+    const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
+    const userImage = authEnabled ? session?.user?.image : undefined;
 
     expect(userName).toBe("Local");
     expect(userEmail).toBe("Local mode");
     expect(userImage).toBeUndefined();
   });
 
-  it("auth mode: uses session data when env is set", () => {
-    const isAuthEnabled = authEnabled("1"); // simulates NEXT_PUBLIC_AUTH_ENABLED="1"
+  it("auth mode: uses session data when authEnabled=true", () => {
+    const authEnabled = true;
     const session = { user: { name: "Real User", email: "real@user.com", image: "http://img" } } as
       { user: { name: string; email: string; image: string } } | null;
 
-    const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
-    const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";
-    const userImage = isAuthEnabled ? session?.user?.image : undefined;
+    const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
+    const userImage = authEnabled ? session?.user?.image : undefined;
 
     expect(userName).toBe("Real User");
     expect(userEmail).toBe("real@user.com");
@@ -70,12 +84,12 @@ describe("sidebar local mode display logic (unit)", () => {
   });
 
   it("auth mode: null session falls back to defaults", () => {
-    const isAuthEnabled = authEnabled("1");
+    const authEnabled = true;
     const session = null as { user: { name: string; email: string; image: string } } | null;
 
-    const userName = isAuthEnabled ? (session?.user?.name ?? "User") : "Local";
-    const userEmail = isAuthEnabled ? (session?.user?.email ?? "") : "Local mode";
-    const userImage = isAuthEnabled ? session?.user?.image : undefined;
+    const userName = authEnabled ? (session?.user?.name ?? "User") : "Local";
+    const userEmail = authEnabled ? (session?.user?.email ?? "") : "Local mode";
+    const userImage = authEnabled ? session?.user?.image : undefined;
 
     expect(userName).toBe("User");
     expect(userEmail).toBe("");

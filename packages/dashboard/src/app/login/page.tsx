@@ -5,8 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { Github, Bird } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-
-const isAuthEnabled = !!process.env.NEXT_PUBLIC_AUTH_ENABLED;
+import { useAuthConfig } from "@/hooks/use-auth-config";
 
 function Barcode() {
   const bars = [2, 1, 3, 1, 2, 1, 1, 3, 1, 2, 1, 3, 2, 1, 1, 2, 3, 1, 2, 1];
@@ -26,16 +25,26 @@ function Barcode() {
 function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { authEnabled, isLoading } = useAuthConfig();
   const error = searchParams.get("error");
   const year = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 
   // Local mode: no login needed, redirect home
   useEffect(() => {
-    if (!isAuthEnabled) router.replace("/");
-  }, [router]);
+    if (!isLoading && !authEnabled) router.replace("/");
+  }, [router, isLoading, authEnabled]);
 
-  if (!isAuthEnabled) {
+  // Show spinner while loading auth config
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!authEnabled) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">Redirecting…</p>

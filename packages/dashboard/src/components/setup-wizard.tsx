@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CodeBlock } from "@/components/code-block";
+import { useAuthConfig } from "@/hooks/use-auth-config";
 
 const STORAGE_KEY = "raven-setup-dismissed";
 const TOTAL_STEPS = 3;
@@ -79,7 +80,7 @@ function StepIndicator({
 // ---------------------------------------------------------------------------
 
 function StepDashboard() {
-  const authEnabled = !!process.env.NEXT_PUBLIC_AUTH_ENABLED;
+  const { authEnabled } = useAuthConfig();
 
   return (
     <div className="space-y-4">
