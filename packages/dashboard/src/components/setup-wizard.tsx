@@ -80,10 +80,11 @@ function StepIndicator({
 // ---------------------------------------------------------------------------
 
 function StepDashboard() {
-  const { authEnabled, isLoading } = useAuthConfig();
+  const { authEnabled, isLoading, hasError } = useAuthConfig();
 
-  // Show a neutral loading state to avoid "Local mode" flash
-  if (isLoading) {
+  // Show a neutral loading state to avoid "Local mode" flash.
+  // Also show loading state on error — don't assume local mode on transient failures.
+  if (isLoading || hasError) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -100,10 +101,24 @@ function StepDashboard() {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Current mode</span>
             <Badge variant="secondary">
-              <div className="h-3 w-3 animate-spin rounded-full border border-muted-foreground border-t-transparent" />
-              Loading…
+              {hasError ? (
+                <>
+                  <Monitor className="h-3 w-3" strokeWidth={1.5} />
+                  Unable to detect
+                </>
+              ) : (
+                <>
+                  <div className="h-3 w-3 animate-spin rounded-full border border-muted-foreground border-t-transparent" />
+                  Loading…
+                </>
+              )}
             </Badge>
           </div>
+          {hasError && (
+            <p className="text-xs text-muted-foreground">
+              Could not fetch auth configuration. Refresh the page to retry.
+            </p>
+          )}
         </div>
       </div>
     );

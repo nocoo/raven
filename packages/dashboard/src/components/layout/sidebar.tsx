@@ -169,13 +169,13 @@ export function Sidebar({ mobile = false }: SidebarProps) {
   const pathname = usePathname();
   const { collapsed, toggle, setMobileOpen } = useSidebar();
   const { data: session } = useSession();
-  const { authEnabled, isLoading: authLoading } = useAuthConfig();
+  const { authEnabled, isLoading: authLoading, hasError } = useAuthConfig();
 
-  // While loading auth config, use session presence as a hint:
-  // - If session exists, likely auth mode → show session user
-  // - If no session and still loading, show neutral placeholder
-  // This prevents "Local mode" flash for Google OAuth users.
-  const showAsAuth = authLoading ? !!session?.user : authEnabled;
+  // Determine whether to show auth mode UI:
+  // - While loading: use session presence as hint (avoids "Local mode" flash)
+  // - On error: use session presence (fail closed — don't assume local mode)
+  // - On success: use authEnabled from API
+  const showAsAuth = (authLoading || hasError) ? !!session?.user : authEnabled;
 
   const userName = showAsAuth ? (session?.user?.name ?? "User") : "Local";
   const userEmail = showAsAuth ? (session?.user?.email ?? "") : "Local mode";
