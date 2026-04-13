@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.7.7 (2026-04-13)
+
+Runtime auth config detection for VPS deployments.
+
+### Dashboard
+
+- **Runtime auth detection** — Replaced build-time `NEXT_PUBLIC_AUTH_ENABLED` env var with runtime `/api/auth/config` endpoint, fixing a deployment footgun where building without OAuth env vars then running with them caused a redirect loop
+- **Fail-closed auth loading** — Auth config loading or fetch errors now assume auth mode (fail closed) instead of incorrectly showing "Local mode"
+- **Cold start handling** — Sidebar waits for both auth config and session status before determining display mode, preventing "Local mode" flash on first paint
+
 ## v1.7.3 (2026-04-10)
 
 Security hardening, platform-aware data directories, and model name fix.
