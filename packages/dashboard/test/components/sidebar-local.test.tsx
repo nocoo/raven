@@ -71,9 +71,34 @@ describe("sidebar module — auth config hook", () => {
 
 describe("sidebar display logic (unit)", () => {
   // Test the showAsAuth logic with sessionStatus consideration:
-  // - authLoading: showAsAuth = hasSession
+  // - authLoading: showAsAuth = sessionLoading || hasSession (fail closed on cold start)
   // - hasError: showAsAuth = sessionLoading || hasSession (fail closed)
   // - success: showAsAuth = authEnabled
+
+  it("auth config loading, session loading: assumes auth mode (fail closed)", () => {
+    const authLoading = true;
+    const hasError = false;
+    const authEnabled = false;
+    const sessionLoading = true; // both loading
+    const hasSession = false;
+
+    let showAsAuth: boolean;
+    if (authLoading) {
+      showAsAuth = sessionLoading || hasSession;
+    } else if (hasError) {
+      showAsAuth = sessionLoading || hasSession;
+    } else {
+      showAsAuth = authEnabled;
+    }
+
+    const userName = showAsAuth ? "User" : "Local";
+    const userEmail = showAsAuth ? "" : "Local mode";
+
+    // Cold start: both loading, assume auth to avoid "Local mode" flash
+    expect(showAsAuth).toBe(true);
+    expect(userName).toBe("User");
+    expect(userEmail).toBe("");
+  });
 
   it("auth config loading, session exists: shows session user", () => {
     const authLoading = true;
@@ -85,7 +110,7 @@ describe("sidebar display logic (unit)", () => {
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       showAsAuth = sessionLoading || hasSession;
     } else {
@@ -100,16 +125,16 @@ describe("sidebar display logic (unit)", () => {
     expect(userEmail).toBe("real@user.com");
   });
 
-  it("auth config loading, no session: shows Local placeholder", () => {
+  it("auth config loading, session resolved empty: shows Local", () => {
     const authLoading = true;
     const hasError = false;
     const authEnabled = false;
-    const sessionLoading = false;
-    const hasSession = false;
+    const sessionLoading = false; // session finished loading
+    const hasSession = false; // confirmed no session
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       showAsAuth = sessionLoading || hasSession;
     } else {
@@ -119,6 +144,7 @@ describe("sidebar display logic (unit)", () => {
     const userName = showAsAuth ? "User" : "Local";
     const userEmail = showAsAuth ? "" : "Local mode";
 
+    // Session confirmed empty, safe to show local
     expect(showAsAuth).toBe(false);
     expect(userName).toBe("Local");
     expect(userEmail).toBe("Local mode");
@@ -133,7 +159,7 @@ describe("sidebar display logic (unit)", () => {
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       // Key: sessionLoading means we can't trust !hasSession
       showAsAuth = sessionLoading || hasSession;
@@ -160,7 +186,7 @@ describe("sidebar display logic (unit)", () => {
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       showAsAuth = sessionLoading || hasSession;
     } else {
@@ -184,7 +210,7 @@ describe("sidebar display logic (unit)", () => {
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       showAsAuth = sessionLoading || hasSession;
     } else {
@@ -210,7 +236,7 @@ describe("sidebar display logic (unit)", () => {
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       showAsAuth = sessionLoading || hasSession;
     } else {
@@ -235,7 +261,7 @@ describe("sidebar display logic (unit)", () => {
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       showAsAuth = sessionLoading || hasSession;
     } else {
@@ -259,7 +285,7 @@ describe("sidebar display logic (unit)", () => {
 
     let showAsAuth: boolean;
     if (authLoading) {
-      showAsAuth = hasSession;
+      showAsAuth = sessionLoading || hasSession;
     } else if (hasError) {
       showAsAuth = sessionLoading || hasSession;
     } else {

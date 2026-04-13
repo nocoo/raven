@@ -172,7 +172,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
   const { authEnabled, isLoading: authLoading, hasError } = useAuthConfig();
 
   // Determine whether to show auth mode UI:
-  // - While auth config loading: use session presence as hint
+  // - While loading (auth config or session): assume auth mode to avoid "Local mode" flash
   // - On auth config error: use session presence IF session has resolved,
   //   otherwise stay in "unknown" state (treat as auth to fail closed)
   // - On success: use authEnabled from API
@@ -184,8 +184,9 @@ export function Sidebar({ mobile = false }: SidebarProps) {
 
   let showAsAuth: boolean;
   if (authLoading) {
-    // Auth config loading: use session as hint if available
-    showAsAuth = hasSession;
+    // Auth config loading: if session also loading, assume auth (fail closed)
+    // If session resolved, use session presence as hint
+    showAsAuth = sessionLoading || hasSession;
   } else if (hasError) {
     // Auth config failed: fail closed
     // If session is still loading, assume auth mode (fail closed)
