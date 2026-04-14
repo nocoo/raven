@@ -324,6 +324,9 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_buffering off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_connect_timeout 10s;
     }
 }
 ```
@@ -454,3 +457,7 @@ sudo systemctl restart raven-dashboard.service
 ### 4) `RAVEN_BASE_URL` / `NEXTAUTH_URL` 仍指向 localhost
 
 这会导致 connection info、登录回调或 cookie 行为异常；生产环境必须改成公网 HTTPS 地址。
+
+### 5) Nginx 未设置 `proxy_read_timeout`（504 Gateway Timeout）
+
+Nginx 默认 `proxy_read_timeout` 为 60 秒。LLM 流式请求（尤其是 Opus + 大上下文）在上游返回第一个 token 前可能超过 60 秒，导致 Nginx 提前断开连接返回 504。`raven-api` 的 location 块必须设置 `proxy_read_timeout 300s`（见第 8 节配置示例）。
