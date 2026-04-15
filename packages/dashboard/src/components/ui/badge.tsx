@@ -16,13 +16,13 @@ const badgeVariants = cva(
           "bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 [a&]:hover:underline",
         // Semantic variants
         success:
           "bg-success/15 text-success border-success/25",
         warning:
-          "bg-warning/15 text-warning-foreground border-warning/25",
+          "bg-warning/15 text-warning border-warning/25",
+        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 [a&]:hover:underline",
         info:
           "bg-info text-info-foreground [a&]:hover:bg-info/90",
         purple:
