@@ -177,6 +177,7 @@ export type TranslateTargetFormat = "openai-reasoning" | "openai" | "copilot"
 
 export interface TranslateToOpenAIOptions {
   targetFormat?: TranslateTargetFormat
+  anthropicBeta?: string | null
 }
 
 export function translateToOpenAI(
@@ -184,7 +185,7 @@ export function translateToOpenAI(
   options?: TranslateToOpenAIOptions,
 ): ExtendedChatCompletionsPayload {
   const base = {
-    model: translateModelName(payload.model),
+    model: translateModelName(payload.model, options?.anthropicBeta ?? null),
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
       payload.system ?? undefined,
@@ -227,23 +228,35 @@ export function translateToOpenAI(
   } as ExtendedChatCompletionsPayload
 }
 
-function translateModelName(model: string): string {
+function translateModelName(model: string, anthropicBeta: string | null): string {
+  // Parse beta flags from anthropic-beta header
+  const betas = anthropicBeta?.split(",").map((b) => b.trim()) ?? []
+  const wants1m = betas.some((b) => b.startsWith("context-1m-"))
+  const wantsFast = betas.some((b) => b.startsWith("fast-mode-"))
+
   // Map from Anthropic SDK model identifiers (hyphenated, with date suffixes)
   // to Copilot model IDs (dot-separated, no date suffix).
+  // Model variant suffixes (-1m, -fast) are determined by anthropic-beta header.
   //
   // Examples:
-  //   claude-opus-4-6-20250820     → claude-opus-4.6
-  //   claude-opus-4-6-1m-20250820  → claude-opus-4.6-1m
+  //   claude-opus-4-6-20250820     → claude-opus-4.6 (or .6-1m / .6-fast per beta)
+  //   claude-opus-4-6-1m-20250820  → claude-opus-4.6-1m (explicit in model name)
+  //   claude-opus-4-6[1m]          → claude-opus-4.6-1m (bracket notation)
   //   claude-sonnet-4-5-20250514   → claude-sonnet-4.5
   //   claude-sonnet-4-20250514     → claude-sonnet-4
   //   claude-haiku-4-5-20251001    → claude-haiku-4.5
   const match = model.match(
-    /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:-(1m))?(?:-\d{8})?$/
+    /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:(?:-|\[)(1m|fast)\]?)?(?:-\d{8})?$/
   )
   if (match) {
     const [, family, major, minor, suffix] = match
     const base = `${family}-${major}.${minor}`
-    return suffix ? `${base}-${suffix}` : base
+    // Explicit suffix in model name takes priority
+    if (suffix) return `${base}-${suffix}`
+    // Otherwise, check anthropic-beta header for variant
+    if (wants1m) return `${base}-1m`
+    if (wantsFast) return `${base}-fast`
+    return base
   }
 
   // No minor version: claude-{family}-{major}[-date]
