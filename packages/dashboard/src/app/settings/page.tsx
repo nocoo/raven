@@ -6,15 +6,11 @@ import { SettingsContent } from "./settings-content";
 import { OptimizationsContent } from "./optimizations-content";
 import { SoundContent } from "./sound-content";
 import { IPWhitelistContent } from "./ip-whitelist-content";
-import { Socks5Content, type Socks5Data } from "./socks5-content";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const [settingsResult, socks5Result] = await Promise.all([
-    safeFetch<SettingsData>("/api/settings"),
-    safeFetch<Socks5Data>("/api/settings/socks5"),
-  ]);
+  const settingsResult = await safeFetch<SettingsData>("/api/settings");
 
   if (!settingsResult.ok) {
     return (
@@ -31,7 +27,6 @@ export default async function SettingsPage() {
         <SettingsContent data={settingsResult.data} />
         {settingsResult.data.sound.available && <SoundContent data={settingsResult.data.sound} />}
         <IPWhitelistContent data={settingsResult.data.ip_whitelist} />
-        {socks5Result.ok && <Socks5Content data={socks5Result.data} />}
         <OptimizationsContent data={settingsResult.data.optimizations} />
       </div>
     </AppShell>

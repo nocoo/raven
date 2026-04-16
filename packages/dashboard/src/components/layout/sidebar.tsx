@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Terminal,
   Settings,
+  Shield,
   Wrench,
   Globe,
 } from "lucide-react";
@@ -82,6 +83,7 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/settings", label: "General", icon: Settings },
+      { href: "/settings/proxy", label: "Proxy", icon: Shield },
       { href: "/connect", label: "Connect", icon: Cable },
     ],
   },
@@ -131,7 +133,7 @@ function NavGroupSection({
           <div className="flex flex-col gap-0.5 px-3">
             {group.items.map((item) => {
               const isActive =
-                item.href === "/" || item.href === "/dashboard"
+                item.href === "/" || item.href === "/dashboard" || item.href === "/settings"
                   ? pathname === item.href
                   : pathname.startsWith(item.href);
 
@@ -249,7 +251,7 @@ export function Sidebar({ mobile = false }: SidebarProps) {
             <nav className="flex-1 flex flex-col items-center gap-1 overflow-y-auto pt-1">
               {ALL_NAV_ITEMS.map((item) => {
                 const isActive =
-                  item.href === "/" || item.href === "/dashboard"
+                  item.href === "/" || item.href === "/dashboard" || item.href === "/settings"
                     ? pathname === item.href
                     : pathname.startsWith(item.href);
 
