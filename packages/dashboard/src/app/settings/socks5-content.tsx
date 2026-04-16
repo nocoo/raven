@@ -54,6 +54,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
     ip?: string;
@@ -123,6 +124,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
   const handleSave = useCallback(async () => {
     setSaving(true);
     setError(null);
+    setSaveSuccess(false);
     try {
       const payload: Record<string, unknown> = {
         enabled,
@@ -162,6 +164,8 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         router.refresh();
         setPasswordState("pristine");
         setPassword("");
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
       } else {
         const body = await res.json().catch(() => null);
         setError(
@@ -396,10 +400,20 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           )}
         </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
-
-        {/* Save button */}
-        <div className="flex justify-end">
+        {/* Save button + feedback */}
+        <div className="flex items-center justify-end gap-3">
+          {saveSuccess && (
+            <span className="text-xs text-green-500 flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Settings saved
+            </span>
+          )}
+          {error && (
+            <span className="text-xs text-destructive flex items-center gap-1">
+              <XCircle className="h-3 w-3" />
+              {error}
+            </span>
+          )}
           <Button
             size="sm"
             onClick={handleSave}
