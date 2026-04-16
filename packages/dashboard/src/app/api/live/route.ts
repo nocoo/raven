@@ -1,31 +1,46 @@
-import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import { join } from "path";
+import { APP_VERSION } from "@/lib/version";
+import { safeFetch } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
 
-function getVersion(): string {
-  try {
-    const pkg = JSON.parse(
-      readFileSync(join(process.cwd(), "../../package.json"), "utf-8"),
-    );
-    return pkg.version ?? "unknown";
-  } catch {
-    return "unknown";
-  }
+interface ProxyLive {
+  status: string;
+  database?: { connected: boolean; error?: string };
 }
 
 export async function GET() {
-  return NextResponse.json(
+  const timestamp = new Date().toISOString();
+  const uptime = Math.floor(process.uptime());
+
+  let database: { connected: boolean; error?: string };
+  try {
+    const result = await safeFetch<ProxyLive>("/api/live");
+    if (result.ok) {
+      database = result.data.database ?? { connected: true };
+    } else {
+      database = {
+        connected: false,
+        error: result.error.replace(/\bok\b/gi, "***"),
+      };
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    database = { connected: false, error: msg.replace(/\bok\b/gi, "***") };
+  }
+
+  const healthy = database.connected;
+  return Response.json(
     {
-      status: "ok",
-      version: getVersion(),
-      component: "raven",
+      status: healthy ? "ok" : "error",
+      version: APP_VERSION,
+      component: "dashboard",
+      timestamp,
+      uptime,
+      database,
     },
     {
-      headers: {
-        "Cache-Control": "no-store",
-      },
+      status: healthy ? 200 : 503,
+      headers: { "Cache-Control": "no-store" },
     },
   );
 }
