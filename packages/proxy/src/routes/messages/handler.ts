@@ -48,6 +48,7 @@ export async function handleCompletion(c: Context) {
   const stream = !!anthropicPayload.stream
   const accountName = c.get("keyName") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
+  const anthropicBeta = c.req.header("anthropic-beta") ?? null
   const userId = anthropicPayload.metadata?.user_id ?? null
   const { sessionId, clientName, clientVersion } = deriveClientIdentity(userId, userAgent, accountName, null)
 
@@ -109,7 +110,7 @@ export async function handleCompletion(c: Context) {
       })
     }
 
-    const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat })
+    const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat, anthropicBeta })
     return handleOpenAIUpstream(
       c,
       requestId,
@@ -121,7 +122,7 @@ export async function handleCompletion(c: Context) {
     )
   }
 
-  const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot" })
+  const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot", anthropicBeta })
 
   // Debug log if thinking was requested but dropped (Copilot doesn't support it)
   if (anthropicPayload.thinking?.type === "enabled") {
