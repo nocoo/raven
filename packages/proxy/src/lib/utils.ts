@@ -135,3 +135,19 @@ export function cacheIPWhitelist(db: Database): void {
     state.ipWhitelistRanges = []
   }
 }
+
+/**
+ * Load SOCKS5 proxy settings from DB into runtime state.
+ * Called at startup and after any SOCKS5 setting change.
+ */
+export function cacheSocks5Settings(db: Database): void {
+  state.socks5Enabled = getSetting(db, "socks5_enabled") === "true"
+  state.socks5Host = getSetting(db, "socks5_host") ?? null
+  const portStr = getSetting(db, "socks5_port")
+  state.socks5Port = portStr ? Number.parseInt(portStr, 10) : null
+  state.socks5Username = getSetting(db, "socks5_username") ?? null
+  state.socks5Password = getSetting(db, "socks5_password") ?? null
+  const copilotPolicy = getSetting(db, "socks5_copilot")
+  state.socks5CopilotPolicy =
+    copilotPolicy === "on" || copilotPolicy === "off" ? copilotPolicy : "default"
+}
