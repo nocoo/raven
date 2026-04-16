@@ -85,6 +85,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 0, // Does not support /v1/models
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -111,6 +112,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 0,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -137,6 +139,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 1, // Supports /v1/models
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -170,6 +173,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 1,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -198,6 +202,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 1,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -226,6 +231,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 0, // Disabled
       supports_reasoning: 0,
       supports_models_endpoint: 0,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -251,6 +257,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 0,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -290,6 +297,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 1,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -323,6 +331,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 1,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -359,6 +368,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 1,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -406,6 +416,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 1,
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]
@@ -456,6 +467,7 @@ describe("GET /v1/models (route wrapper)", () => {
       enabled: 1,
       supports_reasoning: 0,
       supports_models_endpoint: 0, // Does not support /v1/models
+      use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
     }]

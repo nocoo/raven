@@ -16,7 +16,7 @@ function makeProvider(
     enabled: 1,
     created_at: 1,
     updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
     ...overrides,
   }
 }

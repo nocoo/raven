@@ -17,6 +17,7 @@ export interface ProviderRecord {
   enabled: number // 0 | 1
   supports_reasoning: number // 0 | 1
   supports_models_endpoint: number // 0 | 1 | null (null = unknown)
+  use_socks5: number | null // null = default, 0 = force off, 1 = force on
   created_at: number
   updated_at: number
 }
@@ -94,6 +95,7 @@ export function initProviders(db: Database): void {
   }
   safeAddColumn("ALTER TABLE providers ADD COLUMN supports_reasoning INTEGER NOT NULL DEFAULT 0")
   safeAddColumn("ALTER TABLE providers ADD COLUMN supports_models_endpoint INTEGER DEFAULT NULL")
+  safeAddColumn("ALTER TABLE providers ADD COLUMN use_socks5 INTEGER DEFAULT NULL")
 }
 
 // ---------------------------------------------------------------------------

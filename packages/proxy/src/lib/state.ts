@@ -46,6 +46,15 @@ export interface State {
   // Trust proxy headers (x-forwarded-for, x-real-ip) only when true
   // When false, only direct connection IP is used for whitelist checks
   ipWhitelistTrustProxy: boolean
+
+  // SOCKS5 proxy relay — hide exit IP via SOCKS5 proxy
+  socks5Enabled: boolean
+  socks5Host: string | null
+  socks5Port: number | null
+  socks5Username: string | null
+  socks5Password: string | null
+  socks5CopilotPolicy: "default" | "on" | "off"
+  socks5BridgePort: number | null // runtime only, not persisted
 }
 
 export const state: State = {
@@ -73,4 +82,11 @@ export const state: State = {
   ipWhitelistEnabled: false,
   ipWhitelistRanges: [],
   ipWhitelistTrustProxy: false,
+  socks5Enabled: false,
+  socks5Host: null,
+  socks5Port: null,
+  socks5Username: null,
+  socks5Password: null,
+  socks5CopilotPolicy: "default",
+  socks5BridgePort: null,
 }

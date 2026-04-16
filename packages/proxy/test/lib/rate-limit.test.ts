@@ -42,6 +42,13 @@ function makeState(overrides: Partial<State> = {}): State {
     ipWhitelistEnabled: false,
     ipWhitelistRanges: [],
     ipWhitelistTrustProxy: false,
+    socks5Enabled: false,
+    socks5Host: null,
+    socks5Port: null,
+    socks5Username: null,
+    socks5Password: null,
+    socks5CopilotPolicy: "default",
+    socks5BridgePort: null,
     ...overrides,
   }
 }

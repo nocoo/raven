@@ -27,7 +27,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       expect(resolveProvider("unknown-model")).toBeNull()
@@ -47,7 +47,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
         {
           id: "p2",
@@ -59,7 +59,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 2,
           updated_at: 2,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       const result = resolveProvider("glm-5")
@@ -80,7 +80,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       const result = resolveProvider("glm-5")
@@ -99,7 +99,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       const result = resolveProvider("glm-5")
@@ -121,7 +121,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       expect(resolveProvider("claude-3-5-sonnet-20241022")).not.toBeNull()
@@ -142,7 +142,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       expect(resolveProvider("gpt-3")).toBeNull() // gpt-3 doesn't match gpt-4*
@@ -160,7 +160,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       expect(resolveProvider("anything")).not.toBeNull()
@@ -181,7 +181,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 100, // earlier
           updated_at: 100,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
         {
           id: "p2",
@@ -193,7 +193,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 200, // later
           updated_at: 200,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       const result = resolveProvider("model-a")
@@ -213,7 +213,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 100,
           updated_at: 100,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
         {
           id: "p2",
@@ -225,7 +225,7 @@ describe("resolveProvider", () => {
           enabled: 1,
           created_at: 200,
           updated_at: 200,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       const result = resolveProvider("exact-model")
@@ -250,7 +250,7 @@ describe("resolveProvider", () => {
           enabled: 0, // disabled
           created_at: 1,
           updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0,
+          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
         },
       ]
       // In actual usage, getEnabledProviders filters these out
