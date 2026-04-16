@@ -288,6 +288,30 @@ describe("handleCountTokens", () => {
     expect(json.input_tokens).toBeGreaterThan(1)
   })
 
+  test("explicit 1m model name without beta header → resolves via pure base model fallback", async () => {
+    // Model list only contains the base ID (no -1m variant)
+    state.models = {
+      object: "list",
+      data: [
+        makeModel({ id: "claude-opus-4.6", name: "Claude Opus 4.6" }),
+      ],
+    } as ModelsResponse
+
+    const app = makeApp()
+    const res = await app.request(
+      req({
+        model: "claude-opus-4-6-1m-20250820",
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "Hello" }],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as { input_tokens: number }
+    // Should find model via pureBaseModel fallback (strip -1m suffix), not return fallback 1
+    expect(json.input_tokens).toBeGreaterThan(1)
+  })
+
   test("anthropic-beta context-1m with matching 1m model → prefers translated model", async () => {
     // Model list contains the 1m variant
     state.models = {

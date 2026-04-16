@@ -20,8 +20,10 @@ export async function handleCountTokens(c: Context) {
 
     const translatedModel = openAIPayload.model
     const baseModel = translateModelName(anthropicPayload.model, null)
+    // Strip variant suffixes to get the pure base model for fallback lookup
+    const pureBaseModel = baseModel.replace(/-(1m|fast)$/, '')
     const selectedModel = state.models?.data.find(
-      (model) => model.id === translatedModel || model.id === anthropicPayload.model || model.id === baseModel,
+      (model) => model.id === translatedModel || model.id === anthropicPayload.model || model.id === baseModel || model.id === pureBaseModel,
     )
 
     if (!selectedModel) {
