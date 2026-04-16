@@ -22,9 +22,11 @@ export async function handleCountTokens(c: Context) {
     const baseModel = translateModelName(anthropicPayload.model, null)
     // Strip variant suffixes to get the pure base model for fallback lookup
     const pureBaseModel = baseModel.replace(/-(1m|fast)$/, '')
-    const selectedModel = state.models?.data.find(
-      (model) => model.id === translatedModel || model.id === anthropicPayload.model || model.id === baseModel || model.id === pureBaseModel,
-    )
+    const selectedModel =
+      state.models?.data.find((m) => m.id === translatedModel) ??
+      state.models?.data.find((m) => m.id === anthropicPayload.model) ??
+      state.models?.data.find((m) => m.id === baseModel) ??
+      state.models?.data.find((m) => m.id === pureBaseModel)
 
     if (!selectedModel) {
       logger.warn("Model not found, returning default token count")

@@ -313,11 +313,26 @@ describe("handleCountTokens", () => {
   })
 
   test("anthropic-beta context-1m with matching 1m model → prefers translated model", async () => {
-    // Model list contains the 1m variant
+    // Base model appears FIRST in the list but has no tokenizer — if it were
+    // incorrectly selected, getTokenCount would fall back to a default of 1.
+    // The 1m variant appears SECOND with a valid tokenizer. The test proves
+    // that the prioritized lookup picks the translated (1m) model, not the
+    // first array match.
     state.models = {
       object: "list",
       data: [
-        makeModel({ id: "claude-opus-4.6", name: "Claude Opus 4.6" }),
+        makeModel({
+          id: "claude-opus-4.6",
+          name: "Claude Opus 4.6",
+          capabilities: {
+            family: "claude-opus-4.6",
+            object: "model_capabilities",
+            type: "chat",
+            tokenizer: "none",
+            limits: { max_context_window_tokens: 0, max_output_tokens: 0, max_prompt_tokens: null, max_inputs: null },
+            supports: { tool_calls: false, parallel_tool_calls: false, dimensions: null },
+          },
+        }),
         makeModel({ id: "claude-opus-4.6-1m", name: "Claude Opus 4.6 1M" }),
       ],
     } as ModelsResponse
@@ -336,6 +351,7 @@ describe("handleCountTokens", () => {
 
     expect(res.status).toBe(200)
     const json = (await res.json()) as { input_tokens: number }
+    // If the base model were selected (wrong priority), this would be ≤ 1
     expect(json.input_tokens).toBeGreaterThan(1)
   })
 })
