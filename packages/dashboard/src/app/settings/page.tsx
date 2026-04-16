@@ -6,16 +6,20 @@ import { SettingsContent } from "./settings-content";
 import { OptimizationsContent } from "./optimizations-content";
 import { SoundContent } from "./sound-content";
 import { IPWhitelistContent } from "./ip-whitelist-content";
+import { Socks5Content, type Socks5Data } from "./socks5-content";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const result = await safeFetch<SettingsData>("/api/settings");
+  const [settingsResult, socks5Result] = await Promise.all([
+    safeFetch<SettingsData>("/api/settings"),
+    safeFetch<Socks5Data>("/api/settings/socks5"),
+  ]);
 
-  if (!result.ok) {
+  if (!settingsResult.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Settings" }]}>
-        <FetchError title="Failed to load settings" message={result.error} />
+        <FetchError title="Failed to load settings" message={settingsResult.error} />
       </AppShell>
     );
   }
@@ -24,10 +28,11 @@ export default async function SettingsPage() {
     <AppShell breadcrumbs={[{ label: "Settings" }]}>
       <div className="space-y-8">
         <h1 className="text-lg font-semibold font-display">Settings</h1>
-        <SettingsContent data={result.data} />
-        {result.data.sound.available && <SoundContent data={result.data.sound} />}
-        <IPWhitelistContent data={result.data.ip_whitelist} />
-        <OptimizationsContent data={result.data.optimizations} />
+        <SettingsContent data={settingsResult.data} />
+        {settingsResult.data.sound.available && <SoundContent data={settingsResult.data.sound} />}
+        <IPWhitelistContent data={settingsResult.data.ip_whitelist} />
+        {socks5Result.ok && <Socks5Content data={socks5Result.data} />}
+        <OptimizationsContent data={settingsResult.data.optimizations} />
       </div>
     </AppShell>
   );
