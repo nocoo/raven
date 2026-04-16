@@ -17,6 +17,7 @@
 | 14 | [VPS Deployment](./14-vps-deployment.md) | 远程部署：Bun + systemd + Nginx + HTTPS + 安全须知 |
 | 15 | [Message Sanitization](./15-message-sanitization-pipeline.md) | Copilot 兼容性清洗：过滤不支持的 block 类型与字段 |
 | 16 | [OpenAI Responses API](./16-openai-responses-api.md) | `/v1/responses` 端点支持：Codex CLI 兼容 |
+| 17 | [SOCKS5 Proxy Relay](./17-socks5-proxy-relay.md) | SOCKS5 代理中继：隐藏出口 IP，per-upstream 路由策略 |
 
 ## Archive
 
