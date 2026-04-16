@@ -260,4 +260,58 @@ describe("handleCountTokens", () => {
     const json = (await res.json()) as { input_tokens: number }
     expect(json.input_tokens).toBe(1)
   })
+
+  test("anthropic-beta context-1m → resolves model via base ID fallback", async () => {
+    // Model list only contains the base ID (no -1m variant)
+    state.models = {
+      object: "list",
+      data: [
+        makeModel({ id: "claude-opus-4.6", name: "Claude Opus 4.6" }),
+      ],
+    } as ModelsResponse
+
+    const app = makeApp()
+    const res = await app.request(
+      req(
+        {
+          model: "claude-opus-4-6-20250820",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "Hello" }],
+        },
+        { "anthropic-beta": "context-1m-2025-01-01" },
+      ),
+    )
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as { input_tokens: number }
+    // Should find model via base ID fallback, not return fallback 1
+    expect(json.input_tokens).toBeGreaterThan(1)
+  })
+
+  test("anthropic-beta context-1m with matching 1m model → prefers translated model", async () => {
+    // Model list contains the 1m variant
+    state.models = {
+      object: "list",
+      data: [
+        makeModel({ id: "claude-opus-4.6", name: "Claude Opus 4.6" }),
+        makeModel({ id: "claude-opus-4.6-1m", name: "Claude Opus 4.6 1M" }),
+      ],
+    } as ModelsResponse
+
+    const app = makeApp()
+    const res = await app.request(
+      req(
+        {
+          model: "claude-opus-4-6-20250820",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "Hello" }],
+        },
+        { "anthropic-beta": "context-1m-2025-01-01" },
+      ),
+    )
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as { input_tokens: number }
+    expect(json.input_tokens).toBeGreaterThan(1)
+  })
 })

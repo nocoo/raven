@@ -245,7 +245,7 @@ const VARIANT_1M_MODELS = new Set(["claude-opus-4.6"])
  */
 const VARIANT_FAST_MODELS = new Set<string>()
 
-function translateModelName(model: string, anthropicBeta: string | null): string {
+export function translateModelName(model: string, anthropicBeta: string | null): string {
   // Parse beta flags from anthropic-beta header
   const betas = anthropicBeta?.split(",").map((b) => b.trim()) ?? []
   const wants1m = betas.some((b) => b.startsWith("context-1m-"))

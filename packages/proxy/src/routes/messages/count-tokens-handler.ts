@@ -5,7 +5,7 @@ import { state } from "./../../lib/state"
 import { getTokenCount } from "./../../lib/tokenizer"
 
 import { type AnthropicMessagesPayload } from "./anthropic-types"
-import { translateToOpenAI } from "./non-stream-translation"
+import { translateModelName, translateToOpenAI } from "./non-stream-translation"
 
 /**
  * Handles token counting for Anthropic messages
@@ -19,8 +19,9 @@ export async function handleCountTokens(c: Context) {
     const openAIPayload = translateToOpenAI(anthropicPayload, { anthropicBeta: anthropicBeta ?? null })
 
     const translatedModel = openAIPayload.model
+    const baseModel = translateModelName(anthropicPayload.model, null)
     const selectedModel = state.models?.data.find(
-      (model) => model.id === translatedModel || model.id === anthropicPayload.model,
+      (model) => model.id === translatedModel || model.id === anthropicPayload.model || model.id === baseModel,
     )
 
     if (!selectedModel) {
