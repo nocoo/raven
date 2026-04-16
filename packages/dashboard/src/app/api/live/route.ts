@@ -12,7 +12,7 @@ export async function GET() {
   const timestamp = new Date().toISOString();
   const uptime = Math.floor(process.uptime());
 
-  let database: { connected: boolean; error?: string } = { connected: false };
+  let database: { connected: boolean; error?: string };
   try {
     const result = await safeFetch<ProxyLive>("/api/live");
     if (result.ok) {

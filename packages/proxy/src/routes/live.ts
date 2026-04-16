@@ -28,9 +28,7 @@ export function createLiveRoute(db: Database): Hono {
     const timestamp = new Date().toISOString();
     const uptime = Math.round((Date.now() - bootedAt) / 1000);
 
-    let database: { connected: boolean; error?: string } = {
-      connected: false,
-    };
+    let database: { connected: boolean; error?: string };
     try {
       db.query("SELECT 1 AS probe").get();
       database = { connected: true };
