@@ -139,31 +139,31 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
           <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[28%]">Model ID</TableHead>
-                <TableHead className="hidden sm:table-cell w-[16%]">Name</TableHead>
+                <TableHead className="w-[22%]">Model ID</TableHead>
+                <TableHead className="hidden sm:table-cell w-[15%]">Name</TableHead>
                 <TableHead className="hidden xl:table-cell w-[8%]">Version</TableHead>
-                <TableHead className="hidden lg:table-cell w-[10%]">Family</TableHead>
+                <TableHead className="hidden xl:table-cell w-[11%]">Family</TableHead>
                 <TableHead className="hidden md:table-cell w-[7%]">Type</TableHead>
                 <TableHead className="w-[11%] text-right">Context</TableHead>
                 <TableHead className="hidden sm:table-cell w-[10%] text-right">Max Output</TableHead>
-                <TableHead className="hidden lg:table-cell w-[5%]">Picker</TableHead>
-                <TableHead className="hidden xl:table-cell w-[5%]">Preview</TableHead>
+                <TableHead className="hidden lg:table-cell w-[8%]">Picker</TableHead>
+                <TableHead className="hidden lg:table-cell w-[8%]">Preview</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {models.map((model, i) => (
                 <TableRow key={`${model.id}-${i}`}>
                   <TableCell className="truncate">
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5 max-w-full">
                       <span className="font-mono text-xs truncate">{model.id}</span>
                       <CopyButton text={model.id} />
                     </span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell font-medium truncate">{model.name}</TableCell>
-                  <TableCell className="hidden xl:table-cell text-muted-foreground">
+                  <TableCell className="hidden xl:table-cell text-muted-foreground truncate">
                     {model.version}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">{model.capabilities.family}</TableCell>
+                  <TableCell className="hidden xl:table-cell truncate">{model.capabilities.family}</TableCell>
                   <TableCell className="hidden md:table-cell">
                     <Badge variant="secondary">
                       {model.capabilities.type}
@@ -184,7 +184,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                       <Badge variant="secondary">No</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell">
+                  <TableCell className="hidden lg:table-cell">
                     {model.preview_state ? (
                       <Badge variant="info">{model.preview_state}</Badge>
                     ) : (
