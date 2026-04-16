@@ -15,6 +15,7 @@ import { createConnectionInfoRoute } from "./routes/connection-info"
 import { createSettingsRoute } from "./routes/settings"
 import { createUpstreamsRoute } from "./routes/upstreams"
 import { createSoundRoute } from "./routes/sound"
+import { createSocks5SettingsRoute } from "./routes/settings-socks5"
 
 // ---------------------------------------------------------------------------
 // App factory — pure, synchronous, testable
@@ -82,6 +83,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createSettingsRoute(db))
   app.route("/api", createUpstreamsRoute(db))
   app.route("/api", createSoundRoute())
+  app.route("/api", createSocks5SettingsRoute(db))
 
   return app
 }
