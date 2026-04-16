@@ -47,6 +47,7 @@ interface Socks5TestBody {
   port: number;
   username?: string | null;
   password?: string | null;
+  useStoredCredentials?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +241,10 @@ export function createSocks5SettingsRoute(db: Database): Hono {
 
     const startTime = Date.now();
 
+    // Resolve credentials: explicit body values take priority, fall back to stored
+    const testUsername = body.username !== undefined ? body.username : (body.useStoredCredentials ? state.socks5Username : null);
+    const testPassword = body.password !== undefined ? body.password : (body.useStoredCredentials ? state.socks5Password : null);
+
     try {
       // Test SOCKS5 connectivity by connecting through it to a known endpoint
       const { socket } = await SocksClient.createConnection({
@@ -247,8 +252,8 @@ export function createSocks5SettingsRoute(db: Database): Hono {
           host: body.host,
           port: body.port,
           type: 5,
-          ...(body.username ? { userId: body.username } : {}),
-          ...(body.password ? { password: body.password } : {}),
+          ...(testUsername ? { userId: testUsername } : {}),
+          ...(testPassword ? { password: testPassword } : {}),
         },
         command: "connect",
         destination: { host: "api.github.com", port: 443 },

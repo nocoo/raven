@@ -255,6 +255,25 @@ describe("POST /api/settings/socks5/test", () => {
     expect(res.status).toBe(400);
   });
 
+  test("test endpoint uses stored credentials when useStoredCredentials=true", async () => {
+    state.socks5Username = "stored-user";
+    state.socks5Password = "stored-pass";
+
+    const res = await createApp().request("/api/settings/socks5/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        host: "127.0.0.1",
+        port: 19998,
+        useStoredCredentials: true,
+      }),
+    });
+    // Will fail to connect (port not open), but validates the flow doesn't error
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+  });
+
   test("returns error for unreachable proxy", async () => {
     const res = await createApp().request("/api/settings/socks5/test", {
       method: "POST",

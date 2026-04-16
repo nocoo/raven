@@ -57,8 +57,8 @@ export async function startBridge(
     return bridgePort;
   }
 
-  // Stop existing bridge if any
-  await stopBridge();
+  // Start new bridge FIRST, only tear down old one after success (atomic swap)
+  const oldServer = bridgeServer;
 
   const server = net.createServer((clientSocket) => {
     clientSocket.once("data", async (buf) => {
@@ -104,17 +104,23 @@ export async function startBridge(
 
   return new Promise<number>((resolve, reject) => {
     server.on("error", (err) => {
-      bridgeServer = null;
-      bridgePort = null;
-      currentConfig = null;
+      // New bridge failed to start — old bridge (if any) is still running
       reject(err);
     });
 
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address() as net.AddressInfo;
+
+      // New bridge is listening — now safe to swap
       bridgeServer = server;
       bridgePort = addr.port;
       currentConfig = { ...config };
+
+      // Tear down old bridge (fire-and-forget, already replaced)
+      if (oldServer) {
+        oldServer.close();
+      }
+
       resolve(addr.port);
     });
   });

@@ -103,9 +103,12 @@ describe("PUT /api/settings/socks5", () => {
 // ===========================================================================
 
 describe("POST /api/settings/socks5/test", () => {
-  it("success → forwards body and returns 200", async () => {
+  it("success → forwards body and returns 200 with structured payload", async () => {
     const responseData = { success: true, latencyMs: 120 };
-    mockProxyFetch.mockResolvedValueOnce(responseData);
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify(responseData), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
 
     const { POST } = await import("@/app/api/settings/socks5/test/route");
     const req = new Request("http://localhost/api/settings/socks5/test", {
@@ -117,14 +120,15 @@ describe("POST /api/settings/socks5/test", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(responseData);
-    expect(mockProxyFetch).toHaveBeenCalledWith(
-      "/api/settings/socks5/test",
-      expect.objectContaining({ method: "POST" }),
-    );
+    vi.unstubAllGlobals();
   });
 
-  it("ProxyError → returns error status", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Connection refused", 400));
+  it("proxy 400 → preserves structured error payload and status", async () => {
+    const errorPayload = { success: false, error: "Connection refused", latencyMs: 50 };
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify(errorPayload), { status: 400 }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
 
     const { POST } = await import("@/app/api/settings/socks5/test/route");
     const req = new Request("http://localhost/api/settings/socks5/test", {
@@ -135,10 +139,16 @@ describe("POST /api/settings/socks5/test", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toBe("Connection refused");
+    expect(body.latencyMs).toBe(50);
+    vi.unstubAllGlobals();
   });
 
-  it("generic Error → returns 502", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new Error("network down"));
+  it("network error → returns 502", async () => {
+    const mockFetch = vi.fn().mockRejectedValueOnce(new Error("network down"));
+    vi.stubGlobal("fetch", mockFetch);
 
     const { POST } = await import("@/app/api/settings/socks5/test/route");
     const req = new Request("http://localhost/api/settings/socks5/test", {
@@ -149,5 +159,8 @@ describe("POST /api/settings/socks5/test", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    vi.unstubAllGlobals();
   });
 });

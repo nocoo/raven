@@ -1,5 +1,6 @@
 import type { Context } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
+import { Socks5BridgeUnavailableError } from "./socks5-bridge"
 
 /** Max upstream response body length persisted in logs / DB. */
 const MAX_BODY_LENGTH = 512
@@ -61,6 +62,19 @@ export async function forwardError(c: Context, error: unknown) {
         },
       },
       error.status as ContentfulStatusCode,
+    )
+  }
+
+  // SOCKS5 bridge down → 502 Bad Gateway (fail-closed, consistent with extractErrorDetails)
+  if (error instanceof Socks5BridgeUnavailableError) {
+    return c.json(
+      {
+        error: {
+          message: (error as Error).message,
+          type: "error",
+        },
+      },
+      502,
     )
   }
 

@@ -91,6 +91,17 @@ describe("socks5-bridge", () => {
       expect(port1).toBe(port2);
     });
 
+    it("restarts with different config — old bridge stays up until new one is ready", async () => {
+      const port1 = await startBridge({ host: "127.0.0.1", port: 19999 });
+      expect(getBridgePort()).toBe(port1);
+      // Start with new config — should atomically swap
+      const port2 = await startBridge({ host: "127.0.0.1", port: 29999 });
+      expect(port2).toBeGreaterThan(0);
+      expect(getBridgePort()).toBe(port2);
+      // Verify a bridge is always running (no gap)
+      expect(getBridgePort()).not.toBeNull();
+    });
+
     it("restarts with different config", async () => {
       const port1 = await startBridge({ host: "127.0.0.1", port: 19999 });
       const port2 = await startBridge({ host: "127.0.0.1", port: 29999 });

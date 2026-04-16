@@ -101,9 +101,11 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           ...(username.trim() ? { username: username.trim() } : {}),
           ...(passwordState === "edited" && password
             ? { password }
-            : passwordState === "pristine" && data.hasPassword
-              ? {} // server will use stored password for test? No, test uses provided config
-              : {}),
+            : {}),
+          // When password is pristine (not edited/cleared), tell server to use stored credentials
+          ...(passwordState === "pristine" && data.hasPassword
+            ? { useStoredCredentials: true }
+            : {}),
         }),
       });
       const body = await res.json();
