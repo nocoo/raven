@@ -751,6 +751,81 @@ describe("claude-opus model name normalization", () => {
 })
 
 // ===========================================================================
+// 1M variant whitelist (anthropic-beta header)
+// ===========================================================================
+
+describe("1M variant whitelist via anthropic-beta header", () => {
+  test("claude-opus-4-6 + context-1m-* → claude-opus-4.6-1m (whitelisted)", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-opus-4-6-20250820" }),
+      { anthropicBeta: "context-1m-2025-01-01" },
+    )
+    expect(result.model).toBe("claude-opus-4.6-1m")
+  })
+
+  test("claude-sonnet-4-5 + context-1m-* → claude-sonnet-4.5 (NOT whitelisted, no suffix)", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-sonnet-4-5-20250514" }),
+      { anthropicBeta: "context-1m-2025-01-01" },
+    )
+    expect(result.model).toBe("claude-sonnet-4.5")
+  })
+
+  test("claude-sonnet-4 + context-1m-* → claude-sonnet-4 (NOT whitelisted)", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-sonnet-4-20250514" }),
+      { anthropicBeta: "context-1m-2025-01-01" },
+    )
+    expect(result.model).toBe("claude-sonnet-4")
+  })
+
+  test("claude-haiku-4-5 + context-1m-* → claude-haiku-4.5 (NOT whitelisted)", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-haiku-4-5-20251001" }),
+      { anthropicBeta: "context-1m-2025-01-01" },
+    )
+    expect(result.model).toBe("claude-haiku-4.5")
+  })
+
+  test("explicit 1m suffix in model name always works (claude-opus-4-6-1m-20250820)", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-opus-4-6-1m-20250820" }),
+    )
+    expect(result.model).toBe("claude-opus-4.6-1m")
+  })
+
+  test("explicit bracket 1m notation always works (claude-opus-4-6[1m])", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-opus-4-6[1m]" }),
+    )
+    expect(result.model).toBe("claude-opus-4.6-1m")
+  })
+
+  test("explicit 1m suffix works even for non-whitelisted models", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-sonnet-4-5-1m-20250514" }),
+    )
+    expect(result.model).toBe("claude-sonnet-4.5-1m")
+  })
+
+  test("fast-mode beta does not append -fast to any model (no whitelisted fast models)", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-opus-4-6-20250820" }),
+      { anthropicBeta: "fast-mode-2025-01-01" },
+    )
+    expect(result.model).toBe("claude-opus-4.6")
+  })
+
+  test("multiple betas with context-1m applies only to whitelisted model", () => {
+    const result = translateToOpenAI(
+      makeRequest({ model: "claude-opus-4-6-20250820" }),
+      { anthropicBeta: "claude-code-2025, context-1m-2025-01-01" },
+    )
+    expect(result.model).toBe("claude-opus-4.6-1m")
+  })
+})
+
+// ===========================================================================
 // tool_choice edge cases
 // ===========================================================================
 

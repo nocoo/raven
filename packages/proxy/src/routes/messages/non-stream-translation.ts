@@ -228,6 +228,23 @@ export function translateToOpenAI(
   } as ExtendedChatCompletionsPayload
 }
 
+// ---------------------------------------------------------------------------
+// Model variant whitelists
+// ---------------------------------------------------------------------------
+
+/**
+ * Models that support the 1M context variant (resolved from anthropic-beta header).
+ * Only these models will get `-1m` appended when the `context-1m-*` beta is requested.
+ * Other models silently ignore the beta header — they don't support 1M context.
+ */
+const VARIANT_1M_MODELS = new Set(["claude-opus-4.6"])
+
+/**
+ * Models that support the fast mode variant (resolved from anthropic-beta header).
+ * Currently empty — no models support fast mode yet.
+ */
+const VARIANT_FAST_MODELS = new Set<string>()
+
 function translateModelName(model: string, anthropicBeta: string | null): string {
   // Parse beta flags from anthropic-beta header
   const betas = anthropicBeta?.split(",").map((b) => b.trim()) ?? []
@@ -236,12 +253,19 @@ function translateModelName(model: string, anthropicBeta: string | null): string
 
   // Map from Anthropic SDK model identifiers (hyphenated, with date suffixes)
   // to Copilot model IDs (dot-separated, no date suffix).
-  // Model variant suffixes (-1m, -fast) are determined by anthropic-beta header.
+  //
+  // Variant suffixes (-1m, -fast) are resolved via whitelist — only specific models
+  // actually support these variants. The anthropic-beta header is silently ignored
+  // for models not in the whitelist.
+  //
+  // Explicit suffix in the model name (e.g. claude-opus-4-6-1m-20250820 or
+  // claude-opus-4-6[1m]) always takes priority regardless of whitelist.
   //
   // Examples:
-  //   claude-opus-4-6-20250820     → claude-opus-4.6 (or .6-1m / .6-fast per beta)
-  //   claude-opus-4-6-1m-20250820  → claude-opus-4.6-1m (explicit in model name)
-  //   claude-opus-4-6[1m]          → claude-opus-4.6-1m (bracket notation)
+  //   claude-opus-4-6-20250820     + context-1m-* → claude-opus-4.6-1m (whitelisted)
+  //   claude-sonnet-4-5-20250514   + context-1m-* → claude-sonnet-4.5  (NOT whitelisted)
+  //   claude-opus-4-6-1m-20250820  → claude-opus-4.6-1m (explicit suffix, always works)
+  //   claude-opus-4-6[1m]          → claude-opus-4.6-1m (bracket notation, always works)
   //   claude-sonnet-4-5-20250514   → claude-sonnet-4.5
   //   claude-sonnet-4-20250514     → claude-sonnet-4
   //   claude-haiku-4-5-20251001    → claude-haiku-4.5
@@ -251,11 +275,11 @@ function translateModelName(model: string, anthropicBeta: string | null): string
   if (match) {
     const [, family, major, minor, suffix] = match
     const base = `${family}-${major}.${minor}`
-    // Explicit suffix in model name takes priority
+    // Explicit suffix in model name always takes priority (user knows what they want)
     if (suffix) return `${base}-${suffix}`
-    // Otherwise, check anthropic-beta header for variant
-    if (wants1m) return `${base}-1m`
-    if (wantsFast) return `${base}-fast`
+    // Otherwise, check anthropic-beta header against whitelist
+    if (wants1m && VARIANT_1M_MODELS.has(base)) return `${base}-1m`
+    if (wantsFast && VARIANT_FAST_MODELS.has(base)) return `${base}-fast`
     return base
   }
 
