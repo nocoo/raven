@@ -22,7 +22,8 @@
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
     "gate:security": "bun run scripts/gate-security.ts",
     "test:ui": "bun run scripts/run-playwright.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "release": "bun run scripts/release.ts"
   },
   "lint-staged": {
     "packages/proxy/src/**/*.ts": "eslint --config eslint.config.js --max-warnings=0",
@@ -43,7 +44,7 @@
     "vite": "^8.0.5"
   },
   "dependencies": {
-    "hono": "^4.12.12",
+    "hono": "^4.12.14",
     "micromatch": "^4.0.8",
     "next": "^16.2.3",
     "vite": "^8.0.5",
