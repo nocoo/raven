@@ -9,7 +9,12 @@ import {
   getBridgePort,
   type Socks5BridgeConfig,
 } from "../lib/socks5-bridge";
-import { SocksClient } from "socks";
+
+/** IP echo services — try in order, first success wins. */
+const IP_ECHO_URLS = [
+  "https://api.ipify.org?format=json",          // returns { "ip": "x.x.x.x" }
+  "https://httpbin.org/ip",                      // returns { "origin": "x.x.x.x" }
+];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -246,28 +251,104 @@ export function createSocks5SettingsRoute(db: Database): Hono {
     const testPassword = body.password !== undefined ? body.password : (body.useStoredCredentials ? state.socks5Password : null);
 
     try {
-      // Test SOCKS5 connectivity by connecting through it to a known endpoint
-      const { socket } = await SocksClient.createConnection({
-        proxy: {
-          host: body.host,
-          port: body.port,
-          type: 5,
-          ...(testUsername ? { userId: testUsername } : {}),
-          ...(testPassword ? { password: testPassword } : {}),
-        },
-        command: "connect",
-        destination: { host: "api.github.com", port: 443 },
-        timeout: 10_000,
+      // Spin up a temporary bridge to test the provided config
+      const tempBridgeConfig: Socks5BridgeConfig = {
+        host: body.host,
+        port: body.port,
+        ...(testUsername ? { userId: testUsername } : {}),
+        ...(testPassword ? { password: testPassword } : {}),
+      };
+
+      // Use a separate net.Server so we don't disturb the main bridge
+      const net = await import("node:net");
+      const { SocksClient } = await import("socks");
+
+      const tempServer = net.createServer((clientSocket) => {
+        clientSocket.once("data", async (buf) => {
+          const request = buf.toString();
+          const match = request.match(/^CONNECT\s+([^:\s]+):(\d+)\s+HTTP\/\d\.\d/);
+          if (!match) {
+            clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+            clientSocket.destroy();
+            return;
+          }
+          const targetHost = match[1]!;
+          const targetPort = Number.parseInt(match[2]!, 10);
+          try {
+            const { socket: socksSocket } = await SocksClient.createConnection({
+              proxy: {
+                host: tempBridgeConfig.host,
+                port: tempBridgeConfig.port,
+                type: 5,
+                ...(tempBridgeConfig.userId ? { userId: tempBridgeConfig.userId } : {}),
+                ...(tempBridgeConfig.password ? { password: tempBridgeConfig.password } : {}),
+              },
+              command: "connect",
+              destination: { host: targetHost, port: targetPort },
+              timeout: 10_000,
+            });
+            clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+            socksSocket.pipe(clientSocket);
+            clientSocket.pipe(socksSocket);
+            socksSocket.on("error", () => clientSocket.destroy());
+            clientSocket.on("error", () => socksSocket.destroy());
+            socksSocket.on("close", () => clientSocket.destroy());
+            clientSocket.on("close", () => socksSocket.destroy());
+          } catch {
+            clientSocket.write("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+            clientSocket.destroy();
+          }
+        });
       });
 
-      socket.destroy();
-
-      const latencyMs = Date.now() - startTime;
-
-      return c.json({
-        success: true,
-        latencyMs,
+      const tempPort = await new Promise<number>((resolve, reject) => {
+        tempServer.on("error", reject);
+        tempServer.listen(0, "127.0.0.1", () => {
+          const addr = tempServer.address() as import("node:net").AddressInfo;
+          resolve(addr.port);
+        });
       });
+
+      try {
+        // Fetch egress IP through the temporary bridge
+        let ip: string | null = null;
+        for (const url of IP_ECHO_URLS) {
+          try {
+            const res = await fetch(url, {
+              proxy: `http://127.0.0.1:${tempPort}`,
+              signal: AbortSignal.timeout(10_000),
+            } as RequestInit);
+            if (res.ok) {
+              const json = await res.json();
+              ip = json.ip ?? json.origin ?? null;
+              if (ip) break;
+            }
+          } catch {
+            // Try next service
+          }
+        }
+
+        const latencyMs = Date.now() - startTime;
+
+        if (!ip) {
+          return c.json(
+            {
+              success: false,
+              error: "Connected to SOCKS5 proxy but could not verify egress IP (all IP echo services failed)",
+              latencyMs,
+            },
+            400,
+          );
+        }
+
+        return c.json({
+          success: true,
+          ip,
+          latencyMs,
+        });
+      } finally {
+        tempServer.close();
+      }
     } catch (err) {
       return c.json(
         {

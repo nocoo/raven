@@ -325,7 +325,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                 {testResult.success ? (
                   <>
                     <CheckCircle className="h-3 w-3" />
-                    Connected ({testResult.latencyMs}ms)
+                    Connected{testResult.ip ? ` via ${testResult.ip}` : ""} ({testResult.latencyMs}ms)
                   </>
                 ) : (
                   <>

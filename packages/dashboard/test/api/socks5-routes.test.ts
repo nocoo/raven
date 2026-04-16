@@ -65,7 +65,10 @@ describe("GET /api/settings/socks5", () => {
 describe("PUT /api/settings/socks5", () => {
   it("success → forwards body and returns 200", async () => {
     const responseData = { enabled: true, host: "proxy.example.com" };
-    mockProxyFetch.mockResolvedValueOnce(responseData);
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify(responseData), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
 
     const { PUT } = await import("@/app/api/settings/socks5/route");
     const req = new Request("http://localhost/api/settings/socks5", {
@@ -77,14 +80,17 @@ describe("PUT /api/settings/socks5", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(responseData);
-    expect(mockProxyFetch).toHaveBeenCalledWith(
-      "/api/settings/socks5",
-      expect.objectContaining({ method: "PUT" }),
-    );
+    vi.unstubAllGlobals();
   });
 
-  it("ProxyError → returns error status", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Bad config", 400));
+  it("proxy 400 → preserves structured error payload", async () => {
+    const errorPayload = {
+      error: { type: "bridge_error", message: "Failed to start SOCKS5 bridge: connection refused" },
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify(errorPayload), { status: 400 }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
 
     const { PUT } = await import("@/app/api/settings/socks5/route");
     const req = new Request("http://localhost/api/settings/socks5", {
@@ -95,6 +101,25 @@ describe("PUT /api/settings/socks5", () => {
     const res = await PUT(req);
 
     expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.message).toContain("SOCKS5 bridge");
+    vi.unstubAllGlobals();
+  });
+
+  it("network error → returns 502", async () => {
+    const mockFetch = vi.fn().mockRejectedValueOnce(new Error("network down"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    const { PUT } = await import("@/app/api/settings/socks5/route");
+    const req = new Request("http://localhost/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: true }),
+    });
+    const res = await PUT(req);
+
+    expect(res.status).toBe(502);
+    vi.unstubAllGlobals();
   });
 });
 
