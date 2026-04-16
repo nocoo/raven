@@ -11,8 +11,9 @@ import {
   updateProviderModelsSupport,
 } from "./../db/providers"
 import { cacheProviders } from "./../lib/utils"
+import { getProxyUrl } from "./../lib/socks5-bridge"
 import { state } from "./../lib/state"
-import type { CreateProviderInput, UpdateProviderInput } from "./../db/providers"
+import type { CreateProviderInput, UpdateProviderInput, ProviderRecord } from "./../db/providers"
 
 // ===========================================================================
 // Validation schemas
@@ -114,8 +115,10 @@ async function probeModelsEndpoint(
   providerId: string,
   baseUrl: string,
   apiKey: string,
+  provider?: ProviderRecord,
 ): Promise<boolean> {
   const url = `${baseUrl.replace(/\/+$/, "")}/v1/models`
+  const proxyUrl = provider ? getProxyUrl(provider, state) : undefined
   try {
     const res = await fetch(url, {
       headers: {
@@ -123,7 +126,8 @@ async function probeModelsEndpoint(
         "Content-Type": "application/json",
       },
       signal: AbortSignal.timeout(5000), // 5s timeout for probe
-    })
+      ...(proxyUrl ? { proxy: proxyUrl } : {}),
+    } as RequestInit)
 
     const supports = res.ok
     try {
@@ -276,12 +280,12 @@ export function createUpstreamsRoute(db: Database): Hono {
 
     // Re-probe if base_url or api_key changed
     if (input.base_url !== undefined || input.api_key !== undefined) {
-      // Get full record to access api_key
+      // Get full record to access api_key and proxy settings
       const row = db
-        .query("SELECT base_url, api_key FROM providers WHERE id = $id")
-        .get({ $id: id }) as { base_url: string; api_key: string } | null
+        .query("SELECT * FROM providers WHERE id = $id")
+        .get({ $id: id }) as ProviderRecord | null
       if (row) {
-        probeModelsEndpoint(db, id, row.base_url, row.api_key)
+        probeModelsEndpoint(db, id, row.base_url, row.api_key, row)
       }
     }
 
@@ -311,7 +315,7 @@ export function createUpstreamsRoute(db: Database): Hono {
     // Get full provider record (with api_key) from DB
     const row = db
       .query("SELECT * FROM providers WHERE id = $id")
-      .get({ $id: id }) as import("./../db/providers").ProviderRecord | null
+      .get({ $id: id }) as ProviderRecord | null
 
     if (!row) {
       return c.json({ error: { message: "Provider not found" } }, 404)
@@ -322,13 +326,15 @@ export function createUpstreamsRoute(db: Database): Hono {
     const modelsUrl = `${baseUrl}/v1/models`
 
     try {
+      const proxyUrl = getProxyUrl(row, state)
       const res = await fetch(modelsUrl, {
         headers: {
           Authorization: `Bearer ${row.api_key}`,
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(10000), // 10s timeout
-      })
+        ...(proxyUrl ? { proxy: proxyUrl } : {}),
+      } as RequestInit)
 
       if (!res.ok) {
         const text = await res.text().catch(() => "")

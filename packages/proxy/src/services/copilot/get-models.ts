@@ -1,11 +1,14 @@
 import { copilotBaseUrl, copilotHeaders } from "./../../lib/api-config"
 import { HTTPError } from "./../../lib/error"
+import { getProxyUrl } from "./../../lib/socks5-bridge"
 import { state } from "./../../lib/state"
 
 export const getModels = async () => {
+  const proxyUrl = getProxyUrl("copilot", state)
   const response = await fetch(`${copilotBaseUrl(state)}/models`, {
     headers: copilotHeaders(state),
-  })
+    ...(proxyUrl ? { proxy: proxyUrl } : {}),
+  } as RequestInit)
 
   if (!response.ok) throw await HTTPError.fromResponse("Failed to get models", response)
 

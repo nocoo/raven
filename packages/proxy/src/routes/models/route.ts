@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { extractErrorDetails, forwardError } from "./../../lib/error"
 import { state } from "./../../lib/state"
 import { cacheModels } from "./../../lib/utils"
+import { getProxyUrl } from "./../../lib/socks5-bridge"
 import { logEmitter } from "./../../util/log-emitter"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
@@ -50,11 +51,13 @@ async function fetchUpstreamModels(provider: ProviderRecord): Promise<UpstreamMo
       headers["Authorization"] = `Bearer ${provider.api_key}`
     }
 
+    const proxyUrl = getProxyUrl(provider, state)
     const response = await fetch(url, {
       method: "GET",
       headers,
       signal: AbortSignal.timeout(5000), // 5s timeout
-    })
+      ...(proxyUrl ? { proxy: proxyUrl } : {}),
+    } as RequestInit)
 
     if (!response.ok) {
       return []

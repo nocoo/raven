@@ -1,6 +1,7 @@
 import { events } from "../../util/sse"
 import { copilotBaseUrl, copilotHeaders } from "../../lib/api-config"
 import { HTTPError } from "../../lib/error"
+import { getProxyUrl } from "../../lib/socks5-bridge"
 import { state } from "../../lib/state"
 
 export interface ResponsesPayload {
@@ -21,11 +22,13 @@ export const createResponses = async (payload: ResponsesPayload) => {
     "X-Initiator": isAgentCall ? "agent" : "user",
   }
 
+  const proxyUrl = getProxyUrl("copilot", state)
   const response = await fetch(`${copilotBaseUrl(state)}/responses`, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
-  })
+    ...(proxyUrl ? { proxy: proxyUrl } : {}),
+  } as RequestInit)
 
   if (!response.ok) {
     throw await HTTPError.fromResponse("Failed to create responses", response)

@@ -2,6 +2,7 @@ import { events } from "./../../util/sse"
 
 import { copilotHeaders, copilotBaseUrl } from "./../../lib/api-config"
 import { HTTPError } from "./../../lib/error"
+import { getProxyUrl } from "./../../lib/socks5-bridge"
 import { state } from "./../../lib/state"
 
 export const createChatCompletions = async (
@@ -25,11 +26,13 @@ export const createChatCompletions = async (
     "X-Initiator": isAgentCall ? "agent" : "user",
   }
 
+  const proxyUrl = getProxyUrl("copilot", state)
   const response = await fetch(`${copilotBaseUrl(state)}/chat/completions`, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
-  })
+    ...(proxyUrl ? { proxy: proxyUrl } : {}),
+  } as RequestInit)
 
   if (!response.ok) {
     throw await HTTPError.fromResponse("Failed to create chat completions", response)

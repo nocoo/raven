@@ -5,6 +5,8 @@ import type {
 } from "./../../services/copilot/create-chat-completions"
 import { events, type ServerSentEvent } from "./../../util/sse"
 import { HTTPError } from "./../../lib/error"
+import { getProxyUrl } from "./../../lib/socks5-bridge"
+import { state } from "./../../lib/state"
 
 /**
  * Send an OpenAI-format payload to a custom OpenAI-compatible upstream.
@@ -17,6 +19,7 @@ export async function sendOpenAIDirect(
   payload: ChatCompletionsPayload,
 ): Promise<ChatCompletionResponse | AsyncGenerator<ServerSentEvent>> {
   const url = `${provider.base_url.replace(/\/$/, "")}/v1/chat/completions`
+  const proxyUrl = getProxyUrl(provider, state)
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -24,7 +27,8 @@ export async function sendOpenAIDirect(
       "Authorization": `Bearer ${provider.api_key}`,
     },
     body: JSON.stringify(payload),
-  })
+    ...(proxyUrl ? { proxy: proxyUrl } : {}),
+  } as RequestInit)
 
   if (!response.ok) {
     throw await HTTPError.fromResponse(

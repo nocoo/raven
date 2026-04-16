@@ -2,6 +2,7 @@ import { Hono } from "hono"
 
 import { state } from "../lib/state"
 import { cacheModels } from "../lib/utils"
+import { getProxyUrl } from "../lib/socks5-bridge"
 import type { ProviderRecord } from "../db/providers"
 
 export interface ConnectionInfoRouteOptions {
@@ -29,11 +30,13 @@ async function fetchUpstreamModels(provider: ProviderRecord): Promise<string[]> 
       headers["Authorization"] = `Bearer ${provider.api_key}`
     }
 
+    const proxyUrl = getProxyUrl(provider, state)
     const response = await fetch(url, {
       method: "GET",
       headers,
       signal: AbortSignal.timeout(5000), // 5s timeout
-    })
+      ...(proxyUrl ? { proxy: proxyUrl } : {}),
+    } as RequestInit)
 
     if (!response.ok) {
       return []

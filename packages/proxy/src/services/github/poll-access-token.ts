@@ -6,6 +6,8 @@ import {
   standardHeaders,
 } from "./../../lib/api-config"
 import { sleep } from "./../../lib/utils"
+import { getProxyUrl } from "./../../lib/socks5-bridge"
+import { state } from "./../../lib/state"
 
 import type { DeviceCodeResponse } from "./get-device-code"
 
@@ -16,6 +18,7 @@ export async function pollAccessToken(
   logger.debug(`Polling access token with interval of ${sleepDuration}ms`)
 
   while (true) {
+    const proxyUrl = getProxyUrl("github", state)
     const response = await fetch(
       `${GITHUB_BASE_URL}/login/oauth/access_token`,
       {
@@ -26,7 +29,8 @@ export async function pollAccessToken(
           device_code: deviceCode.device_code,
           grant_type: "urn:ietf:params:oauth:grant-type:device_code",
         }),
-      },
+        ...(proxyUrl ? { proxy: proxyUrl } : {}),
+      } as RequestInit,
     )
 
     if (!response.ok) {

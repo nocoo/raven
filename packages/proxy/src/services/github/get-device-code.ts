@@ -5,8 +5,11 @@ import {
   standardHeaders,
 } from "./../../lib/api-config"
 import { HTTPError } from "./../../lib/error"
+import { getProxyUrl } from "./../../lib/socks5-bridge"
+import { state } from "./../../lib/state"
 
 export async function getDeviceCode(): Promise<DeviceCodeResponse> {
+  const proxyUrl = getProxyUrl("github", state)
   const response = await fetch(`${GITHUB_BASE_URL}/login/device/code`, {
     method: "POST",
     headers: standardHeaders(),
@@ -14,7 +17,8 @@ export async function getDeviceCode(): Promise<DeviceCodeResponse> {
       client_id: GITHUB_CLIENT_ID,
       scope: GITHUB_APP_SCOPES,
     }),
-  })
+    ...(proxyUrl ? { proxy: proxyUrl } : {}),
+  } as RequestInit)
 
   if (!response.ok) throw await HTTPError.fromResponse("Failed to get device code", response)
 
