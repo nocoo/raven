@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.8.0
+
+### Added
+- Add automated release script
+- Add GET /api/live health-check endpoint
+- Add SOCKS5 proxy settings UI
+- Add SOCKS5 bridge lifecycle management
+- Inject SOCKS5 proxy into all 17 upstream fetch calls
+- Add SOCKS5 settings API routes
+- Add cacheSocks5Settings for DB → state hydration
+- Add socks5-bridge module with HTTP CONNECT → SOCKS5 tunneling
+- Add success/warning badge variants
+
+### Changed
+- Extract SOCKS5 Proxy into dedicated settings page
+- Ignore GHSA-458j-xx4x-4375 hono medium CVE
+- Add socks5 API route tests + include design doc
+- Add nginx proxy timeout settings to prevent 504s
+
+### Fixed
+- Add save success/error feedback on Proxy settings page
+- Preserve structured errors in PUT BFF + verify egress IP in test
+- Improve Copilot Models table column widths and responsive breakpoints
+- Address 4 review issues in SOCKS5 proxy relay
+- Upgrade hono to fix GHSA-458j-xx4x-4375
+- Remove bg-input/border-input anti-patterns from button, tabs, switch (#15)
+- Badge warning token text-warning + reorder variants
+- Migrate L3 Input/Select from bg-input to bg-secondary
+
 ## v1.7.7 (2026-04-13)
 
 Runtime auth config detection for VPS deployments.
