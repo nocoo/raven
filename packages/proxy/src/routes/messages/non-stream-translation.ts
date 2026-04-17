@@ -256,6 +256,10 @@ export function translateToOpenAI(
   } as ExtendedChatCompletionsPayload
 }
 
+// Pre-compiled regexes for model name translation (avoid regex compilation on each call)
+const MODEL_REGEX_WITH_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:(?:-|\[)(1m|fast)\]?)?(?:-\d{8})?$/
+const MODEL_REGEX_NO_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
+
 function translateModelName(model: string, anthropicBeta: string | null): string {
   // Parse beta flags from anthropic-beta header
   const betas = anthropicBeta?.split(",").map((b) => b.trim()) ?? []
@@ -273,9 +277,7 @@ function translateModelName(model: string, anthropicBeta: string | null): string
   //   claude-sonnet-4-5-20250514   → claude-sonnet-4.5
   //   claude-sonnet-4-20250514     → claude-sonnet-4
   //   claude-haiku-4-5-20251001    → claude-haiku-4.5
-  const match = model.match(
-    /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:(?:-|\[)(1m|fast)\]?)?(?:-\d{8})?$/
-  )
+  const match = model.match(MODEL_REGEX_WITH_MINOR)
   if (match) {
     const [, family, major, minor, suffix] = match
     const base = `${family}-${major}.${minor}`
@@ -288,9 +290,7 @@ function translateModelName(model: string, anthropicBeta: string | null): string
   }
 
   // No minor version: claude-{family}-{major}[-date]
-  const matchNoMinor = model.match(
-    /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
-  )
+  const matchNoMinor = model.match(MODEL_REGEX_NO_MINOR)
   if (matchNoMinor) {
     const [, family, major] = matchNoMinor
     return `${family}-${major}`
