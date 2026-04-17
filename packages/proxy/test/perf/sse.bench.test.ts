@@ -1,7 +1,7 @@
 import { describe, expect, test, afterAll } from "bun:test";
 import { parseSSELine, parseSSEStream } from "../../src/util/sse.ts";
 
-// Metrics collector for autoresearch
+// Metrics collector for autoresearch (per-operation latency in nanoseconds)
 const metrics: Record<string, number> = {};
 
 // ---------------------------------------------------------------------------
@@ -59,10 +59,11 @@ describe("SSE parser performance benchmarks", () => {
     const bytesProcessed = sampleLine.length * iterations;
     const mbps = bytesProcessed / 1e6 / (elapsed / 1000);
 
-    const elapsedUs = Math.round(elapsed * 1000);
-    metrics.parseSSELine_µs = elapsedUs;
+    // Per-operation latency in nanoseconds
+    const avgNs = Math.round((elapsed / iterations) * 1e6);
+    metrics.parseSSELine_ns = avgNs;
     console.log(
-      `  parseSSELine: ${mbps.toFixed(1)} MB/s (${iterations} lines, ${elapsed.toFixed(2)}ms)`,
+      `  parseSSELine: ${mbps.toFixed(1)} MB/s, ${avgNs}ns/op (${iterations} lines, ${elapsed.toFixed(2)}ms)`,
     );
     expect(mbps).toBeGreaterThan(SSE_THROUGHPUT_MBPS);
   });
@@ -104,19 +105,19 @@ describe("SSE parser performance benchmarks", () => {
       if (mbps > bestMbps) bestMbps = mbps;
     }
 
-    // Calculate elapsed time for the best run
+    // Per-event latency in nanoseconds (for best run)
     const bestElapsedMs = payloadSizeMB / bestMbps * 1000;
-    const bestElapsedUs = Math.round(bestElapsedMs * 1000);
-    metrics.parseSSEStream_µs = bestElapsedUs;
+    const avgNs = Math.round((bestElapsedMs / lineCount) * 1e6);
+    metrics.parseSSEStream_ns = avgNs;
     console.log(
-      `  parseSSEStream: ${bestMbps.toFixed(1)} MB/s (${lineCount} events, ${payloadSizeMB.toFixed(2)} MB payload)`,
+      `  parseSSEStream: ${bestMbps.toFixed(1)} MB/s, ${avgNs}ns/event (${lineCount} events, ${payloadSizeMB.toFixed(2)} MB payload)`,
     );
     expect(bestMbps).toBeGreaterThan(SSE_THROUGHPUT_MBPS);
   });
 
   afterAll(() => {
-    // Output metrics for autoresearch
-    console.log(`METRIC parseSSELine_µs=${metrics.parseSSELine_µs}`);
-    console.log(`METRIC parseSSEStream_µs=${metrics.parseSSEStream_µs}`);
+    // Output metrics for autoresearch (per-operation latency in ns)
+    console.log(`METRIC parseSSELine_ns=${metrics.parseSSELine_ns}`);
+    console.log(`METRIC parseSSEStream_ns=${metrics.parseSSEStream_ns}`);
   });
 });

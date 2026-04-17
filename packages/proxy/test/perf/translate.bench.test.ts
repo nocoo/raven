@@ -4,7 +4,7 @@ import { translateChunkToAnthropicEvents } from "../../src/routes/messages/strea
 import type { AnthropicMessagesPayload, AnthropicStreamState } from "../../src/routes/messages/anthropic-types.ts";
 import type { ChatCompletionResponse, ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions.ts";
 
-// Metrics collector for autoresearch
+// Metrics collector for autoresearch (per-operation latency in nanoseconds)
 const metrics: Record<string, number> = {};
 
 // ---------------------------------------------------------------------------
@@ -344,10 +344,11 @@ describe("translate performance benchmarks", () => {
     const elapsed = performance.now() - start;
     const avgMs = elapsed / ITERATIONS;
 
-    const elapsedUs = Math.round(elapsed * 1000);
-    metrics.request_translation_µs = elapsedUs;
+    // Per-operation latency in nanoseconds
+    const avgNs = Math.round(avgMs * 1e6);
+    metrics.request_translation_ns = avgNs;
     console.log(
-      `  request translation: ${avgMs.toFixed(4)}ms/op (${ITERATIONS} iterations, ${elapsed.toFixed(2)}ms total)`,
+      `  request translation: ${avgMs.toFixed(4)}ms/op, ${avgNs}ns/op (${ITERATIONS} iterations, ${elapsed.toFixed(2)}ms total)`,
     );
     expect(avgMs).toBeLessThan(REQUEST_THRESHOLD_MS);
   });
@@ -365,10 +366,11 @@ describe("translate performance benchmarks", () => {
     const elapsed = performance.now() - start;
     const avgMs = elapsed / ITERATIONS;
 
-    const elapsedUs = Math.round(elapsed * 1000);
-    metrics.response_translation_µs = elapsedUs;
+    // Per-operation latency in nanoseconds
+    const avgNs = Math.round(avgMs * 1e6);
+    metrics.response_translation_ns = avgNs;
     console.log(
-      `  response translation: ${avgMs.toFixed(4)}ms/op (${ITERATIONS} iterations, ${elapsed.toFixed(2)}ms total)`,
+      `  response translation: ${avgMs.toFixed(4)}ms/op, ${avgNs}ns/op (${ITERATIONS} iterations, ${elapsed.toFixed(2)}ms total)`,
     );
     expect(avgMs).toBeLessThan(RESPONSE_THRESHOLD_MS);
   });
@@ -394,20 +396,19 @@ describe("translate performance benchmarks", () => {
     const totalChunks = STREAM_CHUNKS * 10;
     const avgMs = elapsed / totalChunks;
 
-    const elapsedUs = Math.round(elapsed * 1000);
-    metrics.stream_translation_µs = elapsedUs;
+    // Per-chunk latency in nanoseconds
+    const avgNs = Math.round(avgMs * 1e6);
+    metrics.stream_translation_ns = avgNs;
     console.log(
-      `  stream translation: ${avgMs.toFixed(4)}ms/chunk (${totalChunks} chunks, ${elapsed.toFixed(2)}ms total)`,
+      `  stream translation: ${avgMs.toFixed(4)}ms/chunk, ${avgNs}ns/chunk (${totalChunks} chunks, ${elapsed.toFixed(2)}ms total)`,
     );
     expect(avgMs).toBeLessThan(STREAM_THRESHOLD_MS);
   });
 
   afterAll(() => {
-    // Output metrics for autoresearch
-    console.log(`METRIC request_translation_µs=${metrics.request_translation_µs}`);
-    console.log(`METRIC response_translation_µs=${metrics.response_translation_µs}`);
-    console.log(`METRIC stream_translation_µs=${metrics.stream_translation_µs}`);
-    const total = (metrics.request_translation_µs ?? 0) + (metrics.response_translation_µs ?? 0) + (metrics.stream_translation_µs ?? 0);
-    console.log(`METRIC total_µs=${total}`);
+    // Output metrics for autoresearch (per-operation latency in ns)
+    console.log(`METRIC request_translation_ns=${metrics.request_translation_ns}`);
+    console.log(`METRIC response_translation_ns=${metrics.response_translation_ns}`);
+    console.log(`METRIC stream_translation_ns=${metrics.stream_translation_ns}`);
   });
 });

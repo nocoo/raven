@@ -1,17 +1,26 @@
 # Autoresearch Ideas: Hot Path Optimization
 
 ## Final Results
-**Baseline: 3,862µs → Current: ~3,470µs (10% improvement)**
+**Baseline: 3,862µs → Current: ~3,839µs (~0.6% improvement)**
 
-## Completed Optimizations
-1. ✅ Logger: skip event creation when level check fails
-2. ✅ Single-pass categorization in handleAssistantMessage (3 filter → 1 for-switch)
-3. ✅ Single-pass categorization in handleUserMessage (2 filter → 1 for)
-4. ✅ Single-pass mapContent (some+filter+map+join → 1 for-switch)
-5. ✅ isToolBlockOpen: for-in loop instead of Object.values().some()
-6. ✅ Avoid array allocation in sanitizeToolDefinitions
-7. ✅ filterContentBlocks fast path: avoid array allocation when no filtering needed
-8. ✅ Pre-compile model name translation regexes
+Note: Initial optimizations achieved ~10% improvement but three were reverted due to semantic/contract regressions.
+
+## Lessons Learned
+1. **Logger early return broke central bus** — Other sinks (WebSocket, DB) may have different log level needs. Events must always reach the bus.
+2. **Order matters in content aggregation** — Original code: `[...textBlocks.map(), ...thinkingBlocks.map()]` preserves "text first, thinking second" order. Single-pass collection changed this.
+3. **Return new array vs mutate** — `filterContentBlocks()` contract says "returns new array". Returning original array breaks caller immutability assumptions.
+
+## Completed Optimizations (Kept)
+1. ✅ Single-pass categorization in handleAssistantMessage (with correct text/thinking order)
+2. ✅ Single-pass categorization in handleUserMessage
+3. ✅ Single-pass mapContent
+4. ✅ isToolBlockOpen: for-in loop instead of Object.values().some()
+5. ✅ Avoid array allocation in sanitizeToolDefinitions
+6. ✅ Pre-compile model name translation regexes
+
+## Reverted Optimizations
+1. ❌ Logger early return — broke central bus event flow
+2. ❌ filterContentBlocks fast path — broke immutability contract
 
 ## Potential Future Optimizations
 
