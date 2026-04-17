@@ -1,5 +1,39 @@
 # Changelog
 
+## v1.8.1
+
+### Added
+- Upgrade /api/live to surety standard (#22)
+
+### Changed
+- New baseline with per-op latency metrics (ns). Includes all prior optimizations.
+- Fix parseSSEStream benchmark: use actual chunkCount instead of lineCount
+- Fix METRIC output: use per-op latency (ns) instead of total time
+- Fix regressions: logger bus, text/thinking order, filterContentBlocks immutability
+- Final validation: ~10% improvement confirmed
+- Pre-compile model name translation regexes
+- FilterContentBlocks fast path: avoid array allocation when no filtering needed
+- Avoid array allocation in tool sanitization
+- Optimize isToolBlockOpen: for-in loop instead of Object.values().some()
+- Single-pass mapContent: detect image and collect text together
+- Single-pass categorization in handleUserMessage
+- Single-pass categorization in handleAssistantMessage
+- Skip event creation when level check fails
+- Add METRIC output to perf benchmarks
+- Expand settings-socks5 coverage
+- Expand socks5-bridge coverage
+- Add detect-local-versions coverage
+- Expand app-dirs coverage
+- Add live route tests
+- Expand keepalive coverage
+- Expand sound route coverage
+- Retrigger
+
+### Fixed
+- Remove useless initial assignments in live route handlers
+- Use translated model name for token counting
+- Resolve model variant (1m, fast) from anthropic-beta header
+
 ## v1.8.0
 
 ### Added
