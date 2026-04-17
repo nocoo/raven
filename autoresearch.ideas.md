@@ -1,5 +1,8 @@
 # Autoresearch Ideas: Hot Path Optimization
 
+## Final Results
+**Baseline: 3,862µs → Current: ~3,470µs (10% improvement)**
+
 ## Completed Optimizations
 1. ✅ Logger: skip event creation when level check fails
 2. ✅ Single-pass categorization in handleAssistantMessage (3 filter → 1 for-switch)
@@ -8,6 +11,7 @@
 5. ✅ isToolBlockOpen: for-in loop instead of Object.values().some()
 6. ✅ Avoid array allocation in sanitizeToolDefinitions
 7. ✅ filterContentBlocks fast path: avoid array allocation when no filtering needed
+8. ✅ Pre-compile model name translation regexes
 
 ## Potential Future Optimizations
 
