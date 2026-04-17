@@ -135,23 +135,31 @@ export function stripToolUseFields(block: AnthropicToolUseBlock): void {
  */
 export function sanitizeToolDefinitions(tools: AnthropicTool[]): void {
   for (const tool of tools) {
-    const toolAny = tool as unknown as Record<string, unknown>
-    if ("cache_control" in toolAny) {
-      delete toolAny.cache_control
-      logger.debug(`Sanitization: stripped tool schema field="cache_control" from tool="${tool.name}"`)
-    }
-    if ("defer_loading" in toolAny) {
-      delete toolAny.defer_loading
-      logger.debug(`Sanitization: stripped tool schema field="defer_loading" from tool="${tool.name}"`)
-    }
-    if ("strict" in toolAny) {
-      delete toolAny.strict
-      logger.debug(`Sanitization: stripped tool schema field="strict" from tool="${tool.name}"`)
-    }
-    if ("eager_input_streaming" in toolAny) {
-      delete toolAny.eager_input_streaming
-      logger.debug(`Sanitization: stripped tool schema field="eager_input_streaming" from tool="${tool.name}"`)
-    }
+    sanitizeSingleToolDefinition(tool)
+  }
+}
+
+/**
+ * Strip extended fields from a single tool schema definition (mutates in place).
+ * Used by translateAnthropicToolsToOpenAI to avoid array allocation overhead.
+ */
+function sanitizeSingleToolDefinition(tool: AnthropicTool): void {
+  const toolAny = tool as unknown as Record<string, unknown>
+  if ("cache_control" in toolAny) {
+    delete toolAny.cache_control
+    logger.debug(`Sanitization: stripped tool schema field="cache_control" from tool="${tool.name}"`)
+  }
+  if ("defer_loading" in toolAny) {
+    delete toolAny.defer_loading
+    logger.debug(`Sanitization: stripped tool schema field="defer_loading" from tool="${tool.name}"`)
+  }
+  if ("strict" in toolAny) {
+    delete toolAny.strict
+    logger.debug(`Sanitization: stripped tool schema field="strict" from tool="${tool.name}"`)
+  }
+  if ("eager_input_streaming" in toolAny) {
+    delete toolAny.eager_input_streaming
+    logger.debug(`Sanitization: stripped tool schema field="eager_input_streaming" from tool="${tool.name}"`)
   }
 }
 
@@ -562,8 +570,8 @@ function translateAnthropicToolsToOpenAI(
       serverSideToolNames.push(tool.name)
     }
 
-    // Sanitize tool schema - strip Anthropic-only fields
-    sanitizeToolDefinitions([tool])
+    // Sanitize tool schema - strip Anthropic-only fields (direct call, no array wrapper)
+    sanitizeSingleToolDefinition(tool)
 
     return {
       type: "function",
