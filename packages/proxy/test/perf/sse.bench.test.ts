@@ -88,6 +88,8 @@ describe("SSE parser performance benchmarks", () => {
 
     // Benchmark: run 3 times and take best
     let bestMbps = 0;
+    let bestChunkCount = 0;
+    let bestElapsedMs = 0;
     for (let run = 0; run < 3; run++) {
       const stream = new ReadableStream({
         start(controller) {
@@ -102,15 +104,18 @@ describe("SSE parser performance benchmarks", () => {
       const elapsed = performance.now() - start;
 
       const mbps = payloadSizeMB / (elapsed / 1000);
-      if (mbps > bestMbps) bestMbps = mbps;
+      if (mbps > bestMbps) {
+        bestMbps = mbps;
+        bestChunkCount = chunkCount;
+        bestElapsedMs = elapsed;
+      }
     }
 
-    // Per-event latency in nanoseconds (for best run)
-    const bestElapsedMs = payloadSizeMB / bestMbps * 1000;
-    const avgNs = Math.round((bestElapsedMs / lineCount) * 1e6);
+    // Per-event latency in nanoseconds (use actual chunkCount from best run)
+    const avgNs = Math.round((bestElapsedMs / bestChunkCount) * 1e6);
     metrics.parseSSEStream_ns = avgNs;
     console.log(
-      `  parseSSEStream: ${bestMbps.toFixed(1)} MB/s, ${avgNs}ns/event (${lineCount} events, ${payloadSizeMB.toFixed(2)} MB payload)`,
+      `  parseSSEStream: ${bestMbps.toFixed(1)} MB/s, ${avgNs}ns/event (${bestChunkCount} events, ${payloadSizeMB.toFixed(2)} MB payload)`,
     );
     expect(bestMbps).toBeGreaterThan(SSE_THROUGHPUT_MBPS);
   });
