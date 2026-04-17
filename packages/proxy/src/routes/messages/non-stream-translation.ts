@@ -495,28 +495,39 @@ function mapContent(
     return null
   }
 
-  const hasImage = content.some((block) => block.type === "image")
-  if (!hasImage) {
-    return content
-      .filter(
-        (block): block is AnthropicTextBlock | AnthropicThinkingBlock =>
-          block.type === "text" || block.type === "thinking",
-      )
-      .map((block) => (block.type === "text" ? block.text : block.thinking))
-      .join("\n\n")
+  // Single-pass: detect image and collect text simultaneously
+  let hasImage = false
+  const textParts: string[] = []
+
+  for (const block of content) {
+    switch (block.type) {
+      case "image":
+        hasImage = true
+        break
+      case "text":
+        textParts.push(block.text)
+        break
+      case "thinking":
+        textParts.push((block as AnthropicThinkingBlock).thinking)
+        break
+    }
   }
 
+  // Fast path: no images, just join text
+  if (!hasImage) {
+    return textParts.length > 0 ? textParts.join("\n\n") : null
+  }
+
+  // Slow path with images: build ContentPart array
   const contentParts: Array<ContentPart> = []
   for (const block of content) {
     switch (block.type) {
       case "text": {
         contentParts.push({ type: "text", text: block.text })
-
         break
       }
       case "thinking": {
-        contentParts.push({ type: "text", text: block.thinking })
-
+        contentParts.push({ type: "text", text: (block as AnthropicThinkingBlock).thinking })
         break
       }
       case "image": {
@@ -526,10 +537,8 @@ function mapContent(
             url: `data:${block.source.media_type};base64,${block.source.data}`,
           },
         })
-
         break
       }
-      // No default
     }
   }
   return contentParts
