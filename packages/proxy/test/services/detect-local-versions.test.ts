@@ -1,0 +1,294 @@
+import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
+import { join } from "node:path";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+
+// ---------------------------------------------------------------------------
+// Mocks — must be set up before importing the module under test
+// ---------------------------------------------------------------------------
+
+let mockPlatform = "darwin";
+let mockHomedir = "/Users/testuser";
+let readFileImpl: (path: string, enc: string) => Promise<string> = async () => {
+  throw new Error("ENOENT");
+};
+
+mock.module("node:os", () => ({
+  platform: () => mockPlatform,
+  homedir: () => mockHomedir,
+}));
+
+mock.module("node:fs/promises", () => ({
+  readFile: (path: string, enc: string) => readFileImpl(path, enc),
+}));
+
+// Now import the module under test
+const { detectLocalVSCodeVersion, detectLocalCopilotVersion } = await import(
+  "../../src/services/detect-local-versions.ts"
+);
+
+beforeEach(() => {
+  mockPlatform = "darwin";
+  mockHomedir = "/Users/testuser";
+  readFileImpl = async () => {
+    throw new Error("ENOENT");
+  };
+});
+
+// ---------------------------------------------------------------------------
+// detectLocalVSCodeVersion
+// ---------------------------------------------------------------------------
+
+describe("detectLocalVSCodeVersion", () => {
+  test("returns version from first valid package.json on macOS", async () => {
+    mockPlatform = "darwin";
+    readFileImpl = async (path) => {
+      if (path.includes("Visual Studio Code.app")) {
+        return JSON.stringify({ version: "1.92.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("1.92.0");
+  });
+
+  test("returns version from Cursor when VS Code not installed on macOS", async () => {
+    mockPlatform = "darwin";
+    readFileImpl = async (path) => {
+      if (path.includes("Cursor.app")) {
+        return JSON.stringify({ version: "0.40.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("0.40.0");
+  });
+
+  test("returns null when no editors installed", async () => {
+    mockPlatform = "darwin";
+    expect(await detectLocalVSCodeVersion()).toBeNull();
+  });
+
+  test("returns null for package.json without version field", async () => {
+    mockPlatform = "darwin";
+    readFileImpl = async (path) => {
+      if (path.includes("Visual Studio Code.app")) {
+        return JSON.stringify({ name: "code-oss" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBeNull();
+  });
+
+  test("handles invalid JSON gracefully", async () => {
+    mockPlatform = "darwin";
+    readFileImpl = async (path) => {
+      if (path.includes("Visual Studio Code.app")) {
+        return "not-json{{{";
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBeNull();
+  });
+
+  // Linux platform branch
+  test("returns version from /usr/share/code on linux", async () => {
+    mockPlatform = "linux";
+    mockHomedir = "/home/testuser";
+    readFileImpl = async (path) => {
+      if (path === "/usr/share/code/resources/app/package.json") {
+        return JSON.stringify({ version: "1.91.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("1.91.0");
+  });
+
+  test("returns version from snap path on linux", async () => {
+    mockPlatform = "linux";
+    mockHomedir = "/home/testuser";
+    readFileImpl = async (path) => {
+      if (path.includes("/snap/code/")) {
+        return JSON.stringify({ version: "1.91.1" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("1.91.1");
+  });
+
+  test("returns version from Cursor on linux", async () => {
+    mockPlatform = "linux";
+    mockHomedir = "/home/testuser";
+    readFileImpl = async (path) => {
+      if (path.includes("/opt/Cursor/")) {
+        return JSON.stringify({ version: "0.39.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("0.39.0");
+  });
+
+  test("returns version from VSCodium on linux", async () => {
+    mockPlatform = "linux";
+    mockHomedir = "/home/testuser";
+    readFileImpl = async (path) => {
+      if (path.includes("/usr/share/codium/")) {
+        return JSON.stringify({ version: "1.90.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("1.90.0");
+  });
+
+  // Win32 platform branch
+  test("returns version on win32 with LOCALAPPDATA", async () => {
+    mockPlatform = "win32";
+    mockHomedir = "C:\\Users\\testuser";
+    process.env.LOCALAPPDATA = "C:\\Users\\testuser\\AppData\\Local";
+    readFileImpl = async (path) => {
+      if (path.includes("Microsoft VS Code")) {
+        return JSON.stringify({ version: "1.93.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("1.93.0");
+    delete process.env.LOCALAPPDATA;
+  });
+
+  test("uses fallback LOCALAPPDATA on win32", async () => {
+    mockPlatform = "win32";
+    mockHomedir = "C:\\Users\\testuser";
+    delete process.env.LOCALAPPDATA;
+    readFileImpl = async (path) => {
+      if (path.includes("Microsoft VS Code") && !path.includes("Insiders")) {
+        return JSON.stringify({ version: "1.93.1" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("1.93.1");
+  });
+
+  test("returns version from Cursor on win32", async () => {
+    mockPlatform = "win32";
+    mockHomedir = "C:\\Users\\testuser";
+    process.env.LOCALAPPDATA = "C:\\Users\\testuser\\AppData\\Local";
+    readFileImpl = async (path) => {
+      if (path.includes("cursor")) {
+        return JSON.stringify({ version: "0.41.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("0.41.0");
+    delete process.env.LOCALAPPDATA;
+  });
+
+  test("returns version from VSCodium on win32", async () => {
+    mockPlatform = "win32";
+    mockHomedir = "C:\\Users\\testuser";
+    process.env.LOCALAPPDATA = "C:\\Users\\testuser\\AppData\\Local";
+    readFileImpl = async (path) => {
+      if (path.includes("VSCodium")) {
+        return JSON.stringify({ version: "1.89.0" });
+      }
+      throw new Error("ENOENT");
+    };
+    expect(await detectLocalVSCodeVersion()).toBe("1.89.0");
+    delete process.env.LOCALAPPDATA;
+  });
+
+  test("returns null on unknown platform", async () => {
+    mockPlatform = "freebsd";
+    expect(await detectLocalVSCodeVersion()).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// detectLocalCopilotVersion
+// ---------------------------------------------------------------------------
+
+describe("detectLocalCopilotVersion", () => {
+  let tmpDir: string;
+
+  async function setupExtDir(relPath: string, versions: { dir: string; pkg: object }[]) {
+    const extDir = join(tmpDir, relPath);
+    await mkdir(extDir, { recursive: true });
+    for (const v of versions) {
+      const d = join(extDir, v.dir);
+      await mkdir(d, { recursive: true });
+      await writeFile(join(d, "package.json"), JSON.stringify(v.pkg));
+    }
+  }
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), "dlv-test-"));
+    mockHomedir = tmpDir;
+    // For copilot tests, readFile needs to work for real files in tmpDir
+    readFileImpl = async (path, _enc) => {
+      const f = Bun.file(path);
+      if (!(await f.exists())) throw new Error("ENOENT");
+      return await f.text();
+    };
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  test("returns null when no extensions directories exist", async () => {
+    mockPlatform = "darwin";
+    // No extension dirs created — Glob will throw ENOENT
+    expect(await detectLocalCopilotVersion()).toBeNull();
+  });
+
+  test("returns null on unknown platform (no candidates)", async () => {
+    mockPlatform = "freebsd";
+    expect(await detectLocalCopilotVersion()).toBeNull();
+  });
+
+  test("returns highest copilot version across extensions", async () => {
+    mockPlatform = "darwin";
+    await setupExtDir(".vscode/extensions", [
+      { dir: "github.copilot-chat-0.20.0", pkg: { version: "0.20.0" } },
+      { dir: "github.copilot-chat-0.22.0", pkg: { version: "0.22.0" } },
+    ]);
+
+    expect(await detectLocalCopilotVersion()).toBe("0.22.0");
+  });
+
+  test("returns version when only one extension found", async () => {
+    mockPlatform = "darwin";
+    await setupExtDir(".vscode/extensions", [
+      { dir: "github.copilot-chat-0.19.0", pkg: { version: "0.19.0" } },
+    ]);
+
+    expect(await detectLocalCopilotVersion()).toBe("0.19.0");
+  });
+
+  test("returns null when best version package.json has no version field", async () => {
+    mockPlatform = "darwin";
+    await setupExtDir(".vscode/extensions", [
+      { dir: "github.copilot-chat-0.21.0", pkg: { name: "copilot-chat" } },
+    ]);
+
+    expect(await detectLocalCopilotVersion()).toBeNull();
+  });
+
+  test("picks highest version across multiple extension dirs", async () => {
+    mockPlatform = "darwin";
+    await setupExtDir(".vscode/extensions", [
+      { dir: "github.copilot-chat-0.18.0", pkg: { version: "0.18.0" } },
+    ]);
+    await setupExtDir(".cursor/extensions", [
+      { dir: "github.copilot-chat-0.23.0", pkg: { version: "0.23.0" } },
+    ]);
+
+    expect(await detectLocalCopilotVersion()).toBe("0.23.0");
+  });
+
+  test("ignores entries that don't match version pattern", async () => {
+    mockPlatform = "darwin";
+    await setupExtDir(".vscode/extensions", [
+      { dir: "github.copilot-chat-nightly", pkg: { version: "0.0.1" } },
+    ]);
+
+    expect(await detectLocalCopilotVersion()).toBeNull();
+  });
+});

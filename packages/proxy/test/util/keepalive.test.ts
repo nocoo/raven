@@ -130,7 +130,7 @@ describe("startKeepalive", () => {
       error() {},
     } as unknown as ReadableStreamDefaultController<Uint8Array>
 
-    const ka = startKeepalive(throwingController)
+    startKeepalive(throwingController)
     expect(timers.length).toBe(1)
 
     // Simulate the interval firing — enqueue throws, catch block calls stop()
