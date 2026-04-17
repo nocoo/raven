@@ -11,8 +11,9 @@ import {
   FILE_MODE,
 } from "../../src/lib/app-dirs";
 
-// Save original env
+// Save original env and platform
 const originalEnv = { ...process.env };
+const originalPlatform = process.platform;
 
 describe("app-dirs", () => {
   beforeEach(() => {
@@ -28,15 +29,20 @@ describe("app-dirs", () => {
   });
 
   afterEach(() => {
-    // Restore env
+    // Restore env and platform
     process.env = { ...originalEnv };
-    // Restore platform (read-only, but we can mock the function behavior)
+    (process as any).platform = originalPlatform;
   });
 
   describe("getPlatform", () => {
-    test("returns darwin on macOS", () => {
+    test("returns current platform", () => {
       const platform = getPlatform();
       expect(["darwin", "linux", "win32", "other"]).toContain(platform);
+    });
+
+    test("returns other for unknown platforms", () => {
+      (process as any).platform = "freebsd";
+      expect(getPlatform()).toBe("other");
     });
   });
 
@@ -63,47 +69,108 @@ describe("app-dirs", () => {
   });
 
   describe("XDG support on Linux", () => {
+    beforeEach(() => {
+      (process as any).platform = "linux";
+    });
+
     test("uses XDG_CONFIG_HOME when set", () => {
-      // Mock platform behavior by checking env
       process.env.XDG_CONFIG_HOME = "/custom/xdg/config";
-      // On actual Linux, this would affect getConfigDir
-      // Here we just verify the env is respected when platform is linux
-      expect(getConfigDir()).toBeTruthy();
+      expect(getConfigDir()).toBe("/custom/xdg/config/raven");
     });
 
     test("uses XDG_DATA_HOME when set", () => {
       process.env.XDG_DATA_HOME = "/custom/xdg/data";
-      expect(getDataDir()).toBeTruthy();
+      expect(getDataDir()).toBe("/custom/xdg/data/raven");
     });
 
     test("falls back to ~/.config when XDG_CONFIG_HOME not set", () => {
       delete process.env.XDG_CONFIG_HOME;
       const home = os.homedir();
-      const result = getConfigDir();
-      // Should contain home directory
-      expect(result).toContain(home);
+      expect(getConfigDir()).toBe(path.join(home, ".config", "raven"));
+    });
+
+    test("falls back to ~/.local/share when XDG_DATA_HOME not set", () => {
+      delete process.env.XDG_DATA_HOME;
+      const home = os.homedir();
+      expect(getDataDir()).toBe(path.join(home, ".local", "share", "raven"));
+    });
+  });
+
+  describe("win32 platform", () => {
+    beforeEach(() => {
+      (process as any).platform = "win32";
+    });
+
+    test("getConfigDir uses APPDATA when set", () => {
+      process.env.APPDATA = "/mock/appdata";
+      expect(getConfigDir()).toBe(path.join("/mock/appdata", "raven"));
+    });
+
+    test("getConfigDir falls back to homedir/AppData/Roaming without APPDATA", () => {
+      delete process.env.APPDATA;
+      const home = os.homedir();
+      expect(getConfigDir()).toBe(path.join(home, "AppData", "Roaming", "raven"));
+    });
+
+    test("getDataDir uses LOCALAPPDATA when set", () => {
+      process.env.LOCALAPPDATA = "/mock/localappdata";
+      expect(getDataDir()).toBe(path.join("/mock/localappdata", "raven"));
+    });
+
+    test("getDataDir falls back to homedir/AppData/Local without LOCALAPPDATA", () => {
+      delete process.env.LOCALAPPDATA;
+      const home = os.homedir();
+      expect(getDataDir()).toBe(path.join(home, "AppData", "Local", "raven"));
+    });
+  });
+
+  describe("other/unknown platform fallback", () => {
+    beforeEach(() => {
+      (process as any).platform = "freebsd";
+    });
+
+    test("getConfigDir falls back to ~/.config (linux-style)", () => {
+      const home = os.homedir();
+      expect(getConfigDir()).toBe(path.join(home, ".config", "raven"));
+    });
+
+    test("getDataDir falls back to ~/.local/share (linux-style)", () => {
+      const home = os.homedir();
+      expect(getDataDir()).toBe(path.join(home, ".local", "share", "raven"));
+    });
+  });
+
+  describe("darwin platform", () => {
+    beforeEach(() => {
+      (process as any).platform = "darwin";
+    });
+
+    test("getConfigDir uses Library/Application Support", () => {
+      const home = os.homedir();
+      expect(getConfigDir()).toBe(path.join(home, "Library", "Application Support", "raven"));
+    });
+
+    test("getDataDir uses Library/Application Support", () => {
+      const home = os.homedir();
+      expect(getDataDir()).toBe(path.join(home, "Library", "Application Support", "raven"));
     });
   });
 
   describe("path structure", () => {
     test("config dir includes app name", () => {
-      const configDir = getConfigDir();
-      expect(configDir).toMatch(/raven$/);
+      expect(getConfigDir()).toMatch(/raven$/);
     });
 
     test("data dir includes app name", () => {
-      const dataDir = getDataDir();
-      expect(dataDir).toMatch(/raven$/);
+      expect(getDataDir()).toMatch(/raven$/);
     });
 
-    test("token path is inside config dir", () => {
-      const tokenPath = getDefaultTokenPath();
-      expect(tokenPath).toMatch(/github_token$/);
+    test("token path ends with github_token", () => {
+      expect(getDefaultTokenPath()).toMatch(/github_token$/);
     });
 
-    test("db path is inside data dir", () => {
-      const dbPath = getDefaultDbPath();
-      expect(dbPath).toMatch(/raven\.db$/);
+    test("db path ends with raven.db", () => {
+      expect(getDefaultDbPath()).toMatch(/raven\.db$/);
     });
   });
 
@@ -119,19 +186,14 @@ describe("app-dirs", () => {
 
   describe("home directory resolution", () => {
     test("paths are absolute", () => {
-      const configDir = getConfigDir();
-      const dataDir = getDataDir();
-      expect(path.isAbsolute(configDir)).toBe(true);
-      expect(path.isAbsolute(dataDir)).toBe(true);
+      expect(path.isAbsolute(getConfigDir())).toBe(true);
+      expect(path.isAbsolute(getDataDir())).toBe(true);
     });
 
     test("paths use system home directory", () => {
       const home = os.homedir();
-      const configDir = getConfigDir();
-      const dataDir = getDataDir();
-      // All paths should be under home dir (unless overridden)
-      expect(configDir).toContain(home);
-      expect(dataDir).toContain(home);
+      expect(getConfigDir()).toContain(home);
+      expect(getDataDir()).toContain(home);
     });
   });
 });
