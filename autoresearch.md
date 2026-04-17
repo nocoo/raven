@@ -4,9 +4,15 @@
 Optimize performance of Raven proxy's hot paths without breaking any functionality.
 
 ## Primary Metric
-**total_µs** — Total benchmark execution time in microseconds (lower is better).
+**request_translation_ns** — Per-operation latency for request translation in nanoseconds (lower is better).
 
-Computed as the sum of all benchmark durations from `bun run test:perf`.
+This is the single most impactful hot path: every Anthropic request must be translated to OpenAI format.
+
+## Secondary Metrics
+- `response_translation_ns` — Per-operation latency for response translation
+- `stream_translation_ns` — Per-chunk latency for stream translation
+- `parseSSELine_ns` — Per-line latency for SSE parsing
+- `parseSSEStream_ns` — Per-event latency for SSE stream parsing
 
 ## Benchmark Suite
 ```bash
@@ -21,7 +27,7 @@ Benchmarks:
 
 ## Checks (autoresearch.checks.sh)
 ```bash
-bun run test        # proxy unit tests (584 tests, 90% coverage)
+bun run test        # proxy unit tests (1147 tests, 90% coverage)
 bun run typecheck   # type checking
 ```
 
