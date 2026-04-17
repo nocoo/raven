@@ -430,28 +430,27 @@ function handleAssistantMessage(
     return []
   }
 
-  const toolUseBlocks = filteredContent.filter(
-    (block): block is AnthropicToolUseBlock => block.type === "tool_use",
-  )
+  // Single-pass categorization of blocks (avoid multiple filter() calls)
+  const toolUseBlocks: AnthropicToolUseBlock[] = []
+  const textParts: string[] = []
 
-  // Strip extended fields from tool_use blocks
-  for (const block of toolUseBlocks) {
-    stripToolUseFields(block)
+  for (const block of filteredContent) {
+    switch (block.type) {
+      case "tool_use":
+        stripToolUseFields(block as AnthropicToolUseBlock)
+        toolUseBlocks.push(block as AnthropicToolUseBlock)
+        break
+      case "text":
+        textParts.push((block as AnthropicTextBlock).text)
+        break
+      case "thinking":
+        textParts.push((block as AnthropicThinkingBlock).thinking)
+        break
+    }
   }
 
-  const textBlocks = filteredContent.filter(
-    (block): block is AnthropicTextBlock => block.type === "text",
-  )
-
-  const thinkingBlocks = filteredContent.filter(
-    (block): block is AnthropicThinkingBlock => block.type === "thinking",
-  )
-
   // Combine text and thinking blocks, as OpenAI doesn't have separate thinking blocks
-  const allTextContent = [
-    ...textBlocks.map((b) => b.text),
-    ...thinkingBlocks.map((b) => b.thinking),
-  ].join("\n\n")
+  const allTextContent = textParts.length > 0 ? textParts.join("\n\n") : null
 
   return toolUseBlocks.length > 0 ?
       [
