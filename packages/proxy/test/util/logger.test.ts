@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { enableTerminalSink, disableTerminalSink, logger } from "../../src/util/logger"
+import { enableTerminalSink, disableTerminalSink, logger, setLogLevel } from "../../src/util/logger"
 import { logEmitter } from "../../src/util/log-emitter"
 
 // ===========================================================================
@@ -128,12 +128,23 @@ describe("terminal sink", () => {
 // ===========================================================================
 
 describe("logger convenience API", () => {
-  test("logger.debug emits system event", () => {
+  test("logger.debug emits system event (when level=debug)", () => {
     const events: unknown[] = []
+    setLogLevel("debug") // Enable debug level
     logEmitter.on("log", (e: unknown) => events.push(e))
     logger.debug("debug msg")
     logEmitter.removeAllListeners("log")
+    setLogLevel("info") // Restore default
     expect(events.length).toBeGreaterThanOrEqual(1)
+  })
+
+  test("logger.debug is suppressed at default info level", () => {
+    const events: unknown[] = []
+    setLogLevel("info") // Ensure default
+    logEmitter.on("log", (e: unknown) => events.push(e))
+    logger.debug("debug msg")
+    logEmitter.removeAllListeners("log")
+    expect(events.length).toBe(0) // Should NOT emit
   })
 
   test("logger.info emits system event", () => {
