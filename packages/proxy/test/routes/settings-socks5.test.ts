@@ -1,13 +1,16 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
+import net from "node:net";
 
 import { state } from "../../src/lib/state";
 import { initSettings, setSetting, getSetting } from "../../src/db/settings";
 import { initProviders } from "../../src/db/providers";
 import { cacheSocks5Settings } from "../../src/lib/utils";
 import { createSocks5SettingsRoute } from "../../src/routes/settings-socks5";
-import { stopBridge, getBridgePort } from "../../src/lib/socks5-bridge";
+import * as socks5Bridge from "../../src/lib/socks5-bridge";
+
+const { stopBridge, getBridgePort } = socks5Bridge;
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -82,7 +85,6 @@ describe("GET /api/settings/socks5", () => {
     const res = await createApp().request("/api/settings/socks5");
     const body = await res.json();
     expect(body.hasPassword).toBe(true);
-    // Must NOT contain the actual password
     expect(JSON.stringify(body)).not.toContain("secret");
   });
 
@@ -118,13 +120,44 @@ describe("PUT /api/settings/socks5", () => {
       }),
     });
     expect(res.status).toBe(200);
-
-    // Verify DB
     expect(getSetting(db, "socks5_host")).toBe("proxy.example.com");
     expect(getSetting(db, "socks5_port")).toBe("1080");
     expect(getSetting(db, "socks5_username")).toBe("user1");
     expect(getSetting(db, "socks5_copilot")).toBe("on");
     expect(getSetting(db, "socks5_enabled")).toBe("false");
+  });
+
+  test("validates enabled must be boolean", async () => {
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: "yes" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.message).toContain("enabled must be a boolean");
+  });
+
+  test("validates host must be non-empty string", async () => {
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.message).toContain("host must be a non-empty string");
+  });
+
+  test("validates host must be a string type", async () => {
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: 123 }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.message).toContain("host");
   });
 
   test("validates port range", async () => {
@@ -136,6 +169,24 @@ describe("PUT /api/settings/socks5", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.message).toContain("port");
+  });
+
+  test("validates port must be >= 1", async () => {
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ port: 0 }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("validates port must be integer", async () => {
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ port: 1.5 }),
+    });
+    expect(res.status).toBe(400);
   });
 
   test("validates copilotPolicy enum", async () => {
@@ -156,6 +207,85 @@ describe("PUT /api/settings/socks5", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.message).toContain("host and port");
+  });
+
+  test("enabling starts bridge and returns running status", async () => {
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: true,
+        host: "127.0.0.1",
+        port: 19999,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.bridgeStatus).toBe("running");
+    expect(body.bridgePort).toBeGreaterThan(0);
+    expect(getBridgePort()).not.toBeNull();
+  });
+
+  test("enabling with credentials passes userId and password to bridge", async () => {
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: true,
+        host: "127.0.0.1",
+        port: 19999,
+        username: "user1",
+        password: "pass1",
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(getBridgePort()).not.toBeNull();
+  });
+
+  test("returns bridge_error when startBridge fails with Error", async () => {
+    const startSpy = spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
+      new Error("EADDRINUSE"),
+    );
+    try {
+      const res = await createApp().request("/api/settings/socks5", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          host: "127.0.0.1",
+          port: 1080,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error.type).toBe("bridge_error");
+      expect(body.error.message).toContain("EADDRINUSE");
+    } finally {
+      startSpy.mockRestore();
+    }
+  });
+
+  test("returns bridge_error when startBridge fails with non-Error", async () => {
+    const startSpy = spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
+      "string error",
+    );
+    try {
+      const res = await createApp().request("/api/settings/socks5", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          host: "127.0.0.1",
+          port: 1080,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error.type).toBe("bridge_error");
+      expect(body.error.message).toContain("string error");
+    } finally {
+      startSpy.mockRestore();
+    }
   });
 
   test("password three-state: string updates", async () => {
@@ -189,6 +319,17 @@ describe("PUT /api/settings/socks5", () => {
     expect(getSetting(db, "socks5_password")).toBe("preserved");
   });
 
+  test("username null clears from DB", async () => {
+    setSetting(db, "socks5_username", "olduser");
+    cacheSocks5Settings(db);
+    await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: null }),
+    });
+    expect(getSetting(db, "socks5_username")).toBeNull();
+  });
+
   test("updates provider policies", async () => {
     insertProvider("p1", "Provider1", null);
     insertProvider("p2", "Provider2", null);
@@ -215,8 +356,41 @@ describe("PUT /api/settings/socks5", () => {
     expect(row2.use_socks5).toBe(0);
   });
 
+  test("provider policies skips entries without id", async () => {
+    insertProvider("p1", "Provider1", null);
+    const res = await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        providerPolicies: [
+          { id: "", use_socks5: 1 },
+          { id: "p1", use_socks5: 1 },
+        ],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const row = db
+      .query("SELECT use_socks5 FROM providers WHERE id = 'p1'")
+      .get() as { use_socks5: number | null };
+    expect(row.use_socks5).toBe(1);
+  });
+
+  test("provider policies with use_socks5=null clears value", async () => {
+    insertProvider("p1", "Provider1", 1);
+    await createApp().request("/api/settings/socks5", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        providerPolicies: [{ id: "p1", use_socks5: null }],
+      }),
+    });
+    const row = db
+      .query("SELECT use_socks5 FROM providers WHERE id = 'p1'")
+      .get() as { use_socks5: number | null };
+    expect(row.use_socks5).toBeNull();
+  });
+
   test("disabling stops bridge", async () => {
-    // Pre-set enabled state with bridge config
     setSetting(db, "socks5_enabled", "true");
     setSetting(db, "socks5_host", "127.0.0.1");
     setSetting(db, "socks5_port", "19999");
@@ -268,10 +442,29 @@ describe("POST /api/settings/socks5/test", () => {
         useStoredCredentials: true,
       }),
     });
-    // Will fail to connect (port not open), but validates the flow doesn't error
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.success).toBe(false);
+  });
+
+  test("explicit credentials override stored credentials", async () => {
+    state.socks5Username = "stored-user";
+    state.socks5Password = "stored-pass";
+
+    const res = await createApp().request("/api/settings/socks5/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        host: "127.0.0.1",
+        port: 19998,
+        username: "explicit-user",
+        password: "explicit-pass",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
   test("returns error for unreachable proxy", async () => {
@@ -286,4 +479,242 @@ describe("POST /api/settings/socks5/test", () => {
     expect(body.error).toBeDefined();
     expect(body.latencyMs).toBeGreaterThanOrEqual(0);
   });
+
+  test("exercises temp bridge handler with real SOCKS5 proxy", async () => {
+    // Create a SOCKS5 server that relays connections
+    const socksServer = net.createServer((client) => {
+      client.once("data", () => {
+        client.write(Buffer.from([0x05, 0x00]));
+        client.once("data", (rawReq) => {
+          const req = Buffer.from(rawReq);
+          const atyp = req[3]!;
+          let targetHost: string;
+          let targetPort: number;
+          let offset: number;
+          if (atyp === 0x03) {
+            const domainLen = req[4]!;
+            targetHost = req.subarray(5, 5 + domainLen).toString();
+            offset = 5 + domainLen;
+          } else if (atyp === 0x01) {
+            targetHost = `${req[4]}.${req[5]}.${req[6]}.${req[7]}`;
+            offset = 8;
+          } else {
+            client.destroy();
+            return;
+          }
+          targetPort = (req[offset]! << 8) | req[offset + 1]!;
+
+          const upstream = net.createConnection({ host: targetHost, port: targetPort }, () => {
+            const reply = Buffer.from([0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0, 0]);
+            client.write(reply);
+            upstream.pipe(client);
+            client.pipe(upstream);
+          });
+          upstream.on("error", () => {
+            const reply = Buffer.from([0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0]);
+            client.write(reply);
+            client.destroy();
+          });
+        });
+      });
+    });
+    const socksPort = await new Promise<number>((resolve) => {
+      socksServer.listen(0, "127.0.0.1", () => {
+        resolve((socksServer.address() as net.AddressInfo).port);
+      });
+    });
+
+    try {
+      const res = await createApp().request("/api/settings/socks5/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "127.0.0.1",
+          port: socksPort,
+        }),
+      });
+      const body = await res.json();
+      expect(body.latencyMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      socksServer.close();
+    }
+  }, 30000);
+
+  test("returns IP echo failure when fetch is mocked to fail", async () => {
+    // @ts-expect-error -- mock doesn't need preconnect
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
+      throw new Error("Network error");
+    });
+
+    const socksServer = net.createServer((client) => {
+      client.once("data", () => {
+        client.write(Buffer.from([0x05, 0x00]));
+        client.once("data", () => {
+          client.destroy();
+        });
+      });
+    });
+    const socksPort = await new Promise<number>((resolve) => {
+      socksServer.listen(0, "127.0.0.1", () => {
+        resolve((socksServer.address() as net.AddressInfo).port);
+      });
+    });
+
+    try {
+      const res = await createApp().request("/api/settings/socks5/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "127.0.0.1",
+          port: socksPort,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error).toContain("could not verify egress IP");
+      expect(body.latencyMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      fetchSpy.mockRestore();
+      socksServer.close();
+    }
+  }, 15000);
+
+  test("returns IP echo failure when response is not ok", async () => {
+    // @ts-expect-error -- mock doesn't need preconnect
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response("Service Unavailable", { status: 503 });
+    });
+
+    const socksServer = net.createServer((client) => {
+      client.once("data", () => {
+        client.write(Buffer.from([0x05, 0x00]));
+        client.once("data", () => client.destroy());
+      });
+    });
+    const socksPort = await new Promise<number>((resolve) => {
+      socksServer.listen(0, "127.0.0.1", () => {
+        resolve((socksServer.address() as net.AddressInfo).port);
+      });
+    });
+
+    try {
+      const res = await createApp().request("/api/settings/socks5/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "127.0.0.1",
+          port: socksPort,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error).toContain("could not verify egress IP");
+    } finally {
+      fetchSpy.mockRestore();
+      socksServer.close();
+    }
+  }, 15000);
+
+  test("returns success when fetch returns valid IP", async () => {
+    // @ts-expect-error -- mock doesn't need preconnect
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response(JSON.stringify({ ip: "203.0.113.42" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    const socksServer = net.createServer((client) => {
+      client.once("data", () => {
+        client.write(Buffer.from([0x05, 0x00]));
+        client.once("data", () => client.destroy());
+      });
+    });
+    const socksPort = await new Promise<number>((resolve) => {
+      socksServer.listen(0, "127.0.0.1", () => {
+        resolve((socksServer.address() as net.AddressInfo).port);
+      });
+    });
+
+    try {
+      const res = await createApp().request("/api/settings/socks5/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "127.0.0.1",
+          port: socksPort,
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.ip).toBe("203.0.113.42");
+      expect(body.latencyMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      fetchSpy.mockRestore();
+      socksServer.close();
+    }
+  }, 15000);
+
+  test("outer catch handles Error when temp server creation fails", async () => {
+    const netModule = await import("node:net");
+    const origCreateServer = netModule.createServer.bind(netModule);
+
+    const createServerSpy = spyOn(netModule, "createServer").mockImplementation(
+      (...args: unknown[]) => {
+        const server = origCreateServer(...(args as Parameters<typeof net.createServer>));
+        server.listen = ((..._listenArgs: unknown[]) => {
+          setTimeout(() => server.emit("error", new Error("EADDRINUSE mock")), 10);
+          return server;
+        }) as typeof server.listen;
+        return server;
+      },
+    );
+
+    try {
+      const res = await createApp().request("/api/settings/socks5/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "127.0.0.1",
+          port: 19998,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error).toContain("EADDRINUSE mock");
+      expect(body.latencyMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      createServerSpy.mockRestore();
+    }
+  }, 15000);
+
+  test("outer catch handles non-Error thrown", async () => {
+    const netModule = await import("node:net");
+    const createServerSpy = spyOn(netModule, "createServer").mockImplementation(
+      () => {
+        throw "raw string error";
+      },
+    );
+
+    try {
+      const res = await createApp().request("/api/settings/socks5/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "127.0.0.1",
+          port: 19998,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error).toBe("raw string error");
+    } finally {
+      createServerSpy.mockRestore();
+    }
+  }, 15000);
 });
