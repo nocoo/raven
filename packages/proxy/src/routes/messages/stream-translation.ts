@@ -12,9 +12,13 @@ function isToolBlockOpen(state: AnthropicStreamState): boolean {
     return false
   }
   // Check if the current block index corresponds to any known tool call
-  return Object.values(state.toolCalls).some(
-    (tc) => tc.anthropicBlockIndex === state.contentBlockIndex,
-  )
+  // Optimized: iterate without creating intermediate array
+  for (const key in state.toolCalls) {
+    if (state.toolCalls[key]!.anthropicBlockIndex === state.contentBlockIndex) {
+      return true
+    }
+  }
+  return false
 }
 
 export function translateChunkToAnthropicEvents(
