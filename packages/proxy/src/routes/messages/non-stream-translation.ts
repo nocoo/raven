@@ -87,30 +87,10 @@ import { logger } from "./../../util/logger"
 /**
  * Filter out unsupported content block types and strip metadata from remaining blocks.
  * Returns a new array with only supported blocks.
- *
- * Optimized: Fast path when no filtering is needed (common case).
  */
 export function filterContentBlocks<T extends { type: string }>(
   blocks: T[],
 ): T[] {
-  // Fast path: check if any filtering is needed
-  let needsFiltering = false
-  for (const block of blocks) {
-    if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) {
-      needsFiltering = true
-      break
-    }
-  }
-
-  if (!needsFiltering) {
-    // Still need to strip metadata from all blocks
-    for (const block of blocks) {
-      stripBlockMetadata(block)
-    }
-    return blocks
-  }
-
-  // Slow path: filter and strip
   const filtered: T[] = []
   for (const block of blocks) {
     // Skip unsupported block types
@@ -462,8 +442,10 @@ function handleAssistantMessage(
   }
 
   // Single-pass categorization of blocks (avoid multiple filter() calls)
+  // Preserve original semantics: all text blocks first, then all thinking blocks
   const toolUseBlocks: AnthropicToolUseBlock[] = []
   const textParts: string[] = []
+  const thinkingParts: string[] = []
 
   for (const block of filteredContent) {
     switch (block.type) {
@@ -475,13 +457,16 @@ function handleAssistantMessage(
         textParts.push((block as AnthropicTextBlock).text)
         break
       case "thinking":
-        textParts.push((block as AnthropicThinkingBlock).thinking)
+        thinkingParts.push((block as AnthropicThinkingBlock).thinking)
         break
     }
   }
 
   // Combine text and thinking blocks, as OpenAI doesn't have separate thinking blocks
-  const allTextContent = textParts.length > 0 ? textParts.join("\n\n") : null
+  // Original order: all text first, then all thinking
+  const allTextContent = [...textParts, ...thinkingParts].length > 0 
+    ? [...textParts, ...thinkingParts].join("\n\n") 
+    : null
 
   return toolUseBlocks.length > 0 ?
       [

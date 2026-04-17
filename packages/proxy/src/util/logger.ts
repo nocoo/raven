@@ -66,25 +66,18 @@ if (!process.env.BUN_TEST && process.env.NODE_ENV !== "test") {
 // ---------------------------------------------------------------------------
 // Convenience API — emits "system" type events through LogEmitter
 //
-// PERFORMANCE: Level check happens BEFORE object creation to avoid
-// allocating event objects that will be immediately discarded.
+// NOTE: Events are always emitted to the central bus regardless of terminal
+// log level. Other sinks (WebSocket clients, DB) may have different level
+// requirements. Level filtering happens at each sink, not at emission.
 // ---------------------------------------------------------------------------
 
 export const logger = {
-  debug: (msg: string, data?: Record<string, unknown>) => {
-    if (!shouldLog("debug")) return;
-    logEmitter.emitLog({ ts: Date.now(), level: "debug", type: "system", msg, requestId: null, ...(data !== undefined && { data }) });
-  },
-  info: (msg: string, data?: Record<string, unknown>) => {
-    if (!shouldLog("info")) return;
-    logEmitter.emitLog({ ts: Date.now(), level: "info", type: "system", msg, requestId: null, ...(data !== undefined && { data }) });
-  },
-  warn: (msg: string, data?: Record<string, unknown>) => {
-    if (!shouldLog("warn")) return;
-    logEmitter.emitLog({ ts: Date.now(), level: "warn", type: "system", msg, requestId: null, ...(data !== undefined && { data }) });
-  },
-  error: (msg: string, data?: Record<string, unknown>) => {
-    if (!shouldLog("error")) return;
-    logEmitter.emitLog({ ts: Date.now(), level: "error", type: "system", msg, requestId: null, ...(data !== undefined && { data }) });
-  },
+  debug: (msg: string, data?: Record<string, unknown>) =>
+    logEmitter.emitLog({ ts: Date.now(), level: "debug", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
+  info: (msg: string, data?: Record<string, unknown>) =>
+    logEmitter.emitLog({ ts: Date.now(), level: "info", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
+  warn: (msg: string, data?: Record<string, unknown>) =>
+    logEmitter.emitLog({ ts: Date.now(), level: "warn", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
+  error: (msg: string, data?: Record<string, unknown>) =>
+    logEmitter.emitLog({ ts: Date.now(), level: "error", type: "system", msg, requestId: null, ...(data !== undefined && { data }) }),
 };
