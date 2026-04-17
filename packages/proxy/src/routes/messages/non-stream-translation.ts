@@ -335,13 +335,16 @@ function handleUserMessage(
     // Filter unsupported content blocks first
     const filteredContent = filterContentBlocks(message.content)
 
-    let toolResultBlocks = filteredContent.filter(
-      (block): block is AnthropicToolResultBlock =>
-        block.type === "tool_result",
-    )
-    const otherBlocks = filteredContent.filter(
-      (block) => block.type !== "tool_result",
-    )
+    // Single-pass categorization: separate tool_result from other blocks
+    let toolResultBlocks: AnthropicToolResultBlock[] = []
+    const otherBlocks: AnthropicUserContentBlock[] = []
+    for (const block of filteredContent) {
+      if (block.type === "tool_result") {
+        toolResultBlocks.push(block as AnthropicToolResultBlock)
+      } else {
+        otherBlocks.push(block)
+      }
+    }
 
     // OPT-1: Drop tool_result blocks referencing non-existent tool_use IDs.
     // When pendingToolCallIds is empty (assistant message was deleted by compaction),
