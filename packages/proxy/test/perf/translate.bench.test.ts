@@ -1,8 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, afterAll } from "bun:test";
 import { translateToOpenAI, translateToAnthropic } from "../../src/routes/messages/non-stream-translation.ts";
 import { translateChunkToAnthropicEvents } from "../../src/routes/messages/stream-translation.ts";
 import type { AnthropicMessagesPayload, AnthropicStreamState } from "../../src/routes/messages/anthropic-types.ts";
 import type { ChatCompletionResponse, ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions.ts";
+
+// Metrics collector for autoresearch
+const metrics: Record<string, number> = {};
 
 // ---------------------------------------------------------------------------
 // Thresholds (from docs/01-mvp.md L4 requirements)
@@ -341,6 +344,8 @@ describe("translate performance benchmarks", () => {
     const elapsed = performance.now() - start;
     const avgMs = elapsed / ITERATIONS;
 
+    const elapsedUs = Math.round(elapsed * 1000);
+    metrics.request_translation_µs = elapsedUs;
     console.log(
       `  request translation: ${avgMs.toFixed(4)}ms/op (${ITERATIONS} iterations, ${elapsed.toFixed(2)}ms total)`,
     );
@@ -360,6 +365,8 @@ describe("translate performance benchmarks", () => {
     const elapsed = performance.now() - start;
     const avgMs = elapsed / ITERATIONS;
 
+    const elapsedUs = Math.round(elapsed * 1000);
+    metrics.response_translation_µs = elapsedUs;
     console.log(
       `  response translation: ${avgMs.toFixed(4)}ms/op (${ITERATIONS} iterations, ${elapsed.toFixed(2)}ms total)`,
     );
@@ -387,9 +394,20 @@ describe("translate performance benchmarks", () => {
     const totalChunks = STREAM_CHUNKS * 10;
     const avgMs = elapsed / totalChunks;
 
+    const elapsedUs = Math.round(elapsed * 1000);
+    metrics.stream_translation_µs = elapsedUs;
     console.log(
       `  stream translation: ${avgMs.toFixed(4)}ms/chunk (${totalChunks} chunks, ${elapsed.toFixed(2)}ms total)`,
     );
     expect(avgMs).toBeLessThan(STREAM_THRESHOLD_MS);
+  });
+
+  afterAll(() => {
+    // Output metrics for autoresearch
+    console.log(`METRIC request_translation_µs=${metrics.request_translation_µs}`);
+    console.log(`METRIC response_translation_µs=${metrics.response_translation_µs}`);
+    console.log(`METRIC stream_translation_µs=${metrics.stream_translation_µs}`);
+    const total = (metrics.request_translation_µs ?? 0) + (metrics.response_translation_µs ?? 0) + (metrics.stream_translation_µs ?? 0);
+    console.log(`METRIC total_µs=${total}`);
   });
 });

@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, afterAll } from "bun:test";
 import { parseSSELine, parseSSEStream } from "../../src/util/sse.ts";
+
+// Metrics collector for autoresearch
+const metrics: Record<string, number> = {};
 
 // ---------------------------------------------------------------------------
 // Thresholds
@@ -56,6 +59,8 @@ describe("SSE parser performance benchmarks", () => {
     const bytesProcessed = sampleLine.length * iterations;
     const mbps = bytesProcessed / 1e6 / (elapsed / 1000);
 
+    const elapsedUs = Math.round(elapsed * 1000);
+    metrics.parseSSELine_µs = elapsedUs;
     console.log(
       `  parseSSELine: ${mbps.toFixed(1)} MB/s (${iterations} lines, ${elapsed.toFixed(2)}ms)`,
     );
@@ -99,9 +104,19 @@ describe("SSE parser performance benchmarks", () => {
       if (mbps > bestMbps) bestMbps = mbps;
     }
 
+    // Calculate elapsed time for the best run
+    const bestElapsedMs = payloadSizeMB / bestMbps * 1000;
+    const bestElapsedUs = Math.round(bestElapsedMs * 1000);
+    metrics.parseSSEStream_µs = bestElapsedUs;
     console.log(
       `  parseSSEStream: ${bestMbps.toFixed(1)} MB/s (${lineCount} events, ${payloadSizeMB.toFixed(2)} MB payload)`,
     );
     expect(bestMbps).toBeGreaterThan(SSE_THROUGHPUT_MBPS);
+  });
+
+  afterAll(() => {
+    // Output metrics for autoresearch
+    console.log(`METRIC parseSSELine_µs=${metrics.parseSSELine_µs}`);
+    console.log(`METRIC parseSSEStream_µs=${metrics.parseSSEStream_µs}`);
   });
 });
