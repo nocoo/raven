@@ -87,10 +87,30 @@ import { logger } from "./../../util/logger"
 /**
  * Filter out unsupported content block types and strip metadata from remaining blocks.
  * Returns a new array with only supported blocks.
+ *
+ * Optimized: Fast path when no filtering is needed (common case).
  */
 export function filterContentBlocks<T extends { type: string }>(
   blocks: T[],
 ): T[] {
+  // Fast path: check if any filtering is needed
+  let needsFiltering = false
+  for (const block of blocks) {
+    if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) {
+      needsFiltering = true
+      break
+    }
+  }
+
+  if (!needsFiltering) {
+    // Still need to strip metadata from all blocks
+    for (const block of blocks) {
+      stripBlockMetadata(block)
+    }
+    return blocks
+  }
+
+  // Slow path: filter and strip
   const filtered: T[] = []
   for (const block of blocks) {
     // Skip unsupported block types
