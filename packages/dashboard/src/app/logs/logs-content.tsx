@@ -205,7 +205,7 @@ function SystemEventCard({ event }: { event: LogEvent }) {
       </div>
       <div
         className={cn(
-          "flex-1 rounded-lg border bg-card p-3 font-mono text-xs",
+          "flex-1 rounded-lg bg-secondary p-3 font-mono text-xs",
           event.level === "error" && "border-destructive/30",
           event.level === "warn" && "border-warning/30",
         )}
@@ -359,7 +359,7 @@ function RequestCard({
       </div>
       <div
         className={cn(
-          "flex-1 rounded-lg border bg-card overflow-hidden",
+          "flex-1 rounded-lg bg-secondary overflow-hidden",
           isError ? "border-destructive/30" : "border-border",
         )}
       >
@@ -834,7 +834,7 @@ export function LogsContent() {
             className="flex-1 overflow-y-auto"
           >
             {groups.length === 0 ? (
-              <div className="flex h-32 items-center justify-center rounded-md border bg-card text-sm text-muted-foreground">
+              <div className="flex h-32 items-center justify-center rounded-md bg-secondary text-sm text-muted-foreground">
                 {connected
                   ? "Waiting for log events..."
                   : "Connecting to log stream..."}
