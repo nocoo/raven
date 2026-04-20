@@ -4,10 +4,17 @@ import { Hono } from "hono"
 import { state } from "../../src/lib/state"
 import { createConnectionInfoRoute } from "../../src/routes/connection-info"
 import type { ProviderRecord } from "../../src/db/providers"
+import { compileProvider } from "../../src/db/providers"
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
+
+function setProviders(records: ProviderRecord[]): void {
+  state.providers = records
+    .map(compileProvider)
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+}
 
 const savedModels = state.models
 const savedToken = state.copilotToken
@@ -215,14 +222,14 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider with supports_models_endpoint=1 → fetches upstream models", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         id: "upstream-provider",
         name: "UpstreamAPI",
         base_url: "https://api.upstream.com",
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       new Response(
@@ -244,11 +251,11 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider with supports_models_endpoint=1 + response.ok=false → returns empty models", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(new Response("Unauthorized", { status: 401 }))
 
@@ -261,11 +268,11 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider with supports_models_endpoint=1 + invalid data format → returns empty models", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     // data is not an array
     fetchSpy.mockResolvedValueOnce(
@@ -284,11 +291,11 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider with supports_models_endpoint=1 + missing data field → returns empty models", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ other_field: [] }), {
@@ -306,11 +313,11 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider with supports_models_endpoint=1 + fetch throws → returns empty models", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy.mockRejectedValueOnce(new Error("Network error"))
 
@@ -323,13 +330,13 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider without supports_models_endpoint → uses model_patterns (exact only)", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         name: "PatternProvider",
         supports_models_endpoint: 0,
         model_patterns: '["exact-model", "gpt-*", "another-exact"]',
       }),
-    ]
+    ])
 
     const res = await createApp().request("/api/connection-info")
     expect(res.status).toBe(200)
@@ -344,12 +351,12 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider with invalid model_patterns JSON → skips gracefully", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
-      createProvider({
-        supports_models_endpoint: 0,
-        model_patterns: "invalid-json{{{",
-      }),
-    ]
+    // compileProvider returns null for invalid JSON, filter it out
+    const compiled = compileProvider(createProvider({
+      supports_models_endpoint: 0,
+      model_patterns: "invalid-json{{{",
+    }))
+    state.providers = compiled ? [compiled] : []
 
     const res = await createApp().request("/api/connection-info")
     expect(res.status).toBe(200)
@@ -360,13 +367,13 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("disabled provider → skipped entirely", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         enabled: 0,
         supports_models_endpoint: 0,
         model_patterns: '["should-not-appear"]',
       }),
-    ]
+    ])
 
     const res = await createApp().request("/api/connection-info")
     expect(res.status).toBe(200)
@@ -408,13 +415,13 @@ describe("GET /api/connection-info (providers)", () => {
         },
       ],
     }
-    state.providers = [
+    setProviders([
       createProvider({
         name: "Provider1",
         supports_models_endpoint: 0,
         model_patterns: '["shared-model", "provider-only"]',
       }),
-    ]
+    ])
 
     const res = await createApp().request("/api/connection-info")
     expect(res.status).toBe(200)
@@ -431,12 +438,12 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider with api_key → includes Authorization header in fetch", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         api_key: "sk-secret-key",
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ data: [] }), {
@@ -456,12 +463,12 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider without api_key → no Authorization header", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         api_key: "",
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ data: [] }), {
@@ -479,12 +486,12 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("provider base_url with trailing slashes → normalized correctly", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         base_url: "https://api.test.com///",
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ data: [] }), {
@@ -502,7 +509,7 @@ describe("GET /api/connection-info (providers)", () => {
 
   test("multiple providers → processes all in parallel", async () => {
     state.models = { object: "list", data: [] }
-    state.providers = [
+    setProviders([
       createProvider({
         id: "p1",
         name: "Provider1",
@@ -515,7 +522,7 @@ describe("GET /api/connection-info (providers)", () => {
         base_url: "https://api2.test.com",
         supports_models_endpoint: 1,
       }),
-    ]
+    ])
 
     fetchSpy
       .mockResolvedValueOnce(

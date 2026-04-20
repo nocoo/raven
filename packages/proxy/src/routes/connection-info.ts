@@ -3,7 +3,7 @@ import { Hono } from "hono"
 import { state } from "../lib/state"
 import { cacheModels } from "../lib/utils"
 import { getProxyUrl } from "../lib/socks5-bridge"
-import type { ProviderRecord } from "../db/providers"
+import type { CompiledProvider } from "../db/providers"
 
 export interface ConnectionInfoRouteOptions {
   port: number
@@ -19,7 +19,7 @@ interface ModelInfo {
  * Fetch models from an upstream provider that supports /v1/models.
  * Returns model IDs on success, empty array on failure.
  */
-async function fetchUpstreamModels(provider: ProviderRecord): Promise<string[]> {
+async function fetchUpstreamModels(provider: CompiledProvider): Promise<string[]> {
   try {
     const baseUrl = provider.base_url.replace(/\/+$/, "")
     const url = `${baseUrl}/v1/models`
@@ -117,17 +117,12 @@ export function createConnectionInfoRoute(
         // Skip providers that support /v1/models (already handled above)
         if (provider.supports_models_endpoint === 1) continue
 
-        try {
-          const patterns: string[] = JSON.parse(provider.model_patterns)
-          for (const pattern of patterns) {
-            // Only include exact patterns (no wildcards)
-            if (!pattern.includes("*") && !seenIds.has(pattern)) {
-              seenIds.add(pattern)
-              modelList.push({ id: pattern, owned_by: provider.name })
-            }
+        for (const pattern of provider.patterns) {
+          // Only include exact patterns (no wildcards)
+          if (pattern.isExact && !seenIds.has(pattern.raw)) {
+            seenIds.add(pattern.raw)
+            modelList.push({ id: pattern.raw, owned_by: provider.name })
           }
-        } catch {
-          // Skip invalid JSON
         }
       }
     }

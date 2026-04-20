@@ -1,4 +1,4 @@
-import type { ProviderRecord } from "./../../db/providers"
+import type { CompiledProvider } from "./../../db/providers"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
@@ -36,7 +36,7 @@ function sanitizeAnthropicPayload(payload: AnthropicMessagesPayload): Record<str
  *   - Streaming: AsyncGenerator<ServerSentEvent> (SSE events for passthrough)
  */
 export async function sendAnthropicDirect(
-  provider: ProviderRecord,
+  provider: CompiledProvider,
   payload: AnthropicMessagesPayload,
 ): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
   const url = `${provider.base_url.replace(/\/$/, "")}/v1/messages`

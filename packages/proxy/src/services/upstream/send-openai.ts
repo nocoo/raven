@@ -1,4 +1,4 @@
-import type { ProviderRecord } from "./../../db/providers"
+import type { CompiledProvider } from "./../../db/providers"
 import type {
   ChatCompletionsPayload,
   ChatCompletionResponse,
@@ -15,7 +15,7 @@ import { state } from "./../../lib/state"
  *   - Streaming: AsyncGenerator<ServerSentEvent> (SSE events)
  */
 export async function sendOpenAIDirect(
-  provider: ProviderRecord,
+  provider: CompiledProvider,
   payload: ChatCompletionsPayload,
 ): Promise<ChatCompletionResponse | AsyncGenerator<ServerSentEvent>> {
   const url = `${provider.base_url.replace(/\/$/, "")}/v1/chat/completions`

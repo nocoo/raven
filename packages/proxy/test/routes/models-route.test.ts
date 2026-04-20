@@ -3,10 +3,18 @@ import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
 import { modelRoutes } from "../../src/routes/models/route"
+import type { ProviderRecord } from "../../src/db/providers"
+import { compileProvider } from "../../src/db/providers"
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
+
+function setProviders(records: ProviderRecord[]): void {
+  state.providers = records
+    .map(compileProvider)
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+}
 
 const savedModels = state.models
 const savedProviders = state.providers
@@ -23,7 +31,7 @@ beforeEach(() => {
     data: [{
       id: "gpt-4o", name: "GPT-4o", object: "model", vendor: "openai",
       version: "2024-08-06", preview: false, policy: null,
-        model_picker_enabled: true,
+      model_picker_enabled: true,
       capabilities: {
         family: "gpt-4o", object: "model_capabilities", type: "chat",
         tokenizer: "o200k_base",
@@ -75,7 +83,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("includes exact model patterns from providers without models endpoint", async () => {
-    state.providers = [{
+    setProviders([{
       id: "test-provider",
       name: "Local MLX",
       base_url: "http://localhost:8000",
@@ -88,7 +96,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     const app = new Hono()
     app.route("/v1/models", modelRoutes)
@@ -102,7 +110,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("excludes wildcard patterns from providers", async () => {
-    state.providers = [{
+    setProviders([{
       id: "test-provider",
       name: "GLM",
       base_url: "http://api.example.com",
@@ -115,7 +123,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     const app = new Hono()
     app.route("/v1/models", modelRoutes)
@@ -129,7 +137,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("fetches models from upstream that supports /v1/models", async () => {
-    state.providers = [{
+    setProviders([{
       id: "glm-provider",
       name: "GLM",
       base_url: "http://api.glm.example.com",
@@ -142,7 +150,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     // Mock upstream /v1/models response
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({
@@ -163,7 +171,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("handles upstream fetch failure gracefully", async () => {
-    state.providers = [{
+    setProviders([{
       id: "failing-provider",
       name: "Failing API",
       base_url: "http://api.failing.example.com",
@@ -176,7 +184,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     // Mock upstream fetch failure
     fetchSpy.mockRejectedValueOnce(new Error("Connection refused"))
@@ -192,7 +200,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("handles upstream 401 response gracefully", async () => {
-    state.providers = [{
+    setProviders([{
       id: "auth-fail-provider",
       name: "Auth Fail API",
       base_url: "http://api.authfail.example.com",
@@ -205,7 +213,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     // Mock upstream 401 response
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }))
@@ -221,7 +229,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("skips disabled providers", async () => {
-    state.providers = [{
+    setProviders([{
       id: "disabled-provider",
       name: "Disabled",
       base_url: "http://disabled.example.com",
@@ -234,7 +242,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     const app = new Hono()
     app.route("/v1/models", modelRoutes)
@@ -247,7 +255,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("deduplicates models between Copilot and providers", async () => {
-    state.providers = [{
+    setProviders([{
       id: "dupe-provider",
       name: "Dupe Provider",
       base_url: "http://dupe.example.com",
@@ -260,7 +268,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     const app = new Hono()
     app.route("/v1/models", modelRoutes)
@@ -287,7 +295,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("upstream models include context_length", async () => {
-    state.providers = [{
+    setProviders([{
       id: "upstream-provider",
       name: "Upstream API",
       base_url: "http://api.upstream.example.com",
@@ -300,7 +308,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({
       data: [
@@ -321,7 +329,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("string values are coerced to numbers", async () => {
-    state.providers = [{
+    setProviders([{
       id: "string-provider",
       name: "String API",
       base_url: "http://api.string.example.com",
@@ -334,7 +342,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     // Mock upstream returning string values instead of numbers
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({
@@ -358,7 +366,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("invalid/non-numeric values become null", async () => {
-    state.providers = [{
+    setProviders([{
       id: "invalid-provider",
       name: "Invalid API",
       base_url: "http://api.invalid.example.com",
@@ -371,7 +379,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     // Mock upstream returning invalid values
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({
@@ -406,7 +414,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("upstream models with alternative field names are parsed correctly", async () => {
-    state.providers = [{
+    setProviders([{
       id: "vllm-provider",
       name: "vLLM API",
       base_url: "http://api.vllm.example.com",
@@ -419,7 +427,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     // Mock upstream returning vLLM-style field names (max_model_len, max_tokens)
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({
@@ -457,7 +465,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("pattern-only models have null context fields", async () => {
-    state.providers = [{
+    setProviders([{
       id: "pattern-provider",
       name: "Pattern API",
       base_url: "http://api.pattern.example.com",
@@ -470,7 +478,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     const app = new Hono()
     app.route("/v1/models", modelRoutes)
@@ -541,7 +549,7 @@ describe("GET /v1/models (route wrapper)", () => {
   })
 
   test("provider models do not have supported_endpoints or capabilities", async () => {
-    state.providers = [{
+    setProviders([{
       id: "local-provider",
       name: "Local API",
       base_url: "http://localhost:8000",
@@ -554,7 +562,7 @@ describe("GET /v1/models (route wrapper)", () => {
       use_socks5: null,
       created_at: Date.now(),
       updated_at: Date.now(),
-    }]
+    }])
 
     const app = new Hono()
     app.route("/v1/models", modelRoutes)

@@ -8,6 +8,8 @@ import { handleCompletion } from "../../src/routes/messages/handler"
 import type { ServerSentEvent } from "../../src/util/sse"
 import * as createChatCompletionsModule from "../../src/services/copilot/create-chat-completions"
 import * as tavilyModule from "../../src/lib/server-tools/tavily"
+import type { ProviderRecord } from "../../src/db/providers"
+import { compileProvider } from "../../src/db/providers"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -17,6 +19,12 @@ function makeApp(): Hono {
   const app = new Hono()
   app.post("/v1/messages", handleCompletion)
   return app
+}
+
+function setProviders(records: ProviderRecord[]): void {
+  state.providers = records
+    .map(compileProvider)
+    .filter((p): p is NonNullable<typeof p> => p !== null)
 }
 
 function req(body: Record<string, unknown>): Request {
@@ -760,7 +768,7 @@ describe("messages handler (custom providers)", () => {
   })
 
   test("routes to OpenAI provider and translates request/response", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-1",
         name: "test-openai",
@@ -775,7 +783,7 @@ describe("messages handler (custom providers)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
       model: "gpt-4o",
@@ -803,7 +811,7 @@ describe("messages handler (custom providers)", () => {
   })
 
   test("routes to Anthropic provider and passthroughs request", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-2",
         name: "test-anthropic",
@@ -818,7 +826,7 @@ describe("messages handler (custom providers)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     // Anthropic format response
     fetchSpy.mockResolvedValueOnce(mockFetchJson({
@@ -853,7 +861,7 @@ describe("messages handler (custom providers)", () => {
   })
 
   test("emits thinking drop log for OpenAI provider without supports_reasoning", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-3",
         name: "test-openai-no-reasoning",
@@ -868,7 +876,7 @@ describe("messages handler (custom providers)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
       model: "custom-model",
@@ -901,7 +909,7 @@ describe("messages handler (custom providers)", () => {
   })
 
   test("OpenAI provider with supports_reasoning uses reasoning format", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-4",
         name: "test-openai-with-reasoning",
@@ -916,7 +924,7 @@ describe("messages handler (custom providers)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
       model: "o1-preview",
@@ -946,7 +954,7 @@ describe("messages handler (custom providers)", () => {
   })
 
   test("glob pattern matching for provider model routing", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-5",
         name: "test-glob-provider",
@@ -961,7 +969,7 @@ describe("messages handler (custom providers)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({
       model: "my-model-v2",
@@ -1399,7 +1407,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
   })
 
   test("Anthropic provider streaming handles data-only SSE events and usage metrics", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-anthropic-stream",
         name: "anthropic-stream",
@@ -1414,7 +1422,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       mockFetchStream([
@@ -1450,7 +1458,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
   })
 
   test("Anthropic provider streaming sends an Anthropic error event on mid-stream failure", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-anthropic-error",
         name: "anthropic-stream",
@@ -1465,7 +1473,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       mockFetchErroringStream(
@@ -1499,7 +1507,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
   })
 
   test("OpenAI provider streaming records cached-token usage and tool-call debug data", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-openai-stream",
         name: "openai-stream",
@@ -1514,7 +1522,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
     state.optToolCallDebug = true
 
     const chunk1 = JSON.stringify({
@@ -1604,7 +1612,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
   })
 
   test("OpenAI provider streaming sends Anthropic error events on mid-stream failure", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-openai-stream-error",
         name: "openai-stream",
@@ -1619,7 +1627,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockResolvedValueOnce(
       mockFetchErroringStream(
@@ -1653,7 +1661,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
   })
 
   test("OpenAI provider logs and forwards fetch failures", async () => {
-    state.providers = [
+    setProviders([
       {
         id: "prov-openai-error",
         name: "openai-stream",
@@ -1668,7 +1676,7 @@ describe("messages handler (custom provider streaming edge cases)", () => {
         created_at: Date.now(),
         updated_at: Date.now(),
       },
-    ]
+    ])
 
     fetchSpy.mockRejectedValueOnce(new Error("provider unreachable"))
 

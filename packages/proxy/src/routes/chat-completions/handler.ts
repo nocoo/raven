@@ -5,7 +5,7 @@ import { streamSSE, type SSEMessage } from "hono/streaming"
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProvider } from "./../../lib/upstream-router"
-import type { ProviderRecord } from "./../../db/providers"
+import type { CompiledProvider } from "./../../db/providers"
 import { isNullish } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
 import { generateRequestId } from "./../../util/id"
@@ -267,7 +267,7 @@ async function handleOpenAIPassthrough(
   requestId: string,
   payload: ChatCompletionsPayload,
   startTime: number,
-  provider: ProviderRecord,
+  provider: CompiledProvider,
   ctx: RequestContext,
 ) {
   const { accountName, sessionId, clientName, clientVersion } = ctx

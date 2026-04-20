@@ -1,5 +1,5 @@
 import type { ModelsResponse } from "./../services/copilot/get-models"
-import type { ProviderRecord } from "./../db/providers"
+import type { CompiledProvider } from "./../db/providers"
 import type { IPRange } from "./ip-whitelist"
 
 export interface State {
@@ -33,8 +33,8 @@ export interface State {
   stWebSearchEnabled: boolean
   stWebSearchApiKey: string | null
 
-  // Custom providers — cached enabled records, refreshed on CRUD operations
-  providers: ProviderRecord[]
+  // Custom providers — cached enabled records (compiled), refreshed on CRUD operations
+  providers: CompiledProvider[]
 
   // Sound notifications on error
   soundEnabled: boolean

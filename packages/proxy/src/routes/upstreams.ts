@@ -3,6 +3,7 @@ import { z } from "zod"
 import type { Database } from "bun:sqlite"
 
 import {
+  compileProvider,
   createProvider,
   deleteProvider,
   getProvider,
@@ -118,7 +119,8 @@ async function probeModelsEndpoint(
   provider?: ProviderRecord,
 ): Promise<boolean> {
   const url = `${baseUrl.replace(/\/+$/, "")}/v1/models`
-  const proxyUrl = provider ? getProxyUrl(provider, state) : undefined
+  const compiled = provider ? compileProvider(provider) : null
+  const proxyUrl = compiled ? getProxyUrl(compiled, state) : undefined
   try {
     const res = await fetch(url, {
       headers: {
@@ -326,7 +328,8 @@ export function createUpstreamsRoute(db: Database): Hono {
     const modelsUrl = `${baseUrl}/v1/models`
 
     try {
-      const proxyUrl = getProxyUrl(row, state)
+      const compiled = compileProvider(row)
+      const proxyUrl = compiled ? getProxyUrl(compiled, state) : undefined
       const res = await fetch(modelsUrl, {
         headers: {
           Authorization: `Bearer ${row.api_key}`,

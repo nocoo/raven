@@ -4,6 +4,7 @@ import { handleCompletion } from "../../src/routes/chat-completions/handler"
 import { state } from "../../src/lib/state"
 import type { ChatCompletionsPayload } from "../../src/services/copilot/create-chat-completions"
 import type { ProviderRecord } from "../../src/db/providers"
+import { compileProvider } from "../../src/db/providers"
 
 // ===========================================================================
 // Helpers
@@ -75,7 +76,7 @@ function makeOpenAIResponse(overrides: Record<string, unknown> = {}) {
 // Setup / teardown
 // ===========================================================================
 
-const mockProviders: ProviderRecord[] = [
+const mockProviderRecords: ProviderRecord[] = [
   {
     id: "p1",
     name: "OpenAIProvider",
@@ -101,6 +102,10 @@ const mockProviders: ProviderRecord[] = [
           supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
   },
 ]
+
+const mockProviders = mockProviderRecords
+  .map(compileProvider)
+  .filter((p): p is NonNullable<typeof p> => p !== null)
 
 const savedProviders = state.providers
 const savedModels = state.models

@@ -6,6 +6,7 @@ import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
 import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
 import type { ProviderRecord } from "../../src/db/providers"
+import { compileProvider } from "../../src/db/providers"
 
 // ===========================================================================
 // Helpers
@@ -15,6 +16,12 @@ function makeApp(): Hono {
   const app = new Hono()
   app.post("/v1/messages", handleCompletion)
   return app
+}
+
+function setProviders(records: ProviderRecord[]): void {
+  state.providers = records
+    .map(compileProvider)
+    .filter((p): p is NonNullable<typeof p> => p !== null)
 }
 
 function req(body: AnthropicMessagesPayload): Request {
@@ -132,7 +139,7 @@ const savedAccountType = state.accountType
 let fetchSpy: ReturnType<typeof spyOn>
 
 beforeEach(() => {
-  state.providers = mockProviders
+  setProviders(mockProviders)
   state.models = null
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
@@ -283,7 +290,7 @@ describe("messages handler with provider routing", () => {
 
     beforeEach(() => {
       // Add a reasoning-capable OpenAI provider
-      state.providers = [
+      setProviders([
         ...mockProviders,
         {
           id: "p3",
@@ -297,7 +304,7 @@ describe("messages handler with provider routing", () => {
           updated_at: 3,
           supports_reasoning: 1, supports_models_endpoint: 0, use_socks5: null,
         },
-      ]
+      ])
     })
 
     test("translates thinking to reasoning_effort for supports_reasoning provider", async () => {

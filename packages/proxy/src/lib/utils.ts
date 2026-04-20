@@ -7,7 +7,7 @@ import {
   detectLocalCopilotVersion,
 } from "./../services/detect-local-versions"
 import { getSetting } from "./../db/settings"
-import { getEnabledProviders } from "./../db/providers"
+import { getEnabledProviders, compileProvider, type CompiledProvider } from "./../db/providers"
 import { parseIPRanges } from "./ip-whitelist"
 
 import { state } from "./state"
@@ -92,10 +92,14 @@ export function cacheOptimizations(db: Database): void {
 
 /**
  * Load enabled providers from DB into runtime state.
+ * Compiles patterns for efficient runtime matching.
+ * Skips providers with invalid model_patterns JSON.
  * Called at startup and after any provider CRUD operation.
  */
 export function cacheProviders(db: Database): void {
-  state.providers = getEnabledProviders(db)
+  const records = getEnabledProviders(db)
+  const compiled = records.map(compileProvider).filter((p): p is CompiledProvider => p !== null)
+  state.providers = compiled
 }
 
 /**

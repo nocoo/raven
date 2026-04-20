@@ -22,6 +22,54 @@ export interface ProviderRecord {
   updated_at: number
 }
 
+// ---------------------------------------------------------------------------
+// Compiled Provider (Runtime)
+// ---------------------------------------------------------------------------
+
+/** Pre-parsed pattern for efficient matching. */
+export interface CompiledPattern {
+  /** Original pattern string */
+  raw: string
+  /** True if exact match (no wildcards) */
+  isExact: boolean
+  /** Prefix for glob patterns (e.g., "gpt-" for "gpt-*") */
+  prefix?: string
+}
+
+/** Runtime provider with pre-compiled patterns. */
+export interface CompiledProvider extends Omit<ProviderRecord, "model_patterns"> {
+  /** Pre-parsed patterns for efficient matching */
+  patterns: CompiledPattern[]
+}
+
+/**
+ * Compile a provider record for runtime use.
+ * Parses model_patterns JSON and pre-computes match structures.
+ * Returns null if provider has invalid JSON (should be skipped).
+ */
+export function compileProvider(record: ProviderRecord): CompiledProvider | null {
+  try {
+    const rawPatterns: string[] = JSON.parse(record.model_patterns)
+    const patterns = rawPatterns.map((p): CompiledPattern => {
+      const base: Omit<CompiledPattern, 'prefix'> = {
+        raw: p,
+        isExact: !p.includes("*"),
+      }
+      if (p.endsWith("*")) {
+        return { ...base, prefix: p.slice(0, -1) }
+      }
+      return base
+    })
+
+    // Destructure to remove model_patterns from the spread
+    const { model_patterns: _, ...rest } = record
+    return { ...rest, patterns }
+  } catch {
+    // Invalid JSON - return null to indicate this provider should be skipped
+    return null
+  }
+}
+
 /** Public projection — masks api_key. */
 export interface ProviderPublic {
   id: string

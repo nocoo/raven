@@ -7,7 +7,7 @@ import { getProxyUrl } from "./../../lib/socks5-bridge"
 import { logEmitter } from "./../../util/log-emitter"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
-import type { ProviderRecord } from "./../../db/providers"
+import type { CompiledProvider } from "./../../db/providers"
 
 export const modelRoutes = new Hono()
 
@@ -53,7 +53,7 @@ function toPositiveInt(v: unknown): number | null {
  * Fetch models from an upstream provider that supports /v1/models.
  * Returns model info with context limits on success, empty array on failure.
  */
-async function fetchUpstreamModels(provider: ProviderRecord): Promise<UpstreamModelInfo[]> {
+async function fetchUpstreamModels(provider: CompiledProvider): Promise<UpstreamModelInfo[]> {
   try {
     const baseUrl = provider.base_url.replace(/\/+$/, "")
     const url = `${baseUrl}/v1/models`
@@ -185,27 +185,22 @@ modelRoutes.get("/", async (c) => {
         // Skip providers that support /v1/models (already handled above)
         if (provider.supports_models_endpoint === 1) continue
 
-        try {
-          const patterns: string[] = JSON.parse(provider.model_patterns)
-          for (const pattern of patterns) {
-            // Only include exact patterns (no wildcards)
-            if (!pattern.includes("*") && !seenModelIds.has(pattern)) {
-              seenModelIds.add(pattern)
-              models.push({
-                id: pattern,
-                object: "model",
-                type: "model",
-                created: 0,
-                created_at: new Date(0).toISOString(),
-                owned_by: provider.name,
-                display_name: pattern,
-                context_length: null,
-                max_completion_tokens: null,
-              })
-            }
+        for (const pattern of provider.patterns) {
+          // Only include exact patterns (no wildcards)
+          if (pattern.isExact && !seenModelIds.has(pattern.raw)) {
+            seenModelIds.add(pattern.raw)
+            models.push({
+              id: pattern.raw,
+              object: "model",
+              type: "model",
+              created: 0,
+              created_at: new Date(0).toISOString(),
+              owned_by: provider.name,
+              display_name: pattern.raw,
+              context_length: null,
+              max_completion_tokens: null,
+            })
           }
-        } catch {
-          // Skip invalid JSON
         }
       }
     }

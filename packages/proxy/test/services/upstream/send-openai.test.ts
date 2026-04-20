@@ -1,12 +1,14 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { sendOpenAIDirect } from "./../../../src/services/upstream/send-openai"
 import type { ProviderRecord } from "./../../../src/db/providers"
+import type { CompiledProvider } from "./../../../src/db/providers"
+import { compileProvider } from "./../../../src/db/providers"
 import type { ChatCompletionsPayload } from "./../../../src/services/copilot/create-chat-completions"
 
 function makeProvider(
   overrides: Partial<ProviderRecord> = {},
-): ProviderRecord {
-  return {
+): CompiledProvider {
+  const record: ProviderRecord = {
     id: "p1",
     name: "TestProvider",
     base_url: "https://api.example.com",
@@ -19,6 +21,9 @@ function makeProvider(
           supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
     ...overrides,
   }
+  const compiled = compileProvider(record)
+  if (!compiled) throw new Error("Failed to compile provider")
+  return compiled
 }
 
 function makeMockStream(chunks: string[]): Response {

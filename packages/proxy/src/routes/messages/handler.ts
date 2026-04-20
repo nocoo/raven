@@ -5,7 +5,7 @@ import { streamSSE } from "hono/streaming"
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProvider } from "./../../lib/upstream-router"
-import type { ProviderRecord } from "./../../db/providers"
+import type { CompiledProvider } from "./../../db/providers"
 import { logEmitter } from "./../../util/log-emitter"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
@@ -536,7 +536,7 @@ async function handleAnthropicPassthrough(
   requestId: string,
   payload: AnthropicMessagesPayload,
   startTime: number,
-  provider: ProviderRecord,
+  provider: CompiledProvider,
   ctx: RequestContext,
 ) {
   const { accountName, sessionId, clientName, clientVersion } = ctx
@@ -659,7 +659,7 @@ async function handleOpenAIUpstream(
   requestId: string,
   payload: ChatCompletionsPayload,
   startTime: number,
-  provider: ProviderRecord,
+  provider: CompiledProvider,
   ctx: RequestContext,
   originalModel: string,
 ) {

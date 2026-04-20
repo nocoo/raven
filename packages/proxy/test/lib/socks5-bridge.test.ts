@@ -8,7 +8,8 @@ import {
   Socks5BridgeUnavailableError,
 } from "../../src/lib/socks5-bridge";
 import type { State } from "../../src/lib/state";
-import type { ProviderRecord } from "../../src/db/providers";
+import type { ProviderRecord, CompiledProvider } from "../../src/db/providers";
+import { compileProvider } from "../../src/db/providers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,8 +51,8 @@ function makeState(overrides: Partial<State> = {}): State {
   };
 }
 
-function makeProvider(overrides: Partial<ProviderRecord> = {}): ProviderRecord {
-  return {
+function makeProvider(overrides: Partial<ProviderRecord> = {}): CompiledProvider {
+  const record: ProviderRecord = {
     id: "test-provider-id",
     name: "Test Provider",
     base_url: "https://api.example.com",
@@ -66,6 +67,9 @@ function makeProvider(overrides: Partial<ProviderRecord> = {}): ProviderRecord {
     updated_at: Date.now(),
     ...overrides,
   };
+  const compiled = compileProvider(record);
+  if (!compiled) throw new Error("Failed to compile provider");
+  return compiled;
 }
 
 // ---------------------------------------------------------------------------
