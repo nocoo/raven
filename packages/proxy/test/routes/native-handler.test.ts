@@ -298,5 +298,49 @@ describe("handleCopilotNative integration", () => {
     const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
     expect(url).toBe("https://api.githubcopilot.com/chat/completions")
   })
+
+  test("retries with fallback effort when invalid_reasoning_effort error", async () => {
+    // First request fails with invalid_reasoning_effort
+    const errorResponse = {
+      error: {
+        code: "invalid_reasoning_effort",
+        message: 'output_config.effort "max" is not supported by model claude-sonnet-4; supported values: [medium]',
+      },
+    }
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse(errorResponse, 400),
+    )
+
+    // Second request succeeds with fallback effort
+    fetchSpy.mockResolvedValueOnce(mockFetchResponse(mockAnthropicResponse()))
+
+    const { handleCompletion } = await import("../../src/routes/messages/handler")
+
+    const app = new Hono()
+    app.post("/v1/messages", handleCompletion)
+
+    const payloadWithEffort = {
+      ...makePayload({ model: "claude-sonnet-4" }),
+      output_config: { effort: "max" },
+    }
+
+    const req = new Request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payloadWithEffort),
+    })
+
+    const res = await app.request(req)
+
+    expect(res.status).toBe(200)
+
+    // Should have made two requests: first failed, second succeeded
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+
+    // Second request should have adjusted effort to "medium"
+    const [, secondInit] = fetchSpy.mock.calls[1] as [string, RequestInit]
+    const secondBody = JSON.parse(secondInit.body as string)
+    expect(secondBody.output_config?.effort).toBe("medium")
+  })
 })
 

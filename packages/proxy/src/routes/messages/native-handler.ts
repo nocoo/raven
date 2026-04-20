@@ -10,7 +10,7 @@ import { streamSSE } from "hono/streaming"
 
 import { state } from "../../lib/state"
 import { logEmitter } from "../../util/log-emitter"
-import { extractErrorDetails, forwardError } from "../../lib/error"
+import { extractErrorDetails, forwardError, HTTPError } from "../../lib/error"
 import {
   createNativeMessages,
   type NativeMessagesOptions,
@@ -23,6 +23,12 @@ import type {
 } from "./anthropic-types"
 import type { ServerToolContext } from "./preprocess"
 import { withServerToolInterception } from "./server-tools"
+import {
+  parseReasoningEffortError,
+  pickSupportedEffort,
+  adjustEffortInPayload,
+  logEffortFallback,
+} from "./effort-fallback"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,14 +95,8 @@ export async function handleCopilotNative(
 
   try {
     // Create the sendRequest function that wraps createNativeMessages for non-streaming
-    const sendNonStreamingRequest = async (
-      p: AnthropicMessagesPayload,
-    ): Promise<AnthropicResponse> => {
-      // Force non-streaming for server-tool interception
-      const nonStreamPayload: AnthropicMessagesPayload = { ...p, stream: false }
-      const result = await createNativeMessages(nonStreamPayload, nativeOptions)
-      return result as AnthropicResponse
-    }
+    // with automatic effort fallback
+    const sendNonStreamingRequest = createSendNonStreamingRequest(nativeOptions, requestId)
 
     // Handle server-side tools interception if enabled
     if (serverToolContext.hasServerSideTools && webSearchEnabled) {
@@ -147,8 +147,8 @@ export async function handleCopilotNative(
       return c.json(response)
     }
 
-    // No server-side tools: send directly
-    const response = await createNativeMessages(payload, nativeOptions)
+    // No server-side tools: send directly with effort fallback
+    const response = await sendWithEffortFallback(payload, nativeOptions, requestId)
 
     // Non-streaming response
     if (!isAsyncGenerator(response)) {
@@ -318,6 +318,63 @@ function isAsyncGenerator(
   response: AnthropicResponse | AsyncGenerator<ServerSentEvent>,
 ): response is AsyncGenerator<ServerSentEvent> {
   return typeof (response as AsyncGenerator).next === "function"
+}
+
+/**
+ * Send a native messages request with automatic effort fallback.
+ *
+ * If the request fails with invalid_reasoning_effort, parse the error,
+ * adjust the effort to a supported value, and retry.
+ */
+async function sendWithEffortFallback(
+  payload: AnthropicMessagesPayload,
+  options: NativeMessagesOptions,
+  requestId: string,
+): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
+  try {
+    return await createNativeMessages(payload, options)
+  } catch (error) {
+    // Check if this is an effort error we can retry
+    if (!(error instanceof HTTPError)) throw error
+    if (error.status !== 400) throw error
+
+    // Try to parse the error body for reasoning effort error
+    let errorBody: unknown
+    try {
+      errorBody = JSON.parse(error.responseBody)
+    } catch {
+      // Not JSON, can't parse - rethrow original
+      throw error
+    }
+
+    const effortError = parseReasoningEffortError(errorBody)
+    if (!effortError) throw error
+
+    const { requestedEffort, supportedEfforts } = effortError
+
+    // Find fallback effort
+    const fallbackEffort = pickSupportedEffort(requestedEffort, supportedEfforts)
+
+    logEffortFallback(requestId, options.copilotModel, requestedEffort, fallbackEffort)
+
+    // Adjust payload and retry
+    const adjustedPayload = adjustEffortInPayload(payload, fallbackEffort)
+    return await createNativeMessages(adjustedPayload, options)
+  }
+}
+
+/**
+ * Create a non-streaming request function with effort fallback.
+ */
+function createSendNonStreamingRequest(
+  nativeOptions: NativeMessagesOptions,
+  requestId: string,
+): (p: AnthropicMessagesPayload) => Promise<AnthropicResponse> {
+  return async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
+    const nonStreamPayload: AnthropicMessagesPayload = { ...p, stream: false }
+    const result = await sendWithEffortFallback(nonStreamPayload, nativeOptions, requestId)
+    return result as AnthropicResponse
+  }
 }
 
 /**
