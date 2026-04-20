@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.0.0
+
+### Added
+- Parallel pre-commit with gitleaks, upgrade CI
+- Add warning logs and API field for invalid provider model_patterns
+- Add reasoning effort fallback utilities
+- Add output_config type definition for reasoning effort
+- Add native Copilot handler for /v1/messages routing
+- Add model capabilities utilities for native routing
+- Add native Anthropic messages service for Copilot
+- Add unified server-side tools interception layer
+- Extend Models API with Copilot endpoint and capability fields
+- Add preprocessing layer for Anthropic messages
+
+### Changed
+- Use production database instead of isolated test DB
+- Fix logging side effects and expose raw_model_patterns
+- Phase 1 - Provider Compilation for runtime optimization
+- Update E2E tests and implementation doc
+- Add comprehensive E2E tests for native and OpenAI paths
+- Unify server-side tool handling across paths
+- Update implementation plan with bug fix commits
+- Update implementation plan with completion status
+- Fix stale variable name canonicalModel → copilotModel
+- Fix design issues in native Anthropic messages passthrough
+- Add design doc for native Anthropic messages passthrough
+- Add e2e test for 1M context window validation
+
+### Fixed
+- Make reasoning fallback E2E test actually verify fallback
+- Unify null field cleanup for Anthropic upstreams
+- Clean null fields before sending to Anthropic API
+- Rewrite tool_choice when it targets a server-side tool
+- Apply reasoning effort fallback on native /v1/messages path
+
 ## v1.8.1
 
 ### Added
