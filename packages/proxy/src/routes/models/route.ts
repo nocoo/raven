@@ -21,6 +21,19 @@ interface ModelEntry {
   display_name: string
   context_length?: number | null
   max_completion_tokens?: number | null
+  // Extended fields for native endpoint support (Copilot models only)
+  supported_endpoints?: string[]
+  capabilities?: {
+    supports?: {
+      reasoning_effort?: string[]
+      adaptive_thinking?: boolean
+      max_thinking_budget?: number
+    }
+    limits?: {
+      max_context_window_tokens?: number | null
+      max_output_tokens?: number | null
+    }
+  }
 }
 
 interface UpstreamModelInfo {
@@ -101,17 +114,38 @@ modelRoutes.get("/", async (c) => {
     const seenModelIds = new Set(state.models?.data.map((m) => m.id) ?? [])
 
     // Map Copilot models to response format
-    const models: ModelEntry[] = state.models?.data.map((model) => ({
-      id: model.id,
-      object: "model",
-      type: "model",
-      created: 0, // No date available from source
-      created_at: new Date(0).toISOString(),
-      owned_by: model.vendor,
-      display_name: model.name,
-      context_length: toPositiveInt(model.capabilities?.limits?.max_context_window_tokens),
-      max_completion_tokens: toPositiveInt(model.capabilities?.limits?.max_output_tokens),
-    })) ?? []
+    const models: ModelEntry[] = state.models?.data.map((model) => {
+      const base: ModelEntry = {
+        id: model.id,
+        object: "model",
+        type: "model",
+        created: 0, // No date available from source
+        created_at: new Date(0).toISOString(),
+        owned_by: model.vendor,
+        display_name: model.name,
+        context_length: toPositiveInt(model.capabilities?.limits?.max_context_window_tokens),
+        max_completion_tokens: toPositiveInt(model.capabilities?.limits?.max_output_tokens),
+      }
+      // Extended fields for native endpoint support (only add if present)
+      if (model.supported_endpoints) {
+        base.supported_endpoints = model.supported_endpoints
+      }
+      if (model.capabilities?.supports) {
+        const supports = model.capabilities.supports
+        const supportsObj: NonNullable<ModelEntry["capabilities"]>["supports"] = {}
+        if (supports.reasoning_effort) supportsObj.reasoning_effort = supports.reasoning_effort
+        if (supports.adaptive_thinking !== undefined) supportsObj.adaptive_thinking = supports.adaptive_thinking
+        if (supports.max_thinking_budget !== undefined) supportsObj.max_thinking_budget = supports.max_thinking_budget
+        base.capabilities = {
+          supports: supportsObj,
+          limits: {
+            max_context_window_tokens: model.capabilities.limits?.max_context_window_tokens,
+            max_output_tokens: model.capabilities.limits?.max_output_tokens,
+          },
+        }
+      }
+      return base
+    }) ?? []
 
     // Process each provider
     if (state.providers?.length) {

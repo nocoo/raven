@@ -31,6 +31,10 @@ interface ModelSupports {
   tool_calls: boolean | null
   parallel_tool_calls: boolean | null
   dimensions: boolean | null
+  // Extended capabilities from Copilot API
+  reasoning_effort?: string[]
+  adaptive_thinking?: boolean
+  max_thinking_budget?: number
 }
 
 interface ModelCapabilities {
@@ -55,4 +59,6 @@ export interface Model {
     state: string
     terms: string
   } | null
+  // Extended fields from Copilot API for native endpoint support
+  supported_endpoints?: string[]
 }

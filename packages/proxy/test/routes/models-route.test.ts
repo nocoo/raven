@@ -483,4 +483,123 @@ describe("GET /v1/models (route wrapper)", () => {
     expect(patternModel!.context_length).toBeNull()
     expect(patternModel!.max_completion_tokens).toBeNull()
   })
+
+  test("Copilot models include supported_endpoints and capabilities", async () => {
+    // Set up a model with extended capabilities
+    state.models = {
+      object: "list",
+      data: [{
+        id: "claude-opus-4.7", name: "Claude Opus 4.7", object: "model", vendor: "anthropic",
+        version: "2025-01-01", preview: false, policy: null,
+        model_picker_enabled: true,
+        supported_endpoints: ["/v1/messages", "/chat/completions"],
+        capabilities: {
+          family: "claude-opus", object: "model_capabilities", type: "chat",
+          tokenizer: "claude",
+          limits: { max_context_window_tokens: 200000, max_output_tokens: 16384, max_prompt_tokens: null, max_inputs: null },
+          supports: {
+            tool_calls: true, parallel_tool_calls: true, dimensions: null,
+            reasoning_effort: ["low", "medium", "high"],
+            adaptive_thinking: true,
+            max_thinking_budget: 32000,
+          },
+        },
+      }],
+    }
+
+    const app = new Hono()
+    app.route("/v1/models", modelRoutes)
+    const res = await app.request("/v1/models")
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as {
+      object: string
+      data: Array<{
+        id: string
+        supported_endpoints?: string[]
+        capabilities?: {
+          supports?: {
+            reasoning_effort?: string[]
+            adaptive_thinking?: boolean
+            max_thinking_budget?: number
+          }
+          limits?: {
+            max_context_window_tokens?: number | null
+            max_output_tokens?: number | null
+          }
+        }
+      }>
+    }
+    const claude = json.data.find(m => m.id === "claude-opus-4.7")
+    expect(claude).toBeDefined()
+    expect(claude!.supported_endpoints).toEqual(["/v1/messages", "/chat/completions"])
+    expect(claude!.capabilities?.supports?.reasoning_effort).toEqual(["low", "medium", "high"])
+    expect(claude!.capabilities?.supports?.adaptive_thinking).toBe(true)
+    expect(claude!.capabilities?.supports?.max_thinking_budget).toBe(32000)
+    expect(claude!.capabilities?.limits?.max_context_window_tokens).toBe(200000)
+    expect(claude!.capabilities?.limits?.max_output_tokens).toBe(16384)
+  })
+
+  test("provider models do not have supported_endpoints or capabilities", async () => {
+    state.providers = [{
+      id: "local-provider",
+      name: "Local API",
+      base_url: "http://localhost:8000",
+      format: "openai",
+      api_key: "key",
+      model_patterns: JSON.stringify(["local-model"]),
+      enabled: 1,
+      supports_reasoning: 0,
+      supports_models_endpoint: 0,
+      use_socks5: null,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    }]
+
+    const app = new Hono()
+    app.route("/v1/models", modelRoutes)
+    const res = await app.request("/v1/models")
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as {
+      object: string
+      data: Array<{
+        id: string
+        supported_endpoints?: string[]
+        capabilities?: object
+      }>
+    }
+    const localModel = json.data.find(m => m.id === "local-model")
+    expect(localModel).toBeDefined()
+    expect(localModel!.supported_endpoints).toBeUndefined()
+    expect(localModel!.capabilities).toBeUndefined()
+  })
+
+  test("models without extended supports still have basic capabilities", async () => {
+    // Use the default gpt-4o model from beforeEach (no extended supports)
+    const app = new Hono()
+    app.route("/v1/models", modelRoutes)
+    const res = await app.request("/v1/models")
+
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as {
+      object: string
+      data: Array<{
+        id: string
+        capabilities?: {
+          supports?: object
+          limits?: {
+            max_context_window_tokens?: number | null
+            max_output_tokens?: number | null
+          }
+        }
+      }>
+    }
+    const gpt4o = json.data.find(m => m.id === "gpt-4o")
+    expect(gpt4o).toBeDefined()
+    // Should have capabilities but without extended supports fields
+    expect(gpt4o!.capabilities).toBeDefined()
+    expect(gpt4o!.capabilities?.limits?.max_context_window_tokens).toBe(128000)
+    expect(gpt4o!.capabilities?.limits?.max_output_tokens).toBe(16384)
+  })
 })
