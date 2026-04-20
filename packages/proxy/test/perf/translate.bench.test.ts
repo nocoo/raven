@@ -57,7 +57,7 @@ function makeComplexRequest(): AnthropicMessagesPayload {
         },
       },
     ],
-    tool_choice: { type: "auto", name: null },
+    tool_choice: { type: "auto" },
     messages: [
       { role: "user", content: "What's the weather in SF?" },
       {

@@ -71,9 +71,21 @@ export async function createNativeMessages(
   headers["X-Initiator"] = isAgentCall ? "agent" : "user"
 
   // Build request body with copilotModel
-  const requestBody = {
+  // Remove null/undefined fields that Anthropic API doesn't accept
+  const requestBody: Record<string, unknown> = {
     ...payload,
     model: options.copilotModel,
+  }
+
+  // Clean up null fields that shouldn't be sent to Anthropic
+  if (requestBody.tools === null || requestBody.tools === undefined) {
+    delete requestBody.tools
+  }
+  if (requestBody.tool_choice === null || requestBody.tool_choice === undefined) {
+    delete requestBody.tool_choice
+  }
+  if (requestBody.output_config === null || requestBody.output_config === undefined) {
+    delete requestBody.output_config
   }
 
   const proxyUrl = getProxyUrl("copilot", state)

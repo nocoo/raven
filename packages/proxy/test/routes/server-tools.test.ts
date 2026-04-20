@@ -218,7 +218,7 @@ describe("withServerToolInterception", () => {
           { name: "web_search", type: "web_search_20260209", description: "Search", input_schema: {} },
           { name: "get_weather", type: "custom", description: "Weather", input_schema: {} },
         ],
-        tool_choice: { type: "auto", name: null },
+        tool_choice: { type: "auto" },
       })
       const context = makeServerToolContext({
         serverSideToolNames: ["web_search"],
@@ -397,7 +397,7 @@ describe("withServerToolInterception", () => {
       // Verify tool_choice was rewritten to auto
       expect(sendRequest).toHaveBeenCalledTimes(1)
       const calledPayload = sendRequest.mock.calls[0]?.[0] as AnthropicMessagesPayload | undefined
-      expect(calledPayload?.tool_choice).toEqual({ type: "auto", name: null })
+      expect(calledPayload?.tool_choice).toEqual({ type: "auto" })
       // Server-side tool should be filtered out
       expect(calledPayload?.tools).toHaveLength(1)
       expect(calledPayload?.tools?.[0]?.name).toBe("analyze")

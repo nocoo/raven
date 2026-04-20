@@ -271,7 +271,7 @@ async function handleMixedTools(
           newToolChoice: "auto",
         },
       })
-      adjustedToolChoice = { type: "auto", name: null }
+      adjustedToolChoice = { type: "auto" }
     }
   }
 
@@ -288,8 +288,8 @@ async function handleMixedTools(
     const response = await sendRequest({
       ...currentPayload,
       tool_choice: iteration > 1
-        ? { type: "auto", name: null }
-        : (currentPayload.tool_choice ?? { type: "auto", name: null }),
+        ? { type: "auto" }
+        : (currentPayload.tool_choice ?? { type: "auto" }),
     })
 
     // Check for tool_use blocks in response

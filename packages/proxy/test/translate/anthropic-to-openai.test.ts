@@ -619,14 +619,14 @@ describe("tools translation", () => {
 describe("tool_choice translation", () => {
   test("auto → 'auto'", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "auto", name: null } }),
+      makeRequest({ tool_choice: { type: "auto" } }),
     )
     expect(result.tool_choice).toBe("auto")
   })
 
   test("any → 'required'", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "any", name: null } }),
+      makeRequest({ tool_choice: { type: "any" } }),
     )
     expect(result.tool_choice).toBe("required")
   })
@@ -757,21 +757,22 @@ describe("claude-opus model name normalization", () => {
 describe("tool_choice edge cases", () => {
   test("tool without name → undefined", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "tool", name: null } }),
+      makeRequest({ tool_choice: { type: "tool" } as { type: "tool"; name: string } }),
     )
     expect(result.tool_choice).toBeUndefined()
   })
 
   test("none → 'none'", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "none", name: null } }),
+      makeRequest({ tool_choice: { type: "none" } }),
     )
     expect(result.tool_choice).toBe("none")
   })
 
   test("unknown type → undefined", () => {
     const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "unknown_type" as "auto", name: null } }),
+      // @ts-expect-error - Testing unknown type
+      makeRequest({ tool_choice: { type: "unknown_type" } as { type: "auto" } }),
     )
     expect(result.tool_choice).toBeUndefined()
   })

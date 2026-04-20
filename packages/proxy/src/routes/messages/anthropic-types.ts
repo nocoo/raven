@@ -14,10 +14,7 @@ export interface AnthropicMessagesPayload {
   top_p: number | null
   top_k: number | null
   tools: Array<AnthropicTool> | null
-  tool_choice: {
-    type: "auto" | "any" | "tool" | "none"
-    name: string | null
-  } | null
+  tool_choice: AnthropicToolChoice | null
   thinking: {
     type: "enabled"
     budget_tokens: number | null
@@ -31,6 +28,17 @@ export interface AnthropicMessagesPayload {
     effort?: "max" | "xhigh" | "high" | "medium" | "low"
   } | null
 }
+
+/**
+ * Anthropic tool_choice type.
+ * - `{ type: "auto" }` or `{ type: "any" }` or `{ type: "none" }`: no name field
+ * - `{ type: "tool", name: "..." }`: requires name field
+ */
+export type AnthropicToolChoice =
+  | { type: "auto" }
+  | { type: "any" }
+  | { type: "none" }
+  | { type: "tool"; name: string }
 
 export interface AnthropicTextBlock {
   type: "text"
