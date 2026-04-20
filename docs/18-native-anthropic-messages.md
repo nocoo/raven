@@ -411,37 +411,45 @@ function pickSupportedEffort(
 
 ## Implementation Plan
 
-### Phase 1: Preprocessing Layer
+### Phase 1: Preprocessing Layer ✅
 
-1. **提取 `preprocessPayload()` 函数**
+1. **提取 `preprocessPayload()` 函数** ✅
    - 从 `handler.ts` 抽取模型名规范化、beta header 过滤
    - 新建 `routes/messages/preprocess.ts`
    - 单元测试：各种模型名变体、beta header 组合
+   - **Commit**: `4a0bbb0` feat(proxy): add preprocessing layer for Anthropic messages
 
-2. **Models API 字段扩展**
+2. **Models API 字段扩展** ✅
    - `services/copilot/get-models.ts`: 扩展类型定义
    - `routes/models/route.ts`: 映射新增字段
    - 单元测试：验证字段透传
+   - **Commit**: `0f95621` feat(proxy): extend Models API with Copilot endpoint and capability fields
 
-### Phase 2: Server-side Tools Refactor
+### Phase 2: Server-side Tools Refactor ✅
 
-3. **统一拦截层**
+3. **统一拦截层** ✅
    - 新建 `routes/messages/server-tools.ts`
-   - 实现 `detectServerTools()` + `withServerToolInterception()`
-   - 从 `handler.ts` 迁移现有逻辑，改为操作 Anthropic payload
-   - 单元测试：pure mode、mixed mode、无 server-side tools
+   - 实现 `detectServerTools()` (已在 preprocess.ts) + `withServerToolInterception()`
+   - 支持 pure mode 和 mixed mode 拦截
+   - 使用依赖注入（executor 参数）实现测试隔离
+   - 单元测试：9 tests covering all modes
+   - **Commit**: `dbc4755` feat(proxy): add unified server-side tools interception layer
 
-4. **翻译层清理**
+4. **翻译层清理** (pending)
    - 删除 `translateToOpenAI()` 中的 `serverSideToolNames` 逻辑
    - 简化 `ExtendedChatCompletionsPayload` 类型
 
 ### Phase 3: Native Messages Path
 
-5. **Native Messages Service**
+5. **Native Messages Service** ✅
    - 新建 `services/copilot/create-native-messages.ts`
-   - 单元测试（mock HTTP）
+   - 发送到 `/v1/messages` endpoint
+   - 处理 anthropic-version 和 anthropic-beta headers
+   - 支持 vision 和 agent/user 检测
+   - 单元测试（14 tests）
+   - **Commit**: `f93bfd9` feat(proxy): add native Anthropic messages service for Copilot
 
-6. **Handler 集成**
+6. **Handler 集成** (pending)
    - 新建 `handleCopilotNative()` 
    - 路由判断：`supportsNativeMessages(copilotModel)`
    - 日志集成
