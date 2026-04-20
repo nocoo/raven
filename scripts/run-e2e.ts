@@ -1,13 +1,15 @@
 /**
- * L2 E2E runner — auto-starts the proxy dev server, runs E2E tests,
- * then kills the server.
+ * L2 E2E runner — connects to running proxy or auto-starts one,
+ * runs E2E tests against real upstream APIs.
  *
  * Usage:  bun run scripts/run-e2e.ts [-- bun-test-args...]
  *
  * The proxy must have valid Copilot credentials configured
  * (GITHUB_TOKEN or cached token) for upstream tests to pass.
+ *
+ * Uses production database to test real configurations including
+ * server-side tools (Tavily web_search).
  */
-import { existsSync, unlinkSync } from "node:fs";
 import { $ } from "bun";
 
 const PROXY_PORT = 7024;
@@ -62,43 +64,26 @@ function killProc(
 
 async function main(): Promise<number> {
   let proxyProc: ReturnType<typeof Bun.spawn> | null = null;
-
-  // Clean slate: delete test DB + WAL/SHM sidecars before run (D1 isolation)
-  const TEST_DB = `${import.meta.dir}/../packages/proxy/data/raven-test.db`;
-  for (const ext of ["", "-wal", "-shm"]) {
-    const file = TEST_DB + ext;
-    if (existsSync(file)) {
-      try {
-        unlinkSync(file);
-      } catch {
-        // OK if deletion fails (file in use, etc.)
-      }
-    }
-  }
+  let startedByUs = false;
 
   try {
     const alreadyRunning = await isPortReady(PROXY_PORT);
 
-    console.log("🔌 L2 API E2E\n");
+    console.log("🔌 L2 API E2E (production database)\n");
 
     if (alreadyRunning) {
-      console.error(`  ❌ Proxy already running on :${PROXY_PORT}`);
-      console.error(`     D1 isolation requires a fresh proxy with RAVEN_DB_PATH=data/raven-test.db`);
-      console.error(`     Stop the running proxy and try again.`);
-      return 1;
+      console.log(`  ✓ Using existing proxy on :${PROXY_PORT}`);
+    } else {
+      console.log("  ⏳ Starting proxy...");
+      proxyProc = Bun.spawn(["bun", "run", "dev:proxy"], {
+        cwd: `${import.meta.dir}/..`,
+        stdout: "ignore",
+        stderr: "ignore",
+        env: process.env,
+      });
+      startedByUs = true;
+      await waitForPort(PROXY_PORT, "Proxy");
     }
-
-    console.log("  ⏳ Starting proxy...");
-    proxyProc = Bun.spawn(["bun", "run", "dev:proxy"], {
-      cwd: `${import.meta.dir}/..`,
-      stdout: "ignore",
-      stderr: "ignore",
-      env: {
-        ...process.env,
-        RAVEN_DB_PATH: "data/raven-test.db",
-      },
-    });
-    await waitForPort(PROXY_PORT, "Proxy");
 
     console.log("");
 
@@ -111,7 +96,10 @@ async function main(): Promise<number> {
 
     return result.exitCode;
   } finally {
-    killProc(proxyProc, "Proxy");
+    // Only kill if we started it
+    if (startedByUs) {
+      killProc(proxyProc, "Proxy");
+    }
   }
 }
 

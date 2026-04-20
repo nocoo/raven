@@ -66,7 +66,7 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 **L1 (UT)**: All 820 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
 
-**L2 (API E2E)**: `bun run test:e2e` — auto-starts proxy, runs against real upstream. Manual only (anti-ban protocol).
+**L2 (API E2E)**: `bun run test:e2e` — uses production database to test real configurations (server-side tools, providers). Reuses running proxy if available, otherwise auto-starts one. Manual only (anti-ban protocol).
 
 **L3 (UI E2E)**: `bun run test:ui` — 25 Playwright tests across 5 specs for dashboard. Auto-starts proxy + dashboard. Manual only.
 
@@ -74,7 +74,7 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 **G2 (Security)**: `bun run gate:security` — osv-scanner + gitleaks. Wired into pre-push hook.
 
-**D1 (Test Isolation)**: E2E and Playwright tests use isolated test database via `RAVEN_DB_PATH` env var. Test data never touches production database (in user directory).
+**D1 (Test Isolation)**: Playwright UI tests use isolated test database. L2 E2E tests use production database intentionally — they validate real upstream integration including server-side tools (Tavily web_search).
 
 ### Pre-commit hook
 
