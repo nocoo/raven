@@ -76,7 +76,7 @@ function generateStoryWithMarkers(
   while (currentWords < targetWords) {
     // Check if we need to insert a marker
     if (markerIndex < sortedMarkers.length) {
-      const marker = sortedMarkers[markerIndex]
+      const marker = sortedMarkers[markerIndex]!
       const markerWordPosition = Math.floor((marker.position / targetTokens) * targetWords)
 
       if (currentWords >= markerWordPosition) {
@@ -87,7 +87,7 @@ function generateStoryWithMarkers(
     }
 
     // Add a paragraph
-    const paragraph = paragraphs[paragraphIndex % paragraphs.length]
+    const paragraph = paragraphs[paragraphIndex % paragraphs.length]!
     parts.push(paragraph + "\n\n")
     currentWords += paragraph.split(/\s+/).length
     paragraphIndex++
