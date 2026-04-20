@@ -11,7 +11,14 @@ jobs:
   quality:
     uses: nocoo/base-ci/.github/workflows/bun-quality.yml@v2026
     with:
-      test-command: "bun run test"
+      bun-version: "1.3.11"
+      test-command: "bun run test:all"
+      lint-command: "bun run lint"
       typecheck-command: "bun run typecheck"
+      enable-security: "true"
+      osv-lockfile: "bun.lock"
       enable-l2: "false"
+      enable-l3: "false"
+      upload-coverage: "true"
+      coverage-path: "packages/proxy/coverage"
     secrets: inherit

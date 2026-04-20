@@ -72,17 +72,21 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 **G1 (Static Analysis)**: Both packages pass `eslint` and `tsc --noEmit` (with strict extras) with 0 errors, 0 warnings. Pre-commit runs lint-staged (incremental) + full typecheck.
 
-**G2 (Security)**: `bun run gate:security` — osv-scanner + gitleaks. Wired into pre-push hook.
+**G2 (Security)**: `bun run gate:security` — osv-scanner + gitleaks. gitleaks runs at pre-commit (staged-only); full G2 runs at pre-push. CI runs both.
 
 **D1 (Test Isolation)**: Playwright UI tests use isolated test database. L2 E2E tests use production database intentionally — they validate real upstream integration including server-side tools (Tavily web_search).
 
 ### Pre-commit hook
 
-Runs `bun run test:all && bunx lint-staged && bun run typecheck` — enforces L1 (all tests + coverage thresholds) and G1 (incremental lint + types) on every commit.
+Runs 4 tasks in parallel via `scripts/pre-commit.ts`: L1 tests, lint-staged, typecheck, gitleaks (staged-only). All must pass.
 
 ### Pre-push hook
 
-Runs `bun run gate:security` (G2). L2 E2E tests are manual-only (anti-ban protocol). L3 Playwright is manual-only.
+Runs `bun run gate:security` (full G2: osv-scanner + gitleaks). L2 E2E tests are manual-only (anti-ban protocol). L3 Playwright is manual-only.
+
+### CI
+
+GitHub Actions runs on push to main and PRs: L1 + G1 + G2. L2/L3 are disabled (need Copilot credentials).
 
 ### Package manager — bun only
 
