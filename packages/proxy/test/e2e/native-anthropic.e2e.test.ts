@@ -380,17 +380,24 @@ describe("e2e Native L3: reasoning effort (output_config)", () => {
       signal: AbortSignal.timeout(60000),
     })
 
-    // Should succeed (with fallback) or fail gracefully
+    // Fallback MUST succeed - if it fails, the fallback mechanism is broken
     if (!res.ok) {
       const errorText = await res.text()
-      // If still failing after fallback, the error should be informative
-      console.log("✓ Fallback attempted, final status:", res.status)
-      console.log("  Error preview:", errorText.slice(0, 200))
-      return
+      // Only acceptable failure is if the model doesn't support ANY effort levels
+      // (not a fallback failure). Check for specific error patterns.
+      if (errorText.includes("invalid_reasoning_effort") || errorText.includes("not supported by model")) {
+        // This means fallback was attempted but no valid effort level exists
+        console.log("✓ Fallback attempted, model has no valid effort levels")
+        return
+      }
+      // Any other error is a real failure - fallback mechanism is broken
+      failFastOnError(res, errorText)
     }
 
     const body = await res.json()
     expect(body.type).toBe("message")
+    expect(body.content).toBeArray()
+    expect(body.content.length).toBeGreaterThan(0)
 
     console.log("✓ Effort fallback succeeded")
     console.log("  Response model:", body.model)
