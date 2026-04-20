@@ -577,4 +577,72 @@ describe("supports_reasoning field", () => {
     expect(result.supports_reasoning).toBe(true)
     db2.close()
   })
+
+  describe("compilation_error field", () => {
+    test("returns null for valid model_patterns", () => {
+      const created = createProvider(db, {
+        name: "Valid Provider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "key",
+        model_patterns: ["gpt-4", "claude-*"],
+      })
+
+      const found = getProvider(db, created.id)
+      expect(found?.compilation_error).toBeNull()
+    })
+
+    test("returns error message for invalid model_patterns JSON", () => {
+      // Directly insert a provider with invalid JSON
+      db.query(
+        "INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, created_at, updated_at) VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $supports_reasoning, $created_at, $updated_at)",
+      ).run({
+        $id: "invalid-json-provider",
+        $name: "Invalid JSON Provider",
+        $base_url: "https://example.com",
+        $format: "openai",
+        $api_key: "key",
+        $model_patterns: "not-valid-json{{{",
+        $enabled: 1,
+        $supports_reasoning: 0,
+        $created_at: Date.now(),
+        $updated_at: Date.now(),
+      })
+
+      const found = getProvider(db, "invalid-json-provider")
+      expect(found?.compilation_error).toBe("Invalid model_patterns JSON")
+    })
+
+    test("listProviders includes compilation_error for all providers", () => {
+      // Valid provider
+      createProvider(db, {
+        name: "Valid",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "key",
+        model_patterns: ["model"],
+      })
+
+      // Invalid provider
+      db.query(
+        "INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, created_at, updated_at) VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $supports_reasoning, $created_at, $updated_at)",
+      ).run({
+        $id: "invalid-provider",
+        $name: "Invalid",
+        $base_url: "https://example.com",
+        $format: "openai",
+        $api_key: "key",
+        $model_patterns: "invalid-json",
+        $enabled: 1,
+        $supports_reasoning: 0,
+        $created_at: Date.now(),
+        $updated_at: Date.now(),
+      })
+
+      const providers = listProviders(db)
+      expect(providers).toHaveLength(2)
+      expect(providers.find((p) => p.name === "Valid")?.compilation_error).toBeNull()
+      expect(providers.find((p) => p.name === "Invalid")?.compilation_error).toBe("Invalid model_patterns JSON")
+    })
+  })
 })

@@ -528,3 +528,104 @@ describe("cacheIPWhitelist", () => {
     expect(state.ipWhitelistRanges[0]!.original).toBe("192.168.0.0/16")
   })
 })
+
+// ===========================================================================
+// cacheProviders - invalid model_patterns handling
+// ===========================================================================
+
+describe("cacheProviders with invalid model_patterns", () => {
+  beforeEach(() => {
+    state.providers = []
+  })
+
+  test("logs warning when provider has invalid model_patterns JSON", () => {
+    initProviders(db)
+
+    // Insert provider with invalid JSON directly
+    db.query(
+      "INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, created_at, updated_at) VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $supports_reasoning, $created_at, $updated_at)",
+    ).run({
+      $id: "invalid-provider",
+      $name: "Invalid Provider",
+      $base_url: "https://example.com",
+      $format: "openai",
+      $api_key: "key",
+      $model_patterns: "not-valid-json{{{",
+      $enabled: 1,
+      $supports_reasoning: 0,
+      $created_at: Date.now(),
+      $updated_at: Date.now(),
+    })
+
+    // Spy on logger.warn
+    const loggerSpy = spyOn(require("../../src/util/logger").logger, "warn")
+
+    cacheProviders(db)
+
+    // Should log warning about skipped provider
+    expect(loggerSpy).toHaveBeenCalled()
+    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped due to invalid model_patterns"))
+    expect(warnCalls.length).toBeGreaterThan(0)
+
+    // Provider should be skipped from state.providers
+    expect(state.providers).toHaveLength(0)
+
+    loggerSpy.mockRestore()
+  })
+
+  test("logs warning count when multiple providers have invalid JSON", () => {
+    initProviders(db)
+
+    // Insert multiple providers with invalid JSON
+    for (let i = 0; i < 3; i++) {
+      db.query(
+        "INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, created_at, updated_at) VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $supports_reasoning, $created_at, $updated_at)",
+      ).run({
+        $id: `invalid-${i}`,
+        $name: `Invalid ${i}`,
+        $base_url: "https://example.com",
+        $format: "openai",
+        $api_key: "key",
+        $model_patterns: "bad-json",
+        $enabled: 1,
+        $supports_reasoning: 0,
+        $created_at: Date.now(),
+        $updated_at: Date.now(),
+      })
+    }
+
+    const loggerSpy = spyOn(require("../../src/util/logger").logger, "warn")
+
+    cacheProviders(db)
+
+    // Should log warning about 3 skipped providers
+    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("3 provider(s) skipped"))
+    expect(warnCalls.length).toBe(1)
+
+    loggerSpy.mockRestore()
+  })
+
+  test("does not log warning when all providers have valid model_patterns", () => {
+    initProviders(db)
+    createProvider(db, {
+      name: "Valid Provider",
+      base_url: "https://example.com",
+      format: "openai",
+      api_key: "key",
+      model_patterns: ["gpt-4"],
+    })
+
+    const loggerSpy = spyOn(require("../../src/util/logger").logger, "warn")
+
+    cacheProviders(db)
+
+    // Should not log any warnings
+    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped due to invalid model_patterns"))
+    expect(warnCalls.length).toBe(0)
+
+    // Provider should be in state.providers
+    expect(state.providers).toHaveLength(1)
+
+    loggerSpy.mockRestore()
+  })
+})

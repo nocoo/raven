@@ -93,12 +93,18 @@ export function cacheOptimizations(db: Database): void {
 /**
  * Load enabled providers from DB into runtime state.
  * Compiles patterns for efficient runtime matching.
- * Skips providers with invalid model_patterns JSON.
+ * Skips providers with invalid model_patterns JSON (with warning).
  * Called at startup and after any provider CRUD operation.
  */
 export function cacheProviders(db: Database): void {
   const records = getEnabledProviders(db)
   const compiled = records.map(compileProvider).filter((p): p is CompiledProvider => p !== null)
+  const skipped = records.length - compiled.length
+  if (skipped > 0) {
+    logger.warn(
+      `${skipped} provider(s) skipped due to invalid model_patterns JSON. Check logs for details.`,
+    )
+  }
   state.providers = compiled
 }
 

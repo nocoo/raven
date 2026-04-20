@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite"
+import { logger } from "../util/logger"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,7 +66,10 @@ export function compileProvider(record: ProviderRecord): CompiledProvider | null
     const { model_patterns: _, ...rest } = record
     return { ...rest, patterns }
   } catch {
-    // Invalid JSON - return null to indicate this provider should be skipped
+    // Invalid JSON - log warning and return null to indicate this provider should be skipped
+    logger.warn(
+      `Provider "${record.name}" (id: ${record.id}) has invalid model_patterns JSON: ${record.model_patterns}. Skipping provider.`,
+    )
     return null
   }
 }
@@ -81,6 +85,7 @@ export interface ProviderPublic {
   is_enabled: boolean
   supports_reasoning: boolean
   supports_models_endpoint: boolean | null // null = unknown
+  compilation_error: string | null // null = compiled successfully, string = error message
   created_at: number
   updated_at: number
 }
@@ -167,16 +172,36 @@ function maskApiKey(key: string): string {
 }
 
 function toPublic(row: ProviderRecord): ProviderPublic {
+  // Check if provider can be compiled
+  let compilationError: string | null = null
+  try {
+    const compiled = compileProvider(row)
+    if (!compiled) {
+      compilationError = "Invalid model_patterns JSON"
+    }
+  } catch {
+    compilationError = "Invalid model_patterns JSON"
+  }
+
+  // Parse model_patterns for response (gracefully fallback to empty array)
+  let modelPatterns: string[]
+  try {
+    modelPatterns = JSON.parse(row.model_patterns) as string[]
+  } catch {
+    modelPatterns = []
+  }
+
   return {
     id: row.id,
     name: row.name,
     base_url: row.base_url,
     format: row.format,
     api_key_preview: maskApiKey(row.api_key),
-    model_patterns: JSON.parse(row.model_patterns) as string[],
+    model_patterns: modelPatterns,
     is_enabled: row.enabled === 1,
     supports_reasoning: row.supports_reasoning === 1,
     supports_models_endpoint: row.supports_models_endpoint === null ? null : row.supports_models_endpoint === 1,
+    compilation_error: compilationError,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }
