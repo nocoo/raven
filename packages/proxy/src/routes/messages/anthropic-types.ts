@@ -23,6 +23,13 @@ export interface AnthropicMessagesPayload {
     budget_tokens: number | null
   } | null
   service_tier: "auto" | "standard_only" | null
+  /**
+   * Output configuration for reasoning effort.
+   * Used by Copilot native path for Claude models with adaptive thinking.
+   */
+  output_config?: {
+    effort?: "max" | "xhigh" | "high" | "medium" | "low"
+  } | null
 }
 
 export interface AnthropicTextBlock {

@@ -449,10 +449,12 @@ function pickSupportedEffort(
    - 单元测试（14 tests）
    - **Commit**: `f93bfd9` feat(proxy): add native Anthropic messages service for Copilot
 
-6. **Handler 集成** (pending)
+6. **Handler 集成** ✅
    - 新建 `handleCopilotNative()` 
    - 路由判断：`supportsNativeMessages(copilotModel)`
    - 日志集成
+   - **Commit**: `7fd520a` feat(proxy): add model capabilities utilities for native routing
+   - **Commit**: `ce0c94a` feat(proxy): add native Copilot handler for /v1/messages routing
 
 ### Phase 4: Reasoning Effort Fallback
 
