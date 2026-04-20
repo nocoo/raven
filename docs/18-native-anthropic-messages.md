@@ -443,7 +443,7 @@ function pickSupportedEffort(
 
 6. **Handler 集成**
    - 新建 `handleCopilotNative()` 
-   - 路由判断：`supportsNativeMessages(canonicalModel)`
+   - 路由判断：`supportsNativeMessages(copilotModel)`
    - 日志集成
 
 ### Phase 4: Reasoning Effort Fallback
