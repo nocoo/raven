@@ -435,9 +435,13 @@ function pickSupportedEffort(
    - 单元测试：9 tests covering all modes
    - **Commit**: `dbc4755` feat(proxy): add unified server-side tools interception layer
 
-4. **翻译层清理** (pending)
-   - 删除 `translateToOpenAI()` 中的 `serverSideToolNames` 逻辑
-   - 简化 `ExtendedChatCompletionsPayload` 类型
+4. **翻译层清理** ✅
+   - 删除 `ExtendedChatCompletionsPayload.serverSideToolNames` 字段
+   - 删除 `handleServerToolLoop`, `handlePureServerSideTools`, `handleMixedTools` 重复代码
+   - 翻译路径使用统一的 `withServerToolInterception()` 
+   - 简化 `translateAnthropicToolsToOpenAI()` 返回类型
+   - 删除约 300 行重复代码，删除 4 个过时测试文件
+   - **Commit**: `043a619` refactor(proxy): unify server-side tool handling across paths
 
 ### Phase 3: Native Messages Path
 
@@ -479,7 +483,7 @@ function pickSupportedEffort(
 
 ### Phase 5: Testing & Rollout
 
-9. **E2E Tests**
+9. **E2E Tests** (Manual only - anti-ban protocol)
    - 原生透传基础功能
    - Server-side tools（原生路径 + 翻译路径）
    - Reasoning effort fallback
