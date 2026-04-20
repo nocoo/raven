@@ -467,6 +467,15 @@ function pickSupportedEffort(
    - 错误检测 + 自动重试
    - 单元测试
    - **Commit**: `3961a57` feat(proxy): add reasoning effort fallback utilities
+   - **Commit**: `defd540` fix(proxy): apply reasoning effort fallback on native /v1/messages path
+
+### Bug Fixes
+
+- **tool_choice targeting server-side tool** ✅
+  - 当 `tool_choice` 显式指向 server-side tool（如 `web_search`）时，该 tool 会被从 definitions 中移除
+  - 导致上游拒绝请求（引用不存在的 tool）
+  - 修复：在 `handleMixedTools()` 中检测并重写为 `{ type: "auto" }`
+  - **Commit**: `d038483` fix(proxy): rewrite tool_choice when it targets a server-side tool
 
 ### Phase 5: Testing & Rollout
 
