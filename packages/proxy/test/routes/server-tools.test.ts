@@ -366,5 +366,41 @@ describe("withServerToolInterception", () => {
       // Should have called exactly 5 times (MAX_ITERATIONS)
       expect(sendRequest).toHaveBeenCalledTimes(5)
     })
+
+    test("rewrites tool_choice when it targets a server-side tool", async () => {
+      const payload = makePayload({
+        messages: [{ role: "user", content: "Search for something" }],
+        tools: [
+          { name: "web_search", type: "web_search_20260209", description: "Search", input_schema: {} },
+          { name: "analyze", type: "custom", description: "Analyze", input_schema: {} },
+        ],
+        // tool_choice explicitly targets the server-side tool
+        tool_choice: { type: "tool", name: "web_search" },
+      })
+      const context = makeServerToolContext({
+        serverSideToolNames: ["web_search"],
+        hasServerSideTools: true,
+        allServerSide: false,
+      })
+
+      // Model returns text response (no tool calls)
+      const response = makeAnthropicResponse({
+        content: [{ type: "text", text: "Here are the results." }],
+      })
+      const sendRequest = jest.fn().mockResolvedValue(response)
+
+      await withServerToolInterception(
+        payload, context, sendRequest, "req-010",
+        { executor: mockExecutor },
+      )
+
+      // Verify tool_choice was rewritten to auto
+      expect(sendRequest).toHaveBeenCalledTimes(1)
+      const calledPayload = sendRequest.mock.calls[0]?.[0] as AnthropicMessagesPayload | undefined
+      expect(calledPayload?.tool_choice).toEqual({ type: "auto", name: null })
+      // Server-side tool should be filtered out
+      expect(calledPayload?.tools).toHaveLength(1)
+      expect(calledPayload?.tools?.[0]?.name).toBe("analyze")
+    })
   })
 })

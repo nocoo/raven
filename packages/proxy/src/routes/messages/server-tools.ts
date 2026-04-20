@@ -255,10 +255,31 @@ async function handleMixedTools(
   // Filter out server-side tools from definitions
   const clientTools = filterServerSideTools(payload.tools ?? [], serverToolContext.serverSideToolNames)
 
+  // Rewrite tool_choice if it points to a server-side tool
+  // Otherwise the request references a tool that's no longer in the definition list
+  let adjustedToolChoice = payload.tool_choice
+  if (adjustedToolChoice?.type === "tool" && adjustedToolChoice.name) {
+    if (serverToolContext.serverSideToolNames.includes(adjustedToolChoice.name)) {
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "info",
+        type: "sse_chunk",
+        requestId,
+        msg: `tool_choice rewritten: ${adjustedToolChoice.name} → auto (server-side tool)`,
+        data: {
+          originalToolChoice: adjustedToolChoice.name,
+          newToolChoice: "auto",
+        },
+      })
+      adjustedToolChoice = { type: "auto", name: null }
+    }
+  }
+
   let iteration = 0
   let currentPayload: AnthropicMessagesPayload = {
     ...payload,
     tools: clientTools.length > 0 ? clientTools : null,
+    tool_choice: adjustedToolChoice,
   }
 
   while (iteration < MAX_ITERATIONS) {
