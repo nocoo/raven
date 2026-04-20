@@ -458,18 +458,15 @@ function pickSupportedEffort(
 
 ### Phase 4: Reasoning Effort Fallback
 
-7. **类型定义**
+7. **类型定义** ✅
    - `anthropic-types.ts`: 添加 `output_config` 字段到 `AnthropicMessagesPayload`
-   ```typescript
-   output_config?: {
-     effort?: "max" | "xhigh" | "high" | "medium" | "low"
-   } | null
-   ```
+   - **Commit**: `2cd0324` feat(proxy): add output_config type definition for reasoning effort
 
-8. **Effort 降级逻辑**
+8. **Effort 降级逻辑** ✅
    - `pickSupportedEffort()`: 从 model capabilities 获取支持列表
    - 错误检测 + 自动重试
    - 单元测试
+   - **Commit**: `3961a57` feat(proxy): add reasoning effort fallback utilities
 
 ### Phase 5: Testing & Rollout
 
