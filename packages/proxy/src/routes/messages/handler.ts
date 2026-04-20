@@ -36,6 +36,9 @@ import {
   translateErrorToAnthropicErrorEvent,
 } from "./stream-translation"
 import { searchTavily, TavilyError } from "./../../lib/server-tools/tavily"
+import { preprocessPayload } from "./preprocess"
+import { supportsNativeMessages } from "./model-capabilities"
+import { handleCopilotNative } from "./native-handler"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -122,6 +125,40 @@ export async function handleCompletion(c: Context) {
     )
   }
 
+  // --- Preprocessing: normalize model name, filter beta, detect server tools ---
+  const preprocessed = preprocessPayload(anthropicPayload, anthropicBeta)
+  const { payload: cleanedPayload, copilotModel, anthropicBeta: filteredBeta, serverToolContext } = preprocessed
+
+  // --- Native Messages Routing ---
+  // Check if the model supports native /v1/messages (Claude models)
+  if (supportsNativeMessages(copilotModel)) {
+    logEmitter.emitLog({
+      ts: Date.now(),
+      level: "debug",
+      type: "request_start",
+      requestId,
+      msg: `routing to native /v1/messages: ${copilotModel}`,
+      data: {
+        rawModel: model,
+        copilotModel,
+        routingPath: "native",
+        serverToolContext,
+      },
+    })
+
+    return handleCopilotNative(
+      c,
+      requestId,
+      cleanedPayload,
+      startTime,
+      copilotModel,
+      filteredBeta,
+      serverToolContext,
+      { accountName, sessionId, clientName, clientVersion },
+    )
+  }
+
+  // --- Translated Path (non-Claude models) ---
   const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot", anthropicBeta })
 
   // Debug log if thinking was requested but dropped (Copilot doesn't support it)
