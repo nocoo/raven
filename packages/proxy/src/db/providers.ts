@@ -1,5 +1,4 @@
 import type { Database } from "bun:sqlite"
-import { logger } from "../util/logger"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +46,8 @@ export interface CompiledProvider extends Omit<ProviderRecord, "model_patterns">
  * Compile a provider record for runtime use.
  * Parses model_patterns JSON and pre-computes match structures.
  * Returns null if provider has invalid JSON (should be skipped).
+ *
+ * Pure function - no side effects. Logging is handled by callers like cacheProviders().
  */
 export function compileProvider(record: ProviderRecord): CompiledProvider | null {
   try {
@@ -66,10 +67,8 @@ export function compileProvider(record: ProviderRecord): CompiledProvider | null
     const { model_patterns: _, ...rest } = record
     return { ...rest, patterns }
   } catch {
-    // Invalid JSON - log warning and return null to indicate this provider should be skipped
-    logger.warn(
-      `Provider "${record.name}" (id: ${record.id}) has invalid model_patterns JSON: ${record.model_patterns}. Skipping provider.`,
-    )
+    // Invalid JSON - return null to indicate this provider should be skipped
+    // Caller (e.g., cacheProviders) is responsible for logging warnings
     return null
   }
 }
@@ -81,7 +80,8 @@ export interface ProviderPublic {
   base_url: string
   format: ProviderFormat
   api_key_preview: string // "6b69d7c2...****"
-  model_patterns: string[]
+  model_patterns: string[] // Parsed patterns (empty array if invalid JSON)
+  raw_model_patterns: string // Original JSON string for debugging/recovery
   is_enabled: boolean
   supports_reasoning: boolean
   supports_models_endpoint: boolean | null // null = unknown
@@ -172,7 +172,7 @@ function maskApiKey(key: string): string {
 }
 
 function toPublic(row: ProviderRecord): ProviderPublic {
-  // Check if provider can be compiled
+  // Check if provider can be compiled (no logging - pure validation)
   let compilationError: string | null = null
   try {
     const compiled = compileProvider(row)
@@ -198,6 +198,7 @@ function toPublic(row: ProviderRecord): ProviderPublic {
     format: row.format,
     api_key_preview: maskApiKey(row.api_key),
     model_patterns: modelPatterns,
+    raw_model_patterns: row.model_patterns, // Preserve original for debugging/recovery
     is_enabled: row.enabled === 1,
     supports_reasoning: row.supports_reasoning === 1,
     supports_models_endpoint: row.supports_models_endpoint === null ? null : row.supports_models_endpoint === 1,

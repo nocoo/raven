@@ -564,8 +564,8 @@ describe("cacheProviders with invalid model_patterns", () => {
 
     // Should log warning about skipped provider
     expect(loggerSpy).toHaveBeenCalled()
-    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped due to invalid model_patterns"))
-    expect(warnCalls.length).toBeGreaterThan(0)
+    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped: invalid model_patterns JSON"))
+    expect(warnCalls.length).toBe(1)
 
     // Provider should be skipped from state.providers
     expect(state.providers).toHaveLength(0)
@@ -599,7 +599,7 @@ describe("cacheProviders with invalid model_patterns", () => {
     cacheProviders(db)
 
     // Should log warning about 3 skipped providers
-    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("3 provider(s) skipped"))
+    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("3 provider(s) skipped in total"))
     expect(warnCalls.length).toBe(1)
 
     loggerSpy.mockRestore()
@@ -620,7 +620,7 @@ describe("cacheProviders with invalid model_patterns", () => {
     cacheProviders(db)
 
     // Should not log any warnings
-    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped due to invalid model_patterns"))
+    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped: invalid model_patterns JSON"))
     expect(warnCalls.length).toBe(0)
 
     // Provider should be in state.providers

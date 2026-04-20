@@ -643,6 +643,26 @@ describe("supports_reasoning field", () => {
       expect(providers).toHaveLength(2)
       expect(providers.find((p) => p.name === "Valid")?.compilation_error).toBeNull()
       expect(providers.find((p) => p.name === "Invalid")?.compilation_error).toBe("Invalid model_patterns JSON")
+
+      // Verify raw_model_patterns preserves original value even for invalid JSON
+      const invalidProvider = providers.find((p) => p.name === "Invalid")
+      expect(invalidProvider?.raw_model_patterns).toBe("invalid-json")
+      expect(invalidProvider?.model_patterns).toEqual([]) // Parsed version is empty array
+    })
+
+    test("raw_model_patterns preserves original JSON string for all providers", () => {
+      const created = createProvider(db, {
+        name: "Test Provider",
+        base_url: "https://example.com",
+        format: "openai",
+        api_key: "key",
+        model_patterns: ["gpt-4", "claude-*"],
+      })
+
+      const found = getProvider(db, created.id)
+      // JSON.stringify removes spaces in the output
+      expect(found?.raw_model_patterns).toBe('["gpt-4","claude-*"]')
+      expect(found?.model_patterns).toEqual(["gpt-4", "claude-*"])
     })
   })
 })

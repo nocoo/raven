@@ -98,13 +98,35 @@ export function cacheOptimizations(db: Database): void {
  */
 export function cacheProviders(db: Database): void {
   const records = getEnabledProviders(db)
-  const compiled = records.map(compileProvider).filter((p): p is CompiledProvider => p !== null)
-  const skipped = records.length - compiled.length
-  if (skipped > 0) {
+
+  // Track skipped providers for detailed logging
+  const skipped: Array<{ id: string; name: string; model_patterns: string }> = []
+  const compiled = records
+    .map((record) => {
+      const result = compileProvider(record)
+      if (!result) {
+        skipped.push({
+          id: record.id,
+          name: record.name,
+          model_patterns: record.model_patterns,
+        })
+      }
+      return result
+    })
+    .filter((p): p is CompiledProvider => p !== null)
+
+  // Log warnings for skipped providers
+  for (const provider of skipped) {
     logger.warn(
-      `${skipped} provider(s) skipped due to invalid model_patterns JSON. Check logs for details.`,
+      `Provider "${provider.name}" (id: ${provider.id}) skipped: invalid model_patterns JSON: ${provider.model_patterns}`,
     )
   }
+  if (skipped.length > 0) {
+    logger.warn(
+      `${skipped.length} provider(s) skipped in total. These providers will not route any requests.`,
+    )
+  }
+
   state.providers = compiled
 }
 
