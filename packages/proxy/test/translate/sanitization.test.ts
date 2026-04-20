@@ -502,7 +502,9 @@ describe("translateToOpenAI with sanitization", () => {
     // The original tool object was mutated but only standard fields are copied
   })
 
-  test("preserves server-side tool detection after sanitization", () => {
+  test("sanitizes server-side tool definitions during translation", () => {
+    // Server-side tool detection is now handled by preprocessPayload() in preprocess.ts.
+    // This test verifies that translateToOpenAI still sanitizes the tool definitions.
     const payload: AnthropicMessagesPayload = {
       model: "claude-sonnet-4",
       max_tokens: 1024,
@@ -528,8 +530,9 @@ describe("translateToOpenAI with sanitization", () => {
       service_tier: null,
     }
     const result = translateToOpenAI(payload)
-    // Server-side tool should still be detected
-    expect(result.serverSideToolNames).toContain("web_search")
+    // Tool should be translated to OpenAI function format
+    expect(result.tools).toHaveLength(1)
+    expect(result.tools![0]!.function.name).toBe("web_search")
   })
 
   test("handles conversation with mixed content types", () => {

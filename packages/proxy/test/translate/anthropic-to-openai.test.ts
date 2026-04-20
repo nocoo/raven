@@ -572,11 +572,11 @@ describe("tools translation", () => {
       },
     })
 
-    // Server-side tool names should be tracked
-    expect((result as any).serverSideToolNames).toEqual(["web_search"])
+    // NOTE: Server-side tool detection is now handled by preprocessPayload() in preprocess.ts,
+    // not by translateToOpenAI(). See preprocess.test.ts for server-side tool detection tests.
   })
 
-  test("custom tools are not tracked as server-side", () => {
+  test("custom tools are translated correctly", () => {
     const result = translateToOpenAI(
       makeRequest({
         tools: [
@@ -591,10 +591,10 @@ describe("tools translation", () => {
     )
 
     expect(result.tools).toHaveLength(1)
-    expect((result as any).serverSideToolNames).toEqual([])
+    expect(result.tools?.[0]!.function.name).toBe("my_tool")
   })
 
-  test("tools without type field are not server-side", () => {
+  test("tools without type field are translated correctly", () => {
     const result = translateToOpenAI(
       makeRequest({
         tools: [
@@ -608,7 +608,7 @@ describe("tools translation", () => {
     )
 
     expect(result.tools).toHaveLength(1)
-    expect((result as any).serverSideToolNames).toEqual([])
+    expect(result.tools?.[0]!.function.name).toBe("legacy_tool")
   })
 })
 

@@ -4,8 +4,7 @@ import { Hono } from "hono"
 import { state } from "../../src/lib/state"
 import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
-import { handleCompletion, handleServerToolLoop } from "../../src/routes/messages/handler"
-import type { ExtendedChatCompletionsPayload } from "../../src/routes/messages/non-stream-translation"
+import { handleCompletion } from "../../src/routes/messages/handler"
 import type { ServerSentEvent } from "../../src/util/sse"
 import * as createChatCompletionsModule from "../../src/services/copilot/create-chat-completions"
 import * as tavilyModule from "../../src/lib/server-tools/tavily"
@@ -686,8 +685,10 @@ describe("messages handler (optToolCallDebug)", () => {
     expect(toolDefsLog!.data?.toolDefinitions).toHaveLength(2)
   })
 
-  test("emits server-tool check debug log when optToolCallDebug is true", async () => {
+  test("emits server-tool check debug log when optToolCallDebug is true and server-side tools present", async () => {
     state.optToolCallDebug = true
+    state.stWebSearchEnabled = true
+    state.stWebSearchApiKey = "tvly-test-key"
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
 
     const events: LogEvent[] = []
@@ -697,9 +698,10 @@ describe("messages handler (optToolCallDebug)", () => {
     const app = makeApp()
     await app.request(
       req({
-        model: "claude-sonnet-4-20250514",
+        model: "gpt-4o",  // Non-Claude model uses translated path
         max_tokens: 4096,
         messages: [{ role: "user", content: "hi" }],
+        tools: [{ name: "web_search", type: "web_search_20260209", input_schema: { type: "object" } }],
       }),
     )
 
@@ -710,8 +712,8 @@ describe("messages handler (optToolCallDebug)", () => {
       e.msg.includes("server-tool check"),
     )
     expect(serverToolCheck).toBeDefined()
-    expect(serverToolCheck!.data?.hasServerSideTools).toBe(false)
-    expect(serverToolCheck!.data?.webSearchEnabled).toBe(false)
+    expect(serverToolCheck!.data?.hasServerSideTools).toBe(true)
+    expect(serverToolCheck!.data?.webSearchEnabled).toBe(true)
   })
 
   test("does not emit debug logs when optToolCallDebug is false", async () => {
@@ -1379,117 +1381,8 @@ describe("messages handler (server-side tools)", () => {
   })
 })
 
-describe("handleServerToolLoop (mixed-mode error branches)", () => {
-  let savedStWebSearchEnabled: boolean
-  let savedStWebSearchApiKey: string | null
-
-  beforeEach(() => {
-    savedStWebSearchEnabled = state.stWebSearchEnabled
-    savedStWebSearchApiKey = state.stWebSearchApiKey
-    state.stWebSearchEnabled = true
-    state.stWebSearchApiKey = "tvly-test-key"
-  })
-
-  afterEach(() => {
-    state.stWebSearchEnabled = savedStWebSearchEnabled
-    state.stWebSearchApiKey = savedStWebSearchApiKey
-  })
-
-  test("surfaces Tavily errors from mixed-mode server tool interception", async () => {
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "search latest docs", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      tools: [
-        { type: "function", function: { name: "web_search", description: "Search", parameters: {} } },
-        { type: "function", function: { name: "get_weather", description: "Weather", parameters: {} } },
-      ],
-      serverSideToolNames: ["web_search"],
-    }
-
-    const createSpy = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockResolvedValueOnce(createMockStream({
-        content: "Searching...",
-        toolCalls: [{ id: "call_1", name: "web_search", arguments: '{"query":"latest docs"}' }],
-        finishReason: "tool_calls",
-      }))
-    const searchSpy = spyOn(tavilyModule, "searchTavily").mockImplementationOnce(() => {
-      throw new tavilyModule.TavilyError("Invalid API key", 401, "auth")
-    })
-
-    await expect(
-      handleServerToolLoop(payload, ["web_search"], "req-id", false),
-    ).rejects.toMatchObject({ status: 401, message: "Invalid API key" })
-
-    createSpy.mockRestore()
-    searchSpy.mockRestore()
-  })
-
-  test("fails mixed-mode interception for unsupported server-side tools", async () => {
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "run python", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      tools: [
-        { type: "function", function: { name: "code_execution", description: "Run code", parameters: {} } },
-        { type: "function", function: { name: "get_weather", description: "Weather", parameters: {} } },
-      ],
-      serverSideToolNames: ["code_execution"],
-    }
-
-    const createSpy = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockResolvedValueOnce(createMockStream({
-        toolCalls: [{ id: "call_1", name: "code_execution", arguments: '{"code":"print(1)"}' }],
-        finishReason: "tool_calls",
-      }))
-
-    await expect(
-      handleServerToolLoop(payload, ["code_execution"], "req-id", false),
-    ).rejects.toMatchObject({
-      status: 500,
-      message: "Server tool code_execution is not available",
-    })
-
-    createSpy.mockRestore()
-  })
-
-  test("throws after exceeding the maximum mixed-mode server tool iterations", async () => {
-    const payload: ExtendedChatCompletionsPayload = {
-      model: "claude-sonnet-4-20250514",
-      messages: [{ role: "user", content: "keep searching", name: null, tool_calls: null, tool_call_id: null }],
-      max_tokens: 4096,
-      tool_choice: null,
-      tools: [
-        { type: "function", function: { name: "web_search", description: "Search", parameters: {} } },
-        { type: "function", function: { name: "get_weather", description: "Weather", parameters: {} } },
-      ],
-      serverSideToolNames: ["web_search"],
-    }
-
-    const createSpy = spyOn(createChatCompletionsModule, "createChatCompletions")
-      .mockImplementation(() => Promise.resolve(createMockStream({
-        toolCalls: [{ id: "call_loop", name: "web_search", arguments: '{"query":"loop"}' }],
-        finishReason: "tool_calls",
-      })))
-    const searchSpy = spyOn(tavilyModule, "searchTavily").mockResolvedValue({
-      type: "web_search_tool_result",
-      content: [],
-      textContent: "loop result",
-    })
-
-    await expect(
-      handleServerToolLoop(payload, ["web_search"], "req-id", false),
-    ).rejects.toThrow("Server tool loop exceeded maximum iterations")
-
-    expect(createSpy).toHaveBeenCalledTimes(5)
-    expect(searchSpy).toHaveBeenCalledTimes(5)
-
-    createSpy.mockRestore()
-    searchSpy.mockRestore()
-  })
-})
+// NOTE: handleServerToolLoop tests have been moved to server-tools.test.ts
+// which tests the unified withServerToolInterception() layer.
 
 describe("messages handler (custom provider streaming edge cases)", () => {
   let savedProviders: typeof state.providers

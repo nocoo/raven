@@ -19,7 +19,7 @@ import {
   type ToolCall,
 } from "./../../services/copilot/create-chat-completions"
 import type { ServerSentEvent } from "./../../util/sse"
-import { extractErrorDetails, forwardError, HTTPError } from "./../../lib/error"
+import { extractErrorDetails, forwardError } from "./../../lib/error"
 
 import {
   type AnthropicMessagesPayload,
@@ -29,16 +29,15 @@ import {
 import {
   translateToAnthropic,
   translateToOpenAI,
-  type ExtendedChatCompletionsPayload,
 } from "./non-stream-translation"
 import {
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
 } from "./stream-translation"
-import { searchTavily, TavilyError } from "./../../lib/server-tools/tavily"
 import { preprocessPayload } from "./preprocess"
 import { supportsNativeMessages } from "./model-capabilities"
 import { handleCopilotNative } from "./native-handler"
+import { withServerToolInterception } from "./server-tools"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -158,7 +157,8 @@ export async function handleCompletion(c: Context) {
     )
   }
 
-  // --- Translated Path (non-Claude models) ---
+  // --- Translated Path (non-Claude models via Copilot) ---
+  // Reuse serverToolContext from preprocessed result (already computed above)
   const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot", anthropicBeta })
 
   // Debug log if thinking was requested but dropped (Copilot doesn't support it)
@@ -176,90 +176,70 @@ export async function handleCompletion(c: Context) {
     })
   }
 
-  const serverSideToolNames = openAIPayload.serverSideToolNames ?? []
-
   // Check if we need to handle server-side tools (web_search)
-  const hasServerSideTools = serverSideToolNames.length > 0
   const webSearchEnabled = state.stWebSearchEnabled && state.stWebSearchApiKey !== null
 
   // Debug: log server-tool detection result
-  if (state.optToolCallDebug) {
+  if (state.optToolCallDebug && serverToolContext.hasServerSideTools) {
     logEmitter.emitLog({
       ts: Date.now(), level: "debug", type: "request_start", requestId,
-      msg: `server-tool check: hasServerSideTools=${hasServerSideTools}, webSearchEnabled=${webSearchEnabled}, serverSideToolNames=${JSON.stringify(serverSideToolNames)}`,
+      msg: `translated path: server-tool check: hasServerSideTools=${serverToolContext.hasServerSideTools}, webSearchEnabled=${webSearchEnabled}`,
       data: {
-        hasServerSideTools, webSearchEnabled, serverSideToolNames,
-        stWebSearchEnabled: state.stWebSearchEnabled,
-        stWebSearchApiKey: state.stWebSearchApiKey ? "***" : null,
+        hasServerSideTools: serverToolContext.hasServerSideTools,
+        webSearchEnabled,
+        serverSideToolNames: serverToolContext.serverSideToolNames,
+        allServerSide: serverToolContext.allServerSide,
       },
     })
   }
 
-  // tool_choice rewrite: if tool_choice points to a server-side tool, rewrite to "auto"
-  // This ensures the upstream model can freely decide to call the tool
-  let finalPayload = openAIPayload
-  if (hasServerSideTools && webSearchEnabled && openAIPayload.tool_choice) {
-    const tc = openAIPayload.tool_choice
-    if (typeof tc === "object" && tc.type === "function" &&
-        serverSideToolNames.includes(tc.function.name)) {
-      logEmitter.emitLog({
-        ts: Date.now(),
-        level: "info",
-        type: "request_start",
+  try {
+    // Handle server-side tools via unified interception if enabled
+    if (serverToolContext.hasServerSideTools && webSearchEnabled) {
+      // Create sendRequest wrapper: Anthropic → OpenAI → send → OpenAI response → Anthropic
+      const sendTranslatedRequest = async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
+        const translated = translateToOpenAI(p, { targetFormat: "copilot", anthropicBeta })
+        const streamResponse = await createChatCompletions({ ...translated, stream: true })
+        const response = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+        return translateToAnthropic(response, model)
+      }
+
+      const serverToolResponse = await withServerToolInterception(
+        anthropicPayload,
+        serverToolContext,
+        sendTranslatedRequest,
         requestId,
-        msg: `tool_choice rewritten: ${tc.function.name} → auto (server-side tool)`,
+      )
+
+      const latencyMs = Math.round(performance.now() - startTime)
+
+      logEmitter.emitLog({
+        ts: Date.now(), level: "info", type: "request_end", requestId,
+        msg: `200 ${model} ${latencyMs}ms (translated+server-tools)`,
         data: {
-          originalToolChoice: tc.function.name,
-          newToolChoice: "auto",
+          path: "/v1/messages", format: "anthropic", model,
+          resolvedModel: serverToolResponse.model,
+          translatedModel: openAIPayload.model,
+          inputTokens: serverToolResponse.usage?.input_tokens ?? 0,
+          outputTokens: serverToolResponse.usage?.output_tokens ?? 0,
+          latencyMs,
+          ttftMs: null, processingMs: null,
+          stream: false, status: "success", statusCode: 200,
+          upstreamStatus: 200, routingPath: "translated",
+          serverToolsUsed: true,
+          accountName, sessionId, clientName, clientVersion,
         },
       })
-      finalPayload = { ...openAIPayload, tool_choice: "auto" }
-    }
-  }
 
-  try {
-    // Server-side tool interception loop may return AnthropicResponse directly
-    // (pure mode) or ChatCompletionResponse (mixed mode / normal flow)
-    let serverToolResult: ServerToolResult | undefined
-    let response: Awaited<ReturnType<typeof createChatCompletions>>
-
-    if (hasServerSideTools && webSearchEnabled) {
-      serverToolResult = await handleServerToolLoop(
-        finalPayload,
-        serverSideToolNames,
-        requestId,
-        stream,
-      )
-      // Pure server-side mode returns AnthropicResponse directly
-      if (isAnthropicResponse(serverToolResult)) {
-        const latencyMs = Math.round(performance.now() - startTime)
-
-        logEmitter.emitLog({
-          ts: Date.now(), level: "info", type: "request_end", requestId,
-          msg: `200 ${model} ${latencyMs}ms`,
-          data: {
-            path: "/v1/messages", format: "anthropic", model,
-            resolvedModel: serverToolResult.model,
-            translatedModel: finalPayload.model,
-            inputTokens: serverToolResult.usage.input_tokens,
-            outputTokens: serverToolResult.usage.output_tokens,
-            latencyMs,
-            ttftMs: null, processingMs: null,
-            stream: false, status: "success", statusCode: 200,
-            upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
-          },
-        })
-
-        // Client requested streaming — emit as SSE events
-        if (stream) {
-          return streamAnthropicResponse(c, serverToolResult)
-        }
-        return c.json(serverToolResult)
+      // Client requested streaming — emit as SSE events
+      if (stream) {
+        return streamAnthropicResponse(c, serverToolResponse)
       }
-      response = serverToolResult
-    } else {
-      response = await createChatCompletions(finalPayload)
+      return c.json(serverToolResponse)
     }
+
+    // No server-side tools: send directly
+    const response = await createChatCompletions(openAIPayload)
 
     if (isNonStreaming(response)) {
       const anthropicResponse = translateToAnthropic(response, model)
@@ -274,7 +254,7 @@ export async function handleCompletion(c: Context) {
         data: {
           path: "/v1/messages", format: "anthropic", model,
           resolvedModel: response.model,
-          translatedModel: finalPayload.model,
+          translatedModel: openAIPayload.model,
           inputTokens, outputTokens, latencyMs,
           ttftMs: null, processingMs: null,
           stream: false, status: "success", statusCode: 200,
@@ -374,7 +354,7 @@ export async function handleCompletion(c: Context) {
         // Build base request_end data
         const baseData = {
           path: "/v1/messages", format: "anthropic", model,
-          resolvedModel, translatedModel: finalPayload.model,
+          resolvedModel, translatedModel: openAIPayload.model,
           inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
           stream: true, status: streamError ? "error" : "success",
           statusCode: streamError ? 502 : 200,
@@ -422,300 +402,6 @@ export async function handleCompletion(c: Context) {
 const isNonStreaming = (
   response: Awaited<ReturnType<typeof createChatCompletions>> | ChatCompletionResponse,
 ): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
-
-// ===========================================================================
-// Server-side tool interception
-// ===========================================================================
-
-/**
- * Handle requests that include server-side tools (e.g., web_search).
- *
- * Two modes:
- *
- * **Pure server-side** (all tools are server-side, e.g. only web_search):
- *   - Extract query from messages, call Tavily directly (no upstream call)
- *   - Inject search results into messages, then call upstream without tools
- *     to let the model synthesize a final answer
- *
- * **Mixed** (has both client and server-side tools):
- *   - Strip server-side tool definitions, send to upstream with client tools only
- *   - If upstream returns a tool_call matching a server-side tool name, execute it
- *   - Inject results and loop (up to maxIterations)
- *
- * This is done server-side, transparent to the client.
- */
-export type ServerToolResult = ChatCompletionResponse | AnthropicResponse
-
-export async function handleServerToolLoop(
-  payload: ExtendedChatCompletionsPayload,
-  serverSideToolNames: string[],
-  requestId: string,
-  _clientRequestedStream: boolean,
-): Promise<ServerToolResult> {
-  // Separate client-side and server-side tools
-  const clientTools = payload.tools?.filter(
-    (t) => !serverSideToolNames.includes(t.function.name),
-  )
-  const hasClientTools = clientTools && clientTools.length > 0
-
-  // --- Pure server-side mode: all tools are server-side ---
-  if (!hasClientTools) {
-    return handlePureServerSideTools(payload, serverSideToolNames, requestId)
-  }
-
-  // --- Mixed mode: has both client and server-side tools ---
-  return handleMixedTools(payload, serverSideToolNames, clientTools, requestId)
-}
-
-/**
- * Pure server-side tool handling.
- * Extract query from user message, call Tavily, inject results,
- * then call upstream (no tools) for the model to synthesize an answer.
- *
- * Returns an AnthropicResponse directly (bypasses translateToAnthropic)
- * with proper server_tool_use + web_search_tool_result + text blocks.
- */
-async function handlePureServerSideTools(
-  payload: ExtendedChatCompletionsPayload,
-  serverSideToolNames: string[],
-  requestId: string,
-): Promise<AnthropicResponse> {
-  // Extract search query from the last user message
-  const lastUserMessage = [...payload.messages].reverse().find((m) => m.role === "user")
-  const query = extractTextContent(lastUserMessage?.content)
-
-  if (!query) {
-    // No extractable query — fall through to upstream without tools,
-    // return as plain text response
-    const streamResponse = await createChatCompletions({
-      ...payload,
-      stream: true,
-      tools: null,
-      tool_choice: null,
-    })
-    const resp = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
-    const anthropicResp = translateToAnthropic(resp)
-    return anthropicResp
-  }
-
-  // Execute web_search via Tavily
-  const toolName = serverSideToolNames.find((n) => n === "web_search") ?? serverSideToolNames[0] ?? "web_search"
-
-  logEmitter.emitLog({
-    ts: Date.now(), level: "info", type: "sse_chunk", requestId,
-    msg: `server-side tool direct call: ${toolName}`,
-    data: { eventType: "server_tool_direct", toolName, query },
-  })
-
-  let searchResult: Awaited<ReturnType<typeof searchTavily>>
-  if (state.stWebSearchApiKey) {
-    try {
-      searchResult = await searchTavily(state.stWebSearchApiKey, { query })
-    } catch (err) {
-      if (err instanceof TavilyError) {
-        logEmitter.emitLog({
-          ts: Date.now(), level: "error", type: "sse_chunk", requestId,
-          msg: `server tool error: ${toolName} - ${err.message}`,
-          data: { eventType: "server_tool_error", toolName, errorType: err.type, statusCode: err.statusCode },
-        })
-        throw new HTTPError(err.message, err.statusCode, err.message)
-      }
-      throw err
-    }
-  } else {
-    throw new HTTPError(`Server tool ${toolName} is not available`, 500, `Server tool ${toolName} is not available`)
-  }
-
-  logEmitter.emitLog({
-    ts: Date.now(), level: "info", type: "sse_chunk", requestId,
-    msg: `server tool result obtained: ${toolName}`,
-    data: { eventType: "server_tool_result", toolName, resultCount: searchResult.content.length },
-  })
-
-  // Inject search results and call upstream for synthesis (no tools)
-  const synthesisPayload: ChatCompletionsPayload = {
-    ...payload,
-    stream: true,
-    tools: null,
-    tool_choice: null,
-    messages: [
-      ...payload.messages,
-      {
-        role: "user",
-        content: `[web_search results for "${query}"]\n\n${searchResult.textContent}`,
-        name: null,
-        tool_calls: null,
-        tool_call_id: null,
-      },
-    ],
-  }
-
-  const streamResponse = await createChatCompletions(synthesisPayload)
-  const synthesisResp = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
-
-  // Build Anthropic-native response with server_tool_use + web_search_tool_result + text
-  const toolUseId = `srvtoolu_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
-  const synthesizedText = synthesisResp.choices[0]?.message.content || ""
-  const cachedTokens = synthesisResp.usage?.prompt_tokens_details?.cached_tokens ?? 0
-  const inputTokens = (synthesisResp.usage?.prompt_tokens ?? 0) - cachedTokens
-  const outputTokens = synthesisResp.usage?.completion_tokens ?? 0
-
-  return {
-    id: synthesisResp.id || `msg_${Date.now()}`,
-    type: "message",
-    role: "assistant",
-    model: synthesisResp.model || payload.model,
-    stop_reason: "end_turn",
-    stop_sequence: null,
-    content: [
-      {
-        type: "server_tool_use",
-        id: toolUseId,
-        name: toolName,
-        input: { query },
-      },
-      {
-        type: "web_search_tool_result",
-        tool_use_id: toolUseId,
-        content: searchResult.content,
-      },
-      {
-        type: "text",
-        text: synthesizedText,
-      },
-    ],
-    usage: {
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      cache_creation_input_tokens: null,
-      cache_read_input_tokens: cachedTokens || null,
-      service_tier: null,
-      server_tool_use: { web_search_requests: 1 },
-    },
-  }
-}
-
-/**
- * Mixed tool handling: client tools + server-side tools.
- * Strip server-side tool defs, send to upstream with client tools only.
- * If model calls a server-side tool name, execute it and loop.
- */
-async function handleMixedTools(
-  payload: ExtendedChatCompletionsPayload,
-  serverSideToolNames: string[],
-  clientTools: NonNullable<ChatCompletionsPayload["tools"]>,
-  requestId: string,
-): Promise<ChatCompletionResponse> {
-  const maxIterations = 5
-  let iteration = 0
-  let currentPayload: ChatCompletionsPayload = payload
-
-  while (iteration < maxIterations) {
-    iteration++
-
-    const loopPayload: ChatCompletionsPayload = {
-      ...currentPayload,
-      stream: true,
-      tools: clientTools,
-      tool_choice: iteration > 1 ? "auto" : (currentPayload.tool_choice ?? "auto"),
-    }
-
-    const streamResponse = await createChatCompletions(loopPayload)
-    const response = await consumeStreamToResponse(
-      streamResponse as AsyncGenerator<ServerSentEvent>,
-    )
-
-    const toolCalls = response.choices[0]?.message.tool_calls
-    if (!toolCalls || toolCalls.length === 0) {
-      return response
-    }
-
-    const serverToolCall = toolCalls.find((tc: { function?: { name: string } }) =>
-      tc.function && serverSideToolNames.includes(tc.function.name),
-    )
-
-    if (!serverToolCall) {
-      // Client-side tool call — return to client
-      return response
-    }
-
-    // Execute server-side tool
-    const toolName = serverToolCall.function.name
-    const toolInput = JSON.parse(serverToolCall.function.arguments)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "sse_chunk", requestId,
-      msg: `intercepting server-side tool: ${toolName}`,
-      data: { eventType: "server_tool_intercept", toolName, toolInput },
-    })
-
-    let toolResult
-    if (toolName === "web_search" && state.stWebSearchApiKey) {
-      try {
-        toolResult = await searchTavily(state.stWebSearchApiKey, {
-          query: toolInput.query || "",
-          count: toolInput.count,
-          offset: toolInput.offset,
-        })
-      } catch (err) {
-        if (err instanceof TavilyError) {
-          logEmitter.emitLog({
-            ts: Date.now(), level: "error", type: "sse_chunk", requestId,
-            msg: `server tool error: ${toolName} - ${err.message}`,
-            data: { eventType: "server_tool_error", toolName, errorType: err.type, statusCode: err.statusCode },
-          })
-          throw new HTTPError(err.message, err.statusCode, err.message)
-        }
-        throw err
-      }
-    } else {
-      throw new HTTPError(`Server tool ${toolName} is not available`, 500, `Server tool ${toolName} is not available`)
-    }
-
-    // Inject tool result and loop
-    const assistantMessage: ChatCompletionsPayload["messages"][0] = {
-      role: "assistant",
-      content: response.choices[0]?.message.content || "",
-      tool_calls: [serverToolCall],
-      name: null,
-      tool_call_id: null,
-    }
-
-    const toolMessage: ChatCompletionsPayload["messages"][0] = {
-      role: "tool",
-      content: JSON.stringify(toolResult),
-      tool_call_id: serverToolCall.id,
-      name: null,
-      tool_calls: null,
-    }
-
-    currentPayload = {
-      ...currentPayload,
-      messages: [...currentPayload.messages, assistantMessage, toolMessage],
-    }
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "sse_chunk", requestId,
-      msg: `server tool result injected: ${toolName}`,
-      data: { eventType: "server_tool_result", toolName, resultLength: JSON.stringify(toolResult).length },
-    })
-  }
-
-  throw new Error("Server tool loop exceeded maximum iterations")
-}
-
-/** Extract plain text from a message content field. */
-function extractTextContent(content: string | Array<{ type: string; text?: string }> | null | undefined): string {
-  if (!content) return ""
-  if (typeof content === "string") return content
-  if (Array.isArray(content)) {
-    return content
-      .filter((p): p is { type: "text"; text: string } => p.type === "text" && typeof p.text === "string")
-      .map((p) => p.text)
-      .join("\n")
-  }
-  return ""
-}
 
 /**
  * Consume a streaming response and reassemble into a ChatCompletionResponse.
@@ -1144,13 +830,6 @@ function isAnthropicNonStreaming(
   response: Awaited<ReturnType<typeof sendAnthropicDirect>>,
 ): response is AnthropicResponse {
   return typeof response === "object" && "type" in response && response.type === "message"
-}
-
-/** Type guard: distinguish AnthropicResponse from ChatCompletionResponse in server-tool result */
-function isAnthropicResponse(
-  result: ServerToolResult,
-): result is AnthropicResponse {
-  return typeof result === "object" && "type" in result && result.type === "message"
 }
 
 /** Stream a pre-built AnthropicResponse as SSE events (for clients that requested streaming) */

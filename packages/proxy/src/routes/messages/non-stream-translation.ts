@@ -21,7 +21,6 @@ import {
   type AnthropicToolUseBlock,
   type AnthropicUserContentBlock,
   type AnthropicUserMessage,
-  isServerSideTool,
 } from "./anthropic-types"
 
 // ---------------------------------------------------------------------------
@@ -167,13 +166,8 @@ function sanitizeSingleToolDefinition(tool: AnthropicTool): void {
 // Payload translation
 // ---------------------------------------------------------------------------
 
-/**
- * Extended payload type that includes server-side tool names tracking.
- * This is used by the handler to identify which tools need interception.
- */
-export interface ExtendedChatCompletionsPayload extends ChatCompletionsPayload {
-  serverSideToolNames?: string[]
-}
+// Note: Server-side tool detection is now handled by preprocessPayload() in preprocess.ts.
+// The translation layer no longer tracks serverSideToolNames.
 
 /**
  * Target format for translation, determining how certain features are handled:
@@ -191,7 +185,7 @@ export interface TranslateToOpenAIOptions {
 export function translateToOpenAI(
   payload: AnthropicMessagesPayload,
   options?: TranslateToOpenAIOptions,
-): ExtendedChatCompletionsPayload {
+): ChatCompletionsPayload {
   const base = {
     model: translateModelName(payload.model, options?.anthropicBeta ?? null),
     messages: translateAnthropicMessagesToOpenAI(
@@ -208,7 +202,7 @@ export function translateToOpenAI(
   if (payload.top_p !== undefined) optional.top_p = payload.top_p
   if (payload.metadata?.user_id) optional.user = payload.metadata.user_id
 
-  const { tools: openAITools, serverSideToolNames } = translateAnthropicToolsToOpenAI(payload.tools)
+  const openAITools = translateAnthropicToolsToOpenAI(payload.tools)
   if (openAITools) optional.tools = openAITools
 
   const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice)
@@ -232,8 +226,7 @@ export function translateToOpenAI(
   return {
     ...base,
     ...optional,
-    serverSideToolNames,
-  } as ExtendedChatCompletionsPayload
+  }
 }
 
 // Pre-compiled regexes for model name translation (avoid regex compilation on each call)
@@ -559,22 +552,12 @@ function mapContent(
 
 function translateAnthropicToolsToOpenAI(
   anthropicTools: Array<AnthropicTool> | null | undefined,
-): {
-  tools: Array<Tool> | null
-  serverSideToolNames: string[]
-} {
+): Array<Tool> | null {
   if (!anthropicTools) {
-    return { tools: null, serverSideToolNames: [] }
+    return null
   }
 
-  const serverSideToolNames: string[] = []
-
-  const tools: Tool[] = anthropicTools.map((tool) => {
-    // Track server-side tools for handler interception (must check BEFORE sanitizing)
-    if (isServerSideTool(tool)) {
-      serverSideToolNames.push(tool.name)
-    }
-
+  return anthropicTools.map((tool) => {
     // Sanitize tool schema - strip Anthropic-only fields (direct call, no array wrapper)
     sanitizeSingleToolDefinition(tool)
 
@@ -587,8 +570,6 @@ function translateAnthropicToolsToOpenAI(
       },
     }
   })
-
-  return { tools, serverSideToolNames }
 }
 
 function translateAnthropicToolChoiceToOpenAI(
