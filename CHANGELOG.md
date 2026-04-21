@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.0.1
+
+### Changed
+- Widen detect-local-versions copilot timeouts to 30s
+- Sync test counts and document new features
+
+### Fixed
+- Normalize thinking and token limit params
+
 ## v2.0.0
 
 ### Added
