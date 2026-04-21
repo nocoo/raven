@@ -11,6 +11,7 @@ import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthrop
 // ---------------------------------------------------------------------------
 
 const SAVED_TOKEN = state.copilotToken
+const SAVED_MODELS = state.models
 
 function makePayload(
   overrides: Partial<AnthropicMessagesPayload> = {},
@@ -74,12 +75,47 @@ beforeEach(() => {
   state.copilotToken = "test-jwt-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
+  state.models = {
+    object: "list",
+    data: [
+      {
+        id: "claude-sonnet-4",
+        name: "Claude Sonnet 4",
+        object: "model",
+        version: "2025-04-14",
+        vendor: "anthropic",
+        preview: false,
+        model_picker_enabled: true,
+        capabilities: {
+          family: "claude",
+          tokenizer: "cl100k_base",
+          object: "model_capabilities",
+          type: "chat",
+          supports: {
+            tool_calls: true,
+            parallel_tool_calls: true,
+            dimensions: null,
+            adaptive_thinking: false,
+          },
+          limits: {
+            max_context_window_tokens: 200000,
+            max_output_tokens: 8192,
+            max_prompt_tokens: null,
+            max_inputs: null,
+          },
+        },
+        policy: null,
+        supported_endpoints: ["/v1/messages"],
+      },
+    ],
+  }
   fetchSpy = spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {
   if (SAVED_TOKEN !== undefined) state.copilotToken = SAVED_TOKEN
   else state.copilotToken = null
+  state.models = SAVED_MODELS
   fetchSpy.mockRestore()
 })
 
@@ -184,6 +220,60 @@ describe("createNativeMessages", () => {
     expect(headers["anthropic-beta"]).toBeUndefined()
   })
 
+  test("auto-adds interleaved thinking beta for budgeted thinking", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse({
+        id: "msg_123",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4",
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+    )
+
+    await createNativeMessages(
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 4096 },
+      }),
+      makeOptions({ anthropicBeta: null }),
+    )
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const headers = init.headers as Record<string, string>
+    expect(headers["anthropic-beta"]).toBe("interleaved-thinking-2025-05-14")
+  })
+
+  test("merges interleaved thinking beta with existing filtered betas", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse({
+        id: "msg_123",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4",
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+    )
+
+    await createNativeMessages(
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 2048 },
+      }),
+      makeOptions({
+        anthropicBeta: "context-management-2025-06-27,interleaved-thinking-2025-05-14",
+      }),
+    )
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const headers = init.headers as Record<string, string>
+    expect(headers["anthropic-beta"]).toBe(
+      "context-management-2025-06-27,interleaved-thinking-2025-05-14",
+    )
+  })
+
   test("uses copilotModel in request body", async () => {
     fetchSpy.mockResolvedValueOnce(
       mockFetchResponse({
@@ -207,6 +297,255 @@ describe("createNativeMessages", () => {
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
     const body = JSON.parse(init.body as string)
     expect(body.model).toBe("claude-opus-4.6")
+  })
+
+  test("rewrites enabled thinking to adaptive + output_config for adaptive models", async () => {
+    state.models = {
+      object: "list",
+      data: [
+        {
+          id: "claude-sonnet-4",
+          name: "Claude Sonnet 4",
+          object: "model",
+          version: "2025-04-14",
+          vendor: "anthropic",
+          preview: false,
+          model_picker_enabled: true,
+          capabilities: {
+            family: "claude",
+            tokenizer: "cl100k_base",
+            object: "model_capabilities",
+            type: "chat",
+            supports: {
+              tool_calls: true,
+              parallel_tool_calls: true,
+              dimensions: null,
+              adaptive_thinking: true,
+              reasoning_effort: ["medium"],
+            },
+            limits: {
+              max_context_window_tokens: 200000,
+              max_output_tokens: 8192,
+              max_prompt_tokens: null,
+              max_inputs: null,
+            },
+          },
+          policy: null,
+          supported_endpoints: ["/v1/messages"],
+        },
+      ],
+    }
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse({
+        id: "msg_123",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4",
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+    )
+
+    await createNativeMessages(
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 1024 },
+      }),
+      makeOptions(),
+    )
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const headers = init.headers as Record<string, string>
+    const body = JSON.parse(init.body as string) as {
+      thinking?: { type: string; budget_tokens?: number | null }
+      output_config?: { effort?: string }
+    }
+
+    expect(headers["anthropic-beta"]).toBeUndefined()
+    expect(body.thinking).toEqual({ type: "adaptive" })
+    expect(body.output_config?.effort).toBe("medium")
+  })
+
+  test("preserves explicit output_config while rewriting adaptive thinking", async () => {
+    state.models = {
+      object: "list",
+      data: [
+        {
+          id: "claude-sonnet-4",
+          name: "Claude Sonnet 4",
+          object: "model",
+          version: "2025-04-14",
+          vendor: "anthropic",
+          preview: false,
+          model_picker_enabled: true,
+          capabilities: {
+            family: "claude",
+            tokenizer: "cl100k_base",
+            object: "model_capabilities",
+            type: "chat",
+            supports: {
+              tool_calls: true,
+              parallel_tool_calls: true,
+              dimensions: null,
+              adaptive_thinking: true,
+              reasoning_effort: ["high", "medium"],
+            },
+            limits: {
+              max_context_window_tokens: 200000,
+              max_output_tokens: 8192,
+              max_prompt_tokens: null,
+              max_inputs: null,
+            },
+          },
+          policy: null,
+          supported_endpoints: ["/v1/messages"],
+        },
+      ],
+    }
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse({
+        id: "msg_123",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4",
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+    )
+
+    await createNativeMessages(
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 1024 },
+        output_config: { effort: "high" },
+      }),
+      makeOptions(),
+    )
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as {
+      thinking?: { type: string; budget_tokens?: number | null }
+      output_config?: { effort?: string }
+    }
+
+    expect(body.thinking).toEqual({ type: "adaptive" })
+    expect(body.output_config?.effort).toBe("high")
+  })
+
+  test("strips unsupported output_config fields before native send", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse({
+        id: "msg_123",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4",
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+    )
+
+    await createNativeMessages(
+      makePayload({
+        output_config: {
+          effort: "high",
+          format: "verbose_json",
+        } as AnthropicMessagesPayload["output_config"] & { format: string },
+      }),
+      makeOptions(),
+    )
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as {
+      output_config?: Record<string, unknown>
+    }
+
+    expect(body.output_config).toEqual({ effort: "high" })
+  })
+
+  test("drops output_config entirely when it only contains unsupported fields", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse({
+        id: "msg_123",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4",
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+    )
+
+    await createNativeMessages(
+      makePayload({
+        output_config: {
+          format: "verbose_json",
+        } as any,
+      }),
+      makeOptions(),
+    )
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as {
+      output_config?: Record<string, unknown>
+    }
+
+    expect(body.output_config).toBeUndefined()
+  })
+
+  test("filters empty and placeholder thinking blocks from assistant history", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchResponse({
+        id: "msg_123",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4",
+        content: [],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 0, output_tokens: 0 },
+      }),
+    )
+
+    const payload = makePayload({
+      messages: [
+        { role: "user", content: "hello" },
+        {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "" },
+            { type: "thinking", thinking: "Thinking..." },
+            { type: "thinking", thinking: "real trace" },
+            { type: "text", text: "visible reply" },
+          ],
+        },
+      ],
+    })
+
+    await createNativeMessages(payload, makeOptions())
+
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(init.body as string) as {
+      messages: Array<{ role: string; content: unknown }>
+    }
+    const assistant = body.messages[1] as {
+      role: string
+      content: Array<{ type: string; thinking?: string; text?: string }>
+    }
+
+    expect(assistant.role).toBe("assistant")
+    expect(assistant.content).toEqual([
+      { type: "thinking", thinking: "real trace" },
+      { type: "text", text: "visible reply" },
+    ])
+    expect(payload.messages[1]).toEqual({
+      role: "assistant",
+      content: [
+        { type: "thinking", thinking: "" },
+        { type: "thinking", thinking: "Thinking..." },
+        { type: "thinking", thinking: "real trace" },
+        { type: "text", text: "visible reply" },
+      ],
+    })
   })
 
   test("sets copilot-vision-request header for images", async () => {

@@ -16,8 +16,8 @@ export interface AnthropicMessagesPayload {
   tools: Array<AnthropicTool> | null
   tool_choice: AnthropicToolChoice | null
   thinking: {
-    type: "enabled"
-    budget_tokens: number | null
+    type: "enabled" | "adaptive"
+    budget_tokens?: number | null
   } | null
   service_tier: "auto" | "standard_only" | null
   /**

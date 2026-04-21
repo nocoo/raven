@@ -206,6 +206,25 @@ describe("sendAnthropicDirect", () => {
       expect((err as Error).message).toBe("Upstream TestProvider returned 401")
     }
   })
+
+  test("strips unsupported output_config fields for anthropic upstreams", async () => {
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeAnthropicResponse()))
+
+    await sendAnthropicDirect(provider, {
+      ...payload,
+      output_config: {
+        effort: "medium",
+        format: "verbose_json",
+      } as AnthropicMessagesPayload["output_config"] & { format: string },
+    })
+
+    const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const body = JSON.parse(options.body as string) as {
+      output_config?: Record<string, unknown>
+    }
+
+    expect(body.output_config).toEqual({ effort: "medium" })
+  })
 })
 
 // ===========================================================================

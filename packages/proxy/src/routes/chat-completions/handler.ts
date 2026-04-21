@@ -51,6 +51,10 @@ export async function handleCompletion(c: Context) {
     })
   }
 
+  // Prefer max_completion_tokens for newer OpenAI models and keep outbound
+  // chat/completions payloads on a single canonical token limit field.
+  payload = normalizeTokenLimitParams(payload)
+
   // Check for custom upstream provider
   const resolved = resolveProvider(model)
   if (resolved) {
@@ -96,11 +100,13 @@ export async function handleCompletion(c: Context) {
     (m) => m.id === payload.model,
   )
 
-  if (isNullish(payload.max_tokens)) {
+  if (isNullish(payload.max_completion_tokens)) {
     const maxOutputTokens = selectedModel?.capabilities.limits.max_output_tokens
-    payload = {
-      ...payload,
-      max_tokens: maxOutputTokens ?? null,
+    if (!isNullish(maxOutputTokens)) {
+      payload = {
+        ...payload,
+        max_completion_tokens: maxOutputTokens,
+      }
     }
   }
 
@@ -243,6 +249,26 @@ export async function handleCompletion(c: Context) {
       },
     })
     throw error
+  }
+}
+
+function normalizeTokenLimitParams(
+  payload: ChatCompletionsPayload,
+): ChatCompletionsPayload {
+  if (!isNullish(payload.max_completion_tokens)) {
+    if (isNullish(payload.max_tokens)) return payload
+    const { max_tokens: _, ...rest } = payload
+    return rest
+  }
+
+  if (isNullish(payload.max_tokens)) {
+    return payload
+  }
+
+  const { max_tokens, ...rest } = payload
+  return {
+    ...rest,
+    max_completion_tokens: max_tokens,
   }
 }
 

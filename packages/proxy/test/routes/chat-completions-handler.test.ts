@@ -189,10 +189,11 @@ describe("handleCompletion (non-streaming)", () => {
     expect(endEvent!.data?.outputTokens).toBe(20)
   })
 
-  test("fills max_tokens from model capabilities when not set", async () => {
+  test("fills max_completion_tokens from model capabilities when not set", async () => {
     fetchSpy.mockImplementationOnce(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(init?.body as string)
-      expect(body.max_tokens).toBe(16384)
+      expect(body.max_completion_tokens).toBe(16384)
+      expect(body.max_tokens).toBeUndefined()
       return mockFetchJson(makeNonStreamResponse())
     })
 
@@ -204,10 +205,11 @@ describe("handleCompletion (non-streaming)", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 
-  test("preserves max_tokens when explicitly set", async () => {
+  test("migrates max_tokens to max_completion_tokens when explicitly set", async () => {
     fetchSpy.mockImplementationOnce(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(init?.body as string)
-      expect(body.max_tokens).toBe(1024)
+      expect(body.max_completion_tokens).toBe(1024)
+      expect(body.max_tokens).toBeUndefined()
       return mockFetchJson(makeNonStreamResponse())
     })
 
@@ -216,6 +218,27 @@ describe("handleCompletion (non-streaming)", () => {
       req({
         model: "gpt-4o",
         max_tokens: 1024,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    )
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  test("preserves explicit max_completion_tokens and drops legacy max_tokens", async () => {
+    fetchSpy.mockImplementationOnce(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(init?.body as string)
+      expect(body.max_completion_tokens).toBe(2048)
+      expect(body.max_tokens).toBeUndefined()
+      return mockFetchJson(makeNonStreamResponse())
+    })
+
+    const app = makeApp()
+    await app.request(
+      req({
+        model: "gpt-4o",
+        max_tokens: 1024,
+        max_completion_tokens: 2048,
         messages: [{ role: "user", content: "hi" }],
       }),
     )

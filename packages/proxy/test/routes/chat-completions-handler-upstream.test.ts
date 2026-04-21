@@ -159,6 +159,25 @@ describe("chat-completions handler with provider routing", () => {
       expect(json.choices[0].message.content).toBe("Hello!")
     })
 
+    test("normalizes max_tokens to max_completion_tokens before OpenAI passthrough", async () => {
+      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
+
+      const app = makeApp()
+      await app.request(req({
+        ...mockOpenAIPayload,
+        max_tokens: 1024,
+      }))
+
+      const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+      const body = JSON.parse(init.body as string) as {
+        max_tokens?: number
+        max_completion_tokens?: number
+      }
+
+      expect(body.max_completion_tokens).toBe(1024)
+      expect(body.max_tokens).toBeUndefined()
+    })
+
     test("streams SSE events from OpenAI upstream", async () => {
       fetchSpy.mockResolvedValueOnce(
         mockFetchStream([

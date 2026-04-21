@@ -8,12 +8,17 @@ import { HTTPError } from "./../../lib/error"
 import { getProxyUrl } from "./../../lib/socks5-bridge"
 import { state } from "./../../lib/state"
 
+type SanitizedOutputConfig = Exclude<AnthropicMessagesPayload["output_config"], undefined>
+
 /**
  * Clean null/undefined fields from payload that Anthropic API doesn't accept.
  * Returns a new object, does not mutate the input.
  */
 function sanitizeAnthropicPayload(payload: AnthropicMessagesPayload): Record<string, unknown> {
-  const requestBody: Record<string, unknown> = { ...payload }
+  const requestBody: Record<string, unknown> = {
+    ...payload,
+    output_config: sanitizeOutputConfig(payload.output_config),
+  }
 
   // Remove null/undefined fields that Anthropic API rejects
   if (requestBody.tools === null || requestBody.tools === undefined) {
@@ -27,6 +32,13 @@ function sanitizeAnthropicPayload(payload: AnthropicMessagesPayload): Record<str
   }
 
   return requestBody
+}
+
+function sanitizeOutputConfig(
+  outputConfig: AnthropicMessagesPayload["output_config"],
+): SanitizedOutputConfig {
+  if (!outputConfig || typeof outputConfig !== "object") return null
+  return outputConfig.effort ? { effort: outputConfig.effort } : null
 }
 
 /**
