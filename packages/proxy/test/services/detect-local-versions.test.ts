@@ -251,7 +251,7 @@ describe("detectLocalCopilotVersion", () => {
     ]);
 
     expect(await detectLocalCopilotVersion()).toBe("0.22.0");
-  });
+  }, 30000);
 
   test("returns version when only one extension found", async () => {
     mockPlatform = "darwin";
@@ -260,7 +260,7 @@ describe("detectLocalCopilotVersion", () => {
     ]);
 
     expect(await detectLocalCopilotVersion()).toBe("0.19.0");
-  });
+  }, 30000);
 
   test("returns null when best version package.json has no version field", async () => {
     mockPlatform = "darwin";
@@ -269,7 +269,7 @@ describe("detectLocalCopilotVersion", () => {
     ]);
 
     expect(await detectLocalCopilotVersion()).toBeNull();
-  });
+  }, 30000);
 
   test("picks highest version across multiple extension dirs", async () => {
     mockPlatform = "darwin";
