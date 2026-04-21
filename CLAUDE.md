@@ -57,16 +57,17 @@ bun run test:e2e    # e2e tests (auto-starts proxy if needed)
 bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers)
 ```
 
-### Test status (2026-03-27)
+### Test status (2026-04-21)
 
 | Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
 |---------|--------|-------|------|-------------------|-----------|--------|
-| proxy | bun:test | 584 | 584 | 91.8% | 90% | ✅ |
-| dashboard | vitest 4 + jsdom | 236 | 236 | 98.2% | 90% | ✅ |
+| proxy | bun:test | 1222 | 1222 | 95.6% | 90% | ✅ |
+| dashboard | vitest 4 + jsdom | 277 | 277 | 98.6% | 90% | ✅ |
+| e2e (L2) | bun:test | 41 | 41 | — | — | ✅ |
 
-**L1 (UT)**: All 820 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
+**L1 (UT)**: All 1499 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
 
-**L2 (API E2E)**: `bun run test:e2e` — uses production database to test real configurations (server-side tools, providers). Reuses running proxy if available, otherwise auto-starts one. Manual only (anti-ban protocol).
+**L2 (API E2E)**: `bun run test:e2e` — uses production database to test real configurations (server-side tools, providers). Reuses running proxy if available, otherwise auto-starts one. Manual only (anti-ban protocol). **Requires `RAVEN_API_KEY`** — generate a temporary DB key via the proxy API before running (see below).
 
 **L3 (UI E2E)**: `bun run test:ui` — 25 Playwright tests across 5 specs for dashboard. Auto-starts proxy + dashboard. Manual only.
 
@@ -91,6 +92,34 @@ GitHub Actions runs on push to main and PRs: L1 + G1 + G2. L2/L3 are disabled (n
 ### Package manager — bun only
 
 This monorepo uses **bun workspaces** exclusively. The lockfile is `bun.lock`. Never run `pnpm install` or `npm install` in any package — mixing package managers creates duplicate dependency instances (e.g. dual React copies) that cause silent runtime failures in tests and dev server.
+
+### Running E2E tests (L2) — step by step
+
+E2E tests authenticate to the proxy via `RAVEN_API_KEY`. The proxy must be running with valid GitHub/Copilot credentials.
+
+```bash
+# 1. Ensure proxy is running
+bun run dev:proxy   # or: proxy already running on :7024
+
+# 2. Create a temporary API key via the proxy management API
+#    (management endpoints are unauthenticated when no env key is set)
+curl -s http://localhost:7024/api/keys -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"e2e-test"}' | jq .key
+# Returns: "rk-..."
+
+# 3. Run e2e with the key
+RAVEN_API_KEY=rk-... bun run test:e2e
+
+# 4. Clean up: revoke the key after testing
+curl -s http://localhost:7024/api/keys/<id>/revoke -X POST
+# Or delete from Dashboard → Connect page
+```
+
+**Troubleshooting:**
+- 401 errors on all tests → missing or invalid `RAVEN_API_KEY`, or GitHub token expired (re-auth by deleting `~/Library/Application Support/raven/github_token` and restarting proxy)
+- Timeout failures (5s default) → upstream latency; retry with `--timeout 30000` or re-run individual tests
+- To run specific tests: `RAVEN_API_KEY=rk-... bun test packages/proxy/test/e2e/<file> -t "test name" --timeout 30000`
 
 ## Debugging — Real-time log stream
 

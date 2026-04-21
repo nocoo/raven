@@ -15,10 +15,12 @@
 | 12 | [Quality System Upgrade](./12-quality-system-upgrade.md) | 质量体系升级：A- → S 级，D1 隔离 + 文档同步 |
 | 13 | [Server-Side Tools](./13-server-tools.md) | Server-side tool 拦截替换：web_search → Tavily，pure/mixed 双模式 |
 | 14 | [VPS Deployment](./14-vps-deployment.md) | 远程部署：Bun + systemd + Nginx + HTTPS + 安全须知 |
+| 14b | [Extended Thinking](./14-extended-thinking.md) | Extended Thinking 支持：effort 参数 + budget_tokens |
 | 15 | [Message Sanitization](./15-message-sanitization-pipeline.md) | Copilot 兼容性清洗：过滤不支持的 block 类型与字段 |
 | 16 | [OpenAI Responses API](./16-openai-responses-api.md) | `/v1/responses` 端点支持：Codex CLI 兼容 |
 | 17 | [SOCKS5 Proxy Relay](./17-socks5-proxy-relay.md) | SOCKS5 代理中继：隐藏出口 IP，per-upstream 路由策略 |
 | 18 | [Native Anthropic Messages](./18-native-anthropic-messages.md) | 原生 Anthropic 透传：Claude 模型默认走 `/v1/messages` |
+| 19 | [Pipeline Refactor](./19-pipeline-refactor.md) | 请求处理管线重构 |
 
 ## Archive
 
