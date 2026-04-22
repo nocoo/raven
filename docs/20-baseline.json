@@ -5,15 +5,8 @@
   "proxy": {
     "l1TestCount": null,
     "statementCoveragePct": null,
-    "perDirectoryCoveragePct": {
-      "routes": null,
-      "services": null,
-      "lib": null,
-      "db": null,
-      "util": null,
-      "ws": null,
-      "middleware": null
-    }
+    "_comment_perDirectoryCoveragePct": "Populated with real post-refactor numbers in Phase C.7. Leaving this as {} avoids baking in directory names that Phase E will migrate; the gate treats missing-dir in the live report as 'not a regression' (§4.5).",
+    "perDirectoryCoveragePct": {}
   },
   "dashboard": {
     "l1TestCount": null

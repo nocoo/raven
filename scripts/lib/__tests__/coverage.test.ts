@@ -145,6 +145,35 @@ describe("evaluateGate", () => {
     )
     expect(v.some((x) => x.kind === "directory-regression")).toBe(true)
   })
+
+  test("skips per-directory regression when directory was migrated away", () => {
+    // services/ exists in baseline but not in the current report —
+    // Phase E relocates whole directories. This must not count as
+    // regressing from (e.g.) 98% to 0%.
+    const v = evaluateGate(
+      report,
+      baseline(
+        { mode: "enforce", globalFloorPct: 10 },
+        {
+          statementCoveragePct: 75,
+          perDirectoryCoveragePct: { services: 98 },
+        },
+      ),
+    )
+    expect(v.some((x) => x.kind === "directory-regression")).toBe(false)
+  })
+
+  test("skips per-directory floor breach when directory was migrated away", () => {
+    // A floor authored against a directory that no longer exists must
+    // not falsely fire. Removing the dir from the baseline is the
+    // reviewer's job; the gate should not block the commit that does
+    // the move.
+    const v = evaluateGate(
+      report,
+      baseline({ globalFloorPct: 10, perDirectoryFloors: { services: 95 } }),
+    )
+    expect(v.some((x) => x.detail.includes("services/"))).toBe(false)
+  })
 })
 
 describe("loadBaseline", () => {

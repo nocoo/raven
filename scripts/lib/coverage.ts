@@ -127,11 +127,12 @@ export function evaluateGate(
   }
 
   for (const [dir, floor] of Object.entries(baseline.enforcement.perDirectoryFloors)) {
-    const actual = report.byDirectory[dir]?.pct ?? 0
-    if (actual + 0.0001 < floor) {
+    const entry = report.byDirectory[dir]
+    if (entry === undefined) continue // directory migrated/removed — not a floor breach
+    if (entry.pct + 0.0001 < floor) {
       violations.push({
         kind: "below-floor",
-        detail: `${dir}/ ${actual.toFixed(2)}% < floor ${floor.toFixed(2)}%`,
+        detail: `${dir}/ ${entry.pct.toFixed(2)}% < floor ${floor.toFixed(2)}%`,
       })
     }
   }
@@ -139,12 +140,18 @@ export function evaluateGate(
   if (baseline.enforcement.mode === "enforce") {
     for (const [dir, prev] of Object.entries(baseline.proxy.perDirectoryCoveragePct)) {
       if (prev === null) continue
-      const actual = report.byDirectory[dir]?.pct ?? 0
+      const entry = report.byDirectory[dir]
+      // Directory absent from the current report means code was moved or
+      // deleted; the refactor plan explicitly relocates directories
+      // (e.g. services/ in Phase E), so treat missing-dir as a migration
+      // and skip the regression check rather than flagging it as a
+      // 100%-to-0% drop.
+      if (entry === undefined) continue
       const allowance = baseline.enforcement.regressionAllowanceAbsPct
-      if (prev - actual > allowance + 0.0001) {
+      if (prev - entry.pct > allowance + 0.0001) {
         violations.push({
           kind: "directory-regression",
-          detail: `${dir}/ ${actual.toFixed(2)}% regressed by ${(prev - actual).toFixed(2)}pp from baseline ${prev.toFixed(2)}%`,
+          detail: `${dir}/ ${entry.pct.toFixed(2)}% regressed by ${(prev - entry.pct).toFixed(2)}pp from baseline ${prev.toFixed(2)}%`,
         })
       }
     }
