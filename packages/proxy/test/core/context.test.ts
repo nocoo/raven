@@ -145,4 +145,22 @@ describe("core/context", () => {
     })
     expect(ctx.sessionId).toBe("Unknown::k")
   })
+
+  test("stream defaults to false; explicit true is propagated", async () => {
+    const app = new Hono()
+    let defaulted: RequestContext | null = null
+    let explicit: RequestContext | null = null
+    app.post("/d", (c) => {
+      defaulted = buildContext(c, "openai")
+      return c.json({})
+    })
+    app.post("/e", (c) => {
+      explicit = buildContext(c, "openai", {}, true)
+      return c.json({})
+    })
+    await app.request("http://localhost/d", { method: "POST" })
+    await app.request("http://localhost/e", { method: "POST" })
+    expect(defaulted!.stream).toBe(false)
+    expect(explicit!.stream).toBe(true)
+  })
 })

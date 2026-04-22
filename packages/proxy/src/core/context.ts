@@ -25,6 +25,8 @@ export interface RequestContext {
   format: RequestFormat
   /** Canonical request path (e.g. `/v1/chat/completions`); written to `request_end.data.path`. */
   path: string
+  /** Whether the client requested SSE streaming (`payload.stream === true`). Drives `request_end.data.stream` even on pre-stream failures. */
+  stream: boolean
   /** API key name from auth middleware, defaults to `"default"`. */
   accountName: string
   /** `User-Agent` header verbatim (may be `null`). */
@@ -56,6 +58,7 @@ export function buildContext(
   c: Context,
   format: RequestFormat,
   signals: IdentitySignals = {},
+  stream = false,
 ): RequestContext {
   const accountName = c.get("keyName") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
@@ -73,6 +76,7 @@ export function buildContext(
     startTime: performance.now(),
     format,
     path: c.req.path,
+    stream,
     accountName,
     userAgent,
     anthropicBeta,

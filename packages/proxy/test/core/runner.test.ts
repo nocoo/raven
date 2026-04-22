@@ -56,12 +56,13 @@ function makeStrategy(overrides: Partial<AnyStrategy> = {}): AnyStrategy {
   return { ...base, ...overrides }
 }
 
-function makeCtx(): RequestContext {
+function makeCtx(stream = false): RequestContext {
   return {
     requestId: "01TEST000000000000000000RR",
     startTime: performance.now() - 5,
     format: "openai",
     path: "/v1/chat/completions",
+    stream,
     accountName: "acct",
     userAgent: null,
     anthropicBeta: null,
@@ -306,6 +307,23 @@ describe("core/runner — JSON path", () => {
     expect(String(ends[0]!.data!.error)).toContain("bad tool args")
   })
 
+  test("dispatch reject with ctx.stream=true: error log records stream:true (not hardcoded false)", async () => {
+    const s = makeStrategy({
+      dispatch: async () => {
+        throw new Error("upstream timed out before stream open")
+      },
+    })
+    const app = new Hono()
+    app.post("/x", async (c) => execute(c, makeCtx(true), s, { hello: "x" }))
+    await app.request("http://localhost/x", { method: "POST" })
+    const end = captured.find((e) => e.type === "request_end")
+    expect(end!.data).toMatchObject({
+      stream: true,
+      status: "error",
+      statusCode: 502,
+    })
+  })
+
   test("ctx identity fields propagate to the log payload", async () => {
     const app = new Hono()
     app.post("/x", async (c) => {
@@ -314,6 +332,7 @@ describe("core/runner — JSON path", () => {
         startTime: performance.now() - 1,
         format: "anthropic",
         path: "/v1/messages",
+        stream: false,
         accountName: "alice",
         userAgent: "claude-code/1",
         anthropicBeta: null,

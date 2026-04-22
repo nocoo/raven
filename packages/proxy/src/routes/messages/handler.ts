@@ -126,6 +126,7 @@ export async function handleCompletion(c: Context) {
     if (decision.name === "custom-anthropic") {
       const runnerCtx: RunnerCtx = {
         requestId, startTime, format: "anthropic", path: "/v1/messages",
+        stream,
         accountName, userAgent, anthropicBeta,
         sessionId, clientName, clientVersion,
       }
@@ -164,6 +165,7 @@ export async function handleCompletion(c: Context) {
     })
     const runnerCtx: RunnerCtx = {
       requestId, startTime, format: "anthropic", path: "/v1/messages",
+      stream,
       accountName, userAgent, anthropicBeta,
       sessionId, clientName, clientVersion,
     }
@@ -328,6 +330,7 @@ export async function handleCompletion(c: Context) {
   // No server-side tools: route through Runner via copilotTranslatedShim.
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "anthropic", path: "/v1/messages",
+    stream,
     accountName, userAgent, anthropicBeta,
     sessionId, clientName, clientVersion,
   }

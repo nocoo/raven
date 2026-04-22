@@ -74,6 +74,7 @@ export const handleResponses = async (c: Context) => {
   // decision.name === "copilot-responses" — route through Runner.
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "responses", path: "/v1/responses",
+    stream,
     accountName, userAgent, anthropicBeta: null,
     sessionId, clientName, clientVersion,
   }

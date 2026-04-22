@@ -34,7 +34,7 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
   try {
     dispatched = await strategy.dispatch(upstreamReq, ctx)
   } catch (err) {
-    emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: false })
+    emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: ctx.stream })
     throw err
   }
 
@@ -48,7 +48,7 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
       // return 500 from Hono's default handler and never emit request_end —
       // breaking the db/request-sink "every request emits one request_end"
       // contract. Re-throw so the route-level forwardError still runs.
-      emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: false })
+      emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: ctx.stream })
       throw err
     }
     emitSuccessEnd(ctx, strategy, upstreamReq, dispatched.body)

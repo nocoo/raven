@@ -73,6 +73,7 @@ export async function handleCompletion(c: Context) {
     if (!resolved) throw new Error(`router/handler drift: no provider for ${model}`)
     const runnerCtx: RunnerCtx = {
       requestId, startTime, format: "openai", path: "/v1/chat/completions",
+      stream,
       accountName, userAgent, anthropicBeta: null,
       sessionId, clientName, clientVersion,
     }
@@ -115,6 +116,7 @@ export async function handleCompletion(c: Context) {
   // via copilotOpenAIDirectShim. Runner owns success+error logs end-to-end.
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "openai", path: "/v1/chat/completions",
+    stream,
     accountName, userAgent, anthropicBeta: null,
     sessionId, clientName, clientVersion,
   }
