@@ -1,0 +1,63 @@
+{
+  "$schema": "./scenarios.schema.json",
+  "_doc": "Authoritative encoding of docs/20-architecture-refactor.md §4.3 scenario matrix. Consumed by scenarios.test.ts (.skip placeholders), Phase C golden capture, and Phase H adaptChunk unit tests. Strategy is one enum; each entry pins the strategy, exact model ID used by the test, scenario flags, and the golden file path (relative to __golden__/).",
+  "strategies": [
+    {
+      "name": "CopilotNative",
+      "scenarios": [
+        { "model": "claude-opus-4.6", "stream": true,  "features": [],           "goldenPath": "copilot-native/claude-opus-4.6-stream.json" },
+        { "model": "claude-opus-4.6", "stream": false, "features": [],           "goldenPath": "copilot-native/claude-opus-4.6-nonstream.json" },
+        { "model": "claude-opus-4.6", "stream": true,  "features": ["tool_use"], "goldenPath": "copilot-native/claude-opus-4.6-tool-use.json" },
+        { "model": "claude-opus-4.6", "stream": true,  "features": ["web_search"], "goldenPath": "copilot-native/claude-opus-4.6-web-search.json" },
+        { "model": "claude-sonnet-4.6", "stream": true,  "features": [],         "goldenPath": "copilot-native/claude-sonnet-4.6-stream.json" },
+        { "model": "claude-sonnet-4.6", "stream": false, "features": [],         "goldenPath": "copilot-native/claude-sonnet-4.6-nonstream.json" }
+      ]
+    },
+    {
+      "name": "CopilotTranslated",
+      "scenarios": [
+        { "model": "gpt-5",     "stream": true,  "features": [],           "goldenPath": "copilot-translated/gpt-5-stream.json" },
+        { "model": "gpt-5",     "stream": false, "features": [],           "goldenPath": "copilot-translated/gpt-5-nonstream.json" },
+        { "model": "gpt-5",     "stream": true,  "features": ["tool_use"], "goldenPath": "copilot-translated/gpt-5-tool-use.json" },
+        { "model": "gpt-5",     "stream": true,  "features": ["web_search"], "goldenPath": "copilot-translated/gpt-5-web-search.json" },
+        { "model": "o1-mini",   "stream": true,  "features": ["reasoning"], "goldenPath": "copilot-translated/o1-mini-stream.json" },
+        { "model": "o1-mini",   "stream": false, "features": ["reasoning"], "goldenPath": "copilot-translated/o1-mini-nonstream.json" }
+      ]
+    },
+    {
+      "name": "CopilotOpenAIDirect",
+      "scenarios": [
+        { "model": "gpt-5",      "stream": true,  "features": [],                "goldenPath": "copilot-openai-direct/gpt-5-stream.json" },
+        { "model": "gpt-5",      "stream": false, "features": [],                "goldenPath": "copilot-openai-direct/gpt-5-nonstream.json" },
+        { "model": "gpt-5",      "stream": true,  "features": ["max_tokens"],    "goldenPath": "copilot-openai-direct/gpt-5-max-tokens.json" },
+        { "model": "gpt-4.1",    "stream": true,  "features": [],                "goldenPath": "copilot-openai-direct/gpt-4.1-stream.json" }
+      ]
+    },
+    {
+      "name": "CopilotResponses",
+      "scenarios": [
+        { "model": "gpt-5",    "stream": true,  "features": ["event_ordering"], "goldenPath": "copilot-responses/gpt-5-stream.json" },
+        { "model": "gpt-5",    "stream": false, "features": [],                 "goldenPath": "copilot-responses/gpt-5-nonstream.json" },
+        { "model": "o1-mini",  "stream": true,  "features": ["reasoning"],      "goldenPath": "copilot-responses/o1-mini-stream.json" },
+        { "model": "gpt-5",    "stream": true,  "features": ["response_failed"],"goldenPath": "copilot-responses/gpt-5-response-failed.json" }
+      ]
+    },
+    {
+      "name": "CustomOpenAI",
+      "scenarios": [
+        { "model": "custom-reasoning-a",     "stream": true,  "features": ["reasoning"],        "goldenPath": "custom-openai/provider-a-reasoning-stream.json" },
+        { "model": "custom-reasoning-a",     "stream": false, "features": ["reasoning"],        "goldenPath": "custom-openai/provider-a-reasoning-nonstream.json" },
+        { "model": "custom-non-reasoning-b", "stream": true,  "features": [],                   "goldenPath": "custom-openai/provider-b-stream.json" },
+        { "model": "custom-non-reasoning-b", "stream": true,  "features": ["anthropic_client"], "goldenPath": "custom-openai/provider-b-anthropic-translated.json" }
+      ]
+    },
+    {
+      "name": "CustomAnthropic",
+      "scenarios": [
+        { "model": "custom-anthropic-m1", "stream": true,  "features": ["passthrough"], "goldenPath": "custom-anthropic/m1-stream.json" },
+        { "model": "custom-anthropic-m1", "stream": false, "features": ["passthrough"], "goldenPath": "custom-anthropic/m1-nonstream.json" },
+        { "model": "custom-anthropic-m2", "stream": true,  "features": ["passthrough"], "goldenPath": "custom-anthropic/m2-stream.json" }
+      ]
+    }
+  ]
+}

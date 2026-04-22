@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raven.internal/test/e2e/refactor/scenarios.schema.json",
+  "title": "Refactor E2E scenario matrix (§4.3)",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["strategies"],
+  "properties": {
+    "strategies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "scenarios"],
+        "properties": {
+          "name": {
+            "enum": [
+              "CopilotNative",
+              "CopilotTranslated",
+              "CopilotOpenAIDirect",
+              "CopilotResponses",
+              "CustomOpenAI",
+              "CustomAnthropic"
+            ]
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["model", "stream", "features", "goldenPath"],
+              "properties": {
+                "model": { "type": "string", "minLength": 1 },
+                "stream": { "type": "boolean" },
+                "features": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "uniqueItems": true
+                },
+                "goldenPath": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9-]+/[a-z0-9.-]+\\.json$"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

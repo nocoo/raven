@@ -483,7 +483,7 @@ Goal: scenario matrix, helpers, and diff tooling exist and are usable, but no re
 - **B.1** Add `test/e2e/refactor/` directory + `bun run test:e2e:full` script. Scenario matrix from §4.3 exists as `.skip` placeholders.
 - **B.2** Add `helpers/capture-golden.ts`: deterministic serialisation (stable key ordering, timestamp clamping, requestId masking) so re-captures diff cleanly.
 - **B.3** Add `helpers/golden-diff.ts`: reads golden file, compares against current output, prints minimal diff on failure.
-- **B.4** Add `scenarios.json` data file encoding §4.3's table (strategy × models × scenario matrix). Empty `.skip` tests reference it.
+- **B.4** ✅ Add `scenarios.json` data file encoding §4.3's table (strategy × models × scenario matrix). Empty `.skip` tests reference it.
 - **B.5** Freeze the golden fixture format: `{request, upstream_raw_chunks[], expected_client_events[], expected_end_log}`. This shape is consumed by both Phase C (E2E diff) and Phase H (`adaptChunk` unit tests) — define once here.
 - **B.6** Add `bun run capture-goldens <strategy>` script so each strategy's goldens can be re-captured independently (Copilot rate-limit robustness).
 
