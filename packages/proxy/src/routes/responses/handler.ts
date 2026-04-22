@@ -1,11 +1,14 @@
 import type { Context } from "hono"
-import { streamSSE } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming"
 
 import { buildUpstreamClient } from "../../composition/upstream-registry"
 import { pickStrategy } from "../../core/router"
 import { respondRouterReject } from "../../core/router-reject"
+import { execute as runnerExecute } from "../../core/runner"
+import type { RequestContext as RunnerCtx } from "../../core/context"
+import type { Strategy } from "../../core/strategy"
 import type { ResponsesPayload } from "../../upstream/copilot-responses"
-import { extractErrorDetails, forwardError } from "../../lib/error"
+import { forwardError } from "../../lib/error"
 import { checkRateLimit } from "../../lib/rate-limit"
 import { state } from "../../lib/state"
 import type { ServerSentEvent } from "../../util/sse"
@@ -68,126 +71,120 @@ export const handleResponses = async (c: Context) => {
     })
   }
 
-  // decision.name === "copilot-responses"
-
+  // decision.name === "copilot-responses" — route through Runner.
+  const runnerCtx: RunnerCtx = {
+    requestId, startTime, format: "responses", path: "/v1/responses",
+    accountName, userAgent, anthropicBeta: null,
+    sessionId, clientName, clientVersion,
+  }
   try {
-    const response = await buildUpstreamClient("copilot-responses").send(payload)
-
-    // Streaming: passthrough SSE events
-    if (stream && isAsyncIterable(response)) {
-      let resolvedModel = model
-      let inputTokens = 0
-      let outputTokens = 0
-      let streamError: string | null = null
-      let firstChunkTime: number | null = null
-
-      return streamSSE(c, async (sseStream) => {
-        try {
-          for await (const chunk of response as AsyncIterable<ServerSentEvent>) {
-            emitUpstreamRawSse(requestId, { event: chunk.event, data: chunk.data })
-            if (firstChunkTime === null) firstChunkTime = performance.now()
-
-            // Passthrough all SSE fields: event, data, id, retry
-            const sseMsg: { data: string; event?: string; id?: string; retry?: number } = {
-              data: chunk.data,
-            }
-            if (chunk.event) sseMsg.event = chunk.event
-            if (chunk.id) sseMsg.id = chunk.id
-            if (chunk.retry !== null) sseMsg.retry = chunk.retry
-
-            await sseStream.writeSSE(sseMsg)
-
-            if (chunk.event === "response.created") {
-              const model = extractResolvedModel(chunk.data)
-              if (model) resolvedModel = model
-            }
-
-            if (isTerminalResponseEvent(chunk.event)) {
-              const usage = extractUsage(chunk.data)
-              if (usage) {
-                inputTokens = usage.inputTokens
-                outputTokens = usage.outputTokens
-              }
-            }
-          }
-        } catch (err) {
-          streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
-
-          // Best-effort: send error event so client knows stream failed
-          try {
-            await sseStream.writeSSE({
-              event: "error",
-              data: JSON.stringify({
-                error: {
-                  type: "server_error",
-                  code: "stream_error",
-                  message: "An upstream error occurred during streaming.",
-                },
-              }),
-            })
-          } catch {
-            // Connection may already be closed
-          }
-        } finally {
-          const endTime = performance.now()
-          const latencyMs = Math.round(endTime - startTime)
-          const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
-          const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
-
-          logEmitter.emitLog({
-            ts: Date.now(), level: streamError ? "error" : "info",
-            type: "request_end", requestId,
-            msg: `${streamError ? "error" : "200"} ${resolvedModel} ${latencyMs}ms`,
-            data: {
-              path: "/v1/responses", format: "responses", model,
-              resolvedModel, inputTokens, outputTokens, latencyMs,
-              ttftMs, processingMs,
-              stream: true, status: streamError ? "error" : "success",
-              statusCode: streamError ? 502 : 200,
-              upstreamStatus: streamError ? null : 200,
-              accountName, sessionId, clientName, clientVersion,
-              ...(streamError && { error: streamError }),
-            },
-          })
-        }
-      })
-    }
-
-    // Non-streaming: return JSON
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { resolvedModel, inputTokens, outputTokens } = extractNonStreamingMeta(response, model)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "request_end", requestId,
-      msg: `200 ${resolvedModel} ${latencyMs}ms`,
-      data: {
-        path: "/v1/responses", format: "responses", model,
-        resolvedModel, inputTokens, outputTokens, latencyMs,
-        ttftMs: null, processingMs: null,
-        stream: false, status: "success", statusCode: 200,
-        upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
-      },
-    })
-
-    return c.json(response)
+    return await runnerExecute(c, runnerCtx, copilotResponsesShim, payload)
   } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/responses", format: "responses", model, stream,
-        latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorDetail, accountName,
-        sessionId, clientName, clientVersion,
-      },
-    })
     return forwardError(c, error)
   }
 }
 
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
   return Boolean(value) && typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function"
+}
+
+// ===========================================================================
+// G.12: Strategy shim — copilot-responses (passthrough). Local to this file;
+// promoted in Phase H.
+// ===========================================================================
+
+interface CopilotResponsesStreamState {
+  resolvedModel: string
+  inputTokens: number
+  outputTokens: number
+}
+
+const copilotResponsesShim: Strategy<
+  ResponsesPayload,
+  ResponsesPayload,
+  unknown,
+  unknown,
+  ServerSentEvent,
+  SSEMessage,
+  CopilotResponsesStreamState
+> = {
+  name: "copilot-responses",
+
+  prepare: (req) => req,
+
+  dispatch: async (up) => {
+    const response = await buildUpstreamClient("copilot-responses").send(up)
+    if (up.stream && isAsyncIterable<ServerSentEvent>(response)) {
+      return { kind: "stream", chunks: response }
+    }
+    return { kind: "json", body: response }
+  },
+
+  adaptJson: (resp) => resp,
+
+  initStreamState: (req) => ({
+    resolvedModel: req.model,
+    inputTokens: 0,
+    outputTokens: 0,
+  }),
+
+  adaptChunk: (chunk, st, ctx) => {
+    emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
+
+    if (chunk.event === "response.created") {
+      const m = extractResolvedModel(chunk.data)
+      if (m) st.resolvedModel = m
+    }
+
+    if (isTerminalResponseEvent(chunk.event)) {
+      const usage = extractUsage(chunk.data)
+      if (usage) {
+        st.inputTokens = usage.inputTokens
+        st.outputTokens = usage.outputTokens
+      }
+    }
+
+    const sseMsg: SSEMessage = { data: chunk.data }
+    if (chunk.event) sseMsg.event = chunk.event
+    if (chunk.id) sseMsg.id = chunk.id
+    if (chunk.retry !== null) sseMsg.retry = chunk.retry
+    return [sseMsg]
+  },
+
+  adaptStreamError: () => [{
+    event: "error",
+    data: JSON.stringify({
+      error: {
+        type: "server_error",
+        code: "stream_error",
+        message: "An upstream error occurred during streaming.",
+      },
+    }),
+  }],
+
+  describeEndLog: (result) => {
+    if (result.kind === "json") {
+      const meta = extractNonStreamingMeta(result.resp, result.req.model)
+      return {
+        model: result.req.model,
+        resolvedModel: meta.resolvedModel,
+        inputTokens: meta.inputTokens,
+        outputTokens: meta.outputTokens,
+      }
+    }
+    if (result.kind === "stream") {
+      return {
+        model: result.req.model,
+        resolvedModel: result.state.resolvedModel,
+        inputTokens: result.state.inputTokens,
+        outputTokens: result.state.outputTokens,
+      }
+    }
+    if (result.kind === "error") {
+      return {
+        model: result.req.model,
+      }
+    }
+    return {}
+  },
 }
