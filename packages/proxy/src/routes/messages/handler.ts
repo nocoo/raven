@@ -40,6 +40,8 @@ import { preprocessPayload, translateModelName } from "./../../protocols/anthrop
 import { supportsNativeMessages } from "../../strategies/support/model-capabilities"
 import { handleCopilotNative } from "./native-handler"
 import { withServerToolInterception } from "../../strategies/support/server-tools"
+import { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
+export { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -738,135 +740,6 @@ function isAnthropicNonStreaming(
   return typeof response === "object" && "type" in response && response.type === "message"
 }
 
-/** Stream a pre-built AnthropicResponse as SSE events (for clients that requested streaming) */
-/**
- * Stream a pre-built AnthropicResponse as SSE events matching the official Anthropic streaming format.
- * Exported for testing.
- *
- * Handles: server_tool_use, web_search_tool_result, text blocks.
- * These are the only block types produced by handlePureServerSideTools.
- */
-export function streamAnthropicResponse(c: Context, resp: AnthropicResponse) {
-  return streamSSE(c, async (sseStream) => {
-    // message_start
-    await sseStream.writeSSE({
-      event: "message_start",
-      data: JSON.stringify({
-        type: "message_start",
-        message: {
-          id: resp.id,
-          type: "message",
-          role: "assistant",
-          content: [],
-          model: resp.model,
-          stop_reason: null,
-          stop_sequence: null,
-          usage: resp.usage,
-        },
-      }),
-    })
-
-    // content blocks
-    for (let i = 0; i < resp.content.length; i++) {
-      const block = resp.content[i]!
-
-      if (block.type === "server_tool_use") {
-        // content_block_start — no input field (sent via delta, per Anthropic spec)
-        await sseStream.writeSSE({
-          event: "content_block_start",
-          data: JSON.stringify({
-            type: "content_block_start",
-            index: i,
-            content_block: {
-              type: "server_tool_use",
-              id: block.id,
-              name: block.name,
-            },
-          }),
-        })
-
-        // input_json_delta — send query as one chunk
-        await sseStream.writeSSE({
-          event: "content_block_delta",
-          data: JSON.stringify({
-            type: "content_block_delta",
-            index: i,
-            delta: {
-              type: "input_json_delta",
-              partial_json: JSON.stringify(block.input),
-            },
-          }),
-        })
-      } else if (block.type === "web_search_tool_result") {
-        // content_block_start with full content array
-        await sseStream.writeSSE({
-          event: "content_block_start",
-          data: JSON.stringify({
-            type: "content_block_start",
-            index: i,
-            content_block: {
-              type: "web_search_tool_result",
-              tool_use_id: block.tool_use_id,
-              content: block.content,
-            },
-          }),
-        })
-      } else if (block.type === "text") {
-        // content_block_start with empty text (per Anthropic convention)
-        await sseStream.writeSSE({
-          event: "content_block_start",
-          data: JSON.stringify({
-            type: "content_block_start",
-            index: i,
-            content_block: { type: "text", text: "" },
-          }),
-        })
-
-        // text_delta
-        if (block.text) {
-          await sseStream.writeSSE({
-            event: "content_block_delta",
-            data: JSON.stringify({
-              type: "content_block_delta",
-              index: i,
-              delta: { type: "text_delta", text: block.text },
-            }),
-          })
-        }
-      }
-
-      // content_block_stop
-      await sseStream.writeSSE({
-        event: "content_block_stop",
-        data: JSON.stringify({ type: "content_block_stop", index: i }),
-      })
-    }
-
-    // message_delta
-    await sseStream.writeSSE({
-      event: "message_delta",
-      data: JSON.stringify({
-        type: "message_delta",
-        delta: {
-          stop_reason: resp.stop_reason,
-          stop_sequence: resp.stop_sequence,
-        },
-        usage: {
-          input_tokens: null,
-          output_tokens: resp.usage.output_tokens,
-          cache_creation_input_tokens: resp.usage.cache_creation_input_tokens,
-          cache_read_input_tokens: resp.usage.cache_read_input_tokens,
-        },
-      }),
-    })
-
-    // message_stop
-    await sseStream.writeSSE({
-      event: "message_stop",
-      data: JSON.stringify({ type: "message_stop" }),
-    })
-  })
-}
 
 /** Type guard for OpenAI non-streaming response */
 function isChatCompletionResponse(

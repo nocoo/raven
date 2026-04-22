@@ -24,6 +24,7 @@ import type {
 } from "../../protocols/anthropic/types"
 import type { ServerToolContext } from "../../protocols/anthropic/preprocess"
 import { withServerToolInterception } from "../../strategies/support/server-tools"
+import { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
 import {
   parseReasoningEffortError,
   pickSupportedEffort,
@@ -143,7 +144,7 @@ export async function handleCopilotNative(
 
       // If client requested streaming, convert to SSE
       if (stream) {
-        return streamAnthropicResponseAsSSE(c, response)
+        return streamAnthropicResponse(c, response)
       }
       return c.json(response)
     }
@@ -379,128 +380,3 @@ function createSendNonStreamingRequest(
   }
 }
 
-/**
- * Stream a pre-built AnthropicResponse as SSE events.
- * Used when server-tool interception returns a response but client requested streaming.
- */
-function streamAnthropicResponseAsSSE(c: Context, resp: AnthropicResponse) {
-  return streamSSE(c, async (sseStream) => {
-    // message_start
-    await sseStream.writeSSE({
-      event: "message_start",
-      data: JSON.stringify({
-        type: "message_start",
-        message: {
-          id: resp.id,
-          type: "message",
-          role: "assistant",
-          content: [],
-          model: resp.model,
-          stop_reason: null,
-          stop_sequence: null,
-          usage: resp.usage,
-        },
-      }),
-    })
-
-    // content blocks
-    for (let i = 0; i < resp.content.length; i++) {
-      const block = resp.content[i]!
-
-      if (block.type === "server_tool_use") {
-        // content_block_start
-        await sseStream.writeSSE({
-          event: "content_block_start",
-          data: JSON.stringify({
-            type: "content_block_start",
-            index: i,
-            content_block: {
-              type: "server_tool_use",
-              id: block.id,
-              name: block.name,
-            },
-          }),
-        })
-
-        // input_json_delta
-        await sseStream.writeSSE({
-          event: "content_block_delta",
-          data: JSON.stringify({
-            type: "content_block_delta",
-            index: i,
-            delta: {
-              type: "input_json_delta",
-              partial_json: JSON.stringify(block.input),
-            },
-          }),
-        })
-      } else if (block.type === "web_search_tool_result") {
-        // content_block_start with full content
-        await sseStream.writeSSE({
-          event: "content_block_start",
-          data: JSON.stringify({
-            type: "content_block_start",
-            index: i,
-            content_block: {
-              type: "web_search_tool_result",
-              tool_use_id: block.tool_use_id,
-              content: block.content,
-            },
-          }),
-        })
-      } else if (block.type === "text") {
-        // content_block_start
-        await sseStream.writeSSE({
-          event: "content_block_start",
-          data: JSON.stringify({
-            type: "content_block_start",
-            index: i,
-            content_block: { type: "text", text: "" },
-          }),
-        })
-
-        // text_delta
-        if (block.text) {
-          await sseStream.writeSSE({
-            event: "content_block_delta",
-            data: JSON.stringify({
-              type: "content_block_delta",
-              index: i,
-              delta: { type: "text_delta", text: block.text },
-            }),
-          })
-        }
-      }
-
-      // content_block_stop
-      await sseStream.writeSSE({
-        event: "content_block_stop",
-        data: JSON.stringify({ type: "content_block_stop", index: i }),
-      })
-    }
-
-    // message_delta
-    await sseStream.writeSSE({
-      event: "message_delta",
-      data: JSON.stringify({
-        type: "message_delta",
-        delta: {
-          stop_reason: resp.stop_reason,
-          stop_sequence: resp.stop_sequence,
-        },
-        usage: {
-          input_tokens: null,
-          output_tokens: resp.usage.output_tokens,
-          cache_creation_input_tokens: resp.usage.cache_creation_input_tokens,
-          cache_read_input_tokens: resp.usage.cache_read_input_tokens,
-        },
-      }),
-    })
-
-    // message_stop
-    await sseStream.writeSSE({
-      event: "message_stop",
-      data: JSON.stringify({ type: "message_stop" }),
-    })
-  })
-}

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { Hono } from "hono"
-import { streamAnthropicResponse } from "../../src/routes/messages/handler"
+import { streamAnthropicResponse } from "../../src/strategies/support/anthropic-stream-writer"
 import type { AnthropicResponse } from "../../src/protocols/anthropic/types"
 
 /** Collect SSE events from a Hono streaming response. */
