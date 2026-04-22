@@ -10,6 +10,12 @@ import { logEmitter } from "../../util/log-emitter"
 import { emitUpstreamRawSse } from "../../util/emit-upstream-raw"
 import { generateRequestId } from "../../util/id"
 import { deriveClientIdentity } from "../../util/client-identity"
+import {
+  extractNonStreamingMeta,
+  extractResolvedModel,
+  extractUsage,
+  isTerminalResponseEvent,
+} from "../../protocols/responses/stream-state"
 
 export const handleResponses = async (c: Context) => {
   const startTime = performance.now()
@@ -70,33 +76,16 @@ export const handleResponses = async (c: Context) => {
 
             await sseStream.writeSSE(sseMsg)
 
-            // Extract model from response.created event
             if (chunk.event === "response.created") {
-              try {
-                const parsed = JSON.parse(chunk.data)
-                if (parsed.response?.model) {
-                  resolvedModel = parsed.response.model
-                }
-              } catch {
-                // Parse error — don't break stream
-              }
+              const model = extractResolvedModel(chunk.data)
+              if (model) resolvedModel = model
             }
 
-            // Extract usage from terminal response events
-            // Covers: response.completed, response.done, response.incomplete, response.failed
-            if (chunk.event?.startsWith("response.") &&
-                (chunk.event === "response.completed" ||
-                 chunk.event === "response.done" ||
-                 chunk.event === "response.incomplete" ||
-                 chunk.event === "response.failed")) {
-              try {
-                const parsed = JSON.parse(chunk.data)
-                if (parsed.response?.usage) {
-                  inputTokens = parsed.response.usage.input_tokens ?? 0
-                  outputTokens = parsed.response.usage.output_tokens ?? 0
-                }
-              } catch {
-                // Parse error — don't break stream
+            if (isTerminalResponseEvent(chunk.event)) {
+              const usage = extractUsage(chunk.data)
+              if (usage) {
+                inputTokens = usage.inputTokens
+                outputTokens = usage.outputTokens
               }
             }
           }
@@ -145,11 +134,7 @@ export const handleResponses = async (c: Context) => {
 
     // Non-streaming: return JSON
     const latencyMs = Math.round(performance.now() - startTime)
-    const resp = response as Record<string, unknown>
-    const resolvedModel = (resp.model as string) ?? model
-    const usage = resp.usage as { input_tokens?: number; output_tokens?: number } | undefined
-    const inputTokens = usage?.input_tokens ?? 0
-    const outputTokens = usage?.output_tokens ?? 0
+    const { resolvedModel, inputTokens, outputTokens } = extractNonStreamingMeta(response, model)
 
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_end", requestId,

@@ -504,11 +504,11 @@ Goal: real baseline on `main`. Each commit is atomic; any single strategy can be
 
 Goal: protocol code lives under `protocols/` (pure zone) and `strategies/support/` (impure zone). Import-only diffs.
 
-- **D.1** Finish the `preprocess.ts` migration started in A.5: (a) `git mv` `routes/messages/anthropic-types.ts` → `protocols/anthropic/types.ts`; (b) **delete** the `routes/messages/preprocess.ts` shim introduced in A.5 and update importers to point at `protocols/anthropic/preprocess.ts` directly. Net effect for `preprocess.ts` across A.5 + D.1 is file-move-by-shim-bridge: no `git mv` is performed on `preprocess.ts` itself because the canonical file was born in A.5 at its final home. Any other sibling files still living under `routes/messages/` that belong in `protocols/anthropic/` (if present) are `git mv`-ed in this commit.
-- **D.2** `git mv` `routes/messages/{non-stream-translation, stream-translation}.ts` → `protocols/translate/`. Rename `consumeStreamToResponse` file to `protocols/translate/consume-stream.ts`.
-- **D.3** `git mv` `routes/messages/{effort-fallback, server-tools, model-capabilities}.ts` → `strategies/support/` (not `protocols/` — they read `state` and emit logs).
-- **D.4** Extract `streamAnthropicResponse` into `strategies/support/anthropic-stream-writer.ts` with tests.
-- **D.5** Extract Responses resolvedModel/usage parsers into `protocols/responses/stream-state.ts` with tests.
+- **D.1** ✅ Finish the `preprocess.ts` migration started in A.5: (a) `git mv` `routes/messages/anthropic-types.ts` → `protocols/anthropic/types.ts`; (b) **delete** the `routes/messages/preprocess.ts` shim introduced in A.5 and update importers to point at `protocols/anthropic/preprocess.ts` directly. Net effect for `preprocess.ts` across A.5 + D.1 is file-move-by-shim-bridge: no `git mv` is performed on `preprocess.ts` itself because the canonical file was born in A.5 at its final home. Any other sibling files still living under `routes/messages/` that belong in `protocols/anthropic/` (if present) are `git mv`-ed in this commit.
+- **D.2** ✅ `git mv` `routes/messages/{non-stream-translation, stream-translation}.ts` → `protocols/translate/`. Rename `consumeStreamToResponse` file to `protocols/translate/consume-stream.ts`.
+- **D.3** ✅ `git mv` `routes/messages/{effort-fallback, server-tools, model-capabilities}.ts` → `strategies/support/` (not `protocols/` — they read `state` and emit logs).
+- **D.4** ✅ Extract `streamAnthropicResponse` into `strategies/support/anthropic-stream-writer.ts` with tests.
+- **D.5** ✅ Extract Responses resolvedModel/usage parsers into `protocols/responses/stream-state.ts` with tests.
 - **D.6** Update all importers (mechanical).
 - **D.7** **Activate dep-cruiser rule #1** (authoritative): forbid any import from `packages/proxy/src/protocols/**` to `packages/proxy/src/infra/state`, `packages/proxy/src/util/log-emitter`, or `hono/streaming`. A redundant text grep `grep -rE "from.*(infra/state|util/log-emitter|hono/streaming)" packages/proxy/src/protocols/` runs alongside in CI, but the dep-cruiser rule — path-aware and immune to relative-path aliasing (`../../infra/state`) — is the authority.
 - Risk: low. Import-only, plus one locked purity rule.
