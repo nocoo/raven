@@ -577,8 +577,8 @@ Goal: collapse the duplicated per-protocol pipelines into 6 strategies. Prove th
 - **H.2** ✅ Add `strategies/copilot-openai-direct.ts` (simplest — no translation). Full 7-method implementation + unit tests covering `describeEndLog`, `adaptStreamError`, `initStreamState`, `adaptChunk` via B.5 fixtures. ≥95% coverage.
 - **H.3** ✅ Add `composition/strategy-registry.ts::buildStrategy` — **registers `copilot-openai-direct` only** + tests.
 - **H.4** ✅ Add `composition/index.ts::dispatch` skeleton + integration tests against H.2's strategy.
-- **H.5** Switch `routes/chat-completions/handler.ts`'s `copilot-openai-direct` branch to `composition.dispatch`. Other branches keep their G-phase shim.
-- **H.6** **Vertical-slice verification**: run Phase C `CopilotOpenAIDirect` goldens. Zero diff required before H.7 starts. This commit pins the 7-method interface.
+- **H.5** ✅ Switch `routes/chat-completions/handler.ts`'s `copilot-openai-direct` branch to `composition.dispatch`. Other branches keep their G-phase shim.
+- **H.6** ✅ **Vertical-slice verification**: run Phase C `CopilotOpenAIDirect` goldens. Zero diff required before H.7 starts. This commit pins the 7-method interface.
 - **H.7** Add `strategies/copilot-native.ts` full 7-method + unit tests.
 - **H.8** Register `copilot-native` in strategy-registry; switch `routes/messages` native branch to `composition.dispatch`; run C.1 goldens.
 - **H.9** Add `strategies/copilot-responses.ts` + unit tests.
