@@ -573,10 +573,10 @@ Goal: the 4 duplicated `streamSSE` templates collapse into one `core/runner.ts`.
 
 Goal: collapse the duplicated per-protocol pipelines into 6 strategies. Prove the end-to-end pipeline with **one** strategy before filling in the rest.
 
-- **H.1** Characterisation: extract `describeEndLog` field bags per protocol from Phase C goldens into `test/strategies/__fixtures__/`. `adaptChunk` unit tests in H.2–H.15 read the same fixture format defined in B.5.
-- **H.2** Add `strategies/copilot-openai-direct.ts` (simplest — no translation). Full 7-method implementation + unit tests covering `describeEndLog`, `adaptStreamError`, `initStreamState`, `adaptChunk` via B.5 fixtures. ≥95% coverage.
-- **H.3** Add `composition/strategy-registry.ts::buildStrategy` — **registers `copilot-openai-direct` only** + tests.
-- **H.4** Add `composition/index.ts::dispatch` skeleton + integration tests against H.2's strategy.
+- **H.1** ✅ Characterisation: extract `describeEndLog` field bags per protocol from Phase C goldens into `test/strategies/__fixtures__/`. `adaptChunk` unit tests in H.2–H.15 read the same fixture format defined in B.5.
+- **H.2** ✅ Add `strategies/copilot-openai-direct.ts` (simplest — no translation). Full 7-method implementation + unit tests covering `describeEndLog`, `adaptStreamError`, `initStreamState`, `adaptChunk` via B.5 fixtures. ≥95% coverage.
+- **H.3** ✅ Add `composition/strategy-registry.ts::buildStrategy` — **registers `copilot-openai-direct` only** + tests.
+- **H.4** ✅ Add `composition/index.ts::dispatch` skeleton + integration tests against H.2's strategy.
 - **H.5** Switch `routes/chat-completions/handler.ts`'s `copilot-openai-direct` branch to `composition.dispatch`. Other branches keep their G-phase shim.
 - **H.6** **Vertical-slice verification**: run Phase C `CopilotOpenAIDirect` goldens. Zero diff required before H.7 starts. This commit pins the 7-method interface.
 - **H.7** Add `strategies/copilot-native.ts` full 7-method + unit tests.
