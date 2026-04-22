@@ -1,21 +1,38 @@
 {
   "$schema": "./20-baseline.schema.json",
-  "_doc": "See docs/20-architecture-refactor.md §4.5. Phase A ships this file in placeholder mode; Phase C.7 flips it to enforce with real numbers.",
-  "capturedAt": null,
+  "_doc": "See docs/20-architecture-refactor.md §4.5. Phase C.7 populated real numbers and flipped enforcement mode. Update this file after every phase that moves directories or adds/removes tests so the gate stays in sync.",
+  "capturedAt": "2026-04-22T00:00:00Z",
   "proxy": {
-    "l1TestCount": null,
-    "statementCoveragePct": null,
-    "_comment_perDirectoryCoveragePct": "Populated with real post-refactor numbers in Phase C.7. Leaving this as {} avoids baking in directory names that Phase E will migrate; the gate treats missing-dir in the live report as 'not a regression' (§4.5).",
-    "perDirectoryCoveragePct": {}
+    "l1TestCount": 1284,
+    "statementCoveragePct": 95.55,
+    "_comment_perDirectoryCoveragePct": "Captured at C.7 from the current `bun run test` report. Phase E relocates routes/ → strategies/ and protocols/ → protocols/* so these keys will migrate; the gate skips directory-regression when a directory is absent from the live report (§4.5), which lets phases move code without re-editing this file. Update when a directory is intentionally removed.",
+    "perDirectoryCoveragePct": {
+      "db": 98.85,
+      "lib": 98.73,
+      "protocols": 100.0,
+      "routes": 93.65,
+      "services": 98.02,
+      "util": 97.85,
+      "ws": 100.0
+    }
   },
   "dashboard": {
-    "l1TestCount": null
+    "l1TestCount": 277
   },
   "enforcement": {
-    "mode": "placeholder",
+    "mode": "enforce",
     "globalFloorPct": 95.0,
     "regressionAllowanceAbsPct": 0.1,
-    "perDirectoryFloors": {},
+    "_comment_perDirectoryFloors": "Floors are set 1pp below the captured baseline so normal per-commit noise doesn't trip the gate; real regressions are caught by the regression-from-baseline check which uses the stricter 0.1pp allowance.",
+    "perDirectoryFloors": {
+      "db": 97.0,
+      "lib": 97.0,
+      "protocols": 99.0,
+      "routes": 92.0,
+      "services": 97.0,
+      "util": 96.0,
+      "ws": 99.0
+    },
     "_comment_allowUntestedFiles": "Legacy src/ files intentionally uncovered by L1 tests. Shrink this list over time; the gate blocks any *new* addition.",
     "allowUntestedFiles": [
       "src/index.ts",
