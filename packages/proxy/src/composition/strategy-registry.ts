@@ -21,10 +21,13 @@ import { buildUpstreamClient } from "./upstream-registry"
 import { makeCopilotOpenAIDirect } from "../strategies/copilot-openai-direct"
 import { makeCopilotNative } from "../strategies/copilot-native"
 import { makeCopilotResponses } from "../strategies/copilot-responses"
+import { makeCustomOpenAI } from "../strategies/custom-openai"
 
 export interface BuildStrategyDeps {
   /** Mirrors `state.optToolCallDebug`; passed in so strategies stay state-free. */
   toolCallDebug: boolean
+  /** Mirrors `state.optFilterWhitespaceChunks`; consumed by translated strategies. */
+  filterWhitespaceChunks?: boolean
 }
 
 /**
@@ -70,8 +73,13 @@ export function buildStrategy(
       return makeCopilotResponses({
         client: buildUpstreamClient("copilot-responses"),
       }) as unknown as AnyStrategy
-    case "copilot-translated":
     case "custom-openai":
+      return makeCustomOpenAI({
+        client: buildUpstreamClient("custom-openai"),
+        filterWhitespaceChunks: deps.filterWhitespaceChunks ?? false,
+        toolCallDebug: deps.toolCallDebug,
+      }) as unknown as AnyStrategy
+    case "copilot-translated":
     case "custom-anthropic":
       throw new StrategyNotRegisteredError(decision.name)
   }

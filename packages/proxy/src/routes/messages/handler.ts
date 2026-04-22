@@ -18,6 +18,7 @@ import { deriveClientIdentity } from "./../../util/client-identity"
 import { buildUpstreamClient } from "../../composition/upstream-registry"
 import { dispatch as compositionDispatch } from "../../composition"
 import type { CopilotNativeUpReq } from "../../strategies/copilot-native"
+import type { CustomOpenAIUpReq } from "../../strategies/custom-openai"
 import type {
   ChatCompletionChunk,
   ChatCompletionResponse,
@@ -171,9 +172,20 @@ export async function handleCompletion(c: Context) {
       accountName, userAgent, anthropicBeta,
       sessionId, clientName, clientVersion,
     }
+    const customReq: CustomOpenAIUpReq = {
+      provider, payload: openAIPayload, originalModel: model,
+    }
     try {
-      return await runnerExecute(c, runnerCtx, customOpenAIShim, {
-        provider, openAIPayload, originalModel: model,
+      return await compositionDispatch(c, runnerCtx, customReq, "anthropic", {
+        model,
+        stream,
+        anthropicBeta,
+        providers: state.providers,
+        models: state.models?.data ?? [],
+        buildDeps: {
+          toolCallDebug: state.optToolCallDebug,
+          filterWhitespaceChunks: state.optFilterWhitespaceChunks,
+        },
       })
     } catch (error) {
       return forwardError(c, error)
@@ -528,163 +540,6 @@ const copilotTranslatedShim: Strategy<
       return {
         model: result.req.originalModel,
         translatedModel: result.req.openAIPayload.model,
-      }
-    }
-    return {}
-  },
-}
-
-// ===========================================================================
-// G.10: Strategy shim — custom-openai (Anthropic client ↔ user-configured
-// OpenAI-format upstream). Translates Anthropic ↔ OpenAI in the route layer
-// (already done before runnerExecute) and runs translation on the response /
-// stream chunks. Local to this file; promoted in Phase H.
-// ===========================================================================
-
-interface CustomOpenAIUpReq {
-  provider: CompiledProvider
-  openAIPayload: ChatCompletionsPayload
-  originalModel: string
-}
-
-interface CustomOpenAIStreamState extends AnthropicStreamState {
-  resolvedModel: string
-  inputTokens: number
-  outputTokens: number
-  lastToolCallCount: number
-  originalModel: string
-}
-
-const customOpenAIShim: Strategy<
-  CustomOpenAIUpReq,
-  CustomOpenAIUpReq,
-  ChatCompletionResponse,
-  unknown,
-  ServerSentEvent,
-  SSEMessage,
-  CustomOpenAIStreamState
-> = {
-  name: "custom-openai",
-
-  prepare: (req) => req,
-
-  dispatch: async (up) => {
-    const response = await buildUpstreamClient("custom-openai").send({
-      provider: up.provider, payload: up.openAIPayload,
-    })
-    if (isNonStreaming(response)) {
-      return { kind: "json", body: response }
-    }
-    return { kind: "stream", chunks: response }
-  },
-
-  adaptJson: (resp, req) => translateToAnthropic(resp, req.originalModel),
-
-  initStreamState: (req) => ({
-    messageStartSent: false,
-    contentBlockIndex: 0,
-    contentBlockOpen: false,
-    toolCalls: {},
-    resolvedModel: req.openAIPayload.model,
-    inputTokens: 0,
-    outputTokens: 0,
-    lastToolCallCount: 0,
-    originalModel: req.originalModel,
-  }),
-
-  adaptChunk: (rawEvent, st, ctx) => {
-    emitUpstreamRawSse(ctx.requestId, { event: rawEvent.event, data: rawEvent.data })
-    if (rawEvent.data === "[DONE]") return []
-    if (!rawEvent.data) return []
-
-    const chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
-
-    if (chunk.model) st.resolvedModel = chunk.model
-    if (chunk.usage) {
-      const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
-      st.inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
-      st.outputTokens = chunk.usage.completion_tokens ?? 0
-    }
-
-    const events = translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
-      filterWhitespaceChunks: state.optFilterWhitespaceChunks,
-    })
-
-    if (state.optToolCallDebug) {
-      const currentToolCallCount = Object.keys(st.toolCalls).length
-      if (currentToolCallCount > st.lastToolCallCount) {
-        const newToolCall = Object.values(st.toolCalls).reduce((newest, tc) =>
-          tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
-          { id: "", name: "", anthropicBlockIndex: -1 },
-        )
-        if (newToolCall.id) {
-          logEmitter.emitLog({
-            ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
-            msg: `tool_use started: ${newToolCall.name}`,
-            data: {
-              eventType: "tool_use_start",
-              toolName: newToolCall.name,
-              toolId: newToolCall.id,
-              blockIndex: newToolCall.anthropicBlockIndex,
-            },
-          })
-        }
-      }
-      st.lastToolCallCount = currentToolCallCount
-    }
-
-    return events.map((event) => ({
-      event: event.type,
-      data: JSON.stringify(event),
-    }))
-  },
-
-  adaptStreamError: () => {
-    const errorEvent = translateErrorToAnthropicErrorEvent()
-    return [{
-      event: errorEvent.type,
-      data: JSON.stringify(errorEvent),
-    }]
-  },
-
-  describeEndLog: (result) => {
-    if (result.kind === "json") {
-      const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
-      const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
-      const outputTokens = result.resp.usage?.completion_tokens ?? 0
-      return {
-        model: result.req.originalModel,
-        resolvedModel: result.resp.model,
-        translatedModel: result.req.openAIPayload.model,
-        inputTokens, outputTokens,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
-      }
-    }
-    if (result.kind === "stream") {
-      const debugExtras = state.optToolCallDebug
-        ? {
-          stopReason: "tool_use",
-          toolCallCount: Object.keys(result.state.toolCalls).length,
-          toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name),
-        }
-        : {}
-      return {
-        model: result.req.originalModel,
-        resolvedModel: result.state.resolvedModel,
-        translatedModel: result.req.openAIPayload.model,
-        inputTokens: result.state.inputTokens,
-        outputTokens: result.state.outputTokens,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
-        ...debugExtras,
-      }
-    }
-    if (result.kind === "error") {
-      return {
-        model: result.req.originalModel,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
       }
     }
     return {}

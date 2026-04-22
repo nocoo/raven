@@ -1,28 +1,18 @@
 import type { Context } from "hono"
 
-import { type SSEMessage } from "hono/streaming"
-
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProvider } from "./../../lib/upstream-router"
 import { pickStrategy } from "./../../core/router"
 import { respondRouterReject } from "./../../core/router-reject"
-import { execute as runnerExecute } from "./../../core/runner"
 import type { RequestContext as RunnerCtx } from "./../../core/context"
-import type { Strategy } from "./../../core/strategy"
-import type { CompiledProvider } from "./../../db/providers"
+import type { CustomOpenAIUpReq } from "./../../strategies/custom-openai"
 import { isNullish } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
-import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
-import { buildUpstreamClient } from "./../../composition/upstream-registry"
 import { dispatch as compositionDispatch } from "./../../composition"
-import type {
-  ChatCompletionResponse,
-  ChatCompletionsPayload,
-} from "./../../upstream/copilot-openai"
-import type { ServerSentEvent } from "./../../util/sse"
+import type { ChatCompletionsPayload } from "./../../upstream/copilot-openai"
 import { forwardError } from "./../../lib/error"
 
 export async function handleCompletion(c: Context) {
@@ -78,8 +68,19 @@ export async function handleCompletion(c: Context) {
       accountName, userAgent, anthropicBeta: null,
       sessionId, clientName, clientVersion,
     }
+    const customReq: CustomOpenAIUpReq = { provider: resolved.provider, payload }
     try {
-      return await runnerExecute(c, runnerCtx, customOpenAIShim, { provider: resolved.provider, payload })
+      return await compositionDispatch(c, runnerCtx, customReq, "openai", {
+        model,
+        stream,
+        anthropicBeta: null,
+        providers: state.providers,
+        models: state.models?.data ?? [],
+        buildDeps: {
+          toolCallDebug: state.optToolCallDebug,
+          filterWhitespaceChunks: state.optFilterWhitespaceChunks,
+        },
+      })
     } catch (error) {
       return forwardError(c, error)
     }
@@ -114,10 +115,6 @@ export async function handleCompletion(c: Context) {
   }
 
   // H.5: copilot-openai-direct now flows through composition.dispatch.
-  // Runner owns success+error logs end-to-end via the strategy registered
-  // in composition/strategy-registry.ts. The reject branch above is kept
-  // because it carries the resolved provider name as upstream tags — once
-  // every route is on dispatch, that branch will be inlined into composition.
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "openai", path: "/v1/chat/completions",
     stream,
@@ -134,8 +131,6 @@ export async function handleCompletion(c: Context) {
       buildDeps: { toolCallDebug: state.optToolCallDebug },
     })
   } catch (error) {
-    // Runner already emitted request_end (error). Match legacy behaviour
-    // by surfacing through forwardError so the client gets a JSON body.
     return forwardError(c, error)
   }
 }
@@ -159,129 +154,3 @@ function normalizeTokenLimitParams(
     max_completion_tokens: max_tokens,
   }
 }
-
-// ===========================================================================
-// G.8: Strategy shim — custom-openai (passthrough). Local to this file; the
-// real `strategies/custom-openai.ts` lands in Phase H.
-// ===========================================================================
-
-interface CustomOpenAIUpReq {
-  provider: CompiledProvider
-  payload: ChatCompletionsPayload
-}
-
-interface CustomOpenAIStreamState {
-  model: string
-  resolvedModel: string
-  inputTokens: number
-  outputTokens: number
-  upstream: string
-  upstreamFormat: string
-}
-
-const customOpenAIShim: Strategy<
-  CustomOpenAIUpReq,
-  CustomOpenAIUpReq,
-  ChatCompletionResponse,
-  ChatCompletionResponse,
-  ServerSentEvent,
-  SSEMessage,
-  CustomOpenAIStreamState
-> = {
-  name: "custom-openai",
-
-  prepare: (req) => req,
-
-  dispatch: async (up) => {
-    const response = await buildUpstreamClient("custom-openai").send(up)
-    if (isOpenAINonStreaming(response)) {
-      return { kind: "json", body: response }
-    }
-    return { kind: "stream", chunks: response }
-  },
-
-  adaptJson: (resp) => resp,
-
-  initStreamState: (req) => ({
-    model: req.payload.model,
-    resolvedModel: req.payload.model,
-    inputTokens: 0,
-    outputTokens: 0,
-    upstream: req.provider.name,
-    upstreamFormat: req.provider.format,
-  }),
-
-  adaptChunk: (chunk, st, ctx) => {
-    emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
-
-    if (chunk.data && chunk.data !== "[DONE]") {
-      try {
-        const parsed = JSON.parse(chunk.data)
-        if (parsed.model) st.resolvedModel = parsed.model
-        if (parsed.usage) {
-          const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
-          st.inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
-          st.outputTokens = parsed.usage.completion_tokens ?? 0
-        }
-      } catch {
-        // Parse error for metrics — don't break stream
-      }
-    }
-
-    return [chunk as SSEMessage]
-  },
-
-  adaptStreamError: () => [
-    {
-      data: JSON.stringify({
-        error: {
-          message: "An upstream error occurred during streaming.",
-          type: "server_error",
-          code: "stream_error",
-        },
-      }),
-    },
-  ],
-
-  describeEndLog: (result) => {
-    if (result.kind === "json") {
-      const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
-      const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
-      const outputTokens = result.resp.usage?.completion_tokens ?? 0
-      return {
-        model: result.resp.model,
-        resolvedModel: result.resp.model,
-        inputTokens,
-        outputTokens,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
-      }
-    }
-    if (result.kind === "stream") {
-      return {
-        model: result.state.model,
-        resolvedModel: result.state.resolvedModel,
-        inputTokens: result.state.inputTokens,
-        outputTokens: result.state.outputTokens,
-        upstream: result.state.upstream,
-        upstreamFormat: result.state.upstreamFormat,
-      }
-    }
-    if (result.kind === "error") {
-      return {
-        model: result.req.payload.model,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
-      }
-    }
-    return {}
-  },
-}
-
-/** Type guard for OpenAI non-streaming response */
-function isOpenAINonStreaming(
-  response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
-): response is ChatCompletionResponse {
-  return typeof response === "object" && "object" in response && response.object === "chat.completion"
-}
-
