@@ -1,0 +1,69 @@
+{
+  "fixtureVersion": 1,
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "gpt-4.1",
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly: ok"
+        }
+      ],
+      "max_completion_tokens": 64
+    }
+  },
+  "upstream_raw_chunks": [
+    {
+      "data": "{\"choices\":[],\"created\":0,\"id\":\"\",\"model\":\"gpt-4.1-2025-04-14\",\"prompt_filter_results\":[{\"content_filter_results\":{\"hate\":{\"filtered\":false,\"severity\":\"safe\"},\"self_harm\":{\"filtered\":false,\"severity\":\"safe\"},\"sexual\":{\"filtered\":false,\"severity\":\"safe\"},\"violence\":{\"filtered\":false,\"severity\":\"safe\"}},\"prompt_index\":0}]}"
+    },
+    {
+      "data": "{\"choices\":[{\"index\":0,\"content_filter_results\":{},\"delta\":{\"content\":\"\",\"role\":\"assistant\"}}],\"created\":1776826955,\"id\":\"chatcmpl-DXI9Daz7WcjfgT2l7yMYpS1mvrpf3\",\"model\":\"gpt-4.1-2025-04-14\",\"system_fingerprint\":\"fp_63d8723934\"}"
+    },
+    {
+      "data": "{\"choices\":[{\"index\":0,\"content_filter_results\":{\"hate\":{\"filtered\":false,\"severity\":\"safe\"},\"self_harm\":{\"filtered\":false,\"severity\":\"safe\"},\"sexual\":{\"filtered\":false,\"severity\":\"safe\"},\"violence\":{\"filtered\":false,\"severity\":\"safe\"}},\"delta\":{\"content\":\"ok\"}}],\"created\":1776826955,\"id\":\"chatcmpl-DXI9Daz7WcjfgT2l7yMYpS1mvrpf3\",\"model\":\"gpt-4.1-2025-04-14\",\"system_fingerprint\":\"fp_63d8723934\"}"
+    },
+    {
+      "data": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"content_filter_results\":{},\"delta\":{\"content\":null}}],\"created\":1776826955,\"id\":\"chatcmpl-DXI9Daz7WcjfgT2l7yMYpS1mvrpf3\",\"usage\":{\"completion_tokens\":2,\"completion_tokens_details\":{\"accepted_prediction_tokens\":0,\"rejected_prediction_tokens\":0},\"prompt_tokens\":12,\"prompt_tokens_details\":{\"cached_tokens\":0},\"total_tokens\":14,\"reasoning_tokens\":0},\"model\":\"gpt-4.1-2025-04-14\",\"system_fingerprint\":\"fp_63d8723934\",\"copilot_usage\":{\"token_details\":[{\"batch_size\":1000000,\"cost_per_batch\":200000000000,\"token_count\":12,\"token_type\":\"input\"},{\"batch_size\":1000000,\"cost_per_batch\":50000000000,\"token_count\":0,\"token_type\":\"cache_read\"},{\"batch_size\":1000000,\"cost_per_batch\":800000000000,\"token_count\":2,\"token_type\":\"output\"}],\"total_nano_aiu\":4000000}}"
+    },
+    {
+      "data": "[DONE]"
+    }
+  ],
+  "expected_client_events": [
+    {
+      "data": "{\"choices\":[],\"created\":\"<created>\",\"id\":\"<id>\",\"model\":\"gpt-4.1-2025-04-14\",\"prompt_filter_results\":[{\"content_filter_results\":{\"hate\":{\"filtered\":false,\"severity\":\"safe\"},\"self_harm\":{\"filtered\":false,\"severity\":\"safe\"},\"sexual\":{\"filtered\":false,\"severity\":\"safe\"},\"violence\":{\"filtered\":false,\"severity\":\"safe\"}},\"prompt_index\":0}]}"
+    },
+    {
+      "data": "{\"choices\":[{\"index\":0,\"content_filter_results\":{},\"delta\":{\"content\":\"\",\"role\":\"assistant\"}}],\"created\":\"<created>\",\"id\":\"<id>\",\"model\":\"gpt-4.1-2025-04-14\",\"system_fingerprint\":\"<system_fingerprint>\"}"
+    },
+    {
+      "data": "{\"choices\":[{\"index\":0,\"content_filter_results\":{\"hate\":{\"filtered\":false,\"severity\":\"safe\"},\"self_harm\":{\"filtered\":false,\"severity\":\"safe\"},\"sexual\":{\"filtered\":false,\"severity\":\"safe\"},\"violence\":{\"filtered\":false,\"severity\":\"safe\"}},\"delta\":{\"content\":\"ok\"}}],\"created\":\"<created>\",\"id\":\"<id>\",\"model\":\"gpt-4.1-2025-04-14\",\"system_fingerprint\":\"<system_fingerprint>\"}"
+    },
+    {
+      "data": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"content_filter_results\":{},\"delta\":{\"content\":null}}],\"created\":\"<created>\",\"id\":\"<id>\",\"usage\":{\"completion_tokens\":2,\"completion_tokens_details\":{\"accepted_prediction_tokens\":0,\"rejected_prediction_tokens\":0},\"prompt_tokens\":12,\"prompt_tokens_details\":{\"cached_tokens\":0},\"total_tokens\":14,\"reasoning_tokens\":0},\"model\":\"gpt-4.1-2025-04-14\",\"system_fingerprint\":\"<system_fingerprint>\",\"copilot_usage\":{\"token_details\":[{\"batch_size\":1000000,\"cost_per_batch\":200000000000,\"token_count\":12,\"token_type\":\"input\"},{\"batch_size\":1000000,\"cost_per_batch\":50000000000,\"token_count\":0,\"token_type\":\"cache_read\"},{\"batch_size\":1000000,\"cost_per_batch\":800000000000,\"token_count\":2,\"token_type\":\"output\"}],\"total_nano_aiu\":4000000}}"
+    },
+    {
+      "data": "[DONE]"
+    }
+  ],
+  "expected_end_log": {
+    "path": "/v1/chat/completions",
+    "format": "openai",
+    "model": "gpt-4.1",
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "inputTokens": 12,
+    "outputTokens": 2,
+    "extras": {
+      "resolvedModel": "gpt-4.1-2025-04-14",
+      "stopReason": "stop",
+      "toolCallCount": 0,
+      "toolCallNames": []
+    }
+  }
+}
