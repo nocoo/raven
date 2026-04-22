@@ -15,6 +15,12 @@
     "mode": "placeholder",
     "globalFloorPct": 95.0,
     "regressionAllowanceAbsPct": 0.1,
-    "perDirectoryFloors": {}
+    "perDirectoryFloors": {},
+    "_comment_allowUntestedFiles": "Legacy src/ files intentionally uncovered by L1 tests. Shrink this list over time; the gate blocks any *new* addition.",
+    "allowUntestedFiles": [
+      "src/index.ts",
+      "src/lib/migration.ts",
+      "src/lib/paths.ts"
+    ]
   }
 }

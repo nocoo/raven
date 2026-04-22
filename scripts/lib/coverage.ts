@@ -31,6 +31,13 @@ export interface Baseline {
     globalFloorPct: number
     regressionAllowanceAbsPct: number
     perDirectoryFloors: Record<string, number>
+    /**
+     * Legacy src/ files that have been triaged as intentionally
+     * uncovered (entry points, migration shims, etc.). Listed here to
+     * keep the "new file without test" gate strict for future
+     * additions without forcing retroactive tests for existing code.
+     */
+    allowUntestedFiles?: string[]
   }
 }
 
@@ -110,6 +117,15 @@ export interface GateViolation {
 export interface GateInputs {
   /** Actual L1 test count observed this run. null = not measured. */
   testCount?: number | null
+  /**
+   * Full list of source files that *should* appear in the coverage
+   * report (typically every `src/**\/*.ts` under the package). Any
+   * entry missing from `report.byFile` is flagged as a new file
+   * landing without any test that imports it — bun's lcov only
+   * records files actually loaded during the test run, so a file
+   * that no test touches is silently absent otherwise.
+   */
+  sourceFiles?: string[]
 }
 
 export function evaluateGate(
@@ -191,13 +207,33 @@ export function evaluateGate(
   // in the coverage report that never had a line executed (LH=0)
   // means the file exists but no test touches it. Runs in both
   // placeholder and enforce modes so new code can't land untested.
+  const reportedPaths = new Set(report.byFile.map((f) => f.path))
+  const allowList = new Set(baseline.enforcement.allowUntestedFiles ?? [])
   for (const f of report.byFile) {
     if (!f.path.startsWith("src/")) continue
     if (f.linesFound === 0) continue
+    if (allowList.has(f.path)) continue
     if (f.linesHit === 0) {
       violations.push({
         kind: "file-without-coverage",
         detail: `${f.path} has 0 executed lines (${f.linesFound} covered) — add a test`,
+      })
+    }
+  }
+
+  // Secondary check: bun's lcov only records files that were loaded
+  // during the run, so a brand-new src/ file with *no* test importing
+  // it doesn't show up in report.byFile at all. Caller can pass the
+  // authoritative list of src/ files (from disk) so we can flag those
+  // too. Skipped when the caller didn't provide sourceFiles.
+  if (inputs.sourceFiles) {
+    for (const path of inputs.sourceFiles) {
+      if (!path.startsWith("src/")) continue
+      if (reportedPaths.has(path)) continue
+      if (allowList.has(path)) continue
+      violations.push({
+        kind: "file-without-coverage",
+        detail: `${path} is not referenced by any test (absent from lcov) — add a test`,
       })
     }
   }

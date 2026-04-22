@@ -229,6 +229,70 @@ describe("evaluateGate", () => {
     const v = evaluateGate(r, baseline({ globalFloorPct: 10 }))
     expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
   })
+
+  test("flags a src/ file absent from lcov entirely (no test imports it)", () => {
+    // bun's lcov only records files the test run loaded, so a
+    // brand-new file with no importing test is silently absent.
+    // Pass the on-disk source list to catch that case.
+    const r = parseLcov(SAMPLE_LCOV)
+    const v = evaluateGate(
+      r,
+      baseline({ globalFloorPct: 10 }),
+      {
+        sourceFiles: [
+          "src/routes/messages/handler.ts",
+          "src/lib/state.ts",
+          "src/util/id.ts",
+          "src/lib/brand-new-untested.ts",
+        ],
+      },
+    )
+    const hit = v.find((x) => x.detail.includes("brand-new-untested.ts"))
+    expect(hit).toBeDefined()
+    expect(hit?.kind).toBe("file-without-coverage")
+  })
+
+  test("does not flag a src/ file that appears in lcov (even with 100% coverage)", () => {
+    const r = parseLcov(SAMPLE_LCOV)
+    const v = evaluateGate(
+      r,
+      baseline({ globalFloorPct: 10 }),
+      { sourceFiles: ["src/lib/state.ts"] },
+    )
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
+  })
+
+  test("ignores non-src paths in sourceFiles", () => {
+    const r = parseLcov(SAMPLE_LCOV)
+    const v = evaluateGate(
+      r,
+      baseline({ globalFloorPct: 10 }),
+      { sourceFiles: ["scripts/thing.ts", "test/foo.ts"] },
+    )
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
+  })
+
+  test("allowUntestedFiles grandfathers listed paths out of both checks", () => {
+    const lcov =
+      SAMPLE_LCOV +
+      "TN:\nSF:src/legacy/entry.ts\nLF:10\nLH:0\nend_of_record\n"
+    const r = parseLcov(lcov)
+    const v = evaluateGate(
+      r,
+      baseline({
+        globalFloorPct: 10,
+        allowUntestedFiles: ["src/legacy/entry.ts", "src/legacy/absent.ts"],
+      }),
+      {
+        sourceFiles: [
+          "src/legacy/entry.ts",
+          "src/legacy/absent.ts",
+          "src/lib/state.ts",
+        ],
+      },
+    )
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
+  })
 })
 
 describe("loadBaseline", () => {

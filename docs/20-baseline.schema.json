@@ -36,6 +36,10 @@
         "perDirectoryFloors": {
           "type": "object",
           "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
+        },
+        "allowUntestedFiles": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     }
