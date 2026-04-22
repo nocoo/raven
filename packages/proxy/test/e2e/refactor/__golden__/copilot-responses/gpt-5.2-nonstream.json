@@ -1,0 +1,28 @@
+{
+  "fixtureVersion": 1,
+  "request": {
+    "method": "POST",
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.2",
+      "stream": false,
+      "input": "Reply with exactly: ok"
+    }
+  },
+  "upstream_raw_chunks": [],
+  "expected_client_events": [],
+  "expected_end_log": {
+    "path": "/v1/responses",
+    "format": "responses",
+    "model": "gpt-5.2",
+    "stream": false,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "inputTokens": 11,
+    "outputTokens": 19,
+    "extras": {
+      "resolvedModel": "gpt-5.2-2025-12-11"
+    }
+  }
+}
