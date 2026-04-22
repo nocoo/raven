@@ -34,7 +34,7 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
   try {
     dispatched = await strategy.dispatch(upstreamReq, ctx)
   } catch (err) {
-    emitErrorEnd(ctx, err, { stream: false })
+    emitErrorEnd(ctx, strategy, err, { stream: false })
     throw err
   }
 
@@ -96,6 +96,7 @@ function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>
     requestId: ctx.requestId,
     msg: `200 ${ctx.format} ${latencyMs}ms`,
     data: {
+      path: ctx.path,
       format: ctx.format,
       stream: false,
       status: "success",
@@ -138,6 +139,7 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
     requestId: ctx.requestId,
     msg: `${err ? "error" : "200"} ${ctx.format} ${latencyMs}ms`,
     data: {
+      path: ctx.path,
       format: ctx.format,
       stream: true,
       status: err ? "error" : "success",
@@ -156,13 +158,15 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   })
 }
 
-function emitErrorEnd(
+function emitErrorEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   ctx: RequestContext,
+  strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
   err: unknown,
   opts: { stream: boolean },
 ): void {
   const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(err)
   const latencyMs = Math.round(performance.now() - ctx.startTime)
+  const extras = strategy.describeEndLog({ kind: "error", err }, ctx)
   logEmitter.emitLog({
     ts: Date.now(),
     level: "error",
@@ -170,6 +174,7 @@ function emitErrorEnd(
     requestId: ctx.requestId,
     msg: `${statusCode} ${ctx.format} ${latencyMs}ms`,
     data: {
+      path: ctx.path,
       format: ctx.format,
       stream: opts.stream,
       status: "error",
@@ -183,6 +188,7 @@ function emitErrorEnd(
       sessionId: ctx.sessionId,
       clientName: ctx.clientName,
       clientVersion: ctx.clientVersion,
+      ...extras,
     },
   })
 }

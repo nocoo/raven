@@ -42,11 +42,14 @@ function makeStrategy(overrides: Partial<AnyStrategy> = {}): AnyStrategy {
       if (result.kind === "json") {
         return { resolvedModel: "fake-model", outputTokens: result.resp.tokens }
       }
-      return {
-        resolvedModel: result.state.resolvedModel,
-        outputTokens: result.state.outputTokens,
-        chunkCount: result.state.chunkCount,
+      if (result.kind === "stream") {
+        return {
+          resolvedModel: result.state.resolvedModel,
+          outputTokens: result.state.outputTokens,
+          chunkCount: result.state.chunkCount,
+        }
       }
+      return { resolvedModel: "fake-model" }
     },
     initStreamState: () => ({ resolvedModel: "fake-stream", outputTokens: 0, chunkCount: 0 }),
   }
@@ -58,6 +61,7 @@ function makeCtx(): RequestContext {
     requestId: "01TEST000000000000000000RR",
     startTime: performance.now() - 5,
     format: "openai",
+    path: "/v1/chat/completions",
     accountName: "acct",
     userAgent: null,
     anthropicBeta: null,
@@ -285,6 +289,7 @@ describe("core/runner — JSON path", () => {
         requestId: "RID-XYZ",
         startTime: performance.now() - 1,
         format: "anthropic",
+        path: "/v1/messages",
         accountName: "alice",
         userAgent: "claude-code/1",
         anthropicBeta: null,

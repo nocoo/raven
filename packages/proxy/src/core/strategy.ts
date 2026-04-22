@@ -50,11 +50,15 @@ export type DispatchResult<UpResp, ChunkIn> =
 /**
  * End-log discriminator passed to `describeEndLog`. Mirrors the dispatch
  * outcome but exposes the JSON body / stream state directly so the strategy
- * can read out token counts, resolvedModel, etc.
+ * can read out token counts, resolvedModel, etc. The `error` arm is used by
+ * Runner when dispatch rejects before stream open or before JSON parse — it
+ * lets the strategy still contribute its protocol-fixed fields (path, model,
+ * upstream/upstreamFormat) to the failure log.
  */
 export type EndLogResult<UpResp, StreamState> =
   | { kind: "json"; resp: UpResp }
   | { kind: "stream"; state: StreamState }
+  | { kind: "error"; err: unknown }
 
 export interface Strategy<
   ClientReq,

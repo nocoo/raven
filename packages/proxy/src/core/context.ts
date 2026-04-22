@@ -23,6 +23,8 @@ export interface RequestContext {
   startTime: number
   /** Stable client-protocol classifier — drives router and end-log `format`. */
   format: RequestFormat
+  /** Canonical request path (e.g. `/v1/chat/completions`); written to `request_end.data.path`. */
+  path: string
   /** API key name from auth middleware, defaults to `"default"`. */
   accountName: string
   /** `User-Agent` header verbatim (may be `null`). */
@@ -70,6 +72,7 @@ export function buildContext(
     requestId: generateRequestId(),
     startTime: performance.now(),
     format,
+    path: c.req.path,
     accountName,
     userAgent,
     anthropicBeta,

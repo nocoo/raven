@@ -7,6 +7,9 @@ import { state } from "./../../lib/state"
 import { resolveProvider } from "./../../lib/upstream-router"
 import { pickStrategy } from "./../../core/router"
 import { respondRouterReject } from "./../../core/router-reject"
+import { execute as runnerExecute } from "./../../core/runner"
+import type { RequestContext as RunnerCtx } from "./../../core/context"
+import type { Strategy } from "./../../core/strategy"
 import type { CompiledProvider } from "./../../db/providers"
 import { isNullish } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
@@ -106,28 +109,32 @@ export async function handleCompletion(c: Context) {
     }
   }
 
+  if (!stream) {
+    // G.6: non-streaming default branch ported onto Runner via local shim.
+    // Runner owns success+error logs end-to-end for this branch; the
+    // streaming branch (G.7) and custom-upstream branch (G.8) keep their
+    // inline implementations until those phases land.
+    const runnerCtx: RunnerCtx = {
+      requestId, startTime, format: "openai", path: "/v1/chat/completions",
+      accountName, userAgent, anthropicBeta: null,
+      sessionId, clientName, clientVersion,
+    }
+    try {
+      return await runnerExecute(c, runnerCtx, copilotOpenAIDirectJsonShim, payload)
+    } catch (error) {
+      // Runner already emitted request_end (error). Match legacy behaviour
+      // by surfacing through forwardError so the client gets a JSON body.
+      return forwardError(c, error)
+    }
+  }
+
   try {
     const response = await buildUpstreamClient("copilot-openai").send(payload)
 
     if (isNonStreaming(response)) {
-      const latencyMs = Math.round(performance.now() - startTime)
-      const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0
-      const inputTokens = (response.usage?.prompt_tokens ?? 0) - cachedTokens
-      const outputTokens = response.usage?.completion_tokens ?? 0
-
-      logEmitter.emitLog({
-        ts: Date.now(), level: "info", type: "request_end", requestId,
-        msg: `200 ${model} ${latencyMs}ms`,
-        data: {
-          path: "/v1/chat/completions", format: "openai", model,
-          resolvedModel: response.model, inputTokens, outputTokens,
-          latencyMs, ttftMs: null, processingMs: null,
-          stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
-        },
-      })
-
-      return c.json(response)
+      // Unreachable when stream === false (handled by the Runner branch
+      // above); kept until G.7 ports the streaming branch as well.
+      throw new Error("unreachable: non-streaming handled by Runner")
     }
 
     // Streaming
@@ -416,4 +423,55 @@ function isOpenAINonStreaming(
   response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse {
   return typeof response === "object" && "object" in response && response.object === "chat.completion"
+}
+
+// ===========================================================================
+// G.6: Strategy shim — copilot-openai-direct, JSON-only.
+// Local to this file. The real `strategies/copilot-openai-direct.ts` lands
+// in Phase H once the matching streaming branch (G.7) is also on Runner.
+// ===========================================================================
+
+const copilotOpenAIDirectJsonShim: Strategy<
+  ChatCompletionsPayload,
+  ChatCompletionsPayload,
+  ChatCompletionResponse,
+  ChatCompletionResponse,
+  never,
+  SSEMessage,
+  never
+> = {
+  name: "copilot-openai-direct",
+
+  prepare: (req) => req,
+
+  dispatch: async (up) => {
+    const response = await buildUpstreamClient("copilot-openai").send(up)
+    if (!isNonStreaming(response)) {
+      // The shim is only used when the client did not request streaming;
+      // upstream returning a stream here is a bug worth surfacing.
+      throw new Error("copilot-openai-direct shim: unexpected stream response")
+    }
+    return { kind: "json", body: response }
+  },
+
+  adaptJson: (resp) => resp,
+
+  adaptChunk: () => [],
+  adaptStreamError: () => [],
+  initStreamState: () => null as never,
+
+  describeEndLog: (result) => {
+    if (result.kind === "json") {
+      const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
+      const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
+      const outputTokens = result.resp.usage?.completion_tokens ?? 0
+      return {
+        model: result.resp.model,
+        resolvedModel: result.resp.model,
+        inputTokens,
+        outputTokens,
+      }
+    }
+    return {}
+  },
 }

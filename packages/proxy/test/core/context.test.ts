@@ -54,6 +54,11 @@ describe("core/context", () => {
     expect((await runBuild({ format: "responses" })).format).toBe("responses")
   })
 
+  test("path is captured from c.req.path", async () => {
+    const ctx = await runBuild({})
+    expect(ctx.path).toBe("/x")
+  })
+
   test("accountName defaults to 'default' when keyName not set", async () => {
     const ctx = await runBuild({})
     expect(ctx.accountName).toBe("default")
