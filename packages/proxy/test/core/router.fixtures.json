@@ -1,0 +1,352 @@
+{
+  "$doc": "Phase F router fixtures. One entry per routing decision exercised by docs/20-architecture-refactor.md §4.3 scenario matrix (test/e2e/refactor/scenarios.json) plus the reject branches enumerated in §3.2. F.4 consumes this file as the data-driven input for test/core/router.test.ts; pickStrategy must reproduce decision exactly. Frozen at F.3 — do not edit by hand without re-running F.1/F.2.",
+  "$schema": {
+    "input": {
+      "protocol": "anthropic | openai | responses",
+      "model": "string (raw client-supplied model id)",
+      "anthropicBeta": "string | null (anthropic-beta header; only meaningful when protocol = anthropic)",
+      "providers": "CompiledProvider[]; only id/name/format/enabled/patterns/supports_reasoning are used by router",
+      "modelsCatalogIds": "string[] (state.models?.data ids)"
+    },
+    "expected": "StrategyDecision (§3.2): { kind: 'ok', name, providerId? } | { kind: 'reject', status, errorType, message }"
+  },
+  "fixtures": [
+    {
+      "name": "anthropic / claude-opus-4.6 → copilot-native",
+      "input": {
+        "protocol": "anthropic",
+        "model": "claude-opus-4.6",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["claude-opus-4.6", "claude-sonnet-4.6", "gpt-5.2"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-native" }
+    },
+    {
+      "name": "anthropic / claude-opus-4-6-20250820 (dated) → copilot-native (after translateModelName)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "claude-opus-4-6-20250820",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["claude-opus-4.6", "claude-sonnet-4.6"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-native" }
+    },
+    {
+      "name": "anthropic / claude-sonnet-4.6 → copilot-native",
+      "input": {
+        "protocol": "anthropic",
+        "model": "claude-sonnet-4.6",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["claude-sonnet-4.6"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-native" }
+    },
+    {
+      "name": "anthropic / gpt-5.2 → copilot-translated (no provider, no native support)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "gpt-5.2",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["gpt-5.2", "gpt-5-mini", "claude-opus-4.6"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-translated" }
+    },
+    {
+      "name": "anthropic / gpt-5-mini → copilot-translated",
+      "input": {
+        "protocol": "anthropic",
+        "model": "gpt-5-mini",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["gpt-5-mini"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-translated" }
+    },
+    {
+      "name": "anthropic / custom-reasoning-a → custom-openai (provider=A, exact match, reasoning)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "custom-reasoning-a",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-a",
+            "name": "provider-a",
+            "format": "openai",
+            "enabled": true,
+            "supports_reasoning": true,
+            "patterns": ["custom-reasoning-a"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": { "kind": "ok", "name": "custom-openai", "providerId": "prov-a" }
+    },
+    {
+      "name": "anthropic / custom-non-reasoning-b → custom-openai (provider=B, no reasoning)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "custom-non-reasoning-b",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-b",
+            "name": "provider-b",
+            "format": "openai",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["custom-non-reasoning-b"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": { "kind": "ok", "name": "custom-openai", "providerId": "prov-b" }
+    },
+    {
+      "name": "anthropic / custom-anthropic-m1 → custom-anthropic (passthrough)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "custom-anthropic-m1",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-c",
+            "name": "anthropic-mirror",
+            "format": "anthropic",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["custom-anthropic-m*"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": { "kind": "ok", "name": "custom-anthropic", "providerId": "prov-c" }
+    },
+    {
+      "name": "anthropic / custom-anthropic-m2 → custom-anthropic (glob match)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "custom-anthropic-m2",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-c",
+            "name": "anthropic-mirror",
+            "format": "anthropic",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["custom-anthropic-m*"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": { "kind": "ok", "name": "custom-anthropic", "providerId": "prov-c" }
+    },
+    {
+      "name": "anthropic / claude-opus-4.6 with overriding custom provider → custom-anthropic (provider beats native)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "claude-opus-4.6",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-c",
+            "name": "anthropic-mirror",
+            "format": "anthropic",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["claude-opus-4.6"]
+          }
+        ],
+        "modelsCatalogIds": ["claude-opus-4.6"]
+      },
+      "expected": { "kind": "ok", "name": "custom-anthropic", "providerId": "prov-c" }
+    },
+    {
+      "name": "openai / gpt-5.2 → copilot-openai-direct",
+      "input": {
+        "protocol": "openai",
+        "model": "gpt-5.2",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["gpt-5.2"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-openai-direct" }
+    },
+    {
+      "name": "openai / gpt-4.1 → copilot-openai-direct",
+      "input": {
+        "protocol": "openai",
+        "model": "gpt-4.1",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["gpt-4.1"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-openai-direct" }
+    },
+    {
+      "name": "openai / custom-reasoning-a → custom-openai",
+      "input": {
+        "protocol": "openai",
+        "model": "custom-reasoning-a",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-a",
+            "name": "provider-a",
+            "format": "openai",
+            "enabled": true,
+            "supports_reasoning": true,
+            "patterns": ["custom-reasoning-a"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": { "kind": "ok", "name": "custom-openai", "providerId": "prov-a" }
+    },
+    {
+      "name": "openai / glob match (gpt-* via provider-b) → custom-openai",
+      "input": {
+        "protocol": "openai",
+        "model": "gpt-custom-x",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-b",
+            "name": "provider-b",
+            "format": "openai",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["gpt-custom-*"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": { "kind": "ok", "name": "custom-openai", "providerId": "prov-b" }
+    },
+    {
+      "name": "openai / model with Anthropic-format provider → reject 400 (F.8)",
+      "input": {
+        "protocol": "openai",
+        "model": "custom-anthropic-m1",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-c",
+            "name": "anthropic-mirror",
+            "format": "anthropic",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["custom-anthropic-m*"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": {
+        "kind": "reject",
+        "status": 400,
+        "errorType": "invalid_request_error",
+        "message": "OpenAI client requests cannot be routed to Anthropic-format upstreams. Use the Anthropic Messages API instead."
+      }
+    },
+    {
+      "name": "responses / gpt-5.2 → copilot-responses",
+      "input": {
+        "protocol": "responses",
+        "model": "gpt-5.2",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["gpt-5.2"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-responses" }
+    },
+    {
+      "name": "responses / gpt-5.4-mini → copilot-responses (reasoning model)",
+      "input": {
+        "protocol": "responses",
+        "model": "gpt-5.4-mini",
+        "anthropicBeta": null,
+        "providers": [],
+        "modelsCatalogIds": ["gpt-5.4-mini"]
+      },
+      "expected": { "kind": "ok", "name": "copilot-responses" }
+    },
+    {
+      "name": "responses / model with custom provider → reject 400 (F.8)",
+      "input": {
+        "protocol": "responses",
+        "model": "custom-reasoning-a",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-a",
+            "name": "provider-a",
+            "format": "openai",
+            "enabled": true,
+            "supports_reasoning": true,
+            "patterns": ["custom-reasoning-a"]
+          }
+        ],
+        "modelsCatalogIds": []
+      },
+      "expected": {
+        "kind": "reject",
+        "status": 400,
+        "errorType": "invalid_request_error",
+        "message": "OpenAI Responses API cannot be routed to custom upstreams."
+      }
+    },
+    {
+      "name": "anthropic / glob beats nothing (gpt-5.2 via gpt-5.* glob) → custom-openai",
+      "input": {
+        "protocol": "anthropic",
+        "model": "gpt-5.2",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-b",
+            "name": "provider-b",
+            "format": "openai",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["gpt-5.*"]
+          }
+        ],
+        "modelsCatalogIds": ["gpt-5.2"]
+      },
+      "expected": { "kind": "ok", "name": "custom-openai", "providerId": "prov-b" }
+    },
+    {
+      "name": "anthropic / exact-on-normalised beats glob-on-raw (raw=claude-opus-4-6-20250820, exact provider on canonical claude-opus-4.6)",
+      "input": {
+        "protocol": "anthropic",
+        "model": "claude-opus-4-6-20250820",
+        "anthropicBeta": null,
+        "providers": [
+          {
+            "id": "prov-c",
+            "name": "anthropic-mirror",
+            "format": "anthropic",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["claude-opus-4.6"]
+          },
+          {
+            "id": "prov-d",
+            "name": "anthropic-glob",
+            "format": "anthropic",
+            "enabled": true,
+            "supports_reasoning": false,
+            "patterns": ["claude-opus-*"]
+          }
+        ],
+        "modelsCatalogIds": ["claude-opus-4.6"]
+      },
+      "expected": { "kind": "ok", "name": "custom-anthropic", "providerId": "prov-c" }
+    }
+  ]
+}
