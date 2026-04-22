@@ -87,11 +87,14 @@ if (!skipTests) {
 
   // bun test prints the final "Ran N tests…" summary on stderr. Tee
   // it to the real stderr (preserving live output) and capture so we
-  // can read the test count for the §4.5 regression check.
+  // can read the test count for the §4.5 regression check. We await
+  // the drain promise *after* proc.exited so extractTestCount always
+  // sees the complete buffer (otherwise the reader can still be
+  // mid-chunk when the process exits, and the summary line is missed).
   let stderrBuf = ""
   const stderrReader = proc.stderr.getReader()
   const decoder = new TextDecoder()
-  void (async () => {
+  const drainStderr = (async () => {
     while (true) {
       const { value, done } = await stderrReader.read()
       if (done) break
@@ -102,6 +105,7 @@ if (!skipTests) {
   })()
 
   const exitCode = await proc.exited
+  await drainStderr
   if (exitCode !== 0) process.exit(exitCode)
   testCount = extractTestCount(stderrBuf)
 }
