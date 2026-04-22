@@ -7,6 +7,7 @@ import { state } from "./../../lib/state"
 import { resolveProviderForModels } from "./../../lib/upstream-router"
 import type { CompiledProvider } from "./../../db/providers"
 import { logEmitter } from "./../../util/log-emitter"
+import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
 import { sendAnthropicDirect } from "./../../services/upstream/send-anthropic"
@@ -297,6 +298,9 @@ export async function handleCompletion(c: Context) {
 
       try {
         for await (const rawEvent of response) {
+          // Preserve the exact upstream SSE bytes for §4.3 fixture capture
+          // before any translation. See util/emit-upstream-raw.ts.
+          emitUpstreamRawSse(requestId, { event: rawEvent.event, data: rawEvent.data })
           if (rawEvent.data === "[DONE]") break
           if (!rawEvent.data) continue
 
@@ -725,6 +729,9 @@ async function handleOpenAIUpstream(
     return streamSSE(c, async (sseStream) => {
       try {
         for await (const rawEvent of response) {
+          // Preserve the exact upstream SSE bytes for §4.3 fixture capture
+          // before any translation. See util/emit-upstream-raw.ts.
+          emitUpstreamRawSse(requestId, { event: rawEvent.event, data: rawEvent.data })
           if (rawEvent.data === "[DONE]") break
           if (!rawEvent.data) continue
 

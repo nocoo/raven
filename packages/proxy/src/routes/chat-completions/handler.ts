@@ -8,6 +8,7 @@ import { resolveProvider } from "./../../lib/upstream-router"
 import type { CompiledProvider } from "./../../db/providers"
 import { isNullish } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
+import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
 import { sendOpenAIDirect } from "./../../services/upstream/send-openai"
@@ -145,6 +146,7 @@ export async function handleCompletion(c: Context) {
     return streamSSE(c, async (sseStream) => {
       try {
         for await (const chunk of response) {
+          emitUpstreamRawSse(requestId, { event: chunk.event, data: chunk.data })
           if (firstChunkTime === null) firstChunkTime = performance.now()
 
           await sseStream.writeSSE(chunk as SSEMessage)
@@ -335,6 +337,7 @@ async function handleOpenAIPassthrough(
     return streamSSE(c, async (sseStream) => {
       try {
         for await (const chunk of response) {
+          emitUpstreamRawSse(requestId, { event: chunk.event, data: chunk.data })
           if (firstChunkTime === null) firstChunkTime = performance.now()
 
           await sseStream.writeSSE(chunk as SSEMessage)

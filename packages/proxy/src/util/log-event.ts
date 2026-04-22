@@ -16,6 +16,7 @@ export type LogEventType =
   | "request_start"   // request enters proxy
   | "request_end"     // request complete (status, latency, token usage)
   | "sse_chunk"       // upstream SSE chunk (translated or passthrough)
+  | "upstream_raw_sse" // raw SSE event from upstream (pre-translation)
   | "upstream_error"; // upstream non-2xx or network error
 
 export interface LogEvent {

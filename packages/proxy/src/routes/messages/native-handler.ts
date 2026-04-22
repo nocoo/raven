@@ -10,6 +10,7 @@ import { streamSSE } from "hono/streaming"
 
 import { state } from "../../lib/state"
 import { logEmitter } from "../../util/log-emitter"
+import { emitUpstreamRawSse } from "../../util/emit-upstream-raw"
 import { extractErrorDetails, forwardError, HTTPError } from "../../lib/error"
 import {
   createNativeMessages,
@@ -196,6 +197,7 @@ export async function handleCopilotNative(
     return streamSSE(c, async (sseStream) => {
       try {
         for await (const sseEvent of response) {
+          emitUpstreamRawSse(requestId, { event: sseEvent.event, data: sseEvent.data })
           if (firstChunkTime === null) firstChunkTime = performance.now()
 
           // Extract metrics from events

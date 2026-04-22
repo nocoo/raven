@@ -7,6 +7,7 @@ import { checkRateLimit } from "../../lib/rate-limit"
 import { state } from "../../lib/state"
 import type { ServerSentEvent } from "../../util/sse"
 import { logEmitter } from "../../util/log-emitter"
+import { emitUpstreamRawSse } from "../../util/emit-upstream-raw"
 import { generateRequestId } from "../../util/id"
 import { deriveClientIdentity } from "../../util/client-identity"
 
@@ -56,6 +57,7 @@ export const handleResponses = async (c: Context) => {
       return streamSSE(c, async (sseStream) => {
         try {
           for await (const chunk of response as AsyncIterable<ServerSentEvent>) {
+            emitUpstreamRawSse(requestId, { event: chunk.event, data: chunk.data })
             if (firstChunkTime === null) firstChunkTime = performance.now()
 
             // Passthrough all SSE fields: event, data, id, retry

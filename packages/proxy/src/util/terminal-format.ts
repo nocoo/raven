@@ -108,6 +108,10 @@ export function formatEvent(event: LogEvent): string | null {
       // Too noisy for terminal — debug-only via WS
       return null;
 
+    case "upstream_raw_sse":
+      // Captured by E2E fixture pipeline via WS — noisy in terminal.
+      return null;
+
     default:
       // Unknown event type — fall back to simple format
       return `${time} ${event.msg}`;
