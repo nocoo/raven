@@ -16,6 +16,12 @@ import {
   isServerSideTool,
 } from "./anthropic-types"
 
+// A.5: `translateModelName` has moved to protocols/anthropic/preprocess.
+// This file remains as a transitional shim re-exporting the canonical
+// helper; D.1 deletes the shim entirely and migrates importers.
+export { translateModelName } from "../../protocols/anthropic/preprocess"
+import { translateModelName } from "../../protocols/anthropic/preprocess"
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -73,53 +79,8 @@ export function filterAnthropicBeta(header: string | null | undefined): string |
 // Model Name Translation
 // ---------------------------------------------------------------------------
 
-// Pre-compiled regexes for model name translation (avoid regex compilation on each call)
-const MODEL_REGEX_WITH_MINOR =
-  /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:(?:-|\[)(1m|fast)\]?)?(?:-\d{8})?$/
-const MODEL_REGEX_NO_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
-
-/**
- * Translate Anthropic SDK model identifiers to Copilot model IDs.
- *
- * Copilot uses dot-separated versions without date suffixes:
- * - `claude-opus-4-6-20250820` → `claude-opus-4.6`
- * - `claude-opus-4-6` + `anthropic-beta: context-1m-*` → `claude-opus-4.6-1m`
- * - `claude-opus-4-6[1m]` → `claude-opus-4.6-1m`
- * - `claude-sonnet-4-5-20250514` → `claude-sonnet-4.5`
- * - `claude-sonnet-4-20250514` → `claude-sonnet-4`
- *
- * This function is ONLY used for Copilot routing. Custom providers receive
- * the original model name unchanged.
- */
-export function translateModelName(model: string, anthropicBeta: string | null): string {
-  // Parse beta flags from anthropic-beta header
-  const betas = anthropicBeta?.split(",").map((b) => b.trim()) ?? []
-  const wants1m = betas.some((b) => b.startsWith("context-1m-"))
-  const wantsFast = betas.some((b) => b.startsWith("fast-mode-"))
-
-  // Try to match models with minor version: claude-{family}-{major}-{minor}[-suffix][-date]
-  const match = model.match(MODEL_REGEX_WITH_MINOR)
-  if (match) {
-    const [, family, major, minor, suffix] = match
-    const base = `${family}-${major}.${minor}`
-    // Explicit suffix in model name takes priority
-    if (suffix) return `${base}-${suffix}`
-    // Otherwise, check anthropic-beta header for variant
-    if (wants1m) return `${base}-1m`
-    if (wantsFast) return `${base}-fast`
-    return base
-  }
-
-  // No minor version: claude-{family}-{major}[-date]
-  const matchNoMinor = model.match(MODEL_REGEX_NO_MINOR)
-  if (matchNoMinor) {
-    const [, family, major] = matchNoMinor
-    return `${family}-${major}`
-  }
-
-  // Not a Claude model or already in Copilot format, return as-is
-  return model
-}
+// The canonical implementation now lives in protocols/anthropic/preprocess.
+// Re-exported at the top of this file for backward compat until D.1.
 
 // ---------------------------------------------------------------------------
 // Payload Sanitization
