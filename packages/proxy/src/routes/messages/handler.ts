@@ -1,12 +1,15 @@
 import type { Context } from "hono"
 
-import { streamSSE } from "hono/streaming"
+import { streamSSE, type SSEMessage } from "hono/streaming"
 
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProviderForModels } from "./../../lib/upstream-router"
 import { pickStrategy } from "./../../core/router"
 import { respondRouterReject } from "./../../core/router-reject"
+import { execute as runnerExecute } from "./../../core/runner"
+import type { RequestContext as RunnerCtx } from "./../../core/context"
+import type { Strategy } from "./../../core/strategy"
 import type { CompiledProvider } from "./../../db/providers"
 import { logEmitter } from "./../../util/log-emitter"
 import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
@@ -247,9 +250,11 @@ export async function handleCompletion(c: Context) {
     })
   }
 
-  try {
-    // Handle server-side tools via unified interception if enabled
-    if (serverToolContext.hasServerSideTools && webSearchEnabled) {
+  // G.9: server-tools sub-branch remains inline because it runs its own
+  // request loop via `withServerToolInterception`. Default (no server-tools)
+  // path below routes through Runner via copilotTranslatedShim.
+  if (serverToolContext.hasServerSideTools && webSearchEnabled) {
+    try {
       // Create sendRequest wrapper: Anthropic → OpenAI → send → OpenAI response → Anthropic
       const sendTranslatedRequest = async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
         const translated = translateToOpenAI(p, {
@@ -295,172 +300,33 @@ export async function handleCompletion(c: Context) {
         return streamAnthropicResponse(c, serverToolResponse)
       }
       return c.json(serverToolResponse)
-    }
-
-    // No server-side tools: send directly
-    const response = await buildUpstreamClient("copilot-openai").send(openAIPayload)
-
-    if (isNonStreaming(response)) {
-      const anthropicResponse = translateToAnthropic(response, model)
+    } catch (error) {
       const latencyMs = Math.round(performance.now() - startTime)
-      const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0
-      const inputTokens = (response.usage?.prompt_tokens ?? 0) - cachedTokens
-      const outputTokens = response.usage?.completion_tokens ?? 0
+      const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
 
       logEmitter.emitLog({
-        ts: Date.now(), level: "info", type: "request_end", requestId,
-        msg: `200 ${model} ${latencyMs}ms`,
+        ts: Date.now(), level: "error", type: "request_end", requestId,
+        msg: `${statusCode} ${model} ${latencyMs}ms`,
         data: {
-          path: "/v1/messages", format: "anthropic", model,
-          resolvedModel: response.model,
-          translatedModel: openAIPayload.model,
-          inputTokens, outputTokens, latencyMs,
-          ttftMs: null, processingMs: null,
-          stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
+          path: "/v1/messages", format: "anthropic", model, stream,
+          latencyMs, status: "error", statusCode,
+          upstreamStatus, error: errorDetail, accountName,
+          sessionId, clientName, clientVersion,
         },
       })
-
-      return c.json(anthropicResponse)
+      throw error
     }
-
-    // Streaming
-    let resolvedModel = model
-    let inputTokens = 0
-    let outputTokens = 0
-    let streamError: string | null = null
-    let firstChunkTime: number | null = null
-    let lastToolCallCount = 0
-
-    return streamSSE(c, async (sseStream) => {
-      const streamState: AnthropicStreamState = {
-        messageStartSent: false,
-        contentBlockIndex: 0,
-        contentBlockOpen: false,
-        toolCalls: {},
-      }
-
-      try {
-        for await (const rawEvent of response) {
-          // Preserve the exact upstream SSE bytes for §4.3 fixture capture
-          // before any translation. See util/emit-upstream-raw.ts.
-          emitUpstreamRawSse(requestId, { event: rawEvent.event, data: rawEvent.data })
-          if (rawEvent.data === "[DONE]") break
-          if (!rawEvent.data) continue
-
-          if (firstChunkTime === null) firstChunkTime = performance.now()
-
-          const chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
-
-          // Extract metrics
-          if (chunk.model) resolvedModel = chunk.model
-          if (chunk.usage) {
-            const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
-            inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
-            outputTokens = chunk.usage.completion_tokens ?? 0
-          }
-
-          const events = translateChunkToAnthropicEvents(chunk, streamState, model, {
-            filterWhitespaceChunks: state.optFilterWhitespaceChunks,
-          })
-
-          // Debug: detect new tool calls
-          if (state.optToolCallDebug) {
-            const currentToolCallCount = Object.keys(streamState.toolCalls).length
-            if (currentToolCallCount > lastToolCallCount) {
-              // Find the new tool call (by highest block index)
-              const newToolCall = Object.values(streamState.toolCalls).reduce((newest, tc) =>
-                tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
-                { id: "", name: "", anthropicBlockIndex: -1 },
-              )
-              if (newToolCall.id) {
-                logEmitter.emitLog({
-                  ts: Date.now(), level: "debug", type: "sse_chunk", requestId,
-                  msg: `tool_use started: ${newToolCall.name}`,
-                  data: {
-                    eventType: "tool_use_start",
-                    toolName: newToolCall.name,
-                    toolId: newToolCall.id,
-                    blockIndex: newToolCall.anthropicBlockIndex,
-                  },
-                })
-              }
-            }
-            lastToolCallCount = currentToolCallCount
-          }
-
-          for (const event of events) {
-            await sseStream.writeSSE({
-              event: event.type,
-              data: JSON.stringify(event),
-            })
-          }
-        }
-      } catch (err) {
-        streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
-
-        // Send Anthropic error event so the client knows the stream failed
-        try {
-          const errorEvent = translateErrorToAnthropicErrorEvent()
-          await sseStream.writeSSE({
-            event: errorEvent.type,
-            data: JSON.stringify(errorEvent),
-          })
-        } catch {
-          // Best-effort — connection may already be closed
-        }
-      } finally {
-        const endTime = performance.now()
-        const latencyMs = Math.round(endTime - startTime)
-        const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
-        const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
-
-        // Build base request_end data
-        const baseData = {
-          path: "/v1/messages", format: "anthropic", model,
-          resolvedModel, translatedModel: openAIPayload.model,
-          inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
-          stream: true, status: streamError ? "error" : "success",
-          statusCode: streamError ? 502 : 200,
-          upstreamStatus: streamError ? null : 200,
-          accountName, sessionId, clientName, clientVersion,
-        }
-
-        // Add debug info if enabled
-        const debugData = state.optToolCallDebug && !streamError ? {
-          stopReason: "tool_use", // Will be derived from stream state if tools were called
-          toolCallCount: Object.keys(streamState.toolCalls).length,
-          toolCallNames: Object.values(streamState.toolCalls).map(tc => tc.name),
-        } : {}
-
-        logEmitter.emitLog({
-          ts: Date.now(), level: streamError ? "error" : "info",
-          type: "request_end", requestId,
-          msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
-          data: {
-            ...baseData,
-            ...debugData,
-            ...(streamError && { error: streamError }),
-          },
-        })
-      }
-    })
-  } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/messages", format: "anthropic", model, stream,
-        latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorDetail, accountName,
-        sessionId, clientName, clientVersion,
-      },
-    })
-    throw error
   }
+
+  // No server-side tools: route through Runner via copilotTranslatedShim.
+  const runnerCtx: RunnerCtx = {
+    requestId, startTime, format: "anthropic", path: "/v1/messages",
+    accountName, userAgent, anthropicBeta,
+    sessionId, clientName, clientVersion,
+  }
+  return await runnerExecute(c, runnerCtx, copilotTranslatedShim, {
+    openAIPayload, originalModel: model,
+  })
 }
 
 const isNonStreaming = (
@@ -792,4 +658,154 @@ function isChatCompletionResponse(
   response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse {
   return typeof response === "object" && "object" in response && response.object === "chat.completion"
+}
+
+// ===========================================================================
+// G.9: Strategy shim — copilot-translated (Anthropic client ↔ Copilot OpenAI
+// upstream). Local to this file. The real `strategies/copilot-translated.ts`
+// lands in Phase H once all messages branches are on Runner.
+// ===========================================================================
+
+interface CopilotTranslatedUpReq {
+  /** Already-translated OpenAI payload sent to Copilot */
+  openAIPayload: ChatCompletionsPayload
+  /** Original Anthropic-side model name (used in translateToAnthropic + logs) */
+  originalModel: string
+}
+
+interface CopilotTranslatedStreamState extends AnthropicStreamState {
+  resolvedModel: string
+  inputTokens: number
+  outputTokens: number
+  lastToolCallCount: number
+  originalModel: string
+}
+
+const copilotTranslatedShim: Strategy<
+  CopilotTranslatedUpReq,
+  CopilotTranslatedUpReq,
+  ChatCompletionResponse,
+  unknown,
+  ServerSentEvent,
+  SSEMessage,
+  CopilotTranslatedStreamState
+> = {
+  name: "copilot-translated",
+
+  prepare: (req) => req,
+
+  dispatch: async (up) => {
+    const response = await buildUpstreamClient("copilot-openai").send(up.openAIPayload)
+    if (isNonStreaming(response)) {
+      return { kind: "json", body: response }
+    }
+    return { kind: "stream", chunks: response }
+  },
+
+  adaptJson: (resp, req) => translateToAnthropic(resp, req.originalModel),
+
+  initStreamState: (req) => ({
+    messageStartSent: false,
+    contentBlockIndex: 0,
+    contentBlockOpen: false,
+    toolCalls: {},
+    resolvedModel: req.originalModel,
+    inputTokens: 0,
+    outputTokens: 0,
+    lastToolCallCount: 0,
+    originalModel: req.originalModel,
+  }),
+
+  adaptChunk: (rawEvent, st, ctx) => {
+    emitUpstreamRawSse(ctx.requestId, { event: rawEvent.event, data: rawEvent.data })
+    if (rawEvent.data === "[DONE]") return []
+    if (!rawEvent.data) return []
+
+    const chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
+
+    if (chunk.model) st.resolvedModel = chunk.model
+    if (chunk.usage) {
+      const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
+      st.inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
+      st.outputTokens = chunk.usage.completion_tokens ?? 0
+    }
+
+    const events = translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
+      filterWhitespaceChunks: state.optFilterWhitespaceChunks,
+    })
+
+    if (state.optToolCallDebug) {
+      const currentToolCallCount = Object.keys(st.toolCalls).length
+      if (currentToolCallCount > st.lastToolCallCount) {
+        const newToolCall = Object.values(st.toolCalls).reduce((newest, tc) =>
+          tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
+          { id: "", name: "", anthropicBlockIndex: -1 },
+        )
+        if (newToolCall.id) {
+          logEmitter.emitLog({
+            ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
+            msg: `tool_use started: ${newToolCall.name}`,
+            data: {
+              eventType: "tool_use_start",
+              toolName: newToolCall.name,
+              toolId: newToolCall.id,
+              blockIndex: newToolCall.anthropicBlockIndex,
+            },
+          })
+        }
+      }
+      st.lastToolCallCount = currentToolCallCount
+    }
+
+    return events.map((event) => ({
+      event: event.type,
+      data: JSON.stringify(event),
+    }))
+  },
+
+  adaptStreamError: () => {
+    const errorEvent = translateErrorToAnthropicErrorEvent()
+    return [{
+      event: errorEvent.type,
+      data: JSON.stringify(errorEvent),
+    }]
+  },
+
+  describeEndLog: (result) => {
+    if (result.kind === "json") {
+      const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
+      const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
+      const outputTokens = result.resp.usage?.completion_tokens ?? 0
+      return {
+        model: result.req.originalModel,
+        resolvedModel: result.resp.model,
+        translatedModel: result.req.openAIPayload.model,
+        inputTokens, outputTokens,
+      }
+    }
+    if (result.kind === "stream") {
+      const debugExtras = state.optToolCallDebug
+        ? {
+          stopReason: "tool_use",
+          toolCallCount: Object.keys(result.state.toolCalls).length,
+          toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name),
+        }
+        : {}
+      return {
+        model: result.req.originalModel,
+        resolvedModel: result.state.resolvedModel,
+        translatedModel: result.req.openAIPayload.model,
+        inputTokens: result.state.inputTokens,
+        outputTokens: result.state.outputTokens,
+        ...debugExtras,
+      }
+    }
+    if (result.kind === "error") {
+      return {
+        model: result.req.originalModel,
+        translatedModel: result.req.openAIPayload.model,
+      }
+    }
+    return {}
+  },
 }

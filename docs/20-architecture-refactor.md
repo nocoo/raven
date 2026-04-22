@@ -557,7 +557,7 @@ Goal: the 4 duplicated `streamSSE` templates collapse into one `core/runner.ts`.
 - **G.6** ✅ Port `routes/chat-completions` **non-streaming** default branch onto Runner via a local `Strategy`-shaped shim. Migrate affected tests to the injection style per §4.4(3).
 - **G.7** ✅ Port `routes/chat-completions` **streaming** default branch onto Runner. Byte-level diff against G.1 fixtures required.
 - **G.8** ✅ Port `routes/chat-completions` custom-upstream passthrough branch onto Runner.
-- **G.9** Port `routes/messages` default Copilot branch onto Runner.
+- **G.9** ✅ Port `routes/messages` default Copilot branch onto Runner.
 - **G.10** Port `routes/messages` custom OpenAI-upstream branch onto Runner.
 - **G.11** Port `routes/messages` Anthropic passthrough branch onto Runner.
 - **G.12** Port `routes/responses` onto Runner.

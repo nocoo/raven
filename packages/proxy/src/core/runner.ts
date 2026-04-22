@@ -39,7 +39,7 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
   }
 
   if (dispatched.kind === "json") {
-    const clientResp = strategy.adaptJson(dispatched.body, ctx)
+    const clientResp = strategy.adaptJson(dispatched.body, upstreamReq, ctx)
     emitSuccessEnd(ctx, strategy, upstreamReq, dispatched.body)
     return c.json(clientResp as Record<string, unknown>)
   }

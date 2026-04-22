@@ -83,7 +83,7 @@ export interface Strategy<
   ): Promise<DispatchResult<UpstreamResp, ChunkIn>>
 
   /** Pure: convert one upstream JSON response to the client shape. */
-  adaptJson(resp: UpstreamResp, ctx: RequestContext): ClientResp
+  adaptJson(resp: UpstreamResp, req: UpstreamReq, ctx: RequestContext): ClientResp
 
   /** Pure: convert one upstream chunk to zero or more client events. */
   adaptChunk(
