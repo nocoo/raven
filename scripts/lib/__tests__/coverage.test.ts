@@ -174,6 +174,61 @@ describe("evaluateGate", () => {
     )
     expect(v.some((x) => x.detail.includes("services/"))).toBe(false)
   })
+
+  test("flags L1 test-count regression in enforce mode", () => {
+    const v = evaluateGate(
+      report,
+      baseline({ mode: "enforce", globalFloorPct: 10 }, { l1TestCount: 1240 }),
+      { testCount: 1230 },
+    )
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(true)
+  })
+
+  test("skips test-count regression when count is steady or higher", () => {
+    const v = evaluateGate(
+      report,
+      baseline({ mode: "enforce", globalFloorPct: 10 }, { l1TestCount: 1240 }),
+      { testCount: 1250 },
+    )
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false)
+  })
+
+  test("skips test-count regression when current run did not report a count", () => {
+    const v = evaluateGate(
+      report,
+      baseline({ mode: "enforce", globalFloorPct: 10 }, { l1TestCount: 1240 }),
+      { testCount: null },
+    )
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false)
+  })
+
+  test("skips test-count check in placeholder mode", () => {
+    const v = evaluateGate(
+      report,
+      baseline({ mode: "placeholder", globalFloorPct: 10 }, { l1TestCount: 1240 }),
+      { testCount: 1 },
+    )
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false)
+  })
+
+  test("flags a src/ file with zero executed lines (new module without a test)", () => {
+    const lcov =
+      SAMPLE_LCOV +
+      "TN:\nSF:src/routes/new-feature.ts\nLF:10\nLH:0\nend_of_record\n"
+    const r = parseLcov(lcov)
+    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }))
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(true)
+    expect(v.find((x) => x.kind === "file-without-coverage")?.detail).toContain("new-feature.ts")
+  })
+
+  test("does not flag non-src files with zero hits", () => {
+    const lcov =
+      SAMPLE_LCOV +
+      "TN:\nSF:test/helpers.ts\nLF:5\nLH:0\nend_of_record\n"
+    const r = parseLcov(lcov)
+    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }))
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
+  })
 })
 
 describe("loadBaseline", () => {

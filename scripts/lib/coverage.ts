@@ -98,13 +98,24 @@ function topLevelDir(srcPath: string): string | null {
 }
 
 export interface GateViolation {
-  kind: "global-regression" | "directory-regression" | "below-floor"
+  kind:
+    | "global-regression"
+    | "directory-regression"
+    | "below-floor"
+    | "test-count-regression"
+    | "file-without-coverage"
   detail: string
+}
+
+export interface GateInputs {
+  /** Actual L1 test count observed this run. null = not measured. */
+  testCount?: number | null
 }
 
 export function evaluateGate(
   report: CoverageReport,
   baseline: Baseline,
+  inputs: GateInputs = {},
 ): GateViolation[] {
   const violations: GateViolation[] = []
 
@@ -154,6 +165,40 @@ export function evaluateGate(
           detail: `${dir}/ ${entry.pct.toFixed(2)}% regressed by ${(prev - entry.pct).toFixed(2)}pp from baseline ${prev.toFixed(2)}%`,
         })
       }
+    }
+  }
+
+  // §4.5 test-count regression: the number of L1 tests must not
+  // shrink below the recorded baseline (with the same absolute-count
+  // allowance as the coverage-pct gate). Skipped when the baseline
+  // has no recorded count or the current run did not report one.
+  if (
+    baseline.enforcement.mode === "enforce" &&
+    baseline.proxy.l1TestCount !== null &&
+    inputs.testCount !== undefined &&
+    inputs.testCount !== null
+  ) {
+    const drop = baseline.proxy.l1TestCount - inputs.testCount
+    if (drop > 0) {
+      violations.push({
+        kind: "test-count-regression",
+        detail: `L1 test count ${inputs.testCount} < baseline ${baseline.proxy.l1TestCount} (dropped ${drop})`,
+      })
+    }
+  }
+
+  // §4.5 "new modules must ship with tests": any src/ file present
+  // in the coverage report that never had a line executed (LH=0)
+  // means the file exists but no test touches it. Runs in both
+  // placeholder and enforce modes so new code can't land untested.
+  for (const f of report.byFile) {
+    if (!f.path.startsWith("src/")) continue
+    if (f.linesFound === 0) continue
+    if (f.linesHit === 0) {
+      violations.push({
+        kind: "file-without-coverage",
+        detail: `${f.path} has 0 executed lines (${f.linesFound} covered) — add a test`,
+      })
     }
   }
 
