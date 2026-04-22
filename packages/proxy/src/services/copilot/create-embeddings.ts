@@ -1,41 +1,24 @@
-import { copilotHeaders, copilotBaseUrl } from "./../../lib/api-config"
-import { HTTPError } from "./../../lib/error"
-import { getProxyUrl } from "./../../lib/socks5-bridge"
-import { state } from "./../../lib/state"
+/**
+ * Legacy facade — delegates to the canonical upstream/copilot-embeddings client.
+ * Removed by Phase E.10 once all importers move to the upstream registry.
+ */
 
-export const createEmbeddings = async (payload: EmbeddingRequest) => {
-  if (!state.copilotToken) throw new Error("Copilot token not found")
+import {
+  CopilotEmbeddingsClient,
+  defaultCopilotEmbeddingsConfig,
+} from "../../upstream/copilot-embeddings"
 
-  const proxyUrl = getProxyUrl("copilot", state)
-  const response = await fetch(`${copilotBaseUrl(state)}/embeddings`, {
-    method: "POST",
-    headers: copilotHeaders(state),
-    body: JSON.stringify(payload),
-    ...(proxyUrl ? { proxy: proxyUrl } : {}),
-  } as RequestInit)
+export type {
+  EmbeddingRequest,
+  Embedding,
+  EmbeddingResponse,
+} from "../../upstream/copilot-embeddings"
 
-  if (!response.ok) throw await HTTPError.fromResponse("Failed to create embeddings", response)
+import type { EmbeddingRequest, EmbeddingResponse } from "../../upstream/copilot-embeddings"
 
-  return (await response.json()) as EmbeddingResponse
-}
-
-export interface EmbeddingRequest {
-  input: string | Array<string>
-  model: string
-}
-
-export interface Embedding {
-  object: string
-  embedding: Array<number>
-  index: number
-}
-
-export interface EmbeddingResponse {
-  object: string
-  data: Array<Embedding>
-  model: string
-  usage: {
-    prompt_tokens: number
-    total_tokens: number
-  }
+export const createEmbeddings = async (
+  payload: EmbeddingRequest,
+): Promise<EmbeddingResponse> => {
+  const client = new CopilotEmbeddingsClient(defaultCopilotEmbeddingsConfig())
+  return (await client.send(payload)) as EmbeddingResponse
 }
