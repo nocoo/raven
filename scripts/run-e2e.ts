@@ -87,12 +87,21 @@ async function main(): Promise<number> {
 
     console.log("");
 
-    // Run E2E tests via bun test
+    // Run E2E tests via bun test. With RAVEN_E2E_FULL=1, includes the
+    // refactor safety-net suite (§4.3) which suspends anti-ban.
     const extraArgs = process.argv.slice(2);
-    const result =
-      await $`bun test test/e2e/ ${extraArgs}`.cwd(
-        `${import.meta.dir}/../packages/proxy`,
-      ).nothrow();
+    const fullSuite = process.env.RAVEN_E2E_FULL === "1";
+    if (fullSuite) {
+      console.log("  ⚑ RAVEN_E2E_FULL=1 — including refactor safety-net suite");
+    }
+    const testPath = fullSuite ? "test/e2e/" : "test/e2e/";
+    const result = fullSuite
+      ? await $`bun test ${testPath} ${extraArgs}`.cwd(
+          `${import.meta.dir}/../packages/proxy`,
+        ).nothrow()
+      : await $`bun test ${testPath} --test-name-pattern=^((?!refactor E2E).)*$ ${extraArgs}`.cwd(
+          `${import.meta.dir}/../packages/proxy`,
+        ).nothrow();
 
     return result.exitCode;
   } finally {
