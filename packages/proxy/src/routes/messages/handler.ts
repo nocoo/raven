@@ -18,6 +18,8 @@ import type {
 } from "../../upstream/copilot-openai"
 import type { ServerSentEvent } from "./../../util/sse"
 import { extractErrorDetails, forwardError } from "./../../lib/error"
+// Phase F.1 — temporary; removed in F.3
+import { emitRouterTrace } from "./../../lib/router-trace"
 
 import {
   type AnthropicMessagesPayload,
@@ -99,6 +101,11 @@ export async function handleCompletion(c: Context) {
     const { provider } = resolved
     if (provider.format === "anthropic") {
       // Passthrough: forward Anthropic payload directly
+      emitRouterTrace({
+        requestId, protocol: "anthropic", model,
+        decision: { kind: "ok", name: "custom-anthropic", providerId: provider.id },
+        extras: { normalisedModel },
+      })
       return handleAnthropicPassthrough(
         c,
         requestId,
@@ -110,6 +117,11 @@ export async function handleCompletion(c: Context) {
     }
     // OpenAI provider: translate then forward
     const targetFormat = provider.supports_reasoning ? "openai-reasoning" : "openai"
+    emitRouterTrace({
+      requestId, protocol: "anthropic", model,
+      decision: { kind: "ok", name: "custom-openai", providerId: provider.id },
+      extras: { normalisedModel, targetFormat, supports_reasoning: provider.supports_reasoning === 1 },
+    })
 
     // Debug log if thinking is dropped for non-reasoning OpenAI provider
     if (!provider.supports_reasoning && anthropicPayload.thinking?.type === "enabled") {
@@ -151,6 +163,11 @@ export async function handleCompletion(c: Context) {
   // --- Native Messages Routing ---
   // Check if the model supports native /v1/messages (Claude models)
   if (supportsNativeMessages(copilotModel)) {
+    emitRouterTrace({
+      requestId, protocol: "anthropic", model,
+      decision: { kind: "ok", name: "copilot-native" },
+      extras: { copilotModel, normalisedModel },
+    })
     logEmitter.emitLog({
       ts: Date.now(),
       level: "debug",
@@ -179,6 +196,11 @@ export async function handleCompletion(c: Context) {
 
   // --- Translated Path (non-Claude models via Copilot) ---
   // Reuse serverToolContext from preprocessed result (already computed above)
+  emitRouterTrace({
+    requestId, protocol: "anthropic", model,
+    decision: { kind: "ok", name: "copilot-translated" },
+    extras: { copilotModel, normalisedModel },
+  })
   const openAIPayload = translateToOpenAI(anthropicPayload, {
     targetFormat: "copilot",
     anthropicBeta,
