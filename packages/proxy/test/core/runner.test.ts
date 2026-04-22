@@ -282,6 +282,30 @@ describe("core/runner — JSON path", () => {
     expect(body).toContain('"message_stop"')
   })
 
+  test("adaptJson exception: emits error request_end + rethrows (no silent 500)", async () => {
+    const s = makeStrategy({
+      adaptJson: () => {
+        throw new Error("bad tool args")
+      },
+    })
+    const app = new Hono()
+    app.post("/x", async (c) => execute(c, makeCtx(), s, { hello: "world" }))
+    const res = await app.request("http://localhost/x", { method: "POST" })
+    // Without an outer error middleware Hono surfaces the throw as 500.
+    expect([500, 502]).toContain(res.status)
+
+    const ends = captured.filter((e) => e.type === "request_end")
+    expect(ends).toHaveLength(1)
+    expect(ends[0]!.level).toBe("error")
+    expect(ends[0]!.data).toMatchObject({
+      status: "error",
+      stream: false,
+      statusCode: 502,
+      upstreamStatus: null,
+    })
+    expect(String(ends[0]!.data!.error)).toContain("bad tool args")
+  })
+
   test("ctx identity fields propagate to the log payload", async () => {
     const app = new Hono()
     app.post("/x", async (c) => {

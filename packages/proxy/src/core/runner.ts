@@ -39,7 +39,18 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
   }
 
   if (dispatched.kind === "json") {
-    const clientResp = strategy.adaptJson(dispatched.body, upstreamReq, ctx)
+    let clientResp: Resp
+    try {
+      clientResp = strategy.adaptJson(dispatched.body, upstreamReq, ctx)
+    } catch (err) {
+      // adaptJson is pure but can throw on protocol-shape failures (e.g. naked
+      // JSON.parse on a tool-call argument). Without this guard we would
+      // return 500 from Hono's default handler and never emit request_end —
+      // breaking the db/request-sink "every request emits one request_end"
+      // contract. Re-throw so the route-level forwardError still runs.
+      emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: false })
+      throw err
+    }
     emitSuccessEnd(ctx, strategy, upstreamReq, dispatched.body)
     return c.json(clientResp as Record<string, unknown>)
   }
