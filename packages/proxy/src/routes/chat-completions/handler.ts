@@ -109,150 +109,19 @@ export async function handleCompletion(c: Context) {
     }
   }
 
-  if (!stream) {
-    // G.6: non-streaming default branch ported onto Runner via local shim.
-    // Runner owns success+error logs end-to-end for this branch; the
-    // streaming branch (G.7) and custom-upstream branch (G.8) keep their
-    // inline implementations until those phases land.
-    const runnerCtx: RunnerCtx = {
-      requestId, startTime, format: "openai", path: "/v1/chat/completions",
-      accountName, userAgent, anthropicBeta: null,
-      sessionId, clientName, clientVersion,
-    }
-    try {
-      return await runnerExecute(c, runnerCtx, copilotOpenAIDirectJsonShim, payload)
-    } catch (error) {
-      // Runner already emitted request_end (error). Match legacy behaviour
-      // by surfacing through forwardError so the client gets a JSON body.
-      return forwardError(c, error)
-    }
+  // G.6+G.7: default branch (both stream and non-stream) routed through Runner
+  // via copilotOpenAIDirectShim. Runner owns success+error logs end-to-end.
+  const runnerCtx: RunnerCtx = {
+    requestId, startTime, format: "openai", path: "/v1/chat/completions",
+    accountName, userAgent, anthropicBeta: null,
+    sessionId, clientName, clientVersion,
   }
-
   try {
-    const response = await buildUpstreamClient("copilot-openai").send(payload)
-
-    if (isNonStreaming(response)) {
-      // Unreachable when stream === false (handled by the Runner branch
-      // above); kept until G.7 ports the streaming branch as well.
-      throw new Error("unreachable: non-streaming handled by Runner")
-    }
-
-    // Streaming
-    let resolvedModel = model
-    let inputTokens = 0
-    let outputTokens = 0
-    let streamError: string | null = null
-    let firstChunkTime: number | null = null
-    const toolCallIds = new Set<string>()
-
-    return streamSSE(c, async (sseStream) => {
-      try {
-        for await (const chunk of response) {
-          emitUpstreamRawSse(requestId, { event: chunk.event, data: chunk.data })
-          if (firstChunkTime === null) firstChunkTime = performance.now()
-
-          await sseStream.writeSSE(chunk as SSEMessage)
-
-          // Extract metrics from chunk data
-          if (chunk.data && chunk.data !== "[DONE]") {
-            try {
-              const parsed = JSON.parse(chunk.data)
-              if (parsed.model) resolvedModel = parsed.model
-              if (parsed.usage) {
-                const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
-                inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
-                outputTokens = parsed.usage.completion_tokens ?? 0
-              }
-
-              // Debug: detect new tool calls
-              if (state.optToolCallDebug && parsed.choices?.[0]?.delta?.tool_calls) {
-                for (const tc of parsed.choices[0].delta.tool_calls) {
-                  if (tc.id && tc.function?.name && !toolCallIds.has(tc.id)) {
-                    toolCallIds.add(tc.id)
-                    logEmitter.emitLog({
-                      ts: Date.now(), level: "debug", type: "sse_chunk", requestId,
-                      msg: `tool_call started: ${tc.function.name}`,
-                      data: {
-                        eventType: "tool_call_start",
-                        toolName: tc.function.name,
-                        toolId: tc.id,
-                        index: tc.index,
-                      },
-                    })
-                  }
-                }
-              }
-            } catch {
-              // Parse error for metrics — don't break stream
-            }
-          }
-        }
-      } catch (err) {
-        streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
-
-        // Send an error chunk so the client knows the stream failed
-        try {
-          await sseStream.writeSSE({
-            data: JSON.stringify({
-              error: {
-                message: "An upstream error occurred during streaming.",
-                type: "server_error",
-                code: "stream_error",
-              },
-            }),
-          })
-        } catch {
-          // Best-effort — connection may already be closed
-        }
-      } finally {
-        const endTime = performance.now()
-        const latencyMs = Math.round(endTime - startTime)
-        const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
-        const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
-
-        const baseData = {
-          path: "/v1/chat/completions", format: "openai", model,
-          resolvedModel, inputTokens, outputTokens, latencyMs,
-          ttftMs, processingMs,
-          stream: true, status: streamError ? "error" : "success",
-          statusCode: streamError ? 502 : 200,
-          upstreamStatus: streamError ? null : 200,
-          accountName, sessionId, clientName, clientVersion,
-        }
-
-        const debugData = state.optToolCallDebug && !streamError ? {
-          stopReason: toolCallIds.size > 0 ? "tool_calls" : "stop",
-          toolCallCount: toolCallIds.size,
-          toolCallNames: Array.from(toolCallIds),
-        } : {}
-
-        logEmitter.emitLog({
-          ts: Date.now(), level: streamError ? "error" : "info",
-          type: "request_end", requestId,
-          msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
-          data: {
-            ...baseData,
-            ...debugData,
-            ...(streamError && { error: streamError }),
-          },
-        })
-      }
-    })
+    return await runnerExecute(c, runnerCtx, copilotOpenAIDirectShim, payload)
   } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/chat/completions", format: "openai", model, stream,
-        latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorDetail, accountName,
-        sessionId, clientName, clientVersion,
-      },
-    })
-    throw error
+    // Runner already emitted request_end (error). Match legacy behaviour
+    // by surfacing through forwardError so the client gets a JSON body.
+    return forwardError(c, error)
   }
 }
 
@@ -426,19 +295,27 @@ function isOpenAINonStreaming(
 }
 
 // ===========================================================================
-// G.6: Strategy shim — copilot-openai-direct, JSON-only.
+// G.6+G.7: Strategy shim — copilot-openai-direct (JSON + streaming).
 // Local to this file. The real `strategies/copilot-openai-direct.ts` lands
-// in Phase H once the matching streaming branch (G.7) is also on Runner.
+// in Phase H once the matching messages branch (G.9) is also on Runner.
 // ===========================================================================
 
-const copilotOpenAIDirectJsonShim: Strategy<
+interface CopilotDirectStreamState {
+  model: string
+  resolvedModel: string
+  inputTokens: number
+  outputTokens: number
+  toolCallIds: Set<string>
+}
+
+const copilotOpenAIDirectShim: Strategy<
   ChatCompletionsPayload,
   ChatCompletionsPayload,
   ChatCompletionResponse,
   ChatCompletionResponse,
-  never,
+  ServerSentEvent,
   SSEMessage,
-  never
+  CopilotDirectStreamState
 > = {
   name: "copilot-openai-direct",
 
@@ -446,19 +323,73 @@ const copilotOpenAIDirectJsonShim: Strategy<
 
   dispatch: async (up) => {
     const response = await buildUpstreamClient("copilot-openai").send(up)
-    if (!isNonStreaming(response)) {
-      // The shim is only used when the client did not request streaming;
-      // upstream returning a stream here is a bug worth surfacing.
-      throw new Error("copilot-openai-direct shim: unexpected stream response")
+    if (isNonStreaming(response)) {
+      return { kind: "json", body: response }
     }
-    return { kind: "json", body: response }
+    return { kind: "stream", chunks: response }
   },
 
   adaptJson: (resp) => resp,
 
-  adaptChunk: () => [],
-  adaptStreamError: () => [],
-  initStreamState: () => null as never,
+  initStreamState: (req) => ({
+    model: req.model,
+    resolvedModel: req.model,
+    inputTokens: 0,
+    outputTokens: 0,
+    toolCallIds: new Set<string>(),
+  }),
+
+  adaptChunk: (chunk, st, ctx) => {
+    emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
+
+    if (chunk.data && chunk.data !== "[DONE]") {
+      try {
+        const parsed = JSON.parse(chunk.data)
+        if (parsed.model) st.resolvedModel = parsed.model
+        if (parsed.usage) {
+          const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
+          st.inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
+          st.outputTokens = parsed.usage.completion_tokens ?? 0
+        }
+
+        if (state.optToolCallDebug && parsed.choices?.[0]?.delta?.tool_calls) {
+          for (const tc of parsed.choices[0].delta.tool_calls as Array<{
+            id?: string; function?: { name?: string }; index?: number
+          }>) {
+            if (tc.id && tc.function?.name && !st.toolCallIds.has(tc.id)) {
+              st.toolCallIds.add(tc.id)
+              logEmitter.emitLog({
+                ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
+                msg: `tool_call started: ${tc.function.name}`,
+                data: {
+                  eventType: "tool_call_start",
+                  toolName: tc.function.name,
+                  toolId: tc.id,
+                  index: tc.index,
+                },
+              })
+            }
+          }
+        }
+      } catch {
+        // Parse error for metrics — don't break stream
+      }
+    }
+
+    return [chunk as SSEMessage]
+  },
+
+  adaptStreamError: () => [
+    {
+      data: JSON.stringify({
+        error: {
+          message: "An upstream error occurred during streaming.",
+          type: "server_error",
+          code: "stream_error",
+        },
+      }),
+    },
+  ],
 
   describeEndLog: (result) => {
     if (result.kind === "json") {
@@ -470,6 +401,22 @@ const copilotOpenAIDirectJsonShim: Strategy<
         resolvedModel: result.resp.model,
         inputTokens,
         outputTokens,
+      }
+    }
+    if (result.kind === "stream") {
+      const debugExtras = state.optToolCallDebug
+        ? {
+          stopReason: result.state.toolCallIds.size > 0 ? "tool_calls" : "stop",
+          toolCallCount: result.state.toolCallIds.size,
+          toolCallNames: Array.from(result.state.toolCallIds),
+        }
+        : {}
+      return {
+        model: result.state.model,
+        resolvedModel: result.state.resolvedModel,
+        inputTokens: result.state.inputTokens,
+        outputTokens: result.state.outputTokens,
+        ...debugExtras,
       }
     }
     return {}

@@ -104,5 +104,5 @@ export interface Strategy<
   ): Record<string, unknown>
 
   /** Factory for per-request stream state (resolvedModel, usage, accumulators). */
-  initStreamState(): StreamState
+  initStreamState(req: UpstreamReq, ctx: RequestContext): StreamState
 }

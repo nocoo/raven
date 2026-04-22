@@ -44,16 +44,17 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
     return c.json(clientResp as Record<string, unknown>)
   }
 
-  return runStream(c, ctx, strategy, dispatched.chunks)
+  return runStream(c, ctx, strategy, upstreamReq, dispatched.chunks)
 }
 
 function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   c: Context,
   ctx: RequestContext,
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
+  upstreamReq: UpReq,
   chunks: AsyncIterable<Ch>,
 ): Response {
-  const state = strategy.initStreamState()
+  const state = strategy.initStreamState(upstreamReq, ctx)
   let firstChunkTime: number | null = null
   let streamError: unknown | null = null
 
