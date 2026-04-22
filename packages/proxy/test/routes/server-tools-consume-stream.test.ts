@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from "bun:test"
-import { consumeStreamToResponse } from "../../src/routes/messages/handler"
+import { consumeStreamToResponse } from "../../src/protocols/translate/consume-stream"
 import type { ServerSentEvent } from "../../src/util/sse"
 
 function makeEvent(data: string): ServerSentEvent {

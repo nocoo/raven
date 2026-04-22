@@ -5,7 +5,7 @@ import { state } from "./../../lib/state"
 import { getTokenCount } from "./../../lib/tokenizer"
 
 import { type AnthropicMessagesPayload } from "../../protocols/anthropic/types"
-import { translateToOpenAI } from "./non-stream-translation"
+import { translateToOpenAI } from "../../protocols/translate/non-stream-translation"
 
 /**
  * Handles token counting for Anthropic messages

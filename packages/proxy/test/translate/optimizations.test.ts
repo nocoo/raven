@@ -1,10 +1,10 @@
 import { describe, expect, test, beforeEach } from "bun:test"
 import {
   translateToOpenAI,
-} from "../../src/routes/messages/non-stream-translation"
+} from "../../src/protocols/translate/non-stream-translation"
 import {
   translateChunkToAnthropicEvents,
-} from "../../src/routes/messages/stream-translation"
+} from "../../src/protocols/translate/stream-translation"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import type { AnthropicStreamState } from "../../src/protocols/anthropic/types"
 import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions"

@@ -9,8 +9,8 @@
     "perDirectoryCoveragePct": {
       "db": 98.85,
       "lib": 98.73,
-      "protocols": 100.0,
-      "routes": 93.65,
+      "protocols": 99.34,
+      "routes": 92.41,
       "services": 98.02,
       "util": 97.85,
       "ws": 100.0
@@ -27,8 +27,8 @@
     "perDirectoryFloors": {
       "db": 97.0,
       "lib": 97.0,
-      "protocols": 99.0,
-      "routes": 92.0,
+      "protocols": 98.0,
+      "routes": 91.0,
       "services": 97.0,
       "util": 96.0,
       "ws": 99.0

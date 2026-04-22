@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
-} from "../../src/routes/messages/stream-translation"
+} from "../../src/protocols/translate/stream-translation"
 import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions"
 import type {
   AnthropicStreamEventData,

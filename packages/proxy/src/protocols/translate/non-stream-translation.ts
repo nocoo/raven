@@ -8,7 +8,7 @@ import {
   type ToolCall,
 } from "./../../services/copilot/create-chat-completions"
 
-import { translateModelName } from "./../../protocols/anthropic/preprocess"
+import { translateModelName } from "../anthropic/preprocess"
 
 import {
   type AnthropicAssistantContentBlock,
@@ -23,7 +23,7 @@ import {
   type AnthropicToolUseBlock,
   type AnthropicUserContentBlock,
   type AnthropicUserMessage,
-} from "../../protocols/anthropic/types"
+} from "../anthropic/types"
 
 // ---------------------------------------------------------------------------
 // Sanitization Constants
@@ -77,9 +77,9 @@ export const TOOL_SCHEMA_FIELDS_TO_STRIP = [
   "eager_input_streaming",
 ] as const
 
-import { mapOpenAIStopReasonToAnthropic } from "./utils"
-import { state } from "./../../lib/state"
-import { logger } from "./../../util/logger"
+import { mapOpenAIStopReasonToAnthropic } from "../../routes/messages/utils"
+import { state } from "../../lib/state"
+import { logger } from "../../util/logger"
 
 // ---------------------------------------------------------------------------
 // Sanitization Helpers

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   translateToOpenAI,
   translateToAnthropic,
-} from "../../src/routes/messages/non-stream-translation"
+} from "../../src/protocols/translate/non-stream-translation"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import type { ChatCompletionResponse } from "../../src/services/copilot/create-chat-completions"
 

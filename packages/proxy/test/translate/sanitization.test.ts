@@ -8,8 +8,8 @@ import {
   stripBlockMetadata,
   stripToolUseFields,
   sanitizeToolDefinitions,
-} from "../../src/routes/messages/non-stream-translation"
-import { translateToOpenAI } from "../../src/routes/messages/non-stream-translation"
+} from "../../src/protocols/translate/non-stream-translation"
+import { translateToOpenAI } from "../../src/protocols/translate/non-stream-translation"
 import type { AnthropicMessagesPayload, AnthropicTool, AnthropicToolUseBlock } from "../../src/protocols/anthropic/types"
 
 // ===========================================================================
