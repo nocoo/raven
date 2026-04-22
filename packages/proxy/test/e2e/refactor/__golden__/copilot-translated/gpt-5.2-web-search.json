@@ -1,0 +1,89 @@
+{
+  "fixtureVersion": 1,
+  "request": {
+    "method": "POST",
+    "path": "/v1/messages",
+    "body": {
+      "model": "gpt-5.2",
+      "max_tokens": 64,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Search the web for 'openai' and summarise in one sentence."
+        }
+      ],
+      "tools": [
+        {
+          "type": "web_search_20250305",
+          "name": "web_search",
+          "max_uses": 1
+        }
+      ]
+    }
+  },
+  "upstream_raw_chunks": [],
+  "expected_client_events": [
+    {
+      "event": "message_start",
+      "data": "{\"type\":\"message_start\",\"message\":{\"id\":\"<id>\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"gpt-5.2\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":216,\"output_tokens\":41,\"cache_creation_input_tokens\":null,\"cache_read_input_tokens\":1664,\"service_tier\":null,\"server_tool_use\":{\"web_search_requests\":1}}}}"
+    },
+    {
+      "event": "content_block_start",
+      "data": "{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"server_tool_use\",\"id\":\"<id>\",\"name\":\"web_search\"}}"
+    },
+    {
+      "event": "content_block_delta",
+      "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"query\\\":\\\"Search the web for 'openai' and summarise in one sentence.\\\"}\"}}"
+    },
+    {
+      "event": "content_block_stop",
+      "data": "{\"type\":\"content_block_stop\",\"index\":0}"
+    },
+    {
+      "event": "content_block_start",
+      "data": "{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"web_search_tool_result\",\"tool_use_id\":\"srvtoolu_mo9gvgovyibzk7\",\"content\":[{\"type\":\"web_search_result\",\"url\":\"https://www.reddit.com/r/nocode/comments/198sf2r/is_there_a_way_to_summarize_an_urlarticle_with/\",\"title\":\"Is there a way to summarize an url/article with make and openai?\",\"encrypted_content\":\"VXNlIE9wZW5BSSBtb2R1bGUgYW5kIHNldCBhIHNpbXBsZSBwcm9tcHQgdG8gc3VtbWFyaXNlIHRoZSBhcnRpY2xlLiBDb25uZWN0IGEgR29vZ2xlIGRvYyBtb2R1bGUgdG8gc2F2ZSB0aGUgc3VtbWFyeS4gSWYgeW91IG5lZWQgYW55IGhlbHAgd2l0aA==\"},{\"type\":\"web_search_result\",\"url\":\"https://devonallary.medium.com/i-built-a-daily-news-summarizer-using-openais-web-search-api-fd072d36f49f\",\"title\":\"I Built a Daily News Summarizer Using OpenAI's Web Search API\",\"encrypted_content\":\"QSBzaW1wbGUgZGFpbHkgbmV3cyBhZ2dyZWdhdG9yIHRoYXQgYXV0b21hdGljYWxseSBmZXRjaGVzIHRvcCBzdG9yaWVzIGZvciBhIGdpdmVuIHRvcGljIGFuZCBzdW1tYXJpemVzIHRoZW0gaW50byBhIGNvbmNpc2UgZGFpbHkgZGlnZXN0Lg==\"},{\"type\":\"web_search_result\",\"url\":\"https://developers.openai.com/cookbook/examples/summarizing_long_documents\",\"title\":\"Summarizing Long Documents - OpenAI Developers\",\"encrypted_content\":\"QUkgcmVzZWFyY2ggaW52b2x2ZXMgdmFyaW91cyBzdWItZmllbGRzIGZvY3VzZWQgb24gc3BlY2lmaWMgZ29hbHMgbGlrZSByZWFzb25pbmcsIGxlYXJuaW5nLCBhbmQgcGVyY2VwdGlvbiwgdXNpbmcgdGVjaG5pcXVlcyBmcm9tIG1hdGhlbWF0aWNzLCBsb2dpYywgYW5kIG90aGVyIGRpc2NpcGxpbmVzLiBUaGUgZWZmZWN0aXZlbmVzcyBvZiBkZWVwIGxlYXJuaW5nLCB3aGljaCBzdXJnZWQgYmV0d2VlbiAyMDEyIGFuZCAyMDE1LCBpcyBhdHRyaWJ1dGVkIG5vdCB0byBuZXcgdGhlb3JldGljYWwgYWR2YW5jZXMgYnV0IHRvIGluY3JlYXNlZCBjb21wdXRhdGlvbmFsIHBvd2VyLCBpbmNsdWRpbmcgdGhlIHVzZSBvZiBHUFVzLCBhbmQgdGhlIGF2YWlsYWJpbGl0eSBvZiBsYXJnZSBkYXRhc2V0cyBsaWtlIEltYWdlTmV0LiBHZW5lcmF0aXZlIFByZS10cmFpbmVkIFRyYW5zZm9ybWVycyAoR1BUKSBhcmUgbGFyZ2UgbGFuZ3VhZ2UgbW9kZWxzIHRoYXQgbGVhcm4gZnJvbSB2YXN0IGFtb3VudHMgb2YgdGV4dCB0byBwcmVkaWN0IHRoZSBuZXh0IHRva2VuIGluIGEgc2VxdWVuY2UsIHRoZXJlYnkgZ2VuZXJhdGluZyBodW1hbi1saWtlIHRleHQuIFRoaXMgaW52b2x2ZXMgZW1iZWRkaW5nIGV0aGljYWwgcHJpbmNpcGxlcyBpbiBBSSB0byBndWlkZSB0aGVpciBkZWNpc2lvbi1tYWtpbmcgcHJvY2Vzc2VzLCBhIGZpZWxkIGtub3duIGFzIG1hY2hpbmUgZXRoaWNzIG9yIGNvbXB1dGF0aW9uYWwgbW9yYWxpdHksIGVzdGFibGlzaGVkIGluIDIwMDUuIEZpbmFsbHksIHRoZXJlIGlzIGEgZGl2aXNpb24gaW4gQUkgcmVzZWFyY2ggYmV0d2VlbiBwdXJzdWluZyBuYXJyb3cgQUksIHdoaWNoIHNvbHZlcyBzcGVjaWZpYyBwcm9ibGVtcywgYW5kIGFpbWluZyBmb3IgYnJvYWRlciBnb2FscyBsaWtlIGFydGlmaWNpYWwgZ2VuZXJhbCBpbnRlbGxpZ2VuY2UgYW5kIHN1cGVyaW50ZWxsaWdlbmNlLCB3aXRoIGRpZmZlcmluZyBvcGluaW9ucyBvbiB3aGljaCBhcHByb2FjaCBtaWdodCBtb3JlIGVmZmVjdGl2ZWx5IGFkdmFuY2UgdGhlIGZpZWxkLiBBSSByZXNlYXJjaCBlbmNvbXBhc3NlcyB2YXJpb3VzIHN1Yi1maWVsZHMgZm9jdXNlZCBvbiBzcGVjaWZpYyBnb2FscyBsaWtlIHJlYXNvbmluZywgbGVhcm5pbmcsIG5hdHVyYWwgbGFuZ3VhZ2UgcHJvY2Vzc2luZywgcGVyY2VwdGlvbiwgYW5kIHJvYm90aWNzLCB1c2luZyB0ZWNobmlxdWVzIGZyb20gc2VhcmNoIGFuZCBvcHRpbWl6YXRpb24sIGxvZ2ljLCBhbmQgcHJvYmFiaWxpc3RpYyBtZXRob2RzLg==\"},{\"type\":\"web_search_result\",\"url\":\"https://medium.com/@danaasa/implementing-text-summarization-using-openais-gpt-4-and-beautiful-soup-bccb1e72e9a3\",\"title\":\"Implementing Text Summarization Using OpenAI's GPT-4 and ...\",\"encrypted_content\":\"V2l0aCB0aGUgcG93ZXIgb2YgT3BlbkFJJ3MgR1BULTQgYW5kIEJlYXV0aWZ1bCBTb3VwLCB5b3UgY2FuIGNyZWF0ZSBhIHRvb2wgdG8gYXV0b21hdGUgdGV4dCBzdW1tYXJpemF0aW9uIGRpcmVjdGx5IGZyb20gd2Vic2l0ZXMu\"},{\"type\":\"web_search_result\",\"url\":\"https://www.youtube.com/watch?v=BvGKLIH78nw\",\"title\":\"OpenAI's ChatGPT can NOW summarize external Sources on the ...\",\"encrypted_content\":\"Li4uIHN1bW1hcml6ZS1hbi1hcnRpY2xlKSBzaG93cyB0aGF0IE9wZW5BSSdzIENoYXRHUFQgY2FuIG5vdyBzdW1tYXJpemUgZXh0ZXJuYWwgZG9jdW1lbnRzIG9uIHRoZSBpbnRlcm5ldCEgQ2FuIFlPVS5jb20vQ2hhdCBjYW4gZG8gaXQgYmV0dGVy\"},{\"type\":\"web_search_result\",\"url\":\"https://chromewebstore.google.com/detail/chatgpt-summary-summarize/mikcekmbahpbehdpakenaknkkedeonhf\",\"title\":\"ChatGPT Summary - summarize AI-assistant - Chrome Web Store\",\"encrypted_content\":\"Q2hhdEdQVCBTdW1tYXJ5IGlzIGEgZnJlZSBDaHJvbWUgRXh0ZW5zaW9uIHRoYXQgbGV0cyB5b3UgcXVpY2tseSBhY2Nlc3MgdGhlIHN1bW1hcnkgb2YgdGhlIFlvdVR1YmUgdmlkZW9zIHlvdSBhcmUgd2F0Y2hpbmcgb3IgYW55IGFydGljbGVzIHdpdGggT3BlbkFJ\"},{\"type\":\"web_search_result\",\"url\":\"https://developers.openai.com/api/docs/guides/tools-web-search\",\"title\":\"Web search | OpenAI API\",\"encrypted_content\":\"KiAgIFtNb2RlbHNdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL21vZGVscykuICogICBbTGF0ZXN0OiBHUFQtNS40XShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9ndWlkZXMvbGF0ZXN0LW1vZGVsKS4gKiAgIFtVc2luZyB0b29sc10oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL3Rvb2xzKS4gKiAgIFtNb2RlbHMgYW5kIHByb3ZpZGVyc10oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL2FnZW50cy9tb2RlbHMpLiAqICAgW1dlYiBzZWFyY2hdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy90b29scy13ZWItc2VhcmNoKS4gKiAgIFtDb21wdXRlciB1c2VdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy90b29scy1jb21wdXRlci11c2UpLiAqICAgW0ZpbGUgc2VhcmNoXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9ndWlkZXMvdG9vbHMtZmlsZS1zZWFyY2gpLiAqICAgW1Rvb2wgc2VhcmNoXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9ndWlkZXMvdG9vbHMtdG9vbC1zZWFyY2gpLiAqICAgW1JlYXNvbmluZyBtb2RlbHNdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy9yZWFzb25pbmcpLiAqICAgW0dldHRpbmcgc3RhcnRlZF0oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL2V2YWx1YXRpb24tZ2V0dGluZy1zdGFydGVkKS4gKiAgIFtFeHRlcm5hbCBtb2RlbHNdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy9leHRlcm5hbC1tb2RlbHMpLiAqICAgW1VzaW5nIHJlYWx0aW1lIG1vZGVsc10oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL3JlYWx0aW1lLW1vZGVscy1wcm9tcHRpbmcpLiAqICAgW09wdGltaXphdGlvbiBjeWNsZV0oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL21vZGVsLW9wdGltaXphdGlvbikuICogICBbTW9kZWxzXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9tb2RlbHMpLiAqICAgW0xhdGVzdDogR1BULTUuNF0oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL2xhdGVzdC1tb2RlbCkuICogICBbVXNpbmcgdG9vbHNdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy90b29scykuICogICBbTW9kZWxzIGFuZCBwcm92aWRlcnNdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy9hZ2VudHMvbW9kZWxzKS4gKiAgIFtXZWIgc2VhcmNoXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9ndWlkZXMvdG9vbHMtd2ViLXNlYXJjaCkuICogICBbQ29tcHV0ZXIgdXNlXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9ndWlkZXMvdG9vbHMtY29tcHV0ZXItdXNlKS4gKiAgIFtGaWxlIHNlYXJjaF0oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL3Rvb2xzLWZpbGUtc2VhcmNoKS4gKiAgIFtUb29sIHNlYXJjaF0oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvZ3VpZGVzL3Rvb2xzLXRvb2wtc2VhcmNoKS4gKiAgIFtSZWFzb25pbmcgbW9kZWxzXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9ndWlkZXMvcmVhc29uaW5nKS4gKiAgIFtHZXR0aW5nIHN0YXJ0ZWRdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy9ldmFsdWF0aW9uLWdldHRpbmctc3RhcnRlZCkuICogICBbRXh0ZXJuYWwgbW9kZWxzXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9ndWlkZXMvZXh0ZXJuYWwtbW9kZWxzKS4gKiAgIFtPcHRpbWl6YXRpb24gY3ljbGVdKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy9tb2RlbC1vcHRpbWl6YXRpb24pLiBVc2luZyB0aGUgW1Jlc3BvbnNlcyBBUEldKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2FwaS1yZWZlcmVuY2UvcmVzcG9uc2VzKSwgeW91IGNhbiBlbmFibGUgd2ViIHNlYXJjaCBieSBjb25maWd1cmluZyBpdCBpbiB0aGUgYHRvb2xzYCBhcnJheSBpbiBhbiBBUEkgcmVxdWVzdCB0byBnZW5lcmF0ZSBjb250ZW50LiBVc2luZyB0aGUgW0NoYXQgQ29tcGxldGlvbnMgQVBJXShodHRwczovL2RldmVsb3BlcnMub3BlbmFpLmNvbS9hcGkvZG9jcy9hcGktcmVmZXJlbmNlL2NoYXQpLCB5b3UgY2FuIGRpcmVjdGx5IGFjY2VzcyB0aGUgZmluZS10dW5lZCBtb2RlbHMgYW5kIHRvb2wgdXNlZCBieSBbU2VhcmNoIGluIENoYXRHUFRdKGh0dHBzOi8vb3BlbmFpLmNvbS9pbmRleC9pbnRyb2R1Y2luZy1jaGF0Z3B0LXNlYXJjaC8pLiBUbyB1c2UgYHdlYl9zZWFyY2hfcHJldmlld2AgYXMgYSB0b29sIHRoYXQgbW9kZWxzIGxpa2UgYGdwdC00b2AgYW5kIGBncHQtNG8tbWluaWAgaW52b2tlIG9ubHkgd2hlbiBuZWNlc3NhcnksIHN3aXRjaCB0byB1c2luZyB0aGUgW1Jlc3BvbnNlcyBBUEldKGh0dHBzOi8vZGV2ZWxvcGVycy5vcGVuYWkuY29tL2FwaS9kb2NzL2d1aWRlcy90b29scy13ZWItc2VhcmNoP2FwaS1tb2RlPXJlc3BvbnNlcykuICogICBXaGVuIHVzZWQgYXMgYSB0b29sIGluIHRoZSBbUmVzcG9uc2VzIEFQSV0oaHR0cHM6Ly9kZXZlbG9wZXJzLm9wZW5haS5jb20vYXBpL2RvY3MvYXBpLXJlZmVyZW5jZS9yZXNwb25zZXMpLCB3ZWIgc2VhcmNoIGhhcyB0aGUgc2FtZSB0aWVyZWQgcmF0ZSBsaW1pdHMgYXMgdGhlIG1vZGVscyBhYm92ZS4=\"},{\"type\":\"web_search_result\",\"url\":\"https://www.youtube.com/watch?v=jTKH5LTeLr0\",\"title\":\"How to Summarise Documents Instantly with AI (Langchain, OpenAI)\",\"encrypted_content\":\"eW91IGhvdyB0byBpbnN0YW50bHkgc3VtbWFyaXNlIGRvY3VtZW50cyB1c2luZyBPcGVuQUkncyBjdXR0aW5nLWVkZ2UgdGVjaG5vbG9neS4gV2hldGhlciB5b3UncmUgYSBzdHVkZW50LCBhIHByb2Zlc3Npb25hbCwgb3IganVzdCBjdXJpb3Vz\"},{\"type\":\"web_search_result\",\"url\":\"https://community.openai.com/t/how-to-query-the-api-to-summarize-internet-sources/1059817\",\"title\":\"How to query the API to summarize internet sources?\",\"encrypted_content\":\"SSdtIGxvb2tpbmcgZm9yd2FyZCB0byBnZXQgYSBzdW1tYXJ5IG9mIGFuIGFydGljbGUgdXNpbmcgaXQncyB0aXRsZSBhbmQgZGF5IHB1Ymxpc2hlZC4gU2VlbXMgdG8gYmUgd29ya2luZyBmaW5lIHdpdGggdGhlIEdQVCBVSS4gTG9va2luZyBmb3IgdGhlIHNhbWUgcmVzdWx0Lg==\"},{\"type\":\"web_search_result\",\"url\":\"https://community.openai.com/t/how-can-i-summarize-a-tons-of-articles-and-then-sentiment-it/573193\",\"title\":\"How can I summarize a tons of articles and then sentiment it? - API - OpenAI Developer Community\",\"encrypted_content\":\"U28gc3VwcG9zZSBJIGhhdmUgMjBrIGFydGljbGVzIG9mIGZpbmFuY2lhbCB0b3BpY3MgYW5kIGNoYXQgZ3B0IGhhcyB0byBzdW1tYXJpemUgaXQgdGhyb3VnaCBhIFB5dGhvbiBDb2RlIEnigJl2ZSB0byB3cml0ZS4gSeKAmXZlIHRvIGRvd25sb2FkIGFsbCB0aGUgYXJ0aWNsZXMgKDE1LTIwaykgdGhyb3VnaCB0aGVpciBBUEkgYW5kIHRoZW4gc2F5IHRvIGNoYXQgZ3B0IHdoYXQgYXJlIGZyb20gbWUgdGhlICJtb3N0IGltcG9ydGFudCJjcml0ZXJpYSBpbiBvcmRlciB0byBtYWtlIGNoYXQgZ3B0IHN1bW1hcml6ZSB0aGUgNSBhcnRpY2xlcyByZXN1bHRpbmcuIFNvIHlvdSB3YW50IENoYXQgR1BUIHRvIHdhZGUgdGhyb3VnaCAyMCwwMDAgYXJ0aWNsZXMgYW5kIGZpbmQgdGhlIGJlc3QgNSBhY2NvcmRpbmcgdG8geW91ciBzZWFyY2ggdmFsdWVzIGFuZCB0aGVuIHN1bW1hcml6ZSB0aGVtPyBJIHN0aWxsIGhhdmUgZW5vdWdodCB0aW1lLCBJIHRyaWVkIGRpZmZlcmVudCBBSSBhbmQgQ2hhdEdQVCBpbiBwYXJ0aWN1bGFyLCBidXQgc3VtbWlyaXplIGFydGljbGUgb25lIGJ5IG9uZSBpcyB0b28gbG9uZywgaWYgSSB3b27igJl0IGFueXRoaW5nIEkgd2lsbCBoYXZlIHRvIGRvIGJ5IG15c2VsZiBvciBsb29rIGZvciBoZWxwIHNvbWV3aGVyZSkgaWYgSSBkb27igJl0IGZpbmQgYW55dGhpbmcgSSB3aWxsIGhvcGUgdGhpcyBndXlzIHdpbGwgaGVscCAgY296LCBhdCB0aGUgbW9tZW50IEnigJltIHNvIG92ZXJoZWxtZWQgd2l0aCBhbGwgdGhlc2UgYXNzaWdubWVudHMsIHRoYXQgSSBoYXZlIG5vIHRpbWUgZm9yIG15c2VsZi4gfCBBcnRpY2xlcyBzdW1tYXJpemVyIHVzaW5nIEFQSSAgQVBJIGNoYXRncHQgfCAzIHwgMjU5IHwgSmFudWFyeSAxNywgMjAyNSB8Lg==\"}]}}"
+    },
+    {
+      "event": "content_block_stop",
+      "data": "{\"type\":\"content_block_stop\",\"index\":1}"
+    },
+    {
+      "event": "content_block_start",
+      "data": "{\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}"
+    },
+    {
+      "event": "content_block_delta",
+      "data": "{\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"text_delta\",\"text\":\"OpenAI is an AI research and product company best known for building GPT-based models and developer tools (APIs) used to generate and summarize text and power a wide range of AI applications.\"}}"
+    },
+    {
+      "event": "content_block_stop",
+      "data": "{\"type\":\"content_block_stop\",\"index\":2}"
+    },
+    {
+      "event": "message_delta",
+      "data": "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":null,\"output_tokens\":41,\"cache_creation_input_tokens\":null,\"cache_read_input_tokens\":1664}}"
+    },
+    {
+      "event": "message_stop",
+      "data": "{\"type\":\"message_stop\"}"
+    }
+  ],
+  "expected_end_log": {
+    "path": "/v1/messages",
+    "format": "anthropic",
+    "model": "gpt-5.2",
+    "stream": false,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "inputTokens": 216,
+    "outputTokens": 41,
+    "extras": {
+      "resolvedModel": "gpt-5.2",
+      "translatedModel": "gpt-5.2",
+      "routingPath": "translated",
+      "serverToolsUsed": true
+    }
+  }
+}

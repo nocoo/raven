@@ -1,0 +1,39 @@
+{
+  "fixtureVersion": 1,
+  "request": {
+    "method": "POST",
+    "path": "/v1/messages",
+    "body": {
+      "model": "gpt-5-mini",
+      "max_tokens": 64,
+      "stream": false,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply with exactly: ok"
+        }
+      ],
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 16
+      }
+    }
+  },
+  "upstream_raw_chunks": [],
+  "expected_client_events": [],
+  "expected_end_log": {
+    "path": "/v1/messages",
+    "format": "anthropic",
+    "model": "gpt-5-mini",
+    "stream": false,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "inputTokens": 11,
+    "outputTokens": 47,
+    "extras": {
+      "resolvedModel": "gpt-5-mini",
+      "translatedModel": "gpt-5-mini"
+    }
+  }
+}

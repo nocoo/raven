@@ -16,30 +16,30 @@
     {
       "name": "CopilotTranslated",
       "scenarios": [
-        { "model": "gpt-5",     "stream": true,  "features": [],           "goldenPath": "copilot-translated/gpt-5-stream.json" },
-        { "model": "gpt-5",     "stream": false, "features": [],           "goldenPath": "copilot-translated/gpt-5-nonstream.json" },
-        { "model": "gpt-5",     "stream": true,  "features": ["tool_use"], "goldenPath": "copilot-translated/gpt-5-tool-use.json" },
-        { "model": "gpt-5",     "stream": true,  "features": ["web_search"], "goldenPath": "copilot-translated/gpt-5-web-search.json" },
-        { "model": "o1-mini",   "stream": true,  "features": ["reasoning"], "goldenPath": "copilot-translated/o1-mini-stream.json" },
-        { "model": "o1-mini",   "stream": false, "features": ["reasoning"], "goldenPath": "copilot-translated/o1-mini-nonstream.json" }
+        { "model": "gpt-5.2",      "stream": true,  "features": [],           "goldenPath": "copilot-translated/gpt-5.2-stream.json" },
+        { "model": "gpt-5.2",      "stream": false, "features": [],           "goldenPath": "copilot-translated/gpt-5.2-nonstream.json" },
+        { "model": "gpt-5.2",      "stream": true,  "features": ["tool_use"], "goldenPath": "copilot-translated/gpt-5.2-tool-use.json" },
+        { "model": "gpt-5.2",      "stream": true,  "features": ["web_search"], "goldenPath": "copilot-translated/gpt-5.2-web-search.json" },
+        { "model": "gpt-5-mini",   "stream": true,  "features": ["reasoning"], "goldenPath": "copilot-translated/gpt-5-mini-stream.json" },
+        { "model": "gpt-5-mini",   "stream": false, "features": ["reasoning"], "goldenPath": "copilot-translated/gpt-5-mini-nonstream.json" }
       ]
     },
     {
       "name": "CopilotOpenAIDirect",
       "scenarios": [
-        { "model": "gpt-5",      "stream": true,  "features": [],                "goldenPath": "copilot-openai-direct/gpt-5-stream.json" },
-        { "model": "gpt-5",      "stream": false, "features": [],                "goldenPath": "copilot-openai-direct/gpt-5-nonstream.json" },
-        { "model": "gpt-5",      "stream": true,  "features": ["max_tokens"],    "goldenPath": "copilot-openai-direct/gpt-5-max-tokens.json" },
-        { "model": "gpt-4.1",    "stream": true,  "features": [],                "goldenPath": "copilot-openai-direct/gpt-4.1-stream.json" }
+        { "model": "gpt-5.2",      "stream": true,  "features": [],                "goldenPath": "copilot-openai-direct/gpt-5.2-stream.json" },
+        { "model": "gpt-5.2",      "stream": false, "features": [],                "goldenPath": "copilot-openai-direct/gpt-5.2-nonstream.json" },
+        { "model": "gpt-5.2",      "stream": true,  "features": ["max_tokens"],    "goldenPath": "copilot-openai-direct/gpt-5.2-max-tokens.json" },
+        { "model": "gpt-4.1",      "stream": true,  "features": [],                "goldenPath": "copilot-openai-direct/gpt-4.1-stream.json" }
       ]
     },
     {
       "name": "CopilotResponses",
       "scenarios": [
-        { "model": "gpt-5",    "stream": true,  "features": ["event_ordering"], "goldenPath": "copilot-responses/gpt-5-stream.json" },
-        { "model": "gpt-5",    "stream": false, "features": [],                 "goldenPath": "copilot-responses/gpt-5-nonstream.json" },
-        { "model": "o1-mini",  "stream": true,  "features": ["reasoning"],      "goldenPath": "copilot-responses/o1-mini-stream.json" },
-        { "model": "gpt-5",    "stream": true,  "features": ["response_failed"],"goldenPath": "copilot-responses/gpt-5-response-failed.json" }
+        { "model": "gpt-5.2",      "stream": true,  "features": ["event_ordering"], "goldenPath": "copilot-responses/gpt-5.2-stream.json" },
+        { "model": "gpt-5.2",      "stream": false, "features": [],                 "goldenPath": "copilot-responses/gpt-5.2-nonstream.json" },
+        { "model": "gpt-5.4-mini", "stream": true,  "features": ["reasoning"],      "goldenPath": "copilot-responses/gpt-5.4-mini-stream.json" },
+        { "model": "gpt-5.2",      "stream": true,  "features": ["response_failed"],"goldenPath": "copilot-responses/gpt-5.2-response-failed.json" }
       ]
     },
     {
