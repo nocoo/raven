@@ -5,6 +5,7 @@ import { streamSSE, type SSEMessage } from "hono/streaming"
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProvider } from "./../../lib/upstream-router"
+import { pickStrategy } from "./../../core/router"
 import type { CompiledProvider } from "./../../db/providers"
 import { isNullish } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
@@ -56,46 +57,51 @@ export async function handleCompletion(c: Context) {
   // chat/completions payloads on a single canonical token limit field.
   payload = normalizeTokenLimitParams(payload)
 
-  // Check for custom upstream provider
-  const resolved = resolveProvider(model)
-  if (resolved) {
-    const { provider } = resolved
-    if (provider.format === "openai") {
-      // Passthrough: forward OpenAI payload directly
-      return handleOpenAIPassthrough(
-        c,
-        requestId,
-        payload,
-        startTime,
-        provider,
-        { accountName, sessionId, clientName, clientVersion },
-      )
-    }
-    // Anthropic upstream: not supported in V1 (no reverse translation)
+  const decision = pickStrategy({
+    protocol: "openai",
+    model,
+    providers: state.providers,
+    modelsCatalogIds: state.models?.data?.map((m) => m.id) ?? [],
+  })
+
+  if (decision.kind === "ok" && decision.name === "custom-openai") {
+    const resolved = resolveProvider(model)
+    if (!resolved) throw new Error(`router/handler drift: no provider for ${model}`)
+    return handleOpenAIPassthrough(
+      c,
+      requestId,
+      payload,
+      startTime,
+      resolved.provider,
+      { accountName, sessionId, clientName, clientVersion },
+    )
+  }
+
+  if (decision.kind === "reject") {
+    const resolved = resolveProvider(model)
+    const provider = resolved?.provider
     const latencyMs = Math.round(performance.now() - startTime)
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `400 ${model} ${latencyMs}ms`,
+      msg: `${decision.status} ${model} ${latencyMs}ms`,
       data: {
         path: "/v1/chat/completions", format: "openai", model, stream,
-        latencyMs, status: "error", statusCode: 400,
+        latencyMs, status: "error", statusCode: decision.status,
         upstreamStatus: null,
         error: "OpenAI client → Anthropic upstream not supported",
-        upstream: provider.name, upstreamFormat: provider.format,
+        ...(provider ? { upstream: provider.name, upstreamFormat: provider.format } : {}),
         accountName, sessionId, clientName, clientVersion,
       },
     })
     return c.json(
       {
-        error: {
-          message: "OpenAI client requests cannot be routed to Anthropic-format upstreams. Use the Anthropic Messages API instead.",
-          type: "invalid_request_error",
-        },
+        error: { message: decision.message, type: decision.errorType },
       },
-      400,
+      decision.status as 400,
     )
   }
 
+  // decision.name === "copilot-openai-direct"
   // Find the selected model
   const selectedModel = state.models?.data.find(
     (m) => m.id === payload.model,
