@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// composition/strategy-registry.ts (H.3)
+// composition/strategy-registry.ts
 //
 // Single place that knows every `strategies/*.ts` concretion. Returns a
 // fully-wired Strategy ready to hand to Runner. The composition root is the
@@ -8,13 +8,14 @@
 // this file is responsible for translating `state.optToolCallDebug` etc into
 // constructor args.
 //
-// H.3 registers ONLY `copilot-openai-direct`; the remaining five names throw
-// "not yet registered" until H.7 / H.9 / H.11 / H.13 / H.15 land.
+// All six strategies are registered as of H.16:
+//   copilot-openai-direct, copilot-native, copilot-responses,
+//   custom-openai, custom-anthropic, copilot-translated.
 // ---------------------------------------------------------------------------
 
 import type { SSEMessage } from "hono/streaming"
 
-import type { StrategyDecision, StrategyName } from "../core/router"
+import type { StrategyDecision } from "../core/router"
 import type { Strategy } from "../core/strategy"
 import type { ServerSentEvent } from "../util/sse"
 import { buildUpstreamClient } from "./upstream-registry"
@@ -46,13 +47,6 @@ export type AnyStrategy = Strategy<
   SSEMessage,
   unknown
 >
-
-export class StrategyNotRegisteredError extends Error {
-  constructor(name: StrategyName) {
-    super(`strategy "${name}" is not registered yet (Phase H in progress)`)
-    this.name = "StrategyNotRegisteredError"
-  }
-}
 
 export function buildStrategy(
   decision: StrategyDecision,

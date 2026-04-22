@@ -114,7 +114,7 @@ export async function handleCompletion(c: Context) {
     }
   }
 
-  // H.5: copilot-openai-direct now flows through composition.dispatch.
+  // decision.name === "copilot-openai-direct"
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "openai", path: "/v1/chat/completions",
     stream,

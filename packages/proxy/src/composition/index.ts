@@ -1,7 +1,8 @@
 // ---------------------------------------------------------------------------
-// composition/index.ts (H.4) — `dispatch` entry point.
+// composition/index.ts — `dispatch` entry point.
 //
-// The single function route handlers are expected to call after H.17:
+// The single function route handlers call to route a request through the
+// pure router → strategy registry → Runner pipeline:
 //
 //   return dispatch(c, ctx, payload, "openai", { model, stream })
 //
@@ -13,9 +14,10 @@
 //      `runner.execute`. Any throw from `runner.execute` is re-raised so the
 //      route can surface it through `forwardError`.
 //
-// In Phase H, only `copilot-openai-direct` is wired through here; the rest
-// keep their G-phase shims until their own H.x step lands. `dispatch` itself
-// is fully generic and unaware of which strategies the registry can build.
+// All six strategies (copilot-openai-direct, copilot-native, copilot-responses,
+// custom-openai, custom-anthropic, copilot-translated) flow through here as
+// of H.16. `dispatch` itself is fully generic and unaware of which strategies
+// the registry can build.
 // ---------------------------------------------------------------------------
 
 import type { Context } from "hono"

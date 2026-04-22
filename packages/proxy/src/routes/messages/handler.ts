@@ -297,7 +297,7 @@ export async function handleCompletion(c: Context) {
 
   // G.9: server-tools sub-branch remains inline because it runs its own
   // request loop via `withServerToolInterception`. Default (no server-tools)
-  // path below routes through Runner via copilotTranslatedShim.
+  // path below routes through composition.dispatch (copilot-translated strategy).
   if (serverToolContext.hasServerSideTools && webSearchEnabled) {
     try {
       // Create sendRequest wrapper: Anthropic → OpenAI → send → OpenAI response → Anthropic
@@ -387,12 +387,3 @@ export async function handleCompletion(c: Context) {
     return forwardError(c, error)
   }
 }
-
-// ===========================================================================
-// G.9 + G.11: Strategy shims — REMOVED (H.16/H.14):
-//   copilot-translated → strategies/copilot-translated.ts
-//   custom-anthropic   → strategies/custom-anthropic.ts
-// All branches now flow through composition.dispatch.
-// ===========================================================================
-
-

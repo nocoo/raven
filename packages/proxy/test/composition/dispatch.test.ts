@@ -3,7 +3,6 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test"
 import { Hono, type Context } from "hono"
 
 import { dispatch, type DispatchInput } from "../../src/composition"
-import { StrategyNotRegisteredError } from "../../src/composition/strategy-registry"
 import type { RequestContext } from "../../src/core/context"
 import type { CompiledProvider } from "../../src/db/providers"
 import { logEmitter } from "../../src/util/log-emitter"
@@ -114,46 +113,19 @@ describe("composition/dispatch", () => {
     expect(data.stream).toBe(true)
   })
 
-  test("ok path with copilot-translated registered: dispatch reaches strategy (no NotRegistered error)", async () => {
-    // Anthropic protocol with no matching custom-anthropic provider and a
-    // non-claude catalog model triggers copilot-translated route. Post-H.16
-    // the strategy is registered, so dispatch reaches the upstream client
-    // and fails downstream (no GitHub token in test env) — but it must not
-    // be a StrategyNotRegisteredError anymore.
-    const ctx = makeCtx({ format: "anthropic", path: "/v1/messages" })
-    let caught: unknown = null
-    const app = makeApp(async (c) => {
-      try {
-        return await dispatch(c, ctx, { model: "gpt-4o" }, "anthropic", baseInput({
-          model: "gpt-4o",
-          models: [{ id: "gpt-4o" }],
-        }))
-      } catch (e) {
-        caught = e
-        return c.text("err", 500)
-      }
-    })
-    await app.request("http://localhost/x", { method: "POST" })
-    expect(caught).not.toBeInstanceOf(StrategyNotRegisteredError)
-  })
-
-  test("router inputs are threaded: anthropicBeta default null does not throw NotRegistered", async () => {
-    // Same as above but verifies anthropicBeta?? null path is exercised.
-    const ctx = makeCtx({ format: "anthropic", path: "/v1/messages" })
-    let caught: unknown = null
-    const app = makeApp(async (c) => {
-      try {
-        return await dispatch(c, ctx, {}, "anthropic", baseInput({
-          model: "gpt-4o",
-          models: [{ id: "gpt-4o" }],
-          // anthropicBeta omitted — defaults to null inside dispatch
-        }))
-      } catch (e) {
-        caught = e
-        return c.text("err", 500)
-      }
-    })
-    await app.request("http://localhost/x", { method: "POST" })
-    expect(caught).not.toBeInstanceOf(StrategyNotRegisteredError)
+  test("router inputs are threaded: anthropicBeta default null does not crash", async () => {
+    // Smoke-check that omitting anthropicBeta from DispatchInput is safe
+    // (it defaults to null inside dispatch). Uses an OpenAI-format request
+    // that hits the reject path, so we don't need real upstream wiring.
+    const ctx = makeCtx()
+    const app = makeApp((c) =>
+      dispatch(c, ctx, { model: "claude-z" }, "openai", baseInput({
+        model: "claude-z",
+        providers: [anthropicProvider("claude-z")],
+        // anthropicBeta omitted — defaults to null inside dispatch
+      })),
+    )
+    const res = await app.request("http://localhost/x", { method: "POST" })
+    expect(res.status).toBe(400)
   })
 })
