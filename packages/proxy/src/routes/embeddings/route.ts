@@ -4,10 +4,8 @@ import { extractErrorDetails, forwardError } from "./../../lib/error"
 import { logEmitter } from "./../../util/log-emitter"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
-import {
-  createEmbeddings,
-  type EmbeddingRequest,
-} from "./../../services/copilot/create-embeddings"
+import { buildUpstreamClient } from "../../composition/upstream-registry"
+import type { EmbeddingRequest } from "../../upstream/copilot-embeddings"
 
 export const embeddingRoutes = new Hono()
 
@@ -28,7 +26,7 @@ embeddingRoutes.post("/", async (c) => {
       data: { path: "/v1/embeddings", format: "openai", model, stream: false, accountName, sessionId, clientName, clientVersion },
     })
 
-    const response = await createEmbeddings(payload)
+    const response = await buildUpstreamClient("copilot-embeddings").send(payload)
     const latencyMs = Math.round(performance.now() - startTime)
 
     logEmitter.emitLog({

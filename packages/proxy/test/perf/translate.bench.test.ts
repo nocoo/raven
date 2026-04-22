@@ -2,7 +2,7 @@ import { describe, expect, test, afterAll } from "bun:test";
 import { translateToOpenAI, translateToAnthropic } from "../../src/protocols/translate/non-stream-translation.ts";
 import { translateChunkToAnthropicEvents } from "../../src/protocols/translate/stream-translation.ts";
 import type { AnthropicMessagesPayload, AnthropicStreamState } from "../../src/protocols/anthropic/types.ts";
-import type { ChatCompletionResponse, ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions.ts";
+import type { ChatCompletionResponse, ChatCompletionChunk } from "../../src/upstream/copilot-openai.ts";
 
 // Metrics collector for autoresearch (per-operation latency in nanoseconds)
 const metrics: Record<string, number> = {};

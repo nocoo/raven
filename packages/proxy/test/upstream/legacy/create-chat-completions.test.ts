@@ -1,6 +1,13 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { createChatCompletions, type ChatCompletionsPayload } from "../../src/services/copilot/create-chat-completions"
-import { state } from "../../src/lib/state"
+import {
+  CopilotOpenAIClient,
+  defaultCopilotOpenAIConfig,
+  type ChatCompletionsPayload,
+} from "../../../src/upstream/copilot-openai"
+import { state } from "../../../src/lib/state"
+
+const createChatCompletions = (payload: ChatCompletionsPayload) =>
+  new CopilotOpenAIClient(defaultCopilotOpenAIConfig()).send(payload)
 
 // ---------------------------------------------------------------------------
 // Helpers

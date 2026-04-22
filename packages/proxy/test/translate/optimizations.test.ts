@@ -7,7 +7,7 @@ import {
 } from "../../src/protocols/translate/stream-translation"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import type { AnthropicStreamState } from "../../src/protocols/anthropic/types"
-import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions"
+import type { ChatCompletionChunk } from "../../src/upstream/copilot-openai"
 import type { AnthropicStreamEventData } from "../../src/protocols/anthropic/types"
 import { state } from "../../src/lib/state"
 

@@ -6,7 +6,7 @@ import {
   type TextPart,
   type Tool,
   type ToolCall,
-} from "./../../services/copilot/create-chat-completions"
+} from "./../../upstream/copilot-openai"
 
 import { translateModelName } from "../anthropic/preprocess"
 

@@ -1,7 +1,8 @@
 import type { Context } from "hono"
 import { streamSSE } from "hono/streaming"
 
-import { createResponses, type ResponsesPayload } from "../../services/copilot/create-responses"
+import { buildUpstreamClient } from "../../composition/upstream-registry"
+import type { ResponsesPayload } from "../../upstream/copilot-responses"
 import { extractErrorDetails, forwardError } from "../../lib/error"
 import { checkRateLimit } from "../../lib/rate-limit"
 import { state } from "../../lib/state"
@@ -50,7 +51,7 @@ export const handleResponses = async (c: Context) => {
   })
 
   try {
-    const response = await createResponses(payload)
+    const response = await buildUpstreamClient("copilot-responses").send(payload)
 
     // Streaming: passthrough SSE events
     if (stream && isAsyncIterable(response)) {

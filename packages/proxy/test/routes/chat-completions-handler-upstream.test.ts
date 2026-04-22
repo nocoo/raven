@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 import { handleCompletion } from "../../src/routes/chat-completions/handler"
 import { state } from "../../src/lib/state"
-import type { ChatCompletionsPayload } from "../../src/services/copilot/create-chat-completions"
+import type { ChatCompletionsPayload } from "../../src/upstream/copilot-openai"
 import type { ProviderRecord } from "../../src/db/providers"
 import { compileProvider } from "../../src/db/providers"
 

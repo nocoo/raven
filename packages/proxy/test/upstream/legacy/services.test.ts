@@ -1,8 +1,17 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { getVSCodeVersion } from "../../src/services/get-vscode-version"
-import { createEmbeddings } from "../../src/services/copilot/create-embeddings"
-import { getCopilotUsage } from "../../src/services/github/get-copilot-usage"
-import { state } from "../../src/lib/state"
+import { getVSCodeVersion } from "../../../src/services/get-vscode-version"
+import {
+  CopilotEmbeddingsClient,
+  defaultCopilotEmbeddingsConfig,
+  type EmbeddingRequest,
+} from "../../../src/upstream/copilot-embeddings"
+import { getCopilotUsage } from "../../../src/services/github/get-copilot-usage"
+import { state } from "../../../src/lib/state"
+
+const createEmbeddings = async (payload: EmbeddingRequest) => {
+  const result = await new CopilotEmbeddingsClient(defaultCopilotEmbeddingsConfig()).send(payload)
+  return result as { model: string; data: unknown[] }
+}
 
 // ---------------------------------------------------------------------------
 // Setup / teardown

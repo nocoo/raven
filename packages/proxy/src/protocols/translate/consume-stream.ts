@@ -12,7 +12,7 @@ import type {
   ChatCompletionChunk,
   ChatCompletionResponse,
   ToolCall,
-} from "../../services/copilot/create-chat-completions"
+} from "../../upstream/copilot-openai"
 import type { ServerSentEvent } from "../../util/sse"
 
 export async function consumeStreamToResponse(

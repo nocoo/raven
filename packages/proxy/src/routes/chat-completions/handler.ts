@@ -11,12 +11,12 @@ import { logEmitter } from "./../../util/log-emitter"
 import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
-import { sendOpenAIDirect } from "./../../services/upstream/send-openai"
-import {
-  createChatCompletions,
-  type ChatCompletionResponse,
-  type ChatCompletionsPayload,
-} from "./../../services/copilot/create-chat-completions"
+import { buildUpstreamClient } from "./../../composition/upstream-registry"
+import type {
+  ChatCompletionResponse,
+  ChatCompletionsPayload,
+} from "./../../upstream/copilot-openai"
+import type { ServerSentEvent } from "./../../util/sse"
 import { extractErrorDetails, forwardError } from "./../../lib/error"
 
 export async function handleCompletion(c: Context) {
@@ -112,7 +112,7 @@ export async function handleCompletion(c: Context) {
   }
 
   try {
-    const response = await createChatCompletions(payload)
+    const response = await buildUpstreamClient("copilot-openai").send(payload)
 
     if (isNonStreaming(response)) {
       const latencyMs = Math.round(performance.now() - startTime)
@@ -275,7 +275,7 @@ function normalizeTokenLimitParams(
 }
 
 const isNonStreaming = (
-  response: Awaited<ReturnType<typeof createChatCompletions>>,
+  response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
 
 // ===========================================================================
@@ -303,7 +303,7 @@ async function handleOpenAIPassthrough(
   const stream = !!payload.stream
 
   try {
-    const response = await sendOpenAIDirect(provider, payload)
+    const response = await buildUpstreamClient("custom-openai").send({ provider, payload })
 
     if (isOpenAINonStreaming(response)) {
       const latencyMs = Math.round(performance.now() - startTime)
@@ -418,7 +418,7 @@ async function handleOpenAIPassthrough(
 
 /** Type guard for OpenAI non-streaming response */
 function isOpenAINonStreaming(
-  response: Awaited<ReturnType<typeof sendOpenAIDirect>>,
+  response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse {
   return typeof response === "object" && "object" in response && response.object === "chat.completion"
 }

@@ -8,7 +8,7 @@ import type { Model } from "../../src/services/copilot/get-models"
 import type {
   ChatCompletionsPayload,
   Tool,
-} from "../../src/services/copilot/create-chat-completions"
+} from "../../src/upstream/copilot-openai"
 
 // ---------------------------------------------------------------------------
 // Helpers

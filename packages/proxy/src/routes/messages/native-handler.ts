@@ -12,10 +12,8 @@ import { state } from "../../lib/state"
 import { logEmitter } from "../../util/log-emitter"
 import { emitUpstreamRawSse } from "../../util/emit-upstream-raw"
 import { extractErrorDetails, forwardError, HTTPError } from "../../lib/error"
-import {
-  createNativeMessages,
-  type NativeMessagesOptions,
-} from "../../services/copilot/create-native-messages"
+import { buildUpstreamClient } from "../../composition/upstream-registry"
+import type { NativeMessagesOptions } from "../../upstream/copilot-native"
 import type { ServerSentEvent } from "../../util/sse"
 
 import type {
@@ -335,7 +333,7 @@ async function sendWithEffortFallback(
   requestId: string,
 ): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
   try {
-    return await createNativeMessages(payload, options)
+    return await buildUpstreamClient("copilot-native").send({ payload, options })
   } catch (error) {
     // Check if this is an effort error we can retry
     if (!(error instanceof HTTPError)) throw error
@@ -362,7 +360,7 @@ async function sendWithEffortFallback(
 
     // Adjust payload and retry
     const adjustedPayload = adjustEffortInPayload(payload, fallbackEffort)
-    return await createNativeMessages(adjustedPayload, options)
+    return await buildUpstreamClient("copilot-native").send({ payload: adjustedPayload, options })
   }
 }
 

@@ -6,7 +6,7 @@ import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
 import { handleCompletion } from "../../src/routes/messages/handler"
 import type { ServerSentEvent } from "../../src/util/sse"
-import * as createChatCompletionsModule from "../../src/services/copilot/create-chat-completions"
+import * as copilotOpenAIModule from "../../src/upstream/copilot-openai"
 import * as tavilyModule from "../../src/lib/server-tools/tavily"
 import type { ProviderRecord } from "../../src/db/providers"
 import { compileProvider } from "../../src/db/providers"
@@ -1344,7 +1344,7 @@ describe("messages handler (server-side tools)", () => {
       ],
       textContent: "Example result body",
     })
-    const createSpy = spyOn(createChatCompletionsModule, "createChatCompletions")
+    const createSpy = spyOn(copilotOpenAIModule.CopilotOpenAIClient.prototype, "send")
       .mockResolvedValueOnce(createMockStream({ content: "Synthesized answer" }))
 
     const app = makeApp()

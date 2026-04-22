@@ -1,9 +1,15 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { sendOpenAIDirect } from "./../../../src/services/upstream/send-openai"
+import {
+  CustomOpenAIClient,
+  defaultCustomOpenAIConfig,
+} from "./../../../src/upstream/custom-openai"
 import type { ProviderRecord } from "./../../../src/db/providers"
 import type { CompiledProvider } from "./../../../src/db/providers"
 import { compileProvider } from "./../../../src/db/providers"
-import type { ChatCompletionsPayload } from "./../../../src/services/copilot/create-chat-completions"
+import type { ChatCompletionsPayload } from "./../../../src/upstream/copilot-openai"
+
+const sendOpenAIDirect = (provider: CompiledProvider, payload: ChatCompletionsPayload) =>
+  new CustomOpenAIClient(defaultCustomOpenAIConfig()).send({ provider, payload })
 
 function makeProvider(
   overrides: Partial<ProviderRecord> = {},

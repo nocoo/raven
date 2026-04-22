@@ -1,4 +1,4 @@
-import { type ChatCompletionChunk } from "../../services/copilot/create-chat-completions"
+import { type ChatCompletionChunk } from "../../upstream/copilot-openai"
 
 import {
   type AnthropicStreamEventData,

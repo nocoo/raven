@@ -1,11 +1,22 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { sendAnthropicDirect } from "./../../../src/services/upstream/send-anthropic"
-import { sendOpenAIDirect } from "./../../../src/services/upstream/send-openai"
+import {
+  CustomAnthropicClient,
+  defaultCustomAnthropicConfig,
+} from "./../../../src/upstream/custom-anthropic"
+import {
+  CustomOpenAIClient,
+  defaultCustomOpenAIConfig,
+} from "./../../../src/upstream/custom-openai"
 import type { ProviderRecord } from "./../../../src/db/providers"
 import type { CompiledProvider } from "./../../../src/db/providers"
 import { compileProvider } from "./../../../src/db/providers"
 import type { AnthropicMessagesPayload } from "./../../../src/protocols/anthropic/types"
-import type { ChatCompletionsPayload } from "./../../../src/services/copilot/create-chat-completions"
+import type { ChatCompletionsPayload } from "./../../../src/upstream/copilot-openai"
+
+const sendAnthropicDirect = (provider: CompiledProvider, payload: AnthropicMessagesPayload) =>
+  new CustomAnthropicClient(defaultCustomAnthropicConfig()).send({ provider, payload })
+const sendOpenAIDirect = (provider: CompiledProvider, payload: ChatCompletionsPayload) =>
+  new CustomOpenAIClient(defaultCustomOpenAIConfig()).send({ provider, payload })
 
 function makeProvider(
   overrides: Partial<ProviderRecord> = {},

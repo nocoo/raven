@@ -1,10 +1,16 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import {
-  createNativeMessages,
+  CopilotNativeClient,
+  defaultCopilotNativeConfig,
   type NativeMessagesOptions,
-} from "../../src/services/copilot/create-native-messages"
-import { state } from "../../src/lib/state"
-import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
+} from "../../../src/upstream/copilot-native"
+import { state } from "../../../src/lib/state"
+import type { AnthropicMessagesPayload } from "../../../src/protocols/anthropic/types"
+
+const createNativeMessages = (
+  payload: AnthropicMessagesPayload,
+  options: NativeMessagesOptions,
+) => new CopilotNativeClient(defaultCopilotNativeConfig()).send({ payload, options })
 
 // ---------------------------------------------------------------------------
 // Helpers

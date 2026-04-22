@@ -7,12 +7,30 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import { state } from "../../src/lib/state"
-import { createChatCompletions } from "../../src/services/copilot/create-chat-completions"
-import { createNativeMessages } from "../../src/services/copilot/create-native-messages"
-import { createResponses } from "../../src/services/copilot/create-responses"
-import { createEmbeddings } from "../../src/services/copilot/create-embeddings"
-import { sendOpenAIDirect } from "../../src/services/upstream/send-openai"
-import { sendAnthropicDirect } from "../../src/services/upstream/send-anthropic"
+import {
+  CopilotOpenAIClient,
+  defaultCopilotOpenAIConfig,
+} from "../../src/upstream/copilot-openai"
+import {
+  CopilotNativeClient,
+  defaultCopilotNativeConfig,
+} from "../../src/upstream/copilot-native"
+import {
+  CopilotResponsesClient,
+  defaultCopilotResponsesConfig,
+} from "../../src/upstream/copilot-responses"
+import {
+  CopilotEmbeddingsClient,
+  defaultCopilotEmbeddingsConfig,
+} from "../../src/upstream/copilot-embeddings"
+import {
+  CustomOpenAIClient,
+  defaultCustomOpenAIConfig,
+} from "../../src/upstream/custom-openai"
+import {
+  CustomAnthropicClient,
+  defaultCustomAnthropicConfig,
+} from "../../src/upstream/custom-anthropic"
 import type { CompiledProvider } from "../../src/db/providers"
 import {
   upstreamCharacterisations,
@@ -121,7 +139,8 @@ describe("upstream characterisation (E.2)", () => {
   test("copilot-openai/non-stream", async () => {
     const f = findFixture("copilot-openai/non-stream")
     applyState(f.input.state)
-    await createChatCompletions(f.input.payload as Parameters<typeof createChatCompletions>[0])
+    const client = new CopilotOpenAIClient(defaultCopilotOpenAIConfig())
+    await client.send(f.input.payload as Parameters<typeof client.send>[0])
     expect(captured).toHaveLength(1)
     expectMatches(captured[0]!, f.request)
   })
@@ -129,61 +148,68 @@ describe("upstream characterisation (E.2)", () => {
   test("copilot-openai/agent-call", async () => {
     const f = findFixture("copilot-openai/agent-call")
     applyState(f.input.state)
-    await createChatCompletions(f.input.payload as Parameters<typeof createChatCompletions>[0])
+    const client = new CopilotOpenAIClient(defaultCopilotOpenAIConfig())
+    await client.send(f.input.payload as Parameters<typeof client.send>[0])
     expectMatches(captured[0]!, f.request)
   })
 
   test("copilot-native/basic", async () => {
     const f = findFixture("copilot-native/basic")
     applyState(f.input.state)
-    await createNativeMessages(
-      f.input.payload as Parameters<typeof createNativeMessages>[0],
-      f.input.options as unknown as Parameters<typeof createNativeMessages>[1],
-    )
+    const client = new CopilotNativeClient(defaultCopilotNativeConfig())
+    await client.send({
+      payload: f.input.payload as never,
+      options: f.input.options as never,
+    })
     expectMatches(captured[0]!, f.request)
   })
 
   test("copilot-responses/basic", async () => {
     const f = findFixture("copilot-responses/basic")
     applyState(f.input.state)
-    await createResponses(f.input.payload as Parameters<typeof createResponses>[0])
+    const client = new CopilotResponsesClient(defaultCopilotResponsesConfig())
+    await client.send(f.input.payload as Parameters<typeof client.send>[0])
     expectMatches(captured[0]!, f.request)
   })
 
   test("copilot-embeddings/basic", async () => {
     const f = findFixture("copilot-embeddings/basic")
     applyState(f.input.state)
-    await createEmbeddings(f.input.payload as Parameters<typeof createEmbeddings>[0])
+    const client = new CopilotEmbeddingsClient(defaultCopilotEmbeddingsConfig())
+    await client.send(f.input.payload as Parameters<typeof client.send>[0])
     expectMatches(captured[0]!, f.request)
   })
 
   test("custom-openai/basic", async () => {
     const f = findFixture("custom-openai/basic")
     applyState(f.input.state)
-    await sendOpenAIDirect(
-      f.input.provider as unknown as CompiledProvider,
-      f.input.payload as Parameters<typeof sendOpenAIDirect>[1],
-    )
+    const client = new CustomOpenAIClient(defaultCustomOpenAIConfig())
+    await client.send({
+      provider: f.input.provider as unknown as CompiledProvider,
+      payload: f.input.payload as never,
+    })
     expectMatches(captured[0]!, f.request)
   })
 
   test("custom-openai/trailing-slash", async () => {
     const f = findFixture("custom-openai/trailing-slash")
     applyState(f.input.state)
-    await sendOpenAIDirect(
-      f.input.provider as unknown as CompiledProvider,
-      f.input.payload as Parameters<typeof sendOpenAIDirect>[1],
-    )
+    const client = new CustomOpenAIClient(defaultCustomOpenAIConfig())
+    await client.send({
+      provider: f.input.provider as unknown as CompiledProvider,
+      payload: f.input.payload as never,
+    })
     expectMatches(captured[0]!, f.request)
   })
 
   test("custom-anthropic/basic", async () => {
     const f = findFixture("custom-anthropic/basic")
     applyState(f.input.state)
-    await sendAnthropicDirect(
-      f.input.provider as unknown as CompiledProvider,
-      f.input.payload as Parameters<typeof sendAnthropicDirect>[1],
-    )
+    const client = new CustomAnthropicClient(defaultCustomAnthropicConfig())
+    await client.send({
+      provider: f.input.provider as unknown as CompiledProvider,
+      payload: f.input.payload as never,
+    })
     expectMatches(captured[0]!, f.request)
   })
 })

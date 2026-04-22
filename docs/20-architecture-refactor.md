@@ -526,7 +526,7 @@ Goal: every outbound `fetch` flows through `upstream/*`. Strategies (next phase)
 - **E.7** ✅ Port `services/upstream/send-openai.ts` → `upstream/custom-openai.ts`. Legacy file becomes a shim delegating `sendOpenAIDirect` (deleted in E.10).
 - **E.8** ✅ Port `services/upstream/send-anthropic.ts` → `upstream/custom-anthropic.ts`. Legacy file becomes a shim delegating `sendAnthropicDirect` (deleted in E.10).
 - **E.9** ✅ Add `composition/upstream-registry.ts` (upstream portion only; strategy portion lands in Phase H) + tests for every upstream kind.
-- **E.10** Handlers switch to `upstream-registry`; delete `services/` old shims once unreferenced. Run Phase C safety net.
+- **E.10** ✅ Handlers switch to `upstream-registry`; legacy `services/copilot/create-*.ts` and `services/upstream/send-*.ts` shims deleted; type-only consumers (`lib/tokenizer.ts`, `protocols/translate/*`) repointed to `upstream/copilot-openai`; legacy test suites relocated to `test/upstream/legacy/` and re-pointed at the new clients (1350/1350 L1, gate ✅).
 - **E.11** **Activate dep-cruiser rule #2**: only `upstream/` may call `fetch`; grep-based CI check asserts no `fetch(` outside that directory (exempting tests).
 - Risk: medium (every outbound call).
 

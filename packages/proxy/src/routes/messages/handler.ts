@@ -10,14 +10,12 @@ import { logEmitter } from "./../../util/log-emitter"
 import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
-import { sendAnthropicDirect } from "./../../services/upstream/send-anthropic"
-import { sendOpenAIDirect } from "./../../services/upstream/send-openai"
-import {
-  createChatCompletions,
-  type ChatCompletionChunk,
-  type ChatCompletionResponse,
-  type ChatCompletionsPayload,
-} from "./../../services/copilot/create-chat-completions"
+import { buildUpstreamClient } from "../../composition/upstream-registry"
+import type {
+  ChatCompletionChunk,
+  ChatCompletionResponse,
+  ChatCompletionsPayload,
+} from "../../upstream/copilot-openai"
 import type { ServerSentEvent } from "./../../util/sse"
 import { extractErrorDetails, forwardError } from "./../../lib/error"
 
@@ -231,7 +229,7 @@ export async function handleCompletion(c: Context) {
           sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
           reorderToolResults: state.optReorderToolResults,
         })
-        const streamResponse = await createChatCompletions({ ...translated, stream: true })
+        const streamResponse = await buildUpstreamClient("copilot-openai").send({ ...translated, stream: true })
         const response = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
         return translateToAnthropic(response, model)
       }
@@ -271,7 +269,7 @@ export async function handleCompletion(c: Context) {
     }
 
     // No server-side tools: send directly
-    const response = await createChatCompletions(openAIPayload)
+    const response = await buildUpstreamClient("copilot-openai").send(openAIPayload)
 
     if (isNonStreaming(response)) {
       const anthropicResponse = translateToAnthropic(response, model)
@@ -437,7 +435,7 @@ export async function handleCompletion(c: Context) {
 }
 
 const isNonStreaming = (
-  response: Awaited<ReturnType<typeof createChatCompletions>> | ChatCompletionResponse,
+  response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
 
 
@@ -466,7 +464,7 @@ async function handleAnthropicPassthrough(
   const stream = !!payload.stream
 
   try {
-    const response = await sendAnthropicDirect(provider, payload)
+    const response = await buildUpstreamClient("custom-anthropic").send({ provider, payload })
 
     if (isAnthropicNonStreaming(response)) {
       const latencyMs = Math.round(performance.now() - startTime)
@@ -590,7 +588,7 @@ async function handleOpenAIUpstream(
   const stream = !!payload.stream
 
   try {
-    const response = await sendOpenAIDirect(provider, payload)
+    const response = await buildUpstreamClient("custom-openai").send({ provider, payload })
 
     if (isChatCompletionResponse(response)) {
       const anthropicResponse = translateToAnthropic(response, originalModel)
@@ -754,7 +752,7 @@ async function handleOpenAIUpstream(
 
 /** Type guard for Anthropic non-streaming response */
 function isAnthropicNonStreaming(
-  response: Awaited<ReturnType<typeof sendAnthropicDirect>>,
+  response: AnthropicResponse | AsyncGenerator<ServerSentEvent>,
 ): response is AnthropicResponse {
   return typeof response === "object" && "type" in response && response.type === "message"
 }
@@ -762,7 +760,7 @@ function isAnthropicNonStreaming(
 
 /** Type guard for OpenAI non-streaming response */
 function isChatCompletionResponse(
-  response: Awaited<ReturnType<typeof sendOpenAIDirect>>,
+  response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse {
   return typeof response === "object" && "object" in response && response.object === "chat.completion"
 }

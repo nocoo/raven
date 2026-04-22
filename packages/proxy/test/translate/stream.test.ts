@@ -3,7 +3,7 @@ import {
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
 } from "../../src/protocols/translate/stream-translation"
-import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions"
+import type { ChatCompletionChunk } from "../../src/upstream/copilot-openai"
 import type {
   AnthropicStreamEventData,
   AnthropicStreamState,

@@ -1,12 +1,17 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import {
-  createResponses,
+  CopilotResponsesClient,
+  defaultCopilotResponsesConfig,
   hasVisionContent,
   hasAgentHistory,
   type ResponsesPayload,
-} from "../../src/services/copilot/create-responses"
-import { state } from "../../src/lib/state"
-import { HTTPError } from "../../src/lib/error"
+} from "../../../src/upstream/copilot-responses"
+import { state } from "../../../src/lib/state"
+import { HTTPError } from "../../../src/lib/error"
+
+const createResponses = (payload: ResponsesPayload) =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  new CopilotResponsesClient(defaultCopilotResponsesConfig()).send(payload) as Promise<any>
 
 // ---------------------------------------------------------------------------
 // Helpers

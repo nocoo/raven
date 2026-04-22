@@ -4,7 +4,7 @@ import type {
   Message,
   Tool,
   ToolCall,
-} from "./../services/copilot/create-chat-completions"
+} from "./../upstream/copilot-openai"
 import type { Model } from "./../services/copilot/get-models"
 
 // Encoder type mapping

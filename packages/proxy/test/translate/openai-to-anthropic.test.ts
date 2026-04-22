@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { translateToAnthropic } from "../../src/protocols/translate/non-stream-translation"
-import type { ChatCompletionResponse } from "../../src/services/copilot/create-chat-completions"
+import type { ChatCompletionResponse } from "../../src/upstream/copilot-openai"
 
 // ---------------------------------------------------------------------------
 // Helper: minimal valid OpenAI response
