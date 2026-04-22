@@ -158,15 +158,18 @@ export async function handleCompletion(c: Context) {
       sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
       reorderToolResults: state.optReorderToolResults,
     })
-    return handleOpenAIUpstream(
-      c,
-      requestId,
-      openAIPayload,
-      startTime,
-      provider,
-      { accountName, sessionId, clientName, clientVersion },
-      model,
-    )
+    const runnerCtx: RunnerCtx = {
+      requestId, startTime, format: "anthropic", path: "/v1/messages",
+      accountName, userAgent, anthropicBeta,
+      sessionId, clientName, clientVersion,
+    }
+    try {
+      return await runnerExecute(c, runnerCtx, customOpenAIShim, {
+        provider, openAIPayload, originalModel: model,
+      })
+    } catch (error) {
+      return forwardError(c, error)
+    }
   }
 
   // --- Preprocessing: normalize model name, filter beta, detect server tools ---
@@ -468,196 +471,12 @@ async function handleAnthropicPassthrough(
   }
 }
 
-/** Handle OpenAI-format upstream (translate Anthropic→OpenAI request, translate response back) */
-async function handleOpenAIUpstream(
-  c: Context,
-  requestId: string,
-  payload: ChatCompletionsPayload,
-  startTime: number,
-  provider: CompiledProvider,
-  ctx: RequestContext,
-  originalModel: string,
-) {
-  const { accountName, sessionId, clientName, clientVersion } = ctx
-  const model = payload.model
-  const stream = !!payload.stream
-
-  try {
-    const response = await buildUpstreamClient("custom-openai").send({ provider, payload })
-
-    if (isChatCompletionResponse(response)) {
-      const anthropicResponse = translateToAnthropic(response, originalModel)
-      const latencyMs = Math.round(performance.now() - startTime)
-      const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0
-      const inputTokens = (response.usage?.prompt_tokens ?? 0) - cachedTokens
-      const outputTokens = response.usage?.completion_tokens ?? 0
-
-      logEmitter.emitLog({
-        ts: Date.now(), level: "info", type: "request_end", requestId,
-        msg: `200 ${model} ${latencyMs}ms`,
-        data: {
-          path: "/v1/messages", format: "anthropic", model: originalModel,
-          resolvedModel: response.model, translatedModel: model,
-          inputTokens, outputTokens, latencyMs,
-          ttftMs: null, processingMs: null,
-          stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, upstream: provider.name, upstreamFormat: provider.format,
-          accountName, sessionId, clientName, clientVersion,
-        },
-      })
-
-      return c.json(anthropicResponse)
-    }
-
-    // Streaming: translate OpenAI chunks → Anthropic events
-    const streamState: AnthropicStreamState = {
-      messageStartSent: false,
-      contentBlockIndex: 0,
-      contentBlockOpen: false,
-      toolCalls: {},
-    }
-    let resolvedModel = model
-    let inputTokens = 0
-    let outputTokens = 0
-    let streamError: string | null = null
-    let firstChunkTime: number | null = null
-    let lastToolCallCount = 0
-
-    return streamSSE(c, async (sseStream) => {
-      try {
-        for await (const rawEvent of response) {
-          // Preserve the exact upstream SSE bytes for §4.3 fixture capture
-          // before any translation. See util/emit-upstream-raw.ts.
-          emitUpstreamRawSse(requestId, { event: rawEvent.event, data: rawEvent.data })
-          if (rawEvent.data === "[DONE]") break
-          if (!rawEvent.data) continue
-
-          if (firstChunkTime === null) firstChunkTime = performance.now()
-
-          const chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
-
-          // Extract metrics
-          if (chunk.model) resolvedModel = chunk.model
-          if (chunk.usage) {
-            const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
-            inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
-            outputTokens = chunk.usage.completion_tokens ?? 0
-          }
-
-          const events = translateChunkToAnthropicEvents(chunk, streamState, originalModel, {
-            filterWhitespaceChunks: state.optFilterWhitespaceChunks,
-          })
-
-          // Debug: detect new tool calls
-          if (state.optToolCallDebug) {
-            const currentToolCallCount = Object.keys(streamState.toolCalls).length
-            if (currentToolCallCount > lastToolCallCount) {
-              const newToolCall = Object.values(streamState.toolCalls).reduce((newest, tc) =>
-                tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
-                { id: "", name: "", anthropicBlockIndex: -1 },
-              )
-              if (newToolCall.id) {
-                logEmitter.emitLog({
-                  ts: Date.now(), level: "debug", type: "sse_chunk", requestId,
-                  msg: `tool_use started: ${newToolCall.name}`,
-                  data: {
-                    eventType: "tool_use_start",
-                    toolName: newToolCall.name,
-                    toolId: newToolCall.id,
-                    blockIndex: newToolCall.anthropicBlockIndex,
-                  },
-                })
-              }
-            }
-            lastToolCallCount = currentToolCallCount
-          }
-
-          for (const event of events) {
-            await sseStream.writeSSE({
-              event: event.type,
-              data: JSON.stringify(event),
-            })
-          }
-        }
-      } catch (err) {
-        streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
-
-        try {
-          const errorEvent = translateErrorToAnthropicErrorEvent()
-          await sseStream.writeSSE({
-            event: errorEvent.type,
-            data: JSON.stringify(errorEvent),
-          })
-        } catch {
-          // Connection may be closed
-        }
-      } finally {
-        const endTime = performance.now()
-        const latencyMs = Math.round(endTime - startTime)
-        const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
-        const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
-
-        const baseData = {
-          path: "/v1/messages", format: "anthropic", model: originalModel,
-          resolvedModel, translatedModel: model,
-          inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
-          stream: true, status: streamError ? "error" : "success",
-          statusCode: streamError ? 502 : 200,
-          upstreamStatus: streamError ? null : 200,
-          upstream: provider.name, upstreamFormat: provider.format,
-          accountName, sessionId, clientName, clientVersion,
-        }
-
-        const debugData = state.optToolCallDebug && !streamError ? {
-          stopReason: "tool_use",
-          toolCallCount: Object.keys(streamState.toolCalls).length,
-          toolCallNames: Object.values(streamState.toolCalls).map(tc => tc.name),
-        } : {}
-
-        logEmitter.emitLog({
-          ts: Date.now(), level: streamError ? "error" : "info",
-          type: "request_end", requestId,
-          msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
-          data: {
-            ...baseData,
-            ...debugData,
-            ...(streamError && { error: streamError }),
-          },
-        })
-      }
-    })
-  } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/messages", format: "anthropic", model: originalModel, stream,
-        latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorDetail,
-        upstream: provider.name, upstreamFormat: provider.format,
-        accountName, sessionId, clientName, clientVersion,
-      },
-    })
-    return forwardError(c, error)
-  }
-}
 
 /** Type guard for Anthropic non-streaming response */
 function isAnthropicNonStreaming(
   response: AnthropicResponse | AsyncGenerator<ServerSentEvent>,
 ): response is AnthropicResponse {
   return typeof response === "object" && "type" in response && response.type === "message"
-}
-
-
-/** Type guard for OpenAI non-streaming response */
-function isChatCompletionResponse(
-  response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
-): response is ChatCompletionResponse {
-  return typeof response === "object" && "object" in response && response.object === "chat.completion"
 }
 
 // ===========================================================================
@@ -804,6 +623,163 @@ const copilotTranslatedShim: Strategy<
       return {
         model: result.req.originalModel,
         translatedModel: result.req.openAIPayload.model,
+      }
+    }
+    return {}
+  },
+}
+
+// ===========================================================================
+// G.10: Strategy shim — custom-openai (Anthropic client ↔ user-configured
+// OpenAI-format upstream). Translates Anthropic ↔ OpenAI in the route layer
+// (already done before runnerExecute) and runs translation on the response /
+// stream chunks. Local to this file; promoted in Phase H.
+// ===========================================================================
+
+interface CustomOpenAIUpReq {
+  provider: CompiledProvider
+  openAIPayload: ChatCompletionsPayload
+  originalModel: string
+}
+
+interface CustomOpenAIStreamState extends AnthropicStreamState {
+  resolvedModel: string
+  inputTokens: number
+  outputTokens: number
+  lastToolCallCount: number
+  originalModel: string
+}
+
+const customOpenAIShim: Strategy<
+  CustomOpenAIUpReq,
+  CustomOpenAIUpReq,
+  ChatCompletionResponse,
+  unknown,
+  ServerSentEvent,
+  SSEMessage,
+  CustomOpenAIStreamState
+> = {
+  name: "custom-openai",
+
+  prepare: (req) => req,
+
+  dispatch: async (up) => {
+    const response = await buildUpstreamClient("custom-openai").send({
+      provider: up.provider, payload: up.openAIPayload,
+    })
+    if (isNonStreaming(response)) {
+      return { kind: "json", body: response }
+    }
+    return { kind: "stream", chunks: response }
+  },
+
+  adaptJson: (resp, req) => translateToAnthropic(resp, req.originalModel),
+
+  initStreamState: (req) => ({
+    messageStartSent: false,
+    contentBlockIndex: 0,
+    contentBlockOpen: false,
+    toolCalls: {},
+    resolvedModel: req.openAIPayload.model,
+    inputTokens: 0,
+    outputTokens: 0,
+    lastToolCallCount: 0,
+    originalModel: req.originalModel,
+  }),
+
+  adaptChunk: (rawEvent, st, ctx) => {
+    emitUpstreamRawSse(ctx.requestId, { event: rawEvent.event, data: rawEvent.data })
+    if (rawEvent.data === "[DONE]") return []
+    if (!rawEvent.data) return []
+
+    const chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
+
+    if (chunk.model) st.resolvedModel = chunk.model
+    if (chunk.usage) {
+      const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
+      st.inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
+      st.outputTokens = chunk.usage.completion_tokens ?? 0
+    }
+
+    const events = translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
+      filterWhitespaceChunks: state.optFilterWhitespaceChunks,
+    })
+
+    if (state.optToolCallDebug) {
+      const currentToolCallCount = Object.keys(st.toolCalls).length
+      if (currentToolCallCount > st.lastToolCallCount) {
+        const newToolCall = Object.values(st.toolCalls).reduce((newest, tc) =>
+          tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
+          { id: "", name: "", anthropicBlockIndex: -1 },
+        )
+        if (newToolCall.id) {
+          logEmitter.emitLog({
+            ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
+            msg: `tool_use started: ${newToolCall.name}`,
+            data: {
+              eventType: "tool_use_start",
+              toolName: newToolCall.name,
+              toolId: newToolCall.id,
+              blockIndex: newToolCall.anthropicBlockIndex,
+            },
+          })
+        }
+      }
+      st.lastToolCallCount = currentToolCallCount
+    }
+
+    return events.map((event) => ({
+      event: event.type,
+      data: JSON.stringify(event),
+    }))
+  },
+
+  adaptStreamError: () => {
+    const errorEvent = translateErrorToAnthropicErrorEvent()
+    return [{
+      event: errorEvent.type,
+      data: JSON.stringify(errorEvent),
+    }]
+  },
+
+  describeEndLog: (result) => {
+    if (result.kind === "json") {
+      const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
+      const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
+      const outputTokens = result.resp.usage?.completion_tokens ?? 0
+      return {
+        model: result.req.originalModel,
+        resolvedModel: result.resp.model,
+        translatedModel: result.req.openAIPayload.model,
+        inputTokens, outputTokens,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
+      }
+    }
+    if (result.kind === "stream") {
+      const debugExtras = state.optToolCallDebug
+        ? {
+          stopReason: "tool_use",
+          toolCallCount: Object.keys(result.state.toolCalls).length,
+          toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name),
+        }
+        : {}
+      return {
+        model: result.req.originalModel,
+        resolvedModel: result.state.resolvedModel,
+        translatedModel: result.req.openAIPayload.model,
+        inputTokens: result.state.inputTokens,
+        outputTokens: result.state.outputTokens,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
+        ...debugExtras,
+      }
+    }
+    if (result.kind === "error") {
+      return {
+        model: result.req.originalModel,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
       }
     }
     return {}

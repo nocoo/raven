@@ -4,7 +4,7 @@
   "capturedAt": "2026-04-22T00:00:00Z",
   "proxy": {
     "l1TestCount": 1429,
-    "statementCoveragePct": 97.58,
+    "statementCoveragePct": 97.54,
     "_comment_perDirectoryCoveragePct": "Captured at C.7 from the current `bun run test` report. Phase E relocates routes/ → strategies/ and protocols/ → protocols/* so these keys will migrate; the gate skips directory-regression when a directory is absent from the live report (§4.5), which lets phases move code without re-editing this file. Update when a directory is intentionally removed.",
     "perDirectoryCoveragePct": {
       "composition": 97.44,
@@ -12,7 +12,7 @@
       "db": 98.85,
       "lib": 98.73,
       "protocols": 99.37,
-      "routes": 95.65,
+      "routes": 95.56,
       "services": 97.69,
       "strategies": 97.37,
       "upstream": 100.0,
