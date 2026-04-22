@@ -76,6 +76,7 @@ if (!skipTests) {
       "test/upstream",
       "test/composition",
       "test/core",
+      "test/strategies",
       "test/characterisation",
       "test/util",
       "test/ws",
