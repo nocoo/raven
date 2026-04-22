@@ -19,6 +19,7 @@ import type { Strategy } from "../core/strategy"
 import type { ServerSentEvent } from "../util/sse"
 import { buildUpstreamClient } from "./upstream-registry"
 import { makeCopilotOpenAIDirect } from "../strategies/copilot-openai-direct"
+import { makeCopilotNative } from "../strategies/copilot-native"
 
 export interface BuildStrategyDeps {
   /** Mirrors `state.optToolCallDebug`; passed in so strategies stay state-free. */
@@ -61,6 +62,9 @@ export function buildStrategy(
         toolCallDebug: deps.toolCallDebug,
       }) as unknown as AnyStrategy
     case "copilot-native":
+      return makeCopilotNative({
+        client: buildUpstreamClient("copilot-native"),
+      }) as unknown as AnyStrategy
     case "copilot-translated":
     case "copilot-responses":
     case "custom-openai":

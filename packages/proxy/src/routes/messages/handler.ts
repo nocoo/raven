@@ -16,6 +16,8 @@ import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
 import { generateRequestId } from "./../../util/id"
 import { deriveClientIdentity } from "./../../util/client-identity"
 import { buildUpstreamClient } from "../../composition/upstream-registry"
+import { dispatch as compositionDispatch } from "../../composition"
+import type { CopilotNativeUpReq } from "../../strategies/copilot-native"
 import type {
   ChatCompletionChunk,
   ChatCompletionResponse,
@@ -41,7 +43,7 @@ import { consumeStreamToResponse } from "../../protocols/translate/consume-strea
 export { consumeStreamToResponse } from "../../protocols/translate/consume-stream"
 import { preprocessPayload, translateModelName } from "./../../protocols/anthropic/preprocess"
 import { supportsNativeMessages } from "../../strategies/support/model-capabilities"
-import { handleCopilotNative } from "./native-handler"
+import { handleCopilotNativeServerTools } from "./native-handler"
 import { withServerToolInterception } from "../../strategies/support/server-tools"
 import { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
 export { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
@@ -206,16 +208,46 @@ export async function handleCompletion(c: Context) {
       },
     })
 
-    return handleCopilotNative(
-      c,
-      requestId,
-      cleanedPayload,
-      startTime,
-      copilotModel,
-      filteredBeta,
-      serverToolContext,
-      { accountName, sessionId, clientName, clientVersion },
-    )
+    // H.8: Server-tools sub-branch stays in the legacy handler until Phase I.
+    // The default (no server-tools) path routes through composition.dispatch.
+    const webSearchEnabled = state.stWebSearchEnabled && state.stWebSearchApiKey !== null
+    if (serverToolContext.hasServerSideTools && webSearchEnabled) {
+      return handleCopilotNativeServerTools(
+        c,
+        requestId,
+        cleanedPayload,
+        startTime,
+        copilotModel,
+        filteredBeta,
+        serverToolContext,
+        { accountName, sessionId, clientName, clientVersion },
+      )
+    }
+
+    // No server-tools: route through Runner via copilot-native strategy.
+    const runnerCtx: RunnerCtx = {
+      requestId, startTime, format: "anthropic", path: "/v1/messages",
+      stream,
+      accountName, userAgent, anthropicBeta,
+      sessionId, clientName, clientVersion,
+    }
+    const nativeReq: CopilotNativeUpReq = {
+      payload: cleanedPayload,
+      options: { copilotModel, anthropicBeta: filteredBeta },
+      originalModel: model,
+    }
+    try {
+      return await compositionDispatch(c, runnerCtx, nativeReq, "anthropic", {
+        model,
+        stream,
+        anthropicBeta,
+        providers: state.providers,
+        models: state.models?.data ?? [],
+        buildDeps: { toolCallDebug: state.optToolCallDebug },
+      })
+    } catch (error) {
+      return forwardError(c, error)
+    }
   }
 
   // --- Translated Path (non-Claude models via Copilot) ---

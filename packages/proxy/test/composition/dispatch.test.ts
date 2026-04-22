@@ -116,14 +116,14 @@ describe("composition/dispatch", () => {
 
   test("ok path with unregistered strategy throws StrategyNotRegisteredError", async () => {
     // Anthropic protocol with no matching custom-anthropic provider and a
-    // catalog model triggers copilot-translated route → not registered yet.
+    // non-claude catalog model triggers copilot-translated route → not registered yet.
     const ctx = makeCtx({ format: "anthropic", path: "/v1/messages" })
     let caught: unknown = null
     const app = makeApp(async (c) => {
       try {
-        return await dispatch(c, ctx, { model: "claude-opus-4.6" }, "anthropic", baseInput({
-          model: "claude-opus-4.6",
-          models: [{ id: "claude-opus-4.6" }],
+        return await dispatch(c, ctx, { model: "gpt-4o" }, "anthropic", baseInput({
+          model: "gpt-4o",
+          models: [{ id: "gpt-4o" }],
         }))
       } catch (e) {
         caught = e
@@ -141,8 +141,8 @@ describe("composition/dispatch", () => {
     const app = makeApp(async (c) => {
       try {
         return await dispatch(c, ctx, {}, "anthropic", baseInput({
-          model: "claude-opus-4.6",
-          models: [{ id: "claude-opus-4.6" }],
+          model: "gpt-4o",
+          models: [{ id: "gpt-4o" }],
           // anthropicBeta omitted — defaults to null inside dispatch
         }))
       } catch (e) {
