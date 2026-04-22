@@ -21,8 +21,8 @@ import type { ServerSentEvent } from "../../util/sse"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
-} from "./anthropic-types"
-import type { ServerToolContext } from "./preprocess"
+} from "../../protocols/anthropic/types"
+import type { ServerToolContext } from "../../protocols/anthropic/preprocess"
 import { withServerToolInterception } from "./server-tools"
 import {
   parseReasoningEffortError,

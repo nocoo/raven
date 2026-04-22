@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
 import { Hono } from "hono"
 import { state } from "../../src/lib/state"
-import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/protocols/anthropic/types"
 
 // We'll test the native handler through the main handleCompletion since handleCopilotNative
 // imports createNativeMessages directly, and we need to mock at the fetch level.

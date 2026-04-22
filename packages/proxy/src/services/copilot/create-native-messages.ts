@@ -14,7 +14,7 @@ import { getModelCapabilities } from "../../routes/messages/model-capabilities"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
-} from "../../routes/messages/anthropic-types"
+} from "../../protocols/anthropic/types"
 import type { ServerSentEvent } from "../../util/sse"
 
 const INTERLEAVED_THINKING_BETA = "interleaved-thinking-2025-05-14"

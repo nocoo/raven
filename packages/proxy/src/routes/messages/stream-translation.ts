@@ -3,7 +3,7 @@ import { type ChatCompletionChunk } from "./../../services/copilot/create-chat-c
 import {
   type AnthropicStreamEventData,
   type AnthropicStreamState,
-} from "./anthropic-types"
+} from "../../protocols/anthropic/types"
 import { mapOpenAIStopReasonToAnthropic } from "./utils"
 import { state as proxyState } from "./../../lib/state"
 

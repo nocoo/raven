@@ -7,7 +7,7 @@
 
 import { logEmitter } from "../../util/log-emitter"
 import { getModelCapabilities } from "./model-capabilities"
-import type { AnthropicMessagesPayload } from "./anthropic-types"
+import type { AnthropicMessagesPayload } from "../../protocols/anthropic/types"
 
 // Effort priority order (from highest to lowest)
 const EFFORT_PRIORITY = ["max", "xhigh", "high", "medium", "low"] as const

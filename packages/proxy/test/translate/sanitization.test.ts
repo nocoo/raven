@@ -10,7 +10,7 @@ import {
   sanitizeToolDefinitions,
 } from "../../src/routes/messages/non-stream-translation"
 import { translateToOpenAI } from "../../src/routes/messages/non-stream-translation"
-import type { AnthropicMessagesPayload, AnthropicTool, AnthropicToolUseBlock } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload, AnthropicTool, AnthropicToolUseBlock } from "../../src/protocols/anthropic/types"
 
 // ===========================================================================
 // Content Block Filtering Tests

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Hono } from "hono"
 import { streamAnthropicResponse } from "../../src/routes/messages/handler"
-import type { AnthropicResponse } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicResponse } from "../../src/protocols/anthropic/types"
 
 /** Collect SSE events from a Hono streaming response. */
 async function collectSSE(response: Response): Promise<Array<{ event: string | null; data: string }>> {

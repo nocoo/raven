@@ -23,7 +23,7 @@ import {
   type AnthropicToolUseBlock,
   type AnthropicUserContentBlock,
   type AnthropicUserMessage,
-} from "./anthropic-types"
+} from "../../protocols/anthropic/types"
 
 // ---------------------------------------------------------------------------
 // Sanitization Constants

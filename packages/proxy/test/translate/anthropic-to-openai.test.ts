@@ -3,7 +3,7 @@ import {
   translateToOpenAI,
   translateToAnthropic,
 } from "../../src/routes/messages/non-stream-translation"
-import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import type { ChatCompletionResponse } from "../../src/services/copilot/create-chat-completions"
 
 // ---------------------------------------------------------------------------

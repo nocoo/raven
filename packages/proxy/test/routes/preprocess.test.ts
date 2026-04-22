@@ -6,8 +6,8 @@ import {
   detectServerTools,
   preprocessPayload,
   ALLOWED_BETAS,
-} from "../../src/routes/messages/preprocess"
-import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
+} from "../../src/protocols/anthropic/preprocess"
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 
 // ---------------------------------------------------------------------------
 // Helper: minimal valid Anthropic request

@@ -2,7 +2,7 @@ import type { CompiledProvider } from "./../../db/providers"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
-} from "./../../routes/messages/anthropic-types"
+} from "./../../protocols/anthropic/types"
 import { events, type ServerSentEvent } from "./../../util/sse"
 import { HTTPError } from "./../../lib/error"
 import { getProxyUrl } from "./../../lib/socks5-bridge"

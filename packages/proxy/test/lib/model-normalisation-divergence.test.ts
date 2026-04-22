@@ -20,7 +20,7 @@ import { state } from "../../src/lib/state"
 import { resolveProvider } from "../../src/lib/upstream-router"
 import type { ProviderRecord } from "../../src/db/providers"
 import { compileProvider } from "../../src/db/providers"
-import { translateModelName } from "../../src/routes/messages/preprocess"
+import { translateModelName } from "../../src/protocols/anthropic/preprocess"
 
 const RAW_DATED = "claude-opus-4-6-20250820"
 const NORMALISED = "claude-opus-4.6"

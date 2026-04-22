@@ -5,10 +5,10 @@ import {
 import {
   translateChunkToAnthropicEvents,
 } from "../../src/routes/messages/stream-translation"
-import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
-import type { AnthropicStreamState } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
+import type { AnthropicStreamState } from "../../src/protocols/anthropic/types"
 import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions"
-import type { AnthropicStreamEventData } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicStreamEventData } from "../../src/protocols/anthropic/types"
 import { state } from "../../src/lib/state"
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { isServerSideTool, type AnthropicTool } from "../../src/routes/messages/anthropic-types"
+import { isServerSideTool, type AnthropicTool } from "../../src/protocols/anthropic/types"
 
 describe("isServerSideTool", () => {
   test("returns true for web_search_20260209", () => {

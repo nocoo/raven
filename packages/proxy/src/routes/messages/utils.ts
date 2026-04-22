@@ -1,4 +1,4 @@
-import { type AnthropicResponse } from "./anthropic-types"
+import { type AnthropicResponse } from "../../protocols/anthropic/types"
 
 export function mapOpenAIStopReasonToAnthropic(
   finishReason: "stop" | "length" | "tool_calls" | "content_filter" | null,

@@ -7,7 +7,7 @@ import {
   adjustEffortInPayload,
 } from "../../src/routes/messages/effort-fallback"
 import { state } from "../../src/lib/state"
-import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 
 // ---------------------------------------------------------------------------
 // isValidEffort

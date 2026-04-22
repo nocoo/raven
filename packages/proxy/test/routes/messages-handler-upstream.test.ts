@@ -4,7 +4,7 @@ import { handleCompletion } from "../../src/routes/messages/handler"
 import { state } from "../../src/lib/state"
 import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
-import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import type { ProviderRecord } from "../../src/db/providers"
 import { compileProvider } from "../../src/db/providers"
 

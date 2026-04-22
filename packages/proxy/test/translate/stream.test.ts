@@ -7,7 +7,7 @@ import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat
 import type {
   AnthropicStreamEventData,
   AnthropicStreamState,
-} from "../../src/routes/messages/anthropic-types"
+} from "../../src/protocols/anthropic/types"
 
 type Delta = ChatCompletionChunk["choices"][0]["delta"]
 

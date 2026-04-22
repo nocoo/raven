@@ -4,7 +4,7 @@ import {
   type NativeMessagesOptions,
 } from "../../src/services/copilot/create-native-messages"
 import { state } from "../../src/lib/state"
-import type { AnthropicMessagesPayload } from "../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 
 // ---------------------------------------------------------------------------
 // Helpers

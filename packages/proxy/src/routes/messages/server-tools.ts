@@ -23,8 +23,8 @@ import type {
   AnthropicWebSearchResult,
   AnthropicToolResultBlock,
   AnthropicMessage,
-} from "./anthropic-types"
-import type { ServerToolContext } from "./preprocess"
+} from "../../protocols/anthropic/types"
+import type { ServerToolContext } from "../../protocols/anthropic/preprocess"
 
 // ---------------------------------------------------------------------------
 // Types

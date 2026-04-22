@@ -26,7 +26,7 @@ import {
   type AnthropicMessagesPayload,
   type AnthropicResponse,
   type AnthropicStreamState,
-} from "./anthropic-types"
+} from "./../../protocols/anthropic/types"
 import {
   translateToAnthropic,
   translateToOpenAI,
@@ -35,8 +35,7 @@ import {
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
 } from "./stream-translation"
-import { preprocessPayload } from "./preprocess"
-import { translateModelName } from "./../../protocols/anthropic/preprocess"
+import { preprocessPayload, translateModelName } from "./../../protocols/anthropic/preprocess"
 import { supportsNativeMessages } from "./model-capabilities"
 import { handleCopilotNative } from "./native-handler"
 import { withServerToolInterception } from "./server-tools"

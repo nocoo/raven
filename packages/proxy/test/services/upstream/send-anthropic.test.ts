@@ -4,7 +4,7 @@ import { sendOpenAIDirect } from "./../../../src/services/upstream/send-openai"
 import type { ProviderRecord } from "./../../../src/db/providers"
 import type { CompiledProvider } from "./../../../src/db/providers"
 import { compileProvider } from "./../../../src/db/providers"
-import type { AnthropicMessagesPayload } from "./../../../src/routes/messages/anthropic-types"
+import type { AnthropicMessagesPayload } from "./../../../src/protocols/anthropic/types"
 import type { ChatCompletionsPayload } from "./../../../src/services/copilot/create-chat-completions"
 
 function makeProvider(

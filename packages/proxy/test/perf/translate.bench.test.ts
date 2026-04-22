@@ -1,7 +1,7 @@
 import { describe, expect, test, afterAll } from "bun:test";
 import { translateToOpenAI, translateToAnthropic } from "../../src/routes/messages/non-stream-translation.ts";
 import { translateChunkToAnthropicEvents } from "../../src/routes/messages/stream-translation.ts";
-import type { AnthropicMessagesPayload, AnthropicStreamState } from "../../src/routes/messages/anthropic-types.ts";
+import type { AnthropicMessagesPayload, AnthropicStreamState } from "../../src/protocols/anthropic/types.ts";
 import type { ChatCompletionResponse, ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions.ts";
 
 // Metrics collector for autoresearch (per-operation latency in nanoseconds)
