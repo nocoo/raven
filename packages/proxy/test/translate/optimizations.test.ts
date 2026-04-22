@@ -1,15 +1,37 @@
 import { describe, expect, test, beforeEach } from "bun:test"
 import {
-  translateToOpenAI,
+  translateToOpenAI as translateToOpenAIRaw,
 } from "../../src/protocols/translate/non-stream-translation"
 import {
-  translateChunkToAnthropicEvents,
+  translateChunkToAnthropicEvents as translateChunkToAnthropicEventsRaw,
 } from "../../src/protocols/translate/stream-translation"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import type { AnthropicStreamState } from "../../src/protocols/anthropic/types"
 import type { ChatCompletionChunk } from "../../src/services/copilot/create-chat-completions"
 import type { AnthropicStreamEventData } from "../../src/protocols/anthropic/types"
 import { state } from "../../src/lib/state"
+
+/**
+ * Test wrappers that thread the current global-state OPT-* flags into the
+ * now-pure translate helpers. These keep existing state.optX = true/false
+ * test patterns working after D.7 made the translators pure.
+ */
+function translateToOpenAI(payload: AnthropicMessagesPayload) {
+  return translateToOpenAIRaw(payload, {
+    sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
+    reorderToolResults: state.optReorderToolResults,
+  })
+}
+
+function translateChunkToAnthropicEvents(
+  chunk: ChatCompletionChunk,
+  streamState: AnthropicStreamState,
+  originalModel?: string,
+): Array<AnthropicStreamEventData> {
+  return translateChunkToAnthropicEventsRaw(chunk, streamState, originalModel, {
+    filterWhitespaceChunks: state.optFilterWhitespaceChunks,
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

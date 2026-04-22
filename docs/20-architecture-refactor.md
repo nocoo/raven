@@ -510,7 +510,7 @@ Goal: protocol code lives under `protocols/` (pure zone) and `strategies/support
 - **D.4** ✅ Extract `streamAnthropicResponse` into `strategies/support/anthropic-stream-writer.ts` with tests.
 - **D.5** ✅ Extract Responses resolvedModel/usage parsers into `protocols/responses/stream-state.ts` with tests.
 - **D.6** ✅ Update all importers (mechanical). Completed inline during D.1–D.5 — no residual stale imports remain (verified via grep for `routes/messages/{anthropic-types,preprocess,non-stream-translation,stream-translation,effort-fallback,server-tools,model-capabilities}`). `routes/messages/utils.ts` (one pure helper) intentionally stays until J.
-- **D.7** **Activate dep-cruiser rule #1** (authoritative): forbid any import from `packages/proxy/src/protocols/**` to `packages/proxy/src/infra/state`, `packages/proxy/src/util/log-emitter`, or `hono/streaming`. A redundant text grep `grep -rE "from.*(infra/state|util/log-emitter|hono/streaming)" packages/proxy/src/protocols/` runs alongside in CI, but the dep-cruiser rule — path-aware and immune to relative-path aliasing (`../../infra/state`) — is the authority.
+- **D.7** ✅ **Activate dep-cruiser rule #1** (authoritative): forbid any import from `packages/proxy/src/protocols/**` to `packages/proxy/src/infra/state`, `packages/proxy/src/util/log-emitter`, or `hono/streaming`. A redundant text grep `grep -rE "from.*(infra/state|util/log-emitter|hono/streaming)" packages/proxy/src/protocols/` runs alongside in CI, but the dep-cruiser rule — path-aware and immune to relative-path aliasing (`../../infra/state`) — is the authority.
 - Risk: low. Import-only, plus one locked purity rule.
 
 ### Phase E — Extract UpstreamClient

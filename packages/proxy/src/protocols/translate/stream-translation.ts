@@ -5,7 +5,11 @@ import {
   type AnthropicStreamState,
 } from "../anthropic/types"
 import { mapOpenAIStopReasonToAnthropic } from "../../routes/messages/utils"
-import { state as proxyState } from "../../lib/state"
+
+export interface StreamTranslateOptions {
+  /** When true, drop whitespace-only content deltas that produce blank lines in some clients. */
+  filterWhitespaceChunks?: boolean
+}
 
 function isToolBlockOpen(state: AnthropicStreamState): boolean {
   if (!state.contentBlockOpen) {
@@ -25,6 +29,7 @@ export function translateChunkToAnthropicEvents(
   chunk: ChatCompletionChunk,
   state: AnthropicStreamState,
   originalModel?: string,
+  options?: StreamTranslateOptions,
 ): Array<AnthropicStreamEventData> {
   const events: Array<AnthropicStreamEventData> = []
 
@@ -65,7 +70,7 @@ export function translateChunkToAnthropicEvents(
   if (delta.content) {
     // OPT-3: Skip whitespace-only content chunks that cause blank lines in some clients
     const skipWhitespace =
-      proxyState.optFilterWhitespaceChunks
+      options?.filterWhitespaceChunks
       && delta.content.trim() === ""
       && !delta.tool_calls?.length
       && !choice.finish_reason

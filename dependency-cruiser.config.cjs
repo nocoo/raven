@@ -14,7 +14,23 @@
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
-  forbidden: [],
+  forbidden: [
+    {
+      name: "protocols-are-pure",
+      comment:
+        "Phase D.7: protocols/ is the pure zone (§3.7). It must never reach into state, logging, or Hono streaming primitives. Those are impure concerns that live in strategies/support/ or routes/. A redundant grep check in CI acts as belt-and-braces; this rule is authoritative (path-aware, immune to ../../ aliasing).",
+      severity: "error",
+      from: { path: "^packages/proxy/src/protocols/" },
+      to: {
+        path: [
+          "^packages/proxy/src/infra/state",
+          "^packages/proxy/src/lib/state",
+          "^packages/proxy/src/util/log-emitter",
+          "^hono/streaming$",
+        ],
+      },
+    },
+  ],
   options: {
     doNotFollow: { path: "node_modules" },
     exclude: {

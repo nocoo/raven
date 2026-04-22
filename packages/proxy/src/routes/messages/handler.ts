@@ -129,7 +129,12 @@ export async function handleCompletion(c: Context) {
       })
     }
 
-    const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat, anthropicBeta })
+    const openAIPayload = translateToOpenAI(anthropicPayload, {
+      targetFormat,
+      anthropicBeta,
+      sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
+      reorderToolResults: state.optReorderToolResults,
+    })
     return handleOpenAIUpstream(
       c,
       requestId,
@@ -176,7 +181,12 @@ export async function handleCompletion(c: Context) {
 
   // --- Translated Path (non-Claude models via Copilot) ---
   // Reuse serverToolContext from preprocessed result (already computed above)
-  const openAIPayload = translateToOpenAI(anthropicPayload, { targetFormat: "copilot", anthropicBeta })
+  const openAIPayload = translateToOpenAI(anthropicPayload, {
+    targetFormat: "copilot",
+    anthropicBeta,
+    sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
+    reorderToolResults: state.optReorderToolResults,
+  })
 
   // Debug log if thinking was requested but dropped (Copilot doesn't support it)
   if (anthropicPayload.thinking?.type === "enabled") {
@@ -215,7 +225,12 @@ export async function handleCompletion(c: Context) {
     if (serverToolContext.hasServerSideTools && webSearchEnabled) {
       // Create sendRequest wrapper: Anthropic → OpenAI → send → OpenAI response → Anthropic
       const sendTranslatedRequest = async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
-        const translated = translateToOpenAI(p, { targetFormat: "copilot", anthropicBeta })
+        const translated = translateToOpenAI(p, {
+          targetFormat: "copilot",
+          anthropicBeta,
+          sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
+          reorderToolResults: state.optReorderToolResults,
+        })
         const streamResponse = await createChatCompletions({ ...translated, stream: true })
         const response = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
         return translateToAnthropic(response, model)
@@ -318,7 +333,9 @@ export async function handleCompletion(c: Context) {
             outputTokens = chunk.usage.completion_tokens ?? 0
           }
 
-          const events = translateChunkToAnthropicEvents(chunk, streamState, model)
+          const events = translateChunkToAnthropicEvents(chunk, streamState, model, {
+            filterWhitespaceChunks: state.optFilterWhitespaceChunks,
+          })
 
           // Debug: detect new tool calls
           if (state.optToolCallDebug) {
@@ -634,7 +651,9 @@ async function handleOpenAIUpstream(
             outputTokens = chunk.usage.completion_tokens ?? 0
           }
 
-          const events = translateChunkToAnthropicEvents(chunk, streamState, originalModel)
+          const events = translateChunkToAnthropicEvents(chunk, streamState, originalModel, {
+            filterWhitespaceChunks: state.optFilterWhitespaceChunks,
+          })
 
           // Debug: detect new tool calls
           if (state.optToolCallDebug) {

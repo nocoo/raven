@@ -78,8 +78,12 @@ export const TOOL_SCHEMA_FIELDS_TO_STRIP = [
 ] as const
 
 import { mapOpenAIStopReasonToAnthropic } from "../../routes/messages/utils"
-import { state } from "../../lib/state"
 import { logger } from "../../util/logger"
+
+interface MessageTranslateFlags {
+  sanitizeOrphanedToolResults: boolean
+  reorderToolResults: boolean
+}
 
 // ---------------------------------------------------------------------------
 // Sanitization Helpers
@@ -182,6 +186,10 @@ export type TranslateTargetFormat = "openai-reasoning" | "openai" | "copilot"
 export interface TranslateToOpenAIOptions {
   targetFormat?: TranslateTargetFormat
   anthropicBeta?: string | null
+  /** When true, drop tool_result blocks referencing unknown tool_use ids (OPT-1). */
+  sanitizeOrphanedToolResults?: boolean
+  /** When true, reorder tool_result blocks to match the prior assistant's tool_calls order (OPT-2). */
+  reorderToolResults?: boolean
 }
 
 export function translateToOpenAI(
@@ -193,6 +201,10 @@ export function translateToOpenAI(
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
       payload.system ?? undefined,
+      {
+        sanitizeOrphanedToolResults: options?.sanitizeOrphanedToolResults ?? false,
+        reorderToolResults: options?.reorderToolResults ?? false,
+      },
     ),
     max_tokens: payload.max_tokens,
   }
@@ -237,6 +249,7 @@ export function translateToOpenAI(
 function translateAnthropicMessagesToOpenAI(
   anthropicMessages: Array<AnthropicMessage>,
   system: string | Array<AnthropicTextBlock> | undefined,
+  flags: MessageTranslateFlags,
 ): Array<Message> {
   const systemMessages = handleSystemPrompt(system)
   const result: Array<Message> = []
@@ -251,7 +264,7 @@ function translateAnthropicMessagesToOpenAI(
       result.push(...translated)
       pendingToolCallIds = extractToolUseIds(message)
     } else {
-      const translated = handleUserMessage(message, pendingToolCallIds)
+      const translated = handleUserMessage(message, pendingToolCallIds, flags)
       result.push(...translated)
       pendingToolCallIds = []
     }
@@ -291,6 +304,7 @@ function handleSystemPrompt(
 function handleUserMessage(
   message: AnthropicUserMessage,
   pendingToolCallIds: string[],
+  flags: MessageTranslateFlags,
 ): Array<Message> {
   const newMessages: Array<Message> = []
 
@@ -312,7 +326,7 @@ function handleUserMessage(
     // OPT-1: Drop tool_result blocks referencing non-existent tool_use IDs.
     // When pendingToolCallIds is empty (assistant message was deleted by compaction),
     // ALL tool_results are orphans and should be dropped.
-    if (state.optSanitizeOrphanedToolResults) {
+    if (flags.sanitizeOrphanedToolResults) {
       const validIds = new Set(pendingToolCallIds)
       const before = toolResultBlocks.length
       toolResultBlocks = toolResultBlocks.filter((block) => {
@@ -330,7 +344,7 @@ function handleUserMessage(
     }
 
     // OPT-2: Reorder tool results to match tool_calls array order
-    if (state.optReorderToolResults && pendingToolCallIds.length > 0 && toolResultBlocks.length > 1) {
+    if (flags.reorderToolResults && pendingToolCallIds.length > 0 && toolResultBlocks.length > 1) {
       const idOrder = new Map(pendingToolCallIds.map((id, i) => [id, i]))
       toolResultBlocks.sort((a, b) => {
         const aIdx = idOrder.get(a.tool_use_id) ?? pendingToolCallIds.length
