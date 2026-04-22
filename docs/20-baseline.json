@@ -3,10 +3,11 @@
   "_doc": "See docs/20-architecture-refactor.md §4.5. Phase C.7 populated real numbers and flipped enforcement mode. Update this file after every phase that moves directories or adds/removes tests so the gate stays in sync.",
   "capturedAt": "2026-04-22T00:00:00Z",
   "proxy": {
-    "l1TestCount": 1342,
+    "l1TestCount": 1350,
     "statementCoveragePct": 97.42,
     "_comment_perDirectoryCoveragePct": "Captured at C.7 from the current `bun run test` report. Phase E relocates routes/ → strategies/ and protocols/ → protocols/* so these keys will migrate; the gate skips directory-regression when a directory is absent from the live report (§4.5), which lets phases move code without re-editing this file. Update when a directory is intentionally removed.",
     "perDirectoryCoveragePct": {
+      "composition": 97.44,
       "db": 98.85,
       "lib": 98.73,
       "protocols": 99.37,
@@ -27,6 +28,7 @@
     "regressionAllowanceAbsPct": 0.1,
     "_comment_perDirectoryFloors": "Floors are set 1pp below the captured baseline so normal per-commit noise doesn't trip the gate; real regressions are caught by the regression-from-baseline check which uses the stricter 0.1pp allowance.",
     "perDirectoryFloors": {
+      "composition": 96.0,
       "db": 97.0,
       "lib": 97.0,
       "protocols": 98.0,
