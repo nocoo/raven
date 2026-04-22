@@ -16,7 +16,11 @@ export async function handleCountTokens(c: Context) {
 
     const anthropicPayload = await c.req.json<AnthropicMessagesPayload>()
 
-    const openAIPayload = translateToOpenAI(anthropicPayload, { anthropicBeta: anthropicBeta ?? null })
+    const openAIPayload = translateToOpenAI(anthropicPayload, {
+      anthropicBeta: anthropicBeta ?? null,
+      sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
+      reorderToolResults: state.optReorderToolResults,
+    })
 
     const translatedModel = openAIPayload.model
     const selectedModel = state.models?.data.find(
