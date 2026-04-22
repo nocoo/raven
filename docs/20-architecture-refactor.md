@@ -581,8 +581,8 @@ Goal: collapse the duplicated per-protocol pipelines into 6 strategies. Prove th
 - **H.6** ✅ **Vertical-slice verification**: run Phase C `CopilotOpenAIDirect` goldens. Zero diff required before H.7 starts. This commit pins the 7-method interface.
 - **H.7** ✅ Add `strategies/copilot-native.ts` full 7-method + unit tests.
 - **H.8** ✅ Register `copilot-native` in strategy-registry; switch `routes/messages` native branch to `composition.dispatch`; run C.1 goldens.
-- **H.9** Add `strategies/copilot-responses.ts` + unit tests.
-- **H.10** Register `copilot-responses`; switch `routes/responses` to `composition.dispatch`; run C.4 goldens.
+- **H.9** ✅ Add `strategies/copilot-responses.ts` + unit tests.
+- **H.10** ✅ Register `copilot-responses`; switch `routes/responses` to `composition.dispatch`; run C.4 goldens.
 - **H.11** Add `strategies/custom-openai.ts` (OpenAI-client passthrough + Anthropic-client translated modes) + unit tests.
 - **H.12** Register `custom-openai`; switch relevant branches in both entries to `composition.dispatch`; run C.5 goldens.
 - **H.13** Add `strategies/custom-anthropic.ts` + unit tests.

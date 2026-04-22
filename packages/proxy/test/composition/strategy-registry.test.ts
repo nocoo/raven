@@ -34,6 +34,19 @@ describe("composition/strategy-registry", () => {
     expect(typeof s.initStreamState).toBe("function")
   })
 
+  test("returns a Strategy with name=copilot-responses for ok decision", () => {
+    const decision: StrategyDecision = { kind: "ok", name: "copilot-responses" }
+    const s = buildStrategy(decision, { toolCallDebug: false })
+    expect(s.name).toBe("copilot-responses")
+    expect(typeof s.prepare).toBe("function")
+    expect(typeof s.dispatch).toBe("function")
+    expect(typeof s.adaptJson).toBe("function")
+    expect(typeof s.adaptChunk).toBe("function")
+    expect(typeof s.adaptStreamError).toBe("function")
+    expect(typeof s.describeEndLog).toBe("function")
+    expect(typeof s.initStreamState).toBe("function")
+  })
+
   test("throws on non-ok decision (route must reject before reaching here)", () => {
     const reject: StrategyDecision = {
       kind: "reject",
@@ -48,10 +61,9 @@ describe("composition/strategy-registry", () => {
 
   test.each([
     "copilot-translated",
-    "copilot-responses",
     "custom-openai",
     "custom-anthropic",
-  ] satisfies StrategyName[])("throws StrategyNotRegisteredError for %s (pre-H.9+)", (name) => {
+  ] satisfies StrategyName[])("throws StrategyNotRegisteredError for %s (pre-H.11+)", (name) => {
     expect(() =>
       buildStrategy({ kind: "ok", name } as StrategyDecision, { toolCallDebug: false }),
     ).toThrow(StrategyNotRegisteredError)
