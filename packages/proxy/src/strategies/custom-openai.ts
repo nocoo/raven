@@ -127,10 +127,19 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
       if (!rawEvent.data) return st.originalModel ? [] : [rawEvent as SSEMessage]
 
       let chunk: ChatCompletionChunk
-      try {
+      if (st.originalModel) {
+        // Translated mode: a malformed chunk corrupts the Anthropic stream
+        // bookkeeping (block index, usage). Let it propagate so Runner
+        // surfaces an error event to the client and marks request_end as
+        // failed. Passthrough mode below tolerates parse failures because
+        // the bytes are forwarded verbatim regardless.
         chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
-      } catch {
-        return st.originalModel ? [] : [rawEvent as SSEMessage]
+      } else {
+        try {
+          chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
+        } catch {
+          return [rawEvent as SSEMessage]
+        }
       }
 
       if (chunk.model) st.resolvedModel = chunk.model

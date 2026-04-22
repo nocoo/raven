@@ -17,6 +17,7 @@ import type {
   CustomOpenAIRequest,
 } from "../../src/upstream/custom-openai"
 import type { ServerSentEvent } from "../../src/util/sse"
+import type { SSEMessage } from "hono/streaming"
 import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
 
@@ -226,6 +227,25 @@ describe("strategies/custom-openai", () => {
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
     const out = s.adaptChunk({ event: null, data: "[DONE]", id: null, retry: null }, st, makeCtx())
     expect(out).toHaveLength(0)
+  })
+
+  test("translated adaptChunk throws on malformed JSON so Runner emits error event", () => {
+    // Regression: prior code silently dropped malformed chunks in translated
+    // mode, which corrupted Anthropic block bookkeeping without surfacing
+    // any failure to the client.
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
+    expect(() =>
+      s.adaptChunk({ event: null, data: "{ not json", id: null, retry: null }, st, makeCtx()),
+    ).toThrow()
+  })
+
+  test("passthrough adaptChunk forwards malformed chunks verbatim (no throw)", () => {
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const st = s.initStreamState(makeReq(), makeCtx())
+    const raw: ServerSentEvent = { event: null, data: "{ not json", id: null, retry: null }
+    const out = s.adaptChunk(raw, st, makeCtx())
+    expect(out).toEqual([raw as unknown as SSEMessage])
   })
 
   test("translated adaptStreamError emits Anthropic-shaped error", () => {
