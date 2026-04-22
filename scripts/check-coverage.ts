@@ -69,6 +69,7 @@ if (!skipTests) {
       `--coverage-dir=${COV_DIR}`,
       "test/db",
       "test/lib",
+      "test/protocols",
       "test/routes",
       "test/services",
       "test/translate",

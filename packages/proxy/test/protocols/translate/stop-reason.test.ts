@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { mapOpenAIStopReasonToAnthropic } from "../../src/routes/messages/utils"
+import { mapOpenAIStopReasonToAnthropic } from "../../../src/protocols/translate/stop-reason"
 
 describe("mapOpenAIStopReasonToAnthropic", () => {
   test("stop → end_turn", () => {

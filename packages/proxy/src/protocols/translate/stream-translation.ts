@@ -4,7 +4,7 @@ import {
   type AnthropicStreamEventData,
   type AnthropicStreamState,
 } from "../anthropic/types"
-import { mapOpenAIStopReasonToAnthropic } from "../../routes/messages/utils"
+import { mapOpenAIStopReasonToAnthropic } from "./stop-reason"
 
 export interface StreamTranslateOptions {
   /** When true, drop whitespace-only content deltas that produce blank lines in some clients. */

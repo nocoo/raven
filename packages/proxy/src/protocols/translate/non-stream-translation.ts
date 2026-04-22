@@ -77,7 +77,7 @@ export const TOOL_SCHEMA_FIELDS_TO_STRIP = [
   "eager_input_streaming",
 ] as const
 
-import { mapOpenAIStopReasonToAnthropic } from "../../routes/messages/utils"
+import { mapOpenAIStopReasonToAnthropic } from "./stop-reason"
 
 interface MessageTranslateFlags {
   sanitizeOrphanedToolResults: boolean
