@@ -16,7 +16,7 @@ import type { CustomOpenAIUpReq } from "../../strategies/custom-openai"
 import type { CustomAnthropicUpReq } from "../../strategies/custom-anthropic"
 import type { CopilotTranslatedUpReq } from "../../strategies/copilot-translated"
 import type { ServerSentEvent } from "./../../util/sse"
-import { extractErrorDetails, forwardError } from "./../../lib/error"
+import { forwardError } from "./../../lib/error"
 
 import {
   type AnthropicMessagesPayload,
@@ -31,8 +31,7 @@ export { consumeStreamToResponse } from "../../protocols/translate/consume-strea
 import { preprocessPayload, translateModelName } from "./../../protocols/anthropic/preprocess"
 import { supportsNativeMessages } from "../../strategies/support/model-capabilities"
 import { handleCopilotNativeServerTools } from "./native-handler"
-import { withServerToolInterception } from "../../strategies/support/server-tools"
-import { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
+import { decorate as decorateServerTools } from "../../strategies/support/server-tools"
 export { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
 
 export async function handleCompletion(c: Context) {
@@ -295,71 +294,41 @@ export async function handleCompletion(c: Context) {
     })
   }
 
-  // G.9: server-tools sub-branch remains inline because it runs its own
-  // request loop via `withServerToolInterception`. Default (no server-tools)
-  // path below routes through composition.dispatch (copilot-translated strategy).
+  // I.2: server-tools sub-branch now runs through `decorate()` which wraps
+  // `withServerToolInterception` + the request_end log + SSE replay. The
+  // default (no server-tools) path below routes through composition.dispatch
+  // (copilot-translated strategy).
   if (serverToolContext.hasServerSideTools && webSearchEnabled) {
+    // Create sendRequest wrapper: Anthropic → OpenAI → send → OpenAI response → Anthropic
+    const sendTranslatedRequest = async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
+      const translated = translateToOpenAI(p, {
+        targetFormat: "copilot",
+        anthropicBeta,
+        sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
+        reorderToolResults: state.optReorderToolResults,
+      })
+      const streamResponse = await buildUpstreamClient("copilot-openai").send({ ...translated, stream: true })
+      const response = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
+      return translateToAnthropic(response, model)
+    }
+
     try {
-      // Create sendRequest wrapper: Anthropic → OpenAI → send → OpenAI response → Anthropic
-      const sendTranslatedRequest = async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
-        const translated = translateToOpenAI(p, {
-          targetFormat: "copilot",
-          anthropicBeta,
-          sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
-          reorderToolResults: state.optReorderToolResults,
-        })
-        const streamResponse = await buildUpstreamClient("copilot-openai").send({ ...translated, stream: true })
-        const response = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
-        return translateToAnthropic(response, model)
-      }
-
-      const serverToolResponse = await withServerToolInterception(
-        anthropicPayload,
+      return await decorateServerTools({
+        c, requestId, startTime, stream, model,
+        payload: anthropicPayload,
         serverToolContext,
-        sendTranslatedRequest,
-        requestId,
-      )
-
-      const latencyMs = Math.round(performance.now() - startTime)
-
-      logEmitter.emitLog({
-        ts: Date.now(), level: "info", type: "request_end", requestId,
-        msg: `200 ${model} ${latencyMs}ms (translated+server-tools)`,
-        data: {
-          path: "/v1/messages", format: "anthropic", model,
-          resolvedModel: serverToolResponse.model,
-          translatedModel: openAIPayload.model,
-          inputTokens: serverToolResponse.usage?.input_tokens ?? 0,
-          outputTokens: serverToolResponse.usage?.output_tokens ?? 0,
-          latencyMs,
-          ttftMs: null, processingMs: null,
-          stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, routingPath: "translated",
-          serverToolsUsed: true,
+        sendRequest: sendTranslatedRequest,
+        log: {
+          path: "/v1/messages", format: "anthropic",
           accountName, sessionId, clientName, clientVersion,
+          extras: {
+            translatedModel: openAIPayload.model,
+            routingPath: "translated",
+          },
         },
       })
-
-      // Client requested streaming — emit as SSE events
-      if (stream) {
-        return streamAnthropicResponse(c, serverToolResponse)
-      }
-      return c.json(serverToolResponse)
     } catch (error) {
-      const latencyMs = Math.round(performance.now() - startTime)
-      const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-      logEmitter.emitLog({
-        ts: Date.now(), level: "error", type: "request_end", requestId,
-        msg: `${statusCode} ${model} ${latencyMs}ms`,
-        data: {
-          path: "/v1/messages", format: "anthropic", model, stream,
-          latencyMs, status: "error", statusCode,
-          upstreamStatus, error: errorDetail, accountName,
-          sessionId, clientName, clientVersion,
-        },
-      })
-      throw error
+      return forwardError(c, error)
     }
   }
 
