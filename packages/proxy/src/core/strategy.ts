@@ -53,12 +53,14 @@ export type DispatchResult<UpResp, ChunkIn> =
  * can read out token counts, resolvedModel, etc. The `error` arm is used by
  * Runner when dispatch rejects before stream open or before JSON parse — it
  * lets the strategy still contribute its protocol-fixed fields (path, model,
- * upstream/upstreamFormat) to the failure log.
+ * upstream/upstreamFormat) to the failure log. Each arm carries the
+ * upstream request so strategies can recover request-scoped fields like the
+ * resolved provider without a side channel.
  */
-export type EndLogResult<UpResp, StreamState> =
-  | { kind: "json"; resp: UpResp }
-  | { kind: "stream"; state: StreamState }
-  | { kind: "error"; err: unknown }
+export type EndLogResult<UpReq, UpResp, StreamState> =
+  | { kind: "json"; req: UpReq; resp: UpResp }
+  | { kind: "stream"; req: UpReq; state: StreamState }
+  | { kind: "error"; req: UpReq; err: unknown }
 
 export interface Strategy<
   ClientReq,
@@ -99,7 +101,7 @@ export interface Strategy<
 
   /** Pure: produce strategy-specific fields for the Runner's request_end log. */
   describeEndLog(
-    result: EndLogResult<UpstreamResp, StreamState>,
+    result: EndLogResult<UpstreamReq, UpstreamResp, StreamState>,
     ctx: RequestContext,
   ): Record<string, unknown>
 

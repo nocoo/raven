@@ -1,6 +1,6 @@
 import type { Context } from "hono"
 
-import { streamSSE, type SSEMessage } from "hono/streaming"
+import { type SSEMessage } from "hono/streaming"
 
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
@@ -22,7 +22,7 @@ import type {
   ChatCompletionsPayload,
 } from "./../../upstream/copilot-openai"
 import type { ServerSentEvent } from "./../../util/sse"
-import { extractErrorDetails, forwardError } from "./../../lib/error"
+import { forwardError } from "./../../lib/error"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -71,14 +71,16 @@ export async function handleCompletion(c: Context) {
   if (decision.kind === "ok" && decision.name === "custom-openai") {
     const resolved = resolveProvider(model)
     if (!resolved) throw new Error(`router/handler drift: no provider for ${model}`)
-    return handleOpenAIPassthrough(
-      c,
-      requestId,
-      payload,
-      startTime,
-      resolved.provider,
-      { accountName, sessionId, clientName, clientVersion },
-    )
+    const runnerCtx: RunnerCtx = {
+      requestId, startTime, format: "openai", path: "/v1/chat/completions",
+      accountName, userAgent, anthropicBeta: null,
+      sessionId, clientName, clientVersion,
+    }
+    try {
+      return await runnerExecute(c, runnerCtx, customOpenAIShim, { provider: resolved.provider, payload })
+    } catch (error) {
+      return forwardError(c, error)
+    }
   }
 
   if (decision.kind === "reject") {
@@ -150,141 +152,121 @@ const isNonStreaming = (
 ): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
 
 // ===========================================================================
-// Custom upstream provider handlers
+// G.8: Strategy shim — custom-openai (passthrough). Local to this file; the
+// real `strategies/custom-openai.ts` lands in Phase H.
 // ===========================================================================
 
-interface RequestContext {
-  accountName: string
-  sessionId: string
-  clientName: string | null
-  clientVersion: string | null
+interface CustomOpenAIUpReq {
+  provider: CompiledProvider
+  payload: ChatCompletionsPayload
 }
 
-/** Handle OpenAI-format upstream with passthrough (no translation) */
-async function handleOpenAIPassthrough(
-  c: Context,
-  requestId: string,
-  payload: ChatCompletionsPayload,
-  startTime: number,
-  provider: CompiledProvider,
-  ctx: RequestContext,
-) {
-  const { accountName, sessionId, clientName, clientVersion } = ctx
-  const model = payload.model
-  const stream = !!payload.stream
+interface CustomOpenAIStreamState {
+  model: string
+  resolvedModel: string
+  inputTokens: number
+  outputTokens: number
+  upstream: string
+  upstreamFormat: string
+}
 
-  try {
-    const response = await buildUpstreamClient("custom-openai").send({ provider, payload })
+const customOpenAIShim: Strategy<
+  CustomOpenAIUpReq,
+  CustomOpenAIUpReq,
+  ChatCompletionResponse,
+  ChatCompletionResponse,
+  ServerSentEvent,
+  SSEMessage,
+  CustomOpenAIStreamState
+> = {
+  name: "custom-openai",
 
+  prepare: (req) => req,
+
+  dispatch: async (up) => {
+    const response = await buildUpstreamClient("custom-openai").send(up)
     if (isOpenAINonStreaming(response)) {
-      const latencyMs = Math.round(performance.now() - startTime)
-      const cachedTokens = response.usage?.prompt_tokens_details?.cached_tokens ?? 0
-      const inputTokens = (response.usage?.prompt_tokens ?? 0) - cachedTokens
-      const outputTokens = response.usage?.completion_tokens ?? 0
+      return { kind: "json", body: response }
+    }
+    return { kind: "stream", chunks: response }
+  },
 
-      logEmitter.emitLog({
-        ts: Date.now(), level: "info", type: "request_end", requestId,
-        msg: `200 ${model} ${latencyMs}ms`,
-        data: {
-          path: "/v1/chat/completions", format: "openai", model,
-          resolvedModel: response.model, inputTokens, outputTokens, latencyMs,
-          ttftMs: null, processingMs: null,
-          stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, upstream: provider.name, upstreamFormat: provider.format,
-          accountName, sessionId, clientName, clientVersion,
-        },
-      })
+  adaptJson: (resp) => resp,
 
-      return c.json(response)
+  initStreamState: (req) => ({
+    model: req.payload.model,
+    resolvedModel: req.payload.model,
+    inputTokens: 0,
+    outputTokens: 0,
+    upstream: req.provider.name,
+    upstreamFormat: req.provider.format,
+  }),
+
+  adaptChunk: (chunk, st, ctx) => {
+    emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
+
+    if (chunk.data && chunk.data !== "[DONE]") {
+      try {
+        const parsed = JSON.parse(chunk.data)
+        if (parsed.model) st.resolvedModel = parsed.model
+        if (parsed.usage) {
+          const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
+          st.inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
+          st.outputTokens = parsed.usage.completion_tokens ?? 0
+        }
+      } catch {
+        // Parse error for metrics — don't break stream
+      }
     }
 
-    // Streaming: passthrough SSE events directly
-    let resolvedModel = model
-    let inputTokens = 0
-    let outputTokens = 0
-    let streamError: string | null = null
-    let firstChunkTime: number | null = null
+    return [chunk as SSEMessage]
+  },
 
-    return streamSSE(c, async (sseStream) => {
-      try {
-        for await (const chunk of response) {
-          emitUpstreamRawSse(requestId, { event: chunk.event, data: chunk.data })
-          if (firstChunkTime === null) firstChunkTime = performance.now()
+  adaptStreamError: () => [
+    {
+      data: JSON.stringify({
+        error: {
+          message: "An upstream error occurred during streaming.",
+          type: "server_error",
+          code: "stream_error",
+        },
+      }),
+    },
+  ],
 
-          await sseStream.writeSSE(chunk as SSEMessage)
-
-          // Extract metrics from chunk data
-          if (chunk.data && chunk.data !== "[DONE]") {
-            try {
-              const parsed = JSON.parse(chunk.data)
-              if (parsed.model) resolvedModel = parsed.model
-              if (parsed.usage) {
-                const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
-                inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
-                outputTokens = parsed.usage.completion_tokens ?? 0
-              }
-            } catch {
-              // Parse error for metrics — don't break stream
-            }
-          }
-        }
-      } catch (err) {
-        streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
-
-        try {
-          await sseStream.writeSSE({
-            data: JSON.stringify({
-              error: {
-                message: "An upstream error occurred during streaming.",
-                type: "server_error",
-                code: "stream_error",
-              },
-            }),
-          })
-        } catch {
-          // Connection may be closed
-        }
-      } finally {
-        const endTime = performance.now()
-        const latencyMs = Math.round(endTime - startTime)
-        const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
-        const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
-
-        logEmitter.emitLog({
-          ts: Date.now(), level: streamError ? "error" : "info",
-          type: "request_end", requestId,
-          msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
-          data: {
-            path: "/v1/chat/completions", format: "openai", model,
-            resolvedModel, inputTokens, outputTokens, latencyMs,
-            ttftMs, processingMs,
-            stream: true, status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
-            upstreamStatus: streamError ? null : 200,
-            upstream: provider.name, upstreamFormat: provider.format,
-            accountName, sessionId, clientName, clientVersion,
-            ...(streamError && { error: streamError }),
-          },
-        })
+  describeEndLog: (result) => {
+    if (result.kind === "json") {
+      const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
+      const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
+      const outputTokens = result.resp.usage?.completion_tokens ?? 0
+      return {
+        model: result.resp.model,
+        resolvedModel: result.resp.model,
+        inputTokens,
+        outputTokens,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
       }
-    })
-  } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/chat/completions", format: "openai", model, stream,
-        latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorDetail,
-        upstream: provider.name, upstreamFormat: provider.format,
-        accountName, sessionId, clientName, clientVersion,
-      },
-    })
-    return forwardError(c, error)
-  }
+    }
+    if (result.kind === "stream") {
+      return {
+        model: result.state.model,
+        resolvedModel: result.state.resolvedModel,
+        inputTokens: result.state.inputTokens,
+        outputTokens: result.state.outputTokens,
+        upstream: result.state.upstream,
+        upstreamFormat: result.state.upstreamFormat,
+      }
+    }
+    if (result.kind === "error") {
+      return {
+        model: result.req.payload.model,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
+      }
+    }
+    return {}
+  },
 }
 
 /** Type guard for OpenAI non-streaming response */

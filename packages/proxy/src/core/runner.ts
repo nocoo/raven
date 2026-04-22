@@ -34,13 +34,13 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
   try {
     dispatched = await strategy.dispatch(upstreamReq, ctx)
   } catch (err) {
-    emitErrorEnd(ctx, strategy, err, { stream: false })
+    emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: false })
     throw err
   }
 
   if (dispatched.kind === "json") {
     const clientResp = strategy.adaptJson(dispatched.body, ctx)
-    emitSuccessEnd(ctx, strategy, dispatched.body)
+    emitSuccessEnd(ctx, strategy, upstreamReq, dispatched.body)
     return c.json(clientResp as Record<string, unknown>)
   }
 
@@ -78,7 +78,7 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
         }
       }
     } finally {
-      emitStreamEnd(ctx, strategy, state, firstChunkTime, streamError)
+      emitStreamEnd(ctx, strategy, upstreamReq, state, firstChunkTime, streamError)
     }
   })
 }
@@ -86,10 +86,11 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
 function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   ctx: RequestContext,
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
+  req: UpReq,
   resp: UpResp,
 ): void {
   const latencyMs = Math.round(performance.now() - ctx.startTime)
-  const extras = strategy.describeEndLog({ kind: "json", resp }, ctx)
+  const extras = strategy.describeEndLog({ kind: "json", req, resp }, ctx)
   logEmitter.emitLog({
     ts: Date.now(),
     level: "info",
@@ -118,6 +119,7 @@ function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>
 function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   ctx: RequestContext,
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
+  req: UpReq,
   state: St,
   firstChunkTime: number | null,
   err: unknown | null,
@@ -126,7 +128,7 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
     ctx.startTime,
     firstChunkTime,
   )
-  const extras = strategy.describeEndLog({ kind: "stream", state }, ctx)
+  const extras = strategy.describeEndLog({ kind: "stream", req, state }, ctx)
   const errorDetail = err
     ? err instanceof Error
       ? `stream error: ${err.message}`
@@ -162,12 +164,13 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
 function emitErrorEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   ctx: RequestContext,
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
+  req: UpReq,
   err: unknown,
   opts: { stream: boolean },
 ): void {
   const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(err)
   const latencyMs = Math.round(performance.now() - ctx.startTime)
-  const extras = strategy.describeEndLog({ kind: "error", err }, ctx)
+  const extras = strategy.describeEndLog({ kind: "error", req, err }, ctx)
   logEmitter.emitLog({
     ts: Date.now(),
     level: "error",
