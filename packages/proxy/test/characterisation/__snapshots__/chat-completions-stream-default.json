@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "branch": "chat-completions-stream-default",
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4o",
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "upstreamChunks": [
+    "data: {\"id\":\"c1\",\"model\":\"gpt-4o-2024-08-06\",\"choices\":[{\"delta\":{\"role\":\"assistant\"},\"index\":0}]}\n\n",
+    "data: {\"id\":\"c1\",\"model\":\"gpt-4o-2024-08-06\",\"choices\":[{\"delta\":{\"content\":\"Hi\"},\"index\":0}]}\n\n",
+    "data: {\"id\":\"c1\",\"model\":\"gpt-4o-2024-08-06\",\"choices\":[{\"delta\":{},\"index\":0,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":50,\"completion_tokens\":10,\"total_tokens\":60,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\n",
+    "data: [DONE]\n\n"
+  ],
+  "responseStatus": 200,
+  "responseHeaders": {
+    "content-type": "text/event-stream",
+    "transfer-encoding": "chunked"
+  },
+  "responseBody": "data: {\"id\":\"c1\",\"model\":\"gpt-4o-2024-08-06\",\"choices\":[{\"delta\":{\"role\":\"assistant\"},\"index\":0}]}\n\ndata: {\"id\":\"c1\",\"model\":\"gpt-4o-2024-08-06\",\"choices\":[{\"delta\":{\"content\":\"Hi\"},\"index\":0}]}\n\ndata: {\"id\":\"c1\",\"model\":\"gpt-4o-2024-08-06\",\"choices\":[{\"delta\":{},\"index\":0,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":50,\"completion_tokens\":10,\"total_tokens\":60,\"prompt_tokens_details\":{\"cached_tokens\":0}}}\n\ndata: [DONE]\n\n",
+  "endLog": {
+    "path": "/v1/chat/completions",
+    "format": "openai",
+    "model": "gpt-4o",
+    "resolvedModel": "gpt-4o-2024-08-06",
+    "inputTokens": 50,
+    "outputTokens": 10,
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200
+  }
+}

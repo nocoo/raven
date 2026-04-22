@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "branch": "responses-stream",
+  "request": {
+    "method": "POST",
+    "path": "/v1/responses",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-5",
+      "stream": true,
+      "input": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "upstreamChunks": [
+    "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-5-2025-09\"}}\n\n",
+    "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"Hello\"}\n\n",
+    "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"usage\":{\"input_tokens\":11,\"output_tokens\":1,\"total_tokens\":12}}}\n\n"
+  ],
+  "responseStatus": 200,
+  "responseHeaders": {
+    "content-type": "text/event-stream",
+    "transfer-encoding": "chunked"
+  },
+  "responseBody": "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-5-2025-09\"}}\n\nevent: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"Hello\"}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"usage\":{\"input_tokens\":11,\"output_tokens\":1,\"total_tokens\":12}}}\n\n",
+  "endLog": {
+    "path": "/v1/responses",
+    "format": "responses",
+    "model": "gpt-5",
+    "resolvedModel": "gpt-5-2025-09",
+    "inputTokens": 11,
+    "outputTokens": 1,
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200
+  }
+}

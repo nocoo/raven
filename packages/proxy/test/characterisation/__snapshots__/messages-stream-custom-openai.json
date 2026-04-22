@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "branch": "messages-stream-custom-openai",
+  "request": {
+    "method": "POST",
+    "path": "/v1/messages",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-4-custom",
+      "max_tokens": 1024,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "upstreamChunks": [
+    "data: {\"id\":\"x1\",\"model\":\"gpt-4-custom\",\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":null},\"index\":0}]}\n\n",
+    "data: {\"id\":\"x1\",\"model\":\"gpt-4-custom\",\"choices\":[{\"delta\":{\"content\":\"Hi\"},\"index\":0}]}\n\n",
+    "data: {\"id\":\"x1\",\"model\":\"gpt-4-custom\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\",\"index\":0}],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n",
+    "data: [DONE]\n\n"
+  ],
+  "responseStatus": 200,
+  "responseHeaders": {
+    "content-type": "text/event-stream",
+    "transfer-encoding": "chunked"
+  },
+  "responseBody": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"x1\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"gpt-4-custom\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"cache_creation_input_tokens\":null,\"cache_read_input_tokens\":null,\"service_tier\":null}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":8,\"output_tokens\":2,\"cache_creation_input_tokens\":null,\"cache_read_input_tokens\":null}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+  "endLog": {
+    "path": "/v1/messages",
+    "format": "anthropic",
+    "model": "gpt-4-custom",
+    "resolvedModel": "gpt-4-custom",
+    "translatedModel": "gpt-4-custom",
+    "inputTokens": 8,
+    "outputTokens": 2,
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "upstream": "OpenAIProvider",
+    "upstreamFormat": "openai"
+  }
+}

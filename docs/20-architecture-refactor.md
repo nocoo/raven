@@ -549,7 +549,7 @@ Goal: a single pure function answers "given this request, which strategy runs?",
 
 Goal: the 4 duplicated `streamSSE` templates collapse into one `core/runner.ts`. **JSON path first, stream path second**; each handler branch ported in its own commit.
 
-- **G.1** Characterisation: for every streaming handler branch, snapshot the complete SSE byte stream + `request_end` field bag under `test/characterisation/`. These are the byte-level diff targets for G.6–G.12.
+- **G.1** ✅ Characterisation: for every streaming handler branch, snapshot the complete SSE byte stream + `request_end` field bag under `test/characterisation/`. These are the byte-level diff targets for G.6–G.12.
 - **G.2** Add `core/context.ts::RequestContext` + `buildContext` + unit tests.
 - **G.3** Add `core/runner.ts` skeleton — **JSON path only**. Fake-strategy tests cover §4.5(4) paths a (JSON success), d (upstream rejection), e (finally log emission).
 - **G.4** Add `core/stream-runner.ts` SSE read/write helpers + unit tests. Not yet wired into Runner.

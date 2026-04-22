@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "branch": "messages-stream-anthropic-passthrough",
+  "request": {
+    "method": "POST",
+    "path": "/v1/messages",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "claude-3-5-sonnet-20241022",
+      "max_tokens": 1024,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "upstreamChunks": [
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg-1\",\"model\":\"claude-3-5-sonnet-20241022\",\"role\":\"assistant\",\"content\":[],\"usage\":{\"input_tokens\":7,\"output_tokens\":0}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+  ],
+  "responseStatus": 200,
+  "responseHeaders": {
+    "content-type": "text/event-stream",
+    "transfer-encoding": "chunked"
+  },
+  "responseBody": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg-1\",\"model\":\"claude-3-5-sonnet-20241022\",\"role\":\"assistant\",\"content\":[],\"usage\":{\"input_tokens\":7,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"input_tokens\":7,\"output_tokens\":2}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+  "endLog": {
+    "path": "/v1/messages",
+    "format": "anthropic",
+    "model": "claude-3-5-sonnet-20241022",
+    "inputTokens": 7,
+    "outputTokens": 2,
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "upstream": "AnthropicProvider",
+    "upstreamFormat": "anthropic"
+  }
+}
