@@ -69,7 +69,7 @@ Out of scope (remain as-is):
 
 - Two-pass provider matching (`exact` > `glob`).
 - Pre-compiled `CompiledProvider.patterns` in `state.providers`.
-- Anti-ban invariants (1 request per E2E test, fail-fast). **Suspended during the refactor** (§1.2) and **restored in Step 10**.
+- Anti-ban invariants (1 request per E2E test, fail-fast). **Suspended during the refactor** (§1.2) and **restored in Phase J**.
 - Structured logging events (`request_start`, `request_end`, `sse_chunk`, `upstream_error`) and their field set.
 - Rate limit check at the top of every request.
 - `X-Initiator: agent|user` header logic in Copilot chat completions.
@@ -302,12 +302,16 @@ packages/proxy/src/
 
 ### 3.7 Layering rules (enforced by review, later by dependency-cruiser)
 
-- `routes/` may import only `core/`, `infra/middleware`, and Hono.
-- `strategies/` may import `protocols/`, `strategies/support/`, `upstream/`, `core/context`, `infra/state` (read-only), `util/log-emitter`.
-- `strategies/support/` may import `protocols/`, `infra/state`, `util/log-emitter`, `lib/server-tools/*`. This is the only place in the post-refactor tree where "impure protocol helpers" live.
-- `protocols/` is strictly pure. No `state` import. No `fetch`. No `logEmitter`. No `hono/streaming`. CI check: `grep -rE "from.*(lib/state|util/log-emitter|hono/streaming)" src/protocols/` must be empty.
+- `routes/` may import only `core/`, `composition/`, `infra/middleware`, and Hono. **Not** `strategies/`, `upstream/`, `protocols/`, or `infra/state`.
+- `strategies/*.ts` (the strategy concretions themselves) may import `protocols/`, `strategies/support/`, `upstream/`, `core/context`, `util/log-emitter`. **`strategies/*.ts` may NOT import `infra/state` directly.** Any state-derived value (tokens, providers, models catalog, feature flags, debug toggles) must be read through a `strategies/support/` helper that the strategy receives by explicit parameter or constructor injection.
+- `strategies/support/` may import `protocols/`, `infra/state`, `util/log-emitter`, `lib/server-tools/*`. This is the only place in the post-refactor tree where "impure protocol helpers" live, and it is the only layer outside `infra/`, `composition/`, and `util/` allowed to import `infra/state`.
+- `protocols/` is strictly pure. No `infra/state` import. No `fetch`. No `util/log-emitter`. No `hono/streaming`. Enforcement is **primarily dep-cruiser** (rule activated in D.7); a text grep `grep -rE "from.*(infra/state|util/log-emitter|hono/streaming)" packages/proxy/src/protocols/` is kept as a redundant CI check but is not authoritative — dep-cruiser is.
 - `upstream/` is the only layer allowed to call `fetch`. It accepts config via constructor, never touches `state` at call time.
 - `core/` may not import `strategies/` or `upstream/` concretions — only interfaces.
+
+Canonical state-access rule (single source of truth, referenced by §5 D.7 / J.7 and §8 acceptance):
+
+> **Only `infra/`, `composition/`, `strategies/support/`, and `util/` may import `infra/state`.** Anywhere else — `routes/`, `protocols/`, `core/`, `strategies/*.ts` (concretions), `upstream/` — is a violation. Enforcement is primarily dep-cruiser (path-aware, immune to relative-path aliasing); any text grep in this document is a belt-and-braces check, not the authority.
 
 ### 3.8 Composition root and strategy instantiation
 
@@ -336,13 +340,12 @@ Responsibilities:
     → either reject early or buildStrategy(...) + runner.execute(...)
   ```
 
-Layering update (replaces the relevant bullet in §3.7):
+Layering clarifications specific to the composition root (§3.7 is already consistent with these; repeated here for proximity to the handler example below):
 
-- `routes/` may import `core/`, `composition/`, `infra/middleware`, and Hono. **Not** `strategies/` or `upstream/`.
 - `composition/` is the only module allowed to import concretions from both `strategies/` and `upstream/`.
-- `core/` still does not depend on `strategies/` or `upstream/`.
+- `core/` does not depend on `strategies/` or `upstream/`.
 
-Handler shape after refactor (Step 5) becomes:
+Handler shape after refactor (Phase H) becomes:
 
 ```
 routes.post("/", async (c) => {
@@ -399,7 +402,7 @@ Execution rules during refactor:
 - Run the full suite **before** and **after** each migration step; block the step if any scenario regresses.
 - Fail-fast is optional. Retries are allowed. Rate-limit concerns are explicitly deferred.
 - Each scenario asserts: HTTP status, token usage shape, event ordering (golden file), `request_end` log fields, and final assembled text/tool-call content.
-- Golden files are captured once on `main` before Step 1 and diffed on every run; any diff requires a justified review.
+- Golden files are captured once on `main` during Phase C and diffed on every run; any diff requires a justified review.
 
 Execution rules after refactor merges:
 
@@ -423,14 +426,14 @@ Execution rules after refactor merges:
 
 Coverage is enforced **at every atomic commit**, not only at refactor end. The gate is intentionally stricter than the repo's 90% floor:
 
-1. **Global floor.** Proxy L1 statement coverage must stay **≥ 95.0%** at every commit. Baseline recorded in `docs/20-baseline.json` (Step 0) is the numeric source of truth; no commit may regress it by more than 0.1 absolute percentage points without a §7 waiver.
+1. **Global floor.** Proxy L1 statement coverage must stay **≥ 95.0%** at every commit. Baseline recorded in `docs/20-baseline.json` (Phase A/C) is the numeric source of truth; no commit may regress it by more than 0.1 absolute percentage points without a §7 waiver.
 2. **New-module floor.** Any file created under `core/`, `protocols/`, `strategies/`, `upstream/`, or `composition/` ships with **≥ 95% statement coverage and 100% branch coverage on public exports** in the same commit that introduces it. A new file without matching tests fails the commit.
 3. **Pure-zone stricter floor.** `protocols/` and `core/router.ts` require **100% branch coverage**. These are pure, small, and high-value — there is no excuse for an uncovered branch.
 4. **Runner streaming paths.** `core/runner.ts` must cover, at minimum: (a) JSON success, (b) stream success, (c) stream error thrown mid-flight (per protocol via fake strategy), (d) upstream rejection before stream open, (e) `finally` log emission on both success and error. Missing any of these fails the commit.
-5. **Enforcement mechanism.** `scripts/check-coverage.ts` (added in commit 0.2) runs at pre-commit as part of L1; it reads `docs/20-baseline.json`, compares current `bun run test --coverage` output, and blocks commits that regress the global floor or land new files without coverage. The same script runs in CI and at pre-push.
+5. **Enforcement mechanism.** `scripts/check-coverage.ts` (added in A.1) runs at pre-commit as part of L1; it reads `docs/20-baseline.json`, compares current `bun run test --coverage` output, and blocks commits that regress the global floor or land new files without coverage. The same script runs in CI and at pre-push.
 6. **Test-count floor.** Total proxy L1 test count must only decrease when the net change in the commit deletes code or merges duplicate tests; it may not decrease merely because tests were removed without replacement. Tests deleted as part of the state-mutation migration (§4.4) must be replaced by injection-based equivalents in the same commit.
 
-The practical consequence: a commit like "extract Runner" (1.2) that does not also land `test/core/runner.test.ts` will not pass its own pre-commit hook. Every atomic commit is self-contained — its tests live with it.
+The practical consequence: a commit like "extract Runner" (G.3) that does not also land `test/core/runner.test.ts` will not pass its own pre-commit hook. Every atomic commit is self-contained — its tests live with it.
 
 ---
 
@@ -438,131 +441,175 @@ The practical consequence: a commit like "extract Runner" (1.2) that does not al
 
 ### 5.0 Atomic-commit convention
 
-Each Step below is not a single PR but a **numbered series of atomic commits** `N.1`, `N.2`, …. Rules:
+Each Phase below is not a single PR but a **numbered series of atomic commits** `<Phase>.N`. Rules:
 
-- **Atomic.** Each commit is independently revertible. Reverting 3.4 must not require reverting 3.5.
+- **Atomic.** Each commit is independently revertible. Reverting G.5 must not require reverting G.6.
 - **Green on its own.** Each commit passes: `bun run test` (L1), `bun run typecheck`, `bun run lint`, `scripts/check-coverage.ts` (§4.5), and — for commits that touch handler/strategy/upstream/composition code — the refactor E2E safety net (§4.3).
 - **Tests co-located.** A commit that adds a new module also adds its tests in the same commit. "Code in one commit, tests in the next" is forbidden.
-- **Message prefix.** `refactor(N.M): <imperative summary>`. Body explains what the commit does, what it does not do, and which follow-up commit picks up deferred work.
-- **PR grouping.** A Step may land as one PR (all commits together) or as a sequence of small PRs; the commit chain within a PR must still be atomic and individually green.
-- **No behaviour change without marker.** Non-mechanical commits carry `refactor(N.M)!:` (breaking-marker) and document the observable delta in the body.
-- **Numbering gap policy.** If a commit is abandoned mid-Step, keep the gap — do not renumber. Downstream references stay stable.
+- **Message prefix.** `refactor(<Phase>.N): <imperative summary>`. Body explains what the commit does, what it does not do, and which follow-up commit picks up deferred work.
+- **PR grouping.** A Phase may land as one PR (all commits together) or as a sequence of small PRs; the commit chain within a PR must still be atomic and individually green.
+- **No behaviour change without marker.** Non-mechanical commits carry `refactor(<Phase>.N)!:` (breaking-marker) and document the observable delta in the body.
+- **Numbering gap policy.** If a commit is abandoned mid-Phase, keep the gap — do not renumber. Downstream references stay stable.
 
-Every Step's first commit is a test/fixture-only commit (`N.0`) that locks the pre-Step behaviour with characterisation tests before any production code moves. The final commit of each Step (`N.last`) re-runs the full §4.3 safety net and records the diff (expected: no diff) in the PR description.
+Every Phase that introduces behaviour-sensitive changes starts with a characterisation/fixture commit that locks pre-Phase behaviour before any production code moves. The final commit of any Phase that touches handler/strategy/upstream/composition code re-runs the §4.3 safety net and records the diff (expected: no diff) in the PR description.
 
-### Step 0 — Build the E2E safety net and record baseline
+### 5.0.1 Phase ordering rationale
 
-- **0.1** Add `test/e2e/refactor/` skeleton, `bun run test:e2e:full` script, and the scenario matrix from §4.3 as empty `.skip` tests. No real requests yet.
-- **0.2** Add `scripts/check-coverage.ts` (§4.5 enforcement) and wire it into pre-commit L1; gate passes at current 95.6%.
-- **0.3** Implement `CopilotNative` scenarios (2 models × {stream, non-stream, tool_use, web_search}); capture golden SSE traces and `request_end` fixtures under `test/e2e/refactor/__golden__/copilot-native/`.
-- **0.4** Implement `CopilotTranslated` scenarios; capture goldens.
-- **0.5** Implement `CopilotOpenAIDirect` scenarios; capture goldens.
-- **0.6** Implement `CopilotResponses` scenarios (including `response.failed`); capture goldens.
-- **0.7** Implement `CustomOpenAI` scenarios (requires two test providers configured); capture goldens.
-- **0.8** Implement `CustomAnthropic` scenarios; capture goldens.
-- **0.9** Commit `docs/20-baseline.json` with the measured proxy L1 test count, proxy L1 statement coverage (global + per-directory), and dashboard L1 test count. Ensure all §4.3 scenarios green on `main`.
-- Gate: every subsequent commit in Steps 1–10 runs the full safety net in its PR pipeline.
+The ordering deliberately differs from a naïve "top-of-stack → bottom-of-stack" migration:
 
-### Step 1 — Extract Runner (mechanical)
+1. **Fix known bugs first (Phase A), before any goldens are captured (Phase C).** Otherwise goldens would freeze the §2.2(7) model-normalisation bug into the safety net and every downstream step would have to re-bless fixtures after the fix lands.
+2. **Move outer layers (protocols → upstream → router) before Runner.** Runner consumes the stable shape that the outer layers produce. Extracting Runner while those interfaces are still in motion doubles the diff and makes SSE-byte comparison impossible.
+3. **Vertical slice before horizontal build-out in Phase H.** One strategy end-to-end (`copilot-openai-direct`) proves the 7-method interface + composition root wiring before the remaining strategies fill in. The hardest strategy (`copilot-translated`) is scheduled last.
+4. **Grow dependency-cruiser rules incrementally (D.7, E.11, H.19, J.7).** Each layer locks the next-outer import boundary as soon as that boundary is real. Deferring all rules to the end makes violations hard to unwind.
+5. **Split Runner's JSON path from its streaming path (G.3 → G.5).** The JSON path is easy to verify; the streaming path needs byte-for-byte SSE comparison against characterisation fixtures (G.1) and therefore deserves its own commit.
+6. **Share one fixture format between goldens and strategy unit tests (B.5).** `{request, upstream_raw_chunks[], expected_client_events[], expected_end_log}` feeds both the E2E diff in Phase C and `adaptChunk` unit tests in Phase H — avoids building two parallel test-data sets.
 
-- **1.0** Characterisation tests: capture current streaming behaviour of all three handlers as inline fixture tests so regressions surface locally even without E2E.
-- **1.1** Introduce `core/runner.ts` skeleton with the `execute()` signature (§3.5), plus `test/core/runner.test.ts` covering the five paths enumerated in §4.5(4) against a fake strategy. New module ships with ≥95% coverage.
-- **1.2** Introduce `core/stream-runner.ts` (SSE read/write helpers); add tests; no callers yet.
-- **1.3** Port `routes/chat-completions/handler.ts` default branch onto Runner via a local `Strategy`-shaped shim. Migrate the affected tests to the injection style per §4.4(3).
-- **1.4** Port `routes/chat-completions/handler.ts` custom-upstream passthrough branch onto Runner.
-- **1.5** Port `routes/messages/handler.ts` default Copilot branch onto Runner.
-- **1.6** Port `routes/messages/handler.ts` custom OpenAI-upstream branch onto Runner.
-- **1.7** Port `routes/messages/handler.ts` Anthropic passthrough branch onto Runner.
-- **1.8** Port `routes/responses/handler.ts` onto Runner.
-- **1.9** Remove dead code paths that duplicated the streaming template; rerun §4.3 and record no-diff.
-- Expected cumulative delta: −400 lines, +200 lines. No behaviour change.
-- Risk: low. Each sub-commit regresses only one handler branch if broken.
+### Phase A — Prep + fix the latent bug
 
-### Step 2 — Relocate protocols and impure helpers (mechanical, import-only)
+Goal: coverage gate + dep-cruiser plumbing are live, and the §2.2(7) model-normalisation bug is fixed **before** any goldens are captured.
 
-- **2.0** Characterisation: snapshot each file's public exports before the move (so `git mv` diffs are verifiable).
-- **2.1** `git mv` `routes/messages/{preprocess, anthropic-types}.ts` → `protocols/anthropic/`.
-- **2.2** `git mv` `routes/messages/{non-stream-translation, stream-translation}.ts` → `protocols/translate/`. Rename `consumeStreamToResponse` file to `protocols/translate/consume-stream.ts`.
-- **2.3** `git mv` `routes/messages/{effort-fallback, server-tools, model-capabilities}.ts` → `strategies/support/` (not `protocols/` — they read `state` and emit logs).
-- **2.4** Extract `streamAnthropicResponse` into `strategies/support/anthropic-stream-writer.ts` with tests.
-- **2.5** Extract Responses resolvedModel/usage parsers into `protocols/responses/stream-state.ts` with tests.
-- **2.6** Update all importers (mechanical). Verify `grep -rE "from.*(lib/state|util/log-emitter|hono/streaming)" src/protocols/` is empty.
-- Risk: low. Import-only.
+- **A.1** ✅ Add `scripts/check-coverage.ts` (§4.5 enforcement). Wire into pre-commit L1, pre-push, and CI. Gate passes at the current 95.6% floor.
+- **A.2** ✅ Add `docs/20-baseline.json` skeleton (schema + field definitions + `$schema` validator), numeric values as placeholders; `check-coverage.ts` reads the file format but does not yet enforce real numbers.
+- **A.3** Add `dependency-cruiser.config.cjs` skeleton with **zero active rules** plus `bun run gate:arch` script (passes vacuously). Establishes the plumbing; subsequent phases add rules.
+- **A.4** Add a red test that reproduces the §2.2(7) bug: `/v1/chat/completions` matches provider on raw model while `/v1/messages` matches on normalised model; request with `claude-opus-4-6-YYYYMMDD` demonstrates the divergence.
+- **A.5** Create `protocols/anthropic/preprocess.ts` as a **new pure helper module** containing `translateModelName` (and any co-located normalisation helpers needed by A.4). Leave `routes/messages/preprocess.ts` **in place as a thin re-export shim** that delegates to the new module — do not delete or rename it yet; D.1 handles that. Route the OpenAI entry through the new pure helper directly (not via the legacy file). After this commit the module has two paths: new canonical one under `protocols/anthropic/`, and a legacy shim under `routes/messages/`. A.4 turns green.
+- **A.6** Change `/v1/messages` provider matching to use the normalised model (today uses raw). Add a characterisation test that pins the corrected behaviour; this test becomes one of the Router fixtures in Phase F.
 
-### Step 3 — Extract UpstreamClient
+### Phase B — E2E safety-net skeleton
 
-- **3.0** Characterisation tests: record current request shapes (headers, body, URL, proxy) for every upstream call via MSW-style capture.
-- **3.1** Add `upstream/interface.ts` with `UpstreamClient<Req, Resp>`; add contract tests.
-- **3.2** Port `services/copilot/create-chat-completions.ts` → `upstream/copilot-openai.ts` with constructor-injected config (token getter, baseURL, proxy resolver). Tests assert against captured fixtures from 3.0.
-- **3.3** Port `services/copilot/create-native-messages.ts` → `upstream/copilot-native.ts`.
-- **3.4** Port `services/copilot/create-responses.ts` → `upstream/copilot-responses.ts`.
-- **3.5** Port `services/copilot/create-embeddings.ts` → `upstream/copilot-embeddings.ts`.
-- **3.6** Port `services/upstream/send-openai.ts` → `upstream/custom-openai.ts`.
-- **3.7** Port `services/upstream/send-anthropic.ts` → `upstream/custom-anthropic.ts`.
-- **3.8** Introduce a minimal upstream factory that reads `state` once at request start; handlers switch to it. Delete the old `services/` shims once unreferenced.
-- **3.9** Run §4.3. Manual L2 smoke per upstream type.
-- Risk: medium (touches every outbound call).
+Goal: scenario matrix, helpers, and diff tooling exist and are usable, but no real requests are issued yet.
 
-### Step 4 — Extract Router
+- **B.1** Add `test/e2e/refactor/` directory + `bun run test:e2e:full` script. Scenario matrix from §4.3 exists as `.skip` placeholders.
+- **B.2** Add `helpers/capture-golden.ts`: deterministic serialisation (stable key ordering, timestamp clamping, requestId masking) so re-captures diff cleanly.
+- **B.3** Add `helpers/golden-diff.ts`: reads golden file, compares against current output, prints minimal diff on failure.
+- **B.4** Add `scenarios.json` data file encoding §4.3's table (strategy × models × scenario matrix). Empty `.skip` tests reference it.
+- **B.5** Freeze the golden fixture format: `{request, upstream_raw_chunks[], expected_client_events[], expected_end_log}`. This shape is consumed by both Phase C (E2E diff) and Phase H (`adaptChunk` unit tests) — define once here.
+- **B.6** Add `bun run capture-goldens <strategy>` script so each strategy's goldens can be re-captured independently (Copilot rate-limit robustness).
 
-- **4.0** Add temporary trace logging inside existing handlers; capture every `(protocol, model, providers[], modelsCatalog) → decision` observed in L1 + §4.3 runs into `test/core/router.fixtures.json`.
-- **4.1** Add `core/router.ts::pickStrategy` with `StrategyDecision` type (§3.2). Add `test/core/router.test.ts` driven by `router.fixtures.json`; require 100% branch coverage (§4.5(3)).
-- **4.2** Wire `routes/chat-completions/handler.ts` to call `pickStrategy` and switch on `decision.name`; preserve existing code paths.
-- **4.3** Wire `routes/messages/handler.ts` to `pickStrategy`.
-- **4.4** Wire `routes/responses/handler.ts` to `pickStrategy`.
-- **4.5** Remove the temporary trace logging from 4.0.
+### Phase C — Capture goldens (one commit per strategy)
+
+Goal: real baseline on `main`. Each commit is atomic; any single strategy can be re-captured without affecting the others.
+
+- **C.1** `CopilotNative` goldens (2 models × {stream, non-stream, tool_use, web_search}) under `test/e2e/refactor/__golden__/copilot-native/`.
+- **C.2** `CopilotTranslated` goldens.
+- **C.3** `CopilotOpenAIDirect` goldens.
+- **C.4** `CopilotResponses` goldens (including `response.failed`).
+- **C.5** `CustomOpenAI` goldens (requires two configured test providers; covers both OpenAI-client passthrough and Anthropic-client translated modes).
+- **C.6** `CustomAnthropic` goldens.
+- **C.7** Populate `docs/20-baseline.json` with real numeric values: proxy L1 test count, proxy L1 statement coverage (global + per-directory), dashboard L1 test count. Flip `check-coverage.ts` to enforcement mode. All §4.3 scenarios green on `main`.
+- Gate from this point forward: every commit in Phases D–J runs the relevant safety-net subset in its pipeline.
+
+### Phase D — Relocate protocols + impure helpers (`git mv` only)
+
+Goal: protocol code lives under `protocols/` (pure zone) and `strategies/support/` (impure zone). Import-only diffs.
+
+- **D.1** Finish the `preprocess.ts` migration started in A.5: (a) `git mv` `routes/messages/anthropic-types.ts` → `protocols/anthropic/types.ts`; (b) **delete** the `routes/messages/preprocess.ts` shim introduced in A.5 and update importers to point at `protocols/anthropic/preprocess.ts` directly. Net effect for `preprocess.ts` across A.5 + D.1 is file-move-by-shim-bridge: no `git mv` is performed on `preprocess.ts` itself because the canonical file was born in A.5 at its final home. Any other sibling files still living under `routes/messages/` that belong in `protocols/anthropic/` (if present) are `git mv`-ed in this commit.
+- **D.2** `git mv` `routes/messages/{non-stream-translation, stream-translation}.ts` → `protocols/translate/`. Rename `consumeStreamToResponse` file to `protocols/translate/consume-stream.ts`.
+- **D.3** `git mv` `routes/messages/{effort-fallback, server-tools, model-capabilities}.ts` → `strategies/support/` (not `protocols/` — they read `state` and emit logs).
+- **D.4** Extract `streamAnthropicResponse` into `strategies/support/anthropic-stream-writer.ts` with tests.
+- **D.5** Extract Responses resolvedModel/usage parsers into `protocols/responses/stream-state.ts` with tests.
+- **D.6** Update all importers (mechanical).
+- **D.7** **Activate dep-cruiser rule #1** (authoritative): forbid any import from `packages/proxy/src/protocols/**` to `packages/proxy/src/infra/state`, `packages/proxy/src/util/log-emitter`, or `hono/streaming`. A redundant text grep `grep -rE "from.*(infra/state|util/log-emitter|hono/streaming)" packages/proxy/src/protocols/` runs alongside in CI, but the dep-cruiser rule — path-aware and immune to relative-path aliasing (`../../infra/state`) — is the authority.
+- Risk: low. Import-only, plus one locked purity rule.
+
+### Phase E — Extract UpstreamClient
+
+Goal: every outbound `fetch` flows through `upstream/*`. Strategies (next phase) can inject fakes.
+
+- **E.1** Add `upstream/interface.ts` with `UpstreamClient<Req, Resp>` + contract tests.
+- **E.2** Characterisation: record current request shapes (headers, body, URL, proxy) for every `services/copilot/*` and `services/upstream/*` call via MSW-style capture. Fixtures become the assertion target for E.3–E.8.
+- **E.3** Port `services/copilot/create-chat-completions.ts` → `upstream/copilot-openai.ts` with constructor-injected config (token getter, baseURL, proxy resolver). Tests assert against E.2 fixtures.
+- **E.4** Port `create-native-messages.ts` → `upstream/copilot-native.ts`.
+- **E.5** Port `create-responses.ts` → `upstream/copilot-responses.ts`.
+- **E.6** Port `create-embeddings.ts` → `upstream/copilot-embeddings.ts`.
+- **E.7** Port `services/upstream/send-openai.ts` → `upstream/custom-openai.ts`.
+- **E.8** Port `services/upstream/send-anthropic.ts` → `upstream/custom-anthropic.ts`.
+- **E.9** Add `composition/upstream-registry.ts` (upstream portion only; strategy portion lands in Phase H) + tests for every upstream kind.
+- **E.10** Handlers switch to `upstream-registry`; delete `services/` old shims once unreferenced. Run Phase C safety net.
+- **E.11** **Activate dep-cruiser rule #2**: only `upstream/` may call `fetch`; grep-based CI check asserts no `fetch(` outside that directory (exempting tests).
+- Risk: medium (every outbound call).
+
+### Phase F — Extract Router
+
+Goal: a single pure function answers "given this request, which strategy runs?", driven by recorded fixtures.
+
+- **F.1** Insert temporary trace logging inside the three existing handlers: emit `(protocol, model, providers[], modelsCatalog) → decision` for every request.
+- **F.2** Run L1 + Phase C E2E with the trace active; capture into `test/core/router.fixtures.json`.
+- **F.3** Remove the temporary trace logging (fixtures frozen).
+- **F.4** Add `core/router.ts::pickStrategy` with `StrategyDecision` type (§3.2). Add `test/core/router.test.ts` driven by `router.fixtures.json`; 100% branch coverage required (§4.5(3)).
+- **F.5** Wire `routes/chat-completions/handler.ts` to call `pickStrategy` and switch on `decision.name`; preserve existing code paths.
+- **F.6** Wire `routes/messages/handler.ts` to `pickStrategy`.
+- **F.7** Wire `routes/responses/handler.ts` to `pickStrategy`.
+- **F.8** Extend `pickStrategy` to reject `(OpenAI client, Anthropic provider)` and `(Responses client, custom provider)` with typed `StrategyDecision.reject`. Update the router test suite to cover both reject branches.
+- **F.9** Add a central error mapper that converts `decision.reject` into a 400 response with the original message/type. Delete the inline 400 `if` branch from `routes/chat-completions/handler.ts`.
 - Risk: medium.
 
-### Step 5 — Introduce Strategy objects and composition root
+### Phase G — Extract Runner
 
-- **5.0** Characterisation: capture `describeEndLog` field bags per protocol from live runs into `test/strategies/__fixtures__/`.
-- **5.1** Add `composition/upstream-registry.ts`; tests cover every upstream kind.
-- **5.2** Add `strategies/copilot-openai-direct.ts` (simplest — no translation). Full 7-method implementation + tests hitting `describeEndLog`, `adaptStreamError`, `initStreamState` against captured fixtures. ≥95% coverage.
-- **5.3** Add `strategies/copilot-native.ts` + tests.
-- **5.4** Add `strategies/copilot-translated.ts` + tests (this is the largest; translation lives in L5 `protocols/translate/`).
-- **5.5** Add `strategies/copilot-responses.ts` + tests.
-- **5.6** Add `strategies/custom-openai.ts` + tests (both OpenAI-client passthrough and Anthropic-client translated modes).
-- **5.7** Add `strategies/custom-anthropic.ts` + tests.
-- **5.8** Add `composition/strategy-registry.ts::buildStrategy` + tests covering all six ok branches and both reject branches.
-- **5.9** Add `composition/index.ts::dispatch` + integration tests.
-- **5.10** Switch `routes/chat-completions/handler.ts` to the `buildContext → composition.dispatch` shape (§3.8). Target handler size ≤ 25 lines.
-- **5.11** Switch `routes/messages/handler.ts` to the composition shape. Target ≤ 30 lines.
-- **5.12** Switch `routes/responses/handler.ts` to the composition shape. Target ≤ 25 lines.
-- **5.13** Delete now-orphan `Strategy`-shim code introduced in Step 1. Run §4.3 with golden-file diff (expected: none).
+Goal: the 4 duplicated `streamSSE` templates collapse into one `core/runner.ts`. **JSON path first, stream path second**; each handler branch ported in its own commit.
+
+- **G.1** Characterisation: for every streaming handler branch, snapshot the complete SSE byte stream + `request_end` field bag under `test/characterisation/`. These are the byte-level diff targets for G.6–G.12.
+- **G.2** Add `core/context.ts::RequestContext` + `buildContext` + unit tests.
+- **G.3** Add `core/runner.ts` skeleton — **JSON path only**. Fake-strategy tests cover §4.5(4) paths a (JSON success), d (upstream rejection), e (finally log emission).
+- **G.4** Add `core/stream-runner.ts` SSE read/write helpers + unit tests. Not yet wired into Runner.
+- **G.5** Runner gains streaming path (consumes `stream-runner` from G.4). Covers §4.5(4) paths b (stream success) and c (mid-flight error per protocol), via fake strategies that simulate OpenAI / Anthropic / Responses error shapes.
+- **G.6** Port `routes/chat-completions` **non-streaming** default branch onto Runner via a local `Strategy`-shaped shim. Migrate affected tests to the injection style per §4.4(3).
+- **G.7** Port `routes/chat-completions` **streaming** default branch onto Runner. Byte-level diff against G.1 fixtures required.
+- **G.8** Port `routes/chat-completions` custom-upstream passthrough branch onto Runner.
+- **G.9** Port `routes/messages` default Copilot branch onto Runner.
+- **G.10** Port `routes/messages` custom OpenAI-upstream branch onto Runner.
+- **G.11** Port `routes/messages` Anthropic passthrough branch onto Runner.
+- **G.12** Port `routes/responses` onto Runner.
+- **G.13** Delete now-dead duplicated streaming templates; rerun Phase C; record no-diff.
+- Expected cumulative delta: −400 lines, +200 lines. No observable behaviour change.
+- Risk: medium-high — SSE ordering is the single most regression-prone area; sub-commit granularity keeps each regression localised to one handler branch.
+
+### Phase H — Strategy objects + composition root (vertical slice first)
+
+Goal: collapse the duplicated per-protocol pipelines into 6 strategies. Prove the end-to-end pipeline with **one** strategy before filling in the rest.
+
+- **H.1** Characterisation: extract `describeEndLog` field bags per protocol from Phase C goldens into `test/strategies/__fixtures__/`. `adaptChunk` unit tests in H.2–H.15 read the same fixture format defined in B.5.
+- **H.2** Add `strategies/copilot-openai-direct.ts` (simplest — no translation). Full 7-method implementation + unit tests covering `describeEndLog`, `adaptStreamError`, `initStreamState`, `adaptChunk` via B.5 fixtures. ≥95% coverage.
+- **H.3** Add `composition/strategy-registry.ts::buildStrategy` — **registers `copilot-openai-direct` only** + tests.
+- **H.4** Add `composition/index.ts::dispatch` skeleton + integration tests against H.2's strategy.
+- **H.5** Switch `routes/chat-completions/handler.ts`'s `copilot-openai-direct` branch to `composition.dispatch`. Other branches keep their G-phase shim.
+- **H.6** **Vertical-slice verification**: run Phase C `CopilotOpenAIDirect` goldens. Zero diff required before H.7 starts. This commit pins the 7-method interface.
+- **H.7** Add `strategies/copilot-native.ts` full 7-method + unit tests.
+- **H.8** Register `copilot-native` in strategy-registry; switch `routes/messages` native branch to `composition.dispatch`; run C.1 goldens.
+- **H.9** Add `strategies/copilot-responses.ts` + unit tests.
+- **H.10** Register `copilot-responses`; switch `routes/responses` to `composition.dispatch`; run C.4 goldens.
+- **H.11** Add `strategies/custom-openai.ts` (OpenAI-client passthrough + Anthropic-client translated modes) + unit tests.
+- **H.12** Register `custom-openai`; switch relevant branches in both entries to `composition.dispatch`; run C.5 goldens.
+- **H.13** Add `strategies/custom-anthropic.ts` + unit tests.
+- **H.14** Register `custom-anthropic`; switch relevant branches to `composition.dispatch`; run C.6 goldens.
+- **H.15** Add `strategies/copilot-translated.ts` (largest — translation via `protocols/translate/`) + unit tests. Scheduled last so the 7-method interface is battle-tested before the hardest strategy fills it in.
+- **H.16** Register `copilot-translated`; switch the last remaining handler branch to `composition.dispatch`; run C.2 goldens.
+- **H.17** Shrink `routes/*/handler.ts` to §3.8 shape (`buildContext → composition.dispatch`, ≤ 30 lines each). Targets: chat-completions ≤ 25 lines, messages ≤ 30 lines, responses ≤ 25 lines.
+- **H.18** Delete the G-phase `Strategy` shims. Run the full Phase C matrix.
+- **H.19** **Activate dep-cruiser rule #3**: `routes/` may not import `strategies/` or `upstream/`; `core/` may not import either concretion; `composition/` is the sole bridge.
 - Risk: medium-high. This is where the old duplication actually dies.
 
-### Step 6 — Server-tool decorator
+### Phase I — Server-tool decorator
 
-- **6.1** Add `strategies/support/server-tools.ts::decorate(strategy, options)` + tests for enabled/disabled paths.
-- **6.2** Replace the `if (serverToolContext.hasServerSideTools && webSearchEnabled)` branch in `strategies/copilot-translated.ts` (and any other affected strategy) with `decorate(...)`.
-- **6.3** Run existing server-tool tests; run §4.3 `web_search` scenarios.
+Goal: the `if (hasServerSideTools && webSearchEnabled)` block becomes composition over strategy.
 
-### Step 7 — Remove dead path
+- **I.1** Add `strategies/support/server-tools.ts::decorate(strategy, options)` + tests for enabled/disabled paths.
+- **I.2** Replace the `if` branch in `strategies/copilot-translated.ts` with `decorate(...)`.
+- **I.3** (If applicable) apply the same replacement in any other strategy that today performs server-tool interception.
+- **I.4** Run existing server-tool unit tests; run Phase C `web_search` scenarios.
 
-- **7.1** Extend `pickStrategy` to reject `(OpenAI client, Anthropic provider)` and `(Responses client, custom provider)` with typed `StrategyDecision.reject`. Update `test/core/router.test.ts`.
-- **7.2** Add a central error mapper that converts `decision.reject` into a 400 response with the original message/type.
-- **7.3** Delete the inline 400 branch from `routes/chat-completions/handler.ts`.
+### Phase J — Cleanup + restore anti-ban
 
-### Step 8 — Symmetric model preprocessing
+Goal: delete orphans, lock remaining dep rules, re-enable anti-ban for normal operations.
 
-- **8.1** Move `translateModelName` into L4 (`protocols/anthropic/preprocess.ts` already holds it after Step 2; this commit ensures it runs **before** `pickStrategy` for both entries).
-- **8.2** Route OpenAI entry through the same preprocess step (no-op today; placeholder for future aliases).
-- **8.3** Update `pickStrategy` callers to use the normalised `ctx.model`. Add a router test that pins the fix for the §2.2(7) latent bug.
-
-### Step 9 — Enforce layering
-
-- **9.1** Add `dependency-cruiser.config.cjs` encoding the §3.7 + §3.8 rules.
-- **9.2** Add `bun run gate:arch` script; hook into pre-push (G1 tier).
-- **9.3** Add grep-based CI check for `protocols/` purity (§3.7).
-
-### Step 10 — Cleanup and restore anti-ban
-
-- **10.1** Delete `routes/messages/native-handler.ts` (folded into `strategies/copilot-native.ts`).
-- **10.2** Delete `routes/*/handler.ts`-local helpers now duplicated by `protocols/` / `strategies/` / `core/`.
-- **10.3** Remove `consumeStreamToResponse` re-exports; update consumers to `protocols/translate/consume-stream.ts`.
-- **10.4** Revert `test/e2e/` back to anti-ban rules (1 request per test, fail-fast); keep `test/e2e/refactor/` as the opt-in `bun run test:e2e:full` target.
-- **10.5** Update `CLAUDE.md` to reflect restored anti-ban rules and the new architecture.
-- **10.6** Final §4.3 run; record no-diff against Step 0 baseline in the closing PR description.
+- **J.1** Delete `routes/messages/native-handler.ts` (folded into `strategies/copilot-native.ts`).
+- **J.2** Delete `routes/*/handler.ts`-local helpers now duplicated by `protocols/` / `strategies/` / `core/`.
+- **J.3** Remove `consumeStreamToResponse` re-exports; update consumers to `protocols/translate/consume-stream.ts`.
+- **J.4** Revert `test/e2e/` to anti-ban rules (1 request per test, fail-fast).
+- **J.5** Keep `test/e2e/refactor/` as the opt-in `bun run test:e2e:full` target (for future architectural work).
+- **J.6** Update `CLAUDE.md` to reflect restored anti-ban rules and the new architecture (one-page navigation covering the seven layers, the six strategies, and the composition root).
+- **J.7** **Activate dep-cruiser rule set (final)**: encode the full §3.7 + §3.8 contract — enforce the canonical state-access rule (`infra/state` importable only from `infra/`, `composition/`, `strategies/support/`, `util/`; forbidden in `routes/`, `protocols/`, `core/`, `strategies/*.ts`, `upstream/`); `core/` stays concretion-free; `composition/` is the only bridge between `routes/`, `strategies/`, and `upstream/`. Any rule not yet active from D.7 / E.11 / H.19 lands here.
+- **J.8** Final Phase C run; record no-diff against the Phase C baseline in the closing PR description.
 
 ---
 
@@ -570,10 +617,10 @@ Every Step's first commit is a test/fixture-only commit (`N.0`) that locks the p
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Silent change to SSE event ordering | medium | high (breaks downstream clients) | Golden-file tests on chunk sequences per strategy before Step 5; diff after. |
+| Silent change to SSE event ordering | medium | high (breaks downstream clients) | Golden-file tests on chunk sequences per strategy before Phase H; diff after. |
 | Token accounting drift during extraction | low | high (affects billing/usage UI) | Token/usage bookkeeping is held in `StreamState` and surfaced via `describeEndLog`; add unit tests for each strategy's `describeEndLog` seeded from recorded fixtures. |
-| Global `state` refactor breaking SOCKS5 or token refresh | medium | medium | Step 3 defers `state` reads to request start, not module load; keep the singleton's lifecycle unchanged. |
-| Test-suite churn blocks merges | medium | medium | Each step is independently mergeable; import-only edits in Steps 1–3 keep tests green. |
+| Global `state` refactor breaking SOCKS5 or token refresh | medium | medium | Phase E defers `state` reads to request start, not module load; keep the singleton's lifecycle unchanged. |
+| Test-suite churn blocks merges | medium | medium | Each phase is independently mergeable; import-only edits in Phases D–F keep tests green. |
 | E2E quota exhaustion from unrestricted retries | medium | low | Anti-ban is suspended, not ignored; keep scenario count bounded (section 4.3 table) and cache golden fixtures so reruns hit upstream only when code changes. |
 | Hidden coupling on `state.optToolCallDebug` | low | low | Debug logging moves into Runner, driven by a flag in RequestContext. |
 
@@ -597,11 +644,11 @@ These are explicitly deferred to keep the refactor pure:
 The refactor is complete when:
 
 1. `routes/messages/handler.ts`, `routes/chat-completions/handler.ts`, and `routes/responses/handler.ts` each import only from `core/`, `composition/`, and route-local parsing helpers (per §3.8), and each is under 60 lines.
-2. Grepping `import.*from.*lib/state` outside `infra/`, `strategies/support/`, `strategies/*.ts` (read-only), and `util/` yields zero hits in `routes/`, `protocols/`, `core/`, and `upstream/`.
-3. Grepping `from.*util/log-emitter|from.*hono/streaming|from.*node:fetch|\\bfetch\\(` inside `src/protocols/` yields zero hits.
+2. Dep-cruiser (authoritative) enforces the canonical state-access rule from §3.7: `packages/proxy/src/infra/state` is importable only from `infra/`, `composition/`, `strategies/support/`, and `util/`. `routes/`, `protocols/`, `core/`, `strategies/*.ts` (concretions), and `upstream/` must all be clean. Relative-path imports (e.g. `../../infra/state`) are caught by the dep-cruiser path resolution — the rule is module-path based, not text-based.
+3. Dep-cruiser (authoritative) enforces `packages/proxy/src/protocols/**` purity: it may not import `util/log-emitter`, `hono/streaming`, or `node:fetch`. The additional `\bfetch\(` call-site check remains a text grep over `packages/proxy/src/protocols/` since dep-cruiser does not see call sites.
 4. `pickStrategy` has table-driven tests covering all six strategy names plus the two rejection paths (OpenAI-client × Anthropic-provider, Responses-client × custom-provider); each (protocol, provider-format, model-pattern) combination the repo ships with has at least one row.
-5. Full L1 passes, with test count and statement coverage **at or above** the Step 0 baseline recorded in `docs/20-baseline.json`. Reference point at the time of this doc: 1232 proxy tests, 95.6% statement coverage (repo floor 90%, refactor floor 95%). The per-commit gate in §4.5 — enforced by `scripts/check-coverage.ts` at pre-commit, pre-push, and in CI — must have passed on every commit that landed during the refactor (not only the final merge).
-6. Refactor E2E safety net (§4.3) passes in full on the final commit; golden SSE/log fixtures show no unjustified diffs vs. the Step 0 baseline.
-7. Anti-ban protocol is re-enabled for `bun run test:e2e` in Step 10, and `CLAUDE.md` reflects the restored rules.
+5. Full L1 passes, with test count and statement coverage **at or above** the Phase C baseline recorded in `docs/20-baseline.json`. Reference point at the time of this doc: 1232 proxy tests, 95.6% statement coverage (repo floor 90%, refactor floor 95%). The per-commit gate in §4.5 — enforced by `scripts/check-coverage.ts` at pre-commit, pre-push, and in CI — must have passed on every commit that landed during the refactor (not only the final merge).
+6. Refactor E2E safety net (§4.3) passes in full on the final commit; golden SSE/log fixtures show no unjustified diffs vs. the Phase C baseline.
+7. Anti-ban protocol is re-enabled for `bun run test:e2e` in Phase J, and `CLAUDE.md` reflects the restored rules.
 8. `bun run gate:security` and `bun run test:ui` pass unchanged.
 9. The dependency-cruiser rule set from §3.7 passes in CI.

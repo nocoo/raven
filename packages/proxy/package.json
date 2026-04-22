@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "test": "bun run ../../scripts/check-coverage.ts 90",
+    "test": "bun run ../../scripts/check-coverage.ts",
     "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
     "lint": "eslint --config ../../eslint.config.js --max-warnings=0 src/",
