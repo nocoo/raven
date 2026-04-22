@@ -1,65 +1,28 @@
-import { events } from "../../util/sse"
-import { copilotBaseUrl, copilotHeaders } from "../../lib/api-config"
-import { HTTPError } from "../../lib/error"
-import { getProxyUrl } from "../../lib/socks5-bridge"
-import { state } from "../../lib/state"
+/**
+ * Legacy facade — delegates to the canonical upstream/copilot-responses client.
+ * Removed by Phase E.10 once all importers move to the upstream registry.
+ *
+ * Re-exports the wire types and pure helpers so existing importers still resolve.
+ */
 
-export interface ResponsesPayload {
-  model: string
-  input: unknown
-  stream?: boolean
-  [key: string]: unknown
-}
+import {
+  CopilotResponsesClient,
+  defaultCopilotResponsesConfig,
+  type ResponsesPayload as ClientResponsesPayload,
+} from "../../upstream/copilot-responses"
+import type { ServerSentEvent } from "../../util/sse"
 
-export const createResponses = async (payload: ResponsesPayload) => {
-  if (!state.copilotToken) throw new Error("Copilot token not found")
+export type ResponsesPayload = ClientResponsesPayload
 
-  const enableVision = hasVisionContent(payload)
-  const isAgentCall = hasAgentHistory(payload)
+export {
+  hasVisionContent,
+  hasAgentHistory,
+} from "../../upstream/copilot-responses"
 
-  const headers: Record<string, string> = {
-    ...copilotHeaders(state, enableVision),
-    "X-Initiator": isAgentCall ? "agent" : "user",
-  }
-
-  const proxyUrl = getProxyUrl("copilot", state)
-  const response = await fetch(`${copilotBaseUrl(state)}/responses`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-    ...(proxyUrl ? { proxy: proxyUrl } : {}),
-  } as RequestInit)
-
-  if (!response.ok) {
-    throw await HTTPError.fromResponse("Failed to create responses", response)
-  }
-
-  if (payload.stream) {
-    return events(response)
-  }
-
-  return await response.json()
-}
-
-export function hasVisionContent(payload: ResponsesPayload): boolean {
-  if (!Array.isArray(payload.input)) return false
-  return payload.input.some((item: unknown) => {
-    if (typeof item !== "object" || item === null) return false
-    const content = (item as Record<string, unknown>).content
-    if (!Array.isArray(content)) return false
-    return content.some((part: unknown) => {
-      if (typeof part !== "object" || part === null) return false
-      return (part as Record<string, unknown>).type === "input_image"
-    })
-  })
-}
-
-export function hasAgentHistory(payload: ResponsesPayload): boolean {
-  if (!Array.isArray(payload.input)) return false
-  return payload.input.some((item: unknown) => {
-    if (typeof item !== "object" || item === null) return false
-    const role = (item as Record<string, unknown>).role
-    const type = (item as Record<string, unknown>).type
-    return role === "assistant" || type === "function_call" || type === "function_call_output"
-  })
+export const createResponses = async (
+  payload: ResponsesPayload,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any | AsyncGenerator<ServerSentEvent>> => {
+  const client = new CopilotResponsesClient(defaultCopilotResponsesConfig())
+  return client.send(payload)
 }

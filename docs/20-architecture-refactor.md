@@ -521,7 +521,7 @@ Goal: every outbound `fetch` flows through `upstream/*`. Strategies (next phase)
 - **E.2** ✅ Characterisation: record current request shapes (headers, body, URL, proxy) for every `services/copilot/*` and `services/upstream/*` call via MSW-style capture. Fixtures become the assertion target for E.3–E.8.
 - **E.3** ✅ Port `services/copilot/create-chat-completions.ts` → `upstream/copilot-openai.ts` with constructor-injected config (token getter, baseURL, proxy resolver). Tests assert against E.2 fixtures.
 - **E.4** ✅ Port `create-native-messages.ts` → `upstream/copilot-native.ts`. Legacy file becomes a thin shim delegating to the new client (deleted in E.10).
-- **E.5** Port `create-responses.ts` → `upstream/copilot-responses.ts`.
+- **E.5** ✅ Port `create-responses.ts` → `upstream/copilot-responses.ts`. Legacy file becomes a shim re-exporting `hasVisionContent`/`hasAgentHistory` and delegating `createResponses` (deleted in E.10).
 - **E.6** Port `create-embeddings.ts` → `upstream/copilot-embeddings.ts`.
 - **E.7** Port `services/upstream/send-openai.ts` → `upstream/custom-openai.ts`.
 - **E.8** Port `services/upstream/send-anthropic.ts` → `upstream/custom-anthropic.ts`.
