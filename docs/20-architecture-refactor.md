@@ -534,15 +534,15 @@ Goal: every outbound `fetch` flows through `upstream/*`. Strategies (next phase)
 
 Goal: a single pure function answers "given this request, which strategy runs?", driven by recorded fixtures.
 
-- **F.1** Insert temporary trace logging inside the three existing handlers: emit `(protocol, model, providers[], modelsCatalog) → decision` for every request.
-- **F.2** Run L1 + Phase C E2E with the trace active; capture into `test/core/router.fixtures.json`.
-- **F.3** Remove the temporary trace logging (fixtures frozen).
-- **F.4** Add `core/router.ts::pickStrategy` with `StrategyDecision` type (§3.2). Add `test/core/router.test.ts` driven by `router.fixtures.json`; 100% branch coverage required (§4.5(3)).
-- **F.5** Wire `routes/chat-completions/handler.ts` to call `pickStrategy` and switch on `decision.name`; preserve existing code paths.
-- **F.6** Wire `routes/messages/handler.ts` to `pickStrategy`.
-- **F.7** Wire `routes/responses/handler.ts` to `pickStrategy`.
-- **F.8** Extend `pickStrategy` to reject `(OpenAI client, Anthropic provider)` and `(Responses client, custom provider)` with typed `StrategyDecision.reject`. Update the router test suite to cover both reject branches.
-- **F.9** Add a central error mapper that converts `decision.reject` into a 400 response with the original message/type. Delete the inline 400 `if` branch from `routes/chat-completions/handler.ts`.
+- **F.1** ✅ Insert temporary trace logging inside the three existing handlers: emit `(protocol, model, providers[], modelsCatalog) → decision` for every request.
+- **F.2** ✅ Run L1 + Phase C E2E with the trace active; capture into `test/core/router.fixtures.json`.
+- **F.3** ✅ Remove the temporary trace logging (fixtures frozen).
+- **F.4** ✅ Add `core/router.ts::pickStrategy` with `StrategyDecision` type (§3.2). Add `test/core/router.test.ts` driven by `router.fixtures.json`; 100% branch coverage required (§4.5(3)).
+- **F.5** ✅ Wire `routes/chat-completions/handler.ts` to call `pickStrategy` and switch on `decision.name`; preserve existing code paths.
+- **F.6** ✅ Wire `routes/messages/handler.ts` to `pickStrategy`.
+- **F.7** ✅ Wire `routes/responses/handler.ts` to `pickStrategy`.
+- **F.8** ✅ Extend `pickStrategy` to reject `(OpenAI client, Anthropic provider)` and `(Responses client, custom provider)` with typed `StrategyDecision.reject`. Update the router test suite to cover both reject branches.
+- **F.9** ✅ Add a central error mapper that converts `decision.reject` into a 400 response with the original message/type. Delete the inline 400 `if` branch from `routes/chat-completions/handler.ts`.
 - Risk: medium.
 
 ### Phase G — Extract Runner

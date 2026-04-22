@@ -3,6 +3,7 @@ import { streamSSE } from "hono/streaming"
 
 import { buildUpstreamClient } from "../../composition/upstream-registry"
 import { pickStrategy } from "../../core/router"
+import { respondRouterReject } from "../../core/router-reject"
 import type { ResponsesPayload } from "../../upstream/copilot-responses"
 import { extractErrorDetails, forwardError } from "../../lib/error"
 import { checkRateLimit } from "../../lib/rate-limit"
@@ -59,21 +60,12 @@ export const handleResponses = async (c: Context) => {
   })
 
   if (decision.kind === "reject") {
-    const latencyMs = Math.round(performance.now() - startTime)
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${decision.status} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/responses", format: "responses", model, stream,
-        latencyMs, status: "error", statusCode: decision.status,
-        upstreamStatus: null, error: decision.message,
-        accountName, sessionId, clientName, clientVersion,
-      },
+    return respondRouterReject(c, decision, {
+      requestId, startTime,
+      path: "/v1/responses", format: "responses",
+      model, stream,
+      accountName, sessionId, clientName, clientVersion,
     })
-    return c.json(
-      { error: { message: decision.message, type: decision.errorType } },
-      decision.status as 400,
-    )
   }
 
   // decision.name === "copilot-responses"

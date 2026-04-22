@@ -6,6 +6,7 @@ import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProvider } from "./../../lib/upstream-router"
 import { pickStrategy } from "./../../core/router"
+import { respondRouterReject } from "./../../core/router-reject"
 import type { CompiledProvider } from "./../../db/providers"
 import { isNullish } from "./../../lib/utils"
 import { logEmitter } from "./../../util/log-emitter"
@@ -80,25 +81,13 @@ export async function handleCompletion(c: Context) {
   if (decision.kind === "reject") {
     const resolved = resolveProvider(model)
     const provider = resolved?.provider
-    const latencyMs = Math.round(performance.now() - startTime)
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${decision.status} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/chat/completions", format: "openai", model, stream,
-        latencyMs, status: "error", statusCode: decision.status,
-        upstreamStatus: null,
-        error: "OpenAI client → Anthropic upstream not supported",
-        ...(provider ? { upstream: provider.name, upstreamFormat: provider.format } : {}),
-        accountName, sessionId, clientName, clientVersion,
-      },
+    return respondRouterReject(c, decision, {
+      requestId, startTime,
+      path: "/v1/chat/completions", format: "openai",
+      model, stream,
+      accountName, sessionId, clientName, clientVersion,
+      ...(provider ? { upstream: provider.name, upstreamFormat: provider.format } : {}),
     })
-    return c.json(
-      {
-        error: { message: decision.message, type: decision.errorType },
-      },
-      decision.status as 400,
-    )
   }
 
   // decision.name === "copilot-openai-direct"
