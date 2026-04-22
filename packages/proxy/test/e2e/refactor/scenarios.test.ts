@@ -26,19 +26,21 @@ setDefaultTimeout(120_000)
 const CUSTOM_STRATEGIES = new Set<StrategyName>(["CustomOpenAI", "CustomAnthropic"])
 const CUSTOM_READY = process.env.RAVEN_CUSTOM_READY === "1"
 
-let proxyUp = false
-beforeAll(async () => {
-  proxyUp = await isProxyReachable()
-  if (!proxyUp) {
-    console.warn("Refactor E2E suite skipped: proxy not reachable on :7024")
-  } else if (!API_KEY) {
-    console.warn("Refactor E2E suite skipped: RAVEN_API_KEY not set")
-  }
-})
-
-const baseReady = (): boolean => proxyUp && API_KEY !== ""
+// skipIf evaluates at describe-time, so the gate must be synchronous.
+// Reachability is verified in beforeAll and surfaces as a hard fail if
+// the key was supplied but the proxy turned out to be unreachable.
+const HAS_KEY = API_KEY !== ""
 const strategyReady = (name: StrategyName): boolean =>
-  baseReady() && (!CUSTOM_STRATEGIES.has(name) || CUSTOM_READY)
+  HAS_KEY && (!CUSTOM_STRATEGIES.has(name) || CUSTOM_READY)
+
+beforeAll(async () => {
+  if (!HAS_KEY) {
+    console.warn("Refactor E2E suite skipped: RAVEN_API_KEY not set")
+    return
+  }
+  const up = await isProxyReachable()
+  if (!up) throw new Error(`proxy not reachable on ${PROXY}`)
+})
 
 async function runScenario(name: StrategyName, s: Scenario): Promise<void> {
   const request = buildScenarioRequest(name, s)

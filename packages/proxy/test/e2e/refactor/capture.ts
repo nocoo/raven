@@ -109,12 +109,16 @@ export async function waitForRequest(opts: {
   path: string
   model: string
   timeoutMs?: number
+  /** Resolved once the WS is open — caller awaits this before firing
+   *  the HTTP request so request_start isn't missed. */
+  onOpen?: () => void
 }): Promise<CorrelatedEvents> {
   const timeoutMs = opts.timeoutMs ?? 120_000
   const wsUrl = buildWsUrl()
   const ws = new WebSocket(wsUrl)
 
   return await new Promise<CorrelatedEvents>((resolve, reject) => {
+    ws.addEventListener("open", () => { opts.onOpen?.() })
     let requestId: string | null = null
     const upstreamRaw: StreamedLogEvent[] = []
     let requestStart: StreamedLogEvent | null = null
@@ -238,7 +242,15 @@ export async function captureOrDiffFixture(
     ?? `${import.meta.dir}/__golden__`
 
   const cutoffTs = Date.now()
-  const waitPromise = wait({ cutoffTs, path: opts.request.path, model: extractModel(opts.request.body) })
+  let openResolve!: () => void
+  const opened = new Promise<void>((r) => { openResolve = r })
+  const waitPromise = wait({
+    cutoffTs,
+    path: opts.request.path,
+    model: extractModel(opts.request.body),
+    onOpen: openResolve,
+  })
+  await opened
   const response = await opts.fetchResponse()
   const clientEvents = await consumeSSE(response.clone())
   const correlated = await waitPromise

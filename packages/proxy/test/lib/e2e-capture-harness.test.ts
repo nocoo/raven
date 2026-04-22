@@ -109,7 +109,9 @@ describe("captureOrDiffFixture", () => {
     body: { model: "m", max_tokens: 1, messages: [] },
   }
 
-  const fakeWait: typeof import("../../test/e2e/refactor/capture").waitForRequest = async () => ({
+  const fakeWait: typeof import("../../test/e2e/refactor/capture").waitForRequest = async (opts) => {
+    opts.onOpen?.()
+    return {
     requestId: "r",
     requestStart: { ts: 0, type: "request_start", requestId: "r", data: { path: "/v1/messages", model: "m" } },
     upstreamRaw: [
@@ -123,7 +125,8 @@ describe("captureOrDiffFixture", () => {
         upstreamStatus: 200, inputTokens: 0, outputTokens: 0,
       },
     },
-  })
+  }
+  }
 
   test("capture mode writes fixture to disk", async () => {
     process.env.RAVEN_CAPTURE_GOLDENS = "1"
