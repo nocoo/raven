@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raven.internal/docs/20-baseline.schema.json",
+  "title": "Raven refactor baseline (§4.5)",
+  "type": "object",
+  "required": ["capturedAt", "proxy", "dashboard", "enforcement"],
+  "additionalProperties": true,
+  "properties": {
+    "capturedAt": { "type": ["string", "null"], "format": "date-time" },
+    "proxy": {
+      "type": "object",
+      "required": ["l1TestCount", "statementCoveragePct", "perDirectoryCoveragePct"],
+      "properties": {
+        "l1TestCount": { "type": ["integer", "null"], "minimum": 0 },
+        "statementCoveragePct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "perDirectoryCoveragePct": {
+          "type": "object",
+          "additionalProperties": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "dashboard": {
+      "type": "object",
+      "required": ["l1TestCount"],
+      "properties": {
+        "l1TestCount": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "required": ["mode", "globalFloorPct", "regressionAllowanceAbsPct", "perDirectoryFloors"],
+      "properties": {
+        "mode": { "enum": ["placeholder", "enforce"] },
+        "globalFloorPct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "regressionAllowanceAbsPct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "perDirectoryFloors": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    }
+  }
+}

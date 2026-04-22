@@ -1,0 +1,27 @@
+{
+  "$schema": "./20-baseline.schema.json",
+  "_doc": "See docs/20-architecture-refactor.md §4.5. Phase A ships this file in placeholder mode; Phase C.7 flips it to enforce with real numbers.",
+  "capturedAt": null,
+  "proxy": {
+    "l1TestCount": null,
+    "statementCoveragePct": null,
+    "perDirectoryCoveragePct": {
+      "routes": null,
+      "services": null,
+      "lib": null,
+      "db": null,
+      "util": null,
+      "ws": null,
+      "middleware": null
+    }
+  },
+  "dashboard": {
+    "l1TestCount": null
+  },
+  "enforcement": {
+    "mode": "placeholder",
+    "globalFloorPct": 95.0,
+    "regressionAllowanceAbsPct": 0.1,
+    "perDirectoryFloors": {}
+  }
+}
