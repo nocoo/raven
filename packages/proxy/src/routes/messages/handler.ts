@@ -6,6 +6,7 @@ import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProviderForModels } from "./../../lib/upstream-router"
 import { pickStrategy } from "./../../core/router"
+import { respondRouterReject } from "./../../core/router-reject"
 import type { CompiledProvider } from "./../../db/providers"
 import { logEmitter } from "./../../util/log-emitter"
 import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
@@ -101,7 +102,20 @@ export async function handleCompletion(c: Context) {
     modelsCatalogIds: state.models?.data?.map((m) => m.id) ?? [],
   })
 
-  if (decision.kind === "ok" && (decision.name === "custom-anthropic" || decision.name === "custom-openai")) {
+  // Defensive guard: pickStrategy currently never rejects for the
+  // anthropic protocol, but if a future reject branch is added (per
+  // §3.2) we must surface it via the central mapper instead of
+  // silently falling through to the translated path below.
+  if (decision.kind === "reject") {
+    return respondRouterReject(c, decision, {
+      requestId, startTime,
+      path: "/v1/messages", format: "anthropic",
+      model, stream,
+      accountName, sessionId, clientName, clientVersion,
+    })
+  }
+
+  if (decision.name === "custom-anthropic" || decision.name === "custom-openai") {
     const resolved = resolveProviderForModels(candidates)
     if (!resolved) throw new Error(`router/handler drift: no provider for ${model}`)
     const { provider } = resolved
@@ -163,7 +177,6 @@ export async function handleCompletion(c: Context) {
   // core/router.ts comment on `nativeSupported`. Both must agree to
   // dispatch native; otherwise fall through to the translated path.
   if (
-    decision.kind === "ok" &&
     decision.name === "copilot-native" &&
     supportsNativeMessages(copilotModel)
   ) {
