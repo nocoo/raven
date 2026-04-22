@@ -562,6 +562,10 @@ Goal: the 4 duplicated `streamSSE` templates collapse into one `core/runner.ts`.
 - **G.11** ✅ Port `routes/messages` Anthropic passthrough branch onto Runner.
 - **G.12** ✅ Port `routes/responses` onto Runner.
 - **G.13** ✅ All four duplicated streamSSE handler templates are gone (chat-completions default+custom, messages translated/custom-openai/anthropic-passthrough, responses) — the only remaining `streamSSE` callers in `src/` are `core/runner.ts` (the new owner), `routes/messages/native-handler.ts` (out of scope for G — handled by `copilot-native`), and the `strategies/support/anthropic-stream-writer.ts` utility. The 6 L1 characterisation snapshots (`test/characterisation/__snapshots__/*.json`) all pass byte-equal — these are the in-process equivalent of Phase C goldens and serve as the no-diff record for G. Live Phase C re-run is L2 e2e, anti-ban-protected and out of scope per project policy.
+- **G.14** ✅ Hot-fix three regressions surfaced after G.13 (characterisation only covers happy paths):
+  - **G.14a** Runner now wraps `strategy.adaptJson()` in try/catch so a downstream throw (e.g. naked `JSON.parse` on tool-call args) still emits `request_end` per the `db/request-sink` contract; rethrown so route-level `forwardError` runs.
+  - **G.14b** `RequestContext.stream` added; Runner reads it for the dispatch-reject error log instead of hardcoding `stream: false`. All five route-side `RunnerCtx` constructions populate it from `payload.stream`.
+  - **G.14c** `copilotOpenAIDirectShim.describeEndLog` gained an `error` arm returning `{ model: result.req.model }` so the DB sink + terminal stop rendering "unknown" when Copilot dispatch fails.
 - Expected cumulative delta: −400 lines, +200 lines. No observable behaviour change.
 - Risk: medium-high — SSE ordering is the single most regression-prone area; sub-commit granularity keeps each regression localised to one handler branch.
 

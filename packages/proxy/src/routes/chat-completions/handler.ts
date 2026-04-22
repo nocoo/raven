@@ -403,6 +403,11 @@ const copilotOpenAIDirectShim: Strategy<
         ...debugExtras,
       }
     }
+    if (result.kind === "error") {
+      // Without this arm, dispatch failures lose `model` and the DB sink
+      // persists an empty string (terminal then renders "unknown").
+      return { model: result.req.model }
+    }
     return {}
   },
 }

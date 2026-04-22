@@ -5,6 +5,8 @@ import { state } from "../../src/lib/state"
 import type { ChatCompletionsPayload } from "../../src/upstream/copilot-openai"
 import type { ProviderRecord } from "../../src/db/providers"
 import { compileProvider } from "../../src/db/providers"
+import { logEmitter } from "../../src/util/log-emitter"
+import type { LogEvent } from "../../src/util/log-event"
 
 // ===========================================================================
 // Helpers
@@ -246,6 +248,30 @@ describe("chat-completions handler with provider routing", () => {
 
       const json = await res.json()
       expect(json.choices[0].message.content).toBe("Hello!")
+    })
+
+    test("Copilot dispatch failure: request_end retains model + reflects stream flag", async () => {
+      const captured: LogEvent[] = []
+      const handler = (e: LogEvent) => { captured.push(e) }
+      logEmitter.on("log", handler)
+      try {
+        fetchSpy.mockRejectedValueOnce(new Error("network down"))
+        const app = makeApp()
+        await app.request(req({
+          model: "gpt-5-codex",
+          messages: [{ role: "user", content: "Hello" }],
+          stream: true,
+        }))
+        const end = captured.find((e) => e.type === "request_end")
+        expect(end).toBeDefined()
+        expect(end!.data).toMatchObject({
+          status: "error",
+          stream: true,
+          model: "gpt-5-codex",
+        })
+      } finally {
+        logEmitter.off("log", handler)
+      }
     })
   })
 })
