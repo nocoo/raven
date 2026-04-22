@@ -81,10 +81,17 @@ describe("parseLcov", () => {
     expect(r.byFile).toEqual([])
   })
 
-  test("skips files outside src/", () => {
-    const r = parseLcov("SF:test/foo.ts\nLF:1\nLH:1\nend_of_record\n")
-    expect(r.byFile.length).toBe(1)
-    expect(Object.keys(r.byDirectory)).toEqual([])
+  test("skips files outside src/ from totals and per-directory aggregates", () => {
+    const r = parseLcov(
+      "SF:test/foo.ts\nLF:10\nLH:5\nend_of_record\n"
+      + "SF:src/util/id.ts\nLF:4\nLH:4\nend_of_record\n",
+    )
+    // test/foo.ts is kept in byFile (visible in per-file reports) but
+    // excluded from global totals and per-directory aggregates.
+    expect(r.byFile.length).toBe(2)
+    expect(r.total.linesFound).toBe(4)
+    expect(r.total.linesHit).toBe(4)
+    expect(Object.keys(r.byDirectory)).toEqual(["util"])
   })
 })
 

@@ -66,15 +66,17 @@ export function parseLcov(lcov: string): CoverageReport {
   let totalHit = 0
   const dirAgg: Record<string, { linesFound: number; linesHit: number }> = {}
   for (const f of byFile) {
+    const dir = topLevelDir(f.path)
+    // Only src/ files count toward the global and per-directory totals.
+    // Test helpers (test/e2e/*, test-only fixtures) can be imported by L1
+    // specs and would otherwise skew the gate with non-production code.
+    if (dir === null) continue
     totalFound += f.linesFound
     totalHit += f.linesHit
-    const dir = topLevelDir(f.path)
-    if (dir !== null) {
-      const slot = dirAgg[dir] ?? { linesFound: 0, linesHit: 0 }
-      slot.linesFound += f.linesFound
-      slot.linesHit += f.linesHit
-      dirAgg[dir] = slot
-    }
+    const slot = dirAgg[dir] ?? { linesFound: 0, linesHit: 0 }
+    slot.linesFound += f.linesFound
+    slot.linesHit += f.linesHit
+    dirAgg[dir] = slot
   }
 
   const byDirectory: Record<string, { linesFound: number; linesHit: number; pct: number }> = {}
