@@ -1,23 +1,28 @@
 // ---------------------------------------------------------------------------
-// core/runner.ts (G.3) — generic executor for the symmetric pipeline (§3.5).
+// core/runner.ts (G.5) — generic executor for the symmetric pipeline (§3.5).
 //
-// G.3 lands the JSON path only. The streaming path returns a 500 placeholder
-// until G.5; concrete strategies aren't ported until G.6+. Coverage paths
-// per §4.5(4):
-//   (a) JSON success           ← covered here
-//   (d) upstream rejection     ← covered here (rethrow + request_end error)
-//   (e) finally log emission   ← covered via the rejection test
-// (b) stream success and (c) stream mid-flight error land in G.5.
+// G.3 landed the JSON path + skeleton; G.5 adds the streaming path. Coverage
+// paths per §4.5(4):
+//   (a) JSON success           ← G.3
+//   (d) upstream rejection     ← G.3
+//   (e) finally log emission   ← G.3 (json) + G.5 (stream)
+//   (b) stream success         ← G.5
+//   (c) stream mid-flight error per protocol  ← G.5 (OpenAI / Anthropic /
+//       Responses error shapes are produced by each strategy's
+//       adaptStreamError; Runner just writes whatever it returns)
 // ---------------------------------------------------------------------------
 
 import type { Context } from "hono"
+import type { SSEMessage } from "hono/streaming"
+import { streamSSE } from "hono/streaming"
 
 import type { RequestContext } from "./context"
 import type { DispatchResult, Strategy } from "./strategy"
+import { computeStreamTimings } from "./stream-runner"
 import { extractErrorDetails } from "../lib/error"
 import { logEmitter } from "../util/log-emitter"
 
-export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev, St>(
+export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   c: Context,
   ctx: RequestContext,
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
@@ -29,7 +34,7 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev, St>(
   try {
     dispatched = await strategy.dispatch(upstreamReq, ctx)
   } catch (err) {
-    emitErrorEnd(ctx, err)
+    emitErrorEnd(ctx, err, { stream: false })
     throw err
   }
 
@@ -39,15 +44,45 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev, St>(
     return c.json(clientResp as Record<string, unknown>)
   }
 
-  // dispatched.kind === "stream" — wired in G.5.
-  emitErrorEnd(ctx, new Error("runner streaming path not implemented (G.5)"))
-  return c.json(
-    { error: { type: "internal_error", message: "streaming not yet wired" } },
-    500,
-  )
+  return runStream(c, ctx, strategy, dispatched.chunks)
 }
 
-function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev, St>(
+function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
+  c: Context,
+  ctx: RequestContext,
+  strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
+  chunks: AsyncIterable<Ch>,
+): Response {
+  const state = strategy.initStreamState()
+  let firstChunkTime: number | null = null
+  let streamError: unknown | null = null
+
+  return streamSSE(c, async (sseStream) => {
+    try {
+      for await (const upstreamChunk of chunks) {
+        if (firstChunkTime === null) firstChunkTime = performance.now()
+        const events = strategy.adaptChunk(upstreamChunk, state, ctx)
+        for (const ev of events) {
+          await sseStream.writeSSE(ev)
+        }
+      }
+    } catch (err) {
+      streamError = err
+      const terminal = strategy.adaptStreamError(err, state, ctx)
+      for (const ev of terminal) {
+        try {
+          await sseStream.writeSSE(ev)
+        } catch {
+          // Best-effort — connection may already be closed.
+        }
+      }
+    } finally {
+      emitStreamEnd(ctx, strategy, state, firstChunkTime, streamError)
+    }
+  })
+}
+
+function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   ctx: RequestContext,
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
   resp: UpResp,
@@ -78,7 +113,54 @@ function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev, St>(
   })
 }
 
-function emitErrorEnd(ctx: RequestContext, err: unknown): void {
+function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
+  ctx: RequestContext,
+  strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
+  state: St,
+  firstChunkTime: number | null,
+  err: unknown | null,
+): void {
+  const { latencyMs, ttftMs, processingMs } = computeStreamTimings(
+    ctx.startTime,
+    firstChunkTime,
+  )
+  const extras = strategy.describeEndLog({ kind: "stream", state }, ctx)
+  const errorDetail = err
+    ? err instanceof Error
+      ? `stream error: ${err.message}`
+      : "stream error"
+    : null
+
+  logEmitter.emitLog({
+    ts: Date.now(),
+    level: err ? "error" : "info",
+    type: "request_end",
+    requestId: ctx.requestId,
+    msg: `${err ? "error" : "200"} ${ctx.format} ${latencyMs}ms`,
+    data: {
+      format: ctx.format,
+      stream: true,
+      status: err ? "error" : "success",
+      statusCode: err ? 502 : 200,
+      upstreamStatus: err ? null : 200,
+      latencyMs,
+      ttftMs,
+      processingMs,
+      accountName: ctx.accountName,
+      sessionId: ctx.sessionId,
+      clientName: ctx.clientName,
+      clientVersion: ctx.clientVersion,
+      ...extras,
+      ...(errorDetail !== null && { error: errorDetail }),
+    },
+  })
+}
+
+function emitErrorEnd(
+  ctx: RequestContext,
+  err: unknown,
+  opts: { stream: boolean },
+): void {
   const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(err)
   const latencyMs = Math.round(performance.now() - ctx.startTime)
   logEmitter.emitLog({
@@ -89,7 +171,7 @@ function emitErrorEnd(ctx: RequestContext, err: unknown): void {
     msg: `${statusCode} ${ctx.format} ${latencyMs}ms`,
     data: {
       format: ctx.format,
-      stream: false,
+      stream: opts.stream,
       status: "error",
       statusCode,
       upstreamStatus,

@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test"
 import { Hono, type Context } from "hono"
+import type { SSEMessage } from "hono/streaming"
 
 import { execute } from "../../src/core/runner"
 import type { Strategy } from "../../src/core/strategy"
@@ -12,8 +13,10 @@ interface FakeReq { hello: string }
 interface FakeUpReq { upstream: string }
 interface FakeUpResp { reply: string; tokens: number }
 interface FakeClientResp { content: string }
+interface FakeChunk { kind: "delta" | "usage"; text?: string; tokens?: number }
+interface FakeStreamState { resolvedModel: string; outputTokens: number; chunkCount: number }
 
-type AnyStrategy = Strategy<FakeReq, FakeUpReq, FakeUpResp, FakeClientResp, never, never, never>
+type AnyStrategy = Strategy<FakeReq, FakeUpReq, FakeUpResp, FakeClientResp, FakeChunk, SSEMessage, FakeStreamState>
 
 function makeStrategy(overrides: Partial<AnyStrategy> = {}): AnyStrategy {
   const base: AnyStrategy = {
@@ -24,16 +27,28 @@ function makeStrategy(overrides: Partial<AnyStrategy> = {}): AnyStrategy {
       body: { reply: `to:${up.upstream}`, tokens: 7 },
     }),
     adaptJson: (resp) => ({ content: resp.reply }),
-    adaptChunk: () => [],
-    adaptStreamError: () => [],
-    describeEndLog: ({ kind, ...rest }) => {
-      if (kind === "json") {
-        const { resp } = rest as { resp: FakeUpResp }
-        return { resolvedModel: "fake-model", outputTokens: resp.tokens }
+    adaptChunk: (chunk, state) => {
+      state.chunkCount++
+      if (chunk.kind === "usage") {
+        state.outputTokens = chunk.tokens ?? 0
+        return []
       }
-      return { resolvedModel: "fake-model" }
+      return [{ data: JSON.stringify({ delta: chunk.text ?? "" }) }]
     },
-    initStreamState: () => null as never,
+    adaptStreamError: () => [
+      { data: JSON.stringify({ error: { message: "stream broke", type: "server_error" } }) },
+    ],
+    describeEndLog: (result) => {
+      if (result.kind === "json") {
+        return { resolvedModel: "fake-model", outputTokens: result.resp.tokens }
+      }
+      return {
+        resolvedModel: result.state.resolvedModel,
+        outputTokens: result.state.outputTokens,
+        chunkCount: result.state.chunkCount,
+      }
+    },
+    initStreamState: () => ({ resolvedModel: "fake-stream", outputTokens: 0, chunkCount: 0 }),
   }
   return { ...base, ...overrides }
 }
@@ -155,19 +170,112 @@ describe("core/runner — JSON path", () => {
     expect(end!.data!.error).toBe("network down")
   })
 
-  test("stream dispatch is not yet wired (G.5): returns 500 placeholder + error log", async () => {
+  test("stream success: pumps chunks through adaptChunk + writes SSE; emits stream end log", async () => {
+    const s = makeStrategy({
+      dispatch: async () => ({
+        kind: "stream",
+        chunks: (async function* () {
+          yield { kind: "delta", text: "Hi" } as FakeChunk
+          yield { kind: "delta", text: " there" } as FakeChunk
+          yield { kind: "usage", tokens: 9 } as FakeChunk
+        })(),
+      }),
+    })
+    const app = new Hono()
+    app.post("/x", async (c) => execute(c, makeCtx(), s, { hello: "x" }))
+    const res = await app.request("http://localhost/x", { method: "POST" })
+    expect(res.status).toBe(200)
+    expect(res.headers.get("content-type")).toContain("text/event-stream")
+    const body = await res.text()
+    expect(body).toContain('{"delta":"Hi"}')
+    expect(body).toContain('{"delta":" there"}')
+
+    // allow finally{} log to flush
+    await new Promise((r) => setTimeout(r, 10))
+    const end = captured.find((e) => e.type === "request_end")
+    expect(end).toBeDefined()
+    expect(end!.level).toBe("info")
+    expect(end!.data).toMatchObject({
+      stream: true,
+      status: "success",
+      statusCode: 200,
+      upstreamStatus: 200,
+      resolvedModel: "fake-stream",
+      outputTokens: 9,
+      chunkCount: 3,
+    })
+    expect(end!.data!.ttftMs).not.toBeNull()
+    expect(end!.data!.processingMs).not.toBeNull()
+  })
+
+  test("stream mid-flight error: writes adaptStreamError events + logs error end with status: error", async () => {
+    const s = makeStrategy({
+      dispatch: async () => ({
+        kind: "stream",
+        chunks: (async function* () {
+          yield { kind: "delta", text: "ok" } as FakeChunk
+          throw new Error("upstream socket reset")
+        })(),
+      }),
+    })
+    const app = new Hono()
+    app.post("/x", async (c) => execute(c, makeCtx(), s, { hello: "x" }))
+    const res = await app.request("http://localhost/x", { method: "POST" })
+    expect(res.status).toBe(200) // SSE response itself is 200; error is in-band
+    const body = await res.text()
+    expect(body).toContain('{"delta":"ok"}')
+    expect(body).toContain('"error"')
+    expect(body).toContain("stream broke")
+
+    await new Promise((r) => setTimeout(r, 10))
+    const end = captured.find((e) => e.type === "request_end")
+    expect(end!.level).toBe("error")
+    expect(end!.data).toMatchObject({
+      stream: true,
+      status: "error",
+      statusCode: 502,
+      upstreamStatus: null,
+    })
+    expect(String(end!.data!.error)).toContain("upstream socket reset")
+  })
+
+  test("stream with no chunks: TTFT/processing remain null, latency still reported", async () => {
     const s = makeStrategy({
       dispatch: async () => ({
         kind: "stream",
         chunks: (async function* () { /* empty */ })(),
       }),
     })
-    const { status, body } = await run(s)
-    expect(status).toBe(500)
-    expect(body).toMatchObject({ error: { type: "internal_error" } })
+    const app = new Hono()
+    app.post("/x", async (c) => execute(c, makeCtx(), s, { hello: "x" }))
+    await app.request("http://localhost/x", { method: "POST" })
+    await new Promise((r) => setTimeout(r, 10))
     const end = captured.find((e) => e.type === "request_end")
-    expect(end!.level).toBe("error")
-    expect(String(end!.data!.error)).toContain("not implemented")
+    expect(end!.data).toMatchObject({ stream: true, status: "success", statusCode: 200 })
+    expect(end!.data!.ttftMs).toBeNull()
+    expect(end!.data!.processingMs).toBeNull()
+    expect(typeof end!.data!.latencyMs).toBe("number")
+  })
+
+  test("stream error events emit even when adaptStreamError returns multi-event array", async () => {
+    const s = makeStrategy({
+      dispatch: async () => ({
+        kind: "stream",
+        chunks: (async function* () {
+          throw new Error("boom")
+        })(),
+      }),
+      adaptStreamError: () => [
+        { event: "error", data: '{"type":"error","error":{"message":"a"}}' },
+        { data: '{"type":"message_stop"}' },
+      ],
+    })
+    const app = new Hono()
+    app.post("/x", async (c) => execute(c, makeCtx(), s, { hello: "x" }))
+    const res = await app.request("http://localhost/x", { method: "POST" })
+    const body = await res.text()
+    expect(body).toContain("event: error")
+    expect(body).toContain('"message_stop"')
   })
 
   test("ctx identity fields propagate to the log payload", async () => {

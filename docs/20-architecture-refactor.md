@@ -553,7 +553,7 @@ Goal: the 4 duplicated `streamSSE` templates collapse into one `core/runner.ts`.
 - **G.2** ✅ Add `core/context.ts::RequestContext` + `buildContext` + unit tests.
 - **G.3** ✅ Add `core/runner.ts` skeleton — **JSON path only**. Fake-strategy tests cover §4.5(4) paths a (JSON success), d (upstream rejection), e (finally log emission).
 - **G.4** ✅ Add `core/stream-runner.ts` SSE read/write helpers + unit tests. Not yet wired into Runner.
-- **G.5** Runner gains streaming path (consumes `stream-runner` from G.4). Covers §4.5(4) paths b (stream success) and c (mid-flight error per protocol), via fake strategies that simulate OpenAI / Anthropic / Responses error shapes.
+- **G.5** ✅ Runner gains streaming path (consumes `stream-runner` from G.4). Covers §4.5(4) paths b (stream success) and c (mid-flight error per protocol), via fake strategies that simulate OpenAI / Anthropic / Responses error shapes.
 - **G.6** Port `routes/chat-completions` **non-streaming** default branch onto Runner via a local `Strategy`-shaped shim. Migrate affected tests to the injection style per §4.4(3).
 - **G.7** Port `routes/chat-completions` **streaming** default branch onto Runner. Byte-level diff against G.1 fixtures required.
 - **G.8** Port `routes/chat-completions` custom-upstream passthrough branch onto Runner.

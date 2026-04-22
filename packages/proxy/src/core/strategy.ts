@@ -8,6 +8,8 @@
 // G.6+ port the concrete strategies one branch at a time.
 // ---------------------------------------------------------------------------
 
+import type { SSEMessage } from "hono/streaming"
+
 import type { RequestContext } from "./context"
 
 export type StrategyName =
@@ -60,7 +62,7 @@ export interface Strategy<
   UpstreamResp,
   ClientResp,
   ChunkIn,
-  EventOut,
+  EventOut extends SSEMessage,
   StreamState,
 > {
   name: StrategyName
