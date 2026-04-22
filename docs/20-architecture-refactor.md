@@ -518,7 +518,7 @@ Goal: protocol code lives under `protocols/` (pure zone) and `strategies/support
 Goal: every outbound `fetch` flows through `upstream/*`. Strategies (next phase) can inject fakes.
 
 - **E.1** ✅ Add `upstream/interface.ts` with `UpstreamClient<Req, Resp>` + contract tests.
-- **E.2** Characterisation: record current request shapes (headers, body, URL, proxy) for every `services/copilot/*` and `services/upstream/*` call via MSW-style capture. Fixtures become the assertion target for E.3–E.8.
+- **E.2** ✅ Characterisation: record current request shapes (headers, body, URL, proxy) for every `services/copilot/*` and `services/upstream/*` call via MSW-style capture. Fixtures become the assertion target for E.3–E.8.
 - **E.3** Port `services/copilot/create-chat-completions.ts` → `upstream/copilot-openai.ts` with constructor-injected config (token getter, baseURL, proxy resolver). Tests assert against E.2 fixtures.
 - **E.4** Port `create-native-messages.ts` → `upstream/copilot-native.ts`.
 - **E.5** Port `create-responses.ts` → `upstream/copilot-responses.ts`.
