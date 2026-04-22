@@ -78,7 +78,6 @@ export const TOOL_SCHEMA_FIELDS_TO_STRIP = [
 ] as const
 
 import { mapOpenAIStopReasonToAnthropic } from "../../routes/messages/utils"
-import { logger } from "../../util/logger"
 
 interface MessageTranslateFlags {
   sanitizeOrphanedToolResults: boolean
@@ -100,7 +99,6 @@ export function filterContentBlocks<T extends { type: string }>(
   for (const block of blocks) {
     // Skip unsupported block types
     if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) {
-      logger.debug(`Sanitization: filtering unsupported block type="${block.type}"`)
       continue
     }
     // Strip metadata from remaining blocks
@@ -116,11 +114,9 @@ export function filterContentBlocks<T extends { type: string }>(
 export function stripBlockMetadata(block: Record<string, unknown>): void {
   if ("cache_control" in block) {
     delete block.cache_control
-    logger.debug('Sanitization: stripped block metadata field="cache_control"')
   }
   if ("citations" in block) {
     delete block.citations
-    logger.debug('Sanitization: stripped block metadata field="citations"')
   }
 }
 
@@ -131,7 +127,6 @@ export function stripToolUseFields(block: AnthropicToolUseBlock): void {
   const blockAny = block as unknown as Record<string, unknown>
   if ("caller" in blockAny) {
     delete blockAny.caller
-    logger.debug('Sanitization: stripped tool_use field="caller"')
   }
 }
 
@@ -152,19 +147,15 @@ function sanitizeSingleToolDefinition(tool: AnthropicTool): void {
   const toolAny = tool as unknown as Record<string, unknown>
   if ("cache_control" in toolAny) {
     delete toolAny.cache_control
-    logger.debug(`Sanitization: stripped tool schema field="cache_control" from tool="${tool.name}"`)
   }
   if ("defer_loading" in toolAny) {
     delete toolAny.defer_loading
-    logger.debug(`Sanitization: stripped tool schema field="defer_loading" from tool="${tool.name}"`)
   }
   if ("strict" in toolAny) {
     delete toolAny.strict
-    logger.debug(`Sanitization: stripped tool schema field="strict" from tool="${tool.name}"`)
   }
   if ("eager_input_streaming" in toolAny) {
     delete toolAny.eager_input_streaming
-    logger.debug(`Sanitization: stripped tool schema field="eager_input_streaming" from tool="${tool.name}"`)
   }
 }
 
@@ -328,19 +319,7 @@ function handleUserMessage(
     // ALL tool_results are orphans and should be dropped.
     if (flags.sanitizeOrphanedToolResults) {
       const validIds = new Set(pendingToolCallIds)
-      const before = toolResultBlocks.length
-      toolResultBlocks = toolResultBlocks.filter((block) => {
-        if (validIds.has(block.tool_use_id)) return true
-        logger.debug(
-          `OPT-1: dropping orphaned tool_result for tool_use_id=${block.tool_use_id}`,
-        )
-        return false
-      })
-      if (toolResultBlocks.length < before) {
-        logger.debug(
-          `OPT-1: dropped ${before - toolResultBlocks.length} orphaned tool_result(s)`,
-        )
-      }
+      toolResultBlocks = toolResultBlocks.filter((block) => validIds.has(block.tool_use_id))
     }
 
     // OPT-2: Reorder tool results to match tool_calls array order
@@ -406,7 +385,6 @@ function handleAssistantMessage(
 
   // If all content was filtered out, drop the entire message
   if (filteredContent.length === 0) {
-    logger.debug("Sanitization: dropping assistant message with no remaining content after filtering")
     return []
   }
 

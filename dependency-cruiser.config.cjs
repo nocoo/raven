@@ -26,6 +26,7 @@ module.exports = {
           "^packages/proxy/src/infra/state",
           "^packages/proxy/src/lib/state",
           "^packages/proxy/src/util/log-emitter",
+          "^packages/proxy/src/util/logger",
           "^hono/streaming$",
         ],
       },
