@@ -555,11 +555,7 @@ describe("handleCompletion (tool call debug)", () => {
 
     logEmitter.off("log", listener)
 
-    const debugEvents = events.filter(
-      (e) =>
-        e.level === "debug" &&
-        (e.data as { kind?: unknown } | null)?.kind !== "router_trace",
-    )
+    const debugEvents = events.filter((e) => e.level === "debug")
     expect(debugEvents.length).toBe(0)
   })
 })

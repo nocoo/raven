@@ -18,8 +18,6 @@ import type {
 } from "./../../upstream/copilot-openai"
 import type { ServerSentEvent } from "./../../util/sse"
 import { extractErrorDetails, forwardError } from "./../../lib/error"
-// Phase F.1 — temporary; removed in F.3
-import { emitRouterTrace } from "./../../lib/router-trace"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -64,10 +62,6 @@ export async function handleCompletion(c: Context) {
     const { provider } = resolved
     if (provider.format === "openai") {
       // Passthrough: forward OpenAI payload directly
-      emitRouterTrace({
-        requestId, protocol: "openai", model,
-        decision: { kind: "ok", name: "custom-openai", providerId: provider.id },
-      })
       return handleOpenAIPassthrough(
         c,
         requestId,
@@ -78,14 +72,6 @@ export async function handleCompletion(c: Context) {
       )
     }
     // Anthropic upstream: not supported in V1 (no reverse translation)
-    emitRouterTrace({
-      requestId, protocol: "openai", model,
-      decision: {
-        kind: "reject", status: 400, errorType: "invalid_request_error",
-        message: "OpenAI client → Anthropic upstream not supported",
-      },
-      extras: { providerId: provider.id, providerFormat: provider.format },
-    })
     const latencyMs = Math.round(performance.now() - startTime)
     logEmitter.emitLog({
       ts: Date.now(), level: "error", type: "request_end", requestId,
@@ -124,11 +110,6 @@ export async function handleCompletion(c: Context) {
       }
     }
   }
-
-  emitRouterTrace({
-    requestId, protocol: "openai", model,
-    decision: { kind: "ok", name: "copilot-openai-direct" },
-  })
 
   try {
     const response = await buildUpstreamClient("copilot-openai").send(payload)

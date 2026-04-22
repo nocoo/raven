@@ -9,8 +9,6 @@ import { state } from "../../lib/state"
 import type { ServerSentEvent } from "../../util/sse"
 import { logEmitter } from "../../util/log-emitter"
 import { emitUpstreamRawSse } from "../../util/emit-upstream-raw"
-// Phase F.1 — temporary; removed in F.3
-import { emitRouterTrace } from "../../lib/router-trace"
 import { generateRequestId } from "../../util/id"
 import { deriveClientIdentity } from "../../util/client-identity"
 import {
@@ -50,11 +48,6 @@ export const handleResponses = async (c: Context) => {
     ts: Date.now(), level: "info", type: "request_start", requestId,
     msg: `POST /v1/responses ${model}`,
     data: { path: "/v1/responses", format: "responses", model, stream, accountName, sessionId, clientName, clientVersion },
-  })
-
-  emitRouterTrace({
-    requestId, protocol: "responses", model,
-    decision: { kind: "ok", name: "copilot-responses" },
   })
 
   try {
