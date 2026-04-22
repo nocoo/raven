@@ -150,4 +150,52 @@ describe("pickStrategy — branch coverage assertions", () => {
       }),
     ).toEqual({ kind: "ok", name: "copilot-responses" })
   })
+
+  test("openai client × Anthropic-format provider rejects with 400 invalid_request_error", () => {
+    const decision = pickStrategy({
+      protocol: "openai",
+      model: "claude-opus-4.6",
+      providers: [
+        compileProvider({
+          id: "anthropic-up",
+          name: "anthropic-up",
+          format: "anthropic",
+          enabled: true,
+          supports_reasoning: false,
+          patterns: ["claude-opus-4.6"],
+        }),
+      ],
+      modelsCatalogIds: [],
+    })
+    expect(decision.kind).toBe("reject")
+    if (decision.kind === "reject") {
+      expect(decision.status).toBe(400)
+      expect(decision.errorType).toBe("invalid_request_error")
+      expect(decision.message).toContain("Anthropic-format upstreams")
+    }
+  })
+
+  test("responses client × custom provider rejects with 400 invalid_request_error", () => {
+    const decision = pickStrategy({
+      protocol: "responses",
+      model: "gpt-5.2",
+      providers: [
+        compileProvider({
+          id: "custom-1",
+          name: "custom-1",
+          format: "openai",
+          enabled: true,
+          supports_reasoning: false,
+          patterns: ["gpt-5.2"],
+        }),
+      ],
+      modelsCatalogIds: [],
+    })
+    expect(decision.kind).toBe("reject")
+    if (decision.kind === "reject") {
+      expect(decision.status).toBe(400)
+      expect(decision.errorType).toBe("invalid_request_error")
+      expect(decision.message).toContain("custom upstreams")
+    }
+  })
 })
