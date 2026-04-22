@@ -23,7 +23,7 @@
     "capture-goldens": "bun run scripts/capture-goldens.ts",
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
     "gate:security": "bun run scripts/gate-security.ts",
-    "gate:arch": "depcruise --config dependency-cruiser.config.cjs packages/proxy/src",
+    "gate:arch": "depcruise --config dependency-cruiser.config.cjs packages/proxy/src && bun run scripts/check-fetch-boundary.ts",
     "test:ui": "bun run scripts/run-playwright.ts",
     "prepare": "husky",
     "release": "bun run scripts/release.ts"

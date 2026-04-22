@@ -8,6 +8,7 @@ const tasks: Task[] = [
   { name: "tests", gate: "L1", cmd: ["bun", "run", "test:all"] },
   { name: "lint-staged", gate: "G1", cmd: ["bunx", "lint-staged"] },
   { name: "typecheck", gate: "G1", cmd: ["bun", "run", "typecheck"] },
+  { name: "fetch-boundary", gate: "G1", cmd: ["bun", "run", "scripts/check-fetch-boundary.ts"] },
   { name: "gitleaks", gate: "G2", cmd: ["gitleaks", "protect", "--staged", "--no-banner"] },
 ];
 

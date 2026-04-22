@@ -527,7 +527,7 @@ Goal: every outbound `fetch` flows through `upstream/*`. Strategies (next phase)
 - **E.8** ✅ Port `services/upstream/send-anthropic.ts` → `upstream/custom-anthropic.ts`. Legacy file becomes a shim delegating `sendAnthropicDirect` (deleted in E.10).
 - **E.9** ✅ Add `composition/upstream-registry.ts` (upstream portion only; strategy portion lands in Phase H) + tests for every upstream kind.
 - **E.10** ✅ Handlers switch to `upstream-registry`; legacy `services/copilot/create-*.ts` and `services/upstream/send-*.ts` shims deleted; type-only consumers (`lib/tokenizer.ts`, `protocols/translate/*`) repointed to `upstream/copilot-openai`; legacy test suites relocated to `test/upstream/legacy/` and re-pointed at the new clients (1350/1350 L1, gate ✅).
-- **E.11** **Activate dep-cruiser rule #2**: only `upstream/` may call `fetch`; grep-based CI check asserts no `fetch(` outside that directory (exempting tests).
+- **E.11** ✅ Activate the `fetch()` boundary check via `scripts/check-fetch-boundary.ts` (wired into `gate:arch` and the parallel pre-commit hook). The script asserts that no production source outside `packages/proxy/src/upstream/` calls `fetch(`, with an explicit allow-list for the legacy non-LLM call sites (GitHub auth, Tavily, provider probes, model catalog refresh, Hono server entrypoint); each entry is referenced once or the gate fails so the list cannot rot. The structural dep-cruiser rule #2 (locking `routes/` against importing `upstream/` directly) is deferred to H.19 per the original phasing — at this stage the handlers still call `buildUpstreamClient` directly, which is the intended composition path until §3.8 lands in Phase H.
 - Risk: medium (every outbound call).
 
 ### Phase F — Extract Router
