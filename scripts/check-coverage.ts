@@ -73,6 +73,7 @@ if (!skipTests) {
       "test/routes",
       "test/services",
       "test/translate",
+      "test/upstream",
       "test/util",
       "test/ws",
       "test/middleware.test.ts",
