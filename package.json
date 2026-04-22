@@ -20,6 +20,7 @@
     "typecheck": "bun run --filter '*' typecheck",
     "test:e2e": "bun run scripts/run-e2e.ts",
     "test:e2e:full": "RAVEN_E2E_FULL=1 bun run scripts/run-e2e.ts",
+    "capture-goldens": "bun run scripts/capture-goldens.ts",
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
     "gate:security": "bun run scripts/gate-security.ts",
     "gate:arch": "depcruise --config dependency-cruiser.config.cjs packages/proxy/src",
