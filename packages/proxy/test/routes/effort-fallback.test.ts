@@ -5,7 +5,7 @@ import {
   parseReasoningEffortError,
   getSupportedEfforts,
   adjustEffortInPayload,
-} from "../../src/routes/messages/effort-fallback"
+} from "../../src/strategies/support/effort-fallback"
 import { state } from "../../src/lib/state"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 

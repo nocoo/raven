@@ -37,9 +37,9 @@ import {
 import { consumeStreamToResponse } from "../../protocols/translate/consume-stream"
 export { consumeStreamToResponse } from "../../protocols/translate/consume-stream"
 import { preprocessPayload, translateModelName } from "./../../protocols/anthropic/preprocess"
-import { supportsNativeMessages } from "./model-capabilities"
+import { supportsNativeMessages } from "../../strategies/support/model-capabilities"
 import { handleCopilotNative } from "./native-handler"
-import { withServerToolInterception } from "./server-tools"
+import { withServerToolInterception } from "../../strategies/support/server-tools"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()

@@ -23,13 +23,13 @@ import type {
   AnthropicResponse,
 } from "../../protocols/anthropic/types"
 import type { ServerToolContext } from "../../protocols/anthropic/preprocess"
-import { withServerToolInterception } from "./server-tools"
+import { withServerToolInterception } from "../../strategies/support/server-tools"
 import {
   parseReasoningEffortError,
   pickSupportedEffort,
   adjustEffortInPayload,
   logEffortFallback,
-} from "./effort-fallback"
+} from "../../strategies/support/effort-fallback"
 
 // ---------------------------------------------------------------------------
 // Types

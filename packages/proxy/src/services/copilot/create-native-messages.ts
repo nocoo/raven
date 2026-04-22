@@ -10,7 +10,7 @@ import { copilotHeaders, copilotBaseUrl } from "../../lib/api-config"
 import { HTTPError } from "../../lib/error"
 import { getProxyUrl } from "../../lib/socks5-bridge"
 import { state } from "../../lib/state"
-import { getModelCapabilities } from "../../routes/messages/model-capabilities"
+import { getModelCapabilities } from "../../strategies/support/model-capabilities"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,

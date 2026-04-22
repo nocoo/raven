@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test"
 import {
   supportsNativeMessages,
   getModelCapabilities,
-} from "../../src/routes/messages/model-capabilities"
+} from "../../src/strategies/support/model-capabilities"
 import { state } from "../../src/lib/state"
 
 // ---------------------------------------------------------------------------

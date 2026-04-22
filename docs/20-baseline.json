@@ -10,8 +10,9 @@
       "db": 98.85,
       "lib": 98.73,
       "protocols": 99.34,
-      "routes": 92.41,
+      "routes": 91.85,
       "services": 98.02,
+      "strategies": 96.67,
       "util": 97.85,
       "ws": 100.0
     }
@@ -28,8 +29,9 @@
       "db": 97.0,
       "lib": 97.0,
       "protocols": 98.0,
-      "routes": 91.0,
+      "routes": 90.0,
       "services": 97.0,
+      "strategies": 95.0,
       "util": 96.0,
       "ws": 99.0
     },

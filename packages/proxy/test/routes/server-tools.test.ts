@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test"
 import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/protocols/anthropic/types"
 import type { ServerToolContext } from "../../src/protocols/anthropic/preprocess"
-import { withServerToolInterception, type ServerToolExecutorFn } from "../../src/routes/messages/server-tools"
+import { withServerToolInterception, type ServerToolExecutorFn } from "../../src/strategies/support/server-tools"
 import { state } from "../../src/lib/state"
 
 // ---------------------------------------------------------------------------
