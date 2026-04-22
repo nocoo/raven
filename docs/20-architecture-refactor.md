@@ -598,7 +598,7 @@ Goal: collapse the duplicated per-protocol pipelines into 6 strategies. Prove th
 
 Goal: the `if (hasServerSideTools && webSearchEnabled)` block becomes composition over strategy.
 
-- **I.1** Add `strategies/support/server-tools.ts::decorate(strategy, options)` + tests for enabled/disabled paths.
+- **I.1** ✅ Add `strategies/support/server-tools.ts::decorate(strategy, options)` + tests for enabled/disabled paths.
 - **I.2** Replace the `if` branch in `strategies/copilot-translated.ts` with `decorate(...)`.
 - **I.3** (If applicable) apply the same replacement in any other strategy that today performs server-tool interception.
 - **I.4** Run existing server-tool unit tests; run Phase C `web_search` scenarios.

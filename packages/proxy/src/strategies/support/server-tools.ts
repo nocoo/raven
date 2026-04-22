@@ -11,10 +11,12 @@
  * - Mixed mode: strip server tools, loop with client tools
  */
 
+import type { Context } from "hono"
+
 import { state } from "../../lib/state"
 import { logEmitter } from "../../util/log-emitter"
 import { searchTavily, TavilyError } from "../../lib/server-tools/tavily"
-import { HTTPError } from "../../lib/error"
+import { HTTPError, extractErrorDetails } from "../../lib/error"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
@@ -25,6 +27,7 @@ import type {
   AnthropicMessage,
 } from "../../protocols/anthropic/types"
 import type { ServerToolContext } from "../../protocols/anthropic/preprocess"
+import { streamAnthropicResponse } from "./anthropic-stream-writer"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -465,4 +468,105 @@ async function executeServerTool(
     500,
     `Server tool ${toolName} is not available`,
   )
+}
+
+// ---------------------------------------------------------------------------
+// decorate() — single entry point used by routes/strategies that need the
+// server-tool loop (Phase I). Encapsulates:
+//   1. withServerToolInterception call
+//   2. request_end log (success + error)
+//   3. JSON vs. SSE replay decision
+// Callers pass a `sendRequest` closure that translates Anthropic → upstream
+// and back. The helper is strategy-agnostic: it only sees Anthropic shapes.
+// ---------------------------------------------------------------------------
+
+/**
+ * Log fields the route knows that this helper can't derive from the payload.
+ * `extras` is spread into the success request_end; per-strategy fields like
+ * `routingPath`, `copilotModel`, `translatedModel` live here.
+ */
+export interface DecorateLogFields {
+  path: string
+  format: string
+  accountName: string
+  sessionId: string
+  clientName: string | null
+  clientVersion: string | null
+  extras?: Record<string, unknown>
+}
+
+export interface DecorateInput {
+  c: Context
+  requestId: string
+  startTime: number
+  stream: boolean
+  model: string
+  payload: AnthropicMessagesPayload
+  serverToolContext: ServerToolContext
+  sendRequest: SendAnthropicRequestFn
+  log: DecorateLogFields
+  options?: ServerToolInterceptionOptions
+}
+
+/**
+ * Run a server-tool-decorated request. Returns a Hono-ready Response.
+ * Throws on failure (after emitting a request_end error log) so the caller
+ * can hand off to `forwardError`.
+ */
+export async function decorate(input: DecorateInput): Promise<Response> {
+  const {
+    c, requestId, startTime, stream, model,
+    payload, serverToolContext, sendRequest, log, options,
+  } = input
+
+  try {
+    const response = await withServerToolInterception(
+      payload, serverToolContext, sendRequest, requestId, options,
+    )
+
+    const latencyMs = Math.round(performance.now() - startTime)
+    logEmitter.emitLog({
+      ts: Date.now(), level: "info", type: "request_end", requestId,
+      msg: `200 ${model} ${latencyMs}ms (server-tools)`,
+      data: {
+        path: log.path, format: log.format, model,
+        resolvedModel: response.model,
+        inputTokens: response.usage?.input_tokens ?? 0,
+        outputTokens: response.usage?.output_tokens ?? 0,
+        latencyMs,
+        ttftMs: null, processingMs: null,
+        stream: false, status: "success", statusCode: 200,
+        upstreamStatus: 200,
+        serverToolsUsed: true,
+        accountName: log.accountName,
+        sessionId: log.sessionId,
+        clientName: log.clientName,
+        clientVersion: log.clientVersion,
+        ...(log.extras ?? {}),
+      },
+    })
+
+    if (stream) {
+      return streamAnthropicResponse(c, response)
+    }
+    return c.json(response as unknown as Record<string, unknown>)
+  } catch (error) {
+    const latencyMs = Math.round(performance.now() - startTime)
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
+    logEmitter.emitLog({
+      ts: Date.now(), level: "error", type: "request_end", requestId,
+      msg: `${statusCode} ${model} ${latencyMs}ms (server-tools)`,
+      data: {
+        path: log.path, format: log.format, model, stream,
+        latencyMs, status: "error", statusCode,
+        upstreamStatus, error: errorDetail,
+        accountName: log.accountName,
+        sessionId: log.sessionId,
+        clientName: log.clientName,
+        clientVersion: log.clientVersion,
+        ...(log.extras ?? {}),
+      },
+    })
+    throw error
+  }
 }
