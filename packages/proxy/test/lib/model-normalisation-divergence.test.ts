@@ -124,4 +124,102 @@ describe("§2.2(7) — handler contract", () => {
       expect(captured.url).toContain("example.com")
     },
   )
+
+  // Backward-compat pin. The A.6 change must NOT regress the existing
+  // use case where a provider is configured with the raw dated model
+  // verbatim — that pattern still needs to match a raw dated request.
+  test("/v1/messages still honours a raw-dated exact pattern", async () => {
+    setProviders([
+      {
+        ...baseRecord,
+        id: "p-raw",
+        name: "RawMatcher",
+        base_url: "https://raw.example.com",
+        model_patterns: `["${RAW_DATED}"]`,
+      },
+    ])
+    const captured: { url: string | null } = { url: null }
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      captured.url = typeof input === "string" ? input : (input as URL).toString()
+      return new Response(
+        JSON.stringify({
+          id: "msg_x",
+          type: "message",
+          role: "assistant",
+          model: RAW_DATED,
+          content: [{ type: "text", text: "ok" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      )
+    }) as typeof globalThis.fetch
+
+    const app = new Hono()
+    app.post("/v1/messages", handleMessages)
+    const res = await app.request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: RAW_DATED,
+        max_tokens: 16,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(captured.url).toContain("raw.example.com")
+  })
+
+  // When BOTH a raw and a canonical provider could match, the raw
+  // pattern wins. This preserves the "more specific pattern first"
+  // intuition for operators who registered a dated pin to pin an
+  // exact snapshot of a model.
+  test("raw-exact pattern wins over canonical pattern when both match", async () => {
+    setProviders([
+      {
+        ...baseRecord,
+        id: "p-raw",
+        name: "RawMatcher",
+        base_url: "https://raw.example.com",
+        model_patterns: `["${RAW_DATED}"]`,
+      },
+      {
+        ...baseRecord,
+        id: "p-norm",
+        name: "NormalisedMatcher",
+        base_url: "https://norm.example.com",
+        model_patterns: `["${NORMALISED}"]`,
+      },
+    ])
+    const captured: { url: string | null } = { url: null }
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      captured.url = typeof input === "string" ? input : (input as URL).toString()
+      return new Response(
+        JSON.stringify({
+          id: "msg_x",
+          type: "message",
+          role: "assistant",
+          model: RAW_DATED,
+          content: [{ type: "text", text: "ok" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      )
+    }) as typeof globalThis.fetch
+
+    const app = new Hono()
+    app.post("/v1/messages", handleMessages)
+    const res = await app.request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: RAW_DATED,
+        max_tokens: 16,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(captured.url).toContain("raw.example.com")
+  })
 })

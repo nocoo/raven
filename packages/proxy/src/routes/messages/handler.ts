@@ -79,12 +79,21 @@ export async function handleCompletion(c: Context) {
     })
   }
 
-  // Check for custom upstream provider. A.6 fix for §2.2(7): match on
-  // the normalised Copilot model so patterns authored as
-  // `claude-opus-4.6` resolve for raw dated inputs like
-  // `claude-opus-4-6-20250820`. This mirrors the normalisation applied
-  // downstream by preprocessPayload() for the Copilot path.
-  const resolved = resolveProvider(translateModelName(model, anthropicBeta))
+  // Check for custom upstream provider.
+  //
+  // A.6 fix for §2.2(7): a provider pattern authored in canonical
+  // Copilot form (e.g. `claude-opus-4.6`) must match incoming raw
+  // dated inputs (e.g. `claude-opus-4-6-20250820`). But we also have
+  // existing configurations that intentionally target the raw dated
+  // form verbatim. Try raw first (preserves backward compat), then
+  // fall back to the normalised form so canonical patterns resolve
+  // too. resolveProvider returns the first matching provider across
+  // its two-pass exact/glob scan, so this preserves exact-over-glob
+  // ordering within each attempt.
+  const normalisedModel = translateModelName(model, anthropicBeta)
+  const resolved =
+    resolveProvider(model) ??
+    (normalisedModel !== model ? resolveProvider(normalisedModel) : null)
   if (resolved) {
     const { provider } = resolved
     if (provider.format === "anthropic") {
