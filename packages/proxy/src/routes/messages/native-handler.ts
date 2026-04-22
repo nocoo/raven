@@ -1,18 +1,18 @@
 /**
  * Native Copilot Anthropic messages handler — server-tools branch only.
  *
- * H.8: The default (no server-tools) native path moved to the
- * `copilot-native` strategy via `composition.dispatch`. This file now
- * exists solely to handle the server-side tools sub-branch (web_search),
- * which runs its own request loop via `withServerToolInterception` and
- * stays in the route until Phase I.
+ * I.3: rewritten to use `decorate()`; the request_end log + stream-replay
+ * logic is now shared with the translated path. Only the native-specific
+ * sendRequest closure (payload → copilot-native client, with effort
+ * fallback) lives here. The file itself is slated for deletion in J.1
+ * once the effort-fallback helper moves next to the strategy.
  */
 
 import type { Context } from "hono"
 
 import { state } from "../../lib/state"
 import { logEmitter } from "../../util/log-emitter"
-import { extractErrorDetails, forwardError, HTTPError } from "../../lib/error"
+import { forwardError, HTTPError } from "../../lib/error"
 import { buildUpstreamClient } from "../../composition/upstream-registry"
 import type { NativeMessagesOptions } from "../../upstream/copilot-native"
 import type { ServerSentEvent } from "../../util/sse"
@@ -22,8 +22,7 @@ import type {
   AnthropicResponse,
 } from "../../protocols/anthropic/types"
 import type { ServerToolContext } from "../../protocols/anthropic/preprocess"
-import { withServerToolInterception } from "../../strategies/support/server-tools"
-import { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
+import { decorate as decorateServerTools } from "../../strategies/support/server-tools"
 import {
   parseReasoningEffortError,
   pickSupportedEffort,
@@ -38,11 +37,6 @@ interface RequestContext {
   clientVersion: string | null
 }
 
-/**
- * Handle a native /v1/messages request that uses server-side tools.
- * Server-tool interception runs non-streaming internally; if the client
- * requested streaming we replay the resolved response as SSE.
- */
 export async function handleCopilotNativeServerTools(
   c: Context,
   requestId: string,
@@ -76,77 +70,18 @@ export async function handleCopilotNativeServerTools(
   }
 
   try {
-    const sendNonStreamingRequest = createSendNonStreamingRequest(nativeOptions, requestId)
-    const response = await withServerToolInterception(
+    return await decorateServerTools({
+      c, requestId, startTime, stream, model: originalModel,
       payload,
       serverToolContext,
-      sendNonStreamingRequest,
-      requestId,
-    )
-
-    const latencyMs = Math.round(performance.now() - startTime)
-    logEmitter.emitLog({
-      ts: Date.now(),
-      level: "info",
-      type: "request_end",
-      requestId,
-      msg: `200 ${originalModel} ${latencyMs}ms (native+server-tools)`,
-      data: {
-        path: "/v1/messages",
-        format: "anthropic",
-        model: originalModel,
-        resolvedModel: response.model,
-        copilotModel,
-        inputTokens: response.usage?.input_tokens ?? 0,
-        outputTokens: response.usage?.output_tokens ?? 0,
-        latencyMs,
-        ttftMs: null,
-        processingMs: null,
-        stream: false,
-        status: "success",
-        statusCode: 200,
-        upstreamStatus: 200,
-        routingPath: "native",
-        serverToolsUsed: true,
-        accountName,
-        sessionId,
-        clientName,
-        clientVersion,
+      sendRequest: createSendNonStreamingRequest(nativeOptions, requestId),
+      log: {
+        path: "/v1/messages", format: "anthropic",
+        accountName, sessionId, clientName, clientVersion,
+        extras: { copilotModel, routingPath: "native" },
       },
     })
-
-    if (stream) {
-      return streamAnthropicResponse(c, response)
-    }
-    return c.json(response)
   } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(),
-      level: "error",
-      type: "request_end",
-      requestId,
-      msg: `${statusCode} ${originalModel} ${latencyMs}ms (native)`,
-      data: {
-        path: "/v1/messages",
-        format: "anthropic",
-        model: originalModel,
-        copilotModel,
-        stream,
-        latencyMs,
-        status: "error",
-        statusCode,
-        upstreamStatus,
-        error: errorDetail,
-        routingPath: "native",
-        accountName,
-        sessionId,
-        clientName,
-        clientVersion,
-      },
-    })
     return forwardError(c, error)
   }
 }

@@ -600,8 +600,8 @@ Goal: the `if (hasServerSideTools && webSearchEnabled)` block becomes compositio
 
 - **I.1** ✅ Add `strategies/support/server-tools.ts::decorate(strategy, options)` + tests for enabled/disabled paths.
 - **I.2** ✅ Replace the `if` branch in `strategies/copilot-translated.ts` with `decorate(...)`.
-- **I.3** (If applicable) apply the same replacement in any other strategy that today performs server-tool interception.
-- **I.4** Run existing server-tool unit tests; run Phase C `web_search` scenarios.
+- **I.3** ✅ (If applicable) apply the same replacement in any other strategy that today performs server-tool interception. (Applied to the native path via `routes/messages/native-handler.ts`, which now delegates to `decorate()`. The file itself is slated for deletion in J.1.)
+- **I.4** ✅ Run existing server-tool unit tests; run Phase C `web_search` scenarios. L1 = 1560 pass, coverage gate passed.
 
 ### Phase J — Cleanup + restore anti-ban
 
