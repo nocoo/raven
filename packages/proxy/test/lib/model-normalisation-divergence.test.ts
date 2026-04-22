@@ -222,4 +222,58 @@ describe("§2.2(7) — handler contract", () => {
     expect(res.status).toBe(200)
     expect(captured.url).toContain("raw.example.com")
   })
+
+  // When a raw **glob** and a canonical **exact** could both claim the
+  // request, exact must win — across candidates. Input
+  // `claude-opus-4-6-20250820` matches both `claude-opus-*` (raw glob)
+  // and (after normalisation) `claude-opus-4.6` (canonical exact).
+  // The canonical-exact provider must win.
+  test("canonical-exact pattern beats raw-glob pattern across candidates", async () => {
+    setProviders([
+      {
+        ...baseRecord,
+        id: "p-raw-glob",
+        name: "RawGlobMatcher",
+        base_url: "https://rawglob.example.com",
+        model_patterns: `["claude-opus-*"]`,
+      },
+      {
+        ...baseRecord,
+        id: "p-norm-exact",
+        name: "NormalisedExactMatcher",
+        base_url: "https://norm.example.com",
+        model_patterns: `["${NORMALISED}"]`,
+      },
+    ])
+    const captured: { url: string | null } = { url: null }
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      captured.url = typeof input === "string" ? input : (input as URL).toString()
+      return new Response(
+        JSON.stringify({
+          id: "msg_x",
+          type: "message",
+          role: "assistant",
+          model: NORMALISED,
+          content: [{ type: "text", text: "ok" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      )
+    }) as typeof globalThis.fetch
+
+    const app = new Hono()
+    app.post("/v1/messages", handleMessages)
+    const res = await app.request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: RAW_DATED,
+        max_tokens: 16,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    expect(captured.url).toContain("norm.example.com")
+  })
 })
