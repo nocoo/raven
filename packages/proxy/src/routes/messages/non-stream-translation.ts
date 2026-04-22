@@ -209,16 +209,21 @@ export function translateToOpenAI(
   if (toolChoice) optional.tool_choice = toolChoice
 
   // Thinking → reasoning_effort translation (only for reasoning-capable OpenAI upstreams)
-  if (options?.targetFormat === "openai-reasoning" && payload.thinking?.type === "enabled") {
-    const budget = payload.thinking.budget_tokens ?? 0
-    if (budget >= 10000) {
-      optional.reasoning_effort = "high"
-    } else if (budget >= 5000) {
+  if (options?.targetFormat === "openai-reasoning" && payload.thinking) {
+    if (payload.thinking.type === "enabled") {
+      const budget = payload.thinking.budget_tokens ?? 0
+      if (budget >= 10000) {
+        optional.reasoning_effort = "high"
+      } else if (budget >= 5000) {
+        optional.reasoning_effort = "medium"
+      } else if (budget >= 2000) {
+        optional.reasoning_effort = "low"
+      } else {
+        optional.reasoning_effort = "minimal"
+      }
+    } else if (payload.thinking.type === "adaptive") {
+      // Adaptive thinking maps to medium — let the model decide
       optional.reasoning_effort = "medium"
-    } else if (budget >= 2000) {
-      optional.reasoning_effort = "low"
-    } else {
-      optional.reasoning_effort = "minimal"
     }
   }
   // For "openai" (non-reasoning) and "copilot": thinking param is dropped

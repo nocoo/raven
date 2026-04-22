@@ -1039,12 +1039,12 @@ describe("thinking → reasoning_effort", () => {
     expect(result.reasoning_effort).toBe("minimal")
   })
 
-  test("openai-reasoning with null budget → minimal", () => {
+  test("openai-reasoning with adaptive thinking → medium", () => {
     const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: null } }),
+      makeRequest({ thinking: { type: "adaptive" } }),
       { targetFormat: "openai-reasoning" },
     )
-    expect(result.reasoning_effort).toBe("minimal")
+    expect(result.reasoning_effort).toBe("medium")
   })
 
   test("openai (non-reasoning) drops thinking", () => {

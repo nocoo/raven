@@ -14,6 +14,7 @@ import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
 } from "../../routes/messages/anthropic-types"
+import { getModelCapabilities } from "../../routes/messages/model-capabilities"
 import type { ServerSentEvent } from "../../util/sse"
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,19 @@ export async function createNativeMessages(
   }
   if (requestBody.output_config === null || requestBody.output_config === undefined) {
     delete requestBody.output_config
+  }
+
+  // Convert thinking.type "enabled" → "adaptive" for models that require it (e.g. claude-opus-4.7+)
+  const thinking = requestBody.thinking as { type: string; budget_tokens?: number | null } | null | undefined
+  if (thinking?.type === "enabled") {
+    const caps = getModelCapabilities(options.copilotModel)
+    if (caps?.supports?.adaptive_thinking) {
+      thinking.type = "adaptive"
+      delete thinking.budget_tokens
+    }
+  } else if (thinking?.type === "adaptive") {
+    // Anthropic API does not accept budget_tokens for adaptive thinking
+    delete thinking.budget_tokens
   }
 
   const proxyUrl = getProxyUrl("copilot", state)
