@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "branch": "chat-completions-stream-custom-openai",
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "gpt-custom-7",
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "upstreamChunks": [
+    "data: {\"id\":\"x1\",\"model\":\"gpt-custom-7\",\"choices\":[{\"delta\":{\"role\":\"assistant\"},\"index\":0}]}\n\n",
+    "data: {\"id\":\"x1\",\"model\":\"gpt-custom-7\",\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"index\":0}]}\n\n",
+    "data: {\"id\":\"x1\",\"model\":\"gpt-custom-7\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\",\"index\":0}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":3,\"total_tokens\":15}}\n\n",
+    "data: [DONE]\n\n"
+  ],
+  "responseStatus": 200,
+  "responseHeaders": {
+    "content-type": "text/event-stream",
+    "transfer-encoding": "chunked"
+  },
+  "responseBody": "data: {\"id\":\"x1\",\"model\":\"gpt-custom-7\",\"choices\":[{\"delta\":{\"role\":\"assistant\"},\"index\":0}]}\n\ndata: {\"id\":\"x1\",\"model\":\"gpt-custom-7\",\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"index\":0}]}\n\ndata: {\"id\":\"x1\",\"model\":\"gpt-custom-7\",\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\",\"index\":0}],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":3,\"total_tokens\":15}}\n\ndata: [DONE]\n\n",
+  "endLog": {
+    "path": "/v1/chat/completions",
+    "format": "openai",
+    "model": "gpt-custom-7",
+    "resolvedModel": "gpt-custom-7",
+    "inputTokens": 12,
+    "outputTokens": 3,
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "upstream": "OpenAIProvider",
+    "upstreamFormat": "openai"
+  }
+}
