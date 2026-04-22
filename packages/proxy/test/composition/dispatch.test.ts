@@ -114,9 +114,12 @@ describe("composition/dispatch", () => {
     expect(data.stream).toBe(true)
   })
 
-  test("ok path with unregistered strategy throws StrategyNotRegisteredError", async () => {
+  test("ok path with copilot-translated registered: dispatch reaches strategy (no NotRegistered error)", async () => {
     // Anthropic protocol with no matching custom-anthropic provider and a
-    // non-claude catalog model triggers copilot-translated route → not registered yet.
+    // non-claude catalog model triggers copilot-translated route. Post-H.16
+    // the strategy is registered, so dispatch reaches the upstream client
+    // and fails downstream (no GitHub token in test env) — but it must not
+    // be a StrategyNotRegisteredError anymore.
     const ctx = makeCtx({ format: "anthropic", path: "/v1/messages" })
     let caught: unknown = null
     const app = makeApp(async (c) => {
@@ -131,10 +134,10 @@ describe("composition/dispatch", () => {
       }
     })
     await app.request("http://localhost/x", { method: "POST" })
-    expect(caught).toBeInstanceOf(StrategyNotRegisteredError)
+    expect(caught).not.toBeInstanceOf(StrategyNotRegisteredError)
   })
 
-  test("router inputs are threaded: anthropicBeta default null does not throw", async () => {
+  test("router inputs are threaded: anthropicBeta default null does not throw NotRegistered", async () => {
     // Same as above but verifies anthropicBeta?? null path is exercised.
     const ctx = makeCtx({ format: "anthropic", path: "/v1/messages" })
     let caught: unknown = null
@@ -151,6 +154,6 @@ describe("composition/dispatch", () => {
       }
     })
     await app.request("http://localhost/x", { method: "POST" })
-    expect(caught).toBeInstanceOf(StrategyNotRegisteredError)
+    expect(caught).not.toBeInstanceOf(StrategyNotRegisteredError)
   })
 })

@@ -1,11 +1,8 @@
 // H.3 — composition/strategy-registry tests.
 import { describe, expect, test } from "bun:test"
 
-import {
-  buildStrategy,
-  StrategyNotRegisteredError,
-} from "../../src/composition/strategy-registry"
-import type { StrategyDecision, StrategyName } from "../../src/core/router"
+import { buildStrategy } from "../../src/composition/strategy-registry"
+import type { StrategyDecision } from "../../src/core/router"
 
 describe("composition/strategy-registry", () => {
   test("returns a Strategy with name=copilot-openai-direct for ok decision", () => {
@@ -85,12 +82,17 @@ describe("composition/strategy-registry", () => {
     )
   })
 
-  test.each([
-    "copilot-translated",
-  ] satisfies StrategyName[])("throws StrategyNotRegisteredError for %s (pre-H.15+)", (name) => {
-    expect(() =>
-      buildStrategy({ kind: "ok", name } as StrategyDecision, { toolCallDebug: false }),
-    ).toThrow(StrategyNotRegisteredError)
+  test("returns a Strategy with name=copilot-translated for ok decision", () => {
+    const decision: StrategyDecision = { kind: "ok", name: "copilot-translated" }
+    const s = buildStrategy(decision, { toolCallDebug: false, filterWhitespaceChunks: false })
+    expect(s.name).toBe("copilot-translated")
+    expect(typeof s.prepare).toBe("function")
+    expect(typeof s.dispatch).toBe("function")
+    expect(typeof s.adaptJson).toBe("function")
+    expect(typeof s.adaptChunk).toBe("function")
+    expect(typeof s.adaptStreamError).toBe("function")
+    expect(typeof s.describeEndLog).toBe("function")
+    expect(typeof s.initStreamState).toBe("function")
   })
 
   test("toolCallDebug is plumbed through to the strategy (no separate accessor; checked indirectly)", () => {
