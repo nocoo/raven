@@ -5,6 +5,7 @@ import { streamSSE } from "hono/streaming"
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
 import { resolveProviderForModels } from "./../../lib/upstream-router"
+import { pickStrategy } from "./../../core/router"
 import type { CompiledProvider } from "./../../db/providers"
 import { logEmitter } from "./../../util/log-emitter"
 import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
@@ -80,25 +81,32 @@ export async function handleCompletion(c: Context) {
     })
   }
 
-  // Check for custom upstream provider.
-  //
   // §2.2(7) normalisation: a provider pattern authored in canonical
   // Copilot form (e.g. `claude-opus-4.6`) must match incoming raw
-  // dated inputs (e.g. `claude-opus-4-6-20250820`). But existing
-  // configurations may target the raw dated form verbatim. Feed both
-  // candidates (raw first, normalised second) through a single
-  // two-pass matcher so global ordering is:
-  //   raw-exact → norm-exact → raw-glob → norm-glob.
-  // This preserves "exact beats glob" regardless of which candidate
-  // carries the exact pattern — a raw glob cannot beat a canonical
-  // exact.
+  // dated inputs (e.g. `claude-opus-4-6-20250820`). The router
+  // (core/router.ts::pickStrategy) feeds both raw + normalised
+  // candidates into a two-pass matcher; we mirror the candidate list
+  // here so we can fetch the resolved provider object for handler
+  // dispatch (the router only returns providerId). Composition root
+  // (§3.8, Phase H) will move provider resolution into the strategy
+  // factory.
   const normalisedModel = translateModelName(model, anthropicBeta)
   const candidates = normalisedModel !== model ? [model, normalisedModel] : [model]
-  const resolved = resolveProviderForModels(candidates)
-  if (resolved) {
+
+  const decision = pickStrategy({
+    protocol: "anthropic",
+    model,
+    anthropicBeta,
+    providers: state.providers,
+    modelsCatalogIds: state.models?.data?.map((m) => m.id) ?? [],
+  })
+
+  if (decision.kind === "ok" && (decision.name === "custom-anthropic" || decision.name === "custom-openai")) {
+    const resolved = resolveProviderForModels(candidates)
+    if (!resolved) throw new Error(`router/handler drift: no provider for ${model}`)
     const { provider } = resolved
-    if (provider.format === "anthropic") {
-      // Passthrough: forward Anthropic payload directly
+
+    if (decision.name === "custom-anthropic") {
       return handleAnthropicPassthrough(
         c,
         requestId,
@@ -108,10 +116,10 @@ export async function handleCompletion(c: Context) {
         { accountName, sessionId, clientName, clientVersion },
       )
     }
-    // OpenAI provider: translate then forward
+
+    // custom-openai: translate Anthropic → OpenAI, then forward
     const targetFormat = provider.supports_reasoning ? "openai-reasoning" : "openai"
 
-    // Debug log if thinking is dropped for non-reasoning OpenAI provider
     if (!provider.supports_reasoning && anthropicPayload.thinking?.type === "enabled") {
       logEmitter.emitLog({
         ts: Date.now(),
@@ -149,8 +157,16 @@ export async function handleCompletion(c: Context) {
   const { payload: cleanedPayload, copilotModel, anthropicBeta: filteredBeta, serverToolContext } = preprocessed
 
   // --- Native Messages Routing ---
-  // Check if the model supports native /v1/messages (Claude models)
-  if (supportsNativeMessages(copilotModel)) {
+  // Router (pickStrategy) checks catalog membership + `claude-*` prefix.
+  // Runtime gate (supportsNativeMessages) additionally verifies the
+  // model declares /v1/messages in `supported_endpoints` — see
+  // core/router.ts comment on `nativeSupported`. Both must agree to
+  // dispatch native; otherwise fall through to the translated path.
+  if (
+    decision.kind === "ok" &&
+    decision.name === "copilot-native" &&
+    supportsNativeMessages(copilotModel)
+  ) {
     logEmitter.emitLog({
       ts: Date.now(),
       level: "debug",
