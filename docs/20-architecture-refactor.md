@@ -559,7 +559,7 @@ Goal: the 4 duplicated `streamSSE` templates collapse into one `core/runner.ts`.
 - **G.8** ✅ Port `routes/chat-completions` custom-upstream passthrough branch onto Runner.
 - **G.9** ✅ Port `routes/messages` default Copilot branch onto Runner.
 - **G.10** ✅ Port `routes/messages` custom OpenAI-upstream branch onto Runner.
-- **G.11** Port `routes/messages` Anthropic passthrough branch onto Runner.
+- **G.11** ✅ Port `routes/messages` Anthropic passthrough branch onto Runner.
 - **G.12** Port `routes/responses` onto Runner.
 - **G.13** Delete now-dead duplicated streaming templates; rerun Phase C; record no-diff.
 - Expected cumulative delta: −400 lines, +200 lines. No observable behaviour change.

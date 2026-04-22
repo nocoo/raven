@@ -1,6 +1,6 @@
 import type { Context } from "hono"
 
-import { streamSSE, type SSEMessage } from "hono/streaming"
+import { type SSEMessage } from "hono/streaming"
 
 import { checkRateLimit } from "./../../lib/rate-limit"
 import { state } from "./../../lib/state"
@@ -124,14 +124,18 @@ export async function handleCompletion(c: Context) {
     const { provider } = resolved
 
     if (decision.name === "custom-anthropic") {
-      return handleAnthropicPassthrough(
-        c,
-        requestId,
-        anthropicPayload,
-        startTime,
-        provider,
-        { accountName, sessionId, clientName, clientVersion },
-      )
+      const runnerCtx: RunnerCtx = {
+        requestId, startTime, format: "anthropic", path: "/v1/messages",
+        accountName, userAgent, anthropicBeta,
+        sessionId, clientName, clientVersion,
+      }
+      try {
+        return await runnerExecute(c, runnerCtx, customAnthropicShim, {
+          provider, payload: anthropicPayload,
+        })
+      } catch (error) {
+        return forwardError(c, error)
+      }
     }
 
     // custom-openai: translate Anthropic → OpenAI, then forward
@@ -336,140 +340,6 @@ const isNonStreaming = (
   response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
 
-
-// ===========================================================================
-// Custom upstream provider handlers
-// ===========================================================================
-
-interface RequestContext {
-  accountName: string
-  sessionId: string
-  clientName: string | null
-  clientVersion: string | null
-}
-
-/** Handle Anthropic-format upstream with passthrough (no translation) */
-async function handleAnthropicPassthrough(
-  c: Context,
-  requestId: string,
-  payload: AnthropicMessagesPayload,
-  startTime: number,
-  provider: CompiledProvider,
-  ctx: RequestContext,
-) {
-  const { accountName, sessionId, clientName, clientVersion } = ctx
-  const model = payload.model
-  const stream = !!payload.stream
-
-  try {
-    const response = await buildUpstreamClient("custom-anthropic").send({ provider, payload })
-
-    if (isAnthropicNonStreaming(response)) {
-      const latencyMs = Math.round(performance.now() - startTime)
-      const inputTokens = response.usage?.input_tokens ?? 0
-      const outputTokens = response.usage?.output_tokens ?? 0
-
-      logEmitter.emitLog({
-        ts: Date.now(), level: "info", type: "request_end", requestId,
-        msg: `200 ${model} ${latencyMs}ms`,
-        data: {
-          path: "/v1/messages", format: "anthropic", model, resolvedModel: model,
-          inputTokens, outputTokens, latencyMs, ttftMs: null, processingMs: null,
-          stream: false, status: "success", statusCode: 200,
-          upstreamStatus: 200, upstream: provider.name, upstreamFormat: provider.format,
-          accountName, sessionId, clientName, clientVersion,
-        },
-      })
-
-      return c.json(response)
-    }
-
-    // Streaming: passthrough SSE events directly
-    let inputTokens = 0
-    let outputTokens = 0
-    let streamError: string | null = null
-    let firstChunkTime: number | null = null
-
-    return streamSSE(c, async (sseStream) => {
-      try {
-        for await (const sseEvent of response) {
-          if (firstChunkTime === null) firstChunkTime = performance.now()
-
-          // Extract token usage from message_delta event
-          try {
-            const parsed = JSON.parse(sseEvent.data)
-            if (parsed.type === "message_delta" && parsed.usage) {
-              inputTokens = parsed.usage.input_tokens ?? 0
-              outputTokens = parsed.usage.output_tokens ?? 0
-            }
-          } catch {
-            // Ignore parse errors for metrics
-          }
-
-          if (sseEvent.event) {
-            await sseStream.writeSSE({
-              event: sseEvent.event,
-              data: sseEvent.data,
-            })
-          } else {
-            await sseStream.writeSSE({
-              data: sseEvent.data,
-            })
-          }
-        }
-      } catch (err) {
-        streamError = err instanceof Error ? `stream error: ${err.message}` : "stream error"
-        // Send Anthropic error event
-        try {
-          const errorEvent = translateErrorToAnthropicErrorEvent()
-          await sseStream.writeSSE({
-            event: errorEvent.type,
-            data: JSON.stringify(errorEvent),
-          })
-        } catch {
-          // Connection may be closed
-        }
-      } finally {
-        const endTime = performance.now()
-        const latencyMs = Math.round(endTime - startTime)
-        const ttftMs = firstChunkTime !== null ? Math.round(firstChunkTime - startTime) : null
-        const processingMs = firstChunkTime !== null ? Math.round(endTime - firstChunkTime) : null
-
-        logEmitter.emitLog({
-          ts: Date.now(), level: streamError ? "error" : "info",
-          type: "request_end", requestId,
-          msg: `${streamError ? "error" : "200"} ${model} ${latencyMs}ms`,
-          data: {
-            path: "/v1/messages", format: "anthropic", model,
-            inputTokens, outputTokens, latencyMs, ttftMs, processingMs,
-            stream: true, status: streamError ? "error" : "success",
-            statusCode: streamError ? 502 : 200,
-            upstreamStatus: streamError ? null : 200,
-            upstream: provider.name, upstreamFormat: provider.format,
-            accountName, sessionId, clientName, clientVersion,
-            ...(streamError && { error: streamError }),
-          },
-        })
-      }
-    })
-  } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} ${model} ${latencyMs}ms`,
-      data: {
-        path: "/v1/messages", format: "anthropic", model, stream,
-        latencyMs, status: "error", statusCode,
-        upstreamStatus, error: errorDetail,
-        upstream: provider.name, upstreamFormat: provider.format,
-        accountName, sessionId, clientName, clientVersion,
-      },
-    })
-    return forwardError(c, error)
-  }
-}
 
 
 /** Type guard for Anthropic non-streaming response */
@@ -778,6 +648,103 @@ const customOpenAIShim: Strategy<
     if (result.kind === "error") {
       return {
         model: result.req.originalModel,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
+      }
+    }
+    return {}
+  },
+}
+
+// ===========================================================================
+// G.11: Strategy shim — custom-anthropic (Anthropic client ↔ Anthropic-format
+// provider, passthrough). No translation; just forward bytes and pull token
+// usage out of `message_delta`. Local to this file; promoted in Phase H.
+// ===========================================================================
+
+interface CustomAnthropicUpReq {
+  provider: CompiledProvider
+  payload: AnthropicMessagesPayload
+}
+
+interface CustomAnthropicStreamState {
+  inputTokens: number
+  outputTokens: number
+}
+
+const customAnthropicShim: Strategy<
+  CustomAnthropicUpReq,
+  CustomAnthropicUpReq,
+  AnthropicResponse,
+  AnthropicResponse,
+  ServerSentEvent,
+  SSEMessage,
+  CustomAnthropicStreamState
+> = {
+  name: "custom-anthropic",
+
+  prepare: (req) => req,
+
+  dispatch: async (up) => {
+    const response = await buildUpstreamClient("custom-anthropic").send(up)
+    if (isAnthropicNonStreaming(response)) {
+      return { kind: "json", body: response }
+    }
+    return { kind: "stream", chunks: response }
+  },
+
+  adaptJson: (resp) => resp,
+
+  initStreamState: () => ({ inputTokens: 0, outputTokens: 0 }),
+
+  adaptChunk: (sseEvent, st) => {
+    try {
+      const parsed = JSON.parse(sseEvent.data)
+      if (parsed.type === "message_delta" && parsed.usage) {
+        st.inputTokens = parsed.usage.input_tokens ?? 0
+        st.outputTokens = parsed.usage.output_tokens ?? 0
+      }
+    } catch {
+      // Ignore parse errors for metrics
+    }
+
+    if (sseEvent.event) {
+      return [{ event: sseEvent.event, data: sseEvent.data }]
+    }
+    return [{ data: sseEvent.data }]
+  },
+
+  adaptStreamError: () => {
+    const errorEvent = translateErrorToAnthropicErrorEvent()
+    return [{
+      event: errorEvent.type,
+      data: JSON.stringify(errorEvent),
+    }]
+  },
+
+  describeEndLog: (result) => {
+    if (result.kind === "json") {
+      return {
+        model: result.req.payload.model,
+        resolvedModel: result.req.payload.model,
+        inputTokens: result.resp.usage?.input_tokens ?? 0,
+        outputTokens: result.resp.usage?.output_tokens ?? 0,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
+      }
+    }
+    if (result.kind === "stream") {
+      return {
+        model: result.req.payload.model,
+        inputTokens: result.state.inputTokens,
+        outputTokens: result.state.outputTokens,
+        upstream: result.req.provider.name,
+        upstreamFormat: result.req.provider.format,
+      }
+    }
+    if (result.kind === "error") {
+      return {
+        model: result.req.payload.model,
         upstream: result.req.provider.name,
         upstreamFormat: result.req.provider.format,
       }
