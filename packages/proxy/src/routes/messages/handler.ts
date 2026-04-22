@@ -35,6 +35,7 @@ import {
   translateErrorToAnthropicErrorEvent,
 } from "./stream-translation"
 import { preprocessPayload } from "./preprocess"
+import { translateModelName } from "./../../protocols/anthropic/preprocess"
 import { supportsNativeMessages } from "./model-capabilities"
 import { handleCopilotNative } from "./native-handler"
 import { withServerToolInterception } from "./server-tools"
@@ -78,8 +79,12 @@ export async function handleCompletion(c: Context) {
     })
   }
 
-  // Check for custom upstream provider
-  const resolved = resolveProvider(model)
+  // Check for custom upstream provider. A.6 fix for §2.2(7): match on
+  // the normalised Copilot model so patterns authored as
+  // `claude-opus-4.6` resolve for raw dated inputs like
+  // `claude-opus-4-6-20250820`. This mirrors the normalisation applied
+  // downstream by preprocessPayload() for the Copilot path.
+  const resolved = resolveProvider(translateModelName(model, anthropicBeta))
   if (resolved) {
     const { provider } = resolved
     if (provider.format === "anthropic") {

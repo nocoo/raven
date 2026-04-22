@@ -1,18 +1,15 @@
 /**
- * A.4 — Red test for §2.2(7) model-normalisation divergence.
+ * §2.2(7) model-normalisation contract.
  *
- * Bug: `/v1/messages` preprocesses the Anthropic model into the Copilot
- * canonical form (`claude-opus-4-6-20250820` → `claude-opus-4.6`) before
- * translating, but provider resolution in handler.ts runs on the RAW
- * model. A custom provider authored with the normalised pattern
- * therefore never matches raw dated forms, even though the downstream
- * pipeline treats them as equivalent.
+ * After A.6, `/v1/messages` resolves provider against the normalised
+ * Copilot model, so custom provider patterns authored as
+ * `claude-opus-4.6` match raw dated inputs like
+ * `claude-opus-4-6-20250820`. `/v1/chat/completions` continues to
+ * match on the raw model — OpenAI-format clients send the raw model
+ * verbatim.
  *
- * `/v1/chat/completions` does not normalise and matches on raw model.
- * This is correct — OpenAI-format clients send the raw model verbatim.
- *
- * This file marks the broken `/v1/messages` assertion with `test.failing`;
- * A.6 will land the handler change and flip it to a normal `test`.
+ * These tests pin the fixed behaviour so that a future refactor can't
+ * regress back to raw-model matching on the messages entry.
  */
 
 import { describe, expect, test, beforeEach, afterEach } from "bun:test"
@@ -73,7 +70,7 @@ describe("§2.2(7) — helper-layer facts", () => {
   })
 })
 
-describe("§2.2(7) — handler contract (red until A.6)", () => {
+describe("§2.2(7) — handler contract", () => {
   let savedProviders: typeof state.providers
   let originalFetch: typeof globalThis.fetch
 
@@ -88,11 +85,10 @@ describe("§2.2(7) — handler contract (red until A.6)", () => {
     globalThis.fetch = originalFetch
   })
 
-  // Marked `.failing` because today messages-handler.ts calls
-  // resolveProvider(rawModel) before preprocess runs. A.6 flips this call
-  // site to use the normalised model and this assertion will pass. Flip
-  // `test.failing` → `test` in the A.6 commit.
-  test.failing(
+  // A.6 landed: messages-handler.ts now calls
+  // resolveProvider(translateModelName(rawModel, anthropicBeta)).
+  // This assertion now passes as a regular test.
+  test(
     "/v1/messages routes raw dated model through a normalised-pattern provider",
     async () => {
       const captured: { url: string | null } = { url: null }
