@@ -22,6 +22,7 @@ import { makeCopilotOpenAIDirect } from "../strategies/copilot-openai-direct"
 import { makeCopilotNative } from "../strategies/copilot-native"
 import { makeCopilotResponses } from "../strategies/copilot-responses"
 import { makeCustomOpenAI } from "../strategies/custom-openai"
+import { makeCustomAnthropic } from "../strategies/custom-anthropic"
 
 export interface BuildStrategyDeps {
   /** Mirrors `state.optToolCallDebug`; passed in so strategies stay state-free. */
@@ -79,8 +80,11 @@ export function buildStrategy(
         filterWhitespaceChunks: deps.filterWhitespaceChunks ?? false,
         toolCallDebug: deps.toolCallDebug,
       }) as unknown as AnyStrategy
-    case "copilot-translated":
     case "custom-anthropic":
+      return makeCustomAnthropic({
+        client: buildUpstreamClient("custom-anthropic"),
+      }) as unknown as AnyStrategy
+    case "copilot-translated":
       throw new StrategyNotRegisteredError(decision.name)
   }
 }

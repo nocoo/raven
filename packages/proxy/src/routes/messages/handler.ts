@@ -10,7 +10,6 @@ import { respondRouterReject } from "./../../core/router-reject"
 import { execute as runnerExecute } from "./../../core/runner"
 import type { RequestContext as RunnerCtx } from "./../../core/context"
 import type { Strategy } from "./../../core/strategy"
-import type { CompiledProvider } from "./../../db/providers"
 import { logEmitter } from "./../../util/log-emitter"
 import { emitUpstreamRawSse } from "./../../util/emit-upstream-raw"
 import { generateRequestId } from "./../../util/id"
@@ -19,6 +18,7 @@ import { buildUpstreamClient } from "../../composition/upstream-registry"
 import { dispatch as compositionDispatch } from "../../composition"
 import type { CopilotNativeUpReq } from "../../strategies/copilot-native"
 import type { CustomOpenAIUpReq } from "../../strategies/custom-openai"
+import type { CustomAnthropicUpReq } from "../../strategies/custom-anthropic"
 import type {
   ChatCompletionChunk,
   ChatCompletionResponse,
@@ -133,9 +133,15 @@ export async function handleCompletion(c: Context) {
         accountName, userAgent, anthropicBeta,
         sessionId, clientName, clientVersion,
       }
+      const anthReq: CustomAnthropicUpReq = { provider, payload: anthropicPayload }
       try {
-        return await runnerExecute(c, runnerCtx, customAnthropicShim, {
-          provider, payload: anthropicPayload,
+        return await compositionDispatch(c, runnerCtx, anthReq, "anthropic", {
+          model,
+          stream,
+          anthropicBeta,
+          providers: state.providers,
+          models: state.models?.data ?? [],
+          buildDeps: { toolCallDebug: state.optToolCallDebug },
         })
       } catch (error) {
         return forwardError(c, error)
@@ -390,11 +396,7 @@ const isNonStreaming = (
 
 
 /** Type guard for Anthropic non-streaming response */
-function isAnthropicNonStreaming(
-  response: AnthropicResponse | AsyncGenerator<ServerSentEvent>,
-): response is AnthropicResponse {
-  return typeof response === "object" && "type" in response && response.type === "message"
-}
+// (removed in H.14 — custom-anthropic shim deleted)
 
 // ===========================================================================
 // G.9: Strategy shim — copilot-translated (Anthropic client ↔ Copilot OpenAI
@@ -547,98 +549,7 @@ const copilotTranslatedShim: Strategy<
 }
 
 // ===========================================================================
-// G.11: Strategy shim — custom-anthropic (Anthropic client ↔ Anthropic-format
-// provider, passthrough). No translation; just forward bytes and pull token
-// usage out of `message_delta`. Local to this file; promoted in Phase H.
+// G.11: Strategy shim — custom-anthropic — REMOVED (H.14): now in
+// strategies/custom-anthropic.ts, dispatched via composition root.
 // ===========================================================================
 
-interface CustomAnthropicUpReq {
-  provider: CompiledProvider
-  payload: AnthropicMessagesPayload
-}
-
-interface CustomAnthropicStreamState {
-  inputTokens: number
-  outputTokens: number
-}
-
-const customAnthropicShim: Strategy<
-  CustomAnthropicUpReq,
-  CustomAnthropicUpReq,
-  AnthropicResponse,
-  AnthropicResponse,
-  ServerSentEvent,
-  SSEMessage,
-  CustomAnthropicStreamState
-> = {
-  name: "custom-anthropic",
-
-  prepare: (req) => req,
-
-  dispatch: async (up) => {
-    const response = await buildUpstreamClient("custom-anthropic").send(up)
-    if (isAnthropicNonStreaming(response)) {
-      return { kind: "json", body: response }
-    }
-    return { kind: "stream", chunks: response }
-  },
-
-  adaptJson: (resp) => resp,
-
-  initStreamState: () => ({ inputTokens: 0, outputTokens: 0 }),
-
-  adaptChunk: (sseEvent, st) => {
-    try {
-      const parsed = JSON.parse(sseEvent.data)
-      if (parsed.type === "message_delta" && parsed.usage) {
-        st.inputTokens = parsed.usage.input_tokens ?? 0
-        st.outputTokens = parsed.usage.output_tokens ?? 0
-      }
-    } catch {
-      // Ignore parse errors for metrics
-    }
-
-    if (sseEvent.event) {
-      return [{ event: sseEvent.event, data: sseEvent.data }]
-    }
-    return [{ data: sseEvent.data }]
-  },
-
-  adaptStreamError: () => {
-    const errorEvent = translateErrorToAnthropicErrorEvent()
-    return [{
-      event: errorEvent.type,
-      data: JSON.stringify(errorEvent),
-    }]
-  },
-
-  describeEndLog: (result) => {
-    if (result.kind === "json") {
-      return {
-        model: result.req.payload.model,
-        resolvedModel: result.req.payload.model,
-        inputTokens: result.resp.usage?.input_tokens ?? 0,
-        outputTokens: result.resp.usage?.output_tokens ?? 0,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
-      }
-    }
-    if (result.kind === "stream") {
-      return {
-        model: result.req.payload.model,
-        inputTokens: result.state.inputTokens,
-        outputTokens: result.state.outputTokens,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
-      }
-    }
-    if (result.kind === "error") {
-      return {
-        model: result.req.payload.model,
-        upstream: result.req.provider.name,
-        upstreamFormat: result.req.provider.format,
-      }
-    }
-    return {}
-  },
-}

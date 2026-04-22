@@ -585,8 +585,8 @@ Goal: collapse the duplicated per-protocol pipelines into 6 strategies. Prove th
 - **H.10** ✅ Register `copilot-responses`; switch `routes/responses` to `composition.dispatch`; run C.4 goldens.
 - **H.11** ✅ Add `strategies/custom-openai.ts` (OpenAI-client passthrough + Anthropic-client translated modes) + unit tests.
 - **H.12** ✅ Register `custom-openai`; switch relevant branches in both entries to `composition.dispatch`; run C.5 goldens.
-- **H.13** Add `strategies/custom-anthropic.ts` + unit tests.
-- **H.14** Register `custom-anthropic`; switch relevant branches to `composition.dispatch`; run C.6 goldens.
+- **H.13** ✅ Add `strategies/custom-anthropic.ts` + unit tests.
+- **H.14** ✅ Register `custom-anthropic`; switch relevant branches to `composition.dispatch`; run C.6 goldens.
 - **H.15** Add `strategies/copilot-translated.ts` (largest — translation via `protocols/translate/`) + unit tests. Scheduled last so the 7-method interface is battle-tested before the hardest strategy fills it in.
 - **H.16** Register `copilot-translated`; switch the last remaining handler branch to `composition.dispatch`; run C.2 goldens.
 - **H.17** Shrink `routes/*/handler.ts` to §3.8 shape (`buildContext → composition.dispatch`, ≤ 30 lines each). Targets: chat-completions ≤ 25 lines, messages ≤ 30 lines, responses ≤ 25 lines.
