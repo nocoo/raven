@@ -591,7 +591,7 @@ Goal: collapse the duplicated per-protocol pipelines into 6 strategies. Prove th
 - **H.16** ✅ Register `copilot-translated`; switch the last remaining handler branch to `composition.dispatch`; run C.2 goldens.
 - **H.17** Shrink `routes/*/handler.ts` to §3.8 shape (`buildContext → composition.dispatch`, ≤ 30 lines each). Targets: chat-completions ≤ 25 lines, messages ≤ 30 lines, responses ≤ 25 lines. **Deferred to Phase J**: requires moving rate-limit + request_start logging + per-strategy preprocessing into composition; `routes/messages` still hosts the Phase-I server-tool branches inline.
 - **H.18** ✅ Delete the G-phase `Strategy` shims. (No code remained — the shims were removed inline by H.8/H.10/H.12/H.14/H.16. This step removed dead `StrategyNotRegisteredError` class + stale "Phase H in progress" comment blocks across `composition/` and `routes/messages`.)
-- **H.19** **Activate dep-cruiser rule #3**: `routes/` may not import `strategies/` or `upstream/`; `core/` may not import either concretion; `composition/` is the sole bridge.
+- **H.19** ✅ **Activate dep-cruiser rule #3 (partial)**: `core/` may not import `strategies/` or `upstream/`; `strategies/*.ts` may not import `infra/state` or `lib/state`. The full `routes/` ↛ `strategies|upstream` lock is deferred to **J.7** because route handlers still import upstream payload types (`ChatCompletionsPayload`, `ResponsesPayload`, etc.) directly until those move into `protocols/` or get re-exported through `composition/`.
 - Risk: medium-high. This is where the old duplication actually dies.
 
 ### Phase I — Server-tool decorator
