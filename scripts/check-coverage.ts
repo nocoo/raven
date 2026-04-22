@@ -75,6 +75,7 @@ if (!skipTests) {
       "test/translate",
       "test/upstream",
       "test/composition",
+      "test/core",
       "test/util",
       "test/ws",
       "test/middleware.test.ts",
