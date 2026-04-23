@@ -295,10 +295,10 @@ function appendUserMessage(
           const trBlock = block as AnthropicToolResultBlock
           out.push({
             role: "tool",
-            tool_call_id: trBlock.tool_use_id,
             content: mapContent(trBlock.content),
             name: null,
             tool_calls: null,
+            tool_call_id: trBlock.tool_use_id,
           })
         } else {
           if (otherBlocks === null) otherBlocks = []
@@ -351,10 +351,10 @@ function appendUserMessage(
       const block = toolResultBlocks[i]!
       out.push({
         role: "tool",
-        tool_call_id: block.tool_use_id,
         content: mapContent(block.content),
         name: null,
         tool_calls: null,
+        tool_call_id: block.tool_use_id,
       })
     }
 
@@ -459,8 +459,8 @@ function appendAssistantMessage(
     out.push({
       role: "assistant",
       content: allTextContent || null,
-      tool_calls: toolCalls,
       name: null,
+      tool_calls: toolCalls,
       tool_call_id: null,
     })
     return ids
