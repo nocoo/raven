@@ -247,12 +247,9 @@ function translateAnthropicMessagesToOpenAI(
 
   for (const message of anthropicMessages) {
     if (message.role === "assistant") {
-      const translated = handleAssistantMessage(message)
-      result.push(...translated)
-      pendingToolCallIds = extractToolUseIdsFast(message)
+      pendingToolCallIds = appendAssistantMessage(message, result)
     } else {
-      const translated = handleUserMessage(message, pendingToolCallIds, flags)
-      result.push(...translated)
+      appendUserMessage(message, pendingToolCallIds, flags, result)
       pendingToolCallIds = EMPTY_IDS
     }
   }
@@ -263,22 +260,6 @@ function translateAnthropicMessagesToOpenAI(
 }
 
 const EMPTY_IDS: string[] = []
-
-/**
- * Single-pass extraction of tool_use IDs (no filter+map intermediate arrays).
- */
-function extractToolUseIdsFast(message: AnthropicAssistantMessage): string[] {
-  const content = message.content
-  if (!Array.isArray(content)) return EMPTY_IDS
-  let ids: string[] | null = null
-  for (const block of content) {
-    if (block.type === "tool_use") {
-      if (ids === null) ids = []
-      ids.push((block as AnthropicToolUseBlock).id)
-    }
-  }
-  return ids ?? EMPTY_IDS
-}
 
 function handleSystemPrompt(
   system: string | Array<AnthropicTextBlock> | undefined,
@@ -295,12 +276,13 @@ function handleSystemPrompt(
   }
 }
 
-function handleUserMessage(
+function appendUserMessage(
   message: AnthropicUserMessage,
   pendingToolCallIds: string[],
   flags: MessageTranslateFlags,
-): Array<Message> {
-  const newMessages: Array<Message> = []
+  out: Array<Message>,
+): void {
+
 
   if (Array.isArray(message.content)) {
     // Filter unsupported content blocks first
@@ -337,7 +319,7 @@ function handleUserMessage(
 
     // Tool results must come first to maintain protocol: tool_use -> tool_result -> user
     for (const block of toolResultBlocks) {
-      newMessages.push({
+      out.push({
         role: "tool",
         tool_call_id: block.tool_use_id,
         content: mapContent(block.content),
@@ -347,7 +329,7 @@ function handleUserMessage(
     }
 
     if (otherBlocks.length > 0) {
-      newMessages.push({
+      out.push({
         role: "user",
         content: mapContent(otherBlocks),
         name: null,
@@ -356,7 +338,7 @@ function handleUserMessage(
       })
     }
   } else {
-    newMessages.push({
+    out.push({
       role: "user",
       content: mapContent(message.content),
       name: null,
@@ -364,23 +346,21 @@ function handleUserMessage(
       tool_call_id: null,
     })
   }
-
-  return newMessages
 }
 
-function handleAssistantMessage(
+function appendAssistantMessage(
   message: AnthropicAssistantMessage,
-): Array<Message> {
+  out: Array<Message>,
+): string[] {
   if (!Array.isArray(message.content)) {
-    return [
-      {
-        role: "assistant",
-        content: mapContent(message.content),
-        name: null,
-        tool_calls: null,
-        tool_call_id: null,
-      },
-    ]
+    out.push({
+      role: "assistant",
+      content: mapContent(message.content),
+      name: null,
+      tool_calls: null,
+      tool_call_id: null,
+    })
+    return EMPTY_IDS
   }
 
   // Filter unsupported content blocks first
@@ -388,7 +368,7 @@ function handleAssistantMessage(
 
   // If all content was filtered out, drop the entire message
   if (filteredContent.length === 0) {
-    return []
+    return EMPTY_IDS
   }
 
   // Single-pass categorization of blocks (avoid multiple filter() calls)
@@ -424,32 +404,39 @@ function handleAssistantMessage(
     allTextContent = thinkingParts.join("\n\n")
   }
 
-  return toolUseBlocks.length > 0 ?
-      [
-        {
-          role: "assistant",
-          content: allTextContent || null,
-          tool_calls: toolUseBlocks.map((toolUse) => ({
-            id: toolUse.id,
-            type: "function",
-            function: {
-              name: toolUse.name,
-              arguments: JSON.stringify(toolUse.input),
-            },
-          })),
-          name: null,
-          tool_call_id: null,
+  if (toolUseBlocks.length > 0) {
+    const ids: string[] = new Array(toolUseBlocks.length)
+    const toolCalls = new Array(toolUseBlocks.length)
+    for (let i = 0; i < toolUseBlocks.length; i++) {
+      const toolUse = toolUseBlocks[i]!
+      ids[i] = toolUse.id
+      toolCalls[i] = {
+        id: toolUse.id,
+        type: "function",
+        function: {
+          name: toolUse.name,
+          arguments: JSON.stringify(toolUse.input),
         },
-      ]
-    : [
-        {
-          role: "assistant",
-          content: mapContent(filteredContent),
-          name: null,
-          tool_calls: null,
-          tool_call_id: null,
-        },
-      ]
+      }
+    }
+    out.push({
+      role: "assistant",
+      content: allTextContent || null,
+      tool_calls: toolCalls,
+      name: null,
+      tool_call_id: null,
+    })
+    return ids
+  }
+
+  out.push({
+    role: "assistant",
+    content: mapContent(filteredContent),
+    name: null,
+    tool_calls: null,
+    tool_call_id: null,
+  })
+  return EMPTY_IDS
 }
 
 function mapContent(
