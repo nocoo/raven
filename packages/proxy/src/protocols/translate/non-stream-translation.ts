@@ -3,7 +3,6 @@ import {
   type ChatCompletionsPayload,
   type ContentPart,
   type Message,
-  type TextPart,
   type Tool,
   type ToolCall,
 } from "./../../upstream/copilot-openai"
@@ -596,20 +595,17 @@ export function translateToAnthropic(
   response: ChatCompletionResponse,
   originalModel?: string,
 ): AnthropicResponse {
-  // Merge content from all choices
+  const choices = response.choices
   const allTextBlocks: Array<AnthropicTextBlock> = []
   const allToolUseBlocks: Array<AnthropicToolUseBlock> = []
   let stopReason: "stop" | "length" | "tool_calls" | "content_filter" | null =
-    null // default
-  stopReason = response.choices[0]?.finish_reason ?? stopReason
+    choices[0]?.finish_reason ?? null
 
   // Process all choices to extract text and tool use blocks
-  for (const choice of response.choices) {
-    const textBlocks = getAnthropicTextBlocks(choice.message.content)
-    const toolUseBlocks = getAnthropicToolUseBlocks(choice.message.tool_calls)
-
-    allTextBlocks.push(...textBlocks)
-    allToolUseBlocks.push(...toolUseBlocks)
+  for (let i = 0; i < choices.length; i++) {
+    const choice = choices[i]!
+    appendAnthropicTextBlocks(choice.message.content, allTextBlocks)
+    appendAnthropicToolUseBlocks(choice.message.tool_calls, allToolUseBlocks)
 
     // Use the finish_reason from the first choice, or prioritize tool_calls
     if (choice.finish_reason === "tool_calls" || stopReason === "stop") {
@@ -619,52 +615,66 @@ export function translateToAnthropic(
 
   // Note: GitHub Copilot doesn't generate thinking blocks, so we don't include them in responses
 
+  // Merge content arrays without spread (text first, then tool_use)
+  let content: Array<AnthropicTextBlock | AnthropicToolUseBlock>
+  if (allToolUseBlocks.length === 0) {
+    content = allTextBlocks
+  } else if (allTextBlocks.length === 0) {
+    content = allToolUseBlocks
+  } else {
+    content = allTextBlocks
+    for (let i = 0; i < allToolUseBlocks.length; i++) content.push(allToolUseBlocks[i]!)
+  }
+
+  const usage = response.usage
+  const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0
+
   return {
     id: response.id,
     type: "message",
     role: "assistant",
     model: originalModel ?? response.model,
-    content: [...allTextBlocks, ...allToolUseBlocks],
+    content,
     stop_reason: mapOpenAIStopReasonToAnthropic(stopReason),
     stop_sequence: null,
     usage: {
-      input_tokens:
-        (response.usage?.prompt_tokens ?? 0)
-        - (response.usage?.prompt_tokens_details?.cached_tokens ?? 0),
-      output_tokens: response.usage?.completion_tokens ?? 0,
+      input_tokens: (usage?.prompt_tokens ?? 0) - cachedTokens,
+      output_tokens: usage?.completion_tokens ?? 0,
       cache_creation_input_tokens: null,
-      cache_read_input_tokens: response.usage?.prompt_tokens_details?.cached_tokens ?? null,
+      cache_read_input_tokens: usage?.prompt_tokens_details?.cached_tokens ?? null,
       service_tier: null,
     },
   }
 }
 
-function getAnthropicTextBlocks(
+function appendAnthropicTextBlocks(
   messageContent: Message["content"],
-): Array<AnthropicTextBlock> {
+  out: Array<AnthropicTextBlock>,
+): void {
   if (typeof messageContent === "string") {
-    return [{ type: "text", text: messageContent }]
+    out.push({ type: "text", text: messageContent })
+    return
   }
-
   if (Array.isArray(messageContent)) {
-    return messageContent
-      .filter((part): part is TextPart => part.type === "text")
-      .map((part) => ({ type: "text", text: part.text }))
+    for (let i = 0; i < messageContent.length; i++) {
+      const part = messageContent[i]!
+      if (part.type === "text") out.push({ type: "text", text: part.text })
+    }
   }
-
-  return []
 }
 
-function getAnthropicToolUseBlocks(
+function appendAnthropicToolUseBlocks(
   toolCalls: Array<ToolCall> | null | undefined,
-): Array<AnthropicToolUseBlock> {
-  if (!toolCalls) {
-    return []
+  out: Array<AnthropicToolUseBlock>,
+): void {
+  if (!toolCalls) return
+  for (let i = 0; i < toolCalls.length; i++) {
+    const toolCall = toolCalls[i]!
+    out.push({
+      type: "tool_use",
+      id: toolCall.id,
+      name: toolCall.function.name,
+      input: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
+    })
   }
-  return toolCalls.map((toolCall) => ({
-    type: "tool_use",
-    id: toolCall.id,
-    name: toolCall.function.name,
-    input: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
-  }))
 }
