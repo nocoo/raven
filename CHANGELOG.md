@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.1
+
+### Changed
+- Parallelize pre-push gates and split arch/coverage into own CI jobs
+- Add per-page smoke covering all 12 routes
+- Raise global floor to 98% and refresh per-dir baseline
+- Cover remaining branches in logger/terminal-format/detect-local-versions
+
 ## v2.2.0
 
 ### Changed
