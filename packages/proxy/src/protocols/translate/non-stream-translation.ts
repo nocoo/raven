@@ -245,7 +245,8 @@ function translateAnthropicMessagesToOpenAI(
   // Tracks tool_use IDs from the most recent assistant message, in order.
   let pendingToolCallIds: string[] = []
 
-  for (const message of anthropicMessages) {
+  for (let i = 0; i < anthropicMessages.length; i++) {
+    const message = anthropicMessages[i]!
     if (message.role === "assistant") {
       pendingToolCallIds = appendAssistantMessage(message, result)
     } else {
