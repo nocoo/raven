@@ -72,6 +72,44 @@ function formatTokens(n: number): string {
   return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple" | "teal";
+
+const STRATEGY_PILL: Record<
+  string,
+  { variant: BadgeVariant; label: string; title: string }
+> = {
+  "copilot-native": {
+    variant: "purple",
+    label: "native",
+    title: "Copilot native Anthropic (/v1/messages → Copilot /v1/messages, no translation)",
+  },
+  "copilot-translated": {
+    variant: "warning",
+    label: "translated",
+    title: "Anthropic client → Copilot /chat/completions (A↔O translation)",
+  },
+  "copilot-openai-direct": {
+    variant: "info",
+    label: "openai-direct",
+    title: "OpenAI client → Copilot /chat/completions (passthrough)",
+  },
+  "copilot-responses": {
+    variant: "teal",
+    label: "responses",
+    title: "Responses client → Copilot /responses (passthrough)",
+  },
+  "custom-openai": {
+    variant: "success",
+    label: "custom-openai",
+    title: "Custom OpenAI-compatible upstream",
+  },
+  "custom-anthropic": {
+    variant: "default",
+    label: "custom-anthropic",
+    title: "Custom Anthropic-compatible upstream",
+  },
+};
+
 /** Serialize events to a readable text for clipboard */
 function serializeEvents(events: LogEvent[]): string {
   return events
@@ -337,6 +375,7 @@ function RequestCard({
   const accountName = (startData.accountName ?? endData.accountName) as string | undefined;
   const messageCount = startData.messageCount as number | undefined;
   const toolCount = startData.toolCount as number | undefined;
+  const strategy = endData.strategy as string | undefined;
 
   // End-only fields
   const latencyMs = endData.latencyMs as number | undefined;
@@ -375,6 +414,15 @@ function RequestCard({
             </div>
             {/* Tags row */}
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {strategy && STRATEGY_PILL[strategy] && (
+                <Badge
+                  variant={STRATEGY_PILL[strategy]!.variant}
+                  className="px-1.5 py-0 text-[10px] font-semibold"
+                  title={STRATEGY_PILL[strategy]!.title}
+                >
+                  {STRATEGY_PILL[strategy]!.label}
+                </Badge>
+              )}
               {model && (
                 <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
                   {model}
@@ -650,8 +698,6 @@ function RawEventLine({ event }: { event: LogEvent }) {
     </div>
   );
 }
-
-type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple" | "teal";
 
 function getRawBadge(event: LogEvent): { variant: BadgeVariant; label: string } {
   switch (event.type) {

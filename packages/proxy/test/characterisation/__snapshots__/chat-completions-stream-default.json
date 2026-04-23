@@ -33,13 +33,14 @@
   "endLog": {
     "path": "/v1/chat/completions",
     "format": "openai",
-    "model": "gpt-4o",
-    "resolvedModel": "gpt-4o-2024-08-06",
-    "inputTokens": 50,
-    "outputTokens": 10,
     "stream": true,
     "status": "success",
     "statusCode": 200,
-    "upstreamStatus": 200
+    "upstreamStatus": 200,
+    "strategy": "copilot-openai-direct",
+    "model": "gpt-4o",
+    "resolvedModel": "gpt-4o-2024-08-06",
+    "inputTokens": 50,
+    "outputTokens": 10
   }
 }

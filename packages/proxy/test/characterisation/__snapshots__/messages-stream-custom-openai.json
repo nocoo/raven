@@ -34,15 +34,16 @@
   "endLog": {
     "path": "/v1/messages",
     "format": "anthropic",
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "strategy": "custom-openai",
     "model": "gpt-4-custom",
     "resolvedModel": "gpt-4-custom",
     "translatedModel": "gpt-4-custom",
     "inputTokens": 8,
     "outputTokens": 2,
-    "stream": true,
-    "status": "success",
-    "statusCode": 200,
-    "upstreamStatus": 200,
     "upstream": "OpenAIProvider",
     "upstreamFormat": "openai"
   }

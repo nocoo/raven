@@ -36,13 +36,14 @@
   "endLog": {
     "path": "/v1/messages",
     "format": "anthropic",
-    "model": "claude-3-5-sonnet-20241022",
-    "inputTokens": 7,
-    "outputTokens": 2,
     "stream": true,
     "status": "success",
     "statusCode": 200,
     "upstreamStatus": 200,
+    "strategy": "custom-anthropic",
+    "model": "claude-3-5-sonnet-20241022",
+    "inputTokens": 7,
+    "outputTokens": 2,
     "upstream": "AnthropicProvider",
     "upstreamFormat": "anthropic"
   }

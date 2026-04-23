@@ -34,14 +34,15 @@
   "endLog": {
     "path": "/v1/messages",
     "format": "anthropic",
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "strategy": "copilot-translated",
     "model": "gpt-5",
     "resolvedModel": "claude-sonnet-4-20250514",
     "translatedModel": "gpt-5",
     "inputTokens": 12,
-    "outputTokens": 3,
-    "stream": true,
-    "status": "success",
-    "statusCode": 200,
-    "upstreamStatus": 200
+    "outputTokens": 3
   }
 }
