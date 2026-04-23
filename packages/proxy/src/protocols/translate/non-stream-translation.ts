@@ -323,7 +323,8 @@ function appendUserMessage(
     const filteredContent = filterContentBlocks(message.content)
     let toolResultBlocks: AnthropicToolResultBlock[] = []
     const otherBlocks: AnthropicUserContentBlock[] = []
-    for (const block of filteredContent) {
+    for (let i = 0; i < filteredContent.length; i++) {
+      const block = filteredContent[i]!
       if (block.type === "tool_result") {
         toolResultBlocks.push(block as AnthropicToolResultBlock)
       } else {
@@ -347,7 +348,8 @@ function appendUserMessage(
       })
     }
 
-    for (const block of toolResultBlocks) {
+    for (let i = 0; i < toolResultBlocks.length; i++) {
+      const block = toolResultBlocks[i]!
       out.push({
         role: "tool",
         tool_call_id: block.tool_use_id,
@@ -487,7 +489,8 @@ function mapContent(
   let hasImage = false
   const textParts: string[] = []
 
-  for (const block of content) {
+  for (let i = 0; i < content.length; i++) {
+    const block = content[i]!
     switch (block.type) {
       case "image":
         hasImage = true
@@ -508,7 +511,8 @@ function mapContent(
 
   // Slow path with images: build ContentPart array
   const contentParts: Array<ContentPart> = []
-  for (const block of content) {
+  for (let i = 0; i < content.length; i++) {
+    const block = content[i]!
     switch (block.type) {
       case "text": {
         contentParts.push({ type: "text", text: block.text })
