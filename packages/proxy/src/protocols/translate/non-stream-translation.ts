@@ -249,28 +249,35 @@ function translateAnthropicMessagesToOpenAI(
     if (message.role === "assistant") {
       const translated = handleAssistantMessage(message)
       result.push(...translated)
-      pendingToolCallIds = extractToolUseIds(message)
+      pendingToolCallIds = extractToolUseIdsFast(message)
     } else {
       const translated = handleUserMessage(message, pendingToolCallIds, flags)
       result.push(...translated)
-      pendingToolCallIds = []
+      pendingToolCallIds = EMPTY_IDS
     }
   }
 
-  return [...systemMessages, ...result]
+  if (systemMessages.length === 0) return result
+  systemMessages.push(...result)
+  return systemMessages
 }
 
+const EMPTY_IDS: string[] = []
+
 /**
- * Extract tool_use block IDs from an assistant message, preserving order.
- * Returns empty array if the message has no tool_use blocks.
+ * Single-pass extraction of tool_use IDs (no filter+map intermediate arrays).
  */
-function extractToolUseIds(message: AnthropicAssistantMessage): string[] {
-  if (!Array.isArray(message.content)) return []
-  return message.content
-    .filter(
-      (block): block is AnthropicToolUseBlock => block.type === "tool_use",
-    )
-    .map((block) => block.id)
+function extractToolUseIdsFast(message: AnthropicAssistantMessage): string[] {
+  const content = message.content
+  if (!Array.isArray(content)) return EMPTY_IDS
+  let ids: string[] | null = null
+  for (const block of content) {
+    if (block.type === "tool_use") {
+      if (ids === null) ids = []
+      ids.push((block as AnthropicToolUseBlock).id)
+    }
+  }
+  return ids ?? EMPTY_IDS
 }
 
 function handleSystemPrompt(
