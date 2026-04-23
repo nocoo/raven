@@ -187,7 +187,7 @@ export function translateToOpenAI(
   payload: AnthropicMessagesPayload,
   options?: TranslateToOpenAIOptions,
 ): ChatCompletionsPayload {
-  const base = {
+  const result: ChatCompletionsPayload = {
     model: translateModelName(payload.model, options?.anthropicBeta ?? null),
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
@@ -200,38 +200,34 @@ export function translateToOpenAI(
     max_tokens: payload.max_tokens,
   }
 
-  const optional: Partial<ChatCompletionsPayload> = {}
-  if (payload.stop_sequences) optional.stop = payload.stop_sequences
-  if (payload.stream !== undefined) optional.stream = payload.stream
-  if (payload.temperature !== undefined) optional.temperature = payload.temperature
-  if (payload.top_p !== undefined) optional.top_p = payload.top_p
-  if (payload.metadata?.user_id) optional.user = payload.metadata.user_id
+  if (payload.stop_sequences) result.stop = payload.stop_sequences
+  if (payload.stream !== undefined) result.stream = payload.stream
+  if (payload.temperature !== undefined) result.temperature = payload.temperature
+  if (payload.top_p !== undefined) result.top_p = payload.top_p
+  if (payload.metadata?.user_id) result.user = payload.metadata.user_id
 
   const openAITools = translateAnthropicToolsToOpenAI(payload.tools)
-  if (openAITools) optional.tools = openAITools
+  if (openAITools) result.tools = openAITools
 
   const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice)
-  if (toolChoice) optional.tool_choice = toolChoice
+  if (toolChoice) result.tool_choice = toolChoice
 
   // Thinking → reasoning_effort translation (only for reasoning-capable OpenAI upstreams)
   if (options?.targetFormat === "openai-reasoning" && payload.thinking?.type === "enabled") {
     const budget = payload.thinking.budget_tokens ?? 0
     if (budget >= 10000) {
-      optional.reasoning_effort = "high"
+      result.reasoning_effort = "high"
     } else if (budget >= 5000) {
-      optional.reasoning_effort = "medium"
+      result.reasoning_effort = "medium"
     } else if (budget >= 2000) {
-      optional.reasoning_effort = "low"
+      result.reasoning_effort = "low"
     } else {
-      optional.reasoning_effort = "minimal"
+      result.reasoning_effort = "minimal"
     }
   }
   // For "openai" (non-reasoning) and "copilot": thinking param is dropped
 
-  return {
-    ...base,
-    ...optional,
-  }
+  return result
 }
 
 // Pre-compiled regexes for model name translation moved to
@@ -411,9 +407,15 @@ function handleAssistantMessage(
 
   // Combine text and thinking blocks, as OpenAI doesn't have separate thinking blocks
   // Original order: all text first, then all thinking
-  const allTextContent = [...textParts, ...thinkingParts].length > 0 
-    ? [...textParts, ...thinkingParts].join("\n\n") 
-    : null
+  // Avoid double-spread: combine without intermediate allocation
+  let allTextContent: string | null = null
+  if (textParts.length > 0) {
+    allTextContent = thinkingParts.length === 0
+      ? textParts.join("\n\n")
+      : textParts.concat(thinkingParts).join("\n\n")
+  } else if (thinkingParts.length > 0) {
+    allTextContent = thinkingParts.join("\n\n")
+  }
 
   return toolUseBlocks.length > 0 ?
       [
