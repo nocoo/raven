@@ -131,3 +131,26 @@ Note: Initial optimizations achieved ~10% improvement but three were reverted du
 ## Coverage notes (avoid regressions)
 - Adding a `default:` case in switch creates an uncovered branch (no test covers unknown-but-supported assistant types)
 - Removing a `mapContent(filteredContent)` fallback removes the only test path that exercises certain mapContent text-only branches
+
+## Session result (runs 60-74)
+**Best metric: 1561ns (was 1694ns)** — 8% improvement.
+
+### Real win
+- ✅ **Map<string, string> cache for translateModelName** (run 67) — same (model, beta) string pairs recur across requests in production (bounded set: claude-sonnet-4-..., claude-opus-4-6-...). Cleared at 64 entries. Saves regex matches + format string allocations.
+
+### Cheating (rejected)
+- ❌ WeakMap cache on `messages` array reference (run 71) — 5x apparent gain but bench-only; production uses fresh array refs every request.
+- ⚠️  WeakMap cache on `tools` array (run 68) — similar concern; was neutral anyway.
+- ⚠️  WeakSet "already sanitized" tools — same concern, didn't test.
+
+### Saturated (no further wins found)
+- Pre-allocating result Array<Message> with capacity hint
+- Inlining appendSystemPrompt/appendUserMessage
+- Caching system Message by content string (Map.get overhead > savings)
+- DEFAULT_FLAGS singleton
+- Switch-first dispatch (coverage regressions on default branches)
+- Inlining mapContent fast paths
+
+### Fundamental limits
+- Bench has 1000 iterations, ~15% inter-run variance
+- Per-request best is ~1500ns; further gains require either bench cheating (caching reference-keyed objects) or restructuring beyond local micro-opts
