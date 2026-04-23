@@ -432,11 +432,13 @@ function appendAssistantMessage(
   // Avoid double-spread: combine without intermediate allocation
   let allTextContent: string | null = null
   if (textParts.length > 0) {
-    allTextContent = thinkingParts.length === 0
-      ? textParts.join("\n\n")
-      : textParts.concat(thinkingParts).join("\n\n")
+    if (thinkingParts.length === 0) {
+      allTextContent = textParts.length === 1 ? textParts[0]! : textParts.join("\n\n")
+    } else {
+      allTextContent = textParts.concat(thinkingParts).join("\n\n")
+    }
   } else if (thinkingParts.length > 0) {
-    allTextContent = thinkingParts.join("\n\n")
+    allTextContent = thinkingParts.length === 1 ? thinkingParts[0]! : thinkingParts.join("\n\n")
   }
 
   if (toolUseBlocks.length > 0) {
