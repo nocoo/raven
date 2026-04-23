@@ -507,7 +507,9 @@ function mapContent(
 
   // Fast path: no images, just join text
   if (!hasImage) {
-    return textParts.length > 0 ? textParts.join("\n\n") : null
+    if (textParts.length === 0) return null
+    if (textParts.length === 1) return textParts[0]!
+    return textParts.join("\n\n")
   }
 
   // Slow path with images: build ContentPart array
