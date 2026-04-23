@@ -1,28 +1,7 @@
 import { describe, expect, test, mock } from "bun:test";
 import { Hono } from "hono";
-import { readFileSync as realReadFileSync } from "node:fs";
 
-// ---------------------------------------------------------------------------
-// Mock node:fs so getVersion() can be controlled. mock.module() is global
-// across the whole bun test run, so we MUST passthrough every call that is not
-// the proxy package.json — otherwise unrelated tests (e.g. fixture loaders
-// reading JSON) receive the version stub and fail.
-// ---------------------------------------------------------------------------
-
-const mockReadFileSync = mock((path: Parameters<typeof realReadFileSync>[0], ...rest: unknown[]) => {
-  if (typeof path === "string" && path.endsWith("package.json")) {
-    return JSON.stringify({ version: "1.2.3" });
-  }
-  // @ts-expect-error — variadic forwarding to the real impl
-  return realReadFileSync(path, ...rest);
-});
-
-mock.module("node:fs", () => ({
-  readFileSync: mockReadFileSync,
-}));
-
-// Import after mock registration so the module picks up the mock
-const { createLiveRoute } = await import("../../src/routes/live.ts");
+import { createLiveRoute } from "../../src/routes/live.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,6 +27,11 @@ function buildApp(db: any) {
 
 // ---------------------------------------------------------------------------
 // Tests
+//
+// Note: previous revisions stubbed node:fs via mock.module() to control
+// getVersion() output, but mock.module is global across the bun test run and
+// leaked into the strategy fixture loader (readFileSync(JSON)). The real
+// package.json works fine for these assertions, so we read it natively.
 // ---------------------------------------------------------------------------
 
 describe("GET /live", () => {
@@ -104,17 +88,4 @@ describe("GET /live", () => {
     const body = await res.json();
     expect(body.database.error).toBe("string error");
   });
-});
-
-describe("getVersion", () => {
-  test("returns version from package.json", () => {
-    // Already tested implicitly — version appears in /live response
-    // The mock returns "1.2.3"
-  });
-
-  // NOTE: previous test queued a mockImplementationOnce(throw ENOENT) for the
-  // ENOENT branch but never consumed it (VERSION is module-cached). Because
-  // mock.module("node:fs") replaces readFileSync globally, the queued throw
-  // leaked to the next readFileSync caller in any test file, breaking strategy
-  // fixture loading under CI's test ordering. Removed to avoid the leak.
 });
