@@ -238,8 +238,8 @@ function translateAnthropicMessagesToOpenAI(
   system: string | Array<AnthropicTextBlock> | undefined,
   flags: MessageTranslateFlags,
 ): Array<Message> {
-  const systemMessages = handleSystemPrompt(system)
   const result: Array<Message> = []
+  appendSystemPrompt(system, result)
 
   // Context state for OPT-1 (sanitize) and OPT-2 (reorder).
   // Tracks tool_use IDs from the most recent assistant message, in order.
@@ -254,26 +254,20 @@ function translateAnthropicMessagesToOpenAI(
     }
   }
 
-  if (systemMessages.length === 0) return result
-  systemMessages.push(...result)
-  return systemMessages
+  return result
 }
 
 const EMPTY_IDS: string[] = []
 
-function handleSystemPrompt(
+function appendSystemPrompt(
   system: string | Array<AnthropicTextBlock> | undefined,
-): Array<Message> {
-  if (!system) {
-    return []
-  }
-
-  if (typeof system === "string") {
-    return [{ role: "system", content: system, name: null, tool_calls: null, tool_call_id: null }]
-  } else {
-    const systemText = system.map((block) => block.text).join("\n\n")
-    return [{ role: "system", content: systemText, name: null, tool_calls: null, tool_call_id: null }]
-  }
+  out: Array<Message>,
+): void {
+  if (!system) return
+  const content = typeof system === "string"
+    ? system
+    : system.map((block) => block.text).join("\n\n")
+  out.push({ role: "system", content, name: null, tool_calls: null, tool_call_id: null })
 }
 
 function appendUserMessage(
