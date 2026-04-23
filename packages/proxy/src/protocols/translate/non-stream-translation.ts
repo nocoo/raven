@@ -542,11 +542,11 @@ function translateAnthropicToolsToOpenAI(
     return null
   }
 
-  return anthropicTools.map((tool) => {
-    // Sanitize tool schema - strip Anthropic-only fields (direct call, no array wrapper)
+  const result: Array<Tool> = new Array(anthropicTools.length)
+  for (let i = 0; i < anthropicTools.length; i++) {
+    const tool = anthropicTools[i]!
     sanitizeSingleToolDefinition(tool)
-
-    return {
+    result[i] = {
       type: "function",
       function: {
         name: tool.name,
@@ -554,7 +554,8 @@ function translateAnthropicToolsToOpenAI(
         parameters: tool.input_schema,
       },
     }
-  })
+  }
+  return result
 }
 
 function translateAnthropicToolChoiceToOpenAI(
