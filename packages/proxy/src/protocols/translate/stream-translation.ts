@@ -43,6 +43,8 @@ export function translateChunkToAnthropicEvents(
   if (!delta) return events
 
   if (!state.messageStartSent) {
+    const usage = chunk.usage
+    const cached = usage?.prompt_tokens_details?.cached_tokens ?? null
     events.push({
       type: "message_start",
       message: {
@@ -54,12 +56,10 @@ export function translateChunkToAnthropicEvents(
         stop_reason: null,
         stop_sequence: null,
         usage: {
-          input_tokens:
-            (chunk.usage?.prompt_tokens ?? 0)
-            - (chunk.usage?.prompt_tokens_details?.cached_tokens ?? 0),
+          input_tokens: (usage?.prompt_tokens ?? 0) - (cached ?? 0),
           output_tokens: 0, // Will be updated in message_delta when finished
           cache_creation_input_tokens: null,
-          cache_read_input_tokens: chunk.usage?.prompt_tokens_details?.cached_tokens ?? null,
+          cache_read_input_tokens: cached,
           service_tier: null,
         },
       },
@@ -110,7 +110,9 @@ export function translateChunkToAnthropicEvents(
   }
 
   if (delta.tool_calls) {
-    for (const toolCall of delta.tool_calls) {
+    const toolCalls = delta.tool_calls
+    for (let tci = 0; tci < toolCalls.length; tci++) {
+      const toolCall = toolCalls[tci]!
       if (toolCall && toolCall.id && toolCall.function?.name) {
         // New tool call starting.
         if (state.contentBlockOpen) {
@@ -169,6 +171,8 @@ export function translateChunkToAnthropicEvents(
       state.contentBlockOpen = false
     }
 
+    const usage = chunk.usage
+    const cached = usage?.prompt_tokens_details?.cached_tokens ?? null
     events.push(
       {
         type: "message_delta",
@@ -177,12 +181,10 @@ export function translateChunkToAnthropicEvents(
           stop_sequence: null,
         },
         usage: {
-          input_tokens:
-            (chunk.usage?.prompt_tokens ?? 0)
-            - (chunk.usage?.prompt_tokens_details?.cached_tokens ?? 0),
-          output_tokens: chunk.usage?.completion_tokens ?? 0,
+          input_tokens: (usage?.prompt_tokens ?? 0) - (cached ?? 0),
+          output_tokens: usage?.completion_tokens ?? 0,
           cache_creation_input_tokens: null,
-          cache_read_input_tokens: chunk.usage?.prompt_tokens_details?.cached_tokens ?? null,
+          cache_read_input_tokens: cached,
         },
       },
       {
