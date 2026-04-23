@@ -110,6 +110,22 @@ const STRATEGY_PILL: Record<
   },
 };
 
+// Model family → pill color. Identifies the underlying model regardless of
+// alias form (date-suffixed ids, resolved ids, vendor prefixes). Translated
+// and resolved variants of the same model keep the same family color so the
+// "model → resolvedModel" arrow stays visually linked.
+function getModelFamily(model: string): BadgeVariant {
+  const m = model.toLowerCase();
+  if (m.includes("claude")) return "warning";              // Anthropic — amber
+  if (/^(gpt|o[1-9]|chatgpt)/.test(m) || m.includes("openai")) return "teal"; // OpenAI
+  if (m.includes("gemini") || m.includes("google")) return "info";            // Google
+  if (m.includes("grok") || m.includes("xai")) return "destructive";          // xAI
+  if (m.includes("deepseek")) return "purple";
+  if (m.includes("qwen") || m.includes("alibaba")) return "success";
+  if (m.includes("llama") || m.includes("meta")) return "default";
+  return "secondary";
+}
+
 /** Serialize events to a readable text for clipboard */
 function serializeEvents(events: LogEvent[]): string {
   return events
@@ -417,44 +433,58 @@ function RequestCard({
               {strategy && STRATEGY_PILL[strategy] && (
                 <Badge
                   variant={STRATEGY_PILL[strategy]!.variant}
-                  className="px-1.5 py-0 text-[10px] font-semibold"
+                  className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide"
                   title={STRATEGY_PILL[strategy]!.title}
                 >
                   {STRATEGY_PILL[strategy]!.label}
                 </Badge>
               )}
               {model && (
-                <Badge variant="purple" className="px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant={getModelFamily(model)}
+                  className="px-1.5 py-0 text-[10px] font-mono"
+                  title={`Model: ${model}`}
+                >
                   {model}
                 </Badge>
               )}
               {resolvedModel && resolvedModel !== model && (
-                <Badge variant="teal" className="px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant={getModelFamily(resolvedModel)}
+                  className="px-1.5 py-0 text-[10px] font-mono opacity-85"
+                  title={`Resolved to: ${resolvedModel}`}
+                >
                   &rarr; {resolvedModel}
                 </Badge>
               )}
               {format && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
                   {format}
                 </Badge>
               )}
               {stream !== undefined && (
-                <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "px-1.5 py-0 text-[10px]",
+                    stream && "border-info/40 text-info",
+                  )}
+                >
                   {stream ? "stream" : "sync"}
                 </Badge>
               )}
               {accountName && accountName !== "default" && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                  {accountName}
+                <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                  @{accountName}
                 </Badge>
               )}
               {messageCount !== undefined && (
-                <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+                <Badge variant="secondary" className="px-1.5 py-0 text-[10px] tabular-nums">
                   {messageCount} msgs
                 </Badge>
               )}
               {toolCount !== undefined && toolCount > 0 && (
-                <Badge variant="outline" className="px-1.5 py-0 text-[10px] tabular-nums">
+                <Badge variant="secondary" className="px-1.5 py-0 text-[10px] tabular-nums">
                   {toolCount} tools
                 </Badge>
               )}
