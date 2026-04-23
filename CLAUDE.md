@@ -8,6 +8,28 @@ Research-oriented, open-source, personal-use only. Not designed for multi-user d
 
 Bun workspace monorepo: `packages/proxy` (Hono, port 7024) + `packages/dashboard` (Next.js 16, port 7023).
 
+### Proxy layering (see `docs/20-architecture-refactor.md` for the full contract)
+
+Seven layers, top → bottom. Each layer imports only from the layers below (enforced by `dependency-cruiser.config.cjs`):
+
+1. **`routes/`** — HTTP entry points (Hono handlers). Owns request parsing, logging start, and composition dispatch. Must not import `strategies/` or `upstream/` directly.
+2. **`composition/`** — the **sole bridge** between `routes/`, `strategies/`, and `upstream/`. `dispatch()` picks a strategy factory, builds it with state-derived deps, and drives the Runner.
+3. **`core/`** — abstract `Strategy`/`Runner`/router contracts + `RequestContext`. Concretion-free: never imports `strategies/` or `upstream/`.
+4. **`strategies/`** — six `makeXxx(deps)` factories implementing the 7-method `Strategy` interface (`prepare` / `dispatch` / `adaptJson` / `initStreamState` / `adaptChunk` / `adaptStreamError` / `describeEndLog`). Per-strategy files (`strategies/*.ts`) read no `infra/state` — deps are injected. `strategies/support/` holds cross-strategy helpers (server-tool `decorate()`, effort-fallback, capability gates).
+5. **`protocols/`** — pure translation zone (Anthropic ↔ OpenAI, SSE adapters, preprocess). No state, no logging, no Hono streaming.
+6. **`upstream/`** — upstream HTTP clients (Copilot native, Copilot OpenAI, custom providers) registered via `composition/upstream-registry.ts`.
+7. **`infra/` + `lib/` + `util/`** — state, auth, rate-limit, logging primitives, IDs.
+
+**Six strategies** (all registered in `composition/strategy-registry.ts`):
+- `copilot-openai-direct` — `/v1/chat/completions` to Copilot
+- `copilot-translated` — `/v1/messages` Anthropic → Copilot OpenAI
+- `copilot-native` — `/v1/messages` to Copilot native endpoint (claude-* models)
+- `copilot-responses` — `/v1/responses` to Copilot
+- `custom-openai` — user-configured OpenAI-compatible providers
+- `custom-anthropic` — user-configured Anthropic providers
+
+**Server-tool interception** (Tavily `web_search`) runs via `strategies/support/server-tools.ts::decorate()`, which wraps `withServerToolInterception` + `request_end` log + JSON/SSE replay. Both translated and native paths share it.
+
 ## Data Directory Structure
 
 Runtime data is stored in platform-standard user directories, not in the source tree:

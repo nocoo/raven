@@ -612,7 +612,7 @@ Goal: delete orphans, lock remaining dep rules, re-enable anti-ban for normal op
 - **J.3** ✅ Remove `consumeStreamToResponse` re-exports; update consumers to `protocols/translate/consume-stream.ts`. (Removed both `consumeStreamToResponse` and `streamAnthropicResponse` re-exports from `routes/messages/handler.ts`; no external consumers.)
 - **J.4** Revert `test/e2e/` to anti-ban rules (1 request per test, fail-fast).
 - **J.5** Keep `test/e2e/refactor/` as the opt-in `bun run test:e2e:full` target (for future architectural work).
-- **J.6** Update `CLAUDE.md` to reflect restored anti-ban rules and the new architecture (one-page navigation covering the seven layers, the six strategies, and the composition root).
+- **J.6** ✅ Update `CLAUDE.md` to reflect restored anti-ban rules and the new architecture (one-page navigation covering the seven layers, the six strategies, and the composition root).
 - **J.7** **Activate dep-cruiser rule set (final)**: encode the full §3.7 + §3.8 contract — enforce the canonical state-access rule (`infra/state` importable only from `infra/`, `composition/`, `strategies/support/`, `util/`; forbidden in `routes/`, `protocols/`, `core/`, `strategies/*.ts`, `upstream/`); `core/` stays concretion-free; `composition/` is the only bridge between `routes/`, `strategies/`, and `upstream/`. Any rule not yet active from D.7 / E.11 / H.19 lands here.
 - **J.8** Final Phase C run; record no-diff against the Phase C baseline in the closing PR description.
 
