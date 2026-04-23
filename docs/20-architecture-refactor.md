@@ -613,7 +613,7 @@ Goal: delete orphans, lock remaining dep rules, re-enable anti-ban for normal op
 - **J.4** Revert `test/e2e/` to anti-ban rules (1 request per test, fail-fast).
 - **J.5** Keep `test/e2e/refactor/` as the opt-in `bun run test:e2e:full` target (for future architectural work).
 - **J.6** ✅ Update `CLAUDE.md` to reflect restored anti-ban rules and the new architecture (one-page navigation covering the seven layers, the six strategies, and the composition root).
-- **J.7** **Activate dep-cruiser rule set (final)**: encode the full §3.7 + §3.8 contract — enforce the canonical state-access rule (`infra/state` importable only from `infra/`, `composition/`, `strategies/support/`, `util/`; forbidden in `routes/`, `protocols/`, `core/`, `strategies/*.ts`, `upstream/`); `core/` stays concretion-free; `composition/` is the only bridge between `routes/`, `strategies/`, and `upstream/`. Any rule not yet active from D.7 / E.11 / H.19 lands here.
+- **J.7** ✅ **Activate dep-cruiser rule set (final)**: encoded the §3.7 + §3.8 contract in `dependency-cruiser.config.cjs`. Five rules now active: `core-is-concretion-free`, `strategies-are-state-free`, `protocols-are-pure` (all promoted from H.19 partial), plus `routes-no-strategies-concrete` and `routes-no-upstream-concrete` (type-only imports allowed; value imports forced through `composition/`). Deferred: `routes/ ↛ lib/state` — routes still read state directly for router/provider wiring; thinning handlers so state flows through `dispatch()` is out of scope for this refactor and left for a follow-up.
 - **J.8** Final Phase C run; record no-diff against the Phase C baseline in the closing PR description.
 
 ---

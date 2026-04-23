@@ -1,16 +1,16 @@
 /**
  * Architectural layering enforcement (§4.5 / §8).
  *
- * Phase A.3: skeleton only — zero active rules. Rules are activated
- * incrementally as layers solidify:
- *   - D.7  protocols/ boundary
- *   - E.11 upstream/ boundary + infra/state access rule
- *   - H.19 strategies/ boundary (partial: core/ ↛ strategies|upstream;
- *           strategies/*.ts ↛ infra/state)
- *   - J.7  final full layering check (routes/ ↛ strategies|upstream)
+ * J.7 (final): activates the full §3.7 + §3.8 contract that holds against
+ * the post-Phase-J code — concretion-free core/, pure protocols/, state-free
+ * strategy concretions, and composition/ as the sole bridge between
+ * routes/, strategies/, and upstream/. Route handlers still read
+ * `lib/state` directly for state-derived flags (providers, feature gates);
+ * moving that behind a composition-supplied context is out of scope for
+ * this refactor and intentionally NOT enforced here.
  *
  * See docs/20-architecture-refactor.md §3.7 for the canonical
- * state-access rule and §8 for the enforcement plan.
+ * state-access rule and §3.8 for the composition-root contract.
  */
 
 /** @type {import('dependency-cruiser').IConfiguration} */
@@ -19,7 +19,7 @@ module.exports = {
     {
       name: "core-is-concretion-free",
       comment:
-        "H.19 (partial): core/ defines the abstract Strategy/Runner/router contracts (§3.7). It must never reach into specific strategy or upstream implementations — those live in composition/ and below. The full §3.8 contract (routes/ ↛ strategies|upstream, composition/ as sole bridge) lands in J.7 once route handlers stop importing payload types directly.",
+        "J.7 (§3.7 / §3.8): core/ defines the abstract Strategy / Runner / router contracts. It must never reach into specific strategy or upstream implementations — those live in composition/ and below. Promoted from H.19 partial to final.",
       severity: "error",
       from: { path: "^packages/proxy/src/core/" },
       to: {
@@ -32,7 +32,7 @@ module.exports = {
     {
       name: "strategies-are-state-free",
       comment:
-        "H.19 (partial): strategies/*.ts (the per-strategy factories) read no infra/state — the composition root injects state-derived flags via factory deps (§3.7). strategies/support/ may still touch state for now (folded into Phase J).",
+        "J.7 (§3.7): per-strategy factories (strategies/*.ts) read no state singleton. State-derived values flow in via composition-injected BuildStrategyDeps. strategies/support/ remains exempt — it is the impure-helper layer authorised by §3.7 to touch infra/state alongside infra/, composition/, and util/.",
       severity: "error",
       from: {
         path: "^packages/proxy/src/strategies/[^/]+\\.ts$",
@@ -47,7 +47,7 @@ module.exports = {
     {
       name: "protocols-are-pure",
       comment:
-        "Phase D.7: protocols/ is the pure zone (§3.7). It must never reach into state, logging, or Hono streaming primitives. Those are impure concerns that live in strategies/support/ or routes/. A redundant grep check in CI acts as belt-and-braces; this rule is authoritative (path-aware, immune to ../../ aliasing).",
+        "J.7 (§3.7): protocols/ is the pure zone — no state, no logging, no Hono streaming. Impure concerns belong in strategies/support/ or routes/. A redundant grep check in CI acts as belt-and-braces; this rule is authoritative.",
       severity: "error",
       from: { path: "^packages/proxy/src/protocols/" },
       to: {
@@ -58,6 +58,28 @@ module.exports = {
           "^packages/proxy/src/util/logger",
           "^hono/streaming$",
         ],
+      },
+    },
+    {
+      name: "routes-no-strategies-concrete",
+      comment:
+        "J.7 (§3.8): routes/ reaches strategies/ only through composition/. Type-only imports (UpReq shapes needed to build dispatch inputs) are allowed; value imports are not. strategies/support/ remains importable for cross-cutting helpers like decorate() until Phase J's handler-thinning follow-up.",
+      severity: "error",
+      from: { path: "^packages/proxy/src/routes/" },
+      to: {
+        path: "^packages/proxy/src/strategies/[^/]+\\.ts$",
+        dependencyTypesNot: ["type-only"],
+      },
+    },
+    {
+      name: "routes-no-upstream-concrete",
+      comment:
+        "J.7 (§3.8): routes/ reaches upstream/ only through composition/upstream-registry. Type-only imports (payload shapes for building requests) are allowed; value imports are not.",
+      severity: "error",
+      from: { path: "^packages/proxy/src/routes/" },
+      to: {
+        path: "^packages/proxy/src/upstream/",
+        dependencyTypesNot: ["type-only"],
       },
     },
   ],
