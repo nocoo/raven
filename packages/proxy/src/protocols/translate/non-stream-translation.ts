@@ -634,7 +634,9 @@ export function translateToAnthropic(
   }
 
   const usage = response.usage
-  const cachedTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0
+  const rawCached = usage?.prompt_tokens_details?.cached_tokens ?? null
+  const cachedTokens = rawCached ?? 0
+  const promptTokens = usage?.prompt_tokens ?? 0
 
   return {
     id: response.id,
@@ -645,10 +647,10 @@ export function translateToAnthropic(
     stop_reason: mapOpenAIStopReasonToAnthropic(stopReason),
     stop_sequence: null,
     usage: {
-      input_tokens: (usage?.prompt_tokens ?? 0) - cachedTokens,
+      input_tokens: promptTokens - cachedTokens,
       output_tokens: usage?.completion_tokens ?? 0,
       cache_creation_input_tokens: null,
-      cache_read_input_tokens: usage?.prompt_tokens_details?.cached_tokens ?? null,
+      cache_read_input_tokens: rawCached,
       service_tier: null,
     },
   }
