@@ -279,15 +279,16 @@ function appendUserMessage(
 
 
   if (Array.isArray(message.content)) {
-    const filteredContent = filterContentBlocks(message.content)
     const flagsActive = flags.sanitizeOrphanedToolResults || flags.reorderToolResults
 
     if (!flagsActive) {
-      // Fast path: no tool-result reordering/sanitization. Push tool messages
-      // directly while collecting non-tool-result blocks for the optional user message.
+      // Fast path: no tool-result reordering/sanitization. Single pass:
+      // filter unsupported, push tool messages directly, lazily collect non-tool-result blocks.
       // Tool results must come first to maintain protocol: tool_use -> tool_result -> user.
       let otherBlocks: AnthropicUserContentBlock[] | null = null
-      for (const block of filteredContent) {
+      for (const block of message.content) {
+        if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
+        stripBlockMetadata(block as unknown as Record<string, unknown>)
         if (block.type === "tool_result") {
           const trBlock = block as AnthropicToolResultBlock
           out.push({
@@ -316,6 +317,7 @@ function appendUserMessage(
     }
 
     // Slow path: tool-result sanitization/reordering active.
+    const filteredContent = filterContentBlocks(message.content)
     let toolResultBlocks: AnthropicToolResultBlock[] = []
     const otherBlocks: AnthropicUserContentBlock[] = []
     for (const block of filteredContent) {
