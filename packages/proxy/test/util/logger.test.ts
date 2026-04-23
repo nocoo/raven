@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import { enableTerminalSink, disableTerminalSink, logger } from "../../src/util/logger"
+import { enableTerminalSink, disableTerminalSink, logger, setLogLevel } from "../../src/util/logger"
 import { logEmitter } from "../../src/util/log-emitter"
 
 // ===========================================================================
@@ -103,6 +103,23 @@ describe("terminal sink", () => {
       msg: "debug msg",
     })
     expect(logSpy).not.toHaveBeenCalled()
+  })
+
+  test("setLogLevel('debug') lets debug events through; restoring 'info' suppresses again", () => {
+    enableTerminalSink()
+    setLogLevel("debug")
+    try {
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "debug",
+        type: "system",
+        requestId: null,
+        msg: "now visible",
+      })
+      expect(logSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      setLogLevel("info")
+    }
   })
 
   test("includes requestId and data fields in formatted output", () => {

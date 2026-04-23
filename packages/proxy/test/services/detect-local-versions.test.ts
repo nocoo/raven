@@ -291,4 +291,33 @@ describe("detectLocalCopilotVersion", () => {
 
     expect(await detectLocalCopilotVersion()).toBeNull();
   });
+
+  test("returns null when best package.json read throws after glob match", async () => {
+    mockPlatform = "darwin";
+    await setupExtDir(".vscode/extensions", [
+      { dir: "github.copilot-chat-0.30.0", pkg: { version: "0.30.0" } },
+    ]);
+    // Make the *final* read throw after glob has discovered the file.
+    readFileImpl = async (path) => {
+      if (path.includes("github.copilot-chat-0.30.0")) {
+        throw new Error("EACCES");
+      }
+      const f = Bun.file(path);
+      if (!(await f.exists())) throw new Error("ENOENT");
+      return await f.text();
+    };
+    expect(await detectLocalCopilotVersion()).toBeNull();
+  });
+
+  test("compareSemver returns 0 for identical versions (sort stays stable)", async () => {
+    mockPlatform = "darwin";
+    await setupExtDir(".vscode/extensions", [
+      { dir: "github.copilot-chat-0.40.0", pkg: { version: "0.40.0" } },
+    ]);
+    await setupExtDir(".cursor/extensions", [
+      { dir: "github.copilot-chat-0.40.0", pkg: { version: "0.40.0" } },
+    ]);
+    // Both candidates compare equal — exercises the `return 0` branch.
+    expect(await detectLocalCopilotVersion()).toBe("0.40.0");
+  });
 });

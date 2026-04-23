@@ -66,6 +66,10 @@ describe("shortenSession", () => {
   test("UUID format", () => {
     expect(shortenSession("550e8400-e29b-41d4-a716-446655440000")).toBe("550e84")
   })
+
+  test(":: format with empty leading segment falls back to 'unknown'", () => {
+    expect(shortenSession("::Claude Code::default")).toBe("unknown")
+  })
 })
 
 describe("formatDuration", () => {
@@ -404,6 +408,97 @@ describe("formatEvent", () => {
         msg: "chunk",
       }
       expect(formatEvent(event)).toBeNull()
+    })
+  })
+
+  describe("upstream_raw_sse", () => {
+    test("returns null (suppressed)", () => {
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "debug",
+        type: "upstream_raw_sse",
+        requestId: "req_123",
+        msg: "raw chunk",
+      }
+      expect(formatEvent(event)).toBeNull()
+    })
+  })
+
+  describe("unknown event type", () => {
+    test("falls back to time + msg", () => {
+      const event = {
+        ts: Date.now(),
+        level: "info",
+        type: "totally-unknown",
+        requestId: null,
+        msg: "fallback message",
+      } as unknown as LogEvent
+      const line = formatEvent(event)!
+      expect(line).toContain("fallback message")
+    })
+  })
+
+  describe("truncateError boundary lengths", () => {
+    test("OpenAI-style JSON error long enough to truncate", () => {
+      const longInner = "x".repeat(120)
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId: null,
+        msg: "500 model 1ms",
+        data: {
+          model: "gpt-4o",
+          statusCode: 500,
+          status: "error",
+          latencyMs: 1,
+          error: `prefix: {"error":{"message":"${longInner}"}}`,
+        },
+      }
+      const line = formatEvent(event)!
+      expect(line).toContain("…")
+      expect(line).toContain("xxxx")
+    })
+
+    test("simple JSON {message} long enough to truncate", () => {
+      const longInner = "y".repeat(120)
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId: null,
+        msg: "500 model 1ms",
+        data: {
+          model: "gpt-4o",
+          statusCode: 500,
+          status: "error",
+          latencyMs: 1,
+          error: `prefix: {"message":"${longInner}"}`,
+        },
+      }
+      const line = formatEvent(event)!
+      expect(line).toContain("…")
+      expect(line).toContain("yyyy")
+    })
+
+    test("plain message long enough to truncate", () => {
+      const long = "z".repeat(200)
+      const event: LogEvent = {
+        ts: Date.now(),
+        level: "error",
+        type: "request_end",
+        requestId: null,
+        msg: "500 model 1ms",
+        data: {
+          model: "gpt-4o",
+          statusCode: 500,
+          status: "error",
+          latencyMs: 1,
+          error: long,
+        },
+      }
+      const line = formatEvent(event)!
+      expect(line).toContain("…")
     })
   })
 })
