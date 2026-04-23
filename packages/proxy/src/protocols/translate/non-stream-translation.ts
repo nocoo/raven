@@ -279,10 +279,43 @@ function appendUserMessage(
 
 
   if (Array.isArray(message.content)) {
-    // Filter unsupported content blocks first
     const filteredContent = filterContentBlocks(message.content)
+    const flagsActive = flags.sanitizeOrphanedToolResults || flags.reorderToolResults
 
-    // Single-pass categorization: separate tool_result from other blocks
+    if (!flagsActive) {
+      // Fast path: no tool-result reordering/sanitization. Push tool messages
+      // directly while collecting non-tool-result blocks for the optional user message.
+      // Tool results must come first to maintain protocol: tool_use -> tool_result -> user.
+      let otherBlocks: AnthropicUserContentBlock[] | null = null
+      for (const block of filteredContent) {
+        if (block.type === "tool_result") {
+          const trBlock = block as AnthropicToolResultBlock
+          out.push({
+            role: "tool",
+            tool_call_id: trBlock.tool_use_id,
+            content: mapContent(trBlock.content),
+            name: null,
+            tool_calls: null,
+          })
+        } else {
+          if (otherBlocks === null) otherBlocks = []
+          otherBlocks.push(block)
+        }
+      }
+
+      if (otherBlocks !== null) {
+        out.push({
+          role: "user",
+          content: mapContent(otherBlocks),
+          name: null,
+          tool_calls: null,
+          tool_call_id: null,
+        })
+      }
+      return
+    }
+
+    // Slow path: tool-result sanitization/reordering active.
     let toolResultBlocks: AnthropicToolResultBlock[] = []
     const otherBlocks: AnthropicUserContentBlock[] = []
     for (const block of filteredContent) {
@@ -294,8 +327,6 @@ function appendUserMessage(
     }
 
     // OPT-1: Drop tool_result blocks referencing non-existent tool_use IDs.
-    // When pendingToolCallIds is empty (assistant message was deleted by compaction),
-    // ALL tool_results are orphans and should be dropped.
     if (flags.sanitizeOrphanedToolResults) {
       const validIds = new Set(pendingToolCallIds)
       toolResultBlocks = toolResultBlocks.filter((block) => validIds.has(block.tool_use_id))
@@ -311,7 +342,6 @@ function appendUserMessage(
       })
     }
 
-    // Tool results must come first to maintain protocol: tool_use -> tool_result -> user
     for (const block of toolResultBlocks) {
       out.push({
         role: "tool",
