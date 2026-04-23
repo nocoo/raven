@@ -16,7 +16,7 @@ import type { CustomOpenAIUpReq } from "../../strategies/custom-openai"
 import type { CustomAnthropicUpReq } from "../../strategies/custom-anthropic"
 import type { CopilotTranslatedUpReq } from "../../strategies/copilot-translated"
 import type { ServerSentEvent } from "./../../util/sse"
-import { forwardError } from "./../../lib/error"
+import { forwardError, HTTPError } from "./../../lib/error"
 
 import {
   type AnthropicMessagesPayload,
@@ -27,12 +27,16 @@ import {
   translateToOpenAI,
 } from "../../protocols/translate/non-stream-translation"
 import { consumeStreamToResponse } from "../../protocols/translate/consume-stream"
-export { consumeStreamToResponse } from "../../protocols/translate/consume-stream"
 import { preprocessPayload, translateModelName } from "./../../protocols/anthropic/preprocess"
 import { supportsNativeMessages } from "../../strategies/support/model-capabilities"
-import { handleCopilotNativeServerTools } from "./native-handler"
 import { decorate as decorateServerTools } from "../../strategies/support/server-tools"
-export { streamAnthropicResponse } from "../../strategies/support/anthropic-stream-writer"
+import type { NativeMessagesOptions } from "../../upstream/copilot-native"
+import {
+  parseReasoningEffortError,
+  pickSupportedEffort,
+  adjustEffortInPayload,
+  logEffortFallback,
+} from "../../strategies/support/effort-fallback"
 
 export async function handleCompletion(c: Context) {
   const startTime = performance.now()
@@ -211,20 +215,38 @@ export async function handleCompletion(c: Context) {
       },
     })
 
-    // H.8: Server-tools sub-branch stays in the legacy handler until Phase I.
+    // I.3/J.1: Server-tools sub-branch folded inline via `decorate()`.
     // The default (no server-tools) path routes through composition.dispatch.
     const webSearchEnabled = state.stWebSearchEnabled && state.stWebSearchApiKey !== null
     if (serverToolContext.hasServerSideTools && webSearchEnabled) {
-      return handleCopilotNativeServerTools(
-        c,
-        requestId,
-        cleanedPayload,
-        startTime,
-        copilotModel,
-        filteredBeta,
-        serverToolContext,
-        { accountName, sessionId, clientName, clientVersion },
-      )
+      if (state.optToolCallDebug) {
+        logEmitter.emitLog({
+          ts: Date.now(), level: "debug", type: "request_start", requestId,
+          msg: `native path: server-tool check: hasServerSideTools=true, webSearchEnabled=true`,
+          data: {
+            hasServerSideTools: serverToolContext.hasServerSideTools,
+            webSearchEnabled: true,
+            serverSideToolNames: serverToolContext.serverSideToolNames,
+            allServerSide: serverToolContext.allServerSide,
+          },
+        })
+      }
+      const nativeOptions: NativeMessagesOptions = { copilotModel, anthropicBeta: filteredBeta }
+      try {
+        return await decorateServerTools({
+          c, requestId, startTime, stream, model,
+          payload: cleanedPayload,
+          serverToolContext,
+          sendRequest: createNativeSendNonStreaming(nativeOptions, requestId),
+          log: {
+            path: "/v1/messages", format: "anthropic",
+            accountName, sessionId, clientName, clientVersion,
+            extras: { copilotModel, routingPath: "native" },
+          },
+        })
+      } catch (error) {
+        return forwardError(c, error)
+      }
     }
 
     // No server-tools: route through Runner via copilot-native strategy.
@@ -354,5 +376,48 @@ export async function handleCompletion(c: Context) {
     })
   } catch (error) {
     return forwardError(c, error)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Native-path server-tool helpers (J.1: folded in from routes/messages/native-handler.ts)
+// ---------------------------------------------------------------------------
+
+async function nativeSendWithEffortFallback(
+  payload: AnthropicMessagesPayload,
+  options: NativeMessagesOptions,
+  requestId: string,
+): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
+  try {
+    return await buildUpstreamClient("copilot-native").send({ payload, options })
+  } catch (error) {
+    if (!(error instanceof HTTPError)) throw error
+    if (error.status !== 400) throw error
+    let errorBody: unknown
+    try {
+      errorBody = JSON.parse(error.responseBody)
+    } catch {
+      throw error
+    }
+    const effortError = parseReasoningEffortError(errorBody)
+    if (!effortError) throw error
+    const fallbackEffort = pickSupportedEffort(
+      effortError.requestedEffort,
+      effortError.supportedEfforts,
+    )
+    logEffortFallback(requestId, options.copilotModel, effortError.requestedEffort, fallbackEffort)
+    const adjustedPayload = adjustEffortInPayload(payload, fallbackEffort)
+    return await buildUpstreamClient("copilot-native").send({ payload: adjustedPayload, options })
+  }
+}
+
+function createNativeSendNonStreaming(
+  nativeOptions: NativeMessagesOptions,
+  requestId: string,
+): (p: AnthropicMessagesPayload) => Promise<AnthropicResponse> {
+  return async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
+    const nonStreamPayload: AnthropicMessagesPayload = { ...p, stream: false }
+    const result = await nativeSendWithEffortFallback(nonStreamPayload, nativeOptions, requestId)
+    return result as AnthropicResponse
   }
 }
