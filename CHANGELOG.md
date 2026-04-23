@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.2.0
+
+### Changed
+- Session metadata for runs 76-96
+- Hoist STOP_REASON_MAP to module level (skip per-call alloc)
+- Cache translateModelName results in a Map
+- Single object literal in translateToOpenAI (stable hidden class)
+- Normalize Message property order for hidden class sharing
+- Cache usage lookup chain in translateToAnthropic
+- Skip join() for single text/thinking part in assistant message
+- Skip join() for single-text-block case
+- Inline mapContent for string content in append* fast paths
+- Zero-alloc beta scanning
+- Stream translation: cache usage refs, indexed for over tool_calls
+- Pre-allocated indexed loop in translateAnthropicToolsToOpenAI
+- Append* pattern, no spreads/intermediate arrays, indexed loops
+- Indexed for-loops in mapContent + slow path
+- Indexed for-loop in translateAnthropicMessagesToOpenAI outer loop
+- Indexed for-loop in append* hot loops; cache content array
+- Fuse filterContentBlocks into appendAssistantMessage categorization loop
+- Fuse filterContentBlocks into appendUserMessage fast path
+- AppendUserMessage fast path: direct push when no tool-result flags
+- AppendUserMessage/appendAssistantMessage push directly to shared result; assistant returns ids inline
+- Single-pass extractToolUseIds; avoid systemMessages spread
+- Eliminate object/array double-spreads in translateToOpenAI &amp; handleAssistantMessage
+
+### Fixed
+- Drop node:fs mock entirely in live.test
+- Passthrough non-package.json reads in live.test mock
+- Remove leaking mockImplementationOnce in live.test
+
+### Removed
+- Drop filteredContent in appendAssistantMessage; reuse mapContent's switch filtering in fallback
+- AppendSystemPrompt pushes into shared result; remove systemMessages spread
+
 ## v2.1.0
 
 ### Added
