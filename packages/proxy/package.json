@@ -9,7 +9,7 @@
     "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
     "lint": "eslint --config ../../eslint.config.js --max-warnings=0 src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
     "gpt-tokenizer": "^3.0.1",
