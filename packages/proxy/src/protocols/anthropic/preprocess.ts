@@ -40,9 +40,25 @@ const MODEL_REGEX_NO_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
  * the original model name unchanged.
  */
 export function translateModelName(model: string, anthropicBeta: string | null): string {
-  const betas = anthropicBeta?.split(",").map((b) => b.trim()) ?? []
-  const wants1m = betas.some((b) => b.startsWith("context-1m-"))
-  const wantsFast = betas.some((b) => b.startsWith("fast-mode-"))
+  let wants1m = false
+  let wantsFast = false
+  if (anthropicBeta) {
+    // Avoid allocating betas array for the common (null beta) case.
+    let start = 0
+    const len = anthropicBeta.length
+    for (let i = 0; i <= len; i++) {
+      if (i === len || anthropicBeta.charCodeAt(i) === 44 /* ',' */) {
+        // Trim whitespace via charCode bounds without slicing.
+        let s = start
+        let e = i
+        while (s < e && anthropicBeta.charCodeAt(s) <= 32) s++
+        while (e > s && anthropicBeta.charCodeAt(e - 1) <= 32) e--
+        if (e - s >= 11 && !wants1m && anthropicBeta.startsWith("context-1m-", s)) wants1m = true
+        else if (e - s >= 10 && !wantsFast && anthropicBeta.startsWith("fast-mode-", s)) wantsFast = true
+        start = i + 1
+      }
+    }
+  }
 
   const match = model.match(MODEL_REGEX_WITH_MINOR)
   if (match) {
