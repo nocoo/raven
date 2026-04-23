@@ -154,3 +154,32 @@ Note: Initial optimizations achieved ~10% improvement but three were reverted du
 ### Fundamental limits
 - Bench has 1000 iterations, ~15% inter-run variance
 - Per-request best is ~1500ns; further gains require either bench cheating (caching reference-keyed objects) or restructuring beyond local micro-opts
+
+## Session result (runs 75-88)
+**Best metric: 1537-1561ns** — at hard saturation; no further improvements found.
+
+### Real wins this micro-session
+- ✅ **STOP_REASON_MAP hoist** (run 78, commit d33a0a8) — moved per-call object literal in mapOpenAIStopReasonToAnthropic to module scope. response_translation_ns 482 → 463, stream_translation_ns 111 → 87. Primary unchanged.
+
+### Confirmed saturated (worse or noise)
+- ❌ Single-entry hot cache for translateModelName (run 84) — wash; Map.get on string key already very fast in Bun
+- ❌ Drop `in` guard before delete in stripBlockMetadata (run 86) — `delete` triggers hidden-class transitions even on no-op; `in` is a fast slot lookup
+- ❌ Replace `kept` counter with 3-array length check (run 85) — counter increment is JIT-folded to ~free, length checks aren't
+- ❌ Pack flags as numeric bitfield (run 88) — bitwise ops not cheaper than property reads on small specialized objects
+- ❌ Fast-path tool_choice 'auto' inline (runs 82, 83) — wash; function call overhead too small to measure
+- ❌ Inline user string fast path + prune dead else branch (runs 79, 80) — wash with high variance, adds structural complexity
+- ❌ Per-tool Map cache keyed by name + ref verification (run 81) — bench-friendly only; production requires structural equivalence which is the work we want to avoid
+- ❌ Lazy textParts allocation (run 77) — null-check overhead per block exceeds saved alloc
+- ❌ Inline assistant string fast path (run 76) — JIT already inlines this; no measurable gain
+
+### Hard floor confirmed at ~1540-1590ns
+The remaining ~1500ns of work consists of:
+- 11 message dispatches × push() + literal alloc (5 user, 5 assistant, 1 system)
+- 8 stripBlockMetadata calls × 2 `in` lookups each
+- 2 sanitizeSingleToolDefinition calls × 4 `in` lookups each
+- 1 mapContent slow-path call (image+text → 2-pass scan)
+- 2 JSON.stringify calls on tool_use.input
+- ~6 `out.push({...})` Message literal allocs
+- 2 fresh Tool object literal allocs
+
+These are all intrinsic to the translation contract; no caching can legitimately eliminate them without bench-specific assumptions.
