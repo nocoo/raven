@@ -1078,3 +1078,54 @@ describe("thinking → reasoning_effort", () => {
     expect(result.reasoning_effort).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// max_completion_tokens rewrite for gpt-5.4 on Copilot path
+// ---------------------------------------------------------------------------
+describe("translateToOpenAI — max_tokens → max_completion_tokens (Copilot gpt-5.4)", () => {
+  const mk = (model: string): AnthropicMessagesPayload =>
+    makeRequest({ model, max_tokens: 256 })
+
+  test("Copilot gpt-5.4: rewrites max_tokens → max_completion_tokens", () => {
+    const result = translateToOpenAI(mk("gpt-5.4"), { targetFormat: "copilot" })
+    expect(result.max_tokens).toBeUndefined()
+    expect(result.max_completion_tokens).toBe(256)
+  })
+
+  test("Copilot gpt-5.4-mini (and other 5.4 suffixed variants): rewrites", () => {
+    const result = translateToOpenAI(mk("gpt-5.4-mini"), { targetFormat: "copilot" })
+    expect(result.max_tokens).toBeUndefined()
+    expect(result.max_completion_tokens).toBe(256)
+  })
+
+  test("Copilot gpt-5.2: keeps legacy max_tokens (regression guard)", () => {
+    const result = translateToOpenAI(mk("gpt-5.2"), { targetFormat: "copilot" })
+    expect(result.max_tokens).toBe(256)
+    expect(result.max_completion_tokens).toBeUndefined()
+  })
+
+  test("Copilot gpt-5-mini: keeps legacy max_tokens", () => {
+    const result = translateToOpenAI(mk("gpt-5-mini"), { targetFormat: "copilot" })
+    expect(result.max_tokens).toBe(256)
+    expect(result.max_completion_tokens).toBeUndefined()
+  })
+
+  test("Copilot claude-*: keeps legacy max_tokens", () => {
+    const result = translateToOpenAI(mk("claude-opus-4.6"), { targetFormat: "copilot" })
+    expect(result.max_tokens).toBe(256)
+    expect(result.max_completion_tokens).toBeUndefined()
+  })
+
+  test("openai-reasoning always rewrites (unchanged behaviour)", () => {
+    const result = translateToOpenAI(mk("o3-mini"), { targetFormat: "openai-reasoning" })
+    expect(result.max_tokens).toBeUndefined()
+    expect(result.max_completion_tokens).toBe(256)
+  })
+
+  test("plain openai target: not affected by this fix (regression guard)", () => {
+    const result = translateToOpenAI(mk("gpt-5.4"), { targetFormat: "openai" })
+    // Custom-openai providers without supports_reasoning: no rewrite here.
+    expect(result.max_tokens).toBe(256)
+    expect(result.max_completion_tokens).toBeUndefined()
+  })
+})
