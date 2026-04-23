@@ -1,13 +1,21 @@
 import { describe, expect, test, mock } from "bun:test";
 import { Hono } from "hono";
+import { readFileSync as realReadFileSync } from "node:fs";
 
 // ---------------------------------------------------------------------------
-// Mock node:fs so getVersion() can be controlled
+// Mock node:fs so getVersion() can be controlled. mock.module() is global
+// across the whole bun test run, so we MUST passthrough every call that is not
+// the proxy package.json — otherwise unrelated tests (e.g. fixture loaders
+// reading JSON) receive the version stub and fail.
 // ---------------------------------------------------------------------------
 
-const mockReadFileSync = mock(() =>
-  JSON.stringify({ version: "1.2.3" }),
-);
+const mockReadFileSync = mock((path: Parameters<typeof realReadFileSync>[0], ...rest: unknown[]) => {
+  if (typeof path === "string" && path.endsWith("package.json")) {
+    return JSON.stringify({ version: "1.2.3" });
+  }
+  // @ts-expect-error — variadic forwarding to the real impl
+  return realReadFileSync(path, ...rest);
+});
 
 mock.module("node:fs", () => ({
   readFileSync: mockReadFileSync,
