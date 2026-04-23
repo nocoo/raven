@@ -111,3 +111,23 @@ Note: Initial optimizations achieved ~10% improvement but three were reverted du
 - Bun bench variance is ~10-15% between runs; need 10+ runs to detect <5% changes
 - First 1-2 runs in a batch are typically warmup outliers (1.5-3x slower)
 - Best path was reducing array allocations + indexed loops + zero-alloc string scanners
+
+## Recently exhausted attempts (sessions 60-66, all worse or coverage-failed)
+- ❌ NO_MINOR regex first in translateModelName (run 60)
+- ❌ Inline tool_calls/ids during scan, lazy alloc (run 61, 35)
+- ❌ Single-pass mapContent on-demand (run 62)
+- ❌ Undefined-compare instead of `in` for stripBlockMetadata (run 63)
+- ❌ Switch-first dispatch in appendAssistantMessage (run 64) — coverage regression on default branch
+- ❌ Short-circuit type-compare before Set.has (run 65) — coverage regression
+- ❌ Use EMPTY_IDS singleton as initial pendingToolCallIds (run 66)
+
+## Still untried
+- [ ] Inline appendSystemPrompt into outer translateAnthropicMessagesToOpenAI loop
+- [ ] Pre-allocate result Array<Message> with `new Array(messages.length * 2 + 1)` and index-track
+- [ ] Hand-rolled JSON.stringify for simple tool input (avoid generic stringify cost)
+- [ ] Inline fast paths of appendUser/AssistantMessage into loop body (size limits JIT inlining?)
+- [ ] Replace `for (let i; i < arr.length; i++)` with cached length once JIT specializes hot loop
+
+## Coverage notes (avoid regressions)
+- Adding a `default:` case in switch creates an uncovered branch (no test covers unknown-but-supported assistant types)
+- Removing a `mapContent(filteredContent)` fallback removes the only test path that exercises certain mapContent text-only branches

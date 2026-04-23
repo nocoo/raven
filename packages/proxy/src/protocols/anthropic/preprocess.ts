@@ -26,6 +26,11 @@ const MODEL_REGEX_WITH_MINOR =
   /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:(?:-|\[)(1m|fast)\]?)?(?:-\d{8})?$/
 const MODEL_REGEX_NO_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
 
+// Tiny cache for translated model names. Same (model, beta) pair often
+// recurs across requests from the same client; regex match + string concat is the
+// dominant cost. Cleared when full to avoid unbounded growth (model namespace is small).
+const MODEL_NAME_CACHE = new Map<string, string>()
+
 /**
  * Translate Anthropic SDK model identifiers to Copilot model IDs.
  *
@@ -40,6 +45,18 @@ const MODEL_REGEX_NO_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
  * the original model name unchanged.
  */
 export function translateModelName(model: string, anthropicBeta: string | null): string {
+  // Cache hit on identical (model, beta) inputs — common for repeat clients.
+  const cacheKey = anthropicBeta === null ? model : `${model}\0${anthropicBeta}`
+  const cached = MODEL_NAME_CACHE.get(cacheKey)
+  if (cached !== undefined) return cached
+
+  const result = translateModelNameUncached(model, anthropicBeta)
+  if (MODEL_NAME_CACHE.size >= 64) MODEL_NAME_CACHE.clear()
+  MODEL_NAME_CACHE.set(cacheKey, result)
+  return result
+}
+
+function translateModelNameUncached(model: string, anthropicBeta: string | null): string {
   let wants1m = false
   let wantsFast = false
   if (anthropicBeta) {
