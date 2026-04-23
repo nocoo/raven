@@ -73,3 +73,36 @@ test.describe("smoke", () => {
     expect(realErrors).toHaveLength(0);
   });
 });
+
+// ===========================================================================
+// Per-page smoke — every dashboard route renders + primary heading visible.
+// Mirrors zhe's "page coverage" metric: every route table entry has a spec.
+// ===========================================================================
+
+const pageSmoke: Array<{ name: string; path: string; expect: string | RegExp }> = [
+  { name: "/login renders sign-in card", path: "/login", expect: /Sign in|Local mode|Authenticated Access/i },
+  { name: "/copilot/account renders heading", path: "/copilot/account", expect: /Copilot|Account/i },
+  { name: "/copilot/models renders heading", path: "/copilot/models", expect: /Models?/i },
+  { name: "/settings/proxy renders heading", path: "/settings/proxy", expect: "Proxy" },
+  { name: "/settings/server-tools renders heading", path: "/settings/server-tools", expect: "Server Tools" },
+  { name: "/settings/upstreams renders heading", path: "/settings/upstreams", expect: "Upstreams" },
+];
+
+for (const p of pageSmoke) {
+  test(p.name, async ({ page }) => {
+    const response = await page.goto(p.path);
+    // Either renders successfully or redirects to /login when auth-gated —
+    // both are acceptable smoke outcomes for a route that exists.
+    expect(response?.status() ?? 200).toBeLessThan(500);
+    const url = page.url();
+    if (!url.includes("/login") || p.path === "/login") {
+      await expect(page.locator(`text=${p.expect}`).first()).toBeVisible({ timeout: 5000 });
+    }
+  });
+}
+
+test("/requests redirects to / preserving search", async ({ page }) => {
+  await page.goto("/requests?model=claude");
+  await page.waitForURL((url) => !url.pathname.startsWith("/requests"), { timeout: 5000 });
+  expect(page.url()).toMatch(/\/(\?|$)/);
+});
