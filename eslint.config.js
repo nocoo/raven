@@ -12,6 +12,9 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      // TODO(zhe-parity): enable to match zhe's strict tier. 34 existing
+      // sites need refactor (mostly Glob.match results and protocol-known
+      // arrays); tracked separately to keep this CI parallelization PR small.
       "@typescript-eslint/no-non-null-assertion": "off",
     },
   },

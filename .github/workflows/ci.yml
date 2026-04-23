@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# zhe-style parallelism: independent jobs run on separate runners with no
+# `needs:` between them. quality (L1+G1+G2) is base-ci sequential inside
+# but runs in parallel with the local arch + coverage-gate jobs.
 jobs:
   quality:
     uses: nocoo/base-ci/.github/workflows/bun-quality.yml@v2026.1
@@ -22,3 +25,27 @@ jobs:
       upload-coverage: "true"
       coverage-path: "packages/proxy/coverage"
     secrets: inherit
+
+  arch:
+    name: G1 — Architecture (dep-cruiser + fetch-boundary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - run: bun install --frozen-lockfile
+      - run: bun run gate:arch
+
+  coverage-gate:
+    name: L1 — Coverage gate (§4.5 baseline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - run: bun install --frozen-lockfile
+      - run: bun run scripts/check-coverage.ts

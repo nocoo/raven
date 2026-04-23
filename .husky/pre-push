@@ -1,15 +1,13 @@
 #!/bin/sh
-# Pre-push gates — HARD.
+# Pre-push gates — HARD, parallel.
 #
-# - G2 security (osv-scanner + gitleaks)
-# - L1 coverage gate (§4.5; baseline-driven via scripts/check-coverage.ts)
-# - Architectural layering (dep-cruiser; vacuous today, rules activate in D.7+)
+# - G2 security  (osv-scanner + gitleaks)
+# - L1 coverage  (proxy unit tests + §4.5 baseline gate)
+# - G1 arch      (dep-cruiser layering + fetch-boundary)
+#
+# All three run concurrently — see scripts/pre-push.ts
 #
 # Not in this hook (by design):
 #   L2 — manual-only: bun run test:e2e (real Copilot API, anti-ban)
-#   L3 — manual-only: bun run test:ui (Playwright, fully mocked)
-
-set -e
-bun run gate:security
-bun run --filter '@raven/proxy' test
-bun run gate:arch
+#   L3 — manual-only: bun run test:ui  (Playwright)
+bun run scripts/pre-push.ts
