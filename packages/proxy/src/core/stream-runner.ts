@@ -1,15 +1,13 @@
 // ---------------------------------------------------------------------------
-// core/stream-runner.ts (G.4) — pure SSE helpers shared by Runner (G.5)
-// and the strategies that mutate stream-state. Intentionally has zero
-// dependencies on hono/streaming, state, or logEmitter; this file is part
-// of the §3.7 "core may not depend on side effects beyond log/io" rule.
+// core/stream-runner.ts — pure SSE helpers shared by Runner and the
+// strategies that mutate stream-state. Intentionally has zero dependencies
+// on hono/streaming, state, or logEmitter; this file is part of the §3.7
+// "core may not depend on side effects beyond log/io" rule.
 //
-// G.4 lands the helpers only. G.5 wires them into Runner; G.6+ ports the
-// handler branches. The helpers cover:
+// Helpers:
 //   - parseSseData: tolerant JSON parse for "data: {…}" frames
 //   - computeStreamTimings: latency / ttft / processing math
-//   - openAIUsageFrom: prompt - cached, completion (the most-duplicated
-//     extraction in today's handlers)
+//   - openAIUsageFrom: prompt - cached, completion
 // ---------------------------------------------------------------------------
 
 export interface StreamTimings {

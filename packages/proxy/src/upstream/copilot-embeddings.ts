@@ -1,8 +1,5 @@
 /**
- * Phase E.6 — copilot Embeddings port.
- *
- * Same wire behaviour as services/copilot/create-embeddings.ts.
- * Wire types remain canonical here; legacy file becomes a shim re-exporting them.
+ * Copilot Embeddings upstream client.
  */
 
 import { copilotBaseUrl, copilotHeaders } from "../lib/api-config"

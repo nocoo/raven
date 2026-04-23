@@ -1,9 +1,7 @@
 /**
- * Phase E.4 — copilot Native Anthropic Messages port.
+ * Copilot native Anthropic Messages upstream client.
  *
- * Same wire behaviour as services/copilot/create-native-messages.ts.
- * Constructor-injected config; default factory binds to the state
- * singleton.
+ * Constructor-injected config; default factory binds to the state singleton.
  */
 
 import { events, type ServerSentEvent } from "../util/sse"

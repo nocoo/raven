@@ -1,7 +1,5 @@
 /**
- * Phase E.7 — custom OpenAI-compatible upstream port.
- *
- * Same wire behaviour as services/upstream/send-openai.ts.
+ * Custom OpenAI-compatible upstream client.
  */
 
 import type { CompiledProvider } from "../db/providers"

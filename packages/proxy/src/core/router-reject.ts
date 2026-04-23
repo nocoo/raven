@@ -1,4 +1,4 @@
-// Phase F.9 — Central error mapper for router reject decisions.
+// Central error mapper for router reject decisions.
 //
 // All three handlers (chat-completions, messages, responses) need to
 // convert StrategyDecision.reject into an HTTP response + a uniform

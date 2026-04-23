@@ -1,4 +1,4 @@
-// Phase F — Router: pure function answering
+// Router: pure function answering
 //   "given this request, which strategy runs?"
 //
 // Per docs/20-architecture-refactor.md §3.2: pickStrategy takes the

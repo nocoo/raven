@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
 // strategies/custom-openai.ts
 //
-// Promotes both Phase-G shims (chat-completions G.8 passthrough +
-// messages G.10 Anthropic-translated) onto a single Strategy. Mode is
-// selected per-request via the optional `originalModel` field:
+// Serves both entry points (chat-completions passthrough + messages
+// Anthropic-translated) as a single Strategy. Mode is selected per-request
+// via the optional `originalModel` field:
 //   - present → translate response/stream OpenAI → Anthropic
 //   - absent  → passthrough OpenAI bytes
 //

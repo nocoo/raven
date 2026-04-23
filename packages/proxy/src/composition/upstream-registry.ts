@@ -1,12 +1,9 @@
 /**
- * Phase E.9 — composition/upstream-registry.
+ * composition/upstream-registry.
  *
  * Single place that knows the full set of upstream client kinds. Returns a
  * fresh client per call so that callers can vary the bound config per
- * request (e.g. when strategies need to inject test fakes — Phase H).
- *
- * Strategy portion of `composition/` lands in Phase H; this file is the
- * upstream-only slice scoped to Phase E.9.
+ * request (e.g. when strategies need to inject test fakes).
  */
 
 import {

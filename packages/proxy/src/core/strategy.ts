@@ -3,9 +3,6 @@
 // Concretions live under packages/proxy/src/strategies/*.ts. Wiring (binding
 // a strategy to its UpstreamClient and dependencies) lives in
 // packages/proxy/src/composition/.
-//
-// G.3 introduces only the type. G.5 fills in the streaming method shapes and
-// G.6+ port the concrete strategies one branch at a time.
 // ---------------------------------------------------------------------------
 
 import type { SSEMessage } from "hono/streaming"

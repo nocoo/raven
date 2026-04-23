@@ -1,10 +1,8 @@
 /**
- * Phase E.5 — copilot Responses port.
+ * Copilot Responses upstream client.
  *
- * Same wire behaviour as services/copilot/create-responses.ts.
- * Pure helpers `hasVisionContent` / `hasAgentHistory` are kept exported
- * so the legacy file (now a shim) can re-export them for back-compat
- * with tests that imported them directly.
+ * Pure helpers `hasVisionContent` / `hasAgentHistory` are exported for use
+ * by tests and adjacent modules.
  */
 
 import { events, type ServerSentEvent } from "../util/sse"

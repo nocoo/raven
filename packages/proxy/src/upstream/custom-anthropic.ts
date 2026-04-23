@@ -1,7 +1,5 @@
 /**
- * Phase E.8 — custom Anthropic-compatible upstream port.
- *
- * Same wire behaviour as services/upstream/send-anthropic.ts.
+ * Custom Anthropic-compatible upstream client.
  */
 
 import type { CompiledProvider } from "../db/providers"

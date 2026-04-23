@@ -2,8 +2,8 @@
 // Emit one `upstream_raw_sse` log event per raw upstream SSE event.
 //
 // §4.3 refactor E2E fixtures record the byte-level stream the proxy received
-// from upstream, so Phase H `adaptChunk` unit tests can replay the exact
-// chunks without re-calling a real provider. Translated streams (Anthropic <->
+// from upstream, so `adaptChunk` unit tests can replay the exact chunks
+// without re-calling a real provider. Translated streams (Anthropic <->
 // OpenAI) would otherwise lose the original upstream bytes the moment the
 // proxy translates them — this emitter preserves them in the log bus.
 //

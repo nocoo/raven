@@ -1,14 +1,9 @@
 /**
- * Phase E.3 — copilot OpenAI-format chat completions port.
+ * Copilot OpenAI-format chat completions upstream client.
  *
- * Same wire behaviour as the legacy `services/copilot/create-chat-completions.ts`
- * (verified against E.2 fixtures), but with constructor-injected config so
- * strategies (Phase H) can build per-request clients without reading the
- * `state` singleton.
- *
- * The default factory `createDefaultCopilotOpenAIClient()` reads from `state`
- * + ambient lib helpers — kept inside this file so the rest of the codebase
- * never sees the singleton, only the client instance.
+ * Constructor-injected config so strategies can build per-request clients
+ * without reading the `state` singleton. The default factory
+ * `createDefaultCopilotOpenAIClient()` binds to `state` + ambient lib helpers.
  */
 
 import { events, type ServerSentEvent } from "../util/sse"

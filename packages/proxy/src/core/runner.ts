@@ -1,15 +1,14 @@
 // ---------------------------------------------------------------------------
-// core/runner.ts (G.5) — generic executor for the symmetric pipeline (§3.5).
+// core/runner.ts — generic executor for the symmetric pipeline (§3.5).
 //
-// G.3 landed the JSON path + skeleton; G.5 adds the streaming path. Coverage
-// paths per §4.5(4):
-//   (a) JSON success           ← G.3
-//   (d) upstream rejection     ← G.3
-//   (e) finally log emission   ← G.3 (json) + G.5 (stream)
-//   (b) stream success         ← G.5
-//   (c) stream mid-flight error per protocol  ← G.5 (OpenAI / Anthropic /
-//       Responses error shapes are produced by each strategy's
-//       adaptStreamError; Runner just writes whatever it returns)
+// Coverage paths per §4.5(4):
+//   (a) JSON success
+//   (b) stream success
+//   (c) stream mid-flight error per protocol (OpenAI / Anthropic / Responses
+//       error shapes are produced by each strategy's adaptStreamError;
+//       Runner just writes whatever it returns)
+//   (d) upstream rejection
+//   (e) finally log emission
 // ---------------------------------------------------------------------------
 
 import type { Context } from "hono"

@@ -33,7 +33,7 @@ import type { CompiledProvider } from "../db/providers"
 export interface DispatchInput {
   /** `payload.model` — used by the router, the reject log, and end-log fall-backs. */
   model: string
-  /** `!!payload.stream` — pre-stream errors need the correct log flag (G.14b). */
+  /** `!!payload.stream` — pre-stream errors need the correct log flag. */
   stream: boolean
   /** Anthropic-only header that gates a few model aliases. */
   anthropicBeta?: string | null
