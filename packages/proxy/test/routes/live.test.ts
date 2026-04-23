@@ -104,15 +104,9 @@ describe("getVersion", () => {
     // The mock returns "1.2.3"
   });
 
-  test("returns unknown when readFileSync throws", async () => {
-    // We need a fresh import with a failing readFileSync to test the catch branch.
-    // Since the VERSION is computed at module load time and already cached,
-    // we verify by checking the module loaded correctly with our mock.
-    // The catch branch (line 14) is exercised when the file is missing.
-    mockReadFileSync.mockImplementationOnce(() => {
-      throw new Error("ENOENT");
-    });
-    // Re-importing would be needed to truly test, but the branch is
-    // covered by the mock setup. The important coverage is the route handler.
-  });
+  // NOTE: previous test queued a mockImplementationOnce(throw ENOENT) for the
+  // ENOENT branch but never consumed it (VERSION is module-cached). Because
+  // mock.module("node:fs") replaces readFileSync globally, the queued throw
+  // leaked to the next readFileSync caller in any test file, breaking strategy
+  // fixture loading under CI's test ordering. Removed to avoid the leak.
 });
