@@ -608,7 +608,7 @@ Goal: the `if (hasServerSideTools && webSearchEnabled)` block becomes compositio
 Goal: delete orphans, lock remaining dep rules, re-enable anti-ban for normal operations.
 
 - **J.1** ✅ Delete `routes/messages/native-handler.ts` (folded into `routes/messages/handler.ts` as inline native-path helpers; copilot-native strategy already owns the default path).
-- **J.2** Delete `routes/*/handler.ts`-local helpers now duplicated by `protocols/` / `strategies/` / `core/`.
+- **J.2** ✅ Audit `routes/*/handler.ts`-local helpers for duplication against `protocols/` / `strategies/` / `core/`. Result: no duplicates found. `normalizeTokenLimitParams` (chat-completions), `nativeSendWithEffortFallback` + `createNativeSendNonStreaming` (messages, folded in from J.1), `toPositiveInt` + `fetchUpstreamModels` (models) are all genuinely route-local with a single caller. Nothing deleted.
 - **J.3** ✅ Remove `consumeStreamToResponse` re-exports; update consumers to `protocols/translate/consume-stream.ts`. (Removed both `consumeStreamToResponse` and `streamAnthropicResponse` re-exports from `routes/messages/handler.ts`; no external consumers.)
 - **J.4** Revert `test/e2e/` to anti-ban rules (1 request per test, fail-fast).
 - **J.5** Keep `test/e2e/refactor/` as the opt-in `bun run test:e2e:full` target (for future architectural work).
