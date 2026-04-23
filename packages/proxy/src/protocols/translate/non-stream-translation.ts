@@ -389,21 +389,17 @@ function appendAssistantMessage(
     return EMPTY_IDS
   }
 
-  // Filter unsupported content blocks first
-  const filteredContent = filterContentBlocks(message.content)
-
-  // If all content was filtered out, drop the entire message
-  if (filteredContent.length === 0) {
-    return EMPTY_IDS
-  }
-
-  // Single-pass categorization of blocks (avoid multiple filter() calls)
-  // Preserve original semantics: all text blocks first, then all thinking blocks
+  // Single-pass: filter unsupported, strip metadata, categorize, build filtered list
+  // (filteredContent is reused for the no-tool-use fallback to preserve original block order).
+  const filteredContent: AnthropicAssistantContentBlock[] = []
   const toolUseBlocks: AnthropicToolUseBlock[] = []
   const textParts: string[] = []
   const thinkingParts: string[] = []
 
-  for (const block of filteredContent) {
+  for (const block of message.content) {
+    if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
+    stripBlockMetadata(block as unknown as Record<string, unknown>)
+    filteredContent.push(block)
     switch (block.type) {
       case "tool_use":
         stripToolUseFields(block as AnthropicToolUseBlock)
@@ -416,6 +412,11 @@ function appendAssistantMessage(
         thinkingParts.push((block as AnthropicThinkingBlock).thinking)
         break
     }
+  }
+
+  // If all content was filtered out, drop the entire message
+  if (filteredContent.length === 0) {
+    return EMPTY_IDS
   }
 
   // Combine text and thinking blocks, as OpenAI doesn't have separate thinking blocks
