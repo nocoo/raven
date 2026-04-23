@@ -286,7 +286,9 @@ function appendUserMessage(
       // filter unsupported, push tool messages directly, lazily collect non-tool-result blocks.
       // Tool results must come first to maintain protocol: tool_use -> tool_result -> user.
       let otherBlocks: AnthropicUserContentBlock[] | null = null
-      for (const block of message.content) {
+      const content = message.content
+      for (let i = 0; i < content.length; i++) {
+        const block = content[i]!
         if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
         stripBlockMetadata(block as unknown as Record<string, unknown>)
         if (block.type === "tool_result") {
@@ -396,7 +398,9 @@ function appendAssistantMessage(
   const textParts: string[] = []
   const thinkingParts: string[] = []
 
-  for (const block of message.content) {
+  const content = message.content
+  for (let i = 0; i < content.length; i++) {
+    const block = content[i]!
     if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
     stripBlockMetadata(block as unknown as Record<string, unknown>)
     filteredContent.push(block)
