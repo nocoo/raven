@@ -79,12 +79,12 @@ const STRATEGY_PILL: Record<
   { variant: BadgeVariant; label: string; title: string }
 > = {
   "copilot-native": {
-    variant: "purple",
+    variant: "success",
     label: "native",
     title: "Copilot native Anthropic (/v1/messages → Copilot /v1/messages, no translation)",
   },
   "copilot-translated": {
-    variant: "warning",
+    variant: "destructive",
     label: "translated",
     title: "Anthropic client → Copilot /chat/completions (A↔O translation)",
   },
@@ -99,12 +99,12 @@ const STRATEGY_PILL: Record<
     title: "Responses client → Copilot /responses (passthrough)",
   },
   "custom-openai": {
-    variant: "success",
+    variant: "purple",
     label: "custom-openai",
     title: "Custom OpenAI-compatible upstream",
   },
   "custom-anthropic": {
-    variant: "default",
+    variant: "warning",
     label: "custom-anthropic",
     title: "Custom Anthropic-compatible upstream",
   },
