@@ -393,19 +393,20 @@ function appendAssistantMessage(
     return EMPTY_IDS
   }
 
-  // Single-pass: filter unsupported, strip metadata, categorize, build filtered list
-  // (filteredContent is reused for the no-tool-use fallback to preserve original block order).
-  const filteredContent: AnthropicAssistantContentBlock[] = []
+  // Single-pass: filter unsupported (count only), strip metadata, categorize.
+  // Fallback (no tool_use) calls mapContent(content) which itself ignores unsupported types
+  // via switch fall-through, so we don't need to materialize a filtered-content array.
   const toolUseBlocks: AnthropicToolUseBlock[] = []
   const textParts: string[] = []
   const thinkingParts: string[] = []
+  let kept = 0
 
   const content = message.content
   for (let i = 0; i < content.length; i++) {
     const block = content[i]!
     if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
     stripBlockMetadata(block as unknown as Record<string, unknown>)
-    filteredContent.push(block)
+    kept++
     switch (block.type) {
       case "tool_use":
         stripToolUseFields(block as AnthropicToolUseBlock)
@@ -421,7 +422,7 @@ function appendAssistantMessage(
   }
 
   // If all content was filtered out, drop the entire message
-  if (filteredContent.length === 0) {
+  if (kept === 0) {
     return EMPTY_IDS
   }
 
@@ -466,7 +467,7 @@ function appendAssistantMessage(
 
   out.push({
     role: "assistant",
-    content: mapContent(filteredContent),
+    content: mapContent(content),
     name: null,
     tool_calls: null,
     tool_call_id: null,

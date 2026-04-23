@@ -51,21 +51,36 @@ Note: Initial optimizations achieved ~10% improvement but three were reverted du
 - Real-world payloads may differ from benchmark fixtures
 - Security-sensitive code (auth, timing-safe compare) should not be optimized for speed
 
-## 2026-04-23 Session Results
-**Baseline: 2,915ns → Current best: ~1,750ns (-40%)** (median ~1775-1900ns; bench has natural variance ~150ns)
-
-### Final state notes
-- Best of 10 typically lands 1747-1810; median 1775-1900.
-- Variance reduced significantly after Message hidden-class normalization (#50).
-- Multiple micro-opts attempted in run #34-49 — most discarded as within-noise or coverage-blocked.
-- Strict coverage gate (protocols/ baseline 99.37, allowance 0.1pp) blocks several otherwise-valid refactors that remove dead-fallback code paths.
+## 2026-04-23 Session Results (continued)
+**Baseline: 2,915ns → Current best: 1,738ns (-40.4%)** (median ~1770ns, very stable)
 
 ### Latest wins (kept)
 12. ✅ Inline mapContent for string content in append* fast paths (#38)
 13. ✅ mapContent: skip join() when textParts.length === 1
 14. ✅ Skip join() for single text/thinking in assistant message
 15. ✅ Cache usage lookup chain in translateToAnthropic (response improved 510→482)
-16. ✅ **Normalize Message property order across all role variants for hidden class sharing** (biggest variance reducer)
+16. ✅ Normalize Message property order across all role variants for hidden class sharing
+17. ✅ **Single object literal in translateToOpenAI (stable hidden class via `as` cast)** (#52)
+
+### Discarded (recent attempts)
+- Hoist flagsActive once + pass through (no perf gain, branch overhead)
+- Skip ids array allocation in appendAssistantMessage (branch overhead)
+- DEFAULT_FLAGS frozen singleton reuse (worse perf)
+- mapContent fast path for single text/thinking block (more variance)
+- UNSUPPORTED_LOOKUP prototype-less object map (within noise)
+- Cache toolUseBlocks.length / toolUse.id locals (JIT does this)
+- Inline string fast path for tool_result content (function call already cheap)
+
+### Hard limits hit
+- Strict coverage gate (protocols/ baseline 99.37, allowance 0.1pp) blocks dead-code removals
+- exactOptionalPropertyTypes requires `as` cast for unified-literal pattern
+- Bun JIT already does load-elimination, length caching, function inlining
+- 14-message per-call work appears to be near-irreducible (object allocations + JSON.stringify)
+
+### Notes
+- Bun bench variance is ~5-15% between runs; need 10+ runs to detect <5% changes
+- First 1-2 runs in a batch are typically warmup outliers (1.5-3x slower)
+- Best path was reducing array allocations + indexed loops + zero-alloc string scanners + hidden class normalization
 
 ### Key wins (kept)
 1. ✅ Eliminate object/array spreads in translateToOpenAI + handleAssistantMessage
