@@ -368,9 +368,10 @@ function appendUserMessage(
       })
     }
   } else {
+    // Inline mapContent: non-array user content is normally string; treat anything else as null
     out.push({
       role: "user",
-      content: mapContent(message.content),
+      content: typeof message.content === "string" ? message.content : null,
       name: null,
       tool_calls: null,
       tool_call_id: null,
@@ -383,9 +384,10 @@ function appendAssistantMessage(
   out: Array<Message>,
 ): string[] {
   if (!Array.isArray(message.content)) {
+    // Inline mapContent: non-array assistant content is normally string; treat anything else as null
     out.push({
       role: "assistant",
-      content: mapContent(message.content),
+      content: typeof message.content === "string" ? message.content : null,
       name: null,
       tool_calls: null,
       tool_call_id: null,
