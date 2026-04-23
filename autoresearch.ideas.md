@@ -52,7 +52,20 @@ Note: Initial optimizations achieved ~10% improvement but three were reverted du
 - Security-sensitive code (auth, timing-safe compare) should not be optimized for speed
 
 ## 2026-04-23 Session Results
-**Baseline: 2,915ns → Current best: ~1,914ns (-34.3%)**
+**Baseline: 2,915ns → Current best: ~1,750ns (-40%)** (median ~1775-1900ns; bench has natural variance ~150ns)
+
+### Final state notes
+- Best of 10 typically lands 1747-1810; median 1775-1900.
+- Variance reduced significantly after Message hidden-class normalization (#50).
+- Multiple micro-opts attempted in run #34-49 — most discarded as within-noise or coverage-blocked.
+- Strict coverage gate (protocols/ baseline 99.37, allowance 0.1pp) blocks several otherwise-valid refactors that remove dead-fallback code paths.
+
+### Latest wins (kept)
+12. ✅ Inline mapContent for string content in append* fast paths (#38)
+13. ✅ mapContent: skip join() when textParts.length === 1
+14. ✅ Skip join() for single text/thinking in assistant message
+15. ✅ Cache usage lookup chain in translateToAnthropic (response improved 510→482)
+16. ✅ **Normalize Message property order across all role variants for hidden class sharing** (biggest variance reducer)
 
 ### Key wins (kept)
 1. ✅ Eliminate object/array spreads in translateToOpenAI + handleAssistantMessage

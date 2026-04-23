@@ -186,7 +186,24 @@ export function translateToOpenAI(
   payload: AnthropicMessagesPayload,
   options?: TranslateToOpenAIOptions,
 ): ChatCompletionsPayload {
-  const result: ChatCompletionsPayload = {
+  // Compute optional fields first to keep result object literal stable.
+  const stop = payload.stop_sequences || undefined
+  const stream = payload.stream === undefined ? undefined : payload.stream
+  const temperature = payload.temperature === undefined ? undefined : payload.temperature
+  const top_p = payload.top_p === undefined ? undefined : payload.top_p
+  const user = payload.metadata?.user_id || undefined
+  const tools = translateAnthropicToolsToOpenAI(payload.tools) || undefined
+  const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice) || undefined
+
+  let reasoning_effort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | undefined = undefined
+  if (options?.targetFormat === "openai-reasoning" && payload.thinking?.type === "enabled") {
+    const budget = payload.thinking.budget_tokens ?? 0
+    reasoning_effort = budget >= 10000 ? "high" : budget >= 5000 ? "medium" : budget >= 2000 ? "low" : "minimal"
+  }
+
+  // Build result with stable hidden-class shape (all optional fields included; undefined values
+  // are skipped by JSON.stringify, so wire format matches the prior conditional-assignment version).
+  const result = {
     model: translateModelName(payload.model, options?.anthropicBeta ?? null),
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
@@ -197,34 +214,15 @@ export function translateToOpenAI(
       },
     ),
     max_tokens: payload.max_tokens,
-  }
-
-  if (payload.stop_sequences) result.stop = payload.stop_sequences
-  if (payload.stream !== undefined) result.stream = payload.stream
-  if (payload.temperature !== undefined) result.temperature = payload.temperature
-  if (payload.top_p !== undefined) result.top_p = payload.top_p
-  if (payload.metadata?.user_id) result.user = payload.metadata.user_id
-
-  const openAITools = translateAnthropicToolsToOpenAI(payload.tools)
-  if (openAITools) result.tools = openAITools
-
-  const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice)
-  if (toolChoice) result.tool_choice = toolChoice
-
-  // Thinking → reasoning_effort translation (only for reasoning-capable OpenAI upstreams)
-  if (options?.targetFormat === "openai-reasoning" && payload.thinking?.type === "enabled") {
-    const budget = payload.thinking.budget_tokens ?? 0
-    if (budget >= 10000) {
-      result.reasoning_effort = "high"
-    } else if (budget >= 5000) {
-      result.reasoning_effort = "medium"
-    } else if (budget >= 2000) {
-      result.reasoning_effort = "low"
-    } else {
-      result.reasoning_effort = "minimal"
-    }
-  }
-  // For "openai" (non-reasoning) and "copilot": thinking param is dropped
+    stop,
+    stream,
+    temperature,
+    top_p,
+    user,
+    tools,
+    tool_choice: toolChoice,
+    reasoning_effort,
+  } as ChatCompletionsPayload
 
   return result
 }
