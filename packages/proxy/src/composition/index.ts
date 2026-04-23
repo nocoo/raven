@@ -15,9 +15,9 @@
 //      route can surface it through `forwardError`.
 //
 // All six strategies (copilot-openai-direct, copilot-native, copilot-responses,
-// custom-openai, custom-anthropic, copilot-translated) flow through here as
-// of H.16. `dispatch` itself is fully generic and unaware of which strategies
-// the registry can build.
+// custom-openai, custom-anthropic, copilot-translated) flow through here.
+// `dispatch` itself is fully generic and unaware of which strategies the
+// registry can build.
 // ---------------------------------------------------------------------------
 
 import type { Context } from "hono"
@@ -48,10 +48,9 @@ export interface DispatchInput {
 export type ClientProtocol = "openai" | "anthropic" | "responses"
 
 /**
- * Single function the route handlers will call once Phase H.17 shrinks them.
- * Returns the response to send to the client (success body, SSE stream, or
- * router-reject 400). Any other failure is re-thrown for the route layer's
- * `forwardError` to handle.
+ * Single function the route handlers call. Returns the response to send to
+ * the client (success body, SSE stream, or router-reject 400). Any other
+ * failure is re-thrown for the route layer's `forwardError` to handle.
  */
 export async function dispatch<Payload>(
   c: Context,

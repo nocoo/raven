@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// strategies/custom-anthropic.ts (H.13)
+// strategies/custom-anthropic.ts
 //
 // Promotes the Phase-G `customAnthropicShim` from
 // `routes/messages/handler.ts` onto the canonical 7-method `Strategy`

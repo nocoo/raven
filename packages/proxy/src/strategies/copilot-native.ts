@@ -1,10 +1,11 @@
 // ---------------------------------------------------------------------------
-// strategies/copilot-native.ts (H.7)
+// strategies/copilot-native.ts
 //
-// Lifts the default (no server-tools) branch of the native /v1/messages
-// handler onto the canonical 7-method Strategy interface. Encapsulates the
-// effort-fallback retry inside `dispatch` so the route doesn't need to know
-// about it. The server-tools sub-branch stays in the route until Phase I.
+// Implements the native /v1/messages path on the canonical 7-method Strategy
+// interface. Encapsulates the effort-fallback retry inside `dispatch` so the
+// route doesn't need to know about it. The server-tools sub-branch is handled
+// by strategies/support/server-tools.ts::decorate() before reaching the route
+// dispatch.
 // ---------------------------------------------------------------------------
 
 import type { SSEMessage } from "hono/streaming"

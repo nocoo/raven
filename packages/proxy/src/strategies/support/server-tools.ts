@@ -471,8 +471,8 @@ async function executeServerTool(
 }
 
 // ---------------------------------------------------------------------------
-// decorate() — single entry point used by routes/strategies that need the
-// server-tool loop (Phase I). Encapsulates:
+// decorate() — single entry point used by routes that need the server-tool
+// loop. Encapsulates:
 //   1. withServerToolInterception call
 //   2. request_end log (success + error)
 //   3. JSON vs. SSE replay decision

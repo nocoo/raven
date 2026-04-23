@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// strategies/copilot-responses.ts (H.9)
+// strategies/copilot-responses.ts
 //
 // Promotes `routes/responses/handler.ts::copilotResponsesShim` onto the
 // canonical 7-method `Strategy` interface. Pure passthrough — no

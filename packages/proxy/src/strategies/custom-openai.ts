@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// strategies/custom-openai.ts (H.11)
+// strategies/custom-openai.ts
 //
 // Promotes both Phase-G shims (chat-completions G.8 passthrough +
 // messages G.10 Anthropic-translated) onto a single Strategy. Mode is

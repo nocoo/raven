@@ -1,9 +1,8 @@
 // ---------------------------------------------------------------------------
-// strategies/copilot-translated.ts (H.15)
+// strategies/copilot-translated.ts
 //
-// Promotes `routes/messages/handler.ts::copilotTranslatedShim` (the largest
-// strategy: Anthropic client ↔ Copilot OpenAI upstream with full bidirectional
-// translation) onto the canonical 7-method `Strategy` interface.
+// Anthropic client ↔ Copilot OpenAI upstream with full bidirectional
+// translation. Implements the canonical 7-method `Strategy` interface.
 //
 // The composition root supplies the upstream client and the per-state knobs
 // (`toolCallDebug`, `filterWhitespaceChunks`). Strategy reads no

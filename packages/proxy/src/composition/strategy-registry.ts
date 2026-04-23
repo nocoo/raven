@@ -8,7 +8,7 @@
 // this file is responsible for translating `state.optToolCallDebug` etc into
 // constructor args.
 //
-// All six strategies are registered as of H.16:
+// All six strategies registered:
 //   copilot-openai-direct, copilot-native, copilot-responses,
 //   custom-openai, custom-anthropic, copilot-translated.
 // ---------------------------------------------------------------------------

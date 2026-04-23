@@ -83,9 +83,7 @@ export async function handleCompletion(c: Context) {
   // (core/router.ts::pickStrategy) feeds both raw + normalised
   // candidates into a two-pass matcher; we mirror the candidate list
   // here so we can fetch the resolved provider object for handler
-  // dispatch (the router only returns providerId). Composition root
-  // (§3.8, Phase H) will move provider resolution into the strategy
-  // factory.
+  // dispatch (the router only returns providerId).
   const normalisedModel = translateModelName(model, anthropicBeta)
   const candidates = normalisedModel !== model ? [model, normalisedModel] : [model]
 
@@ -215,7 +213,7 @@ export async function handleCompletion(c: Context) {
       },
     })
 
-    // I.3/J.1: Server-tools sub-branch folded inline via `decorate()`.
+    // Server-tools sub-branch folded inline via `decorate()`.
     // The default (no server-tools) path routes through composition.dispatch.
     const webSearchEnabled = state.stWebSearchEnabled && state.stWebSearchApiKey !== null
     if (serverToolContext.hasServerSideTools && webSearchEnabled) {
@@ -316,7 +314,7 @@ export async function handleCompletion(c: Context) {
     })
   }
 
-  // I.2: server-tools sub-branch now runs through `decorate()` which wraps
+  // Server-tools sub-branch runs through `decorate()` which wraps
   // `withServerToolInterception` + the request_end log + SSE replay. The
   // default (no server-tools) path below routes through composition.dispatch
   // (copilot-translated strategy).
@@ -380,7 +378,7 @@ export async function handleCompletion(c: Context) {
 }
 
 // ---------------------------------------------------------------------------
-// Native-path server-tool helpers (J.1: folded in from routes/messages/native-handler.ts)
+// Native-path server-tool helpers
 // ---------------------------------------------------------------------------
 
 async function nativeSendWithEffortFallback(
