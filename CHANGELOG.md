@@ -1,5 +1,122 @@
 # Changelog
 
+## v2.1.0
+
+### Added
+- Emit strategy name in request_end and show colored pill in Dashboard
+- Add test-count regression + new-file-without-test checks (§4.5)
+
+### Changed
+- Color pills by model family; translate/resolve share family color
+- Make strategy pills visually distinct (native=green, translated=red)
+- Strip stale phase markers from core, composition, upstream headers
+- Strip stale Phase H/I/J markers from comments
+- Record final Phase C E2E run — 41/41 pass, no diff vs baseline
+- Mark anti-ban/opt-in-full e2e checks as verified
+- Activate final dep-cruiser rule set
+- Add proxy architecture navigation to CLAUDE.md
+- Audit route-local helpers, no duplicates found
+- Native server-tools branch → decorate()
+- Translated server-tools branch → decorate()
+- Add decorate() helper to strategies/support/server-tools
+- Activate dep-cruiser rules for core/ + strategies/
+- Add strategies/copilot-translated.ts (factory, no state)
+- Add strategies/custom-anthropic.ts (factory, no state)
+- Add strategies/custom-openai.ts (factory, no state)
+- Copilot-responses via dispatch; shrink responses route
+- Add strategies/copilot-responses.ts (factory, no state)
+- Copilot-native strategy via dispatch
+- Chat-completions copilot-openai-direct via dispatch
+- Composition/index.ts dispatch entry point
+- Composition/strategy-registry.ts (copilot-openai-direct only)
+- Add strategies/copilot-openai-direct.ts (factory, no state)
+- Seed test/strategies/__fixtures__/ from C goldens
+- Record no-diff completion for Phase G
+- Port responses → Runner
+- Port messages anthropic passthrough → Runner
+- Port messages custom-openai upstream → Runner
+- Port messages default Copilot → Runner
+- Port chat-completions custom-upstream → Runner
+- Port chat-completions streaming default → Runner
+- Port chat-completions non-streaming default → Runner
+- Add Runner streaming path
+- Add core/stream-runner.ts SSE helpers
+- Add core/runner.ts JSON path + Strategy interface
+- Add core/context.ts RequestContext + buildContext
+- Characterise streaming handler branches
+- Guard messages handler against future router rejects
+- Central reject→400 error mapper
+- Explicit reject-branch tests for pickStrategy
+- Wire responses handler to pickStrategy
+- Wire messages handler to pickStrategy
+- Wire chat-completions handler to pickStrategy
+- Add core/router.ts::pickStrategy + fixture-driven tests
+- Freeze router fixtures from §4.3 scenario matrix
+- Add temporary router trace in 3 handlers
+- Activate fetch() boundary guard
+- Add composition/upstream-registry
+- Port custom Anthropic to upstream/custom-anthropic
+- Port custom OpenAI to upstream/custom-openai
+- Port embeddings to upstream/copilot-embeddings
+- Port responses to upstream/copilot-responses
+- Port native-messages to upstream/copilot-native
+- Port chat-completions to upstream/copilot-openai
+- Characterise outbound request shapes
+- Add UpstreamClient interface + contract tests
+- Move mapOpenAIStopReasonToAnthropic into protocols/translate
+- Activate dep-cruiser rule #1 (protocols purity)
+- Note importer sweep done inline
+- Extract responses/stream-state parsers
+- Extract streamAnthropicResponse to strategies/support
+- Relocate impure helpers to strategies/support
+- Relocate translate code to protocols/translate
+- Finalise preprocess migration to protocols/anthropic
+- Populate baseline + flip coverage gate to enforce
+- Capture CopilotResponses golden fixtures
+- Capture CopilotOpenAIDirect golden fixtures
+- Capture CopilotTranslated golden fixtures
+- Capture CopilotNative golden fixtures
+- Wire scenarios.test.ts to real capture/diff driver
+- Add buildScenarioRequest
+- Add captureOrDiffFixture harness
+- Emit upstream_raw_sse for fixture capture
+- Add per-strategy capture-goldens script
+- Freeze §4.3 golden fixture format
+- Encode §4.3 scenario matrix as scenarios.json
+- Mark Phase A complete with A.7 review follow-ups
+- Normalise model before provider resolution in /v1/messages
+- Seed protocols/anthropic/preprocess as canonical module
+- Red test for §2.2(7) model-normalisation divergence
+- Add dependency-cruiser skeleton with zero active rules
+- Baseline-driven coverage gate with violation evaluator
+- Add baseline skeleton for coverage gate
+- Add E2E safety-net skeleton for architecture refactor
+
+### Fixed
+- Translated mode must propagate JSON parse errors
+- CopilotOpenAIDirectShim.describeEndLog adds error arm with model
+- Propagate stream flag through RequestContext for pre-stream errors
+- Guard Runner adaptJson() exception → emit request_end
+- Drop util/logger from protocols/ (indirect purity breach)
+- Thread OPT-* flags through count_tokens route
+- Await stderr drain before parsing bun test summary
+- Flag brand-new src files absent from lcov (§4.5)
+- Order provider match raw-exact → norm-exact → raw-glob → norm-glob
+- Wire coverage + arch gates into pre-push
+- Try raw-model provider match before falling back to normalised
+- Treat missing-dir in report as migration, not regression
+- Restore border utility for conditional border-color classes
+- Align bg-card usage to B05 luminance spec
+
+### Removed
+- Delete native-handler.ts, drop re-exports
+- Remove dead StrategyNotRegisteredError + stale phase comments
+- Copilot-translated via dispatch; remove G.9 shim
+- Custom-anthropic via dispatch; remove G.11 shim
+- Custom-openai via dispatch; remove G.8/G.10 shims
+- Remove temporary router trace
+- Handlers switch to upstream-registry; delete legacy shims
+
 ## v2.0.1
 
 ### Changed
