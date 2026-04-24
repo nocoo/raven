@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.2.2
+
+### Changed
+- Clarify openai-reasoning scope and add gpt-5.4 edge cases
+
+### Fixed
+- Rewrite max_tokens → max_completion_tokens for Copilot gpt-5.4 (#27)
+- Replace bg-muted with B05 background tokens in table
+- Align routes/ baseline to CI-measured 99.18%
+
 ## v2.2.1
 
 ### Changed
