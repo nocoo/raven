@@ -165,6 +165,23 @@ function sanitizeSingleToolDefinition(tool: AnthropicTool): void {
 // Note: Server-side tool detection is now handled by preprocessPayload() in preprocess.ts.
 // The translation layer no longer tracks serverSideToolNames.
 
+// Copilot proxies `gpt-5.4` to OpenAI's reasoning-strict API, which rejects
+// `max_tokens` and requires `max_completion_tokens`. Older Copilot gpt-5.x
+// families (5.2, 5-mini) still accept `max_tokens`, so we narrow this rewrite
+// to 5.4+ families only. When future Copilot gpt-5.x families (5.5, 5.6, ...)
+// inherit the same strict behaviour, extend this regex.
+// Matches: gpt-5.4, gpt-5.4-codex, gpt-5.4-mini, ... (not gpt-5.2 / gpt-5-mini)
+const COPILOT_STRICT_MAX_COMPLETION_TOKENS_REGEX = /^gpt-5\.4(?:[-.]|$)/i
+
+function requiresMaxCompletionTokens(
+  targetFormat: TranslateTargetFormat | undefined,
+  translatedModel: string,
+): boolean {
+  if (targetFormat === "openai-reasoning") return true
+  if (targetFormat === "copilot" && COPILOT_STRICT_MAX_COMPLETION_TOKENS_REGEX.test(translatedModel)) return true
+  return false
+}
+
 /**
  * Target format for translation, determining how certain features are handled:
  * - "openai-reasoning": OpenAI upstream that supports reasoning_effort (o1/o3)
@@ -203,8 +220,10 @@ export function translateToOpenAI(
 
   // Build result with stable hidden-class shape (all optional fields included; undefined values
   // are skipped by JSON.stringify, so wire format matches the prior conditional-assignment version).
+  const translatedModel = translateModelName(payload.model, options?.anthropicBeta ?? null)
+  const useMaxCompletionTokens = requiresMaxCompletionTokens(options?.targetFormat, translatedModel)
   const result = {
-    model: translateModelName(payload.model, options?.anthropicBeta ?? null),
+    model: translatedModel,
     messages: translateAnthropicMessagesToOpenAI(
       payload.messages,
       payload.system ?? undefined,
@@ -213,7 +232,8 @@ export function translateToOpenAI(
         reorderToolResults: options?.reorderToolResults ?? false,
       },
     ),
-    max_tokens: payload.max_tokens,
+    max_tokens: useMaxCompletionTokens ? undefined : payload.max_tokens,
+    max_completion_tokens: useMaxCompletionTokens ? payload.max_tokens : undefined,
     stop,
     stream,
     temperature,
