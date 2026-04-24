@@ -1116,7 +1116,10 @@ describe("translateToOpenAI — max_tokens → max_completion_tokens (Copilot gp
     expect(result.max_completion_tokens).toBeUndefined()
   })
 
-  test("openai-reasoning always rewrites (unchanged behaviour)", () => {
+  // openai-reasoning was widened in PR #27 alongside the Copilot gpt-5.4 fix:
+  // it now also rewrites max_tokens → max_completion_tokens. Prior to that PR
+  // this path emitted max_tokens unchanged.
+  test("openai-reasoning rewrites max_tokens → max_completion_tokens", () => {
     const result = translateToOpenAI(mk("o3-mini"), { targetFormat: "openai-reasoning" })
     expect(result.max_tokens).toBeUndefined()
     expect(result.max_completion_tokens).toBe(256)
@@ -1124,8 +1127,27 @@ describe("translateToOpenAI — max_tokens → max_completion_tokens (Copilot gp
 
   test("plain openai target: not affected by this fix (regression guard)", () => {
     const result = translateToOpenAI(mk("gpt-5.4"), { targetFormat: "openai" })
-    // Custom-openai providers without supports_reasoning: no rewrite here.
     expect(result.max_tokens).toBe(256)
+    expect(result.max_completion_tokens).toBeUndefined()
+  })
+
+  test("Copilot gpt-5.4.1 (dot separator): rewrites", () => {
+    const result = translateToOpenAI(mk("gpt-5.4.1"), { targetFormat: "copilot" })
+    expect(result.max_tokens).toBeUndefined()
+    expect(result.max_completion_tokens).toBe(256)
+  })
+
+  test("Copilot GPT-5.4 (uppercase): rewrites (regex is case-insensitive)", () => {
+    const result = translateToOpenAI(mk("GPT-5.4"), { targetFormat: "copilot" })
+    expect(result.max_tokens).toBeUndefined()
+    expect(result.max_completion_tokens).toBe(256)
+  })
+
+  test("Copilot gpt-5.4 with undefined max_tokens: emits neither field", () => {
+    const payload = makeRequest({ model: "gpt-5.4" })
+    delete (payload as { max_tokens?: number }).max_tokens
+    const result = translateToOpenAI(payload, { targetFormat: "copilot" })
+    expect(result.max_tokens).toBeUndefined()
     expect(result.max_completion_tokens).toBeUndefined()
   })
 })
