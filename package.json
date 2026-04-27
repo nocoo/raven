@@ -50,7 +50,7 @@
   "dependencies": {
     "hono": "^4.12.14",
     "micromatch": "^4.0.8",
-    "next": "^16.2.3",
+    "next": "16.2.4",
     "vite": "^8.0.5",
     "vitest": "^4.1.1"
   }
