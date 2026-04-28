@@ -1,19 +1,6 @@
 # Ignore vulnerabilities in transitive dependencies that cannot be
 # resolved without waiting for upstream package updates.
 #
-# picomatch 2.3.1/4.0.3 vulnerabilities:
-# - micromatch 4.0.8 uses picomatch 2.3.1 (needs upstream update)
-# - lint-staged/vitest/vite use picomatch 4.0.3 (needs upstream update)
-# Both are dev dependencies only, not used in production runtime.
-
-[[IgnoredVulns]]
-id = "GHSA-3v7f-55p6-f55p"
-reason = "Transitive dependency picomatch 2.3.1/4.0.3, used only in dev tooling (micromatch, vite, vitest). Waiting for upstream packages to update to picomatch 2.3.2/4.0.4."
-
-[[IgnoredVulns]]
-id = "GHSA-c2c7-rcm5-vvqj"
-reason = "Transitive dependency picomatch 2.3.1/4.0.3, used only in dev tooling (micromatch, vite, vitest). Waiting for upstream packages to update to picomatch 2.3.2/4.0.4."
-
 # lodash 4.17.23 vulnerabilities (GHSA-f23m-r3pf-42rh, GHSA-r5fr-rjxr-66jc):
 # - recharts 2.15.4 depends on lodash ^4.17.21
 # - recharts hasn't updated to lodash 4.18.0 yet
