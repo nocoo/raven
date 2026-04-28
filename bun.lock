@@ -8,7 +8,7 @@
         "hono": "^4.12.14",
         "micromatch": "^4.0.8",
         "next": "16.2.4",
-        "vite": "^8.0.5",
+        "vite": "8.0.10",
         "vitest": "^4.1.1",
       },
       "devDependencies": {
@@ -74,7 +74,7 @@
     "brace-expansion": ">=5.0.5",
     "flatted": ">=3.4.2",
     "postcss": ">=8.5.10",
-    "vite": "^8.0.5",
+    "vite": "8.0.10",
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
