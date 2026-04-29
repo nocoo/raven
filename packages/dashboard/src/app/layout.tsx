@@ -20,12 +20,12 @@ export const metadata: Metadata = {
     process.env.NEXTAUTH_URL || "http://localhost:7023"
   ),
   title: {
-    default: "raven - Copilot 代理面板",
+    default: "raven - Copilot Proxy Dashboard",
     template: "%s - raven",
   },
   description: "GitHub Copilot proxy dashboard",
   openGraph: {
-    title: "raven - Copilot 代理面板",
+    title: "raven - Copilot Proxy Dashboard",
     description: "GitHub Copilot proxy dashboard",
     type: "website",
   },
