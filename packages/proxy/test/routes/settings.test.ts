@@ -22,9 +22,9 @@ beforeEach(() => {
   state.ipWhitelistTrustProxy = false;
   state.soundEnabled = false;
   state.soundName = "Basso";
-  state.vsCodeVersion = "1.104.3";
+  state.vsCodeVersion = "1.117.0";
   state.vsCodeVersionSource = "fallback";
-  state.copilotChatVersion = "0.26.7";
+  state.copilotChatVersion = "0.45.1";
   state.copilotChatVersionSource = "fallback";
 });
 

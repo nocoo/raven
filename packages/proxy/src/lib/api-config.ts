@@ -7,8 +7,8 @@ export const standardHeaders = () => ({
   accept: "application/json",
 })
 
-const COPILOT_VERSION_FALLBACK = "0.26.7"
-const API_VERSION = "2025-04-01"
+const COPILOT_VERSION_FALLBACK = "0.45.1"
+const API_VERSION = "2025-10-01"
 
 function getCopilotVersion(state: State): string {
   return state.copilotChatVersion ?? COPILOT_VERSION_FALLBACK
@@ -36,6 +36,7 @@ export const copilotHeaders = (state: State, vision: boolean = false) => {
     "user-agent": userAgent(state),
     "openai-intent": "conversation-panel",
     "x-github-api-version": API_VERSION,
+    "x-interaction-type": "conversation-panel",
     "x-request-id": randomUUID(),
     "x-vscode-user-agent-library-version": "electron-fetch",
   }

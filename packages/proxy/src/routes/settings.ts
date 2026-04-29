@@ -94,7 +94,7 @@ function isIPWhitelistBooleanKey(key: string): key is IPWhitelistKey {
 
 /**
  * Validate that a version string looks like a semver (major.minor.patch).
- * Allows optional pre-release suffix (e.g. "1.104.3-insider").
+ * Allows optional pre-release suffix (e.g. "1.117.0-insider").
  */
 const SEMVER_RE = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
 
@@ -263,7 +263,7 @@ export function createSettingsRoute(db: Database): Hono {
           {
             error: {
               type: "validation_error",
-              message: `invalid version format: "${trimmed}". Expected semver (e.g. 1.104.3)`,
+              message: `invalid version format: "${trimmed}". Expected semver (e.g. 1.117.0)`,
             },
           },
           400,

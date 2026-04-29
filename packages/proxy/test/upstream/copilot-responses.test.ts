@@ -122,7 +122,7 @@ describe("CopilotResponsesClient (E.5)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotResponsesClient()
     await expect(
       client.send({ model: "gpt-5", input: "hi" }),
@@ -147,7 +147,7 @@ describe("CopilotResponsesClient (E.5)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotResponsesClient()
     await client.send({
       model: "gpt-5",
@@ -163,7 +163,7 @@ describe("CopilotResponsesClient (E.5)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotResponsesClient()
     await client.send({
       model: "gpt-5",

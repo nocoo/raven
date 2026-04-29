@@ -142,7 +142,7 @@ describe("CopilotOpenAIClient (E.3)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotOpenAIClient()
     await expect(
       client.send({ model: "gpt-4o", messages: [{ role: "user", content: "x" }] }),
@@ -165,7 +165,7 @@ describe("CopilotOpenAIClient (E.3)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotOpenAIClient()
     const result = await client.send({
       model: "gpt-4o",

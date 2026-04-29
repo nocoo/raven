@@ -59,21 +59,21 @@ describe("getVSCodeVersion", () => {
     )
 
     const version = await getVSCodeVersion()
-    expect(version).toBe("1.104.3")
+    expect(version).toBe("1.117.0")
   })
 
   test("returns fallback on fetch error", async () => {
     fetchSpy.mockRejectedValueOnce(new Error("network error"))
 
     const version = await getVSCodeVersion()
-    expect(version).toBe("1.104.3")
+    expect(version).toBe("1.117.0")
   })
 
   test("returns fallback on abort/timeout", async () => {
     fetchSpy.mockRejectedValueOnce(new DOMException("aborted", "AbortError"))
 
     const version = await getVSCodeVersion()
-    expect(version).toBe("1.104.3")
+    expect(version).toBe("1.117.0")
   })
 })
 

@@ -22,8 +22,8 @@ export async function cacheModels(): Promise<void> {
   state.models = models
 }
 
-const VSCODE_VERSION_FALLBACK = "1.104.3"
-const COPILOT_CHAT_VERSION_FALLBACK = "0.26.7"
+const VSCODE_VERSION_FALLBACK = "1.117.0"
+const COPILOT_CHAT_VERSION_FALLBACK = "0.45.1"
 
 /**
  * Resolve and cache VS Code + Copilot Chat versions.

@@ -136,7 +136,7 @@ describe("CopilotNativeClient (E.4)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotNativeClient()
     await expect(
       client.send({
@@ -167,7 +167,7 @@ describe("CopilotNativeClient (E.4)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotNativeClient()
     await client.send({
       payload: makePayload({
@@ -184,7 +184,7 @@ describe("CopilotNativeClient (E.4)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotNativeClient()
     await client.send({
       payload: makePayload({
@@ -206,7 +206,7 @@ describe("CopilotNativeClient (E.4)", () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.copilotChatVersion = "0.26.7"
+    state.copilotChatVersion = "0.45.1"
     const client = createDefaultCopilotNativeClient()
     await client.send({
       payload: makePayload({

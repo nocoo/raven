@@ -92,7 +92,7 @@ describe("cacheVersions", () => {
     fetchSpy.mockRejectedValueOnce(new Error("network error"))
 
     await cacheVersions(db)
-    // If local detection fails too, should end up at AUR fallback (which is "1.104.3")
+    // If local detection fails too, should end up at AUR fallback (which is "1.117.0")
     // or local detection succeeded — either way vsCodeVersion should be set
     expect(state.vsCodeVersion).toBeDefined()
     expect(state.copilotChatVersion).toBeDefined()
