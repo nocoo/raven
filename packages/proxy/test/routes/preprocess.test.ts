@@ -204,6 +204,60 @@ describe("sanitizePayload", () => {
     sanitizePayload(input)
     expect(input.service_tier).toBe("auto")
   })
+
+  test("strips thinking blocks from assistant messages", () => {
+    const input = makeRequest({
+      messages: [
+        { role: "user", content: "hello" },
+        {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "hmm...", signature: "abc123" },
+            { type: "text", text: "Hello!" },
+          ],
+        },
+        { role: "user", content: "how are you?" },
+      ],
+    })
+    const result = sanitizePayload(input)
+    expect(result.messages).toHaveLength(3)
+    const assistantMsg = result.messages[1]!
+    expect(assistantMsg.role).toBe("assistant")
+    expect(assistantMsg.content).toEqual([{ type: "text", text: "Hello!" }])
+  })
+
+  test("preserves assistant messages without thinking blocks", () => {
+    const input = makeRequest({
+      messages: [
+        { role: "user", content: "hello" },
+        {
+          role: "assistant",
+          content: [
+            { type: "text", text: "Hello!" },
+            { type: "tool_use", id: "t1", name: "foo", input: {} },
+          ],
+        },
+      ],
+    })
+    const result = sanitizePayload(input)
+    const assistantMsg = result.messages[1]!
+    expect(assistantMsg.content).toEqual([
+      { type: "text", text: "Hello!" },
+      { type: "tool_use", id: "t1", name: "foo", input: {} },
+    ])
+  })
+
+  test("preserves string content in assistant messages", () => {
+    const input = makeRequest({
+      messages: [
+        { role: "user", content: "hello" },
+        { role: "assistant", content: "Hello!" },
+      ],
+    })
+    const result = sanitizePayload(input)
+    const assistantMsg = result.messages[1]!
+    expect(assistantMsg.content).toBe("Hello!")
+  })
 })
 
 // ===========================================================================
