@@ -221,4 +221,71 @@ describe("CopilotNativeClient (E.4)", () => {
     })
     expect(captured[0]!.headers["x-initiator"]).toBe("agent")
   })
+
+  test("strips Anthropic-only block metadata before sending native", async () => {
+    state.copilotToken = "test-jwt"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.copilotChatVersion = "0.45.1"
+    const client = createDefaultCopilotNativeClient()
+    await client.send({
+      payload: makePayload({
+        system: [
+          {
+            type: "text",
+            text: "sys",
+            cache_control: { type: "ephemeral" },
+          },
+        ] as unknown as AnthropicMessagesPayload["system"],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "hi",
+                cache_control: { type: "ephemeral" },
+                citations: [{ type: "char_location", cited_text: "x" }],
+              },
+            ],
+          },
+        ] as unknown as AnthropicMessagesPayload["messages"],
+      }),
+      options: { copilotModel: "claude-x" },
+    })
+    const body = captured[0]!.body as { messages: Array<{ content: Array<Record<string, unknown>> }>; system: Array<Record<string, unknown>> }
+    expect(body.messages[0]!.content[0]!.cache_control).toBeUndefined()
+    expect(body.messages[0]!.content[0]!.citations).toBeUndefined()
+    expect(body.system[0]!.cache_control).toBeUndefined()
+  })
+
+  test("strips Anthropic-only tool schema fields before sending native", async () => {
+    state.copilotToken = "test-jwt"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.copilotChatVersion = "0.45.1"
+    const client = createDefaultCopilotNativeClient()
+    await client.send({
+      payload: makePayload({
+        tools: [
+          {
+            name: "lookup",
+            description: "d",
+            input_schema: { type: "object" },
+            cache_control: { type: "ephemeral" },
+            defer_loading: true,
+            eager_input_streaming: true,
+          },
+        ] as unknown as AnthropicMessagesPayload["tools"],
+      }),
+      options: { copilotModel: "claude-x" },
+    })
+    const body = captured[0]!.body as { tools: Array<Record<string, unknown>> }
+    const tool = body.tools[0]!
+    expect(tool.cache_control).toBeUndefined()
+    expect(tool.defer_loading).toBeUndefined()
+    expect(tool.eager_input_streaming).toBeUndefined()
+    expect(tool.name).toBe("lookup")
+    expect(tool.input_schema).toEqual({ type: "object" })
+  })
 })

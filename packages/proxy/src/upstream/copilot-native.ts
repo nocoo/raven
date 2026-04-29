@@ -188,11 +188,14 @@ function sanitizeNativeMessagesPayload(
   return {
     ...payload,
     output_config: sanitizeOutputConfig(payload.output_config),
+    system: stripSystem(payload.system),
+    tools: stripToolDefinitions(payload.tools),
     messages: payload.messages.map((message) => {
-      if (message.role !== "assistant" || !Array.isArray(message.content)) return message
+      const stripped = stripMessageBlocks(message)
+      if (stripped.role !== "assistant" || !Array.isArray(stripped.content)) return stripped
       return {
-        ...message,
-        content: message.content.filter((block) => {
+        ...stripped,
+        content: stripped.content.filter((block) => {
           if (block.type !== "thinking") return true
           const thinking = block.thinking.trim()
           return thinking.length > 0 && thinking !== "Thinking..."
@@ -200,6 +203,45 @@ function sanitizeNativeMessagesPayload(
       }
     }),
   }
+}
+
+function stripMessageBlocks(message: AnthropicMessagesPayload["messages"][number]) {
+  if (typeof message.content === "string" || !Array.isArray(message.content)) return message
+  return {
+    ...message,
+    content: message.content.map((block) => stripAnthropicMetadata(block)),
+  } as AnthropicMessagesPayload["messages"][number]
+}
+
+function stripSystem(
+  system: AnthropicMessagesPayload["system"],
+): AnthropicMessagesPayload["system"] {
+  if (system === null || typeof system === "string") return system
+  if (!Array.isArray(system)) return system
+  return system.map((block) => stripAnthropicMetadata(block)) as typeof system
+}
+
+function stripToolDefinitions(
+  tools: AnthropicMessagesPayload["tools"],
+): AnthropicMessagesPayload["tools"] {
+  if (!tools) return tools
+  return tools.map((tool) => stripToolDefinition(tool))
+}
+
+function stripToolDefinition<T extends object>(tool: T): T {
+  const { cache_control: _cc, defer_loading: _dl, eager_input_streaming: _es, ...rest } =
+    tool as Record<string, unknown>
+  void _cc
+  void _dl
+  void _es
+  return rest as T
+}
+
+function stripAnthropicMetadata<T extends object>(block: T): T {
+  const { cache_control: _cc, citations: _ci, ...rest } = block as Record<string, unknown>
+  void _cc
+  void _ci
+  return rest as T
 }
 
 function mapThinkingBudgetToEffort(budgetTokens: number | null | undefined): Effort {
