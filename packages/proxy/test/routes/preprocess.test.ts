@@ -205,8 +205,9 @@ describe("sanitizePayload", () => {
     expect(input.service_tier).toBe("auto")
   })
 
-  test("strips thinking blocks from assistant messages", () => {
+  test("strips thinking blocks from assistant messages for claude-opus-4.5", () => {
     const input = makeRequest({
+      model: "claude-opus-4-5-20250514",
       messages: [
         { role: "user", content: "hello" },
         {
@@ -226,8 +227,50 @@ describe("sanitizePayload", () => {
     expect(assistantMsg.content).toEqual([{ type: "text", text: "Hello!" }])
   })
 
-  test("preserves assistant messages without thinking blocks", () => {
+  test("strips thinking blocks for claude-opus-4.5 (dot notation)", () => {
     const input = makeRequest({
+      model: "claude-opus-4.5",
+      messages: [
+        { role: "user", content: "hello" },
+        {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "hmm...", signature: "abc123" },
+            { type: "text", text: "Hello!" },
+          ],
+        },
+      ],
+    })
+    const result = sanitizePayload(input)
+    const assistantMsg = result.messages[1]!
+    expect(assistantMsg.content).toEqual([{ type: "text", text: "Hello!" }])
+  })
+
+  test("preserves thinking blocks for other models", () => {
+    const input = makeRequest({
+      model: "claude-sonnet-4-20250514",
+      messages: [
+        { role: "user", content: "hello" },
+        {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "hmm...", signature: "abc123" },
+            { type: "text", text: "Hello!" },
+          ],
+        },
+      ],
+    })
+    const result = sanitizePayload(input)
+    const assistantMsg = result.messages[1]!
+    expect(assistantMsg.content).toEqual([
+      { type: "thinking", thinking: "hmm...", signature: "abc123" },
+      { type: "text", text: "Hello!" },
+    ])
+  })
+
+  test("preserves assistant messages without thinking blocks for claude-opus-4.5", () => {
+    const input = makeRequest({
+      model: "claude-opus-4.5",
       messages: [
         { role: "user", content: "hello" },
         {
