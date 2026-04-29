@@ -132,7 +132,6 @@ export interface PreprocessedRequest {
  */
 export const ALLOWED_BETAS = new Set([
   "interleaved-thinking-2025-05-14",
-  "context-management-2025-06-27",
   "advanced-tool-use-2025-11-20",
 ])
 
@@ -158,8 +157,12 @@ export function filterAnthropicBeta(header: string | null | undefined): string |
  * Returns a new object, does not mutate the input.
  */
 export function sanitizePayload(payload: AnthropicMessagesPayload): AnthropicMessagesPayload {
-  // Remove service_tier (Copilot doesn't support it)
-  const { service_tier: _, ...sanitized } = payload
+  // Remove fields that the Copilot Anthropic bridge rejects.
+  const {
+    service_tier: _serviceTier,
+    context_management: _contextManagement,
+    ...sanitized
+  } = payload as AnthropicMessagesPayload & { context_management?: unknown }
   return sanitized as AnthropicMessagesPayload
 }
 

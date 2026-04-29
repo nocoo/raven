@@ -150,18 +150,18 @@ describe("filterAnthropicBeta", () => {
   })
 
   test("multiple allowed betas → all pass through", () => {
-    const input = "interleaved-thinking-2025-05-14,context-management-2025-06-27"
-    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14,context-management-2025-06-27")
+    const input = "interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20"
+    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20")
   })
 
   test("handles whitespace", () => {
-    const input = " interleaved-thinking-2025-05-14 , context-management-2025-06-27 "
-    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14,context-management-2025-06-27")
+    const input = " interleaved-thinking-2025-05-14 , advanced-tool-use-2025-11-20 "
+    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20")
   })
 
   test("ALLOWED_BETAS contains expected values", () => {
     expect(ALLOWED_BETAS.has("interleaved-thinking-2025-05-14")).toBe(true)
-    expect(ALLOWED_BETAS.has("context-management-2025-06-27")).toBe(true)
+    expect(ALLOWED_BETAS.has("context-management-2025-06-27")).toBe(false)
     expect(ALLOWED_BETAS.has("advanced-tool-use-2025-11-20")).toBe(true)
   })
 })
@@ -175,6 +175,15 @@ describe("sanitizePayload", () => {
     const input = makeRequest({ service_tier: "auto" })
     const result = sanitizePayload(input)
     expect(result.service_tier).toBeUndefined()
+  })
+
+  test("removes context_management", () => {
+    const input = {
+      ...makeRequest(),
+      context_management: { type: "ephemeral" },
+    } as AnthropicMessagesPayload & { context_management: { type: string } }
+    const result = sanitizePayload(input)
+    expect("context_management" in (result as unknown as Record<string, unknown>)).toBe(false)
   })
 
   test("preserves other fields", () => {
@@ -302,6 +311,17 @@ describe("preprocessPayload", () => {
       null,
     )
     expect(result.payload.service_tier).toBeUndefined()
+  })
+
+  test("removes context_management from payload", () => {
+    const result = preprocessPayload(
+      {
+        ...makeRequest(),
+        context_management: { type: "ephemeral" },
+      } as AnthropicMessagesPayload & { context_management: { type: string } },
+      null,
+    )
+    expect("context_management" in (result.payload as unknown as Record<string, unknown>)).toBe(false)
   })
 
   test("detects server-side tools", () => {

@@ -296,7 +296,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
     id: "custom-anthropic/basic",
     input: {
       payload: {
-        model: "claude-sonnet-4",
+        model: "Claude-Sonnet-4",
         messages: [{ role: "user", content: "ping" }],
         max_tokens: 100,
       },

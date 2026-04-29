@@ -151,6 +151,24 @@ describe("CustomAnthropicClient (E.8)", () => {
     expect("output_config" in body).toBe(false)
   })
 
+  test("strips context_management from body", async () => {
+    const provider = makeProvider({
+      id: "p", name: "anth", base_url: "https://x.com", api_key: "sk",
+    })
+    const client = createDefaultCustomAnthropicClient()
+    await client.send({
+      provider,
+      payload: {
+        model: "x",
+        messages: [],
+        max_tokens: 1,
+        context_management: { type: "ephemeral" },
+      } as unknown as AnthropicMessagesPayload,
+    })
+    const body = captured[0]!.body as Record<string, unknown>
+    expect("context_management" in body).toBe(false)
+  })
+
   test("preserves output_config.effort while dropping other fields", async () => {
     const provider = makeProvider({
       id: "p", name: "anth", base_url: "https://x.com", api_key: "sk",
@@ -167,5 +185,22 @@ describe("CustomAnthropicClient (E.8)", () => {
     })
     const body = captured[0]!.body as Record<string, unknown>
     expect(body.output_config).toEqual({ effort: "high" })
+  })
+
+  test("converts model name to lowercase", async () => {
+    const provider = makeProvider({
+      id: "p", name: "anth", base_url: "https://x.com", api_key: "sk",
+    })
+    const client = createDefaultCustomAnthropicClient()
+    await client.send({
+      provider,
+      payload: {
+        model: "MiMo-V2.5-Pro",
+        messages: [],
+        max_tokens: 1,
+      } as unknown as AnthropicMessagesPayload,
+    })
+    const body = captured[0]!.body as Record<string, unknown>
+    expect(body.model).toBe("mimo-v2.5-pro")
   })
 })

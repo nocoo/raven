@@ -23,8 +23,12 @@ function sanitizeOutputConfig(
 }
 
 function sanitizeAnthropicPayload(payload: AnthropicMessagesPayload): Record<string, unknown> {
+  const { context_management: _contextManagement, ...sanitizedPayload } =
+    payload as AnthropicMessagesPayload & { context_management?: unknown }
+
   const requestBody: Record<string, unknown> = {
-    ...payload,
+    ...sanitizedPayload,
+    model: payload.model.toLowerCase(),
     output_config: sanitizeOutputConfig(payload.output_config),
   }
   if (requestBody.tools === null || requestBody.tools === undefined) {

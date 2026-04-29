@@ -269,14 +269,14 @@ describe("createNativeMessages", () => {
         thinking: { type: "enabled", budget_tokens: 2048 },
       }),
       makeOptions({
-        anthropicBeta: "context-management-2025-06-27,interleaved-thinking-2025-05-14",
+        anthropicBeta: "advanced-tool-use-2025-11-20,interleaved-thinking-2025-05-14",
       }),
     )
 
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
     const headers = init.headers as Record<string, string>
     expect(headers["anthropic-beta"]).toBe(
-      "context-management-2025-06-27,interleaved-thinking-2025-05-14",
+      "advanced-tool-use-2025-11-20,interleaved-thinking-2025-05-14",
     )
   })
 
