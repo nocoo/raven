@@ -54,6 +54,89 @@ export interface PaginatedRequests {
 }
 
 // ---------------------------------------------------------------------------
+// Enhanced analytics types (matching proxy /stats/* endpoints)
+// ---------------------------------------------------------------------------
+
+export interface SummaryStats {
+  total_requests: number;
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  error_count: number;
+  error_rate: number;
+  avg_latency_ms: number;
+  avg_ttft_ms: number | null;
+  avg_processing_ms: number | null;
+  stream_count: number;
+  sync_count: number;
+}
+
+export interface ExtendedTimeseriesBucket {
+  bucket: number;
+  count: number;
+  success_count: number;
+  error_count: number;
+  stream_count: number;
+  sync_count: number;
+  total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  p99_latency_ms: number;
+  avg_ttft_ms: number | null;
+  p95_ttft_ms: number | null;
+  avg_processing_ms: number | null;
+  status_codes: Record<string, number>;
+}
+
+export interface BreakdownEntry {
+  key: string;
+  count: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  avg_ttft_ms: number | null;
+  error_count: number;
+  error_rate: number;
+  first_seen: number;
+  last_seen: number;
+  // Session breakdown extras
+  client_name?: string;
+  account_name?: string;
+  client_version?: string | null;
+}
+
+export interface Percentiles {
+  p50: number;
+  p75: number;
+  p90: number;
+  p95: number;
+  p99: number;
+  min: number;
+  max: number;
+  count: number;
+}
+
+// ---------------------------------------------------------------------------
+// Extended RequestRecord (with new fields from analytics enhancement)
+// ---------------------------------------------------------------------------
+
+export interface ExtendedRequestRecord extends RequestRecord {
+  processing_ms: number | null;
+  strategy: string;
+  upstream: string;
+  upstream_format: string;
+  translated_model: string;
+  copilot_model: string;
+  routing_path: string;
+  stop_reason: string;
+  tool_call_count: number;
+}
+
+// ---------------------------------------------------------------------------
 // Copilot API types (from api.githubcopilot.com/models)
 // ---------------------------------------------------------------------------
 
