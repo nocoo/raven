@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { unifyTopN } from "@/app/models/models-content";
+import { unifyTopN } from "@/lib/unify-top-n";
 import type { ModelStats } from "@/lib/types";
 
 // ---------------------------------------------------------------------------

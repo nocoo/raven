@@ -29,6 +29,7 @@ export default defineConfig({
         "src/app/**/layout.tsx",
         "src/app/overview-charts.tsx",
         "src/app/analytics-charts.tsx",
+        "src/app/models/model-explorer.tsx",
         // Render-heavy "use client" content pages (UI-dominant, test via E2E)
         "src/app/login/**",
         "src/app/logs/logs-content.tsx",
