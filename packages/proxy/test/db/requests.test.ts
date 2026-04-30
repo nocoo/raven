@@ -234,6 +234,46 @@ describe("queryTimeseries", () => {
     expect(latestBucket.count).toBe(2);
   });
 
+  test("returns extended bucket fields", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, stream: 1, status: "success", status_code: 200, ttft_ms: 50 }));
+    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, stream: 0, status: "error", status_code: 429 }));
+
+    const result = queryTimeseries(db, "hour", "24h");
+    const bucket = result[result.length - 1]!;
+    expect(bucket.success_count).toBe(1);
+    expect(bucket.error_count).toBe(1);
+    expect(bucket.stream_count).toBe(1);
+    expect(bucket.sync_count).toBe(1);
+    expect(bucket.input_tokens).toBeGreaterThanOrEqual(0);
+    expect(bucket.output_tokens).toBeGreaterThanOrEqual(0);
+    expect(bucket.p95_latency_ms).toBeGreaterThanOrEqual(0);
+    expect(bucket.p99_latency_ms).toBeGreaterThanOrEqual(0);
+    expect(bucket.avg_ttft_ms).toBe(50); // only 1 non-null
+    expect(bucket.p95_ttft_ms).toBe(50);
+    expect(typeof bucket.status_codes).toBe("object");
+    expect(bucket.status_codes["200"]).toBe(1);
+    expect(bucket.status_codes["429"]).toBe(1);
+  });
+
+  test("supports 5min interval", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
+
+    const result = queryTimeseries(db, "5min", "1h");
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("supports filter WHERE clause", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, model: "claude-3", latency_ms: 100 }));
+    insertRequest(db, makeRecord({ timestamp: now, model: "gpt-4o", latency_ms: 200 }));
+
+    const result = queryTimeseries(db, "hour", "24h", "WHERE model = ?", ["claude-3"]);
+    const bucket = result[result.length - 1]!;
+    expect(bucket.count).toBe(1);
+  });
+
   test("aggregates by minute", () => {
     const now = Date.now();
     insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));

@@ -58,9 +58,33 @@ export interface SummaryResult {
 
 export interface TimeseriesBucket {
   bucket: number; // unix ms start of bucket
+
+  // Traffic
   count: number;
+  success_count: number;
+  error_count: number;
+  stream_count: number;
+  sync_count: number;
+
+  // Tokens
   total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+
+  // Latency
   avg_latency_ms: number;
+  p95_latency_ms: number;
+  p99_latency_ms: number;
+
+  // TTFT
+  avg_ttft_ms: number | null;
+  p95_ttft_ms: number | null;
+
+  // Processing
+  avg_processing_ms: number | null;
+
+  // Status codes
+  status_codes: Record<string, number>;
 }
 
 export interface ModelStats {
@@ -290,6 +314,8 @@ function intervalToMs(interval: string): number {
   switch (interval) {
     case "minute":
       return 60_000;
+    case "5min":
+      return 300_000;
     case "hour":
       return 3600_000;
     case "day":
@@ -319,26 +345,125 @@ export function queryTimeseries(
   db: Database,
   interval: string,
   range: string,
+  whereClause = "",
+  bindings: (string | number | null)[] = [],
 ): TimeseriesBucket[] {
   const intMs = intervalToMs(interval);
   const rangeMs = rangeToMs(range);
   const since = Date.now() - rangeMs;
 
+  // Combine range condition with extra filters
+  const rangeCondition = `timestamp >= $since`;
+  const extraConditions = whereClause ? whereClause.replace(/^WHERE\s+/i, "") : "";
+  const fullWhere = extraConditions
+    ? `WHERE ${rangeCondition} AND ${extraConditions}`
+    : `WHERE ${rangeCondition}`;
+
+  // Convert positional bindings to named params
+  const namedBindings: Record<string, string | number | null> = {
+    $interval: intMs,
+    $since: since,
+  };
+  let adjustedWhere = fullWhere;
+  if (bindings.length > 0) {
+    let idx = 0;
+    adjustedWhere = fullWhere.replace(/\?/g, () => {
+      const key = `$_ts${idx}`;
+      namedBindings[key] = bindings[idx]!;
+      idx++;
+      return key;
+    });
+  }
+
+  // Main aggregate query
   const rows = db
     .query(
       `SELECT
         (timestamp / $interval) * $interval as bucket,
         COUNT(*) as count,
+        COUNT(CASE WHEN status != 'error' THEN 1 END) as success_count,
+        COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
+        COUNT(CASE WHEN stream = 1 THEN 1 END) as stream_count,
+        COUNT(CASE WHEN stream = 0 THEN 1 END) as sync_count,
         COALESCE(SUM(total_tokens), 0) as total_tokens,
-        COALESCE(AVG(latency_ms), 0) as avg_latency_ms
+        COALESCE(SUM(COALESCE(input_tokens, 0)), 0) as input_tokens,
+        COALESCE(SUM(COALESCE(output_tokens, 0)), 0) as output_tokens,
+        COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
+        AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
+        AVG(CASE WHEN processing_ms IS NOT NULL THEN processing_ms END) as avg_processing_ms
       FROM requests
-      WHERE timestamp >= $since
+      ${adjustedWhere}
       GROUP BY bucket
       ORDER BY bucket ASC`,
     )
-    .all({ $interval: intMs, $since: since }) as TimeseriesBucket[];
+    .all(namedBindings) as Array<{
+      bucket: number;
+      count: number;
+      success_count: number;
+      error_count: number;
+      stream_count: number;
+      sync_count: number;
+      total_tokens: number;
+      input_tokens: number;
+      output_tokens: number;
+      avg_latency_ms: number;
+      avg_ttft_ms: number | null;
+      avg_processing_ms: number | null;
+    }>;
 
-  return rows;
+  // Compute percentiles and status codes per bucket
+  return rows.map((row) => {
+    // Fetch latency values for this bucket for percentile calc
+    const latencies = db
+      .query(
+        `SELECT latency_ms FROM requests ${adjustedWhere} AND (timestamp / $interval) * $interval = $bucket ORDER BY latency_ms`,
+      )
+      .all({ ...namedBindings, $bucket: row.bucket }) as Array<{ latency_ms: number }>;
+
+    const ttfts = db
+      .query(
+        `SELECT ttft_ms FROM requests ${adjustedWhere} AND (timestamp / $interval) * $interval = $bucket AND ttft_ms IS NOT NULL ORDER BY ttft_ms`,
+      )
+      .all({ ...namedBindings, $bucket: row.bucket }) as Array<{ ttft_ms: number }>;
+
+    // Status code distribution for this bucket
+    const statusRows = db
+      .query(
+        `SELECT status_code, COUNT(*) as cnt FROM requests ${adjustedWhere} AND (timestamp / $interval) * $interval = $bucket GROUP BY status_code`,
+      )
+      .all({ ...namedBindings, $bucket: row.bucket }) as Array<{ status_code: number; cnt: number }>;
+
+    const statusCodes: Record<string, number> = {};
+    for (const sr of statusRows) {
+      if (sr.status_code) statusCodes[String(sr.status_code)] = sr.cnt;
+    }
+
+    return {
+      bucket: row.bucket,
+      count: row.count,
+      success_count: row.success_count,
+      error_count: row.error_count,
+      stream_count: row.stream_count,
+      sync_count: row.sync_count,
+      total_tokens: row.total_tokens,
+      input_tokens: row.input_tokens,
+      output_tokens: row.output_tokens,
+      avg_latency_ms: row.avg_latency_ms,
+      p95_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.95),
+      p99_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.99),
+      avg_ttft_ms: row.avg_ttft_ms,
+      p95_ttft_ms: ttfts.length > 0 ? percentile(ttfts.map((t) => t.ttft_ms), 0.95) : null,
+      avg_processing_ms: row.avg_processing_ms,
+      status_codes: statusCodes,
+    };
+  });
+}
+
+/** Compute percentile from a sorted array of numbers. */
+function percentile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const idx = Math.ceil(p * sorted.length) - 1;
+  return sorted[Math.max(0, idx)]!;
 }
 
 // ---------------------------------------------------------------------------

@@ -33,7 +33,9 @@ export function createStatsRoute(db: Database): Hono {
   route.get("/stats/timeseries", (c) => {
     const interval = c.req.query("interval") ?? "hour";
     const range = c.req.query("range") ?? "24h";
-    const result = queryTimeseries(db, interval, range);
+    const filters = parseAnalyticsFilters(c);
+    const { where, bindings } = buildWhereClause(filters);
+    const result = queryTimeseries(db, interval, range, where, bindings as (string | number | null)[]);
     return c.json(result);
   });
 
