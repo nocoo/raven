@@ -7,6 +7,7 @@ import {
   queryRecent,
   querySummary,
   queryBreakdown,
+  queryPercentiles,
 } from "../db/requests.ts";
 import { parseAnalyticsFilters, buildWhereClause } from "../db/analytics-filters.ts";
 import { safeParseInt } from "../util/params.ts";
@@ -66,6 +67,21 @@ export function createStatsRoute(db: Database): Hono {
       order,
       limit,
     });
+    return c.json(result);
+  });
+
+  // Percentile distribution for a single metric
+  route.get("/stats/percentiles", (c) => {
+    const metric = c.req.query("metric");
+    if (!metric) return c.json({ error: "missing 'metric' parameter" }, 400);
+
+    const filters = parseAnalyticsFilters(c);
+    const { where, bindings } = buildWhereClause(filters);
+
+    const result = queryPercentiles(db, metric, where, bindings as (string | number | null)[]);
+    if (result === null) {
+      return c.json({ error: `unsupported metric: ${metric}` }, 400);
+    }
     return c.json(result);
   });
 

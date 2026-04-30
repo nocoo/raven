@@ -106,6 +106,17 @@ export interface BreakdownEntry {
   client_version?: string | null;
 }
 
+export interface PercentilesResult {
+  p50: number;
+  p75: number;
+  p90: number;
+  p95: number;
+  p99: number;
+  min: number;
+  max: number;
+  count: number;
+}
+
 export interface ModelStats {
   model: string;
   count: number;
@@ -457,6 +468,78 @@ export function queryBreakdown(
 
     return entry;
   });
+}
+
+// ---------------------------------------------------------------------------
+// queryPercentiles
+// ---------------------------------------------------------------------------
+
+const VALID_PERCENTILE_METRICS: Record<string, string> = {
+  latency_ms: "latency_ms",
+  ttft_ms: "ttft_ms",
+  processing_ms: "processing_ms",
+  total_tokens: "total_tokens",
+  input_tokens: "input_tokens",
+  output_tokens: "output_tokens",
+};
+
+export function queryPercentiles(
+  db: Database,
+  metric: string,
+  whereClause = "",
+  bindings: (string | number | null)[] = [],
+): PercentilesResult | null {
+  const column = VALID_PERCENTILE_METRICS[metric];
+  if (!column) return null;
+
+  // Nullable metrics need IS NOT NULL filter
+  const nullableMetrics = ["ttft_ms", "processing_ms"];
+  const nullFilter = nullableMetrics.includes(metric)
+    ? `${column} IS NOT NULL`
+    : "";
+
+  // Combine WHERE conditions
+  const conditions: string[] = [];
+  if (whereClause) {
+    conditions.push(whereClause.replace(/^WHERE\s+/i, ""));
+  }
+  if (nullFilter) {
+    conditions.push(nullFilter);
+  }
+  const fullWhere = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  // Convert positional bindings to named params
+  const namedBindings: Record<string, string | number | null> = {};
+  let adjustedWhere = fullWhere;
+  if (bindings.length > 0) {
+    let idx = 0;
+    adjustedWhere = fullWhere.replace(/\?/g, () => {
+      const key = `$_pc${idx}`;
+      namedBindings[key] = bindings[idx]!;
+      idx++;
+      return key;
+    });
+  }
+
+  const rows = db
+    .query(`SELECT ${column} as val FROM requests ${adjustedWhere} ORDER BY ${column}`)
+    .all(namedBindings) as Array<{ val: number }>;
+
+  if (rows.length === 0) {
+    return { p50: 0, p75: 0, p90: 0, p95: 0, p99: 0, min: 0, max: 0, count: 0 };
+  }
+
+  const vals = rows.map((r) => r.val);
+  return {
+    p50: percentile(vals, 0.50),
+    p75: percentile(vals, 0.75),
+    p90: percentile(vals, 0.90),
+    p95: percentile(vals, 0.95),
+    p99: percentile(vals, 0.99),
+    min: vals[0]!,
+    max: vals[vals.length - 1]!,
+    count: vals.length,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -187,6 +187,51 @@ describe("GET /api/stats/breakdown", () => {
   });
 });
 
+describe("GET /api/stats/percentiles", () => {
+  test("returns percentile distribution", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/percentiles?metric=latency_ms");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body).toHaveProperty("p50");
+    expect(body).toHaveProperty("p95");
+    expect(body).toHaveProperty("p99");
+    expect(body).toHaveProperty("min");
+    expect(body).toHaveProperty("max");
+    expect(body.count).toBe(4);
+  });
+
+  test("missing metric → 400", async () => {
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/percentiles");
+    expect(res.status).toBe(400);
+  });
+
+  test("unsupported metric → 400", async () => {
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/percentiles?metric=nonexistent");
+    expect(res.status).toBe(400);
+  });
+
+  test("respects model filter", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/percentiles?metric=latency_ms&model=gpt-4o");
+    const body = await res.json();
+    expect(body.count).toBe(2);
+  });
+});
+
 describe("GET /api/stats/timeseries", () => {
   test("returns time buckets", async () => {
     seedDb(db);

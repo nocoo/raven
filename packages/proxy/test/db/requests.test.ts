@@ -10,6 +10,7 @@ import {
   queryRequests,
   querySummary,
   queryBreakdown,
+  queryPercentiles,
   type RequestRecord,
   type ModelStats,
 } from "../../src/db/requests.ts";
@@ -385,6 +386,59 @@ describe("queryBreakdown", () => {
     const result = queryBreakdown(db, { by: "model", whereClause: "WHERE status = ?", bindings: ["error"] });
     expect(result).toHaveLength(1);
     expect(result[0]!.key).toBe("a");
+  });
+});
+
+// ===========================================================================
+// queryPercentiles
+// ===========================================================================
+
+describe("queryPercentiles", () => {
+  test("returns percentile distribution for latency_ms", () => {
+    for (let i = 1; i <= 100; i++) {
+      insertRequest(db, makeRecord({ latency_ms: i * 10 }));
+    }
+
+    const result = queryPercentiles(db, "latency_ms");
+    expect(result).not.toBeNull();
+    expect(result!.count).toBe(100);
+    expect(result!.min).toBe(10);
+    expect(result!.max).toBe(1000);
+    expect(result!.p50).toBe(500);
+    expect(result!.p95).toBe(950);
+    expect(result!.p99).toBe(990);
+  });
+
+  test("returns null for invalid metric", () => {
+    const result = queryPercentiles(db, "nonexistent");
+    expect(result).toBeNull();
+  });
+
+  test("handles empty DB", () => {
+    const result = queryPercentiles(db, "latency_ms");
+    expect(result!.count).toBe(0);
+    expect(result!.p50).toBe(0);
+  });
+
+  test("filters nullable metrics (ttft_ms)", () => {
+    insertRequest(db, makeRecord({ ttft_ms: 100 }));
+    insertRequest(db, makeRecord({ ttft_ms: 200 }));
+    insertRequest(db, makeRecord({ ttft_ms: null }));
+
+    const result = queryPercentiles(db, "ttft_ms");
+    expect(result!.count).toBe(2); // null excluded
+    expect(result!.min).toBe(100);
+    expect(result!.max).toBe(200);
+  });
+
+  test("respects WHERE filter", () => {
+    insertRequest(db, makeRecord({ model: "a", latency_ms: 100 }));
+    insertRequest(db, makeRecord({ model: "a", latency_ms: 200 }));
+    insertRequest(db, makeRecord({ model: "b", latency_ms: 999 }));
+
+    const result = queryPercentiles(db, "latency_ms", "WHERE model = ?", ["a"]);
+    expect(result!.count).toBe(2);
+    expect(result!.max).toBe(200);
   });
 });
 
