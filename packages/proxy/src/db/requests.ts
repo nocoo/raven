@@ -60,11 +60,15 @@ export interface QueryParams {
   model?: string | null;
   status?: string | null;
   format?: string | null;
-  sort?: "timestamp" | "latency_ms" | "total_tokens" | null;
-  order?: "asc" | "desc" | null;
-  cursor?: string | null;
-  offset?: number | null;
-  limit?: number | null;
+  sort?: "timestamp" | "latency_ms" | "total_tokens" | "ttft_ms" | "processing_ms" | "input_tokens" | "output_tokens" | null | undefined;
+  order?: "asc" | "desc" | null | undefined;
+  cursor?: string | null | undefined;
+  offset?: number | null | undefined;
+  limit?: number | null | undefined;
+  /** Additional WHERE conditions (from analytics filter parser) */
+  extraWhere?: string | undefined;
+  /** Positional bindings for extraWhere */
+  extraBindings?: unknown[] | undefined;
 }
 
 export interface QueryResult {
@@ -334,11 +338,14 @@ export function queryRequests(
     cursor,
     offset,
     limit: rawLimit,
+    extraWhere,
+    extraBindings,
   } = params;
 
   const limit = Math.min(rawLimit ?? 50, 200);
-  const validSort = (sort !== null && sort !== undefined && ["timestamp", "latency_ms", "total_tokens"].includes(sort))
-    ? (sort as "timestamp" | "latency_ms" | "total_tokens")
+  const validSortColumns = ["timestamp", "latency_ms", "total_tokens", "ttft_ms", "processing_ms", "input_tokens", "output_tokens"];
+  const validSort = (sort !== null && sort !== undefined && validSortColumns.includes(sort))
+    ? sort
     : "timestamp";
   const validOrder = order === "asc" ? "ASC" : "DESC";
 
@@ -357,6 +364,11 @@ export function queryRequests(
   if (format) {
     conditions.push("client_format = $format");
     bindings.$format = format;
+  }
+
+  // Append extra conditions from analytics filter parser
+  if (extraWhere) {
+    conditions.push(extraWhere);
   }
 
   // Cursor-based pagination for timestamp sort
@@ -379,12 +391,29 @@ export function queryRequests(
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
+  // Merge named bindings with positional extra bindings
+  // SQLite doesn't mix $named and ? well in bun:sqlite, so we convert
+  // extraBindings to named params with unique keys
+  const extraNamedBindings: Record<string, string | number | null> = {};
+  let adjustedWhereClause = whereClause;
+  if (extraBindings && extraBindings.length > 0) {
+    let idx = 0;
+    adjustedWhereClause = whereClause.replace(/\?/g, () => {
+      const key = `$_af${idx}`;
+      extraNamedBindings[key] = extraBindings[idx] as string | number | null;
+      idx++;
+      return key;
+    });
+  }
+
+  const allBindings: Record<string, string | number | null> = { ...bindings, ...extraNamedBindings };
+
   // For offset pagination, get total count
   let total: number | null = null;
   if (sort !== "timestamp") {
     const countRow = db
-      .query(`SELECT COUNT(*) as count FROM requests ${whereClause}`)
-      .get(bindings) as { count: number };
+      .query(`SELECT COUNT(*) as count FROM requests ${adjustedWhereClause}`)
+      .get(allBindings) as { count: number };
     total = countRow.count;
   }
 
@@ -400,8 +429,8 @@ export function queryRequests(
       ? `LIMIT ${limit + 1}` // fetch one extra to detect has_more
       : `LIMIT ${limit + 1} OFFSET ${offset ?? 0}`;
 
-  const query = `SELECT * FROM requests ${whereClause} ${orderBy} ${limitClause}`;
-  const rows = db.query(query).all(bindings) as RequestRecord[];
+  const query = `SELECT * FROM requests ${adjustedWhereClause} ${orderBy} ${limitClause}`;
+  const rows = db.query(query).all(allBindings) as RequestRecord[];
 
   const hasMore = rows.length > limit;
   const data = hasMore ? rows.slice(0, limit) : rows;

@@ -253,6 +253,63 @@ describe("GET /api/requests", () => {
     const res = await app.request("/api/requests?offset=bar");
     expect(res.status).toBe(400);
   });
+
+  test("filters by analytics params (from/to)", async () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ model: "a", timestamp: now - 5000 }));
+    insertRequest(db, makeRecord({ model: "b", timestamp: now - 1000 }));
+    insertRequest(db, makeRecord({ model: "c", timestamp: now + 5000 }));
+
+    const app = new Hono();
+    app.route("/api", createRequestsRoute(db));
+
+    const res = await app.request(`/api/requests?from=${now - 3000}&to=${now}`);
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].model).toBe("b");
+  });
+
+  test("filters by strategy", async () => {
+    insertRequest(db, makeRecord({ strategy: "copilot-native" }));
+    insertRequest(db, makeRecord({ strategy: "custom-openai" }));
+    insertRequest(db, makeRecord({ strategy: "copilot-native" }));
+
+    const app = new Hono();
+    app.route("/api", createRequestsRoute(db));
+
+    const res = await app.request("/api/requests?strategy=custom-openai");
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].strategy).toBe("custom-openai");
+  });
+
+  test("sorts by new columns (ttft_ms)", async () => {
+    insertRequest(db, makeRecord({ ttft_ms: 100 }));
+    insertRequest(db, makeRecord({ ttft_ms: 500 }));
+    insertRequest(db, makeRecord({ ttft_ms: 200 }));
+
+    const app = new Hono();
+    app.route("/api", createRequestsRoute(db));
+
+    const res = await app.request("/api/requests?sort=ttft_ms&order=desc");
+    const body = await res.json();
+    expect(body.data[0].ttft_ms).toBe(500);
+    expect(body.data[2].ttft_ms).toBe(100);
+  });
+
+  test("filters by has_error", async () => {
+    insertRequest(db, makeRecord({ status: "success" }));
+    insertRequest(db, makeRecord({ status: "error" }));
+    insertRequest(db, makeRecord({ status: "success" }));
+
+    const app = new Hono();
+    app.route("/api", createRequestsRoute(db));
+
+    const res = await app.request("/api/requests?has_error=true");
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].status).toBe("error");
+  });
 });
 
 // ===========================================================================
