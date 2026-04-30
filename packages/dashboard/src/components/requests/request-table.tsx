@@ -337,7 +337,7 @@ export function RequestTable({
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4">
         <p className="text-sm text-muted-foreground">
-          {total !== undefined ? `${total.toLocaleString()} total` : `${data.length} shown`}
+          {total != null ? `${total.toLocaleString()} total` : `${data.length} shown`}
         </p>
         <div className="flex items-center gap-2">
           {canGoPrev && (

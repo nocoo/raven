@@ -104,7 +104,7 @@ export function RequestsContent({
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Showing {data.length}
-          {total !== undefined && ` of ${total.toLocaleString()}`} matching requests
+          {total != null && ` of ${total.toLocaleString()}`} matching requests
         </p>
         <ColumnConfig visibleColumns={visibleColumns} onToggle={toggleColumn} />
       </div>
