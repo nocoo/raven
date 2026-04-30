@@ -2,20 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import {
   ChevronDown,
   ChevronUp,
   Activity,
@@ -23,23 +9,25 @@ import {
   Timer,
   Coins,
   Users,
-  Circle,
   Zap,
 } from "lucide-react";
 import {
-  CHART_COLORS,
-  AXIS_CONFIG,
-  TOOLTIP_STYLES,
-  RESPONSIVE_CONTAINER_PROPS,
-  CHART_HEIGHTS,
-  ANIMATION_PROPS,
   formatCompact,
   formatLatency as fmtLatency,
-  getChartColor,
 } from "@/lib/chart-config";
 import { StatCard } from "@/components/stats/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { RpmChart } from "@/components/analytics/panels/rpm-chart";
+import { ModelDistribution } from "@/components/analytics/panels/model-distribution";
+import { TimingChart } from "@/components/analytics/panels/timing-chart";
+import { ConcurrencyChart } from "@/components/analytics/panels/concurrency-chart";
+import { SessionList } from "@/components/analytics/panels/session-list";
+import type {
+  MinuteBucket,
+  ModelCount,
+  TimingPoint,
+  ConcurrencyBucket,
+  SessionInfo,
+} from "@/components/analytics/panels/types";
 import type { LogEvent } from "@/hooks/use-log-stream";
 
 // ---------------------------------------------------------------------------
@@ -60,27 +48,6 @@ interface RequestEndData {
   processingMs: number | null;
   stream: boolean;
   status: string;
-}
-
-interface MinuteBucket {
-  minute: number;
-  count: number;
-  errors: number;
-}
-
-interface ModelCount {
-  model: string;
-  count: number;
-}
-
-interface TimingPoint {
-  index: number;
-  latencyMs: number;
-  ttftMs: number | null;
-  processingMs: number | null;
-  model: string;
-  stream: boolean;
-  ts: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -208,26 +175,8 @@ function useTimingPoints(events: LogEvent[]): TimingPoint[] {
 }
 
 // ---------------------------------------------------------------------------
-// Session tracking types
+// Session tracking — uses SessionInfo and ConcurrencyBucket from panels/types
 // ---------------------------------------------------------------------------
-
-interface SessionInfo {
-  sessionId: string;
-  clientName: string;
-  clientVersion: string | null;
-  accountName: string;
-  activeRequests: Set<string>;
-  totalRequests: number;
-  errorCount: number;
-  totalTokens: number;
-  lastActiveTs: number;
-  firstSeenTs: number;
-}
-
-interface ConcurrencyPoint {
-  minute: number;
-  sessions: number;
-}
 
 // ---------------------------------------------------------------------------
 // Reconnect replay dedup
@@ -349,7 +298,7 @@ export function useSessionTracker(events: LogEvent[]) {
   return useMemo(() => computeSessionTracker(events), [events]);
 }
 
-export function computeConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint[] {
+export function computeConcurrencyTimeline(events: LogEvent[]): ConcurrencyBucket[] {
   const deduped = dedupEvents(events);
   const intervals = new Map<
     string,
@@ -424,7 +373,7 @@ function useMinuteTick(): number {
   return tick;
 }
 
-export function useConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint[] {
+export function useConcurrencyTimeline(events: LogEvent[]): ConcurrencyBucket[] {
   const minuteTick = useMinuteTick();
   // minuteTick forces re-computation every minute so in-progress requests
   // extend their timeline to the current minute even without new events.
@@ -435,86 +384,12 @@ export function useConcurrencyTimeline(events: LogEvent[]): ConcurrencyPoint[] {
 // Formatters
 // ---------------------------------------------------------------------------
 
-function formatMinute(minute: number): string {
-  const d = new Date(minute);
-  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-}
-
 function formatPercent(v: number): string {
   return `${(v * 100).toFixed(1)}%`;
 }
 
 // ---------------------------------------------------------------------------
-// Chart tooltips
-// ---------------------------------------------------------------------------
-
-function RpmTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ value: number; dataKey: string }>;
-  label?: number;
-}) {
-  if (!active || !payload?.length) return null;
-  const count = payload.find((p) => p.dataKey === "count");
-  const errors = payload.find((p) => p.dataKey === "errors");
-  return (
-    <div className={TOOLTIP_STYLES.container}>
-      <p className={TOOLTIP_STYLES.title}>{label ? formatMinute(label) : ""}</p>
-      <p className={TOOLTIP_STYLES.value}>{count?.value ?? 0} requests</p>
-      {(errors?.value ?? 0) > 0 && (
-        <p className="text-red-500 text-xs">{errors?.value} errors</p>
-      )}
-    </div>
-  );
-}
-
-function ModelTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: Array<{ payload: ModelCount }>;
-}) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0]?.payload;
-  if (!d) return null;
-  return (
-    <div className={TOOLTIP_STYLES.container}>
-      <p className={TOOLTIP_STYLES.title}>{d.model}</p>
-      <p className={TOOLTIP_STYLES.value}>{d.count} requests</p>
-    </div>
-  );
-}
-
-function TimingTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: Array<{ payload: TimingPoint }>;
-}) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0]?.payload;
-  if (!d) return null;
-  return (
-    <div className={TOOLTIP_STYLES.container}>
-      <p className={TOOLTIP_STYLES.title}>{d.model}</p>
-      <p className={TOOLTIP_STYLES.value}>Duration: {fmtLatency(d.latencyMs)}</p>
-      {d.ttftMs !== null && (
-        <p className={TOOLTIP_STYLES.value}>TTFT: {fmtLatency(d.ttftMs)}</p>
-      )}
-      {d.processingMs !== null && (
-        <p className={TOOLTIP_STYLES.value}>Processing: {fmtLatency(d.processingMs)}</p>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Chart sections (shared between desktop & mobile)
+// Chart sections (use extracted panel components)
 // ---------------------------------------------------------------------------
 
 function RequestCards({ stats, hasData }: {
@@ -591,325 +466,12 @@ function ModelCards({ stats, hasData }: {
   );
 }
 
-function ChartRpm({ data }: { data: MinuteBucket[] }) {
-  if (data.length < 2) return null;
-  const total = data.reduce((sum, b) => sum + b.count, 0);
-  const peak = Math.max(...data.map((b) => b.count));
-  const summary = `Requests per minute chart. ${total} total requests over ${data.length} minutes. Peak: ${peak} requests/min.`;
-
-  return (
-    <div className="bg-secondary rounded-lg p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
-        Requests / min
-      </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="logRpmFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="minute" tickFormatter={formatMinute} {...AXIS_CONFIG} />
-            <YAxis allowDecimals={false} {...AXIS_CONFIG} width={30} />
-            <Tooltip content={<RpmTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="count"
-              stroke={CHART_COLORS.primary}
-              fill="url(#logRpmFill)"
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function ChartModels({ data }: { data: ModelCount[] }) {
-  if (data.length === 0) return null;
-  const total = data.reduce((sum, m) => sum + m.count, 0);
-  const topModel = data[0];
-  const summary = `Model distribution chart. ${data.length} models, ${total} total requests. Most used: ${topModel?.model ?? "none"} with ${topModel?.count ?? 0} requests.`;
-
-  return (
-    <div className="bg-secondary rounded-lg p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
-        Models
-      </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{ left: 0, right: 8, top: 4, bottom: 4 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={CHART_COLORS.muted}
-              strokeOpacity={0.3}
-              horizontal={false}
-            />
-            <XAxis type="number" allowDecimals={false} {...AXIS_CONFIG} />
-            <YAxis
-              type="category"
-              dataKey="model"
-              width={90}
-              {...AXIS_CONFIG}
-              tick={{ fontSize: 10, fill: AXIS_CONFIG.tick.fill }}
-            />
-            <Tooltip content={<ModelTooltip />} />
-            <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20} {...ANIMATION_PROPS}>
-              {data.map((_, i) => (
-                <Cell key={i} fill={getChartColor(i)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function ChartTiming({ data }: { data: TimingPoint[] }) {
-  if (data.length < 2) return null;
-  const avgLatency = data.reduce((sum, p) => sum + p.latencyMs, 0) / data.length;
-  const peak = Math.max(...data.map((p) => p.latencyMs));
-  const summary = `Request timing chart showing last ${data.length} requests. Average duration: ${fmtLatency(avgLatency)}. Peak: ${fmtLatency(peak)}.`;
-
-  return (
-    <div className="bg-secondary rounded-lg p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
-        Timing
-        <span className="ml-1 font-normal text-muted-foreground/60">
-          (last {data.length})
-        </span>
-      </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="index" {...AXIS_CONFIG} tick={false} />
-            <YAxis tickFormatter={(v: number) => fmtLatency(v)} {...AXIS_CONFIG} width={40} />
-            <Tooltip content={<TimingTooltip />} />
-            <Line
-              type="monotone"
-              dataKey="latencyMs"
-              name="Duration"
-              stroke={CHART_COLORS.warning}
-              strokeWidth={2}
-              dot={{ r: 2, fill: CHART_COLORS.warning }}
-              activeDot={{ r: 4 }}
-              {...ANIMATION_PROPS}
-            />
-            <Line
-              type="monotone"
-              dataKey="ttftMs"
-              name="TTFT"
-              stroke={getChartColor(1)}
-              strokeWidth={1.5}
-              dot={{ r: 1.5, fill: getChartColor(1) }}
-              activeDot={{ r: 3 }}
-              connectNulls
-              {...ANIMATION_PROPS}
-            />
-            <Line
-              type="monotone"
-              dataKey="processingMs"
-              name="Processing"
-              stroke={getChartColor(3)}
-              strokeWidth={1.5}
-              dot={{ r: 1.5, fill: getChartColor(3) }}
-              activeDot={{ r: 3 }}
-              connectNulls
-              strokeDasharray="4 2"
-              {...ANIMATION_PROPS}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Session UI components
-// ---------------------------------------------------------------------------
-
-function ConcurrencyTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ value: number }>;
-  label?: number;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className={TOOLTIP_STYLES.container}>
-      <p className={TOOLTIP_STYLES.title}>
-        {label ? formatMinute(label) : ""}
-      </p>
-      <p className={TOOLTIP_STYLES.value}>
-        {payload[0]?.value ?? 0} sessions
-      </p>
-    </div>
-  );
-}
-
-function ChartConcurrency({ data }: { data: ConcurrencyPoint[] }) {
-  if (data.length < 2) return null;
-  const peak = Math.max(...data.map((p) => p.sessions));
-  const current = data[data.length - 1]?.sessions ?? 0;
-  const summary = `Parallel sessions chart over ${data.length} minutes. Current: ${current} sessions. Peak: ${peak} sessions.`;
-
-  return (
-    <div className="bg-secondary rounded-lg p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
-        Parallel Sessions
-        <span className="ml-1 font-normal text-muted-foreground/60">
-          / min
-        </span>
-      </h4>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient
-                id="concurrencyFill"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop
-                  offset="5%"
-                  stopColor={getChartColor(2)}
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset="95%"
-                  stopColor={getChartColor(2)}
-                  stopOpacity={0}
-                />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={CHART_COLORS.muted}
-              strokeOpacity={0.3}
-            />
-            <XAxis
-              dataKey="minute"
-              tickFormatter={formatMinute}
-              {...AXIS_CONFIG}
-            />
-            <YAxis allowDecimals={false} {...AXIS_CONFIG} width={20} />
-            <Tooltip content={<ConcurrencyTooltip />} />
-            <Area
-              type="stepAfter"
-              dataKey="sessions"
-              stroke={getChartColor(2)}
-              fill="url(#concurrencyFill)"
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function SessionRow({ session }: { session: SessionInfo }) {
-  const isActive = session.activeRequests.size > 0;
-  const errorRate =
-    session.totalRequests > 0
-      ? session.errorCount / session.totalRequests
-      : 0;
-
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs",
-        isActive
-          ? "bg-success/5 border border-success/20"
-          : "bg-muted/30",
-      )}
-    >
-      <Circle
-        className={cn(
-          "size-2 shrink-0 fill-current",
-          isActive ? "text-success" : "text-muted-foreground/30",
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium truncate">{session.clientName}</span>
-          {session.clientVersion && (
-            <span className="text-[10px] text-muted-foreground">
-              v{session.clientVersion}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-[10px] text-muted-foreground tabular-nums">
-          <span>{session.totalRequests} req</span>
-          <span>{formatCompact(session.totalTokens)} tok</span>
-          {errorRate > 0 && (
-            <span className="text-destructive">
-              {formatPercent(errorRate)} err
-            </span>
-          )}
-          {isActive && (
-            <span className="text-success font-medium">
-              {session.activeRequests.size} active
-            </span>
-          )}
-        </div>
-      </div>
-      {session.accountName !== "default" &&
-        session.accountName !== "dev" && (
-          <Badge
-            variant="outline"
-            className="px-1 py-0 text-[9px] shrink-0"
-          >
-            {session.accountName}
-          </Badge>
-        )}
-    </div>
-  );
-}
-
-function SessionList({ sessions }: { sessions: SessionInfo[] }) {
-  if (sessions.length === 0) return null;
-  return (
-    <div className="bg-secondary rounded-lg p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
-        Sessions
-        <span className="ml-1 font-normal text-muted-foreground/60">
-          ({sessions.length})
-        </span>
-      </h4>
-      <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-        {sessions.map((s) => (
-          <SessionRow key={s.sessionId} session={s} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function SessionSection({
   sessionTracker,
   concurrencyData,
 }: {
   sessionTracker: ReturnType<typeof useSessionTracker>;
-  concurrencyData: ConcurrencyPoint[];
+  concurrencyData: ConcurrencyBucket[];
 }) {
   return (
     <>
@@ -927,7 +489,7 @@ function SessionSection({
               : "default"
         }
       />
-      <ChartConcurrency data={concurrencyData} />
+      <ConcurrencyChart data={concurrencyData} gradientId="logConcurrencyFill" />
       <SessionList sessions={sessionTracker.sessions} />
     </>
   );
@@ -963,8 +525,8 @@ export function LogsStats({ events }: LogsStatsProps) {
             <RequestCards stats={stats} hasData={hasData} />
             {hasData && (
               <>
-                <ChartRpm data={minuteBuckets} />
-                <ChartTiming data={timingPoints} />
+                <RpmChart data={minuteBuckets} gradientId="logRpmFill" />
+                <TimingChart data={timingPoints} />
               </>
             )}
           </div>
@@ -979,7 +541,7 @@ export function LogsStats({ events }: LogsStatsProps) {
             </h2>
             <div className="space-y-3">
               <ModelCards stats={stats} hasData={hasData} />
-              <ChartModels data={modelDist} />
+              <ModelDistribution data={modelDist} />
             </div>
           </section>
         )}
@@ -1043,8 +605,8 @@ export function LogsStats({ events }: LogsStatsProps) {
                 <RequestCards stats={stats} hasData={hasData} />
                 {hasData && (
                   <>
-                    <ChartRpm data={minuteBuckets} />
-                    <ChartTiming data={timingPoints} />
+                    <RpmChart data={minuteBuckets} gradientId="logRpmFillMobile" />
+                    <TimingChart data={timingPoints} />
                   </>
                 )}
               </div>
@@ -1059,7 +621,7 @@ export function LogsStats({ events }: LogsStatsProps) {
                 </h2>
                 <div className="space-y-3">
                   <ModelCards stats={stats} hasData={hasData} />
-                  <ChartModels data={modelDist} />
+                  <ModelDistribution data={modelDist} />
                 </div>
               </section>
             )}

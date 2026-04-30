@@ -38,6 +38,8 @@ export default defineConfig({
         "src/app/requests/requests-content.tsx",
         "src/app/clients/clients-table.tsx",
         "src/app/sessions/sessions-table.tsx",
+        // Reusable analytics panels (render-heavy recharts wrappers)
+        "src/components/analytics/panels/**",
         "src/app/connect/connect-content.tsx",
         "src/app/copilot/account/account-content.tsx",
         "src/app/copilot/models/models-content.tsx",
