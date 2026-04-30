@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.2.3
+
+### Added
+- Align Copilot upstream headers with current VSCode client
+
+### Changed
+- Fix HTML title language to match UI (raven - Copilot Proxy Dashboard)
+- Unify HTML title to "raven - Copilot 代理面板"
+- Upgrade vite to 8.0.10
+- Upgrade next to 16.2.4
+
+### Fixed
+- Also strip `strict` on Copilot native tool sanitizer
+- Strip Anthropic-only fields on Copilot native messages path
+- Limit thinking block stripping to claude-opus-4.5 only
+- Strip thinking blocks from assistant messages in Copilot requests
+- Normalize model name to lowercase for custom Anthropic upstreams
+- Add postcss override and clean unused osv ignore
+
+### Removed
+- Remove stale picomatch osv ignores
+
 ## v2.2.2
 
 ### Changed
