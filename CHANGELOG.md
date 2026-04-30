@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.3.0
+
+### Added
+- Add provider and strategy analytics page
+- Add dual-source data hook (live ↔ historical)
+- Extract reusable analytics panels from logs-stats
+- Add clients and sessions pages
+- Enhance request table with column config, detail drawer, error aggregation
+- Add model explorer with ranking table and filter support
+- Upgrade overview with categorized analytics panels
+- Add FilterBar and TimeRangePicker components
+- Add analytics filter state with URL sync and API types
+- Add /stats/percentiles endpoint
+- Add /stats/breakdown universal ranking endpoint
+- Extend /stats/timeseries with full bucket metrics and filters
+- Add filter-aware /stats/summary endpoint
+- Extend /requests with full filter support
+- Add shared analytics filter parser and WHERE builder
+- Persist extended fields in request-sink
+- Add analytics columns to requests table
+
+### Fixed
+- Guard total.toLocaleString() against null
+- Wrap LogsContent in Suspense for useSearchParams
+- Breakdown sort=error_rate 500 and timeseries 24h clamp
+- Address code review findings from commits 13-17
+
 ## v2.2.3
 
 ### Added
