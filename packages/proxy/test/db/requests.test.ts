@@ -43,6 +43,15 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     session_id: "",
     client_name: "",
     client_version: null,
+    processing_ms: null,
+    strategy: "",
+    upstream: "",
+    upstream_format: "",
+    translated_model: "",
+    copilot_model: "",
+    routing_path: "",
+    stop_reason: "",
+    tool_call_count: 0,
     ...overrides,
   };
 }

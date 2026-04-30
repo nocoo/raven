@@ -5,25 +5,34 @@ import { Database } from "bun:sqlite";
 // ---------------------------------------------------------------------------
 
 export interface RequestRecord {
-  id: string;
-  timestamp: number;
-  path: string;
-  client_format: string;
-  model: string;
-  resolved_model: string | null;
-  stream: number;
-  input_tokens: number | null;
-  output_tokens: number | null;
-  latency_ms: number;
-  ttft_ms: number | null;
-  status: string;
-  status_code: number;
-  upstream_status: number | null;
-  error_message: string | null;
-  account_name: string;
-  session_id: string;
-  client_name: string;
-  client_version: string | null;
+	id: string;
+	timestamp: number;
+	path: string;
+	client_format: string;
+	model: string;
+	resolved_model: string | null;
+	stream: number;
+	input_tokens: number | null;
+	output_tokens: number | null;
+	latency_ms: number;
+	ttft_ms: number | null;
+	status: string;
+	status_code: number;
+	upstream_status: number | null;
+	error_message: string | null;
+	account_name: string;
+	session_id: string;
+	client_name: string;
+	client_version: string | null;
+	processing_ms: number | null;
+	strategy: string;
+	upstream: string;
+	upstream_format: string;
+	translated_model: string;
+	copilot_model: string;
+	routing_path: string;
+	stop_reason: string;
+	tool_call_count: number;
 }
 
 export interface OverviewResult {
@@ -115,9 +124,23 @@ export function initDatabase(db: Database): void {
     }
   };
   safeAddColumn("ALTER TABLE requests ADD COLUMN session_id TEXT NOT NULL DEFAULT ''");
-  safeAddColumn("ALTER TABLE requests ADD COLUMN client_name TEXT NOT NULL DEFAULT ''");
-  safeAddColumn("ALTER TABLE requests ADD COLUMN client_version TEXT");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN client_name TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN client_version TEXT");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN processing_ms INTEGER");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN strategy TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN upstream TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN upstream_format TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN translated_model TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN copilot_model TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN routing_path TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN stop_reason TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN tool_call_count INTEGER NOT NULL DEFAULT 0");
+	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
+	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_strategy ON requests(strategy)");
+	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_account ON requests(account_name)");
+	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_client ON requests(client_name)");
+	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_path ON requests(path)");
+	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_upstream ON requests(upstream)");
 }
 
 // ---------------------------------------------------------------------------
@@ -129,36 +152,49 @@ INSERT INTO requests (
   id, timestamp, path, client_format, model, resolved_model,
   stream, input_tokens, output_tokens, latency_ms, ttft_ms,
   status, status_code, upstream_status, error_message, account_name,
-  session_id, client_name, client_version
+  session_id, client_name, client_version,
+  processing_ms, strategy, upstream, upstream_format,
+  translated_model, copilot_model, routing_path, stop_reason, tool_call_count
 ) VALUES (
   $id, $timestamp, $path, $client_format, $model, $resolved_model,
   $stream, $input_tokens, $output_tokens, $latency_ms, $ttft_ms,
   $status, $status_code, $upstream_status, $error_message, $account_name,
-  $session_id, $client_name, $client_version
+  $session_id, $client_name, $client_version,
+  $processing_ms, $strategy, $upstream, $upstream_format,
+  $translated_model, $copilot_model, $routing_path, $stop_reason, $tool_call_count
 )`;
 
 export function insertRequest(db: Database, record: RequestRecord): void {
-  db.query(INSERT_SQL).run({
-    $id: record.id,
-    $timestamp: record.timestamp,
-    $path: record.path,
-    $client_format: record.client_format,
-    $model: record.model,
-    $resolved_model: record.resolved_model,
-    $stream: record.stream,
-    $input_tokens: record.input_tokens,
-    $output_tokens: record.output_tokens,
-    $latency_ms: record.latency_ms,
-    $ttft_ms: record.ttft_ms,
-    $status: record.status,
-    $status_code: record.status_code,
-    $upstream_status: record.upstream_status,
-    $error_message: record.error_message,
-    $account_name: record.account_name,
-    $session_id: record.session_id,
-    $client_name: record.client_name,
-    $client_version: record.client_version,
-  });
+	db.query(INSERT_SQL).run({
+		$id: record.id,
+		$timestamp: record.timestamp,
+		$path: record.path,
+		$client_format: record.client_format,
+		$model: record.model,
+		$resolved_model: record.resolved_model,
+		$stream: record.stream,
+		$input_tokens: record.input_tokens,
+		$output_tokens: record.output_tokens,
+		$latency_ms: record.latency_ms,
+		$ttft_ms: record.ttft_ms,
+		$status: record.status,
+		$status_code: record.status_code,
+		$upstream_status: record.upstream_status,
+		$error_message: record.error_message,
+		$account_name: record.account_name,
+		$session_id: record.session_id,
+		$client_name: record.client_name,
+		$client_version: record.client_version,
+		$processing_ms: record.processing_ms,
+		$strategy: record.strategy,
+		$upstream: record.upstream,
+		$upstream_format: record.upstream_format,
+		$translated_model: record.translated_model,
+		$copilot_model: record.copilot_model,
+		$routing_path: record.routing_path,
+		$stop_reason: record.stop_reason,
+		$tool_call_count: record.tool_call_count,
+	});
 }
 
 // ---------------------------------------------------------------------------
