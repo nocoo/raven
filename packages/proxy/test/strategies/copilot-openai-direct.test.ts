@@ -211,7 +211,7 @@ describe("strategies/copilot-openai-direct", () => {
     expect((out.toolCallNames as string[]).sort()).toEqual(["a", "b"])
   })
 
-  test("describeEndLog stream arm with no tool calls reports stopReason=stop only when toolCallDebug=true", () => {
+  test("describeEndLog stream arm always emits stopReason and toolCallCount", () => {
     const sDebug = makeCopilotOpenAIDirect({ client: fakeClient(() => ({})), toolCallDebug: true })
     const sNoDebug = makeCopilotOpenAIDirect({ client: fakeClient(() => ({})), toolCallDebug: false })
     const st: import("../../src/strategies/copilot-openai-direct").CopilotDirectStreamState = {
@@ -221,7 +221,8 @@ describe("strategies/copilot-openai-direct", () => {
     expect(debugOut).toMatchObject({ stopReason: "stop", toolCallCount: 0 })
 
     const plainOut = sNoDebug.describeEndLog({ kind: "stream", req: { model: "m" } as ChatCompletionsPayload, state: st }, makeCtx())
-    expect("stopReason" in plainOut).toBe(false)
+    expect(plainOut).toMatchObject({ stopReason: "stop", toolCallCount: 0 })
+    expect("toolCallNames" in plainOut).toBe(false)
   })
 
   test("describeEndLog error arm carries model from request", () => {

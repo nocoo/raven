@@ -194,6 +194,7 @@ describe("strategies/copilot-translated", () => {
       resolvedModel: "gpt-4o-r",
       translatedModel: "gpt-4o",
       inputTokens: 22, outputTokens: 13,
+      stopReason: "end_turn", toolCallCount: 0,
     })
   })
 

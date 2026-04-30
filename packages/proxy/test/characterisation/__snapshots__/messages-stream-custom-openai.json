@@ -37,6 +37,7 @@
     "stream": true,
     "status": "success",
     "statusCode": 200,
+    "stopReason": "end_turn",
     "upstreamStatus": 200,
     "strategy": "custom-openai",
     "model": "gpt-4-custom",
@@ -45,6 +46,7 @@
     "inputTokens": 8,
     "outputTokens": 2,
     "upstream": "OpenAIProvider",
-    "upstreamFormat": "openai"
+    "upstreamFormat": "openai",
+    "toolCallCount": 0
   }
 }

@@ -37,12 +37,14 @@
     "stream": true,
     "status": "success",
     "statusCode": 200,
+    "stopReason": "end_turn",
     "upstreamStatus": 200,
     "strategy": "copilot-translated",
     "model": "gpt-5",
     "resolvedModel": "claude-sonnet-4-20250514",
     "translatedModel": "gpt-5",
     "inputTokens": 12,
-    "outputTokens": 3
+    "outputTokens": 3,
+    "toolCallCount": 0
   }
 }

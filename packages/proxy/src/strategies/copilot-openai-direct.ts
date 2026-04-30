@@ -137,18 +137,17 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
         }
       }
       if (result.kind === "stream") {
+        const toolCallCount = result.state.toolCallIds.size
         const debugExtras = deps.toolCallDebug
-          ? {
-            stopReason: result.state.toolCallIds.size > 0 ? "tool_calls" : "stop",
-            toolCallCount: result.state.toolCallIds.size,
-            toolCallNames: Array.from(result.state.toolCallIds),
-          }
+          ? { toolCallNames: Array.from(result.state.toolCallIds) }
           : {}
         return {
           model: result.state.model,
           resolvedModel: result.state.resolvedModel,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          stopReason: toolCallCount > 0 ? "tool_calls" : "stop",
+          toolCallCount,
           ...debugExtras,
         }
       }

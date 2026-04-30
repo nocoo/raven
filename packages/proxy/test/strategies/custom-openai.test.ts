@@ -178,6 +178,7 @@ describe("strategies/custom-openai", () => {
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
       inputTokens: 9, outputTokens: 4,
       upstream: "myco", upstreamFormat: "openai",
+      stopReason: "end_turn", toolCallCount: 0,
     })
   })
 
@@ -287,6 +288,7 @@ describe("strategies/custom-openai", () => {
       translatedModel: "gpt-4o",
       inputTokens: 22, outputTokens: 13,
       upstream: "myco", upstreamFormat: "openai",
+      stopReason: "end_turn", toolCallCount: 0,
     })
   })
 

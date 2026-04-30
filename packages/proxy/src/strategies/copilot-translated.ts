@@ -159,12 +159,9 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
         }
       }
       if (result.kind === "stream") {
+        const toolCallCount = Object.keys(result.state.toolCalls).length
         const debugExtras = deps.toolCallDebug
-          ? {
-            stopReason: "tool_use",
-            toolCallCount: Object.keys(result.state.toolCalls).length,
-            toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name),
-          }
+          ? { toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name) }
           : {}
         return {
           model: result.req.originalModel,
@@ -172,6 +169,8 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
           translatedModel: result.req.openAIPayload.model,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
+          toolCallCount,
           ...debugExtras,
         }
       }

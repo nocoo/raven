@@ -227,14 +227,11 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
         }
       }
       if (result.kind === "stream") {
+        const toolCallCount = Object.keys(result.state.toolCalls).length
+        const debugExtras = deps.toolCallDebug
+          ? { toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name) }
+          : {}
         if (result.state.originalModel) {
-          const debugExtras = deps.toolCallDebug
-            ? {
-              stopReason: "tool_use",
-              toolCallCount: Object.keys(result.state.toolCalls).length,
-              toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name),
-            }
-            : {}
           return {
             model: result.state.originalModel,
             resolvedModel: result.state.resolvedModel,
@@ -243,6 +240,8 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
             outputTokens: result.state.outputTokens,
             upstream: result.state.upstream,
             upstreamFormat: result.state.upstreamFormat,
+            stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
+            toolCallCount,
             ...debugExtras,
           }
         }
@@ -253,6 +252,9 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
           outputTokens: result.state.outputTokens,
           upstream: result.state.upstream,
           upstreamFormat: result.state.upstreamFormat,
+          stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
+          toolCallCount,
+          ...debugExtras,
         }
       }
       if (result.kind === "error") {
