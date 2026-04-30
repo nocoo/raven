@@ -1,14 +1,19 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { Activity, Zap, Clock, AlertTriangle } from "lucide-react";
+import { Activity, Zap, Clock, AlertTriangle, Timer, Gauge } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/stats/stat-card";
 import { FetchError } from "@/components/fetch-error";
-import { OverviewCharts } from "./overview-charts";
-import { RequestsContent } from "./requests/requests-content";
+import { FilterBar } from "@/components/analytics/filter-bar";
+import { AnalyticsCharts } from "./analytics-charts";
 import { safeFetch } from "@/lib/proxy";
-import type { OverviewStats, TimeseriesBucket, PaginatedRequests, ModelStats } from "@/lib/types";
+import type { SummaryStats, ExtendedTimeseriesBucket, BreakdownEntry, Percentiles } from "@/lib/types";
 import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
+import {
+  searchParamsToFilters,
+  filtersToApiQuery,
+  rangeToInterval,
+} from "@/lib/analytics-filters";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -17,119 +22,114 @@ interface PageProps {
 }
 
 export default async function HomePage({ searchParams }: PageProps) {
-  // Build query string for requests API from search params
   const resolvedParams = await searchParams;
-  const requestParams = new URLSearchParams();
+  const urlParams = new URLSearchParams();
   for (const [key, value] of Object.entries(resolvedParams)) {
-    if (value) requestParams.set(key, value);
+    if (value) urlParams.set(key, value);
   }
-  const requestsQuery = requestParams.toString();
-  const requestsPath = `/api/requests${requestsQuery ? `?${requestsQuery}` : ""}`;
 
-  const [overviewResult, timeseriesResult, requestsResult, modelsResult] = await Promise.all([
-    safeFetch<OverviewStats>("/api/stats/overview"),
-    safeFetch<TimeseriesBucket[]>("/api/stats/timeseries?interval=hour&range=24h"),
-    safeFetch<PaginatedRequests>(requestsPath),
-    safeFetch<ModelStats[]>("/api/stats/models"),
-  ]);
+  // Parse filters from URL
+  const filters = searchParamsToFilters(urlParams);
+  const apiQuery = filtersToApiQuery(filters);
+  const interval = rangeToInterval(filters.range);
 
-  // If overview fetch failed, show error
-  if (!overviewResult.ok) {
+  // Fetch all data in parallel
+  const [summaryResult, timeseriesResult, p95Result, modelBkResult, clientBkResult, strategyBkResult] =
+    await Promise.all([
+      safeFetch<SummaryStats>(`/api/stats/summary${apiQuery}`),
+      safeFetch<ExtendedTimeseriesBucket[]>(
+        `/api/stats/timeseries${apiQuery}${apiQuery ? "&" : "?"}interval=${interval}`,
+      ),
+      safeFetch<Percentiles>(`/api/stats/percentiles${apiQuery}${apiQuery ? "&" : "?"}metric=latency_ms`),
+      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${apiQuery ? "&" : "?"}by=model&limit=5&sort=count&order=desc`),
+      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${apiQuery ? "&" : "?"}by=client_name&limit=5&sort=count&order=desc`),
+      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${apiQuery ? "&" : "?"}by=strategy&limit=5&sort=count&order=desc`),
+    ]);
+
+  if (!summaryResult.ok) {
     return (
       <AppShell>
-        <FetchError
-          title="Failed to load dashboard"
-          message={overviewResult.error}
-        />
-      </AppShell>
-    );
-  }
-  if (!timeseriesResult.ok) {
-    return (
-      <AppShell>
-        <FetchError
-          title="Failed to load dashboard"
-          message={timeseriesResult.error}
-        />
+        <FetchError title="Failed to load dashboard" message={summaryResult.error} />
       </AppShell>
     );
   }
 
-  const overview = overviewResult.data;
-  const timeseries = timeseriesResult.data;
+  const summary = summaryResult.data;
+  const timeseries = timeseriesResult.ok ? timeseriesResult.data : [];
+  const p95 = p95Result.ok ? p95Result.data : null;
+  const modelBreakdown = modelBkResult.ok ? modelBkResult.data : [];
+  const clientBreakdown = clientBkResult.ok ? clientBkResult.data : [];
+  const strategyBreakdown = strategyBkResult.ok ? strategyBkResult.data : [];
 
-  const errorRate = overview.total_requests > 0
-    ? overview.error_count / overview.total_requests
-    : 0;
+  // Extract models list for filter dropdown
+  const models = modelBreakdown.map((e) => e.key).filter(Boolean);
+  const strategies = strategyBreakdown.map((e) => e.key).filter(Boolean);
 
   // Sparkline data from timeseries buckets
   const requestsSpark = timeseries.map((b) => b.count);
   const tokensSpark = timeseries.map((b) => b.total_tokens);
   const latencySpark = timeseries.map((b) => b.avg_latency_ms);
 
-  // Graceful fallback for requests + models
-  const models = modelsResult.ok
-    ? modelsResult.data.map((m) => m.model)
-    : [];
-
   return (
     <AppShell>
       <div className="space-y-6">
+        {/* Filter Bar */}
+        <Suspense>
+          <FilterBar models={models} strategies={strategies} />
+        </Suspense>
+
         {/* Stat cards row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <StatCard
             icon={Activity}
             label="Total Requests"
-            value={formatCompact(overview.total_requests)}
+            value={formatCompact(summary.total_requests)}
             sparkline={requestsSpark}
             className="animate-fade-up stagger-1"
           />
           <StatCard
-            icon={Zap}
-            label="Total Tokens"
-            value={formatCompact(overview.total_tokens)}
-            sparkline={tokensSpark}
+            icon={AlertTriangle}
+            label="Error Rate"
+            value={formatPercent(summary.error_rate)}
+            detail={`${summary.error_count} errors`}
+            accent={summary.error_rate > 0.05 ? "danger" : "default"}
             className="animate-fade-up stagger-2"
           />
           <StatCard
             icon={Clock}
             label="Avg Latency"
-            value={formatLatency(overview.avg_latency_ms)}
+            value={formatLatency(summary.avg_latency_ms)}
             sparkline={latencySpark}
             className="animate-fade-up stagger-3"
           />
           <StatCard
-            icon={AlertTriangle}
-            label="Error Rate"
-            value={formatPercent(errorRate)}
-            detail={`${overview.error_count} errors`}
+            icon={Gauge}
+            label="P95 Latency"
+            value={p95 ? formatLatency(p95.p95) : "—"}
             className="animate-fade-up stagger-4"
+          />
+          <StatCard
+            icon={Timer}
+            label="Avg TTFT"
+            value={summary.avg_ttft_ms != null ? formatLatency(summary.avg_ttft_ms) : "—"}
+            className="animate-fade-up stagger-5"
+          />
+          <StatCard
+            icon={Zap}
+            label="Total Tokens"
+            value={formatCompact(summary.total_tokens)}
+            sparkline={tokensSpark}
+            className="animate-fade-up stagger-6"
           />
         </div>
 
-        {/* Charts */}
-        <OverviewCharts timeseries={timeseries} />
-
-        {/* Request log */}
-        <div className="space-y-3">
-          <h2 className="text-base font-semibold">Request Log</h2>
-          {requestsResult.ok ? (
-            <Suspense fallback={<div className="text-muted-foreground text-sm">Loading...</div>}>
-              <RequestsContent
-                data={requestsResult.data.data}
-                hasMore={requestsResult.data.has_more}
-                nextCursor={requestsResult.data.next_cursor}
-                total={requestsResult.data.total}
-                models={models}
-              />
-            </Suspense>
-          ) : (
-            <FetchError
-              title="Failed to load requests"
-              message={requestsResult.error}
-            />
-          )}
-        </div>
+        {/* Analytics charts */}
+        <AnalyticsCharts
+          timeseries={timeseries}
+          modelBreakdown={modelBreakdown}
+          clientBreakdown={clientBreakdown}
+          strategyBreakdown={strategyBreakdown}
+        />
       </div>
     </AppShell>
   );
