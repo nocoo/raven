@@ -12,6 +12,7 @@ let mockSearchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
+  usePathname: () => "/requests",
   useSearchParams: () => mockSearchParams,
 }));
 
@@ -20,13 +21,13 @@ vi.mock("next/navigation", () => ({
 // ---------------------------------------------------------------------------
 
 import { RequestTable } from "@/components/requests/request-table";
-import type { RequestRecord } from "@/lib/types";
+import type { ExtendedRequestRecord } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
+function makeRecord(overrides: Partial<ExtendedRequestRecord> = {}): ExtendedRequestRecord {
   return {
     id: "req-1",
     timestamp: 1710600000000,
@@ -47,6 +48,16 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     session_id: "user_abc_test123456",
     client_name: "Claude Code",
     client_version: null,
+    // Extended fields
+    processing_ms: null,
+    strategy: "copilot-native",
+    upstream: "",
+    upstream_format: "",
+    translated_model: "",
+    copilot_model: "",
+    routing_path: "native",
+    stop_reason: "stop",
+    tool_call_count: 0,
     ...overrides,
   };
 }
@@ -68,10 +79,8 @@ describe("formatTimestamp", () => {
         hasMore={false}
       />,
     );
-    // Should render a formatted time string (locale-dependent, but should contain key parts)
     const cells = screen.getAllByRole("cell");
     const timeCell = cells[0]!;
-    // Should contain month abbreviation and time
     expect(timeCell.textContent).toMatch(/\w{3}\s+\d+/);
   });
 });
@@ -106,7 +115,6 @@ describe("formatTokens", () => {
         hasMore={false}
       />,
     );
-    // toLocaleString adds separators: "1,500 / 3,000"
     expect(screen.getByText(/1.500.*\/.*3.000/)).toBeDefined();
   });
 
@@ -123,7 +131,6 @@ describe("formatTokens", () => {
 
 describe("toggleSort", () => {
   it("click same column → toggles order (desc→asc)", async () => {
-    // Default sort is timestamp desc
     render(<RequestTable data={[makeRecord()]} hasMore={false} />);
 
     const user = userEvent.setup();
@@ -267,9 +274,73 @@ describe("pagination — offset mode (sort=latency_ms)", () => {
   });
 });
 
+describe("column visibility", () => {
+  it("hides columns not in visibleColumns", () => {
+    const visible = new Set(["timestamp", "model", "status"]);
+    render(
+      <RequestTable
+        data={[makeRecord()]}
+        hasMore={false}
+        visibleColumns={visible}
+      />,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    const headerTexts = headers.map((h) => h.textContent?.trim());
+    expect(headerTexts).toContain("Model");
+    expect(headerTexts).not.toContain("Latency");
+    expect(headerTexts).not.toContain("TTFT");
+  });
+
+  it("shows all default columns when no visibleColumns passed", () => {
+    render(<RequestTable data={[makeRecord()]} hasMore={false} />);
+    const headers = screen.getAllByRole("columnheader");
+    const headerTexts = headers.map((h) => h.textContent?.trim());
+    expect(headerTexts).toContain("Model");
+    expect(headerTexts).toContain("Path");
+    expect(headerTexts).toContain("Stream");
+  });
+});
+
+describe("row click", () => {
+  it("calls onRowClick when row is clicked", async () => {
+    const handler = vi.fn();
+    const record = makeRecord();
+    render(
+      <RequestTable data={[record]} hasMore={false} onRowClick={handler} />,
+    );
+
+    const user = userEvent.setup();
+    const rows = screen.getAllByRole("row");
+    // rows[0] is header, rows[1] is data
+    await user.click(rows[1]!);
+    expect(handler).toHaveBeenCalledWith(record);
+  });
+
+  it("rows have cursor-pointer class when onRowClick is provided", () => {
+    render(
+      <RequestTable data={[makeRecord()]} hasMore={false} onRowClick={() => {}} />,
+    );
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]!.className).toContain("cursor-pointer");
+  });
+});
+
 describe("empty state", () => {
   it('data=[] → shows "No requests found"', () => {
     render(<RequestTable data={[]} hasMore={false} />);
     expect(screen.getByText("No requests found")).toBeDefined();
+  });
+});
+
+describe("pathname-based routing", () => {
+  it("uses /requests as base path for navigation", async () => {
+    render(<RequestTable data={[makeRecord()]} hasMore={true} nextCursor="cur-1" />);
+
+    const user = userEvent.setup();
+    const nextButton = screen.getByRole("button", { name: /Next/i });
+    await user.click(nextButton);
+
+    const url = mockPush.mock.calls[0]![0] as string;
+    expect(url).toMatch(/^\/requests\?/);
   });
 });

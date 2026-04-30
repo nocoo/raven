@@ -18,6 +18,7 @@ import {
   Shield,
   Wrench,
   Globe,
+  List,
 } from "lucide-react";
 import { cn, getAvatarColor } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -58,6 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard },
+      { href: "/requests", label: "Requests", icon: List },
       { href: "/logs", label: "Logs", icon: Terminal },
       { href: "/models", label: "Models", icon: Boxes },
     ],
