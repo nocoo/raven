@@ -229,11 +229,17 @@ function stripToolDefinitions(
 }
 
 function stripToolDefinition<T extends object>(tool: T): T {
-  const { cache_control: _cc, defer_loading: _dl, eager_input_streaming: _es, ...rest } =
-    tool as Record<string, unknown>
+  const {
+    cache_control: _cc,
+    defer_loading: _dl,
+    eager_input_streaming: _es,
+    strict: _st,
+    ...rest
+  } = tool as Record<string, unknown>
   void _cc
   void _dl
   void _es
+  void _st
   return rest as T
 }
 

@@ -275,6 +275,7 @@ describe("CopilotNativeClient (E.4)", () => {
             cache_control: { type: "ephemeral" },
             defer_loading: true,
             eager_input_streaming: true,
+            strict: true,
           },
         ] as unknown as AnthropicMessagesPayload["tools"],
       }),
@@ -285,6 +286,7 @@ describe("CopilotNativeClient (E.4)", () => {
     expect(tool.cache_control).toBeUndefined()
     expect(tool.defer_loading).toBeUndefined()
     expect(tool.eager_input_streaming).toBeUndefined()
+    expect(tool.strict).toBeUndefined()
     expect(tool.name).toBe("lookup")
     expect(tool.input_schema).toEqual({ type: "object" })
   })
