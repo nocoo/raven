@@ -466,3 +466,125 @@ describe("stats param validation", () => {
     expect(res.status).toBe(400);
   });
 });
+
+// ===========================================================================
+// Regression: sort=error_rate on /stats/breakdown must not 500
+// ===========================================================================
+
+describe("breakdown sort=error_rate", () => {
+  test("returns 200 and correctly sorted results", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown?by=model&sort=error_rate&order=desc");
+    expect(res.status).toBe(200);
+    const body = await res.json() as Array<{ key: string; error_rate: number }>;
+    expect(body.length).toBeGreaterThan(0);
+    // gpt-4o has 50% error rate (1/2 is error), should be first when sorting by error_rate desc
+    expect(body[0]!.key).toBe("gpt-4o");
+    expect(body[0]!.error_rate).toBeCloseTo(0.5);
+  });
+
+  test("sort=p95_latency_ms returns 200 with JS-sorted results", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown?by=model&sort=p95_latency_ms&order=desc");
+    expect(res.status).toBe(200);
+    const body = await res.json() as Array<{ key: string; p95_latency_ms: number }>;
+    expect(body.length).toBeGreaterThan(0);
+    // p95 should be defined for all entries
+    for (const entry of body) {
+      expect(entry.p95_latency_ms).toBeGreaterThanOrEqual(0);
+    }
+    // Should be sorted descending
+    for (let i = 1; i < body.length; i++) {
+      expect(body[i - 1]!.p95_latency_ms).toBeGreaterThanOrEqual(body[i]!.p95_latency_ms);
+    }
+  });
+
+  test("sort=avg_ttft_ms returns 200", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown?by=model&sort=avg_ttft_ms&order=desc");
+    expect(res.status).toBe(200);
+    const body = await res.json() as Array<{ key: string }>;
+    expect(body.length).toBeGreaterThan(0);
+  });
+});
+
+// ===========================================================================
+// Regression: timeseries with explicit from/to should not be clamped to 24h
+// ===========================================================================
+
+describe("timeseries explicit from/to range", () => {
+  test("returns data older than 24h when from/to span multiple days", async () => {
+    const db2 = createTestDb();
+    const now = Date.now();
+    const twoDaysAgo = now - 2 * 24 * 60 * 60_000;
+
+    // Insert a request 2 days ago
+    insertRequest(db2, makeRecord({
+      timestamp: twoDaysAgo,
+      model: "old-model",
+      latency_ms: 500,
+    }));
+    // And one now
+    insertRequest(db2, makeRecord({
+      timestamp: now - 1000,
+      model: "new-model",
+      latency_ms: 200,
+    }));
+
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db2));
+
+    // Request 3 days of data
+    const from = now - 3 * 24 * 60 * 60_000;
+    const to = now;
+    const res = await app.request(`/api/stats/timeseries?interval=day&from=${from}&to=${to}`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as Array<{ bucket: number; count: number }>;
+
+    // Should find both records (spanning multiple day buckets)
+    const totalCount = body.reduce((sum, b) => sum + b.count, 0);
+    expect(totalCount).toBe(2);
+
+    db2.close();
+  });
+
+  test("timeseries with range= param but no from/to still applies default window", async () => {
+    const db2 = createTestDb();
+    const now = Date.now();
+    const twoDaysAgo = now - 2 * 24 * 60 * 60_000;
+
+    // Insert a request 2 days ago (outside 1h window)
+    insertRequest(db2, makeRecord({
+      timestamp: twoDaysAgo,
+      model: "old-model",
+    }));
+    // And one 30 minutes ago (inside 1h window)
+    insertRequest(db2, makeRecord({
+      timestamp: now - 30 * 60_000,
+      model: "new-model",
+    }));
+
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db2));
+
+    // Request only last 1h
+    const res = await app.request("/api/stats/timeseries?interval=minute&range=1h");
+    expect(res.status).toBe(200);
+    const body = await res.json() as Array<{ bucket: number; count: number }>;
+
+    // Should only find the recent record
+    const totalCount = body.reduce((sum, b) => sum + b.count, 0);
+    expect(totalCount).toBe(1);
+
+    db2.close();
+  });
+});

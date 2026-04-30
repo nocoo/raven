@@ -378,8 +378,13 @@ export function queryBreakdown(
   const order = params.order === "asc" ? "ASC" : "DESC";
 
   // Validate sort field against known aggregate fields
-  const validSorts = ["count", "total_tokens", "input_tokens", "output_tokens", "avg_latency_ms", "error_count", "error_rate", "last_seen", "first_seen"];
-  const safeSort = validSorts.includes(sortField) ? sortField : "count";
+  // Fields available in SQL: count, total_tokens, input_tokens, output_tokens, avg_latency_ms, error_count, error_rate, avg_ttft_ms, last_seen, first_seen
+  // Fields computed in JS post-query: p95_latency_ms (requires JS sort after query)
+  const sqlSortable = ["count", "total_tokens", "input_tokens", "output_tokens", "avg_latency_ms", "error_count", "error_rate", "avg_ttft_ms", "last_seen", "first_seen"];
+  const jsSortable = ["p95_latency_ms"];
+  const allSorts = [...sqlSortable, ...jsSortable];
+  const safeSort = allSorts.includes(sortField) ? sortField : "count";
+  const useJsSort = jsSortable.includes(safeSort);
 
   // Build WHERE clause
   const whereStr = params.whereClause || "";
@@ -413,15 +418,16 @@ export function queryBreakdown(
     COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
     AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
     COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
+    CASE WHEN COUNT(*) > 0 THEN CAST(COUNT(CASE WHEN status = 'error' THEN 1 END) AS REAL) / CAST(COUNT(*) AS REAL) ELSE 0.0 END as error_rate,
     MIN(timestamp) as first_seen,
     MAX(timestamp) as last_seen${extraSelect}
   FROM requests
   ${adjustedWhere}
   GROUP BY ${column}
-  ORDER BY ${safeSort} ${order}
-  LIMIT $limit`;
+  ${useJsSort ? "ORDER BY count DESC" : `ORDER BY ${safeSort} ${order}`}
+  ${useJsSort ? "" : "LIMIT $limit"}`;
 
-  const rows = db.query(sql).all(namedBindings) as Array<{
+  const rows = db.query(sql).all(useJsSort ? Object.fromEntries(Object.entries(namedBindings).filter(([k]) => k !== "$limit")) : namedBindings) as Array<{
     key: string;
     count: number;
     input_tokens: number;
@@ -430,6 +436,7 @@ export function queryBreakdown(
     avg_latency_ms: number;
     avg_ttft_ms: number | null;
     error_count: number;
+    error_rate: number;
     first_seen: number;
     last_seen: number;
     _client_name?: string;
@@ -437,7 +444,7 @@ export function queryBreakdown(
     _client_version?: string | null;
   }>;
 
-  return rows.map((row) => {
+  const entries = rows.map((row) => {
     // Compute p95 latency for this group
     const latencies = db
       .query(
@@ -455,7 +462,7 @@ export function queryBreakdown(
       p95_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.95),
       avg_ttft_ms: row.avg_ttft_ms,
       error_count: row.error_count,
-      error_rate: row.count > 0 ? row.error_count / row.count : 0,
+      error_rate: row.error_rate,
       first_seen: row.first_seen,
       last_seen: row.last_seen,
     };
@@ -468,6 +475,19 @@ export function queryBreakdown(
 
     return entry;
   });
+
+  // JS-level sort for fields computed post-query (e.g. p95_latency_ms)
+  if (useJsSort) {
+    const dir = order === "DESC" ? -1 : 1;
+    entries.sort((a, b) => {
+      const aVal = (a as unknown as Record<string, number>)[safeSort] ?? 0;
+      const bVal = (b as unknown as Record<string, number>)[safeSort] ?? 0;
+      return (aVal - bVal) * dir;
+    });
+    return entries.slice(0, limit);
+  }
+
+  return entries;
 }
 
 // ---------------------------------------------------------------------------
@@ -580,26 +600,34 @@ function rangeToMs(range: string): number {
 export function queryTimeseries(
   db: Database,
   interval: string,
-  range: string,
+  range: string | undefined,
   whereClause = "",
   bindings: (string | number | null)[] = [],
 ): TimeseriesBucket[] {
   const intMs = intervalToMs(interval);
-  const rangeMs = rangeToMs(range);
-  const since = Date.now() - rangeMs;
 
-  // Combine range condition with extra filters
-  const rangeCondition = `timestamp >= $since`;
+  // Only apply implicit time range when range is specified (no explicit from/to in filters)
+  const rangeCondition = range ? `timestamp >= $since` : "";
   const extraConditions = whereClause ? whereClause.replace(/^WHERE\s+/i, "") : "";
-  const fullWhere = extraConditions
-    ? `WHERE ${rangeCondition} AND ${extraConditions}`
-    : `WHERE ${rangeCondition}`;
+
+  let fullWhere: string;
+  if (rangeCondition && extraConditions) {
+    fullWhere = `WHERE ${rangeCondition} AND ${extraConditions}`;
+  } else if (rangeCondition) {
+    fullWhere = `WHERE ${rangeCondition}`;
+  } else if (extraConditions) {
+    fullWhere = `WHERE ${extraConditions}`;
+  } else {
+    fullWhere = "";
+  }
 
   // Convert positional bindings to named params
   const namedBindings: Record<string, string | number | null> = {
     $interval: intMs,
-    $since: since,
   };
+  if (range) {
+    namedBindings.$since = Date.now() - rangeToMs(range);
+  }
   let adjustedWhere = fullWhere;
   if (bindings.length > 0) {
     let idx = 0;
