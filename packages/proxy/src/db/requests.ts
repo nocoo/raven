@@ -42,6 +42,20 @@ export interface OverviewResult {
   avg_latency_ms: number;
 }
 
+export interface SummaryResult {
+  total_requests: number;
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  error_count: number;
+  error_rate: number;
+  avg_latency_ms: number;
+  avg_ttft_ms: number | null;
+  avg_processing_ms: number | null;
+  stream_count: number;
+  sync_count: number;
+}
+
 export interface TimeseriesBucket {
   bucket: number; // unix ms start of bucket
   count: number;
@@ -217,6 +231,55 @@ export function queryOverview(db: Database): OverviewResult {
     )
     .get() as OverviewResult;
   return row;
+}
+
+// ---------------------------------------------------------------------------
+// querySummary — filter-aware enhanced overview
+// ---------------------------------------------------------------------------
+
+export function querySummary(
+  db: Database,
+  whereClause: string,
+  bindings: (string | number | null)[],
+): SummaryResult {
+  const sql = `SELECT
+    COUNT(*) as total_requests,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(SUM(COALESCE(input_tokens, 0)), 0) as total_input_tokens,
+    COALESCE(SUM(COALESCE(output_tokens, 0)), 0) as total_output_tokens,
+    COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
+    COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
+    AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
+    AVG(CASE WHEN processing_ms IS NOT NULL THEN processing_ms END) as avg_processing_ms,
+    COUNT(CASE WHEN stream = 1 THEN 1 END) as stream_count
+  FROM requests ${whereClause}`;
+
+  const row = db.query(sql).get(...bindings) as {
+    total_requests: number;
+    total_tokens: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    error_count: number;
+    avg_latency_ms: number;
+    avg_ttft_ms: number | null;
+    avg_processing_ms: number | null;
+    stream_count: number;
+  };
+
+  const totalRequests = row.total_requests;
+  return {
+    total_requests: totalRequests,
+    total_tokens: row.total_tokens,
+    total_input_tokens: row.total_input_tokens,
+    total_output_tokens: row.total_output_tokens,
+    error_count: row.error_count,
+    error_rate: totalRequests > 0 ? row.error_count / totalRequests : 0,
+    avg_latency_ms: row.avg_latency_ms,
+    avg_ttft_ms: row.avg_ttft_ms,
+    avg_processing_ms: row.avg_processing_ms,
+    stream_count: row.stream_count,
+    sync_count: totalRequests - row.stream_count,
+  };
 }
 
 // ---------------------------------------------------------------------------

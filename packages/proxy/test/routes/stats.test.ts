@@ -91,6 +91,42 @@ describe("GET /api/stats/overview", () => {
   });
 });
 
+describe("GET /api/stats/summary", () => {
+  test("returns comprehensive stats", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/summary");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.total_requests).toBe(4);
+    expect(body.total_tokens).toBe(345);
+    expect(body.total_input_tokens).toBe(230); // 50+100+80+0
+    expect(body.total_output_tokens).toBe(115); // 25+50+40+0
+    expect(body.error_count).toBe(1);
+    expect(body.error_rate).toBeCloseTo(0.25);
+    expect(typeof body.avg_latency_ms).toBe("number");
+    expect(body.stream_count).toBe(0);
+    expect(body.sync_count).toBe(4);
+  });
+
+  test("respects filter params", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/summary?model=gpt-4o");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.total_requests).toBe(2);
+    expect(body.error_count).toBe(1);
+    expect(body.error_rate).toBeCloseTo(0.5);
+  });
+});
+
 describe("GET /api/stats/timeseries", () => {
   test("returns time buckets", async () => {
     seedDb(db);

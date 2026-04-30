@@ -8,6 +8,7 @@ import {
   queryModels,
   queryRecent,
   queryRequests,
+  querySummary,
   type RequestRecord,
   type ModelStats,
 } from "../../src/db/requests.ts";
@@ -169,6 +170,46 @@ describe("queryOverview", () => {
     expect(result.total_tokens).toBe(0);
     expect(result.error_count).toBe(0);
     expect(result.avg_latency_ms).toBe(0);
+  });
+});
+
+// ===========================================================================
+// querySummary
+// ===========================================================================
+
+describe("querySummary", () => {
+  test("returns comprehensive stats with no filters", () => {
+    insertRequest(db, makeRecord({ input_tokens: 100, output_tokens: 50, latency_ms: 200, stream: 1, ttft_ms: 80 }));
+    insertRequest(db, makeRecord({ input_tokens: 200, output_tokens: 100, latency_ms: 400, stream: 0 }));
+    insertRequest(db, makeRecord({ status: "error", input_tokens: 0, output_tokens: 0, latency_ms: 50, stream: 0 }));
+
+    const result = querySummary(db, "", []);
+    expect(result.total_requests).toBe(3);
+    expect(result.total_tokens).toBe(450);
+    expect(result.total_input_tokens).toBe(300);
+    expect(result.total_output_tokens).toBe(150);
+    expect(result.error_count).toBe(1);
+    expect(result.error_rate).toBeCloseTo(1 / 3);
+    expect(result.avg_ttft_ms).toBe(80); // only 1 non-null ttft_ms
+    expect(result.stream_count).toBe(1);
+    expect(result.sync_count).toBe(2);
+  });
+
+  test("respects WHERE clause filter", () => {
+    insertRequest(db, makeRecord({ model: "claude-3", input_tokens: 100, output_tokens: 50 }));
+    insertRequest(db, makeRecord({ model: "gpt-4o", input_tokens: 200, output_tokens: 100 }));
+
+    const result = querySummary(db, "WHERE model = ?", ["claude-3"]);
+    expect(result.total_requests).toBe(1);
+    expect(result.total_input_tokens).toBe(100);
+  });
+
+  test("empty db → zeros", () => {
+    const result = querySummary(db, "", []);
+    expect(result.total_requests).toBe(0);
+    expect(result.error_rate).toBe(0);
+    expect(result.avg_ttft_ms).toBeNull();
+    expect(result.avg_processing_ms).toBeNull();
   });
 });
 
