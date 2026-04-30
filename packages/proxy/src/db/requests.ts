@@ -87,6 +87,25 @@ export interface TimeseriesBucket {
   status_codes: Record<string, number>;
 }
 
+export interface BreakdownEntry {
+  key: string;
+  count: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  avg_ttft_ms: number | null;
+  error_count: number;
+  error_rate: number;
+  first_seen: number;
+  last_seen: number;
+  // Extra fields for session breakdown
+  client_name?: string;
+  account_name?: string;
+  client_version?: string | null;
+}
+
 export interface ModelStats {
   model: string;
   count: number;
@@ -304,6 +323,140 @@ export function querySummary(
     stream_count: row.stream_count,
     sync_count: totalRequests - row.stream_count,
   };
+}
+
+// ---------------------------------------------------------------------------
+// queryBreakdown — universal group-by ranking
+// ---------------------------------------------------------------------------
+
+const VALID_BY_COLUMNS: Record<string, string> = {
+  model: "model",
+  resolved_model: "resolved_model",
+  strategy: "strategy",
+  upstream: "upstream",
+  client_name: "client_name",
+  client_version: "client_version",
+  account_name: "account_name",
+  path: "path",
+  status: "status",
+  status_code: "status_code",
+  stop_reason: "stop_reason",
+  stream: "stream",
+  routing_path: "routing_path",
+  session_id: "session_id",
+};
+
+export interface BreakdownParams {
+  by: string;
+  whereClause?: string | undefined;
+  bindings?: (string | number | null)[] | undefined;
+  sort?: string | undefined;
+  order?: "asc" | "desc" | undefined;
+  limit?: number | undefined;
+}
+
+export function queryBreakdown(
+  db: Database,
+  params: BreakdownParams,
+): BreakdownEntry[] {
+  const column = VALID_BY_COLUMNS[params.by];
+  if (!column) return [];
+
+  const limit = Math.min(params.limit ?? 20, 100);
+  const sortField = params.sort ?? "count";
+  const order = params.order === "asc" ? "ASC" : "DESC";
+
+  // Validate sort field against known aggregate fields
+  const validSorts = ["count", "total_tokens", "input_tokens", "output_tokens", "avg_latency_ms", "error_count", "error_rate", "last_seen", "first_seen"];
+  const safeSort = validSorts.includes(sortField) ? sortField : "count";
+
+  // Build WHERE clause
+  const whereStr = params.whereClause || "";
+  const filterBindings = params.bindings || [];
+
+  // Convert positional bindings to named params
+  const namedBindings: Record<string, string | number | null> = { $limit: limit };
+  let adjustedWhere = whereStr;
+  if (filterBindings.length > 0) {
+    let idx = 0;
+    adjustedWhere = whereStr.replace(/\?/g, () => {
+      const key = `$_bd${idx}`;
+      namedBindings[key] = filterBindings[idx]!;
+      idx++;
+      return key;
+    });
+  }
+
+  // Session breakdown includes extra context columns
+  const isSession = params.by === "session_id";
+  const extraSelect = isSession
+    ? `, MIN(client_name) as _client_name, MIN(account_name) as _account_name, MIN(client_version) as _client_version`
+    : "";
+
+  const sql = `SELECT
+    CAST(${column} AS TEXT) as key,
+    COUNT(*) as count,
+    COALESCE(SUM(COALESCE(input_tokens, 0)), 0) as input_tokens,
+    COALESCE(SUM(COALESCE(output_tokens, 0)), 0) as output_tokens,
+    COALESCE(SUM(total_tokens), 0) as total_tokens,
+    COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
+    AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
+    COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
+    MIN(timestamp) as first_seen,
+    MAX(timestamp) as last_seen${extraSelect}
+  FROM requests
+  ${adjustedWhere}
+  GROUP BY ${column}
+  ORDER BY ${safeSort} ${order}
+  LIMIT $limit`;
+
+  const rows = db.query(sql).all(namedBindings) as Array<{
+    key: string;
+    count: number;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    avg_latency_ms: number;
+    avg_ttft_ms: number | null;
+    error_count: number;
+    first_seen: number;
+    last_seen: number;
+    _client_name?: string;
+    _account_name?: string;
+    _client_version?: string | null;
+  }>;
+
+  return rows.map((row) => {
+    // Compute p95 latency for this group
+    const latencies = db
+      .query(
+        `SELECT latency_ms FROM requests ${adjustedWhere}${adjustedWhere ? " AND" : "WHERE"} ${column} = $_grp ORDER BY latency_ms`,
+      )
+      .all({ ...namedBindings, $_grp: row.key }) as Array<{ latency_ms: number }>;
+
+    const entry: BreakdownEntry = {
+      key: row.key,
+      count: row.count,
+      input_tokens: row.input_tokens,
+      output_tokens: row.output_tokens,
+      total_tokens: row.total_tokens,
+      avg_latency_ms: row.avg_latency_ms,
+      p95_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.95),
+      avg_ttft_ms: row.avg_ttft_ms,
+      error_count: row.error_count,
+      error_rate: row.count > 0 ? row.error_count / row.count : 0,
+      first_seen: row.first_seen,
+      last_seen: row.last_seen,
+    };
+
+    if (isSession) {
+      entry.client_name = row._client_name ?? "";
+      entry.account_name = row._account_name ?? "";
+      entry.client_version = row._client_version ?? null;
+    }
+
+    return entry;
+  });
 }
 
 // ---------------------------------------------------------------------------

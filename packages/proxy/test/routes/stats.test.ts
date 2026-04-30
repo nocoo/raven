@@ -127,6 +127,66 @@ describe("GET /api/stats/summary", () => {
   });
 });
 
+describe("GET /api/stats/breakdown", () => {
+  test("returns breakdown by model", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown?by=model");
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBe(2);
+    expect(body[0]).toHaveProperty("key");
+    expect(body[0]).toHaveProperty("count");
+    expect(body[0]).toHaveProperty("error_rate");
+    expect(body[0]).toHaveProperty("p95_latency_ms");
+    expect(body[0]).toHaveProperty("first_seen");
+    expect(body[0]).toHaveProperty("last_seen");
+  });
+
+  test("missing by param → 400", async () => {
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown");
+    expect(res.status).toBe(400);
+  });
+
+  test("respects sort and order", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown?by=model&sort=count&order=asc");
+    const body = await res.json();
+    expect(body[0].count).toBeLessThanOrEqual(body[1].count);
+  });
+
+  test("respects limit", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown?by=model&limit=1");
+    const body = await res.json();
+    expect(body.length).toBe(1);
+  });
+
+  test("supports filter params", async () => {
+    seedDb(db);
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/breakdown?by=status&model=gpt-4o");
+    const body = await res.json();
+    // gpt-4o has 2 records (1 success, 1 error)
+    expect(body.length).toBe(2);
+  });
+});
+
 describe("GET /api/stats/timeseries", () => {
   test("returns time buckets", async () => {
     seedDb(db);

@@ -6,6 +6,7 @@ import {
   queryModels,
   queryRecent,
   querySummary,
+  queryBreakdown,
 } from "../db/requests.ts";
 import { parseAnalyticsFilters, buildWhereClause } from "../db/analytics-filters.ts";
 import { safeParseInt } from "../util/params.ts";
@@ -41,6 +42,30 @@ export function createStatsRoute(db: Database): Hono {
 
   route.get("/stats/models", (c) => {
     const result = queryModels(db);
+    return c.json(result);
+  });
+
+  // Universal breakdown/ranking endpoint
+  route.get("/stats/breakdown", (c) => {
+    const by = c.req.query("by");
+    if (!by) return c.json({ error: "missing 'by' parameter" }, 400);
+
+    const filters = parseAnalyticsFilters(c);
+    const { where, bindings } = buildWhereClause(filters);
+
+    const sort = c.req.query("sort") ?? "count";
+    const order = (c.req.query("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
+    const limitStr = c.req.query("limit");
+    const limit = limitStr ? safeParseInt(limitStr) ?? 20 : 20;
+
+    const result = queryBreakdown(db, {
+      by,
+      whereClause: where || undefined,
+      bindings: where ? bindings as (string | number | null)[] : undefined,
+      sort,
+      order,
+      limit,
+    });
     return c.json(result);
   });
 

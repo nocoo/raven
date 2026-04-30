@@ -9,6 +9,7 @@ import {
   queryRecent,
   queryRequests,
   querySummary,
+  queryBreakdown,
   type RequestRecord,
   type ModelStats,
 } from "../../src/db/requests.ts";
@@ -320,6 +321,70 @@ describe("queryTimeseries", () => {
 
     const result = queryTimeseries(db, "hour", "invalid");
     expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ===========================================================================
+// queryBreakdown
+// ===========================================================================
+
+describe("queryBreakdown", () => {
+  test("groups by model", () => {
+    insertRequest(db, makeRecord({ model: "claude-3", latency_ms: 100 }));
+    insertRequest(db, makeRecord({ model: "claude-3", latency_ms: 200, status: "error" }));
+    insertRequest(db, makeRecord({ model: "gpt-4o", latency_ms: 300 }));
+
+    const result = queryBreakdown(db, { by: "model" });
+    expect(result).toHaveLength(2);
+    // Default sort is count DESC
+    expect(result[0]!.key).toBe("claude-3");
+    expect(result[0]!.count).toBe(2);
+    expect(result[0]!.error_count).toBe(1);
+    expect(result[0]!.error_rate).toBeCloseTo(0.5);
+    expect(result[0]!.p95_latency_ms).toBeGreaterThan(0);
+    expect(result[0]!.first_seen).toBeLessThanOrEqual(result[0]!.last_seen);
+  });
+
+  test("invalid by value returns empty", () => {
+    const result = queryBreakdown(db, { by: "nonexistent" });
+    expect(result).toHaveLength(0);
+  });
+
+  test("respects sort and order", () => {
+    insertRequest(db, makeRecord({ model: "a", latency_ms: 500 }));
+    insertRequest(db, makeRecord({ model: "b", latency_ms: 100 }));
+    insertRequest(db, makeRecord({ model: "b", latency_ms: 100 }));
+
+    const result = queryBreakdown(db, { by: "model", sort: "avg_latency_ms", order: "desc" });
+    expect(result[0]!.key).toBe("a"); // higher avg latency
+  });
+
+  test("respects limit", () => {
+    insertRequest(db, makeRecord({ model: "a" }));
+    insertRequest(db, makeRecord({ model: "b" }));
+    insertRequest(db, makeRecord({ model: "c" }));
+
+    const result = queryBreakdown(db, { by: "model", limit: 2 });
+    expect(result).toHaveLength(2);
+  });
+
+  test("session breakdown includes extra context fields", () => {
+    insertRequest(db, makeRecord({ session_id: "s1", client_name: "vscode", account_name: "default" }));
+    insertRequest(db, makeRecord({ session_id: "s1", client_name: "vscode", account_name: "default" }));
+
+    const result = queryBreakdown(db, { by: "session_id" });
+    expect(result[0]!.client_name).toBe("vscode");
+    expect(result[0]!.account_name).toBe("default");
+  });
+
+  test("respects WHERE filter", () => {
+    insertRequest(db, makeRecord({ model: "a", status: "success" }));
+    insertRequest(db, makeRecord({ model: "a", status: "error" }));
+    insertRequest(db, makeRecord({ model: "b", status: "success" }));
+
+    const result = queryBreakdown(db, { by: "model", whereClause: "WHERE status = ?", bindings: ["error"] });
+    expect(result).toHaveLength(1);
+    expect(result[0]!.key).toBe("a");
   });
 });
 
