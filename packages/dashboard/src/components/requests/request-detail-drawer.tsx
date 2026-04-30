@@ -33,7 +33,11 @@ function formatTimestamp(ts: number): string {
 }
 
 function copyToClipboard(text: string) {
-  void navigator.clipboard.writeText(text);
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text).catch(() => {
+      /* silently fail if clipboard permission denied */
+    });
+  }
 }
 
 function DetailRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
@@ -50,8 +54,13 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
   if (!request) return null;
 
   const totalLatency = request.latency_ms;
+  const safeLatency = Math.max(totalLatency, 1); // guard division by zero
   const ttft = request.ttft_ms;
   const processing = request.processing_ms;
+
+  // Clamp TTFT + processing to not exceed 100%
+  const ttftPct = ttft != null && ttft > 0 ? Math.min((ttft / safeLatency) * 100, 100) : 0;
+  const procPct = processing != null && processing > 0 ? Math.min((processing / safeLatency) * 100, 100 - ttftPct) : 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -90,22 +99,22 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
             <div className="space-y-1">
               {/* Visual waterfall bar */}
               <div className="h-6 flex rounded overflow-hidden bg-muted text-[10px]">
-                {ttft != null && ttft > 0 && (
+                {ttft != null && ttftPct > 0 && (
                   <div
                     className="bg-chart-2 flex items-center justify-center text-white"
-                    style={{ width: `${Math.min((ttft / totalLatency) * 100, 100)}%` }}
+                    style={{ width: `${ttftPct}%` }}
                     title={`TTFT: ${formatLatency(ttft)}`}
                   >
-                    {(ttft / totalLatency) > 0.15 && "TTFT"}
+                    {ttftPct > 15 && "TTFT"}
                   </div>
                 )}
-                {processing != null && processing > 0 && (
+                {processing != null && procPct > 0 && (
                   <div
                     className="bg-chart-3 flex items-center justify-center text-white"
-                    style={{ width: `${Math.min((processing / totalLatency) * 100, 100)}%` }}
+                    style={{ width: `${procPct}%` }}
                     title={`Processing: ${formatLatency(processing)}`}
                   >
-                    {(processing / totalLatency) > 0.15 && "Proc"}
+                    {procPct > 15 && "Proc"}
                   </div>
                 )}
                 <div

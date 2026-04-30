@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Pause,
   Play,
@@ -767,10 +768,13 @@ function EventGroup({
 // ---------------------------------------------------------------------------
 
 export function LogsContent() {
+  const searchParams = useSearchParams();
+  const requestIdFilter = searchParams.get("requestId") ?? undefined;
   const [level, setLevel] = useState<LogLevel>("info");
   const [search, setSearch] = useState("");
   const { events, connected, paused, setPaused, clear, setLevel: setStreamLevel } = useLogStream({
     level,
+    ...(requestIdFilter ? { requestId: requestIdFilter } : {}),
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);
