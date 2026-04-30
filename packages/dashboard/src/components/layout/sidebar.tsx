@@ -21,6 +21,7 @@ import {
   List,
   Users,
   MessageSquare,
+  Route,
 } from "lucide-react";
 import { cn, getAvatarColor } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -65,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/models", label: "Models", icon: Boxes },
       { href: "/clients", label: "Clients", icon: Users },
       { href: "/sessions", label: "Sessions", icon: MessageSquare },
+      { href: "/providers", label: "Providers", icon: Route },
       { href: "/logs", label: "Logs", icon: Terminal },
     ],
   },
