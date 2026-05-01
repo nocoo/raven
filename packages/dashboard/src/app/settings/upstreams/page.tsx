@@ -19,8 +19,11 @@ export default async function UpstreamsPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Settings" }, { label: "Upstreams" }]}>
-      <div className="space-y-8">
-        <h1 className="text-lg font-semibold font-display">Upstreams</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Upstreams</h1>
+          <p className="text-meta">Configured upstream providers and their available models.</p>
+        </div>
         <UpstreamsContent providers={result.data} />
       </div>
     </AppShell>

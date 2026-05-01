@@ -20,8 +20,11 @@ export default async function ServerToolsPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Settings" }, { label: "Server Tools" }]}>
-      <div className="space-y-8">
-        <h1 className="text-lg font-semibold font-display">Server Tools</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Server Tools</h1>
+          <p className="text-meta">Built-in MCP/server tools and request debug toggles.</p>
+        </div>
         <ServerToolsContent data={result.data.server_tools as typeof result.data.server_tools} />
         <DebugContent data={result.data.debug} />
       </div>

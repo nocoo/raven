@@ -18,8 +18,11 @@ export default async function ProxyPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Settings" }, { label: "Proxy" }]}>
-      <div className="space-y-8">
-        <h1 className="text-lg font-semibold font-display">Proxy</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Proxy</h1>
+          <p className="text-meta">SOCKS5 outbound proxy used for upstream connections.</p>
+        </div>
         <Socks5Content data={result.data} />
       </div>
     </AppShell>

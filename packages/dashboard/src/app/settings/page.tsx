@@ -22,8 +22,11 @@ export default async function SettingsPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Settings" }]}>
-      <div className="space-y-8">
-        <h1 className="text-lg font-semibold font-display">Settings</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Settings</h1>
+          <p className="text-meta">Server status, sound notifications, IP whitelist and request optimizations.</p>
+        </div>
         <SettingsContent data={settingsResult.data} />
         {settingsResult.data.sound.available && <SoundContent data={settingsResult.data.sound} />}
         <IPWhitelistContent data={settingsResult.data.ip_whitelist} />
