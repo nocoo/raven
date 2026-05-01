@@ -87,7 +87,7 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
-                  className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground whitespace-nowrap"
+                  className="px-3 py-2.5 text-left text-card-label font-medium whitespace-nowrap"
                 >
                   {col.sortable ? (
                     <Button
@@ -128,7 +128,7 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
                 {COLUMNS.map((col) => (
                   <td
                     key={col.key}
-                    className="px-3 py-2 whitespace-nowrap tabular-nums"
+                    className="px-3 py-2.5 whitespace-nowrap tabular-nums"
                   >
                     {col.key === "key" ? (
                       <span className="font-medium text-foreground">{entry.key || "(unknown)"}</span>

@@ -74,7 +74,7 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
-                  className="px-3 py-2.5 text-left text-xs font-medium text-muted-foreground whitespace-nowrap"
+                  className="px-3 py-2.5 text-left text-card-label font-medium whitespace-nowrap"
                 >
                   {col.sortable ? (
                     <Button
@@ -112,27 +112,27 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
                   router.push(`/requests?${params.toString()}`);
                 }}
               >
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2.5 whitespace-nowrap">
                   <span className="font-mono text-xs font-medium text-foreground">
                     {truncateSessionId(entry.key || "(unknown)")}
                   </span>
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
                   {entry.client_name || "—"}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
                   {entry.account_name || "—"}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                   {formatCompact(entry.count)}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                   {formatDuration(entry.first_seen, entry.last_seen)}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                   {formatCompact(entry.total_tokens)}
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">
+                <td className="px-3 py-2.5 whitespace-nowrap">
                   <Badge
                     variant={entry.error_rate > 0.1 ? "destructive" : entry.error_rate > 0.05 ? "warning" : "secondary"}
                     className="text-[10px] px-1.5"
@@ -140,7 +140,7 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
                     {formatPercent(entry.error_rate)}
                   </Badge>
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
                   {formatRelativeTime(entry.last_seen)}
                 </td>
               </tr>
