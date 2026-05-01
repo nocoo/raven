@@ -106,7 +106,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
           return (
             <div
               key={item.id}
-              className="rounded-widget border border-border/40 bg-secondary/50 p-4"
+              className="rounded-widget border border-border/30 bg-secondary/50 p-4"
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0 flex-1">
@@ -129,7 +129,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
 
               {/* Expanded config when enabled */}
               {itemEnabled && (
-                <div className="mt-4 pt-4 border-t border-border/40">
+                <div className="mt-4 pt-4 border-t border-border/30">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm">API Key</span>

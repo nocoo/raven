@@ -62,7 +62,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
       </div>
 
       {providers.length === 0 ? (
-        <div className="rounded-widget border border-border/40 bg-secondary/30 px-6 py-8 text-center">
+        <div className="rounded-widget border border-border/30 bg-secondary/30 px-6 py-8 text-center">
           <ArrowUpDown className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
           <p className="text-sm text-muted-foreground">No upstream providers configured</p>
           <p className="text-xs text-muted-foreground/70 mt-1">
@@ -70,7 +70,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
           </p>
         </div>
       ) : (
-        <div className="rounded-widget border border-border/40 overflow-hidden">
+        <div className="rounded-widget border border-border/30 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -221,7 +221,7 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : modelsNotSupported ? (
-            <div className="rounded-md border border-border/40 bg-secondary/30 p-4">
+            <div className="rounded-md border border-border/30 bg-secondary/30 p-4">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <div className="space-y-1">
@@ -301,7 +301,7 @@ function ModelItem({ model }: { model: string }) {
   };
 
   return (
-    <div className="group flex items-center justify-between rounded-md border border-border/40 bg-secondary/30 px-3 py-1.5">
+    <div className="group flex items-center justify-between rounded-md border border-border/30 bg-secondary/30 px-3 py-1.5">
       <code className="text-xs font-mono truncate">{model}</code>
       <Button
         size="icon-xs"

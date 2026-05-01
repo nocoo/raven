@@ -139,7 +139,7 @@ function SettingRow({
   }, [settingKey, router]);
 
   return (
-    <div className="rounded-widget border border-border/40 bg-secondary/50 p-4">
+    <div className="rounded-widget border border-border/30 bg-secondary/50 p-4">
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

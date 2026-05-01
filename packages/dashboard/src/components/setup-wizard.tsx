@@ -97,7 +97,7 @@ function StepDashboard() {
           anyone who can reach <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
         </p>
 
-        <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-3">
+        <div className="rounded-widget border border-border/50 bg-secondary/30 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Current mode</span>
             <Badge variant="secondary">
@@ -136,7 +136,7 @@ function StepDashboard() {
         anyone who can reach <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
       </p>
 
-      <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-3">
+      <div className="rounded-widget border border-border/50 bg-secondary/30 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Current mode</span>
           {authEnabled ? (
@@ -195,7 +195,7 @@ function StepCopilot() {
         your terminal, not in the browser.
       </p>
 
-      <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-3">
+      <div className="rounded-widget border border-border/50 bg-secondary/30 p-4 space-y-3">
         <p className="text-sm font-medium">Steps</p>
         <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
           <li>Start the proxy server</li>
@@ -247,7 +247,7 @@ function StepApiKey() {
         page, then configure your tools to point at Raven.
       </p>
 
-      <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-3">
+      <div className="rounded-widget border border-border/50 bg-secondary/30 p-4 space-y-3">
         <div className="flex items-center gap-1.5">
           <Terminal className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
           <p className="text-sm font-medium">Claude Code config</p>
@@ -268,7 +268,7 @@ function StepApiKey() {
         />
       </div>
 
-      <div className="rounded-widget border border-border/60 bg-secondary/30 p-4 space-y-2">
+      <div className="rounded-widget border border-border/50 bg-secondary/30 p-4 space-y-2">
         <p className="text-sm font-medium">Recommended tool</p>
         <p className="text-xs text-muted-foreground">
           Use{" "}

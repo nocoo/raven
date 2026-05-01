@@ -200,7 +200,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         server&apos;s exit IP. Useful when deployed on VPS with datacenter IPs.
       </p>
 
-      <div className="rounded-widget border border-border/40 bg-secondary/50 p-4 space-y-4">
+      <div className="rounded-widget border border-border/30 bg-secondary/50 p-4 space-y-4">
         {/* Enable toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

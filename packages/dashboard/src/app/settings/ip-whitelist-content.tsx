@@ -148,7 +148,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
         receive a silent 403 response.
       </p>
 
-      <div className="rounded-widget border border-border/40 bg-secondary/50 p-4 space-y-4">
+      <div className="rounded-widget border border-border/30 bg-secondary/50 p-4 space-y-4">
         {/* Enable/Disable toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

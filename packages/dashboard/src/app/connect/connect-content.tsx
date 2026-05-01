@@ -110,7 +110,7 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
         {endpoints.map((ep) => (
           <div
             key={ep.label}
-            className="flex items-center justify-between rounded-widget bg-secondary/50 border border-border/40 px-4 py-2.5"
+            className="flex items-center justify-between rounded-widget bg-secondary/50 border border-border/30 px-4 py-2.5"
           >
             <div className="flex items-center gap-3 min-w-0">
               <span className="text-xs text-muted-foreground shrink-0 w-36">{ep.label}</span>
@@ -176,8 +176,8 @@ console.log(message.content);`,
   return (
     <section>
       <h2 className="text-sm font-medium text-muted-foreground mb-3">Code Examples</h2>
-      <div className="rounded-widget border border-border/40 overflow-hidden">
-        <div className="flex border-b border-border/40 bg-secondary/30">
+      <div className="rounded-widget border border-border/30 overflow-hidden">
+        <div className="flex border-b border-border/30 bg-secondary/30">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -219,8 +219,8 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
         <Terminal className="h-4 w-4" strokeWidth={1.5} />
         Setup Guides
       </h2>
-      <div className="rounded-widget border border-border/40 overflow-hidden">
-        <div className="flex border-b border-border/40 bg-secondary/30">
+      <div className="rounded-widget border border-border/30 overflow-hidden">
+        <div className="flex border-b border-border/30 bg-secondary/30">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -351,7 +351,7 @@ const COPILOT_VENDORS = new Set([
 function ModelsSection({ models }: { models: ModelInfo[] }) {
   if (models.length === 0) {
     return (
-      <div className="rounded-widget border border-border/40 bg-secondary/30 px-6 py-8 text-center">
+      <div className="rounded-widget border border-border/30 bg-secondary/30 px-6 py-8 text-center">
         <Cpu className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
         <p className="text-sm text-muted-foreground">No models available</p>
         <p className="text-xs text-muted-foreground/70 mt-1">
@@ -435,7 +435,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
         <h4 className="text-sm font-medium">{displayName}</h4>
         <Badge variant="secondary" className="text-xs">{models.length}</Badge>
       </div>
-      <div className="rounded-widget border border-border/40 overflow-hidden">
+      <div className="rounded-widget border border-border/30 overflow-hidden">
         <Table>
           <TableBody>
             {models.map((model) => (
@@ -521,7 +521,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
       )}
 
       {initialKeys.length === 0 ? (
-        <div className="rounded-widget border border-border/40 bg-secondary/30 px-6 py-8 text-center">
+        <div className="rounded-widget border border-border/30 bg-secondary/30 px-6 py-8 text-center">
           <Key
             className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2"
             strokeWidth={1.5}
@@ -532,7 +532,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
           </p>
         </div>
       ) : (
-        <div className="rounded-widget border border-border/40 overflow-hidden">
+        <div className="rounded-widget border border-border/30 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
@@ -668,7 +668,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="flex items-center gap-2 rounded-widget bg-secondary/50 border border-border/40 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-widget bg-secondary/50 border border-border/30 px-3 py-2">
             <code className="text-xs font-mono flex-1 break-all select-all">
               {createdKey}
             </code>
