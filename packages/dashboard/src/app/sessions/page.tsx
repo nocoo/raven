@@ -35,8 +35,11 @@ export default async function SessionsPage({ searchParams }: PageProps) {
   if (!result.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Sessions" }]}>
-        <div className="space-y-4">
-          <h1 className="text-lg font-semibold font-display">Sessions</h1>
+        <div className="space-y-4 md:space-y-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display">Sessions</h1>
+            <p className="text-meta">Aggregate per-session activity grouped by session_id.</p>
+          </div>
           <FetchError title="Failed to load session data" message={result.error} />
         </div>
       </AppShell>
@@ -45,8 +48,11 @@ export default async function SessionsPage({ searchParams }: PageProps) {
 
   return (
     <AppShell breadcrumbs={[{ label: "Sessions" }]}>
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold font-display">Sessions</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Sessions</h1>
+          <p className="text-meta">Aggregate per-session activity grouped by session_id.</p>
+        </div>
         <Suspense>
           <FilterBar compact />
         </Suspense>

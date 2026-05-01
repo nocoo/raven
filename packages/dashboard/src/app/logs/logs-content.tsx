@@ -850,7 +850,7 @@ export function LogsContent() {
       {/* Header */}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 md:gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold font-display">Logs</h1>
+          <h1 className="text-display">Logs</h1>
           <ConnectionIndicator connected={connected} />
         </div>
         <div className="flex items-center gap-2">
@@ -945,7 +945,7 @@ export function LogsContent() {
           )}
 
           {/* Footer status */}
-          <div className="flex shrink-0 items-center justify-between pt-2 text-xs text-muted-foreground">
+          <div className="flex shrink-0 items-center justify-between pt-2 text-meta">
             <span>
               {filteredEvents.length} events
               {search && ` (filtered from ${events.length})`}

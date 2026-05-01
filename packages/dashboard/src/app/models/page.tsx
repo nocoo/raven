@@ -35,8 +35,11 @@ export default async function ModelsPage({ searchParams }: PageProps) {
   if (!result.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Models" }]}>
-        <div className="space-y-4">
-          <h1 className="text-lg font-semibold font-display">Model Explorer</h1>
+        <div className="space-y-4 md:space-y-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display">Model Explorer</h1>
+            <p className="text-meta">Per-model traffic, latency, error rate and token usage.</p>
+          </div>
           <FetchError title="Failed to load model stats" message={result.error} />
         </div>
       </AppShell>
@@ -47,8 +50,11 @@ export default async function ModelsPage({ searchParams }: PageProps) {
 
   return (
     <AppShell breadcrumbs={[{ label: "Models" }]}>
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold font-display">Model Explorer</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Model Explorer</h1>
+          <p className="text-meta">Per-model traffic, latency, error rate and token usage.</p>
+        </div>
         <Suspense>
           <FilterBar models={models} compact />
         </Suspense>
