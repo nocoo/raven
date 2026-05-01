@@ -79,10 +79,22 @@ fits in `text-card-label`, do not promote it to `text-section`.
 
 | Variant | Class string |
 |---------|--------------|
-| Primary card (L1) | `rounded-card bg-card p-4 md:p-5` |
-| Nested card (L2) | `rounded-card bg-secondary p-3 md:p-4` |
+| Primary card / page chrome shell (L1) | `rounded-card bg-card p-4 md:p-5` |
+| Small data card / stat tile (L2) | `rounded-card bg-secondary p-4 md:p-5` |
+| Nested chart / table surface (L2) | `rounded-card bg-secondary p-3 md:p-4` |
 | Compact card (L2) | `rounded-widget bg-secondary p-2 md:p-3` |
 | Page spacing | `space-y-4 md:space-y-6`, grids `gap-3 md:gap-4` |
+
+**Surface intuition (raven token reality)** — `--secondary` is `99%` luminance
+and visually reads as **white**, while `--card` is `97%` and reads as a
+**neutral grey shell**. Therefore:
+
+- Small data cards (StatCard, summary tiles, monitor stats) use
+  `bg-secondary` so the data surface looks crisp white.
+- Outer page chrome / form group containers use `bg-card` only when a grey
+  shell genuinely helps grouping. Avoid wrapping a section of L2 panels in
+  another L1 shell — prefer `<DashboardSegment>` (uppercase label + 1px
+  hairline, no background) for grouping.
 
 **Migration rule** — **do not** mass-replace `bg-secondary` → `bg-card`.
 Per page: outer stat / analytics / settings group = `bg-card`; inner chart

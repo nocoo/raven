@@ -105,7 +105,7 @@ export function StatCard({
   }
 
   return (
-    <div className={cn("bg-card rounded-card p-4 md:p-5", className)}>
+    <div className={cn("bg-secondary rounded-card p-4 md:p-5", className)}>
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-widget bg-primary/10">
           <Icon className="h-4 w-4 text-primary" strokeWidth={1.5} />

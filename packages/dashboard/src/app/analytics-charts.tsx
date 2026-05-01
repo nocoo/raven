@@ -29,6 +29,7 @@ import {
   ChartTooltipSummary,
   DashboardCartesianGrid,
 } from "@/components/dashboard/chart-primitives";
+import { DashboardSegment } from "@/components/layout/dashboard-segment";
 import type { ExtendedTimeseriesBucket, BreakdownEntry } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -83,7 +84,8 @@ function ChartSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
-// Section wrapper — L1 card holding a labeled group of L2 charts
+// Section wrapper — uppercase label + hairline (DashboardSegment), no outer
+// card surface. Children are L2 ChartPanel atoms which carry their own bg.
 // ---------------------------------------------------------------------------
 
 function ChartSection({
@@ -94,12 +96,11 @@ function ChartSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-card bg-card p-4 md:p-5">
-      <h2 className="text-section mb-3 md:mb-4">{title}</h2>
+    <DashboardSegment title={title}>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
         {children}
       </div>
-    </section>
+    </DashboardSegment>
   );
 }
 
@@ -428,27 +429,25 @@ export function AnalyticsCharts({
 
   if (!mounted) {
     return (
-      <div className="space-y-4 md:space-y-6">
-        <section className="rounded-card bg-card p-4 md:p-5">
-          <Skeleton className="h-5 w-24 mb-3 md:mb-4" />
+      <div className="space-y-5 md:space-y-7">
+        <DashboardSegment title="Traffic">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <ChartSkeleton />
             <ChartSkeleton />
           </div>
-        </section>
-        <section className="rounded-card bg-card p-4 md:p-5">
-          <Skeleton className="h-5 w-32 mb-3 md:mb-4" />
+        </DashboardSegment>
+        <DashboardSegment title="Performance">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <ChartSkeleton />
             <ChartSkeleton />
           </div>
-        </section>
+        </DashboardSegment>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-5 md:space-y-7">
       <ChartSection title="Traffic">
         <TrafficVolumeChart data={timeseries} />
         <StreamSyncChart data={timeseries} />
@@ -464,14 +463,13 @@ export function AnalyticsCharts({
         <TokenBurnChart data={timeseries} />
       </ChartSection>
 
-      <section className="rounded-card bg-card p-4 md:p-5">
-        <h2 className="text-section mb-3 md:mb-4">Breakdowns</h2>
+      <DashboardSegment title="Breakdowns">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           <BreakdownBar title="Top Models" data={modelBreakdown} />
           <BreakdownBar title="Top Clients" data={clientBreakdown} />
           <BreakdownBar title="Top Strategies" data={strategyBreakdown} />
         </div>
-      </section>
+      </DashboardSegment>
     </div>
   );
 }

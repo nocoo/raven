@@ -72,7 +72,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <AppShell>
-      <div className="space-y-4 md:space-y-6">
+      <div className="space-y-5 md:space-y-7">
         {/* Page header */}
         <div className="flex flex-col gap-1">
           <h1 className="text-display">Overview</h1>
