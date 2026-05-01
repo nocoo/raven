@@ -105,21 +105,21 @@ export function StatCard({
   }
 
   return (
-    <div className={cn("bg-secondary rounded-card p-4", className)}>
+    <div className={cn("bg-card rounded-card p-4 md:p-5", className)}>
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-widget bg-primary/10">
           <Icon className="h-4 w-4 text-primary" strokeWidth={1.5} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-card-label">{label}</p>
           <div className="flex items-center gap-3">
-            <p className={cn("text-xl font-semibold tracking-tight", accentColors[accent])}>
+            <p className={cn("text-xl font-semibold tracking-tight tabular-nums", accentColors[accent])}>
               {value}
             </p>
             {sparkline && <Sparkline data={sparkline} />}
           </div>
           {detail && (
-            <p className="text-xs text-muted-foreground mt-0.5">{detail}</p>
+            <p className="text-meta mt-0.5">{detail}</p>
           )}
         </div>
       </div>

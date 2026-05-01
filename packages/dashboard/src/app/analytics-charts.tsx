@@ -8,7 +8,6 @@ import {
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   Legend,
@@ -17,7 +16,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   CHART_COLORS,
   AXIS_CONFIG,
-  TOOLTIP_STYLES,
   RESPONSIVE_CONTAINER_PROPS,
   CHART_HEIGHTS,
   ANIMATION_PROPS,
@@ -25,42 +23,105 @@ import {
   formatCompact,
   formatLatency,
 } from "@/lib/chart-config";
+import {
+  ChartTooltip,
+  ChartTooltipRow,
+  ChartTooltipSummary,
+  DashboardCartesianGrid,
+} from "@/components/dashboard/chart-primitives";
 import type { ExtendedTimeseriesBucket, BreakdownEntry } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
-// Shared tooltip
+// Shared tooltip — uses chart-primitives atoms (Rule 6)
 // ---------------------------------------------------------------------------
 
-function ChartTooltip({ active, payload, label, formatter }: {
+function TimeseriesTooltip({
+  active,
+  payload,
+  label,
+  formatter,
+  showTotal = false,
+}: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: number;
   formatter?: (value: number, name: string) => string;
+  showTotal?: boolean;
 }) {
   if (!active || !payload?.length) return null;
+  const fmt = formatter ?? ((v: number) => v.toLocaleString());
+  const total = showTotal ? payload.reduce((s, e) => s + e.value, 0) : 0;
   return (
-    <div className={TOOLTIP_STYLES.container}>
-      <p className={TOOLTIP_STYLES.title}>{label ? formatBucketTime(label) : ""}</p>
+    <ChartTooltip title={label ? formatBucketTime(label) : undefined}>
       {payload.map((entry) => (
-        <p key={entry.name} className={TOOLTIP_STYLES.value}>
-          <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: entry.color }} />
-          {entry.name}: {formatter ? formatter(entry.value, entry.name) : entry.value.toLocaleString()}
-        </p>
+        <ChartTooltipRow
+          key={entry.name}
+          color={entry.color}
+          label={entry.name}
+          value={fmt(entry.value, entry.name)}
+        />
       ))}
-    </div>
+      {showTotal && payload.length > 1 && (
+        <ChartTooltipSummary label="Total" value={fmt(total, "total")} />
+      )}
+    </ChartTooltip>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Skeleton
+// Skeleton (L2 surface inside the section card)
 // ---------------------------------------------------------------------------
 
 function ChartSkeleton() {
   const height = CHART_HEIGHTS.standard + 48;
   return (
-    <div className="bg-secondary rounded-card p-4" style={{ height }}>
+    <div className="bg-secondary rounded-card p-3 md:p-4" style={{ height }}>
       <Skeleton className="h-4 w-32 mb-3" />
       <Skeleton className="h-full w-full rounded-widget" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section wrapper — L1 card holding a labeled group of L2 charts
+// ---------------------------------------------------------------------------
+
+function ChartSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-card bg-card p-4 md:p-5">
+      <h2 className="text-section mb-3 md:mb-4">{title}</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Chart panel wrapper — L2 surface inside a section
+// ---------------------------------------------------------------------------
+
+function ChartPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-secondary rounded-card p-3 md:p-4">
+      <h3 className="text-card-label mb-3 font-medium">{title}</h3>
+      <div style={{ height: CHART_HEIGHTS.standard }}>
+        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
+          {children as React.ReactElement}
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -71,91 +132,81 @@ function ChartSkeleton() {
 
 function TrafficVolumeChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
   return (
-    <div className="bg-secondary rounded-card p-4">
-      <h3 className="text-sm font-medium mb-3">Request Volume</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="successFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="errorFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={CHART_COLORS.danger} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={CHART_COLORS.danger} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
-            <YAxis {...AXIS_CONFIG} />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Area
-              type="monotone"
-              dataKey="success_count"
-              name="Success"
-              stackId="volume"
-              stroke={CHART_COLORS.primary}
-              fill="url(#successFill)"
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-            <Area
-              type="monotone"
-              dataKey="error_count"
-              name="Errors"
-              stackId="volume"
-              stroke={CHART_COLORS.danger}
-              fill="url(#errorFill)"
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartPanel title="Request Volume">
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id="successFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="errorFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={CHART_COLORS.danger} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={CHART_COLORS.danger} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <DashboardCartesianGrid />
+        <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
+        <YAxis {...AXIS_CONFIG} />
+        <Tooltip content={<TimeseriesTooltip showTotal />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Area
+          type="monotone"
+          dataKey="success_count"
+          name="Success"
+          stackId="volume"
+          stroke={CHART_COLORS.primary}
+          fill="url(#successFill)"
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+        <Area
+          type="monotone"
+          dataKey="error_count"
+          name="Errors"
+          stackId="volume"
+          stroke={CHART_COLORS.danger}
+          fill="url(#errorFill)"
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+      </AreaChart>
+    </ChartPanel>
   );
 }
 
 function StreamSyncChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
   return (
-    <div className="bg-secondary rounded-card p-4">
-      <h3 className="text-sm font-medium mb-3">Stream vs Sync</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
-            <YAxis {...AXIS_CONFIG} />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Area
-              type="monotone"
-              dataKey="stream_count"
-              name="Stream"
-              stackId="mode"
-              stroke={CHART_COLORS.palette[2]}
-              fill={CHART_COLORS.palette[2]}
-              fillOpacity={0.2}
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-            <Area
-              type="monotone"
-              dataKey="sync_count"
-              name="Sync"
-              stackId="mode"
-              stroke={CHART_COLORS.palette[5]}
-              fill={CHART_COLORS.palette[5]}
-              fillOpacity={0.2}
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartPanel title="Stream vs Sync">
+      <AreaChart data={data}>
+        <DashboardCartesianGrid />
+        <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
+        <YAxis {...AXIS_CONFIG} />
+        <Tooltip content={<TimeseriesTooltip showTotal />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Area
+          type="monotone"
+          dataKey="stream_count"
+          name="Stream"
+          stackId="mode"
+          stroke={CHART_COLORS.palette[2]}
+          fill={CHART_COLORS.palette[2]}
+          fillOpacity={0.2}
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+        <Area
+          type="monotone"
+          dataKey="sync_count"
+          name="Sync"
+          stackId="mode"
+          stroke={CHART_COLORS.palette[5]}
+          fill={CHART_COLORS.palette[5]}
+          fillOpacity={0.2}
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+      </AreaChart>
+    </ChartPanel>
   );
 }
 
@@ -165,49 +216,44 @@ function StreamSyncChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
 
 function LatencyChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
   return (
-    <div className="bg-secondary rounded-card p-4">
-      <h3 className="text-sm font-medium mb-3">Latency</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
-            <YAxis tickFormatter={(v: number) => formatLatency(v)} {...AXIS_CONFIG} />
-            <Tooltip content={<ChartTooltip formatter={(v) => formatLatency(v)} />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line
-              type="monotone"
-              dataKey="avg_latency_ms"
-              name="Avg"
-              stroke={CHART_COLORS.primary}
-              strokeWidth={2}
-              dot={false}
-              {...ANIMATION_PROPS}
-            />
-            <Line
-              type="monotone"
-              dataKey="p95_latency_ms"
-              name="P95"
-              stroke={CHART_COLORS.warning}
-              strokeWidth={1.5}
-              strokeDasharray="4 2"
-              dot={false}
-              {...ANIMATION_PROPS}
-            />
-            <Line
-              type="monotone"
-              dataKey="p99_latency_ms"
-              name="P99"
-              stroke={CHART_COLORS.danger}
-              strokeWidth={1}
-              strokeDasharray="2 2"
-              dot={false}
-              {...ANIMATION_PROPS}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartPanel title="Latency">
+      <LineChart data={data}>
+        <DashboardCartesianGrid />
+        <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
+        <YAxis tickFormatter={(v: number) => formatLatency(v)} {...AXIS_CONFIG} />
+        <Tooltip content={<TimeseriesTooltip formatter={(v) => formatLatency(v)} />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Line
+          type="monotone"
+          dataKey="avg_latency_ms"
+          name="Avg"
+          stroke={CHART_COLORS.primary}
+          strokeWidth={2}
+          dot={false}
+          {...ANIMATION_PROPS}
+        />
+        <Line
+          type="monotone"
+          dataKey="p95_latency_ms"
+          name="P95"
+          stroke={CHART_COLORS.warning}
+          strokeWidth={1.5}
+          strokeDasharray="4 2"
+          dot={false}
+          {...ANIMATION_PROPS}
+        />
+        <Line
+          type="monotone"
+          dataKey="p99_latency_ms"
+          name="P99"
+          stroke={CHART_COLORS.danger}
+          strokeWidth={1}
+          strokeDasharray="2 2"
+          dot={false}
+          {...ANIMATION_PROPS}
+        />
+      </LineChart>
+    </ChartPanel>
   );
 }
 
@@ -216,41 +262,36 @@ function TtftChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
   if (!hasData) return null;
 
   return (
-    <div className="bg-secondary rounded-card p-4">
-      <h3 className="text-sm font-medium mb-3">Time to First Token</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
-            <YAxis tickFormatter={(v: number) => formatLatency(v)} {...AXIS_CONFIG} />
-            <Tooltip content={<ChartTooltip formatter={(v) => formatLatency(v)} />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line
-              type="monotone"
-              dataKey="avg_ttft_ms"
-              name="Avg TTFT"
-              stroke={CHART_COLORS.palette[3]}
-              strokeWidth={2}
-              dot={false}
-              connectNulls
-              {...ANIMATION_PROPS}
-            />
-            <Line
-              type="monotone"
-              dataKey="p95_ttft_ms"
-              name="P95 TTFT"
-              stroke={CHART_COLORS.palette[7]}
-              strokeWidth={1.5}
-              strokeDasharray="4 2"
-              dot={false}
-              connectNulls
-              {...ANIMATION_PROPS}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartPanel title="Time to First Token">
+      <LineChart data={data}>
+        <DashboardCartesianGrid />
+        <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
+        <YAxis tickFormatter={(v: number) => formatLatency(v)} {...AXIS_CONFIG} />
+        <Tooltip content={<TimeseriesTooltip formatter={(v) => formatLatency(v)} />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Line
+          type="monotone"
+          dataKey="avg_ttft_ms"
+          name="Avg TTFT"
+          stroke={CHART_COLORS.palette[3]}
+          strokeWidth={2}
+          dot={false}
+          connectNulls
+          {...ANIMATION_PROPS}
+        />
+        <Line
+          type="monotone"
+          dataKey="p95_ttft_ms"
+          name="P95 TTFT"
+          stroke={CHART_COLORS.palette[7]}
+          strokeWidth={1.5}
+          strokeDasharray="4 2"
+          dot={false}
+          connectNulls
+          {...ANIMATION_PROPS}
+        />
+      </LineChart>
+    </ChartPanel>
   );
 }
 
@@ -265,34 +306,29 @@ function ErrorRateChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
   }));
 
   return (
-    <div className="bg-secondary rounded-card p-4">
-      <h3 className="text-sm font-medium mb-3">Error Rate</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={withRate}>
-            <defs>
-              <linearGradient id="errorRateFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={CHART_COLORS.danger} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={CHART_COLORS.danger} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
-            <YAxis tickFormatter={(v: number) => `${v.toFixed(0)}%`} {...AXIS_CONFIG} />
-            <Tooltip content={<ChartTooltip formatter={(v) => `${v.toFixed(1)}%`} />} />
-            <Area
-              type="monotone"
-              dataKey="error_rate_pct"
-              name="Error Rate"
-              stroke={CHART_COLORS.danger}
-              fill="url(#errorRateFill)"
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartPanel title="Error Rate">
+      <AreaChart data={withRate}>
+        <defs>
+          <linearGradient id="errorRateFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={CHART_COLORS.danger} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={CHART_COLORS.danger} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <DashboardCartesianGrid />
+        <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
+        <YAxis tickFormatter={(v: number) => `${v.toFixed(0)}%`} {...AXIS_CONFIG} />
+        <Tooltip content={<TimeseriesTooltip formatter={(v) => `${v.toFixed(1)}%`} />} />
+        <Area
+          type="monotone"
+          dataKey="error_rate_pct"
+          name="Error Rate"
+          stroke={CHART_COLORS.danger}
+          fill="url(#errorRateFill)"
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+      </AreaChart>
+    </ChartPanel>
   );
 }
 
@@ -302,47 +338,42 @@ function ErrorRateChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
 
 function TokenBurnChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
   return (
-    <div className="bg-secondary rounded-card p-4">
-      <h3 className="text-sm font-medium mb-3">Token Usage</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
-            <YAxis tickFormatter={(v: number) => formatCompact(v)} {...AXIS_CONFIG} />
-            <Tooltip content={<ChartTooltip formatter={(v) => formatCompact(v)} />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Area
-              type="monotone"
-              dataKey="input_tokens"
-              name="Input"
-              stackId="tokens"
-              stroke={CHART_COLORS.palette[8]}
-              fill={CHART_COLORS.palette[8]}
-              fillOpacity={0.2}
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-            <Area
-              type="monotone"
-              dataKey="output_tokens"
-              name="Output"
-              stackId="tokens"
-              stroke={CHART_COLORS.palette[4]}
-              fill={CHART_COLORS.palette[4]}
-              fillOpacity={0.2}
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <ChartPanel title="Token Usage">
+      <AreaChart data={data}>
+        <DashboardCartesianGrid />
+        <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
+        <YAxis tickFormatter={(v: number) => formatCompact(v)} {...AXIS_CONFIG} />
+        <Tooltip content={<TimeseriesTooltip formatter={(v) => formatCompact(v)} showTotal />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Area
+          type="monotone"
+          dataKey="input_tokens"
+          name="Input"
+          stackId="tokens"
+          stroke={CHART_COLORS.palette[8]}
+          fill={CHART_COLORS.palette[8]}
+          fillOpacity={0.2}
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+        <Area
+          type="monotone"
+          dataKey="output_tokens"
+          name="Output"
+          stackId="tokens"
+          stroke={CHART_COLORS.palette[4]}
+          fill={CHART_COLORS.palette[4]}
+          fillOpacity={0.2}
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+      </AreaChart>
+    </ChartPanel>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Breakdown Bar (quick horizontal bars)
+// Breakdown Bar (quick horizontal bars) — L2 surface inside section
 // ---------------------------------------------------------------------------
 
 function BreakdownBar({ title, data, limit = 5 }: { title: string; data: BreakdownEntry[]; limit?: number }) {
@@ -350,23 +381,25 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
   const maxCount = top.length > 0 ? Math.max(...top.map((e) => e.count)) : 1;
 
   return (
-    <div className="bg-secondary rounded-card p-4">
-      <h3 className="text-sm font-medium mb-3">{title}</h3>
+    <div className="bg-secondary rounded-card p-3 md:p-4">
+      <h3 className="text-card-label mb-3 font-medium">{title}</h3>
       <div className="space-y-2">
         {top.map((entry) => (
           <div key={entry.key} className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground w-24 truncate shrink-0">{entry.key || "(empty)"}</span>
+            <span className="text-meta w-24 truncate shrink-0">{entry.key || "(empty)"}</span>
             <div className="flex-1 h-5 bg-muted rounded-sm overflow-hidden">
               <div
                 className="h-full bg-primary/60 rounded-sm transition-all"
                 style={{ width: `${(entry.count / maxCount) * 100}%` }}
               />
             </div>
-            <span className="text-xs tabular-nums text-muted-foreground w-12 text-right">{formatCompact(entry.count)}</span>
+            <span className="text-numeric w-12 text-right text-muted-foreground">
+              {formatCompact(entry.count)}
+            </span>
           </div>
         ))}
         {top.length === 0 && (
-          <p className="text-xs text-muted-foreground">No data</p>
+          <p className="text-meta">No data</p>
         )}
       </div>
     </div>
@@ -395,50 +428,45 @@ export function AnalyticsCharts({
 
   if (!mounted) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <ChartSkeleton />
-          <ChartSkeleton />
-          <ChartSkeleton />
-          <ChartSkeleton />
-        </div>
+      <div className="space-y-4 md:space-y-6">
+        <section className="rounded-card bg-card p-4 md:p-5">
+          <Skeleton className="h-5 w-24 mb-3 md:mb-4" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+            <ChartSkeleton />
+            <ChartSkeleton />
+          </div>
+        </section>
+        <section className="rounded-card bg-card p-4 md:p-5">
+          <Skeleton className="h-5 w-32 mb-3 md:mb-4" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+            <ChartSkeleton />
+            <ChartSkeleton />
+          </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Traffic */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Traffic</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <TrafficVolumeChart data={timeseries} />
-          <StreamSyncChart data={timeseries} />
-        </div>
-      </section>
+    <div className="space-y-4 md:space-y-6">
+      <ChartSection title="Traffic">
+        <TrafficVolumeChart data={timeseries} />
+        <StreamSyncChart data={timeseries} />
+      </ChartSection>
 
-      {/* Performance */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Performance</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <LatencyChart data={timeseries} />
-          <TtftChart data={timeseries} />
-        </div>
-      </section>
+      <ChartSection title="Performance">
+        <LatencyChart data={timeseries} />
+        <TtftChart data={timeseries} />
+      </ChartSection>
 
-      {/* Reliability */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Reliability</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <ErrorRateChart data={timeseries} />
-          <TokenBurnChart data={timeseries} />
-        </div>
-      </section>
+      <ChartSection title="Reliability">
+        <ErrorRateChart data={timeseries} />
+        <TokenBurnChart data={timeseries} />
+      </ChartSection>
 
-      {/* Quick Breakdowns */}
-      <section>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Breakdowns</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <section className="rounded-card bg-card p-4 md:p-5">
+        <h2 className="text-section mb-3 md:mb-4">Breakdowns</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           <BreakdownBar title="Top Models" data={modelBreakdown} />
           <BreakdownBar title="Top Clients" data={clientBreakdown} />
           <BreakdownBar title="Top Strategies" data={strategyBreakdown} />

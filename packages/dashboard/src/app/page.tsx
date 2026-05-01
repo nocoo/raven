@@ -72,14 +72,22 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
+        {/* Page header */}
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Overview</h1>
+          <p className="text-meta">
+            Live analytics across all proxied requests, models, and clients.
+          </p>
+        </div>
+
         {/* Filter Bar */}
         <Suspense>
           <FilterBar models={models} strategies={strategies} />
         </Suspense>
 
         {/* Stat cards row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
           <StatCard
             icon={Activity}
             label="Total Requests"
