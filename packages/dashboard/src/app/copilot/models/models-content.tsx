@@ -2,9 +2,11 @@
 
 import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Check, Copy } from "lucide-react";
+import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatCard } from "@/components/stats/stat-card";
+import { formatCompact } from "@/lib/chart-config";
 import {
   Table,
   TableHeader,
@@ -92,6 +94,16 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
 
   const groups = useMemo(() => groupAndSort(data), [data]);
 
+  const summary = useMemo(() => {
+    const maxContext = data.reduce((max, m) => {
+      const c = m.capabilities.limits?.max_context_window_tokens ?? 0;
+      return c > max ? c : max;
+    }, 0);
+    const pickerCount = data.filter((m) => m.model_picker_enabled).length;
+    const previewCount = data.filter((m) => !!m.preview_state).length;
+    return { maxContext, pickerCount, previewCount };
+  }, [data]);
+
   async function handleRefresh() {
     setIsRefreshing(true);
     setRefreshError(null);
@@ -108,7 +120,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-meta">
           {data.length} model{data.length !== 1 ? "s" : ""} across{" "}
           {groups.length} vendor{groups.length !== 1 ? "s" : ""}
         </p>
@@ -128,6 +140,31 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
       {refreshError && (
         <p className="text-xs text-destructive">{refreshError}</p>
       )}
+
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <StatCard
+          icon={Boxes}
+          label="Models"
+          value={data.length.toLocaleString()}
+        />
+        <StatCard
+          icon={Building2}
+          label="Vendors"
+          value={groups.length.toLocaleString()}
+        />
+        <StatCard
+          icon={Brain}
+          label="Max Context"
+          value={summary.maxContext > 0 ? `${formatCompact(summary.maxContext)} tok` : "—"}
+        />
+        <StatCard
+          icon={Eye}
+          label="Picker / Preview"
+          value={`${summary.pickerCount} / ${summary.previewCount}`}
+          detail="enabled / preview state"
+        />
+      </div>
 
       {groups.map(({ vendor, models }) => (
         <div key={vendor} className="space-y-2">
