@@ -43,8 +43,11 @@ export default async function ProvidersPage({ searchParams }: PageProps) {
   if (!strategyResult.ok && !upstreamResult.ok && !routingResult.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Providers" }]}>
-        <div className="space-y-4">
-          <h1 className="text-lg font-semibold font-display">Providers & Strategy</h1>
+        <div className="space-y-4 md:space-y-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display">Providers &amp; Strategy</h1>
+            <p className="text-meta">Routing strategy, upstream usage and resolved routing paths.</p>
+          </div>
           <FetchError title="Failed to load provider data" message={strategyResult.error} />
         </div>
       </AppShell>
@@ -53,8 +56,11 @@ export default async function ProvidersPage({ searchParams }: PageProps) {
 
   return (
     <AppShell breadcrumbs={[{ label: "Providers" }]}>
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold font-display">Providers & Strategy</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Providers &amp; Strategy</h1>
+          <p className="text-meta">Routing strategy, upstream usage and resolved routing paths.</p>
+        </div>
         <Suspense>
           <FilterBar compact />
         </Suspense>

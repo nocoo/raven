@@ -12,8 +12,11 @@ export default async function CopilotModelsPage() {
   if (!result.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Models" }]}>
-        <div className="space-y-4">
-          <h1 className="text-lg font-semibold font-display">Copilot Models</h1>
+        <div className="space-y-4 md:space-y-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display">Copilot Models</h1>
+            <p className="text-meta">All Copilot models exposed through the proxy with capabilities and limits.</p>
+          </div>
           <FetchError
             title="Failed to load Copilot models"
             message={result.error}
@@ -25,8 +28,11 @@ export default async function CopilotModelsPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Models" }]}>
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold font-display">Copilot Models</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Copilot Models</h1>
+          <p className="text-meta">All Copilot models exposed through the proxy with capabilities and limits.</p>
+        </div>
         <CopilotModelsContent data={result.data.data} />
       </div>
     </AppShell>

@@ -12,8 +12,11 @@ export default async function CopilotAccountPage() {
   if (!result.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Account" }]}>
-        <div className="space-y-4">
-          <h1 className="text-lg font-semibold font-display">Copilot Account</h1>
+        <div className="space-y-4 md:space-y-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display">Copilot Account</h1>
+            <p className="text-meta">GitHub Copilot subscription, plan and quota for the proxied account.</p>
+          </div>
           <FetchError
             title="Failed to load account info"
             message={result.error}
@@ -25,8 +28,11 @@ export default async function CopilotAccountPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Account" }]}>
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold font-display">Copilot Account</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Copilot Account</h1>
+          <p className="text-meta">GitHub Copilot subscription, plan and quota for the proxied account.</p>
+        </div>
         <AccountContent data={result.data} />
       </div>
     </AppShell>

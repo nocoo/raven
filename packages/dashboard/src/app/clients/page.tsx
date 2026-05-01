@@ -35,8 +35,11 @@ export default async function ClientsPage({ searchParams }: PageProps) {
   if (!result.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Clients" }]}>
-        <div className="space-y-4">
-          <h1 className="text-lg font-semibold font-display">Clients</h1>
+        <div className="space-y-4 md:space-y-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display">Clients</h1>
+            <p className="text-meta">Top client applications by request volume.</p>
+          </div>
           <FetchError title="Failed to load client data" message={result.error} />
         </div>
       </AppShell>
@@ -45,8 +48,11 @@ export default async function ClientsPage({ searchParams }: PageProps) {
 
   return (
     <AppShell breadcrumbs={[{ label: "Clients" }]}>
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold font-display">Clients</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Clients</h1>
+          <p className="text-meta">Top client applications by request volume.</p>
+        </div>
         <Suspense>
           <FilterBar compact />
         </Suspense>

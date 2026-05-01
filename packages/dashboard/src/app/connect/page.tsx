@@ -23,8 +23,11 @@ export default async function ConnectPage() {
 
   return (
     <AppShell breadcrumbs={[{ label: "Connect" }]}>
-      <div className="space-y-6">
-        <h1 className="text-lg font-semibold font-display">Connect</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Connect</h1>
+          <p className="text-meta">API keys and the proxy endpoints to wire into your client.</p>
+        </div>
         <ConnectContent
           keys={keysResult.data}
           connectionInfo={connResult.data}
