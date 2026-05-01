@@ -327,6 +327,40 @@
   font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
 }
 
+/*
+ * Typography utilities — see docs/22-dashboard-design-system.md (Rule 2).
+ * Six semantic classes with strict edges; do not invent variants per page.
+ *   text-display       — page H1 only
+ *   text-section       — card/panel main title only
+ *   text-card-label    — small label, table header
+ *   text-body          — body content
+ *   text-meta          — subtitle, timestamp, hint
+ *   text-numeric       — numeric table column / stat values (tabular-nums)
+ */
+@utility text-display {
+  @apply text-2xl md:text-3xl font-semibold font-display tracking-tight;
+}
+
+@utility text-section {
+  @apply text-base md:text-lg font-semibold font-display;
+}
+
+@utility text-card-label {
+  @apply text-xs md:text-sm text-muted-foreground;
+}
+
+@utility text-body {
+  @apply text-sm;
+}
+
+@utility text-meta {
+  @apply text-xs text-muted-foreground;
+}
+
+@utility text-numeric {
+  @apply text-sm font-medium tabular-nums;
+}
+
 @utility stagger-1 { animation-delay: 0ms; }
 @utility stagger-2 { animation-delay: 60ms; }
 @utility stagger-3 { animation-delay: 120ms; }

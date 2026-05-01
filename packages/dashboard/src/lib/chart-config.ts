@@ -73,6 +73,12 @@ export const AXIS_CONFIG = {
 
 /**
  * Common tooltip styles (for custom tooltip components)
+ *
+ * @deprecated Use the `<ChartTooltip>` / `<ChartTooltipRow>` /
+ * `<ChartTooltipSummary>` atoms from
+ * `components/dashboard/chart-tooltip.tsx`. Kept temporarily for legacy
+ * panels; will be removed once import count = 0.
+ * See docs/22-dashboard-design-system.md (Rule 6).
  */
 export const TOOLTIP_STYLES = {
   container: "rounded-md border bg-popover px-3 py-2 text-sm shadow-md",
