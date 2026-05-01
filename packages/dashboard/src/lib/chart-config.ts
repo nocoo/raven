@@ -76,7 +76,7 @@ export const AXIS_CONFIG = {
  *
  * @deprecated Use the `<ChartTooltip>` / `<ChartTooltipRow>` /
  * `<ChartTooltipSummary>` atoms from
- * `components/dashboard/chart-tooltip.tsx`. Kept temporarily for legacy
+ * `components/dashboard/chart-primitives.tsx`. Kept temporarily for legacy
  * panels; will be removed once import count = 0.
  * See docs/22-dashboard-design-system.md (Rule 6).
  */

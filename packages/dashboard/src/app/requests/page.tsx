@@ -48,8 +48,11 @@ export default async function RequestsPage({ searchParams }: PageProps) {
   if (!requestsResult.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Requests" }]}>
-        <div className="space-y-4">
-          <h1 className="text-lg font-semibold font-display">Requests</h1>
+        <div className="space-y-4 md:space-y-6">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-display">Requests</h1>
+            <p className="text-meta">Inspect every proxied request, with filters, sorting and pagination.</p>
+          </div>
           <FetchError title="Failed to load requests" message={requestsResult.error} />
         </div>
       </AppShell>
@@ -64,8 +67,11 @@ export default async function RequestsPage({ searchParams }: PageProps) {
 
   return (
     <AppShell breadcrumbs={[{ label: "Requests" }]}>
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold font-display">Requests</h1>
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-display">Requests</h1>
+          <p className="text-meta">Inspect every proxied request, with filters, sorting and pagination.</p>
+        </div>
         <Suspense>
           <RequestsContent
             data={data as ExtendedRequestRecord[]}
