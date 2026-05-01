@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatLatency } from "@/lib/chart-config";
+import { cn } from "@/lib/utils";
 import type { ExtendedRequestRecord } from "@/lib/types";
 
 interface RequestTableProps {
@@ -165,173 +166,178 @@ export function RequestTable({
 
   return (
     <div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {isVisible("timestamp") && (
-                <TableHead aria-sort={getAriaSort("timestamp")}>
-                  <SortButton column="timestamp">Time</SortButton>
-                </TableHead>
-              )}
-              {isVisible("model") && <TableHead>Model</TableHead>}
-              {isVisible("path") && <TableHead>Path</TableHead>}
-              {isVisible("client_format") && <TableHead>Format</TableHead>}
-              {isVisible("status") && <TableHead>Status</TableHead>}
-              {isVisible("latency_ms") && (
-                <TableHead aria-sort={getAriaSort("latency_ms")}>
-                  <SortButton column="latency_ms">Latency</SortButton>
-                </TableHead>
-              )}
-              {isVisible("ttft_ms") && (
-                <TableHead aria-sort={getAriaSort("ttft_ms")}>
-                  <SortButton column="ttft_ms">TTFT</SortButton>
-                </TableHead>
-              )}
-              {isVisible("processing_ms") && (
-                <TableHead aria-sort={getAriaSort("processing_ms")}>
-                  <SortButton column="processing_ms">Processing</SortButton>
-                </TableHead>
-              )}
-              {isVisible("tokens") && (
-                <TableHead aria-sort={getAriaSort("total_tokens")}>
-                  <SortButton column="total_tokens">Tokens (in/out)</SortButton>
-                </TableHead>
-              )}
-              {isVisible("stream") && <TableHead>Stream</TableHead>}
-              {isVisible("strategy") && <TableHead>Strategy</TableHead>}
-              {isVisible("upstream") && <TableHead>Upstream</TableHead>}
-              {isVisible("account_name") && <TableHead>Account</TableHead>}
-              {isVisible("client_name") && <TableHead>Client</TableHead>}
-              {isVisible("session_id") && <TableHead>Session</TableHead>}
-              {isVisible("status_code") && <TableHead>Code</TableHead>}
-              {isVisible("stop_reason") && <TableHead>Stop Reason</TableHead>}
-              {isVisible("tool_call_count") && <TableHead>Tools</TableHead>}
-              {isVisible("routing_path") && <TableHead>Routing</TableHead>}
-              {isVisible("translated_model") && <TableHead>Translated</TableHead>}
-              {isVisible("error_message") && <TableHead>Error</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={visibleColumns.size}
-                  className="text-center text-muted-foreground py-8"
-                >
-                  No requests found
-                </TableCell>
+      <div className="bg-secondary rounded-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                {isVisible("timestamp") && (
+                  <TableHead aria-sort={getAriaSort("timestamp")} className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    <SortButton column="timestamp">Time</SortButton>
+                  </TableHead>
+                )}
+                {isVisible("model") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Model</TableHead>}
+                {isVisible("path") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Path</TableHead>}
+                {isVisible("client_format") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Format</TableHead>}
+                {isVisible("status") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Status</TableHead>}
+                {isVisible("latency_ms") && (
+                  <TableHead aria-sort={getAriaSort("latency_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    <SortButton column="latency_ms">Latency</SortButton>
+                  </TableHead>
+                )}
+                {isVisible("ttft_ms") && (
+                  <TableHead aria-sort={getAriaSort("ttft_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    <SortButton column="ttft_ms">TTFT</SortButton>
+                  </TableHead>
+                )}
+                {isVisible("processing_ms") && (
+                  <TableHead aria-sort={getAriaSort("processing_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    <SortButton column="processing_ms">Processing</SortButton>
+                  </TableHead>
+                )}
+                {isVisible("tokens") && (
+                  <TableHead aria-sort={getAriaSort("total_tokens")} className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    <SortButton column="total_tokens">Tokens (in/out)</SortButton>
+                  </TableHead>
+                )}
+                {isVisible("stream") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Stream</TableHead>}
+                {isVisible("strategy") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Strategy</TableHead>}
+                {isVisible("upstream") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Upstream</TableHead>}
+                {isVisible("account_name") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Account</TableHead>}
+                {isVisible("client_name") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Client</TableHead>}
+                {isVisible("session_id") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Session</TableHead>}
+                {isVisible("status_code") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Code</TableHead>}
+                {isVisible("stop_reason") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Stop Reason</TableHead>}
+                {isVisible("tool_call_count") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Tools</TableHead>}
+                {isVisible("routing_path") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Routing</TableHead>}
+                {isVisible("translated_model") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Translated</TableHead>}
+                {isVisible("error_message") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Error</TableHead>}
               </TableRow>
-            ) : (
-              data.map((req) => (
-                <TableRow
-                  key={req.id}
-                  className={onRowClick ? "cursor-pointer" : ""}
-                  onClick={() => onRowClick?.(req)}
-                >
-                  {isVisible("timestamp") && (
-                    <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                      {formatTimestamp(req.timestamp)}
-                    </TableCell>
-                  )}
-                  {isVisible("model") && (
-                    <TableCell className="font-mono text-xs max-w-[160px] truncate">
-                      {req.model}
-                    </TableCell>
-                  )}
-                  {isVisible("path") && (
-                    <TableCell className="font-mono text-xs text-muted-foreground max-w-[120px] truncate">
-                      {truncate(req.path, 24)}
-                    </TableCell>
-                  )}
-                  {isVisible("client_format") && (
-                    <TableCell>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {req.client_format}
-                      </Badge>
-                    </TableCell>
-                  )}
-                  {isVisible("status") && (
-                    <TableCell>
-                      <Badge
-                        variant={req.status === "success" ? "success" : "destructive"}
-                        className="text-[10px]"
-                      >
-                        {req.status}
-                      </Badge>
-                    </TableCell>
-                  )}
-                  {isVisible("latency_ms") && (
-                    <TableCell className="font-mono text-xs">
-                      {formatLatency(req.latency_ms)}
-                    </TableCell>
-                  )}
-                  {isVisible("ttft_ms") && (
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {req.ttft_ms != null ? formatLatency(req.ttft_ms) : "—"}
-                    </TableCell>
-                  )}
-                  {isVisible("processing_ms") && (
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {req.processing_ms != null ? formatLatency(req.processing_ms) : "—"}
-                    </TableCell>
-                  )}
-                  {isVisible("tokens") && (
-                    <TableCell className="font-mono text-xs">
-                      {formatTokens(req.input_tokens, req.output_tokens)}
-                    </TableCell>
-                  )}
-                  {isVisible("stream") && (
-                    <TableCell className="text-xs text-muted-foreground">
-                      {req.stream ? "yes" : "no"}
-                    </TableCell>
-                  )}
-                  {isVisible("strategy") && (
-                    <TableCell className="text-xs">{req.strategy || "—"}</TableCell>
-                  )}
-                  {isVisible("upstream") && (
-                    <TableCell className="text-xs">{req.upstream || "—"}</TableCell>
-                  )}
-                  {isVisible("account_name") && (
-                    <TableCell className="text-xs">{req.account_name || "—"}</TableCell>
-                  )}
-                  {isVisible("client_name") && (
-                    <TableCell className="text-xs">{req.client_name || "—"}</TableCell>
-                  )}
-                  {isVisible("session_id") && (
-                    <TableCell className="font-mono text-xs max-w-[100px] truncate">
-                      {req.session_id ? truncate(req.session_id, 12) : "—"}
-                    </TableCell>
-                  )}
-                  {isVisible("status_code") && (
-                    <TableCell className="font-mono text-xs">{req.status_code}</TableCell>
-                  )}
-                  {isVisible("stop_reason") && (
-                    <TableCell className="text-xs">{req.stop_reason || "—"}</TableCell>
-                  )}
-                  {isVisible("tool_call_count") && (
-                    <TableCell className="font-mono text-xs">
-                      {req.tool_call_count > 0 ? req.tool_call_count : "—"}
-                    </TableCell>
-                  )}
-                  {isVisible("routing_path") && (
-                    <TableCell className="text-xs">{req.routing_path || "—"}</TableCell>
-                  )}
-                  {isVisible("translated_model") && (
-                    <TableCell className="font-mono text-xs max-w-[120px] truncate">
-                      {req.translated_model || "—"}
-                    </TableCell>
-                  )}
-                  {isVisible("error_message") && (
-                    <TableCell className="text-xs text-destructive max-w-[150px] truncate">
-                      {req.error_message || "—"}
-                    </TableCell>
-                  )}
+            </TableHeader>
+            <TableBody>
+              {data.length === 0 ? (
+                <TableRow className="border-border/50">
+                  <TableCell
+                    colSpan={visibleColumns.size}
+                    className="text-center text-muted-foreground py-8"
+                  >
+                    No requests found
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                data.map((req) => (
+                  <TableRow
+                    key={req.id}
+                    className={cn(
+                      "border-border/50 hover:bg-muted/30",
+                      onRowClick && "cursor-pointer",
+                    )}
+                    onClick={() => onRowClick?.(req)}
+                  >
+                    {isVisible("timestamp") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                        {formatTimestamp(req.timestamp)}
+                      </TableCell>
+                    )}
+                    {isVisible("model") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs font-medium text-foreground max-w-[160px] truncate">
+                        {req.model}
+                      </TableCell>
+                    )}
+                    {isVisible("path") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground max-w-[120px] truncate">
+                        {truncate(req.path, 24)}
+                      </TableCell>
+                    )}
+                    {isVisible("client_format") && (
+                      <TableCell className="px-3 py-2.5">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {req.client_format}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {isVisible("status") && (
+                      <TableCell className="px-3 py-2.5">
+                        <Badge
+                          variant={req.status === "success" ? "success" : "destructive"}
+                          className="text-[10px]"
+                        >
+                          {req.status}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {isVisible("latency_ms") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                        {formatLatency(req.latency_ms)}
+                      </TableCell>
+                    )}
+                    {isVisible("ttft_ms") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                        {req.ttft_ms != null ? formatLatency(req.ttft_ms) : "—"}
+                      </TableCell>
+                    )}
+                    {isVisible("processing_ms") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                        {req.processing_ms != null ? formatLatency(req.processing_ms) : "—"}
+                      </TableCell>
+                    )}
+                    {isVisible("tokens") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                        {formatTokens(req.input_tokens, req.output_tokens)}
+                      </TableCell>
+                    )}
+                    {isVisible("stream") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">
+                        {req.stream ? "yes" : "no"}
+                      </TableCell>
+                    )}
+                    {isVisible("strategy") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.strategy || "—"}</TableCell>
+                    )}
+                    {isVisible("upstream") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.upstream || "—"}</TableCell>
+                    )}
+                    {isVisible("account_name") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.account_name || "—"}</TableCell>
+                    )}
+                    {isVisible("client_name") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.client_name || "—"}</TableCell>
+                    )}
+                    {isVisible("session_id") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground max-w-[100px] truncate">
+                        {req.session_id ? truncate(req.session_id, 12) : "—"}
+                      </TableCell>
+                    )}
+                    {isVisible("status_code") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">{req.status_code}</TableCell>
+                    )}
+                    {isVisible("stop_reason") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.stop_reason || "—"}</TableCell>
+                    )}
+                    {isVisible("tool_call_count") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                        {req.tool_call_count > 0 ? req.tool_call_count : "—"}
+                      </TableCell>
+                    )}
+                    {isVisible("routing_path") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.routing_path || "—"}</TableCell>
+                    )}
+                    {isVisible("translated_model") && (
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground max-w-[120px] truncate">
+                        {req.translated_model || "—"}
+                      </TableCell>
+                    )}
+                    {isVisible("error_message") && (
+                      <TableCell className="px-3 py-2.5 text-xs text-destructive max-w-[150px] truncate">
+                        {req.error_message || "—"}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}
