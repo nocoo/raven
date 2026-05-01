@@ -96,10 +96,19 @@ and visually reads as **white**, while `--card` is `97%` and reads as a
   another L1 shell — prefer `<DashboardSegment>` (uppercase label + 1px
   hairline, no background) for grouping.
 
-**Migration rule** — **do not** mass-replace `bg-secondary` → `bg-card`.
-Per page: outer stat / analytics / settings group = `bg-card`; inner chart
-container, table surface, sub-grouping = `bg-secondary`. The Overview page
-is the sample; subsequent batches follow that structure.
+**Migration rule** — **do not** mass-replace surface tokens. Apply the
+following per page:
+
+- Stat / data / chart / table panels default to `bg-secondary` (white L2
+  surface) — that includes StatCard, ChartPanel, BreakdownBar, every
+  monitor table shell.
+- `bg-card` (grey L1 chrome) is reserved for page chrome and form-group
+  containers where a distinct grey shell genuinely improves grouping
+  (settings sub-cards, login card, etc.). Do not wrap a section of L2
+  panels in an L1 shell.
+- Section grouping on dashboard pages prefers `<DashboardSegment>`
+  (uppercase label + 1px hairline, no background) over an L1 wrapper.
+  The Overview page is the canonical sample.
 
 ### Rule 4 — Divider: 3 fixed shades
 
