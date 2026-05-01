@@ -369,6 +369,23 @@
 @utility stagger-6 { animation-delay: 300ms; }
 
 /*
+ * Respect prefers-reduced-motion (Rule from PG-Polish).
+ * Strip the entrance animation and any decorative pulses; keep
+ * essential feedback (e.g. spinners) visible by reducing instead of
+ * fully removing infinite animations.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
  * Login page effects
  * Extracted from inline styles for maintainability
  */
