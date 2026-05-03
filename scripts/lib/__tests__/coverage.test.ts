@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { parseLcov, evaluateGate, loadBaseline, type Baseline } from "../coverage"
 
 const SAMPLE_LCOV = `TN:
