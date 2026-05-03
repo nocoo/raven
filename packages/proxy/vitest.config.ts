@@ -24,7 +24,13 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/**/*.d.ts",
+        // Intentionally-uncovered legacy entry points / shims. Mirrors
+        // baseline.enforcement.allowUntestedFiles so the istanbul
+        // aggregate doesn't double-count them as regressions.
         "src/index.ts",
+        "src/lib/migration.ts",
+        "src/lib/paths.ts",
+        "src/upstream/interface.ts",
       ],
       thresholds: {
         lines: 95,
