@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 import { Database } from "bun:sqlite";
 import { createSettingsRoute } from "../../src/routes/settings.ts";
 import { initSettings, getSetting, setSetting } from "../../src/db/settings.ts";
@@ -590,7 +590,7 @@ describe("settings route", () => {
       expect(body).toHaveProperty("sound");
       expect(body.sound.enabled).toBe(false);
       expect(body.sound.sound_name).toBe("Basso");
-      expect(body.sound.available_sounds).toBeArray();
+      expect(Array.isArray(body.sound.available_sounds)).toBe(true);
     });
 
     test("sets sound_enabled to true", async () => {

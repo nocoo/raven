@@ -2,7 +2,7 @@
  * Phase E.7 — verify CustomOpenAIClient against E.2 fixtures.
  */
 
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import {
   CustomOpenAIClient,
   createDefaultCustomOpenAIClient,
@@ -38,9 +38,9 @@ function normaliseHeaders(raw: HeadersInit | undefined): Record<string, string> 
   return out
 }
 
-function captureFetch(): { spy: ReturnType<typeof spyOn>; captured: CapturedRequest[] } {
+function captureFetch(): { spy: ReturnType<typeof vi.spyOn>; captured: CapturedRequest[] } {
   const captured: CapturedRequest[] = []
-  const spy = spyOn(globalThis, "fetch").mockImplementation(((
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(((
     input: string | URL | Request,
     init?: RequestInit & { proxy?: string },
   ) => {
@@ -60,7 +60,7 @@ function captureFetch(): { spy: ReturnType<typeof spyOn>; captured: CapturedRequ
   return { spy, captured }
 }
 
-let spy: ReturnType<typeof spyOn>
+let spy: ReturnType<typeof vi.spyOn>
 let captured: CapturedRequest[]
 
 beforeEach(() => {
@@ -99,7 +99,7 @@ describe("CustomOpenAIClient (E.7)", () => {
 
   test("propagates HTTPError on non-2xx", async () => {
     spy.mockRestore()
-    spy = spyOn(globalThis, "fetch").mockImplementation((() =>
+    spy = vi.spyOn(globalThis, "fetch").mockImplementation((() =>
       Promise.resolve(new Response("err", { status: 502 }))) as unknown as typeof fetch)
     const provider = makeProvider({
       id: "p", name: "deepseek", kind: "openai",

@@ -5,7 +5,7 @@
  * upstream/* clients with the same fixture file as the diff target.
  */
 
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { state } from "../../src/lib/state"
 import {
   CopilotOpenAIClient,
@@ -64,9 +64,9 @@ function normaliseHeaders(raw: HeadersInit | undefined): Record<string, string> 
   return out
 }
 
-function captureFetch(): { spy: ReturnType<typeof spyOn>; captured: CapturedRequest[] } {
+function captureFetch(): { spy: ReturnType<typeof vi.spyOn>; captured: CapturedRequest[] } {
   const captured: CapturedRequest[] = []
-  const spy = spyOn(globalThis, "fetch").mockImplementation(((
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(((
     input: string | URL | Request,
     init?: RequestInit & { proxy?: string },
   ) => {
@@ -99,7 +99,7 @@ const SAVED = {
   copilotChatVersion: state.copilotChatVersion,
 }
 
-let spy: ReturnType<typeof spyOn>
+let spy: ReturnType<typeof vi.spyOn>
 let captured: CapturedRequest[]
 
 beforeEach(() => {

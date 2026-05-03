@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 import { state } from "../../src/lib/state"
 import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/protocols/anthropic/types"
@@ -86,7 +86,7 @@ describe("handleCopilotNative integration", () => {
     stWebSearchApiKey: typeof state.stWebSearchApiKey
     models: typeof state.models
   }
-  let fetchSpy: ReturnType<typeof spyOn>
+  let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     originalState = {
@@ -136,7 +136,7 @@ describe("handleCopilotNative integration", () => {
         },
       ],
     }
-    fetchSpy = spyOn(globalThis, "fetch")
+    fetchSpy = vi.spyOn(globalThis, "fetch")
   })
 
   afterEach(() => {
@@ -359,7 +359,7 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
     optToolCallDebug: typeof state.optToolCallDebug
     models: typeof state.models
   }
-  let fetchSpy: ReturnType<typeof spyOn>
+  let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     saved = {
@@ -399,7 +399,7 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
         supported_endpoints: ["/v1/messages", "/chat/completions"],
       }],
     }
-    fetchSpy = spyOn(globalThis, "fetch")
+    fetchSpy = vi.spyOn(globalThis, "fetch")
   })
 
   afterEach(() => {
@@ -457,7 +457,7 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
   }
 
   test("non-streaming: synthesizes response from web_search via native server-tool path", async () => {
-    const searchSpy = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
+    const searchSpy = vi.spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
       content: [
         { type: "web_search_result", url: "https://example.com", title: "Example", encrypted_content: "ZXhhbXBsZQ==" },
@@ -491,7 +491,7 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
   })
 
   test("streaming: replays resolved server-tool response as SSE", async () => {
-    const searchSpy = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
+    const searchSpy = vi.spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
       content: [
         { type: "web_search_result", url: "https://example.com", title: "Example", encrypted_content: "ZXhhbXBsZQ==" },
@@ -525,7 +525,7 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
   })
 
   test("error path: surfaces upstream failure via forwardError", async () => {
-    const searchSpy = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
+    const searchSpy = vi.spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
       content: [
         { type: "web_search_result", url: "https://example.com", title: "Example", encrypted_content: "ZXhhbXBsZQ==" },
@@ -554,7 +554,7 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
   })
 
   test("effort fallback: retries server-tools native call when 400 invalid_reasoning_effort", async () => {
-    const searchSpy = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
+    const searchSpy = vi.spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
       content: [
         { type: "web_search_result", url: "https://example.com", title: "Example", encrypted_content: "ZXhhbXBsZQ==" },

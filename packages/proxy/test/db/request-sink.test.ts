@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Database } from "bun:sqlite"
 import { initDatabase, type RequestRecord } from "../../src/db/requests.ts"
 import { startRequestSink } from "../../src/db/request-sink.ts"
@@ -235,7 +235,7 @@ describe("request-sink", () => {
     db.close()
 
     // Suppress expected console.error output
-    const spy = spyOn(console, "error").mockImplementation(() => {})
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
 
     // Should not throw
     expect(() => {

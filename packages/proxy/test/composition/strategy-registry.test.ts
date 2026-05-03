@@ -1,5 +1,5 @@
 // H.3 — composition/strategy-registry tests.
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 
 import { buildStrategy } from "../../src/composition/strategy-registry"
 import type { StrategyDecision } from "../../src/core/router"

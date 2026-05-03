@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -13,12 +13,12 @@ import * as routerModule from "../../src/core/router"
 // from silently falling through to the translated path.
 describe("messages handler — router reject guard (defensive)", () => {
   let savedToken: string | null
-  let routerSpy: ReturnType<typeof spyOn>
+  let routerSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     savedToken = state.copilotToken
     state.copilotToken = "test-token"
-    routerSpy = spyOn(routerModule, "pickStrategy").mockReturnValue({
+    routerSpy = vi.spyOn(routerModule, "pickStrategy").mockReturnValue({
       kind: "reject",
       status: 400,
       errorType: "invalid_request_error",

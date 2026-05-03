@@ -1,4 +1,4 @@
-import { describe, expect, test, afterAll } from "bun:test";
+import { describe, expect, test, afterAll } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

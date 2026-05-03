@@ -1,5 +1,5 @@
 // H.7 — strategies/copilot-native.ts unit tests.
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 
 import {
   makeCopilotNative,

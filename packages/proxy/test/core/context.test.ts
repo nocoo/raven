@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { Hono, type Context } from "hono"
 
 import { buildContext, type RequestContext } from "../../src/core/context"

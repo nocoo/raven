@@ -1,6 +1,6 @@
 // G.1 — chat-completions custom-upstream passthrough streaming branch
 // (custom-openai). Pin SSE bytes + request_end for G.8.
-import { describe, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -41,14 +41,14 @@ const customOpenAIProvider: ProviderRecord = {
 
 const savedProviders = state.providers
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.providers = [compileProvider(customOpenAIProvider)!]
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

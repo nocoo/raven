@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import {
   UNSUPPORTED_CONTENT_TYPES,
   BLOCK_METADATA_TO_STRIP,

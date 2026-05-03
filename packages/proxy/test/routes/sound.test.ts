@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { Hono } from "hono";
 
-const unrefMock = mock(() => {});
-const spawnMock = mock(() => ({ unref: unrefMock }));
+const { unrefMock, spawnMock } = vi.hoisted(() => {
+  const unrefMock = vi.fn(() => {});
+  const spawnMock = vi.fn(() => ({ unref: unrefMock }));
+  return { unrefMock, spawnMock };
+});
 
-mock.module("child_process", () => ({
+vi.mock("child_process", () => ({
   spawn: spawnMock,
 }));
 

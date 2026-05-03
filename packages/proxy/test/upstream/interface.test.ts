@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import type { UpstreamClient, UpstreamResult } from "../../src/upstream/interface"
 import type { ServerSentEvent } from "../../src/util/sse"
 

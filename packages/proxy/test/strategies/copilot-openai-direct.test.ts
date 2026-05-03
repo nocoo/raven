@@ -1,5 +1,5 @@
 // H.2 — strategies/copilot-openai-direct.ts unit tests.
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 
 import { makeCopilotOpenAIDirect } from "../../src/strategies/copilot-openai-direct"
 import type { RequestContext } from "../../src/core/context"

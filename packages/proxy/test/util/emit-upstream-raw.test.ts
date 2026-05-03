@@ -5,7 +5,7 @@
  * off the WS bus; this test pins the event shape so capture can rely on
  * `data.event` / `data.data` being present and stable.
  */
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { logEmitter } from "../../src/util/log-emitter"
 import { emitUpstreamRawSse } from "../../src/util/emit-upstream-raw"
 import type { LogEvent } from "../../src/util/log-event"

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -230,14 +230,14 @@ function createMockStream(opts: {
 
 const savedModels = state.models
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
   state.models = null // messages handler doesn't need models for routing
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {
@@ -1337,14 +1337,14 @@ describe("messages handler (server-side tools)", () => {
     state.stWebSearchEnabled = true
     state.stWebSearchApiKey = "tvly-test-key"
 
-    const searchSpy = spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
+    const searchSpy = vi.spyOn(tavilyModule, "searchTavily").mockResolvedValueOnce({
       type: "web_search_tool_result",
       content: [
         { type: "web_search_result", url: "https://example.com", title: "Example", encrypted_content: "ZXhhbXBsZQ==" },
       ],
       textContent: "Example result body",
     })
-    const createSpy = spyOn(copilotOpenAIModule.CopilotOpenAIClient.prototype, "send")
+    const createSpy = vi.spyOn(copilotOpenAIModule.CopilotOpenAIClient.prototype, "send")
       .mockResolvedValueOnce(createMockStream({ content: "Synthesized answer" }))
 
     const app = makeApp()

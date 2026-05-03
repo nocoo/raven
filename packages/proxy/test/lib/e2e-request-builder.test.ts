@@ -3,7 +3,7 @@
  * branch is covered so Phase C capture scripts can't silently send the
  * wrong shape.
  */
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { buildScenarioRequest } from "../../test/e2e/refactor/request-builder"
 import type { Scenario } from "../../test/e2e/refactor/scenarios"
 

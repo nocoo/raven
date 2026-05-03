@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 import { Database } from "bun:sqlite";
 import { createKeysRoute } from "../../src/routes/keys.ts";
 import { initApiKeys, createApiKey, listApiKeys } from "../../src/db/keys.ts";
@@ -35,7 +35,7 @@ describe("keys route", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.name).toBe("test-key");
-    expect(body.key).toStartWith("rk-");
+    expect(body.key).toMatch(/^rk-/);
     expect(body.key.length).toBe(67);
   });
 

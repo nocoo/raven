@@ -5,7 +5,7 @@
  * unit fixtures both consume this shape. Breakage is detected at L1
  * so it can't regress silently between a capture run and a replay run.
  */
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import {
   assertGoldenFixture,
   parseGoldenFixture,

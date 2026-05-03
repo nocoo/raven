@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import net from "node:net";
@@ -11,6 +11,24 @@ import { createSocks5SettingsRoute } from "../../src/routes/settings-socks5";
 import * as socks5Bridge from "../../src/lib/socks5-bridge";
 
 const { stopBridge, getBridgePort } = socks5Bridge;
+
+// ESM module-namespace exports cannot be reassigned, so vi.spyOn(netModule,
+// "createServer") fails. Hoist a mockable wrapper for node:net so the two
+// outer-catch tests below can swap createServer's behaviour at runtime.
+const netMocks = vi.hoisted(() => ({
+  createServerImpl: null as ((...args: unknown[]) => unknown) | null,
+}));
+
+vi.mock("node:net", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:net")>();
+  return {
+    ...actual,
+    createServer: ((...args: unknown[]) =>
+      netMocks.createServerImpl
+        ? netMocks.createServerImpl(...args)
+        : (actual.createServer as (...a: unknown[]) => unknown)(...args)) as typeof actual.createServer,
+  };
+});
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -243,7 +261,7 @@ describe("PUT /api/settings/socks5", () => {
   });
 
   test("returns bridge_error when startBridge fails with Error", async () => {
-    const startSpy = spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
+    const startSpy = vi.spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
       new Error("EADDRINUSE"),
     );
     try {
@@ -266,7 +284,7 @@ describe("PUT /api/settings/socks5", () => {
   });
 
   test("returns bridge_error when startBridge fails with non-Error", async () => {
-    const startSpy = spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
+    const startSpy = vi.spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
       "string error",
     );
     try {
@@ -541,8 +559,7 @@ describe("POST /api/settings/socks5/test", () => {
   }, 30000);
 
   test("returns IP echo failure when fetch is mocked to fail", async () => {
-    // @ts-expect-error -- mock doesn't need preconnect
-    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       throw new Error("Network error");
     });
 
@@ -581,8 +598,7 @@ describe("POST /api/settings/socks5/test", () => {
   }, 15000);
 
   test("returns IP echo failure when response is not ok", async () => {
-    // @ts-expect-error -- mock doesn't need preconnect
-    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       return new Response("Service Unavailable", { status: 503 });
     });
 
@@ -618,8 +634,7 @@ describe("POST /api/settings/socks5/test", () => {
   }, 15000);
 
   test("returns success when fetch returns valid IP", async () => {
-    // @ts-expect-error -- mock doesn't need preconnect
-    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
       return new Response(JSON.stringify({ ip: "203.0.113.42" }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -659,19 +674,17 @@ describe("POST /api/settings/socks5/test", () => {
   }, 15000);
 
   test("outer catch handles Error when temp server creation fails", async () => {
-    const netModule = await import("node:net");
-    const origCreateServer = netModule.createServer.bind(netModule);
+    const realNet = await vi.importActual<typeof import("node:net")>("node:net");
+    const origCreateServer = realNet.createServer.bind(realNet);
 
-    const createServerSpy = spyOn(netModule, "createServer").mockImplementation(
-      (...args: unknown[]) => {
-        const server = origCreateServer(...(args as Parameters<typeof net.createServer>));
-        server.listen = ((..._listenArgs: unknown[]) => {
-          setTimeout(() => server.emit("error", new Error("EADDRINUSE mock")), 10);
-          return server;
-        }) as typeof server.listen;
+    netMocks.createServerImpl = (...args: unknown[]) => {
+      const server = origCreateServer(...(args as Parameters<typeof net.createServer>));
+      server.listen = ((..._listenArgs: unknown[]) => {
+        setTimeout(() => server.emit("error", new Error("EADDRINUSE mock")), 10);
         return server;
-      },
-    );
+      }) as typeof server.listen;
+      return server;
+    };
 
     try {
       const res = await createApp().request("/api/settings/socks5/test", {
@@ -688,17 +701,14 @@ describe("POST /api/settings/socks5/test", () => {
       expect(body.error).toContain("EADDRINUSE mock");
       expect(body.latencyMs).toBeGreaterThanOrEqual(0);
     } finally {
-      createServerSpy.mockRestore();
+      netMocks.createServerImpl = null;
     }
   }, 15000);
 
   test("outer catch handles non-Error thrown", async () => {
-    const netModule = await import("node:net");
-    const createServerSpy = spyOn(netModule, "createServer").mockImplementation(
-      () => {
-        throw "raw string error";
-      },
-    );
+    netMocks.createServerImpl = () => {
+      throw "raw string error";
+    };
 
     try {
       const res = await createApp().request("/api/settings/socks5/test", {
@@ -714,7 +724,7 @@ describe("POST /api/settings/socks5/test", () => {
       expect(body.success).toBe(false);
       expect(body.error).toBe("raw string error");
     } finally {
-      createServerSpy.mockRestore();
+      netMocks.createServerImpl = null;
     }
   }, 15000);
 });

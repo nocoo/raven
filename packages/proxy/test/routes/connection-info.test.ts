@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -19,7 +19,7 @@ function setProviders(records: ProviderRecord[]): void {
 const savedModels = state.models
 const savedToken = state.copilotToken
 const savedProviders = state.providers
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.copilotToken = "test-token"
@@ -27,7 +27,7 @@ beforeEach(() => {
   state.accountType = "individual"
   state.models = null
   state.providers = []
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

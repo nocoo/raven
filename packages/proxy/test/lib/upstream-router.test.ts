@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from "bun:test"
+import { describe, expect, test, beforeEach } from "vitest"
 import { resolveProvider } from "../../src/lib/upstream-router"
 import { state } from "../../src/lib/state"
 import type { ProviderRecord } from "../../src/db/providers"

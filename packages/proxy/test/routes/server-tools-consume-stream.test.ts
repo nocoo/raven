@@ -3,7 +3,7 @@
  * a ChatCompletionResponse from streaming SSE chunks.
  */
 
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { consumeStreamToResponse } from "../../src/protocols/translate/consume-stream"
 import type { ServerSentEvent } from "../../src/util/sse"
 

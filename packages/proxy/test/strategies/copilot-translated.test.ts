@@ -1,5 +1,5 @@
 // H.15 — strategies/copilot-translated.ts unit tests.
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 
 import {
   makeCopilotTranslated,

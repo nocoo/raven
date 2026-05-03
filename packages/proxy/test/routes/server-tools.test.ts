@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/protocols/anthropic/types"
 import type { ServerToolContext } from "../../src/protocols/anthropic/preprocess"
 import { withServerToolInterception, type ServerToolExecutorFn } from "../../src/strategies/support/server-tools"
@@ -63,7 +63,7 @@ function makeAnthropicResponse(overrides: Partial<AnthropicResponse> = {}): Anth
 
 describe("withServerToolInterception", () => {
   // Mock executor for testing (no Tavily dependency)
-  const mockExecutor = jest.fn<ServerToolExecutorFn>()
+  const mockExecutor = vi.fn<ServerToolExecutorFn>()
 
   // Save original state value
   let originalApiKey: string | null
@@ -78,7 +78,7 @@ describe("withServerToolInterception", () => {
   afterEach(() => {
     // Restore state
     state.stWebSearchApiKey = originalApiKey
-    jest.restoreAllMocks()
+    vi.restoreAllMocks()
   })
 
   describe("no server-side tools", () => {
@@ -86,7 +86,7 @@ describe("withServerToolInterception", () => {
       const payload = makePayload()
       const context = makeServerToolContext()
       const expectedResponse = makeAnthropicResponse()
-      const sendRequest = jest.fn().mockResolvedValue(expectedResponse)
+      const sendRequest = vi.fn().mockResolvedValue(expectedResponse)
 
       const result = await withServerToolInterception(payload, context, sendRequest, "req-001")
 
@@ -102,7 +102,7 @@ describe("withServerToolInterception", () => {
         max_tokens: 8192,
       })
       const context = makeServerToolContext()
-      const sendRequest = jest.fn().mockResolvedValue(makeAnthropicResponse())
+      const sendRequest = vi.fn().mockResolvedValue(makeAnthropicResponse())
 
       await withServerToolInterception(payload, context, sendRequest, "req-002")
 
@@ -133,7 +133,7 @@ describe("withServerToolInterception", () => {
       const synthResponse = makeAnthropicResponse({
         content: [{ type: "text", text: "Based on the search results, quantum computing..." }],
       })
-      const sendRequest = jest.fn().mockResolvedValue(synthResponse)
+      const sendRequest = vi.fn().mockResolvedValue(synthResponse)
 
       const result = await withServerToolInterception(
         payload, context, sendRequest, "req-003",
@@ -170,7 +170,7 @@ describe("withServerToolInterception", () => {
       })
 
       const expectedResponse = makeAnthropicResponse()
-      const sendRequest = jest.fn().mockResolvedValue(expectedResponse)
+      const sendRequest = vi.fn().mockResolvedValue(expectedResponse)
 
       const result = await withServerToolInterception(
         payload, context, sendRequest, "req-004",
@@ -200,7 +200,7 @@ describe("withServerToolInterception", () => {
         content: [],
         textContent: "Results",
       })
-      const sendRequest = jest.fn().mockResolvedValue(makeAnthropicResponse())
+      const sendRequest = vi.fn().mockResolvedValue(makeAnthropicResponse())
 
       const result = await withServerToolInterception(
         payload, context, sendRequest, "req-005",
@@ -232,7 +232,7 @@ describe("withServerToolInterception", () => {
           { type: "tool_use", id: "tu_1", name: "get_weather", input: { location: "NYC" } },
         ],
       })
-      const sendRequest = jest.fn().mockResolvedValue(response)
+      const sendRequest = vi.fn().mockResolvedValue(response)
 
       const result = await withServerToolInterception(
         payload, context, sendRequest, "req-006",
@@ -276,7 +276,7 @@ describe("withServerToolInterception", () => {
         content: [{ type: "text", text: "Based on the search results..." }],
       })
 
-      const sendRequest = jest.fn()
+      const sendRequest = vi.fn()
         .mockResolvedValueOnce(firstResponse)
         .mockResolvedValueOnce(finalResponse)
 
@@ -320,7 +320,7 @@ describe("withServerToolInterception", () => {
       const response = makeAnthropicResponse({
         content: [{ type: "text", text: "I can help without tools." }],
       })
-      const sendRequest = jest.fn().mockResolvedValue(response)
+      const sendRequest = vi.fn().mockResolvedValue(response)
 
       const result = await withServerToolInterception(
         payload, context, sendRequest, "req-008",
@@ -349,7 +349,7 @@ describe("withServerToolInterception", () => {
           { type: "tool_use", id: "tu_x", name: "web_search", input: { query: "endless" } },
         ],
       })
-      const sendRequest = jest.fn().mockResolvedValue(toolCallResponse)
+      const sendRequest = vi.fn().mockResolvedValue(toolCallResponse)
 
       mockExecutor.mockResolvedValue({
         content: [],
@@ -387,7 +387,7 @@ describe("withServerToolInterception", () => {
       const response = makeAnthropicResponse({
         content: [{ type: "text", text: "Here are the results." }],
       })
-      const sendRequest = jest.fn().mockResolvedValue(response)
+      const sendRequest = vi.fn().mockResolvedValue(response)
 
       await withServerToolInterception(
         payload, context, sendRequest, "req-010",

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 import { Database } from "bun:sqlite"
 
@@ -32,7 +32,7 @@ function req(method: string, path: string, body?: unknown): Request {
 // ============================================================================
 
 let db: Database
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 const savedModels = state.models
 const savedProviders = state.providers
 
@@ -43,7 +43,7 @@ beforeEach(() => {
   state.models = { object: "list" as const, data: [] }
   // Clear providers to avoid polluting other tests
   state.providers = []
-  fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"))
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"))
 })
 
 afterEach(() => {

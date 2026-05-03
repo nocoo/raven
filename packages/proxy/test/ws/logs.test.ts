@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, mock } from "bun:test";
+import { describe, expect, test, beforeEach, vi } from "vitest";
 import type { ServerWebSocket } from "bun";
 import type { LogEvent } from "../../src/util/log-event.ts";
 import { logEmitter } from "../../src/util/log-emitter.ts";
@@ -13,11 +13,11 @@ function createMockWs(data: WsData): ServerWebSocket<WsData> & { sent: string[] 
   return {
     data,
     sent,
-    send: mock((msg: string) => {
+    send: vi.fn((msg: string) => {
       sent.push(msg);
       return msg.length;
     }),
-    close: mock(),
+    close: vi.fn(),
     // Minimal stub — only the fields wsHandler uses
   } as unknown as ServerWebSocket<WsData> & { sent: string[] };
 }

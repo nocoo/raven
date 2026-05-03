@@ -6,7 +6,7 @@
  * unknown kind surfaces as a typed error.
  */
 
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import {
   buildUpstreamClient,
   type UpstreamKind,

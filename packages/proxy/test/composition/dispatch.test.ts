@@ -1,5 +1,5 @@
 // H.4 — composition/index.ts dispatch tests.
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 import { Hono, type Context } from "hono"
 
 import { dispatch, type DispatchInput } from "../../src/composition"

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { describe, it, expect, afterEach } from "vitest";
 import net from "node:net";
 import {
   startBridge,

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 
 import { copilotHeaders, githubHeaders } from "../../src/lib/api-config"
 import { state } from "../../src/lib/state"

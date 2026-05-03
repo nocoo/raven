@@ -1,6 +1,6 @@
 // G.1 — responses handler streaming branch (copilot-responses).
 // Pin SSE bytes (event-typed passthrough) + request_end for G.12.
-import { describe, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -29,13 +29,13 @@ function mockFetchStream(chunks: string[]): Response {
 }
 
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

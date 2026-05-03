@@ -5,7 +5,7 @@
  * (buildEndLog, rawEventFromLog, assembleFixture, captureOrDiffFixture)
  * is pure and injectable and must be covered at L1.
  */
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import {
   assembleFixture,
   buildEndLog,

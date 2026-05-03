@@ -1,5 +1,5 @@
 // H.11 — strategies/custom-openai.ts unit tests.
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 
 import {
   makeCustomOpenAI,

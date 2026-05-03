@@ -1,5 +1,5 @@
 // I.1 — decorate() helper tests.
-import { describe, expect, test, beforeEach, afterEach, jest } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono, type Context } from "hono"
 
 import {
@@ -108,11 +108,11 @@ describe("decorate()", () => {
   })
   afterEach(() => {
     state.stWebSearchApiKey = originalApiKey
-    jest.restoreAllMocks()
+    vi.restoreAllMocks()
   })
 
   test("no server tools: passes through, emits success request_end", async () => {
-    const sendRequest = jest.fn().mockResolvedValue(makeResp({ model: "claude-sonnet-4" }))
+    const sendRequest = vi.fn().mockResolvedValue(makeResp({ model: "claude-sonnet-4" }))
     const { response, events } = await runDecorate({ sendRequest })
     expect(response.status).toBe(200)
     const body = (await response.json()) as AnthropicResponse
@@ -139,11 +139,11 @@ describe("decorate()", () => {
       hasServerSideTools: true,
       allServerSide: true,
     })
-    const executor = jest.fn<ServerToolExecutorFn>().mockResolvedValue({
+    const executor = vi.fn<ServerToolExecutorFn>().mockResolvedValue({
       content: [{ type: "text", text: "result" }],
       textContent: "result",
     })
-    const sendRequest = jest.fn().mockResolvedValue(
+    const sendRequest = vi.fn().mockResolvedValue(
       makeResp({ content: [{ type: "text", text: "synthesized" }] }),
     )
 
@@ -174,7 +174,7 @@ describe("decorate()", () => {
 
   test("sendRequest throws: emits error request_end and re-raises", async () => {
     const err = new Error("upstream boom")
-    const sendRequest = jest.fn().mockRejectedValue(err)
+    const sendRequest = vi.fn().mockRejectedValue(err)
     const { response, events } = await runDecorate({ sendRequest })
     // Hono turns thrown errors into a 500 by default; what matters here is
     // that we emitted the error log before the throw bubbled up.

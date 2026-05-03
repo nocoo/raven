@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 import { loadConfig } from "../src/config.ts";
 import { getConfigDir, getDataDir } from "../src/lib/app-dirs";
 

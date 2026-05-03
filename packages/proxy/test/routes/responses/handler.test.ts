@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../../src/lib/state"
@@ -83,13 +83,13 @@ function makeResponsesResponse(overrides: Record<string, unknown> = {}) {
 // ---------------------------------------------------------------------------
 
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

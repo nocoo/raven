@@ -1,11 +1,11 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn, mock } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import type { DeviceCodeResponse } from "../../src/services/github/get-device-code"
 
 // ---------------------------------------------------------------------------
 // Mock sleep → instant resolve (eliminates ~1s real wait per retry)
 // ---------------------------------------------------------------------------
 
-mock.module("../../src/lib/utils", () => ({
+vi.mock("../../src/lib/utils", () => ({
   sleep: () => Promise.resolve(),
   isNullish: (v: unknown) => v === null || v === undefined,
 }))
@@ -17,7 +17,7 @@ const { pollAccessToken } = await import("../../src/services/github/poll-access-
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 const deviceCode: DeviceCodeResponse = {
   device_code: "dc-test",
@@ -28,7 +28,7 @@ const deviceCode: DeviceCodeResponse = {
 }
 
 beforeEach(() => {
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

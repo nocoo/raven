@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import fixturesJson from "./router.fixtures.json"
 import { pickStrategy, type RouterInput, type StrategyDecision } from "../../src/core/router"
 import type { CompiledProvider, CompiledPattern } from "../../src/db/providers"

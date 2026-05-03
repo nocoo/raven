@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 import { Hono, type Context } from "hono"
 import type { SSEMessage } from "hono/streaming"
 

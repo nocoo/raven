@@ -1,7 +1,7 @@
 // G.1 — messages handler default Copilot translated streaming branch
 // (copilot-translated). Pin Anthropic-shaped SSE bytes + request_end
 // for G.9.
-import { describe, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -32,7 +32,7 @@ function mockFetchStream(chunks: string[]): Response {
 const savedProviders = state.providers
 const savedModels = state.models
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.providers = []
@@ -40,7 +40,7 @@ beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

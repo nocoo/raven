@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "vitest";
 import { Hono } from "hono";
 import { forwardError, HTTPError, extractErrorDetails } from "../../src/lib/error";
 import { Socks5BridgeUnavailableError } from "../../src/lib/socks5-bridge";

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import { createStatsRoute } from "../../src/routes/stats.ts";

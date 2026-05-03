@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 import { Database } from "bun:sqlite";
 import {
   initApiKeys,
@@ -39,14 +39,14 @@ describe("initApiKeys", () => {
 describe("createApiKey", () => {
   test("returns full key with rk- prefix", () => {
     const result = createApiKey(db, "test-key");
-    expect(result.key).toStartWith("rk-");
+    expect(result.key).toMatch(/^rk-/);
     expect(result.key.length).toBe(67); // rk- + 64 hex chars
   });
 
   test("stores record in DB", () => {
     const result = createApiKey(db, "test-key");
     expect(result.name).toBe("test-key");
-    expect(result.key_prefix).toStartWith("rk-");
+    expect(result.key_prefix).toMatch(/^rk-/);
     expect(result.key_prefix.length).toBe(12);
     expect(result.created_at).toBeGreaterThan(0);
     expect(result.last_used_at).toBeNull();

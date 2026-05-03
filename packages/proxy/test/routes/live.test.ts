@@ -1,4 +1,4 @@
-import { describe, expect, test, mock } from "bun:test";
+import { describe, expect, test, vi } from "vitest";
 import { Hono } from "hono";
 
 import { createLiveRoute } from "../../src/routes/live.ts";
@@ -9,10 +9,10 @@ import { createLiveRoute } from "../../src/routes/live.ts";
 
 function makeMockDb(healthy = true) {
   return {
-    query: mock(() => ({
+    query: vi.fn(() => ({
       get: healthy
-        ? mock(() => ({ probe: 1 }))
-        : mock(() => {
+        ? vi.fn(() => ({ probe: 1 }))
+        : vi.fn(() => {
             throw new Error("connection lost");
           }),
     })),
@@ -28,7 +28,7 @@ function buildApp(db: any) {
 // ---------------------------------------------------------------------------
 // Tests
 //
-// Note: previous revisions stubbed node:fs via mock.module() to control
+// Note: previous revisions stubbed node:fs via vi.mock() to control
 // getVersion() output, but mock.module is global across the bun test run and
 // leaked into the strategy fixture loader (readFileSync(JSON)). The real
 // package.json works fine for these assertions, so we read it natively.
@@ -74,8 +74,8 @@ describe("GET /live", () => {
 
   test("handles non-Error throw from DB", async () => {
     const db = {
-      query: mock(() => ({
-        get: mock(() => {
+      query: vi.fn(() => ({
+        get: vi.fn(() => {
           throw "string error";
         }),
       })),

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Database } from "bun:sqlite"
 
 import { state } from "../../src/lib/state"
@@ -15,6 +15,7 @@ import {
 } from "../../src/lib/utils"
 import { initSettings } from "../../src/db/settings"
 import { initProviders, createProvider } from "../../src/db/providers"
+import { logger } from "../../src/util/logger"
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -26,14 +27,14 @@ const savedCopilotChatVersion = state.copilotChatVersion
 const savedCopilotChatVersionSource = state.copilotChatVersionSource
 const savedModels = state.models
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 let db: Database
 
 beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
   db = new Database(":memory:")
   initSettings(db)
 })
@@ -558,7 +559,7 @@ describe("cacheProviders with invalid model_patterns", () => {
     })
 
     // Spy on logger.warn
-    const loggerSpy = spyOn(require("../../src/util/logger").logger, "warn")
+    const loggerSpy = vi.spyOn(logger, "warn")
 
     cacheProviders(db)
 
@@ -594,7 +595,7 @@ describe("cacheProviders with invalid model_patterns", () => {
       })
     }
 
-    const loggerSpy = spyOn(require("../../src/util/logger").logger, "warn")
+    const loggerSpy = vi.spyOn(logger, "warn")
 
     cacheProviders(db)
 
@@ -615,7 +616,7 @@ describe("cacheProviders with invalid model_patterns", () => {
       model_patterns: ["gpt-4"],
     })
 
-    const loggerSpy = spyOn(require("../../src/util/logger").logger, "warn")
+    const loggerSpy = vi.spyOn(logger, "warn")
 
     cacheProviders(db)
 

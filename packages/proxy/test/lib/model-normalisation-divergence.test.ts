@@ -12,7 +12,7 @@
  * regress back to raw-model matching on the messages entry.
  */
 
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 import { Hono } from "hono"
 
 import { handleCompletion as handleMessages } from "../../src/routes/messages/handler"

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { Hono } from "hono"
 import { streamAnthropicResponse } from "../../src/strategies/support/anthropic-stream-writer"
 import type { AnthropicResponse } from "../../src/protocols/anthropic/types"

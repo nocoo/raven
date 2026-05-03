@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach } from "vitest";
 import type { LogEvent } from "../../src/util/log-event.ts";
 
 // We need a fresh LogEmitter per test — import the class via a workaround

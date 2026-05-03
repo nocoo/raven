@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 import { Database } from "bun:sqlite"
 import { createApp } from "../src/app.ts"
 import { initDatabase } from "../src/db/requests.ts"

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { translateToAnthropic } from "../../src/protocols/translate/non-stream-translation"
 import type { ChatCompletionResponse } from "../../src/upstream/copilot-openai"
 

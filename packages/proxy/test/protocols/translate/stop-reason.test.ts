@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import { mapOpenAIStopReasonToAnthropic } from "../../../src/protocols/translate/stop-reason"
 
 describe("mapOpenAIStopReasonToAnthropic", () => {

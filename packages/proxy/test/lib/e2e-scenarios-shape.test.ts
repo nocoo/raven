@@ -8,7 +8,7 @@
  * invariants that the JSON schema can't easily express (unique
  * golden paths, each strategy has ≥1 scenario, etc.).
  */
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 import {
   allStrategies,
   scenariosFor,

@@ -1,5 +1,5 @@
 // H.9 — strategies/copilot-responses.ts unit tests.
-import { describe, expect, test, beforeEach, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach } from "vitest"
 
 import {
   makeCopilotResponses,

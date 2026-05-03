@@ -1,5 +1,5 @@
 // H.13 — strategies/custom-anthropic.ts unit tests.
-import { describe, expect, test } from "bun:test"
+import { describe, expect, test } from "vitest"
 
 import {
   makeCustomAnthropic,

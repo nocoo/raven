@@ -1,7 +1,7 @@
 // G.1 — chat-completions streaming default branch (copilot-openai-direct).
 // Pin the SSE byte stream and request_end log shape so G.7 can
 // byte-diff the Runner port against this snapshot.
-import { describe, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -31,7 +31,7 @@ function mockFetchStream(chunks: string[]): Response {
 
 const savedModels = state.models
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.copilotToken = "test-token"
@@ -53,7 +53,7 @@ beforeEach(() => {
       },
     ],
   }
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

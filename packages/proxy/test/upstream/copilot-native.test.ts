@@ -2,7 +2,7 @@
  * Phase E.4 — verify CopilotNativeClient against E.2 fixture.
  */
 
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { state } from "../../src/lib/state"
 import {
   CopilotNativeClient,
@@ -48,9 +48,9 @@ function normaliseHeaders(raw: HeadersInit | undefined): Record<string, string> 
   return out
 }
 
-function captureFetch(): { spy: ReturnType<typeof spyOn>; captured: CapturedRequest[] } {
+function captureFetch(): { spy: ReturnType<typeof vi.spyOn>; captured: CapturedRequest[] } {
   const captured: CapturedRequest[] = []
-  const spy = spyOn(globalThis, "fetch").mockImplementation(((
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(((
     input: string | URL | Request,
     init?: RequestInit & { proxy?: string },
   ) => {
@@ -77,7 +77,7 @@ const SAVED = {
   copilotChatVersion: state.copilotChatVersion,
 }
 
-let spy: ReturnType<typeof spyOn>
+let spy: ReturnType<typeof vi.spyOn>
 let captured: CapturedRequest[]
 
 beforeEach(() => {
@@ -131,7 +131,7 @@ describe("CopilotNativeClient (E.4)", () => {
 
   test("propagates HTTPError on non-2xx", async () => {
     spy.mockRestore()
-    spy = spyOn(globalThis, "fetch").mockImplementation((() =>
+    spy = vi.spyOn(globalThis, "fetch").mockImplementation((() =>
       Promise.resolve(new Response("err", { status: 500 }))) as unknown as typeof fetch)
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"

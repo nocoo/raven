@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import {
   CopilotNativeClient,
   defaultCopilotNativeConfig,
@@ -75,7 +75,7 @@ function mockFetchStream(chunks: string[]): Response {
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.copilotToken = "test-jwt-token"
@@ -115,7 +115,7 @@ beforeEach(() => {
       },
     ],
   }
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

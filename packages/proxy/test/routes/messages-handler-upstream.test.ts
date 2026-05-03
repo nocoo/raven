@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 import { handleCompletion } from "../../src/routes/messages/handler"
 import { state } from "../../src/lib/state"
@@ -136,7 +136,7 @@ const savedModels = state.models
 const savedToken = state.copilotToken
 const savedVsCodeVersion = state.vsCodeVersion
 const savedAccountType = state.accountType
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   setProviders(mockProviders)
@@ -144,7 +144,7 @@ beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

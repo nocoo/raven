@@ -1,6 +1,6 @@
 // G.1 — messages handler Anthropic passthrough streaming branch
 // (custom-anthropic). Pin SSE bytes + request_end for G.11.
-import { describe, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
@@ -42,7 +42,7 @@ const customAnthropicProvider: ProviderRecord = {
 const savedProviders = state.providers
 const savedModels = state.models
 const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.providers = [compileProvider(customAnthropicProvider)!]
@@ -50,7 +50,7 @@ beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { getVSCodeVersion } from "../../../src/services/get-vscode-version"
 import {
   CopilotEmbeddingsClient,
@@ -19,14 +19,14 @@ const createEmbeddings = async (payload: EmbeddingRequest) => {
 
 const savedToken = state.copilotToken
 const savedGithubToken = state.githubToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.copilotToken = "test-jwt"
   state.githubToken = "test-github-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

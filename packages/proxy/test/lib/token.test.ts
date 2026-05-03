@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn, mock } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
@@ -24,7 +24,7 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true })
 })
 
-mock.module("../../src/lib/paths", () => ({
+vi.mock("../../src/lib/paths", () => ({
   PATHS: {
     get APP_DIR() { return path.dirname(tmpTokenPath) },
     get GITHUB_TOKEN_PATH() { return tmpTokenPath },
@@ -40,14 +40,14 @@ const { setupGitHubToken, setupCopilotToken } = await import("../../src/lib/toke
 
 const savedGithubToken = state.githubToken
 const savedCopilotToken = state.copilotToken
-let fetchSpy: ReturnType<typeof spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   state.githubToken = null
   state.copilotToken = null
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
 afterEach(() => {

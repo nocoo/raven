@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { parseSSEStream, parseSSELine, events, type ServerSentEvent } from "../../src/util/sse.ts";
 
 // ---------------------------------------------------------------------------

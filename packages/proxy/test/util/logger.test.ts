@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { enableTerminalSink, disableTerminalSink, logger, setLogLevel } from "../../src/util/logger"
 import { logEmitter } from "../../src/util/log-emitter"
 
@@ -7,14 +7,14 @@ import { logEmitter } from "../../src/util/log-emitter"
 // ===========================================================================
 
 describe("terminal sink", () => {
-  let logSpy: ReturnType<typeof spyOn>
-  let errorSpy: ReturnType<typeof spyOn>
-  let warnSpy: ReturnType<typeof spyOn>
+  let logSpy: ReturnType<typeof vi.spyOn>
+  let errorSpy: ReturnType<typeof vi.spyOn>
+  let warnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    logSpy = spyOn(console, "log").mockImplementation(() => {})
-    errorSpy = spyOn(console, "error").mockImplementation(() => {})
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {})
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
   })
 
   afterEach(() => {

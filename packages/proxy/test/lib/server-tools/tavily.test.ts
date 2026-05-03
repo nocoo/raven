@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import {
   searchTavily,
   formatWebSearchResult,
@@ -7,10 +7,10 @@ import {
 } from "../../../src/lib/server-tools/tavily"
 
 describe("tavily", () => {
-  let fetchSpy: ReturnType<typeof spyOn>
+  let fetchSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    fetchSpy = spyOn(globalThis, "fetch")
+    fetchSpy = vi.spyOn(globalThis, "fetch")
   })
 
   afterEach(() => {
@@ -268,7 +268,7 @@ describe("tavily", () => {
 
       const result = formatWebSearchResult(tavilyResponse)
 
-      expect(result.textContent).toStartWith("This is an AI-generated summary")
+      expect(result.textContent).toMatch(/^This is an AI-generated summary/)
       expect(result.textContent).toContain("Result")
     })
 

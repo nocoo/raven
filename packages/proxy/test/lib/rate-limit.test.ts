@@ -1,11 +1,11 @@
-import { describe, expect, test, mock } from "bun:test"
+import { describe, expect, test, vi } from "vitest"
 import type { State } from "../../src/lib/state"
 
 // ---------------------------------------------------------------------------
 // Mock sleep → instant resolve (eliminates ~1s real wait in the wait branch)
 // ---------------------------------------------------------------------------
 
-mock.module("../../src/lib/utils", () => ({
+vi.mock("../../src/lib/utils", () => ({
   sleep: () => Promise.resolve(),
   isNullish: (v: unknown) => v === null || v === undefined,
 }))

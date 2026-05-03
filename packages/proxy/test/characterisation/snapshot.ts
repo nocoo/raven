@@ -14,7 +14,7 @@
 // spied and Hono executed in-process. There is no proxy, no WebSocket, no
 // upstream — every byte we record came out of the real handler under test.
 
-import { expect } from "bun:test"
+import { expect } from "vitest"
 
 export interface CharacterisationRequest {
   method: "POST"
@@ -60,7 +60,7 @@ export function scrubResponseHeaders(h: Headers): Record<string, string> {
   return out
 }
 
-const SNAPSHOT_ROOT = `${import.meta.dir}/__snapshots__`
+const SNAPSHOT_ROOT = `${new URL(".", import.meta.url).pathname}__snapshots__`
 
 export async function captureOrDiff(snapshot: CharacterisationSnapshot): Promise<void> {
   const path = `${SNAPSHOT_ROOT}/${snapshot.branch}.json`
