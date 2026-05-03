@@ -1,43 +1,43 @@
 {
   "$schema": "./20-baseline.schema.json",
   "_doc": "See docs/20-architecture-refactor.md §4.5. Phase C.7 populated real numbers and flipped enforcement mode. Update this file after every phase that moves directories or adds/removes tests so the gate stays in sync.",
-  "capturedAt": "2026-04-23T00:00:00Z",
+  "capturedAt": "2026-05-03T00:00:00Z",
   "proxy": {
-    "l1TestCount": 1567,
-    "statementCoveragePct": 99.18,
-    "_comment_perDirectoryCoveragePct": "Captured 2026-04-23 after lifting global floor to 98%. Phase E relocates routes/ → strategies/ and protocols/ → protocols/* so these keys will migrate; the gate skips directory-regression when a directory is absent from the live report (§4.5), which lets phases move code without re-editing this file. Update when a directory is intentionally removed.",
+    "l1TestCount": 1674,
+    "statementCoveragePct": 98.49,
+    "_comment_perDirectoryCoveragePct": "Re-captured 2026-05-03 after migrating L1 tests from bun test → vitest (istanbul provider). Numbers shifted slightly because istanbul counts statements/lines differently than bun's coverage tool. Phase E relocates routes/ → strategies/ and protocols/ → protocols/* so these keys will migrate; the gate skips directory-regression when a directory is absent from the live report (§4.5), which lets phases move code without re-editing this file. Update when a directory is intentionally removed.",
     "perDirectoryCoveragePct": {
-      "composition": 99.15,
+      "composition": 100.00,
       "core": 100.00,
-      "db": 98.85,
-      "lib": 98.73,
-      "protocols": 99.31,
-      "routes": 99.18,
-      "services": 99.23,
-      "strategies": 98.56,
-      "upstream": 100.00,
-      "util": 99.57,
+      "db": 98.64,
+      "lib": 97.63,
+      "protocols": 99.27,
+      "routes": 98.57,
+      "services": 98.96,
+      "strategies": 97.74,
+      "upstream": 98.09,
+      "util": 98.92,
       "ws": 100.00
     }
   },
   "dashboard": {
-    "l1TestCount": 277
+    "l1TestCount": 368
   },
   "enforcement": {
     "mode": "enforce",
-    "globalFloorPct": 98.0,
+    "globalFloorPct": 97.5,
     "regressionAllowanceAbsPct": 0.1,
     "_comment_perDirectoryFloors": "Floors are set at or just below the captured baseline so normal per-commit noise doesn't trip the gate; real regressions are caught by the regression-from-baseline check which uses the stricter 0.1pp allowance.",
     "perDirectoryFloors": {
-      "composition": 98.0,
+      "composition": 99.0,
       "core": 99.0,
       "db": 98.0,
-      "lib": 98.0,
+      "lib": 97.0,
       "protocols": 98.0,
       "routes": 98.0,
       "services": 98.0,
-      "strategies": 98.0,
-      "upstream": 99.0,
+      "strategies": 97.0,
+      "upstream": 97.5,
       "util": 98.0,
       "ws": 99.0
     },
