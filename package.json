@@ -16,6 +16,7 @@
     "build": "bun run --filter dashboard build",
     "test": "bun run --filter '@raven/proxy' test",
     "test:all": "bun run --filter '*' test",
+    "test:root": "bunx --bun vitest run",
     "lint": "bun run --filter '*' lint",
     "typecheck": "bun run --filter '*' typecheck",
     "test:e2e": "bun run scripts/run-e2e.ts",
