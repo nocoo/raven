@@ -19,29 +19,39 @@ const args = new Set(process.argv.slice(2))
 const thresholdArg = [...args].find((a) => a.startsWith("--threshold="))
 const explicitThreshold = thresholdArg ? Number(thresholdArg.slice("--threshold=".length)) : null
 const skipTests = args.has("--skip-tests")
-const BASELINE_PATH = `${import.meta.dir}/../docs/20-baseline.json`
-const COV_DIR = `${import.meta.dir}/../packages/proxy/coverage`
+const REPO_ROOT = `${import.meta.dir}/..`
+const BASELINE_PATH = `${REPO_ROOT}/docs/20-baseline.json`
+const COV_DIR = `${REPO_ROOT}/packages/proxy/coverage`
 
 let testCount: number | null = null
 
 /**
- * Parse bun's "Ran N tests across M files." summary line.
- * Returns null if the line isn't present (e.g. skipped-tests mode).
+ * Parse vitest's "Tests  N passed (N)" summary line. Vitest emits
+ * "<count> <state>" segments (passed/failed/skipped/todo); sum them
+ * to get the run total. Returns null if the line isn't present
+ * (e.g. skipped-tests mode).
  */
 function extractTestCount(output: string): number | null {
-  const match = output.match(/Ran (\d+) tests? across \d+ files?\./)
-  return match ? Number(match[1]) : null
+  const match = output.match(/Tests\s+([^\n]*?\))/)
+  if (!match) return null
+  let total = 0
+  let saw = false
+  for (const seg of match[1].matchAll(/(\d+)\s+(passed|failed|skipped|todo)/g)) {
+    total += Number(seg[1])
+    saw = true
+  }
+  return saw ? total : null
 }
 
 /**
  * Enumerate every .ts file under packages/proxy/src, returning
- * paths relative to the proxy package root (matching bun's lcov
- * `SF:` format — e.g. `src/routes/messages/handler.ts`). Used by the
- * coverage gate to catch brand-new source files that no test
+ * paths relative to the proxy package root (matching vitest istanbul
+ * lcov `SF:` format — e.g. `src/routes/messages/handler.ts`). Used
+ * by the coverage gate to catch brand-new source files that no test
  * imports — those files are absent from lcov entirely.
  */
 async function listProxySourceFiles(): Promise<string[]> {
-  const proxyRoot = `${import.meta.dir}/../packages/proxy`
+  const proxyRoot = `${REPO_ROOT}/packages/proxy`
   const glob = new Glob("src/**/*.ts")
   const results: string[] = []
   for await (const p of glob.scan({ cwd: proxyRoot })) {
@@ -51,55 +61,30 @@ async function listProxySourceFiles(): Promise<string[]> {
   return results
 }
 
-if (!skipTests) {
-  const libTests = Bun.spawn(["bun", "test", "scripts/lib"], {
-    cwd: `${import.meta.dir}/..`,
-    stdout: "inherit",
-    stderr: "inherit",
+async function runVitest(
+  vitestArgs: string[],
+  cwd: string,
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  const proc = Bun.spawn(["bunx", "--bun", "vitest", "run", ...vitestArgs], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
   })
-  const libExit = await libTests.exited
-  if (libExit !== 0) process.exit(libExit)
 
-  const proc = Bun.spawn(
-    [
-      "bun",
-      "test",
-      "--coverage",
-      "--coverage-reporter=lcov",
-      `--coverage-dir=${COV_DIR}`,
-      "test/db",
-      "test/lib",
-      "test/protocols",
-      "test/routes",
-      "test/services",
-      "test/translate",
-      "test/upstream",
-      "test/composition",
-      "test/core",
-      "test/strategies",
-      "test/characterisation",
-      "test/util",
-      "test/ws",
-      "test/middleware.test.ts",
-      "test/app.test.ts",
-      "test/config.test.ts",
-    ],
-    {
-      cwd: `${import.meta.dir}/../packages/proxy`,
-      stdout: "inherit",
-      stderr: "pipe",
-    },
-  )
-
-  // bun test prints the final "Ran N tests…" summary on stderr. Tee
-  // it to the real stderr (preserving live output) and capture so we
-  // can read the test count for the §4.5 regression check. We await
-  // the drain promise *after* proc.exited so extractTestCount always
-  // sees the complete buffer (otherwise the reader can still be
-  // mid-chunk when the process exits, and the summary line is missed).
-  let stderrBuf = ""
-  const stderrReader = proc.stderr.getReader()
   const decoder = new TextDecoder()
+  let stdoutBuf = ""
+  let stderrBuf = ""
+  const stdoutReader = proc.stdout.getReader()
+  const stderrReader = proc.stderr.getReader()
+  const drainStdout = (async () => {
+    while (true) {
+      const { value, done } = await stdoutReader.read()
+      if (done) break
+      const chunk = decoder.decode(value)
+      stdoutBuf += chunk
+      process.stdout.write(chunk)
+    }
+  })()
   const drainStderr = (async () => {
     while (true) {
       const { value, done } = await stderrReader.read()
@@ -111,9 +96,21 @@ if (!skipTests) {
   })()
 
   const exitCode = await proc.exited
+  await drainStdout
   await drainStderr
-  if (exitCode !== 0) process.exit(exitCode)
-  testCount = extractTestCount(stderrBuf)
+  return { exitCode, stdout: stdoutBuf, stderr: stderrBuf }
+}
+
+if (!skipTests) {
+  // Scripts/lib tests live under the root vitest "scripts" project.
+  const libRun = await runVitest(["--project", "scripts"], REPO_ROOT)
+  if (libRun.exitCode !== 0) process.exit(libRun.exitCode)
+
+  // Proxy L1 tests with coverage — vitest istanbul provider emits
+  // lcov.info into packages/proxy/coverage/.
+  const proxyRun = await runVitest(["--coverage"], `${REPO_ROOT}/packages/proxy`)
+  if (proxyRun.exitCode !== 0) process.exit(proxyRun.exitCode)
+  testCount = extractTestCount(proxyRun.stdout) ?? extractTestCount(proxyRun.stderr)
 }
 
 const lcovPath = `${COV_DIR}/lcov.info`
