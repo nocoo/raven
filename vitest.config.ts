@@ -15,6 +15,17 @@ export default defineConfig({
               external: [/^bun(:|$)/],
             },
           },
+          coverage: {
+            provider: "istanbul",
+            include: ["scripts/lib/**/*.ts"],
+            exclude: ["scripts/lib/**/__tests__/**"],
+            thresholds: {
+              lines: 95,
+              statements: 95,
+              functions: 95,
+              branches: 89,
+            },
+          },
         },
       },
     ],
