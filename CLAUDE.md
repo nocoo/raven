@@ -83,7 +83,7 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 | Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
 |---------|--------|-------|------|-------------------|-----------|--------|
-| proxy | bun:test | 1222 | 1222 | 95.6% | 90% | ✅ |
+| proxy | vitest | 1222 | 1222 | 95.6% | 90% | ✅ |
 | dashboard | vitest 4 + jsdom | 277 | 277 | 98.6% | 90% | ✅ |
 | e2e (L2) | bun:test | 41 | 41 | — | — | ✅ |
 

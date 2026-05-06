@@ -348,7 +348,7 @@ curl -s http://localhost:7024/api/keys/<id>/revoke -X POST
 
 | 层级 | 内容 | 测试数 | 触发时机 |
 |------|------|--------|----------|
-| L1 (Unit) | proxy (bun:test) + dashboard (vitest) 单元测试，全部 mock 上游 | 1499 | pre-commit |
+| L1 (Unit) | proxy + dashboard (vitest) 单元测试，全部 mock 上游 | 1499 | pre-commit |
 | L2 (API E2E) | 真实 proxy → Copilot API，每测试 1 请求 | 41 | 手动 |
 | L3 (UI E2E) | Playwright dashboard 全流程测试 | 25 | 手动 |
 | Perf | SSE 解析、翻译层基准测试 | — | 手动 |
@@ -408,7 +408,7 @@ raven/
 | 数据库 | [SQLite](https://www.sqlite.org/) (WAL mode, via `bun:sqlite`) |
 | 验证 | [Zod](https://zod.dev/) 4 |
 | 网络代理 | [socks](https://github.com/JoshGlazebrook/socks) (SOCKS5) |
-| 测试 | [bun:test](https://bun.sh/docs/test/writing) + [Vitest](https://vitest.dev/) + [Playwright](https://playwright.dev/) |
+| 测试 | [Vitest](https://vitest.dev/) + [bun:test](https://bun.sh/docs/test/writing) (E2E/perf) + [Playwright](https://playwright.dev/) |
 | 代码质量 | [ESLint](https://eslint.org/) + [Prettier](https://prettier.io/) + [Husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged) |
 | 安全扫描 | [osv-scanner](https://google.github.io/osv-scanner/) + [gitleaks](https://github.com/gitleaks/gitleaks) |
 
