@@ -6,6 +6,7 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bunx --bun vitest run --coverage",
+    "test:l2": "bunx --bun vitest run test/routes/",
     "test:watch": "bunx --bun vitest",
     "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
@@ -14,7 +15,7 @@
   },
   "dependencies": {
     "gpt-tokenizer": "^3.0.1",
-    "hono": "^4.9.9",
+    "hono": "^4.12.18",
     "socks": "^2.8.7",
     "zod": "^4.3.6"
   },
