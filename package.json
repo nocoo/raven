@@ -51,7 +51,7 @@
     "postcss": ">=8.5.10"
   },
   "dependencies": {
-    "hono": "^4.12.14",
+    "hono": "^4.12.18",
     "micromatch": "^4.0.8",
     "next": "16.2.4",
     "vite": "8.0.10",
