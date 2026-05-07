@@ -6,6 +6,7 @@
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bunx --bun vitest run --coverage",
+    "test:l2": "bunx --bun vitest run test/routes/",
     "test:watch": "bunx --bun vitest",
     "test:e2e": "bun test test/e2e/",
     "test:perf": "bun test test/perf/",
