@@ -96,6 +96,21 @@ function translateModelNameUncached(model: string, anthropicBeta: string | null)
   return model
 }
 
+/**
+ * Catalog-aware resolution: if the translated name isn't in the live
+ * Copilot models catalog, try the `-internal` variant (some 1m/preview
+ * models ship under e.g. `claude-opus-4.7-1m-internal`). Falls back to
+ * the input name so behaviour is unchanged when catalog is empty or
+ * already contains the exact id.
+ */
+export function resolveAgainstCatalog(name: string, catalogIds: readonly string[]): string {
+  if (catalogIds.length === 0) return name
+  if (catalogIds.includes(name)) return name
+  const internalVariant = `${name}-internal`
+  if (catalogIds.includes(internalVariant)) return internalVariant
+  return name
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -234,11 +249,12 @@ export function detectServerTools(payload: AnthropicMessagesPayload): ServerTool
 export function preprocessPayload(
   rawPayload: AnthropicMessagesPayload,
   rawBeta: string | null,
+  catalogIds: readonly string[] = [],
 ): PreprocessedRequest {
   const rawModel = rawPayload.model
 
   // 1. Copilot model name normalization (only for Copilot path)
-  const copilotModel = translateModelName(rawModel, rawBeta)
+  const copilotModel = resolveAgainstCatalog(translateModelName(rawModel, rawBeta), catalogIds)
 
   // 2. Beta header filtering
   const anthropicBeta = filterAnthropicBeta(rawBeta)
