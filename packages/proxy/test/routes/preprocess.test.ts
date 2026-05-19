@@ -5,6 +5,7 @@ import {
   sanitizePayload,
   detectServerTools,
   preprocessPayload,
+  resolveAgainstCatalog,
   ALLOWED_BETAS,
 } from "../../src/protocols/anthropic/preprocess"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
@@ -468,5 +469,46 @@ describe("preprocessPayload", () => {
     expect(result.serverToolContext.hasServerSideTools).toBe(true)
     expect(result.serverToolContext.allServerSide).toBe(false)
     expect(result.serverToolContext.serverSideToolNames).toEqual(["web_search"])
+  })
+})
+
+describe("resolveAgainstCatalog", () => {
+  test("returns input unchanged when catalog is empty (back-compat)", () => {
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", [])).toBe("claude-opus-4.7-1m")
+  })
+
+  test("returns input unchanged when catalog contains exact id", () => {
+    const catalog = ["claude-opus-4.6", "claude-opus-4.6-1m", "claude-opus-4.7"]
+    expect(resolveAgainstCatalog("claude-opus-4.6-1m", catalog)).toBe("claude-opus-4.6-1m")
+  })
+
+  test("resolves to -internal variant when only that exists in catalog", () => {
+    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m-internal"]
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m-internal")
+  })
+
+  test("prefers exact match over -internal variant when both exist", () => {
+    const catalog = ["claude-opus-4.7-1m", "claude-opus-4.7-1m-internal"]
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m")
+  })
+
+  test("returns input unchanged when neither exact nor -internal in catalog", () => {
+    const catalog = ["claude-opus-4.6", "claude-sonnet-4.5"]
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m")
+  })
+})
+
+describe("preprocessPayload catalogIds threading", () => {
+  test("resolves copilotModel through catalog when -internal variant is present", () => {
+    const payload = makeRequest({ model: "claude-opus-4-7" })
+    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m-internal"]
+    const result = preprocessPayload(payload, "context-1m-2025-08-07", catalog)
+    expect(result.copilotModel).toBe("claude-opus-4.7-1m-internal")
+  })
+
+  test("default catalog (empty) preserves prior behaviour", () => {
+    const payload = makeRequest({ model: "claude-opus-4-7" })
+    const result = preprocessPayload(payload, "context-1m-2025-08-07")
+    expect(result.copilotModel).toBe("claude-opus-4.7-1m")
   })
 })

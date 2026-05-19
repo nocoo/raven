@@ -186,7 +186,7 @@ export async function handleCompletion(c: Context) {
   }
 
   // --- Preprocessing: normalize model name, filter beta, detect server tools ---
-  const preprocessed = preprocessPayload(anthropicPayload, anthropicBeta)
+  const preprocessed = preprocessPayload(anthropicPayload, anthropicBeta, state.models?.data?.map((m) => m.id) ?? [])
   const { payload: cleanedPayload, copilotModel, anthropicBeta: filteredBeta, serverToolContext } = preprocessed
 
   // --- Native Messages Routing ---
@@ -281,6 +281,9 @@ export async function handleCompletion(c: Context) {
     sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
     reorderToolResults: state.optReorderToolResults,
   })
+  // Apply catalog-aware resolution (e.g. opus-4.7-1m → opus-4.7-1m-internal)
+  // so the outbound Copilot request uses the actual catalog id.
+  openAIPayload.model = copilotModel
 
   // Debug log if thinking was requested but dropped (Copilot doesn't support it)
   if (anthropicPayload.thinking?.type === "enabled") {
