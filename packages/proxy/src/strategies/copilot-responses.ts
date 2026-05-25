@@ -4,6 +4,12 @@
 // Promotes `routes/responses/handler.ts::copilotResponsesShim` onto the
 // canonical 7-method `Strategy` interface. Pure passthrough — no
 // translation. The composition root supplies the upstream client.
+//
+// `prepare` filters tool entries whose `type` is not accepted by Copilot
+// Responses. Codex MCP tools arrive as Responses `namespace` tools; Copilot
+// does not accept that wrapper, so Raven flattens namespace children and
+// matching function-call history into function tools before forwarding, then
+// restores the namespace on the way back.
 // ---------------------------------------------------------------------------
 
 import type { SSEMessage } from "hono/streaming"
@@ -30,6 +36,234 @@ export interface CopilotResponsesStreamState {
   resolvedModel: string
   inputTokens: number
   outputTokens: number
+  namespaceToolMapping?: NamespaceToolMapping
+}
+
+type NamespaceToolMapping = Map<string, { namespace: string; name: string }>
+
+const namespaceToolMappings = new WeakMap<ResponsesPayload, NamespaceToolMapping>()
+
+/**
+ * Tool types that the GitHub Copilot `/responses` endpoint accepts. Every
+ * other built-in tool (image_generation, code_interpreter, file_search,
+ * mcp, namespace, computer_use_preview, local_shell, ...) is rejected with
+ * `"The requested tool <type> is not supported."`. Codex CLI registers
+ * `image_generation` automatically on every request, so callers must be
+ * prepared to silently filter unsupported types. Namespace tools are handled
+ * specially before this allow-list is applied.
+ */
+export const COPILOT_SUPPORTED_TOOL_TYPES: ReadonlySet<string> = new Set([
+  "function",
+  "web_search_preview",
+])
+
+/**
+ * Convert Codex Responses tools into the subset accepted by Copilot. Namespace
+ * children are flattened using Codex's display name convention, e.g.
+ * `mcp__teams__` + `ListChats` => `mcp__teams__ListChats`.
+ */
+function prepareResponsesTools(req: ResponsesPayload): ResponsesPayload {
+  const tools = (req as { tools?: unknown }).tools
+  const namespaceMapping: NamespaceToolMapping = new Map()
+
+  let filteredTools: unknown[] | undefined
+  let toolsChanged = false
+  if (Array.isArray(tools)) {
+    const filtered: unknown[] = []
+    for (let i = 0; i < tools.length; i++) {
+      const tool = tools[i]
+      if (typeof tool !== "object" || tool === null) {
+        toolsChanged = true
+        continue
+      }
+
+      const toolType = (tool as { type?: unknown }).type
+      if (toolType === "namespace") {
+        toolsChanged = true
+        flattenNamespaceTool(tool as Record<string, unknown>, filtered, namespaceMapping)
+        continue
+      }
+
+      if (typeof toolType === "string" && COPILOT_SUPPORTED_TOOL_TYPES.has(toolType)) {
+        filtered.push(tool)
+      } else {
+        toolsChanged = true
+      }
+    }
+
+    if (toolsChanged && filtered.length > 0) filteredTools = filtered
+  }
+
+  const input = req.input
+  const rewrittenInput = flattenNamespacedInputFunctionCalls(input, namespaceMapping)
+  const inputChanged = rewrittenInput !== input
+
+  if (!toolsChanged && !inputChanged) return req
+
+  // Drop the field entirely when nothing remains; some upstreams treat
+  // `tools: []` as "force no tools" which is a different semantic from
+  // "tools field absent".
+  if (toolsChanged && filteredTools === undefined) {
+    const { tools: _omit, ...rest } = req as Record<string, unknown>
+    const prepared = {
+      ...rest,
+      ...(inputChanged ? { input: rewrittenInput } : {}),
+    } as ResponsesPayload
+    if (namespaceMapping.size > 0) namespaceToolMappings.set(prepared, namespaceMapping)
+    return prepared
+  }
+
+  const prepared = {
+    ...req,
+    ...(inputChanged ? { input: rewrittenInput } : {}),
+    ...(filteredTools ? { tools: filteredTools } : {}),
+  } as ResponsesPayload
+  if (namespaceMapping.size > 0) namespaceToolMappings.set(prepared, namespaceMapping)
+  return prepared
+}
+
+function flattenNamespaceTool(
+  tool: Record<string, unknown>,
+  out: unknown[],
+  mapping: NamespaceToolMapping,
+): void {
+  const namespace = tool.name
+  const children = tool.tools
+  if (typeof namespace !== "string" || !Array.isArray(children)) return
+
+  for (const child of children) {
+    if (typeof child !== "object" || child === null) continue
+    const childTool = child as Record<string, unknown>
+    if (childTool.type !== "function" || typeof childTool.name !== "string") continue
+
+    const flatName = `${namespace}${childTool.name}`
+    out.push({ ...childTool, name: flatName })
+    mapping.set(flatName, { namespace, name: childTool.name })
+  }
+}
+
+function flattenNamespacedInputFunctionCalls(
+  value: unknown,
+  mapping: NamespaceToolMapping,
+): unknown {
+  if (Array.isArray(value)) {
+    let changed = false
+    const next = value.map((item) => {
+      const rewritten = flattenNamespacedInputFunctionCalls(item, mapping)
+      if (rewritten !== item) changed = true
+      return rewritten
+    })
+    return changed ? next : value
+  }
+
+  if (typeof value !== "object" || value === null) return value
+
+  const record = value as Record<string, unknown>
+  const namespace = record.namespace
+  const name = record.name
+  const flatName = record.type === "function_call"
+    && typeof namespace === "string"
+    && typeof name === "string"
+    ? flattenNamespacedFunctionName(namespace, name, mapping)
+    : undefined
+
+  let changed = false
+  let next: Record<string, unknown> = record
+  if (flatName) {
+    const { namespace: _omit, ...rest } = record
+    next = { ...rest, name: flatName }
+    changed = true
+  }
+
+  for (const [key, child] of Object.entries(next)) {
+    const rewritten = flattenNamespacedInputFunctionCalls(child, mapping)
+    if (rewritten !== child) {
+      if (!changed) {
+        next = { ...next }
+        changed = true
+      }
+      next[key] = rewritten
+    }
+  }
+
+  return changed ? next : value
+}
+
+function flattenNamespacedFunctionName(
+  namespace: string,
+  name: string,
+  mapping: NamespaceToolMapping,
+): string {
+  for (const [flatName, mapped] of mapping) {
+    if (mapped.namespace === namespace && mapped.name === name) return flatName
+  }
+
+  if (name.startsWith(namespace)) return name
+  return `${namespace}${name}`
+}
+
+function restoreNamespacedFunctionCalls(
+  value: unknown,
+  mapping: NamespaceToolMapping | undefined,
+): unknown {
+  if (!mapping || mapping.size === 0) return value
+  return rewriteNamespacedFunctionCalls(value, mapping)
+}
+
+function rewriteNamespacedFunctionCalls(
+  value: unknown,
+  mapping: NamespaceToolMapping,
+): unknown {
+  if (Array.isArray(value)) {
+    let changed = false
+    const next = value.map((item) => {
+      const rewritten = rewriteNamespacedFunctionCalls(item, mapping)
+      if (rewritten !== item) changed = true
+      return rewritten
+    })
+    return changed ? next : value
+  }
+
+  if (typeof value !== "object" || value === null) return value
+
+  const record = value as Record<string, unknown>
+  const mapped = record.type === "function_call" && typeof record.name === "string"
+    ? mapping.get(record.name)
+    : undefined
+
+  let changed = false
+  let next: Record<string, unknown> = record
+  if (mapped) {
+    next = { ...record, name: mapped.name, namespace: mapped.namespace }
+    changed = true
+  }
+
+  for (const [key, child] of Object.entries(next)) {
+    const rewritten = rewriteNamespacedFunctionCalls(child, mapping)
+    if (rewritten !== child) {
+      if (!changed) {
+        next = { ...next }
+        changed = true
+      }
+      next[key] = rewritten
+    }
+  }
+
+  return changed ? next : value
+}
+
+function restoreNamespacedFunctionCallData(
+  data: string,
+  mapping: NamespaceToolMapping | undefined,
+): string {
+  if (!mapping || mapping.size === 0) return data
+  try {
+    const parsed = JSON.parse(data) as unknown
+    const rewritten = restoreNamespacedFunctionCalls(parsed, mapping)
+    return rewritten === parsed ? data : JSON.stringify(rewritten)
+  } catch {
+    return data
+  }
 }
 
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
@@ -48,7 +282,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
   return {
     name: "copilot-responses",
 
-    prepare: (req) => req,
+    prepare: (req) => prepareResponsesTools(req),
 
     dispatch: async (up) => {
       const response = await deps.client.send(up)
@@ -58,13 +292,20 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
       return { kind: "json", body: response }
     },
 
-    adaptJson: (resp) => resp,
+    adaptJson: (resp, req) => restoreNamespacedFunctionCalls(
+      resp,
+      namespaceToolMappings.get(req),
+    ),
 
-    initStreamState: (req) => ({
-      resolvedModel: req.model,
-      inputTokens: 0,
-      outputTokens: 0,
-    }),
+    initStreamState: (req) => {
+      const namespaceToolMapping = namespaceToolMappings.get(req)
+      return {
+        resolvedModel: req.model,
+        inputTokens: 0,
+        outputTokens: 0,
+        ...(namespaceToolMapping ? { namespaceToolMapping } : {}),
+      }
+    },
 
     adaptChunk: (chunk, st, ctx) => {
       emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
@@ -82,7 +323,8 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         }
       }
 
-      const sseMsg: SSEMessage = { data: chunk.data }
+      const data = restoreNamespacedFunctionCallData(chunk.data, st.namespaceToolMapping)
+      const sseMsg: SSEMessage = { data }
       if (chunk.event) sseMsg.event = chunk.event
       if (chunk.id) sseMsg.id = chunk.id
       if (chunk.retry !== null) sseMsg.retry = chunk.retry
