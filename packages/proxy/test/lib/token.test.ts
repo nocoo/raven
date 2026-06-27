@@ -40,7 +40,7 @@ vi.mock("../../src/lib/utils", () => ({
 }))
 
 // Import AFTER mock is registered
-const { setupGitHubToken, setupCopilotToken } = await import("../../src/lib/token")
+const { setupGitHubToken, setupCopilotToken, fetchWithCopilotTokenRetry, isTokenExpiredBody } = await import("../../src/lib/token")
 
 // ---------------------------------------------------------------------------
 // State save/restore + fetch spy
@@ -379,5 +379,142 @@ describe("setupCopilotToken", () => {
 
     expect(fakeTimers.timers[3]!.type).toBe("timeout")
     expect(fakeTimers.timers[3]!.ms).toBe(20_000)
+  })
+})
+
+// ===========================================================================
+// fetchWithCopilotTokenRetry + isTokenExpiredBody
+// ===========================================================================
+
+describe("isTokenExpiredBody", () => {
+  test("returns false for non-401 status", () => {
+    expect(isTokenExpiredBody(500, "token expired")).toBe(false)
+    expect(isTokenExpiredBody(200, "token expired")).toBe(false)
+  })
+
+  test("matches `token expired` (case-insensitive, with spacing variants)", () => {
+    expect(isTokenExpiredBody(401, "token expired")).toBe(true)
+    expect(isTokenExpiredBody(401, "Token Expired")).toBe(true)
+    expect(isTokenExpiredBody(401, '{"error":{"message":"the token has expired, see ..."}}')).toBe(false)
+    expect(isTokenExpiredBody(401, "internal: token  expired again")).toBe(true)
+  })
+
+  test("matches `IDE token expired`", () => {
+    expect(isTokenExpiredBody(401, '{"message":"IDE token expired"}')).toBe(true)
+    expect(isTokenExpiredBody(401, "ide token expired (please refresh)")).toBe(true)
+  })
+
+  test("does NOT match unrelated 401 bodies", () => {
+    expect(isTokenExpiredBody(401, "unauthorized")).toBe(false)
+    expect(isTokenExpiredBody(401, '{"error":"forbidden"}')).toBe(false)
+    expect(isTokenExpiredBody(401, "")).toBe(false)
+  })
+})
+
+describe("fetchWithCopilotTokenRetry", () => {
+  type FetchFn = () => Promise<Response>
+
+  test("2xx on first call returns response without invoking refresh", async () => {
+    const refresh = vi.fn().mockResolvedValue("new")
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(new Response("{}", { status: 200 })))
+    const res = await fetchWithCopilotTokenRetry(doFetch, "boom", refresh)
+    expect(res.status).toBe(200)
+    expect(refresh).not.toHaveBeenCalled()
+    expect(doFetch).toHaveBeenCalledTimes(1)
+  })
+
+  test("non-401 error throws HTTPError without invoking refresh", async () => {
+    const refresh = vi.fn()
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(new Response("server error", { status: 500 })))
+    await expect(fetchWithCopilotTokenRetry(doFetch, "boom", refresh)).rejects.toMatchObject({
+      message: "boom",
+      status: 500,
+      responseBody: "server error",
+    })
+    expect(refresh).not.toHaveBeenCalled()
+    expect(doFetch).toHaveBeenCalledTimes(1)
+  })
+
+  test("401 with non-token-expired body throws original HTTPError, no refresh", async () => {
+    const refresh = vi.fn()
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(new Response("unauthorized: bad scope", { status: 401 })))
+    await expect(fetchWithCopilotTokenRetry(doFetch, "boom", refresh)).rejects.toMatchObject({
+      message: "boom",
+      status: 401,
+      responseBody: "unauthorized: bad scope",
+    })
+    expect(refresh).not.toHaveBeenCalled()
+    expect(doFetch).toHaveBeenCalledTimes(1)
+  })
+
+  test("401 token-expired, refresh succeeds, retry succeeds → returns retry response", async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    const responses: Response[] = [
+      new Response("token expired", { status: 401 }),
+      new Response('{"ok":true}', { status: 200 }),
+    ]
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(responses.shift()!))
+    const res = await fetchWithCopilotTokenRetry(doFetch, "boom", refresh)
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('{"ok":true}')
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(doFetch).toHaveBeenCalledTimes(2)
+  })
+
+  test("401 token-expired with IDE phrasing also triggers retry", async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    const responses: Response[] = [
+      new Response('{"error":{"message":"IDE token expired"}}', { status: 401 }),
+      new Response("{}", { status: 200 }),
+    ]
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(responses.shift()!))
+    const res = await fetchWithCopilotTokenRetry(doFetch, "boom", refresh)
+    expect(res.status).toBe(200)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(doFetch).toHaveBeenCalledTimes(2)
+  })
+
+  test("401 token-expired, refresh throws → surfaces original 401, no retry", async () => {
+    const refresh = vi.fn().mockRejectedValue(new Error("refresh upstream 500"))
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(new Response("token expired", { status: 401 })))
+    await expect(fetchWithCopilotTokenRetry(doFetch, "boom", refresh)).rejects.toMatchObject({
+      message: "boom",
+      status: 401,
+      responseBody: "token expired",
+    })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(doFetch).toHaveBeenCalledTimes(1)
+  })
+
+  test("401 token-expired, refresh succeeds, retry still 401 → HTTPError from retry, no third call", async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    const responses: Response[] = [
+      new Response("token expired", { status: 401 }),
+      new Response("still token expired", { status: 401 }),
+    ]
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(responses.shift()!))
+    await expect(fetchWithCopilotTokenRetry(doFetch, "boom", refresh)).rejects.toMatchObject({
+      message: "boom",
+      status: 401,
+      responseBody: "still token expired",
+    })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(doFetch).toHaveBeenCalledTimes(2)
+  })
+
+  test("retry must surface the *retry* error body (does not double-up on token refresh)", async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    const responses: Response[] = [
+      new Response("token expired", { status: 401 }),
+      new Response("post-refresh 500", { status: 500 }),
+    ]
+    const doFetch: FetchFn = vi.fn(() => Promise.resolve(responses.shift()!))
+    await expect(fetchWithCopilotTokenRetry(doFetch, "boom", refresh)).rejects.toMatchObject({
+      message: "boom",
+      status: 500,
+      responseBody: "post-refresh 500",
+    })
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(doFetch).toHaveBeenCalledTimes(2)
   })
 })

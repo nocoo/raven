@@ -164,3 +164,77 @@ async function logUser() {
   const user = await getGitHubUser()
   logger.info(`Logged in as ${user.login}`)
 }
+
+// ---------------------------------------------------------------------------
+// On-demand refresh + retry for transient Copilot upstream token-expired 401s.
+// Scheduled refresh above covers steady-state expiry; this path handles the
+// race where a request fires moments after the JWT expires but before the next
+// scheduled tick. See MY-1027 spike.
+// ---------------------------------------------------------------------------
+
+const TOKEN_EXPIRED_PATTERNS: ReadonlyArray<RegExp> = [
+  /token\s+expired/i,
+  /IDE\s+token\s+expired/i,
+]
+
+export function isTokenExpiredBody(status: number, body: string): boolean {
+  if (status !== 401) return false
+  return TOKEN_EXPIRED_PATTERNS.some((pattern) => pattern.test(body))
+}
+
+export async function refreshCopilotTokenNow(): Promise<string> {
+  const { token } = await getCopilotToken()
+  state.copilotToken = token
+  return token
+}
+
+/**
+ * Run a Copilot upstream fetch, transparently refreshing the cached JWT and
+ * retrying exactly once when the first call returns a token-expired 401.
+ *
+ * Behaviour matrix:
+ *   - 2xx                                                       → returned as-is
+ *   - non-401 non-2xx                                           → original HTTPError
+ *   - 401 + body NOT token-expired                              → original HTTPError
+ *   - 401 + body token-expired, refresh ok, retry 2xx           → retry response
+ *   - 401 + body token-expired, refresh ok, retry NOT 2xx       → retry HTTPError
+ *   - 401 + body token-expired, refresh throws                  → original HTTPError
+ */
+export async function fetchWithCopilotTokenRetry(
+  doFetch: () => Promise<Response>,
+  errorMessage: string,
+  refresh: () => Promise<unknown> = refreshCopilotTokenNow,
+): Promise<Response> {
+  const first = await doFetch()
+  if (first.ok) return first
+
+  if (first.status !== 401) {
+    throw await HTTPError.fromResponse(errorMessage, first)
+  }
+
+  const firstBody = await first.text().catch(() => "")
+  if (!isTokenExpiredBody(first.status, firstBody)) {
+    throw new HTTPError(errorMessage, first.status, firstBody)
+  }
+
+  logger.warn(
+    "Copilot upstream returned token-expired 401, refreshing and retrying once",
+    { errorMessage },
+  )
+
+  try {
+    await refresh()
+  } catch (refreshError) {
+    logger.error(
+      "Copilot token on-demand refresh failed; surfacing original 401",
+      { error: String(refreshError) },
+    )
+    throw new HTTPError(errorMessage, first.status, firstBody)
+  }
+
+  const second = await doFetch()
+  if (!second.ok) {
+    throw await HTTPError.fromResponse(errorMessage, second)
+  }
+  return second
+}

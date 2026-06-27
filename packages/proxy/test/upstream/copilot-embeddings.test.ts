@@ -144,4 +144,48 @@ describe("CopilotEmbeddingsClient (E.6)", () => {
     expect(captured[0]!.proxy).toBe("http://127.0.0.1:9999")
     expect(captured[0]!.headers["x-injected"]).toBe("yes")
   })
+
+  test("MY-1028: refreshes Copilot token and retries once on token-expired 401", async () => {
+    spy.mockRestore()
+    state.copilotToken = "stale-jwt"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.copilotChatVersion = "0.45.1"
+
+    const calls: Array<{ url: string; authHeader: string | null }> = []
+    spy = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      const url = typeof input === "string" ? input : input.toString()
+      const headers = normaliseHeaders(init?.headers)
+      calls.push({ url, authHeader: headers.authorization ?? null })
+
+      if (url.includes("/copilot_internal/v2/token")) {
+        return new Response(
+          JSON.stringify({ token: "fresh-jwt", expires_at: 9_999_999_999, refresh_in: 1500 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+      if (url.endsWith("/embeddings")) {
+        if (calls.filter((c) => c.url.endsWith("/embeddings")).length === 1) {
+          return new Response("token expired", { status: 401 })
+        }
+        return new Response(
+          JSON.stringify({ object: "list", data: [], model: "m", usage: { prompt_tokens: 0, total_tokens: 0 } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+      return new Response("unexpected", { status: 500 })
+    }) as unknown as typeof fetch)
+
+    const client = createDefaultCopilotEmbeddingsClient()
+    const result = (await client.send({ input: "hello", model: "m" })) as { object: string }
+    expect(result.object).toBe("list")
+    const embCalls = calls.filter((c) => c.url.endsWith("/embeddings"))
+    expect(embCalls).toHaveLength(2)
+    expect(embCalls[0]!.authHeader).toBe("Bearer stale-jwt")
+    expect(embCalls[1]!.authHeader).toBe("Bearer fresh-jwt")
+    expect(state.copilotToken).toBe("fresh-jwt")
+  })
 })

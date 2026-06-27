@@ -189,4 +189,71 @@ describe("CopilotOpenAIClient (E.3)", () => {
     expect(captured[0]!.headers["x-injected"]).toBe("yes")
     expect(captured[0]!.headers["x-initiator"]).toBe("user")
   })
+
+  test("MY-1028: refreshes Copilot token and retries once on token-expired 401", async () => {
+    spy.mockRestore()
+    state.copilotToken = "stale-jwt"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.copilotChatVersion = "0.45.1"
+
+    const calls: Array<{ url: string; authHeader: string | null }> = []
+    spy = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      const url = typeof input === "string" ? input : input.toString()
+      const headers = normaliseHeaders(init?.headers)
+      calls.push({ url, authHeader: headers.authorization ?? null })
+
+      if (url.includes("/copilot_internal/v2/token")) {
+        return new Response(
+          JSON.stringify({ token: "fresh-jwt", expires_at: 9_999_999_999, refresh_in: 1500 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+      if (url.includes("/chat/completions")) {
+        if (calls.filter((c) => c.url.includes("/chat/completions")).length === 1) {
+          return new Response("token expired", { status: 401 })
+        }
+        return new Response("{}", { status: 200, headers: { "content-type": "application/json" } })
+      }
+      return new Response("unexpected", { status: 500 })
+    }) as unknown as typeof fetch)
+
+    const client = createDefaultCopilotOpenAIClient()
+    const result = await client.send({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "x" }],
+    })
+    expect(result).toEqual({})
+
+    const chatCalls = calls.filter((c) => c.url.includes("/chat/completions"))
+    expect(chatCalls).toHaveLength(2)
+    expect(chatCalls[0]!.authHeader).toBe("Bearer stale-jwt")
+    // Retry must carry the refreshed JWT.
+    expect(chatCalls[1]!.authHeader).toBe("Bearer fresh-jwt")
+    expect(state.copilotToken).toBe("fresh-jwt")
+  })
+
+  test("MY-1028: 401 without token-expired marker is NOT retried", async () => {
+    spy.mockRestore()
+    state.copilotToken = "stale-jwt"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.copilotChatVersion = "0.45.1"
+
+    let calls = 0
+    spy = vi.spyOn(globalThis, "fetch").mockImplementation((() => {
+      calls++
+      return Promise.resolve(new Response("unauthorized: bad scope", { status: 401 }))
+    }) as unknown as typeof fetch)
+
+    const client = createDefaultCopilotOpenAIClient()
+    await expect(
+      client.send({ model: "gpt-4o", messages: [{ role: "user", content: "x" }] }),
+    ).rejects.toThrow("Failed to create chat completions")
+    expect(calls).toBe(1)
+    expect(state.copilotToken).toBe("stale-jwt")
+  })
 })

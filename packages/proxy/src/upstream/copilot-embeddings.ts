@@ -3,9 +3,9 @@
  */
 
 import { copilotBaseUrl, copilotHeaders } from "../lib/api-config"
-import { HTTPError } from "../lib/error"
 import { getProxyUrl } from "../lib/socks5-bridge"
 import { state } from "../lib/state"
+import { fetchWithCopilotTokenRetry } from "../lib/token"
 import type { UpstreamClient, UpstreamResult } from "./interface"
 
 export interface EmbeddingRequest {
@@ -44,17 +44,20 @@ export class CopilotEmbeddingsClient
   async send(payload: EmbeddingRequest): Promise<UpstreamResult<EmbeddingResponse>> {
     this.config.getToken()
 
+    const body = JSON.stringify(payload)
     const proxyUrl = this.config.getProxyUrl()
-    const response = await fetch(`${this.config.getBaseUrl()}/embeddings`, {
-      method: "POST",
-      headers: this.config.getHeaders(),
-      body: JSON.stringify(payload),
-      ...(proxyUrl ? { proxy: proxyUrl } : {}),
-    } as RequestInit)
+    const url = `${this.config.getBaseUrl()}/embeddings`
 
-    if (!response.ok) {
-      throw await HTTPError.fromResponse("Failed to create embeddings", response)
-    }
+    const response = await fetchWithCopilotTokenRetry(
+      () =>
+        fetch(url, {
+          method: "POST",
+          headers: this.config.getHeaders(),
+          body,
+          ...(proxyUrl ? { proxy: proxyUrl } : {}),
+        } as RequestInit),
+      "Failed to create embeddings",
+    )
 
     return (await response.json()) as EmbeddingResponse
   }

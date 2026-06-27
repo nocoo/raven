@@ -8,9 +8,9 @@
 
 import { events, type ServerSentEvent } from "../util/sse"
 import { copilotBaseUrl, copilotHeaders } from "../lib/api-config"
-import { HTTPError } from "../lib/error"
 import { getProxyUrl } from "../lib/socks5-bridge"
 import { state } from "../lib/state"
+import { fetchWithCopilotTokenRetry } from "../lib/token"
 import type { UpstreamClient, UpstreamResult } from "./interface"
 
 // ---------------------------------------------------------------------------
@@ -198,22 +198,26 @@ export class CopilotOpenAIClient
       ["assistant", "tool"].includes(msg.role),
     )
 
-    const headers: Record<string, string> = {
-      ...this.config.getHeaders(enableVision),
-      "X-Initiator": isAgentCall ? "agent" : "user",
-    }
-
+    const body = JSON.stringify(payload)
     const proxyUrl = this.config.getProxyUrl()
-    const response = await fetch(`${this.config.getBaseUrl()}/chat/completions`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      ...(proxyUrl ? { proxy: proxyUrl } : {}),
-    } as RequestInit)
+    const url = `${this.config.getBaseUrl()}/chat/completions`
 
-    if (!response.ok) {
-      throw await HTTPError.fromResponse("Failed to create chat completions", response)
-    }
+    const response = await fetchWithCopilotTokenRetry(
+      () => {
+        // Re-read headers each attempt so refreshed Authorization flows through.
+        const headers: Record<string, string> = {
+          ...this.config.getHeaders(enableVision),
+          "X-Initiator": isAgentCall ? "agent" : "user",
+        }
+        return fetch(url, {
+          method: "POST",
+          headers,
+          body,
+          ...(proxyUrl ? { proxy: proxyUrl } : {}),
+        } as RequestInit)
+      },
+      "Failed to create chat completions",
+    )
 
     if (payload.stream) {
       return events(response) as AsyncGenerator<ServerSentEvent>

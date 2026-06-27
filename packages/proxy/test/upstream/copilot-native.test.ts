@@ -290,4 +290,80 @@ describe("CopilotNativeClient (E.4)", () => {
     expect(tool.name).toBe("lookup")
     expect(tool.input_schema).toEqual({ type: "object" })
   })
+
+  test("MY-1028: refreshes Copilot token and retries once on token-expired 401", async () => {
+    spy.mockRestore()
+    state.copilotToken = "stale-jwt"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.copilotChatVersion = "0.45.1"
+
+    const calls: Array<{ url: string; authHeader: string | null }> = []
+    spy = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      const url = typeof input === "string" ? input : input.toString()
+      const headers = normaliseHeaders(init?.headers)
+      calls.push({ url, authHeader: headers.authorization ?? null })
+
+      if (url.includes("/copilot_internal/v2/token")) {
+        return new Response(
+          JSON.stringify({ token: "fresh-jwt", expires_at: 9_999_999_999, refresh_in: 1500 }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        )
+      }
+      if (url.endsWith("/v1/messages")) {
+        if (calls.filter((c) => c.url.endsWith("/v1/messages")).length === 1) {
+          return new Response('{"error":{"message":"IDE token expired"}}', { status: 401 })
+        }
+        return new Response("{}", { status: 200, headers: { "content-type": "application/json" } })
+      }
+      return new Response("unexpected", { status: 500 })
+    }) as unknown as typeof fetch)
+
+    const client = createDefaultCopilotNativeClient()
+    const result = await client.send({
+      payload: makePayload(),
+      options: { copilotModel: "claude-x" },
+    })
+    expect(result).toEqual({})
+
+    const msgCalls = calls.filter((c) => c.url.endsWith("/v1/messages"))
+    expect(msgCalls).toHaveLength(2)
+    expect(msgCalls[0]!.authHeader).toBe("Bearer stale-jwt")
+    expect(msgCalls[1]!.authHeader).toBe("Bearer fresh-jwt")
+    expect(state.copilotToken).toBe("fresh-jwt")
+  })
+
+  test("MY-1028: refresh failure surfaces original 401, no retry", async () => {
+    spy.mockRestore()
+    state.copilotToken = "stale-jwt"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.copilotChatVersion = "0.45.1"
+
+    let msgCalls = 0
+    spy = vi.spyOn(globalThis, "fetch").mockImplementation((async (
+      input: string | URL | Request,
+    ) => {
+      const url = typeof input === "string" ? input : input.toString()
+      if (url.includes("/copilot_internal/v2/token")) {
+        return new Response("upstream 500", { status: 500 })
+      }
+      if (url.endsWith("/v1/messages")) {
+        msgCalls++
+        return new Response("token expired", { status: 401 })
+      }
+      return new Response("unexpected", { status: 500 })
+    }) as unknown as typeof fetch)
+
+    const client = createDefaultCopilotNativeClient()
+    await expect(
+      client.send({ payload: makePayload(), options: { copilotModel: "claude-x" } }),
+    ).rejects.toThrow("Failed to create native messages")
+    expect(msgCalls).toBe(1)
+    // Refresh failed, so cached token is untouched.
+    expect(state.copilotToken).toBe("stale-jwt")
+  })
 })

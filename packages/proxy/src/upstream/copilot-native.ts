@@ -6,9 +6,9 @@
 
 import { events, type ServerSentEvent } from "../util/sse"
 import { copilotBaseUrl, copilotHeaders } from "../lib/api-config"
-import { HTTPError } from "../lib/error"
 import { getProxyUrl } from "../lib/socks5-bridge"
 import { state } from "../lib/state"
+import { fetchWithCopilotTokenRetry } from "../lib/token"
 import { getModelCapabilities } from "../strategies/support/model-capabilities"
 import type {
   AnthropicMessagesPayload,
@@ -48,22 +48,11 @@ export class CopilotNativeClient
 
     const normalizedPayload = normalizeNativeThinkingPayload(req.payload, req.options.copilotModel)
 
-    const headers: Record<string, string> = {
-      ...this.config.getHeaders(),
-      "anthropic-version": "2023-06-01",
-    }
-
     const anthropicBeta = buildNativeAnthropicBeta(normalizedPayload, req.options.anthropicBeta ?? null)
-    if (anthropicBeta) headers["anthropic-beta"] = anthropicBeta
-
-    if (checkForVision(normalizedPayload)) {
-      headers["copilot-vision-request"] = "true"
-    }
-
+    const visionRequest = checkForVision(normalizedPayload)
     const isAgentCall = normalizedPayload.messages.some(
       (msg) => msg.role === "assistant" || hasToolResultContent(msg),
     )
-    headers["X-Initiator"] = isAgentCall ? "agent" : "user"
 
     const requestBody: Record<string, unknown> = {
       ...sanitizeNativeMessagesPayload(normalizedPayload),
@@ -78,17 +67,29 @@ export class CopilotNativeClient
       delete requestBody.output_config
     }
 
+    const body = JSON.stringify(requestBody)
     const proxyUrl = this.config.getProxyUrl()
-    const response = await fetch(`${this.config.getBaseUrl()}/v1/messages`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(requestBody),
-      ...(proxyUrl ? { proxy: proxyUrl } : {}),
-    } as RequestInit)
+    const url = `${this.config.getBaseUrl()}/v1/messages`
 
-    if (!response.ok) {
-      throw await HTTPError.fromResponse("Failed to create native messages", response)
-    }
+    const response = await fetchWithCopilotTokenRetry(
+      () => {
+        // Re-read headers each attempt so refreshed Authorization flows through.
+        const headers: Record<string, string> = {
+          ...this.config.getHeaders(),
+          "anthropic-version": "2023-06-01",
+        }
+        if (anthropicBeta) headers["anthropic-beta"] = anthropicBeta
+        if (visionRequest) headers["copilot-vision-request"] = "true"
+        headers["X-Initiator"] = isAgentCall ? "agent" : "user"
+        return fetch(url, {
+          method: "POST",
+          headers,
+          body,
+          ...(proxyUrl ? { proxy: proxyUrl } : {}),
+        } as RequestInit)
+      },
+      "Failed to create native messages",
+    )
 
     if (normalizedPayload.stream) {
       return events(response) as AsyncGenerator<ServerSentEvent>

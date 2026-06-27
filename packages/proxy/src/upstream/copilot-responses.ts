@@ -7,9 +7,9 @@
 
 import { events, type ServerSentEvent } from "../util/sse"
 import { copilotBaseUrl, copilotHeaders } from "../lib/api-config"
-import { HTTPError } from "../lib/error"
 import { getProxyUrl } from "../lib/socks5-bridge"
 import { state } from "../lib/state"
+import { fetchWithCopilotTokenRetry } from "../lib/token"
 import type { UpstreamClient, UpstreamResult } from "./interface"
 
 export interface ResponsesPayload {
@@ -37,22 +37,25 @@ export class CopilotResponsesClient
     const enableVision = hasVisionContent(payload)
     const isAgentCall = hasAgentHistory(payload)
 
-    const headers: Record<string, string> = {
-      ...this.config.getHeaders(enableVision),
-      "X-Initiator": isAgentCall ? "agent" : "user",
-    }
-
+    const body = JSON.stringify(payload)
     const proxyUrl = this.config.getProxyUrl()
-    const response = await fetch(`${this.config.getBaseUrl()}/responses`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      ...(proxyUrl ? { proxy: proxyUrl } : {}),
-    } as RequestInit)
+    const url = `${this.config.getBaseUrl()}/responses`
 
-    if (!response.ok) {
-      throw await HTTPError.fromResponse("Failed to create responses", response)
-    }
+    const response = await fetchWithCopilotTokenRetry(
+      () => {
+        const headers: Record<string, string> = {
+          ...this.config.getHeaders(enableVision),
+          "X-Initiator": isAgentCall ? "agent" : "user",
+        }
+        return fetch(url, {
+          method: "POST",
+          headers,
+          body,
+          ...(proxyUrl ? { proxy: proxyUrl } : {}),
+        } as RequestInit)
+      },
+      "Failed to create responses",
+    )
 
     if (payload.stream) {
       return events(response) as AsyncGenerator<ServerSentEvent>
