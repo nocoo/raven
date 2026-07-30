@@ -5,7 +5,7 @@
     "": {
       "name": "raven",
       "dependencies": {
-        "hono": "4.12.31",
+        "hono": "4.12.32",
         "micromatch": "^4.0.8",
         "next": "16.2.11",
         "vite": "8.1.5",
@@ -62,7 +62,7 @@
       "name": "@raven/proxy",
       "dependencies": {
         "gpt-tokenizer": "^3.0.1",
-        "hono": "4.12.31",
+        "hono": "4.12.32",
         "socks": "^2.8.7",
         "zod": "^4.3.6",
       },
@@ -769,7 +769,7 @@
 
     "hasown": ["hasown@2.0.3", "", { "dependencies": { "function-bind": "^1.1.2" } }, "sha512-ej4AhfhfL2Q2zpMmLo7U1Uv9+PyhIZpgQLGT1F9miIGmiCJIoCgSmczFdrc97mWT4kVY72KA+WnnhJ5pghSvSg=="],
 
-    "hono": ["hono@4.12.31", "", {}, "sha512-zJIHFrl6bq3RDd2YusFNCDlM8qUprxKswyi/OPzPyzKDdyBXDqWx8bZlZ7R+saTdSTatUmb3O7K4SspGPaEOQg=="],
+    "hono": ["hono@4.12.32", "", {}, "sha512-XcuyW9qE2kJn07PkecMOBd5Vq/hMy7mmGw+idz1yblbg9N17ijJODrvPkn7/dwL3Kulj8LcRJ69DLOWf91dRUg=="],
 
     "html-encoding-sniffer": ["html-encoding-sniffer@6.0.0", "", { "dependencies": { "@exodus/bytes": "^1.6.0" } }, "sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg=="],
 

@@ -54,7 +54,7 @@
     "sharp": ">=0.35.0"
   },
   "dependencies": {
-    "hono": "4.12.31",
+    "hono": "4.12.32",
     "micromatch": "^4.0.8",
     "next": "16.2.11",
     "vite": "8.1.5",
