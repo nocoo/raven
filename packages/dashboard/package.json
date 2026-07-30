@@ -26,7 +26,7 @@
     "tw-animate-css": "^1.3.4"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "7.0.0",
