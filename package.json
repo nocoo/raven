@@ -39,7 +39,7 @@
     "@types/bun": "^1.3.11",
     "dependency-cruiser": "18.1.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.1.1",
+    "lint-staged": "^17.2.0",
     "oxc-parser": "0.142.0",
     "typescript": "^7.0.2",
     "typescript6-for-depcruise": "npm:typescript@6.0.3"
