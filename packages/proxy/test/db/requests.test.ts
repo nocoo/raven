@@ -226,6 +226,15 @@ describe("querySummary", () => {
     expect(result.total_cache_read_tokens).toBe(1150);
     expect(result.total_cache_write_tokens).toBe(50);
   });
+
+  test("observed input excludes rows without cache observation (pre-migration data)", () => {
+    insertRequest(db, makeRecord({ input_tokens: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
+    insertRequest(db, makeRecord({ input_tokens: 50, cache_read_tokens: null, cache_write_tokens: null }));
+
+    const result = querySummary(db, "", []);
+    expect(result.total_input_tokens).toBe(150);
+    expect(result.total_observed_input_tokens).toBe(100);
+  });
 });
 
 // ===========================================================================
@@ -340,13 +349,23 @@ describe("queryTimeseries", () => {
   test("aggregates cache tokens per bucket", () => {
     const now = Date.now();
     insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
-    // cache_write NULL → skipped by SUM
     insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, cache_read_tokens: 150, cache_write_tokens: null }));
 
     const result = queryTimeseries(db, "hour", "24h");
     const bucket = result[result.length - 1]!;
     expect(bucket.cache_read_tokens).toBe(550);
     expect(bucket.cache_write_tokens).toBe(20);
+  });
+
+  test("observed input excludes unobserved rows per bucket", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, input_tokens: 30, cache_read_tokens: 500, cache_write_tokens: 0 }));
+    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 100, input_tokens: 70, cache_read_tokens: null, cache_write_tokens: null }));
+
+    const result = queryTimeseries(db, "hour", "24h");
+    const bucket = result[result.length - 1]!;
+    expect(bucket.input_tokens).toBe(100);
+    expect(bucket.observed_input_tokens).toBe(30);
   });
 });
 
@@ -415,7 +434,6 @@ describe("queryBreakdown", () => {
 
   test("aggregates cache tokens per group", () => {
     insertRequest(db, makeRecord({ model: "claude-3", cache_read_tokens: 400, cache_write_tokens: 20 }));
-    // cache_write NULL → skipped by SUM
     insertRequest(db, makeRecord({ model: "claude-3", cache_read_tokens: 600, cache_write_tokens: null }));
     insertRequest(db, makeRecord({ model: "gpt-4o", cache_read_tokens: 150, cache_write_tokens: 5 }));
 
@@ -423,6 +441,16 @@ describe("queryBreakdown", () => {
     const claude = result.find((e) => e.key === "claude-3")!;
     expect(claude.cache_read_tokens).toBe(1000);
     expect(claude.cache_write_tokens).toBe(20);
+  });
+
+  test("observed input excludes unobserved rows per group", () => {
+    insertRequest(db, makeRecord({ model: "a", input_tokens: 30, cache_read_tokens: 500, cache_write_tokens: 0 }));
+    insertRequest(db, makeRecord({ model: "a", input_tokens: 70, cache_read_tokens: null, cache_write_tokens: null }));
+
+    const result = queryBreakdown(db, { by: "model" });
+    const a = result.find((e) => e.key === "a")!;
+    expect(a.input_tokens).toBe(100);
+    expect(a.observed_input_tokens).toBe(30);
   });
 
   test("sorts by cache_read_tokens", () => {

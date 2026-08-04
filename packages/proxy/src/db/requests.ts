@@ -51,6 +51,7 @@ export interface SummaryResult {
   total_output_tokens: number;
   total_cache_read_tokens: number;
   total_cache_write_tokens: number;
+  total_observed_input_tokens: number;
   error_count: number;
   error_rate: number;
   avg_latency_ms: number;
@@ -76,6 +77,7 @@ export interface TimeseriesBucket {
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  observed_input_tokens: number;
 
   // Latency
   avg_latency_ms: number;
@@ -100,6 +102,7 @@ export interface BreakdownEntry {
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  observed_input_tokens: number;
   total_tokens: number;
   avg_latency_ms: number;
   p95_latency_ms: number;
@@ -317,6 +320,7 @@ export function querySummary(
     COALESCE(SUM(COALESCE(output_tokens, 0)), 0) as total_output_tokens,
     COALESCE(SUM(COALESCE(cache_read_tokens, 0)), 0) as total_cache_read_tokens,
     COALESCE(SUM(COALESCE(cache_write_tokens, 0)), 0) as total_cache_write_tokens,
+    COALESCE(SUM(CASE WHEN cache_read_tokens IS NOT NULL THEN COALESCE(input_tokens, 0) ELSE 0 END), 0) as total_observed_input_tokens,
     COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
     COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
     AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
@@ -331,6 +335,7 @@ export function querySummary(
     total_output_tokens: number;
     total_cache_read_tokens: number;
     total_cache_write_tokens: number;
+    total_observed_input_tokens: number;
     error_count: number;
     avg_latency_ms: number;
     avg_ttft_ms: number | null;
@@ -346,6 +351,7 @@ export function querySummary(
     total_output_tokens: row.total_output_tokens,
     total_cache_read_tokens: row.total_cache_read_tokens,
     total_cache_write_tokens: row.total_cache_write_tokens,
+    total_observed_input_tokens: row.total_observed_input_tokens,
     error_count: row.error_count,
     error_rate: totalRequests > 0 ? row.error_count / totalRequests : 0,
     avg_latency_ms: row.avg_latency_ms,
@@ -436,6 +442,7 @@ export function queryBreakdown(
     COALESCE(SUM(COALESCE(output_tokens, 0)), 0) as output_tokens,
     COALESCE(SUM(COALESCE(cache_read_tokens, 0)), 0) as cache_read_tokens,
     COALESCE(SUM(COALESCE(cache_write_tokens, 0)), 0) as cache_write_tokens,
+    COALESCE(SUM(CASE WHEN cache_read_tokens IS NOT NULL THEN COALESCE(input_tokens, 0) ELSE 0 END), 0) as observed_input_tokens,
     COALESCE(SUM(total_tokens), 0) as total_tokens,
     COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
     AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
@@ -456,6 +463,7 @@ export function queryBreakdown(
     output_tokens: number;
     cache_read_tokens: number;
     cache_write_tokens: number;
+    observed_input_tokens: number;
     total_tokens: number;
     avg_latency_ms: number;
     avg_ttft_ms: number | null;
@@ -483,6 +491,7 @@ export function queryBreakdown(
       output_tokens: row.output_tokens,
       cache_read_tokens: row.cache_read_tokens,
       cache_write_tokens: row.cache_write_tokens,
+      observed_input_tokens: row.observed_input_tokens,
       total_tokens: row.total_tokens,
       avg_latency_ms: row.avg_latency_ms,
       p95_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.95),
@@ -680,6 +689,7 @@ export function queryTimeseries(
         COALESCE(SUM(COALESCE(output_tokens, 0)), 0) as output_tokens,
         COALESCE(SUM(COALESCE(cache_read_tokens, 0)), 0) as cache_read_tokens,
         COALESCE(SUM(COALESCE(cache_write_tokens, 0)), 0) as cache_write_tokens,
+        COALESCE(SUM(CASE WHEN cache_read_tokens IS NOT NULL THEN COALESCE(input_tokens, 0) ELSE 0 END), 0) as observed_input_tokens,
         COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
         AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
         AVG(CASE WHEN processing_ms IS NOT NULL THEN processing_ms END) as avg_processing_ms
@@ -700,6 +710,7 @@ export function queryTimeseries(
       output_tokens: number;
       cache_read_tokens: number;
       cache_write_tokens: number;
+      observed_input_tokens: number;
       avg_latency_ms: number;
       avg_ttft_ms: number | null;
       avg_processing_ms: number | null;
@@ -744,6 +755,7 @@ export function queryTimeseries(
       output_tokens: row.output_tokens,
       cache_read_tokens: row.cache_read_tokens,
       cache_write_tokens: row.cache_write_tokens,
+      observed_input_tokens: row.observed_input_tokens,
       avg_latency_ms: row.avg_latency_ms,
       p95_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.95),
       p99_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.99),
