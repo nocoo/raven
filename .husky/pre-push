@@ -2,10 +2,11 @@
 # Pre-push gates — HARD, parallel.
 #
 # - G2 security  (osv-scanner + gitleaks)
-# - L1 coverage  (proxy unit tests + §4.5 baseline gate)
+# - L1 coverage  (scripts/check-coverage.ts — same baseline gate as CI)
 # - G1 arch      (dep-cruiser layering + fetch-boundary)
+# - G1 lint      (full biome)
 #
-# All three run concurrently — see scripts/pre-push.ts
+# All run concurrently — see scripts/pre-push.ts
 #
 # Not in this hook (by design):
 #   L2 — manual-only: bun run test:e2e (real Copilot API, anti-ban)

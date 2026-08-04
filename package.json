@@ -24,6 +24,7 @@
     "test:e2e:full": "RAVEN_E2E_FULL=1 bun run scripts/run-e2e.ts",
     "capture-goldens": "bun run scripts/capture-goldens.ts",
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
+    "gate:coverage": "bun run scripts/check-coverage.ts",
     "gate:security": "bun run scripts/gate-security.ts",
     "gate:arch": "bun run scripts/gate-arch-depcruise.ts && bun run scripts/check-fetch-boundary.ts && bun run scripts/check-dynamic-delete.ts && bun run scripts/check-ts-expect-error.ts",
     "test:ui": "bun run scripts/run-playwright.ts",

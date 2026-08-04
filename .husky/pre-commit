@@ -1,6 +1,6 @@
 #!/bin/sh
-# L1: Unit tests + coverage
-# G1: Static analysis (lint-staged + typecheck)
+# L1: gate:coverage (proxy + §4.5 baseline) + dashboard unit tests
+# G1: Static analysis (lint-staged + typecheck + arch micro-checks)
 # G2: gitleaks (staged-only scan)
 # All run in parallel — see scripts/pre-commit.ts
 bun run scripts/pre-commit.ts
