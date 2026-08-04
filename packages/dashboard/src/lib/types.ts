@@ -66,6 +66,7 @@ export interface SummaryStats {
   total_output_tokens: number;
   total_cache_read_tokens: number;
   total_cache_write_tokens: number;
+  total_observed_input_tokens: number;
   error_count: number;
   error_rate: number;
   avg_latency_ms: number;
@@ -87,6 +88,7 @@ export interface ExtendedTimeseriesBucket {
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  observed_input_tokens: number;
   avg_latency_ms: number;
   p95_latency_ms: number;
   p99_latency_ms: number;
@@ -103,6 +105,7 @@ export interface BreakdownEntry {
   output_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  observed_input_tokens: number;
   total_tokens: number;
   avg_latency_ms: number;
   p95_latency_ms: number;

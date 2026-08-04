@@ -56,7 +56,11 @@ export default async function HomePage({ searchParams }: PageProps) {
   }
 
   const summary = summaryResult.data;
-  const cacheHit = cacheHitRate(summary.total_cache_read_tokens, summary.total_input_tokens);
+  const cacheHit = cacheHitRate(
+    summary.total_cache_read_tokens,
+    summary.total_cache_write_tokens,
+    summary.total_observed_input_tokens,
+  );
   const timeseries = timeseriesResult.ok ? timeseriesResult.data : [];
   const p95 = p95Result.ok ? p95Result.data : null;
   const modelBreakdown = modelBkResult.ok ? modelBkResult.data : [];

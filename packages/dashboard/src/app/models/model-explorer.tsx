@@ -51,7 +51,7 @@ function formatCellValue(entry: BreakdownEntry, key: string): string {
     case "output_tokens":
       return formatCompact(entry.output_tokens);
     case "cache_hit": {
-      const rate = cacheHitRate(entry.cache_read_tokens, entry.input_tokens);
+      const rate = cacheHitRate(entry.cache_read_tokens, entry.cache_write_tokens, entry.observed_input_tokens);
       return rate != null ? formatPercent(rate) : "—";
     }
     case "avg_latency_ms":

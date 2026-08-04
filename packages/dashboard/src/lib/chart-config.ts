@@ -115,17 +115,16 @@ export function formatPercent(value: number): string {
 }
 
 /**
- * Cache hit rate = cache_read / (cache_read + input). Read-side only — the
- * first-turn write cost is deliberately excluded, and Responses paths have no
- * write counter at all, so this single definition stays consistent across
- * strategies. Returns null when there is nothing to measure (no input, no
- * cache reads), so callers can render "—" instead of a bogus 0%.
+ * Cache hit rate = cache_read / (cache_read + cache_write + uncached input).
+ * Write is first-turn input that missed the cache; excluding it would overstate
+ * the rate (e.g. two-turn native chat ≈ 50%, not 99.8%). `input` should be the
+ * observed-input sum — rows without cache columns (pre-migration data) must not
+ * dilute the denominator.
  */
-export function cacheHitRate(cacheRead: number, input: number): number | null {
-  // Guard against undefined/NaN from an older proxy that predates the cache
-  // columns — those render "—" instead of a bogus "NaN%".
-  if (!Number.isFinite(cacheRead) || !Number.isFinite(input)) return null;
-  const denom = cacheRead + input;
+export function cacheHitRate(cacheRead: number, cacheWrite: number, input: number): number | null {
+  // An older proxy predates the cache columns and sends undefined here.
+  if (!Number.isFinite(cacheRead) || !Number.isFinite(cacheWrite) || !Number.isFinite(input)) return null;
+  const denom = cacheRead + cacheWrite + input;
   if (denom <= 0) return null;
   return cacheRead / denom;
 }

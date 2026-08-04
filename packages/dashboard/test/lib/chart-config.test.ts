@@ -9,29 +9,33 @@ import {
 } from "@/lib/chart-config";
 
 describe("cacheHitRate", () => {
-  it("divides reads by reads + input", () => {
-    expect(cacheHitRate(75, 25)).toBeCloseTo(0.75);
+  it("divides reads by reads + write + input", () => {
+    expect(cacheHitRate(75, 0, 25)).toBeCloseTo(0.75);
+  });
+
+  it("counts first-turn writes in the denominator", () => {
+    // Two-turn native chat: one write turn then a read-heavy turn. Excluding
+    // write would show 99.8%; the real rate is 50%.
+    expect(cacheHitRate(8403, 8403, 16)).toBeCloseTo(0.5);
   });
 
   it("returns 0 when there is input but no cache reads", () => {
-    expect(cacheHitRate(0, 100)).toBe(0);
+    expect(cacheHitRate(0, 0, 100)).toBe(0);
   });
 
   it("returns 1 when everything is cached", () => {
-    expect(cacheHitRate(100, 0)).toBe(1);
+    expect(cacheHitRate(100, 0, 0)).toBe(1);
   });
 
   it("returns null when there is nothing to measure", () => {
-    // No input and no reads — a hit rate of 0% would be misleading.
-    expect(cacheHitRate(0, 0)).toBeNull();
+    expect(cacheHitRate(0, 0, 0)).toBeNull();
   });
 
   it("returns null for undefined/NaN inputs (older proxy without cache fields)", () => {
-    // dev dashboard talks to a proxy that may predate the cache columns;
-    // missing fields arrive as undefined and must render "—", not "NaN%".
-    expect(cacheHitRate(undefined as unknown as number, 100)).toBeNull();
-    expect(cacheHitRate(50, undefined as unknown as number)).toBeNull();
-    expect(cacheHitRate(NaN, 100)).toBeNull();
+    expect(cacheHitRate(undefined as unknown as number, 0, 100)).toBeNull();
+    expect(cacheHitRate(50, undefined as unknown as number, 100)).toBeNull();
+    expect(cacheHitRate(50, 0, undefined as unknown as number)).toBeNull();
+    expect(cacheHitRate(NaN, 0, 100)).toBeNull();
   });
 });
 
