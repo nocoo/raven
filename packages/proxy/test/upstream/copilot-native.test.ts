@@ -238,7 +238,7 @@ describe("CopilotNativeClient (E.4)", () => {
     expect(captured[0]!.headers["x-initiator"]).toBe("agent")
   })
 
-  test("strips Anthropic-only block metadata before sending native", async () => {
+  test("forwards cache_control and citations on blocks so prompt caching works", async () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
@@ -270,12 +270,14 @@ describe("CopilotNativeClient (E.4)", () => {
       options: { copilotModel: "claude-x" },
     })
     const body = captured[0]!.body as { messages: Array<{ content: Array<Record<string, unknown>> }>; system: Array<Record<string, unknown>> }
-    expect(body.messages[0]!.content[0]!.cache_control).toBeUndefined()
-    expect(body.messages[0]!.content[0]!.citations).toBeUndefined()
-    expect(body.system[0]!.cache_control).toBeUndefined()
+    expect(body.messages[0]!.content[0]!.cache_control).toEqual({ type: "ephemeral" })
+    expect(body.messages[0]!.content[0]!.citations).toEqual([
+      { type: "char_location", cited_text: "x" },
+    ])
+    expect(body.system[0]!.cache_control).toEqual({ type: "ephemeral" })
   })
 
-  test("strips Anthropic-only tool schema fields before sending native", async () => {
+  test("strips only Copilot-rejected tool schema fields before sending native", async () => {
     state.copilotToken = "test-jwt"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
@@ -299,10 +301,10 @@ describe("CopilotNativeClient (E.4)", () => {
     })
     const body = captured[0]!.body as { tools: Array<Record<string, unknown>> }
     const tool = body.tools[0]!
-    expect(tool.cache_control).toBeUndefined()
     expect(tool.defer_loading).toBeUndefined()
-    expect(tool.eager_input_streaming).toBeUndefined()
     expect(tool.strict).toBeUndefined()
+    expect(tool.cache_control).toEqual({ type: "ephemeral" })
+    expect(tool.eager_input_streaming).toBe(true)
     expect(tool.name).toBe("lookup")
     expect(tool.input_schema).toEqual({ type: "object" })
   })
