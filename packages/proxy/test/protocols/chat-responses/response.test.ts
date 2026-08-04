@@ -240,3 +240,20 @@ describe("refusal mapping", () => {
     expect(chat.choices[0]!.message.refusal).toBe("I cannot help with that.")
   })
 })
+
+describe("json function_call name required", () => {
+  test("missing name throws", () => {
+    expect(() =>
+      responsesJsonToChatCompletion(
+        {
+          id: "r",
+          status: "completed",
+          error: null,
+          model: "m",
+          output: [{ type: "function_call", call_id: "c1", arguments: "{}" }],
+        },
+        "m",
+      ),
+    ).toThrow(/missing name/)
+  })
+})

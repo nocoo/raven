@@ -430,3 +430,86 @@ describe("function_call metadata completeness", () => {
     ).toThrow(/missing item_id/)
   })
 })
+
+describe("extra coverage edges", () => {
+  test("empty args delta after item.added is no-op", () => {
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    adaptResponsesEventToChatChunks(
+      sse(
+        "response.output_item.added",
+        JSON.stringify({
+          item: {
+            type: "function_call",
+            id: "fc1",
+            call_id: "call_1",
+            name: "fn",
+          },
+        }),
+      ),
+      st,
+    )
+    const out = adaptResponsesEventToChatChunks(
+      sse(
+        "response.function_call_arguments.delta",
+        JSON.stringify({
+          type: "response.function_call_arguments.delta",
+          item_id: "fc1",
+          delta: "",
+        }),
+      ),
+      st,
+    )
+    expect(out).toEqual([])
+  })
+
+  test("args via arguments field when delta absent", () => {
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    adaptResponsesEventToChatChunks(
+      sse(
+        "response.output_item.added",
+        JSON.stringify({
+          item: {
+            type: "function_call",
+            id: "fc1",
+            call_id: "call_1",
+            name: "fn",
+          },
+        }),
+      ),
+      st,
+    )
+    const out = adaptResponsesEventToChatChunks(
+      sse(
+        "response.function_call_arguments.delta",
+        JSON.stringify({
+          type: "response.function_call_arguments.delta",
+          item_id: "fc1",
+          arguments: "{\"x\":1}",
+        }),
+      ),
+      st,
+    )
+    expect(parseData(out[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
+      "{\"x\":1}",
+    )
+  })
+
+  test("error message from string error field", () => {
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    expect(() =>
+      adaptResponsesEventToChatChunks(
+        sse("response.failed", JSON.stringify({ error: "plain-fail" })),
+        st,
+      ),
+    ).toThrow(/plain-fail/)
+  })
+
+  test("malformed json deltas are ignored safely", () => {
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const out = adaptResponsesEventToChatChunks(
+      sse("response.output_text.delta", "not-json"),
+      st,
+    )
+    expect(out.length).toBeLessThanOrEqual(1)
+  })
+})

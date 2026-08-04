@@ -305,3 +305,14 @@ describe("unknown field discard", () => {
     expect(JSON.stringify(p)).not.toContain('"seed"')
   })
 })
+
+describe("mapToolChoice fallback", () => {
+  test("unknown tool_choice object is returned as-is", () => {
+    const p = chatRequestToResponses(
+      base({
+        tool_choice: { type: "unknown" } as unknown as "auto",
+      }),
+    )
+    expect(p.tool_choice).toEqual({ type: "unknown" })
+  })
+})
