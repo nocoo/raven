@@ -274,7 +274,7 @@ describe("stream uncovered branches", () => {
     ).toThrow(ResponsesStreamFailedError)
   })
 
-  test("args delta without prior item still works via item_id", () => {
+  test("args delta without prior item.added throws (no incomplete tool_calls)", () => {
     const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
     adaptResponsesEventToChatChunks(
       sse(
@@ -283,19 +283,41 @@ describe("stream uncovered branches", () => {
       ),
       st,
     )
-    const args = adaptResponsesEventToChatChunks(
+    expect(() =>
+      adaptResponsesEventToChatChunks(
+        sse(
+          "response.function_call_arguments.delta",
+          JSON.stringify({
+            type: "response.function_call_arguments.delta",
+            item_id: "new_item",
+            call_id: "call_new",
+            delta: "z",
+          }),
+        ),
+        st,
+      ),
+    ).toThrow(/before output_item.added/)
+  })
+
+  test("refusal.delta maps to delta.refusal", () => {
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    adaptResponsesEventToChatChunks(
       sse(
-        "response.function_call_arguments.delta",
-        JSON.stringify({
-          type: "response.function_call_arguments.delta",
-          item_id: "new_item",
-          call_id: "call_new",
-          delta: "z",
-        }),
+        "response.created",
+        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
       ),
       st,
     )
-    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe("z")
+    const out = adaptResponsesEventToChatChunks(
+      sse(
+        "response.refusal.delta",
+        JSON.stringify({ type: "response.refusal.delta", delta: "nope" }),
+      ),
+      st,
+    )
+    expect(parseData(out[0]!)).toMatchObject({
+      choices: [{ delta: { refusal: "nope" } }],
+    })
   })
 
   test("response.done terminal", () => {

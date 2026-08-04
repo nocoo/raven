@@ -133,13 +133,14 @@ export function adaptResponsesEventToChatChunks(
     const itemId = extractItemId(data)
     const delta = extractDeltaText(data) || extractArgsDelta(data)
     if (itemId != null && delta) {
-      let index = st.toolCallIndexByItemId.get(itemId)
+      const index = st.toolCallIndexByItemId.get(itemId)
       if (index === undefined) {
-        // Some streams only send item_id on args deltas
-        index = st.nextToolIndex++
-        st.toolCallIndexByItemId.set(itemId, index)
-        const callId = extractCallId(data) ?? itemId
-        st.callIdByItemId.set(itemId, callId)
+        // Must not invent incomplete tool_calls (missing id/type/name) or
+        // substitute item id for call_id — violates call_id invariant.
+        st.failed = true
+        throw new ResponsesStreamFailedError(
+          "function_call_arguments.delta before output_item.added with call_id",
+        )
       }
       st.finishReason = "tool_calls"
       if (!st.roleSent) out.push(...emitRoleChunk(st))
@@ -153,6 +154,19 @@ export function adaptResponsesEventToChatChunks(
           ],
         }),
       )
+    }
+    return out
+  }
+
+  if (
+    eventName === "response.refusal.delta" ||
+    typed === "response.refusal.delta"
+  ) {
+    ensureMeta(st, data)
+    if (!st.roleSent) out.push(...emitRoleChunk(st))
+    const delta = extractDeltaText(data)
+    if (delta) {
+      out.push(chatChunk(st, { refusal: delta }))
     }
     return out
   }
@@ -336,19 +350,6 @@ function extractItemId(data: string): string | null {
   }
 }
 
-function extractCallId(data: string): string | null {
-  try {
-    const parsed = JSON.parse(data) as {
-      call_id?: unknown
-      item?: { call_id?: string }
-    }
-    if (typeof parsed.call_id === "string") return parsed.call_id
-    if (typeof parsed.item?.call_id === "string") return parsed.item.call_id
-    return null
-  } catch {
-    return null
-  }
-}
 
 function applyUsage(data: string, st: ChatViaResponsesStreamState): void {
   const usage = extractUsage(data)

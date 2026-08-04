@@ -218,3 +218,25 @@ describe("response more branches", () => {
     expect(chat.choices[0]!.message.content).toBe("")
   })
 })
+
+describe("refusal mapping", () => {
+  test("message refusal content part maps to message.refusal", () => {
+    const chat = responsesJsonToChatCompletion(
+      {
+        id: "r",
+        status: "completed",
+        error: null,
+        model: "m",
+        output: [
+          {
+            type: "message",
+            content: [{ type: "refusal", refusal: "I cannot help with that." }],
+          },
+        ],
+      },
+      "m",
+    )
+    expect(chat.choices[0]!.message.content).toBeNull()
+    expect(chat.choices[0]!.message.refusal).toBe("I cannot help with that.")
+  })
+})

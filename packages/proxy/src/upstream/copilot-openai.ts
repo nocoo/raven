@@ -117,6 +117,8 @@ interface ResponseMessage {
   role: "assistant"
   content: string | null
   tool_calls: Array<ToolCall> | null
+  /** Present when the model refused to generate content (OpenAI Chat shape). */
+  refusal?: string | null
 }
 
 interface ChoiceNonStreaming {

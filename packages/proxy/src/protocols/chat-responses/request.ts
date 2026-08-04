@@ -120,10 +120,12 @@ function messagesToInput(messages: ChatViaResponsesClientReq["messages"]): unkno
     }
 
     if (msg.role === "assistant") {
+      // EasyInputMessage content parts use input_text (not output_text), even for
+      // prior assistant turns fed back as input. See OpenAI migrate-to-responses.
       if (msg.content != null && msg.content !== "") {
         input.push({
           role: "assistant",
-          content: contentToInputParts(msg.content, "output_text"),
+          content: contentToInputParts(msg.content, "input_text"),
         })
       }
       if (msg.tool_calls) {

@@ -270,3 +270,26 @@ describe("request more branches", () => {
     expect(p.text).toEqual({ format: { type: "text" } })
   })
 })
+
+describe("assistant multipart EasyInputMessage", () => {
+  test("multi text parts use input_text not output_text", () => {
+    const p = chatRequestToResponses(
+      base({
+        messages: [
+          {
+            role: "assistant",
+            content: [
+              { type: "text", text: "a" },
+              { type: "text", text: "b" },
+            ],
+          },
+        ],
+      }),
+    )
+    const input = p.input as Array<{ role: string; content: Array<{ type: string; text: string }> }>
+    expect(input[0]!.role).toBe("assistant")
+    expect(Array.isArray(input[0]!.content)).toBe(true)
+    expect(input[0]!.content.every((c) => c.type === "input_text")).toBe(true)
+    expect(input[0]!.content.map((c) => c.text)).toEqual(["a", "b"])
+  })
+})

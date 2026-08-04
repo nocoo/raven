@@ -69,3 +69,29 @@ describe("extractErrorDetails", () => {
     expect(result.errorDetail).toBe("bad n");
   });
 });
+
+describe("upstream protocol errors", () => {
+  it("maps ResponsesProtocolError to 502 in extract and forward", async () => {
+    const err = new Error("proto fail")
+    err.name = "ResponsesProtocolError"
+    const details = extractErrorDetails(err)
+    expect(details.statusCode).toBe(502)
+    expect(details.upstreamStatus).toBeNull()
+
+    const app = new Hono()
+    app.get("/", (c) => forwardError(c, err))
+    const res = await app.request("/")
+    expect(res.status).toBe(502)
+    const body = await res.json()
+    expect(body.error.message).toBe("proto fail")
+  })
+
+  it("maps ResponsesStreamFailedError to 502", async () => {
+    const err = new Error("stream fail")
+    err.name = "ResponsesStreamFailedError"
+    expect(extractErrorDetails(err).statusCode).toBe(502)
+    const app = new Hono()
+    app.get("/", (c) => forwardError(c, err))
+    expect((await app.request("/")).status).toBe(502)
+  })
+})

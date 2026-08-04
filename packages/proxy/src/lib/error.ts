@@ -2,6 +2,16 @@ import type { Context } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { Socks5BridgeUnavailableError } from "./socks5-bridge"
 
+/** Protocol-layer failures from shim translators (name-matched; no lib→protocols import). */
+const UPSTREAM_PROTOCOL_ERROR_NAMES = new Set([
+  "ResponsesProtocolError",
+  "ResponsesStreamFailedError",
+])
+
+function isUpstreamProtocolError(error: unknown): error is Error {
+  return error instanceof Error && UPSTREAM_PROTOCOL_ERROR_NAMES.has(error.name)
+}
+
 /** Max upstream response body length persisted in logs / DB. */
 const MAX_BODY_LENGTH = 512
 
@@ -55,6 +65,14 @@ export function extractErrorDetails(error: unknown): {
       statusCode: 400,
     }
   }
+  if (isUpstreamProtocolError(error)) {
+    // Align with Runner default for non-HTTPError failures (502), not generic 500.
+    return {
+      errorDetail: error.message,
+      upstreamStatus: null,
+      statusCode: 502,
+    }
+  }
   const errorMsg = error instanceof Error ? error.message : String(error)
   const upstreamStatus =
     error instanceof HTTPError ? error.status : null
@@ -101,6 +119,18 @@ export async function forwardError(c: Context, error: unknown) {
       {
         error: {
           message: (error as Error).message,
+          type: "error",
+        },
+      },
+      502,
+    )
+  }
+
+  if (isUpstreamProtocolError(error)) {
+    return c.json(
+      {
+        error: {
+          message: error.message,
           type: "error",
         },
       },
