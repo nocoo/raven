@@ -108,9 +108,9 @@ pickStrategy(openai, model, modelsCatalog[])
    └─ else                      → copilot-openai-direct
    ▼
 Strategy (7-method)
-   prepare  → chatRequestToResponses(payload)
-   dispatch → CopilotResponsesClient.send → Copilot /responses
-   adaptJson / adaptChunk → Chat Completions shape
+   prepare  → ChatViaResponsesUpReq { originalChat, includeUsage, responsesPayload }
+   dispatch → assert n/stop → CopilotResponsesClient.send(responsesPayload)
+   adaptJson / adaptChunk → Chat Completions shape（failed → throw）
    ▼
 Client  chat.completion | chat.completion.chunk SSE
 ```
