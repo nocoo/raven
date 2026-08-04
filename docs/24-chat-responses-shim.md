@@ -1,6 +1,6 @@
 # 24 — Chat Completions ↔ Responses Endpoint Auto-Shim
 
-> 状态：**Design — Codex protocol review 已合入（§15 Q4）；待签核实施**
+> 状态：**Design — Codex 二轮复审已合入（§15 Q4/Q5）；可签核实施**
 > 范围：`packages/proxy` 路由决策 + 协议翻译 + 第 7 策略；不改 Manifest / Dashboard
 > 关键属性：**catalog-driven 热更新** + **client Chat shape 不变** + **upstream `/responses` 一跳** + **failed 不得误报成功** + **tool call_id 往返**
 > 关联：`docs/16-openai-responses-api.md`（Responses 入向透传）、`docs/18-native-anthropic-messages.md`（`supported_endpoints` 门闩先例）、`docs/20-architecture-refactor.md`（七层 + Strategy）、`docs/23-token-sentinel.md`（`cacheModels` 刷新路径）
@@ -360,20 +360,53 @@ L1 必测：
 | **映射** | `temperature`, `top_p`, `user` | 同名透传 |
 | **映射** | `response_format` | → `text.format`（json_schema / json_object / text；形状按官方 migrate 指南转换） |
 | **映射** | `reasoning_effort` | → `reasoning.effort` |
-| **本地消费** | `stream_options.include_usage` | **不转发**上游；shim 在 stream 成功 terminal 时若 client 要求则附加 usage chunk（本地元数据） |
+| **本地消费** | `stream_options.include_usage` | **绝不**写入 Responses JSON body；经 §7 wrapper 的 `includeUsage` 字段保存；成功 terminal 时附加 usage chunk（形状 §6.5） |
 | **明确拒绝 400** | `n` 存在且 `n !== 1` | `invalid_request_error`：shim 不支持多 choice；**禁止**静默改成 1 |
 | **明确拒绝 400** | `stop`（非空） | 无稳定 Responses 等价；首版拒绝并提示 |
 | **安全忽略** | `logit_bias`, `logprobs`, `top_logprobs`, `presence_penalty`, `frequency_penalty`, `suffix`, … | 无害丢弃；debug 可记 `droppedFields` |
 | **安全忽略** | `previous_response_id`（client 误传） | 丢弃；不建立 Responses 会话链 |
 | **安全忽略** | 未列出的未知字段 | 默认丢弃（不透传），避免上游 400 |
 
-`prepare` 阶段对 **明确拒绝** 类应抛错，由 Runner/route `forwardError` 变成 400；不得等到上游。
+#### 6.3.1a 本地 400 校验与 `request_end`（P0）
+
+**事实**：`core/runner.ts` 在 `try` **之外** 调用 `strategy.prepare`；`prepare` 抛错时 **不会** `emitErrorEnd`，破坏「每请求一条 `request_end`」契约（sink / 统计依赖此不变量）。
+
+**本 shim 强制约定（不改 Runner 全局行为）：**
+
+| 阶段 | 允许做什么 | 禁止 |
+|---|---|---|
+| `prepare` | **纯转换** + 组装 `ChatViaResponsesUpReq`（§7）；可做非抛错的字段丢弃 | **禁止** 对 `n`/`stop` 等抛 400 |
+| `dispatch`（在 Runner 的 try 内） | 调用 `assertChatViaResponsesSupported(originalChat)`；不通过则 `throw HTTPError(400, ...)` | 不得在 `client.send` 之后才发现可本地拒绝的参数 |
+| `adaptJson` / `adaptChunk` | 上游协议失败 throw（已有 try 覆盖 → 有 `request_end`） | — |
+
+伪代码：
+
+```ts
+prepare(chat) {
+  return {
+    originalChat: chat,
+    includeUsage: !!chat.stream_options?.include_usage,
+    responsesPayload: chatRequestToResponses(chat), // 不校验 n/stop
+  }
+}
+async dispatch(up) {
+  assertChatViaResponsesSupported(up.originalChat) // throws HTTPError 400
+  return client.send(up.responsesPayload)
+}
+```
+
+路由层 `forwardError` 仍负责 HTTP 400 body；Runner 的 `emitErrorEnd` 负责 `request_end`。
+
+**可选后续（非本功能阻塞）**：Runner 将 `prepare` 移入 try——惠及所有策略；另开 commit，不绑 shim。
+
+L1：mock strategy/`execute` 路径，`n=2` → 400 **且** 观测到一条 `request_end`（error 臂）。
 
 #### 6.3.2 `messages` → `input` 与工具 ID（P0）
 
 | Chat message | Responses input item |
 |---|---|
-| `{role:"system"\|"developer", content}` | `{role:"system", content}`（优先 role 透传；不强制塞 `instructions`） |
+| `{role:"system", content}` | `{role:"system", content}`（保留 system；不强制塞 `instructions`） |
+| `{role:"developer", content}` | `{role:"developer", content}`（**保留 developer，禁止降级为 system**） |
 | `{role:"user", content: string\|parts}` | `{role:"user", content: ...}`；image_url → best-effort `input_image` |
 | `{role:"assistant", content, tool_calls?}` | message item + 后续 `function_call` items |
 | `{role:"tool", tool_call_id, content}` | `{type:"function_call_output", call_id: tool_call_id, output}` |
@@ -482,8 +515,25 @@ strict: chatTool.function.strict ?? false
    （**`id` 必须是 `call_id`**；item id 只进内部 Map）
 4. `response.function_call_arguments.delta` → 按 item id 查 index，增量 `arguments`
 5. **成功** terminal：仅 `response.completed` / `response.incomplete`（+ 等价 done）  
-   → `finish_reason` 收尾 chunk +（若 `stream_options.include_usage`）usage chunk + `data: [DONE]`
+   → `finish_reason` 收尾 chunk（`choices` 含 finish_reason）  
+   → 若 `includeUsage === true`：再发 **usage-only** chunk（形状见下）  
+   → `data: [DONE]`
 6. **失败** terminal：`event:error` / `response.failed` / data 内 failed → **§6.2 错误路径**（抛错 → `adaptStreamError` → chat error envelope）；**禁止** 成功 `[DONE]`
+
+**Usage chunk 形状（钉死，OpenAI Chat 惯例）：**
+
+```ts
+{
+  id, object: "chat.completion.chunk", created, model,
+  system_fingerprint: null,
+  choices: [],   // 空数组——不是 null、不是带 finish_reason 的 choice
+  usage: {
+    prompt_tokens, completion_tokens, total_tokens,
+    prompt_tokens_details: null,
+    completion_tokens_details: null,
+  }
+}
+```
 
 复用 `protocols/responses/stream-state.ts` 的 usage/model 抽取；**不** 复用 A↔O `stream-translation.ts`。
 
@@ -501,7 +551,7 @@ interface ChatViaResponsesStreamState {
   callIdByItemId: Map<string, string>
   nextToolIndex: number
   finishReason: "stop" | "length" | "tool_calls" | "content_filter" | null
-  includeUsage: boolean  // from stream_options.include_usage
+  includeUsage: boolean  // from UpReq.includeUsage — 不是 payload 字段
   inputTokens: number
   outputTokens: number
   done: boolean
@@ -523,14 +573,43 @@ interface ChatViaResponsesStreamState {
 packages/proxy/src/strategies/copilot-chat-via-responses.ts
 ```
 
+### 7.1 Upstream request wrapper（P1 — `includeUsage` 不得进 JSON body）
+
+`prepare` 的返回类型 **不是** 裸 `ResponsesPayload`。若把 `includeUsage` 挂在 payload 上，`JSON.stringify` 会发给 Copilot，导致未知字段风险。
+
+**选定方案：显式 wrapper（优先于 WeakMap，可读、可测）：**
+
+```ts
+interface ChatViaResponsesUpReq {
+  /** 原 Chat 请求；dispatch 内做 n/stop 校验；describeEndLog 可回读 model */
+  originalChat: ChatCompletionsPayload
+  /** 仅本地；initStreamState / adaptChunk 读取 */
+  includeUsage: boolean
+  /** 唯一允许 send 的 body */
+  responsesPayload: ResponsesPayload
+}
+```
+
+| 方法 | 读 | 写/发 |
+|---|---|---|
+| `prepare` | chat | 组装 wrapper；`responsesPayload` **不含** `includeUsage` / `stream_options` |
+| `dispatch` | wrapper | `assert*(originalChat)` 后 `client.send(responsesPayload)` **仅** payload |
+| `initStreamState` | wrapper | `includeUsage` → stream state |
+| `adaptJson` | body + wrapper | 映射时可用 `originalChat.model` 作 fallback |
+| `describeEndLog` | wrapper | `routingPath` + model |
+
+备选 WeakMap 仅当 wrapper 与既有 `Strategy` 泛型冲突时再考虑；**默认不用**。
+
+### 7.2 方法表
+
 | 方法 | 行为 |
 |---|---|
 | `name` | `"copilot-chat-via-responses"` |
-| `prepare` | 校验拒绝类字段（`n`/`stop`）→ `chatRequestToResponses(req)`；保留 `includeUsage` 等到 stream state |
-| `dispatch` | `deps.client.send(up)` → `CopilotResponsesClient`（registry kind 已有 `copilot-responses`） |
+| `prepare` | **不抛 400**；返回 `ChatViaResponsesUpReq`（§7.1）；`includeUsage` 从 `stream_options` 提取后 **剥离**，不进入 `responsesPayload` |
+| `dispatch` | §6.3.1a 本地校验 → `deps.client.send(up.responsesPayload)` |
 | `adaptJson` | 若 failed/error → **throw**（§6.2）；否则 `responsesJsonToChatCompletion(...)` |
-| `initStreamState` | 初始化 §6.5 状态（含 `includeUsage`） |
-| `adaptChunk` | 失败事件 → **throw**；成功 → `stream.adapt` → `SSEMessage[]`（可一次多 chunk） |
+| `initStreamState` | 初始化 §6.5 状态；`includeUsage: up.includeUsage` |
+| `adaptChunk` | 失败事件 → **throw**；成功 → `stream.adapt` → `SSEMessage[]`（可一次多 chunk；usage chunk 见 §6.5） |
 | `adaptStreamError` | OpenAI chat error envelope（`{ error: { message, type } }` data chunk）；**不** 发成功 DONE |
 | `describeEndLog` | success：model/tokens/`routingPath`；error：error 臂 + 同 routingPath |
 
@@ -816,7 +895,9 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 | `max_tokens` vs `max_completion_tokens` | handler 已有 normalize，再映 `max_output_tokens` |
 | STRATEGY_NAMES / registry 漏改 | C.1 单测 length=7 锁死 |
 | 与 doc 16 文案冲突 | D.1 收窄 Non-Goals |
-| 翻译丢字段导致工具调用失败 | B/C 金样强制 tools 往返；L2 手测 tool 路径可选 |
+| 翻译丢字段导致工具调用失败 | B/C 金样强制 tools 往返；**L2 §9.2 #3 必做两轮 tool call** |
+| `prepare` 抛错丢 `request_end` | 校验放 `dispatch`（§6.3.1a）；L1 断言 error 臂 end log |
+| `includeUsage` 泄漏进上游 body | wrapper 类型（§7.1）；单测 `JSON.stringify(responsesPayload)` 无该键 |
 
 ---
 
@@ -832,9 +913,10 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 
 1. Review 本文签核（本阶段）
 2. A.2 → B.* → C.1 → C.2 → C.3（TDD：先红测再实现，同 commit 内完成）
-3. 本地 L1 全绿 + 可选 L2 手测 grok-4.5 ×1 stream
-4. D.1 文档交叉链接
-5. （可选）Phase E 另开
+3. 本地 L1 全绿
+4. **L2 手测必做**（§9.2）：纯文本 non-stream + stream + **两轮 tool call** + empty-endpoints smoke（anti-ban）
+5. D.1 文档交叉链接
+6. （可选）Phase E 另开
 
 **禁止** 在 Review 完成前改生产路由行为。
 
@@ -854,7 +936,7 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 
 两栖仍走 chat 直通（零翻译、现网行为）。仅当上游日后从两栖降级为 responses-only，下一次 catalog 刷新后自动切 shim（H-5）——这正是 catalog-driven 的价值。
 
-### Q4：Codex review 修正摘要（2026-08-04）
+### Q4：Codex review 修正摘要（2026-08-04，首轮）
 
 | # | 严重度 | 问题 | 文档落点 |
 |---|---|---|---|
@@ -865,10 +947,19 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 | 5 | P1 | 完整 chat.completion 形状 + finish_reason 优先级 | §6.4 |
 | 6 | P1 | L2 必做两轮 tool call | §9.2 #3 |
 
+### Q5：Codex 复审修正摘要（2026-08-04，二轮）
+
+| # | 严重度 | 问题 | 文档落点 |
+|---|---|---|---|
+| 1 | P0 | `prepare` 抛 400 无 `request_end` | §6.3.1a：校验移入 `dispatch` |
+| 2 | P1 | `includeUsage` 保存机制 / 泄漏上游 | §7.1 wrapper；§6.5 usage chunk `choices:[]` |
+| 3 | P1 | `developer` 不得降级 `system` | §6.3.2 分列保留 role |
+| — | 文案 | §12/§14 与 §9.2 工具 L2 必做不一致 | 已对齐为必做 |
+
 ---
 
 ## 16. 参考
 
 - Manifest（外部）：`buildCustomEndpoint` 仅 openai/anthropic path
-- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `core/runner.ts`（adaptChunk 抛错 → adaptStreamError）, `docs/16`, `docs/18`, `docs/20`, `docs/23`
-- OpenAI：migrate-to-responses（function `strict` 默认差异）、function-calling streaming（`call_id`）
+- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `core/runner.ts`（`prepare` 在 try 外；`dispatch`/`adaptJson`/`adaptChunk` 抛错 → `request_end`）, `docs/16`, `docs/18`, `docs/20`, `docs/23`
+- OpenAI：migrate-to-responses（function `strict` 默认差异）、function-calling streaming（`call_id`）、Responses input roles（含 `developer`）
