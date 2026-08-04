@@ -26,6 +26,7 @@
 | 22 | [Dashboard Design System](./22-dashboard-design-system.md) | Dashboard 设计系统 |
 | 23 | [Token Sentinel](./23-token-sentinel.md) | Copilot token 单写者刷新架构：哨兵 loop + 信号通道，天然线程安全 |
 | 24 | [Chat ↔ Responses Shim](./24-chat-responses-shim.md) | Chat Completions 入向自动转 Responses 上游：catalog-driven 热更新 |
+| 25 | [Messages ↔ Responses Shim](./25-messages-responses-shim.md) | Anthropic Messages 入向自动转 Responses 上游：与 24 姊妹，catalog-driven |
 
 ## Archive
 

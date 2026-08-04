@@ -478,6 +478,7 @@ cp packages/dashboard/.env.example packages/dashboard/.env.local
 | 22 | [Dashboard Design System](docs/22-dashboard-design-system.md) | Dashboard 设计系统 |
 | 23 | [Token Sentinel](docs/23-token-sentinel.md) | Copilot token 单写者刷新架构：哨兵 loop + 信号通道 |
 | 24 | [Chat ↔ Responses Shim](docs/24-chat-responses-shim.md) | Chat Completions 入向自动转 Responses 上游 |
+| 25 | [Messages ↔ Responses Shim](docs/25-messages-responses-shim.md) | Anthropic Messages 入向自动转 Responses 上游 |
 
 <details><summary>Archive</summary>
 

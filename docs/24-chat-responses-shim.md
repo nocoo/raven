@@ -3,7 +3,7 @@
 > 状态：**Implemented — chat-via-responses shipped on main**
 > 范围：`packages/proxy` 路由决策 + 协议翻译 + 第 7 策略；不改 Manifest / Dashboard
 > 关键属性：**catalog-driven 热更新** + **client Chat shape 不变** + **upstream `/responses` 一跳** + **failed 不得误报成功** + **tool call_id 往返**
-> 关联：`docs/16-openai-responses-api.md`（Responses 入向透传）、`docs/18-native-anthropic-messages.md`（`supported_endpoints` 门闩先例）、`docs/20-architecture-refactor.md`（七层 + Strategy）、`docs/23-token-sentinel.md`（`cacheModels` 刷新路径）
+> 关联：`docs/16-openai-responses-api.md`（Responses 入向透传）、`docs/18-native-anthropic-messages.md`（`supported_endpoints` 门闩先例）、`docs/20-architecture-refactor.md`（七层 + Strategy）、`docs/23-token-sentinel.md`（`cacheModels` 刷新路径）、`docs/25-messages-responses-shim.md`（**姊妹**：Messages 入向 → Responses，设计中）
 
 ---
 
