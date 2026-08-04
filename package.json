@@ -51,8 +51,7 @@
     "vite": "8.1.5",
     "postcss": ">=8.5.18",
     "@babel/core": ">=7.29.6",
-    "undici": "^7.29.0",
-    "ip-address": ">=10.3.1",
+    "ip-address": "^10.3.1",
     "sharp": ">=0.35.0"
   },
   "dependencies": {
