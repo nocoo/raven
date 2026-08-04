@@ -20,6 +20,7 @@ import {
   ResponsesProtocolError,
   responsesJsonToChatCompletion,
 } from "../protocols/chat-responses/response"
+import { mapResponsesFinishReason } from "../protocols/chat-responses/finish-reason"
 import {
   ResponsesStreamFailedError,
   adaptResponsesEventToChatChunks,
@@ -30,6 +31,7 @@ import type {
   ChatViaResponsesStreamState,
   ChatViaResponsesUpReq,
 } from "../protocols/chat-responses/types"
+import { extractNonStreamingMeta } from "../protocols/responses/stream-state"
 
 export interface CopilotChatViaResponsesDeps {
   client: CopilotResponsesClient
@@ -113,17 +115,26 @@ export function makeCopilotChatViaResponses(
     describeEndLog: (result) => {
       const routingPath = "chat-via-responses"
       if (result.kind === "json") {
-        const resp = result.resp as ChatCompletionResponse
-        const cached = resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
-        const inputTokens = (resp.usage?.prompt_tokens ?? 0) - cached
-        const outputTokens = resp.usage?.completion_tokens ?? 0
+        // Runner passes upstream Responses body here (not adaptJson output).
+        const meta = extractNonStreamingMeta(
+          result.resp,
+          result.req.originalChat.model,
+        )
+        const body =
+          result.resp && typeof result.resp === "object"
+            ? (result.resp as {
+                status?: unknown
+                incomplete_details?: { reason?: unknown } | null
+                output?: unknown
+              })
+            : {}
         return {
           model: result.req.originalChat.model,
-          resolvedModel: resp.model,
-          inputTokens,
-          outputTokens,
+          resolvedModel: meta.resolvedModel,
+          inputTokens: meta.inputTokens,
+          outputTokens: meta.outputTokens,
           routingPath,
-          stopReason: resp.choices?.[0]?.finish_reason ?? null,
+          stopReason: mapResponsesFinishReason(body),
         }
       }
       if (result.kind === "stream") {

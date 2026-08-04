@@ -183,26 +183,46 @@ describe("strategy error and end-log arms", () => {
     expect(JSON.parse(String(evs[0]!.data)).error.message).toBe("boom")
   })
 
-  test("describeEndLog json and error arms", async () => {
+  test("describeEndLog json arm reads Responses usage (Runner UpResp path)", async () => {
+    const upstreamBody = {
+      id: "r",
+      status: "completed",
+      error: null,
+      model: "grok-resolved",
+      created_at: 1,
+      output: [
+        {
+          type: "function_call",
+          call_id: "call_1",
+          name: "fn",
+          arguments: "{}",
+        },
+      ],
+      // Responses wire shape — NOT chat prompt_tokens/completion_tokens
+      usage: { input_tokens: 11, output_tokens: 22 },
+    }
     const s = makeCopilotChatViaResponses({
-      client: mockClient(async () => ({
-        id: "r",
-        status: "completed",
-        error: null,
-        model: "m",
-        created_at: 1,
-        output: [{ type: "message", content: [{ type: "output_text", text: "t" }] }],
-        usage: { input_tokens: 1, output_tokens: 2, prompt_tokens_details: { cached_tokens: 0 } },
-      })),
+      client: mockClient(async () => upstreamBody),
       toolCallDebug: false,
     })
     const up = s.prepare({ model: "m", messages: [{ role: "user", content: "x" }] }, ctx)
     const d = await s.dispatch(up, ctx)
     if (d.kind !== "json") throw new Error("expected json")
-    const chat = s.adaptJson(d.body, up, ctx)
-    const jsonLog = s.describeEndLog({ kind: "json", req: up, resp: chat }, ctx)
+    // Runner calls describeEndLog with dispatched.body (Responses), not adaptJson output
+    const jsonLog = s.describeEndLog({ kind: "json", req: up, resp: d.body }, ctx)
     expect(jsonLog.routingPath).toBe("chat-via-responses")
-    expect(jsonLog.outputTokens).toBe(2)
+    expect(jsonLog.resolvedModel).toBe("grok-resolved")
+    expect(jsonLog.inputTokens).toBe(11)
+    expect(jsonLog.outputTokens).toBe(22)
+    expect(jsonLog.stopReason).toBe("tool_calls")
+
+    // Theater guard: feeding Chat-shaped body must NOT be how we "prove" tokens
+    const chat = s.adaptJson(d.body, up, ctx)
+    expect(chat.usage?.prompt_tokens).toBe(11)
+    const wrong = s.describeEndLog({ kind: "json", req: up, resp: chat }, ctx)
+    // Chat body has prompt_tokens not input_tokens — extractNonStreamingMeta → 0
+    expect(wrong.inputTokens).toBe(0)
+    expect(wrong.outputTokens).toBe(0)
 
     const errLog = s.describeEndLog(
       { kind: "error", req: up, err: new Error("x") },
@@ -227,5 +247,115 @@ describe("strategy error and end-log arms", () => {
     )
     await expect(s.dispatch(up, ctx)).rejects.toBeInstanceOf(ClientInputError)
     expect(send).not.toHaveBeenCalled()
+  })
+})
+
+describe("integrated non-stream request_end tokens", () => {
+  test("handler request_end carries Responses input/output tokens", async () => {
+    const { Hono } = await import("hono")
+    const { state } = await import("../../src/lib/state")
+    const { logEmitter } = await import("../../src/util/log-emitter")
+    const { handleCompletion } = await import("../../src/routes/chat-completions/handler")
+    type LogEvent = import("../../src/util/log-event").LogEvent
+
+    const savedModels = state.models
+    const savedToken = state.copilotToken
+    state.copilotToken = "test-token"
+    state.vsCodeVersion = "1.90.0"
+    state.accountType = "individual"
+    state.models = {
+      object: "list",
+      data: [
+        {
+          id: "grok-4.5",
+          name: "Grok",
+          object: "model",
+          vendor: "xai",
+          version: "1",
+          preview: false,
+          policy: null,
+          model_picker_enabled: true,
+          supported_endpoints: ["/responses"],
+          capabilities: {
+            family: "grok",
+            object: "model_capabilities",
+            type: "chat",
+            tokenizer: "o200k_base",
+            limits: {
+              max_context_window_tokens: 128000,
+              max_output_tokens: 16384,
+              max_prompt_tokens: 64000,
+              max_inputs: null,
+            },
+            supports: {
+              tool_calls: true,
+              parallel_tool_calls: true,
+              dimensions: null,
+            },
+          },
+        },
+      ],
+    }
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "resp_int",
+          status: "completed",
+          error: null,
+          model: "grok-4.5",
+          created_at: 100,
+          output: [
+            {
+              type: "message",
+              content: [{ type: "output_text", text: "ok" }],
+            },
+          ],
+          usage: { input_tokens: 42, output_tokens: 7 },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    )
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    try {
+      const app = new Hono()
+      app.post("/v1/chat/completions", handleCompletion)
+      const res = await app.request(
+        new Request("http://localhost/v1/chat/completions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            model: "grok-4.5",
+            stream: false,
+            messages: [{ role: "user", content: "hi" }],
+          }),
+        }),
+      )
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.choices[0].message.content).toBe("ok")
+      // upstream must be /responses
+      expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
+
+      await new Promise((r) => setTimeout(r, 15))
+      const end = events.find((e) => e.type === "request_end")
+      expect(end).toBeTruthy()
+      expect(end!.data).toMatchObject({
+        status: "success",
+        strategy: "copilot-chat-via-responses",
+        routingPath: "chat-via-responses",
+        inputTokens: 42,
+        outputTokens: 7,
+      })
+    } finally {
+      logEmitter.off("log", listener)
+      fetchSpy.mockRestore()
+      state.models = savedModels
+      state.copilotToken = savedToken
+    }
   })
 })
