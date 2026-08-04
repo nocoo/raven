@@ -198,7 +198,7 @@ app.route("/v1/responses", responsesRoutes)
 
 ## Non-Goals
 
-Raven 作为 passthrough 代理，**不做**：
+Raven 作为 **`/v1/responses` 入向** passthrough 代理，**不做**（Chat 入向 shim 见 [docs/24](./24-chat-responses-shim.md)）：
 
 - 请求/响应翻译
 - 字段验证（交给上游）

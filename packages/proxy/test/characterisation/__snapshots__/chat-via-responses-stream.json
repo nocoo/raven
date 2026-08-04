@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "branch": "chat-via-responses-stream",
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "grok-4.5",
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "upstreamChunks": [
+    "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_char\",\"model\":\"grok-4.5\",\"created_at\":1700000000}}\n\n",
+    "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"Hi\"}\n\n",
+    "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":10,\"output_tokens\":2}}}\n\n"
+  ],
+  "responseStatus": 200,
+  "responseHeaders": {
+    "content-type": "text/event-stream",
+    "transfer-encoding": "chunked"
+  },
+  "responseBody": "data: {\"id\":\"resp_char\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_char\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_char\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+  "endLog": {
+    "path": "/v1/chat/completions",
+    "format": "openai",
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "strategy": "copilot-chat-via-responses",
+    "model": "grok-4.5",
+    "resolvedModel": "grok-4.5",
+    "inputTokens": 10,
+    "outputTokens": 2,
+    "routingPath": "chat-via-responses",
+    "stopReason": "stop"
+  }
+}
