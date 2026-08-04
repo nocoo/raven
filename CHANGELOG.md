@@ -1,5 +1,59 @@
 # Changelog
 
+## v2.5.0
+
+### Added
+- Chat completions via responses auto-shim
+
+### Changed
+- Bump hono, tooling, and dashboard packages
+- Characterisation for chat-via-responses stream
+- Align ClientInputError placement and statusCode
+- Fix shim design after codex round 3
+- Align shim overview with dispatch validation
+- Fix shim design after codex re-review
+- Fix chat-responses shim per codex review
+- Add chat-responses shim design (24)
+- Bump jsdom 29.0.0 → 30.0.1 in dashboard
+- Bump @playwright/test 1.61.1 → 1.62.0 in dashboard
+- Bump lint-staged 17.1.1 → 17.2.0
+- Bump lucide-react 1.25.0 → 1.27.0 in dashboard
+- Bump next 16.2.11 → 16.2.12
+- Bump oxc-parser 0.141.0 → 0.142.0
+- Bump radix-ui 1.6.5 → 1.6.7 in dashboard
+- Bump recharts 3.10.0 → 3.10.1 in dashboard
+- Bump hono 4.12.31 → 4.12.32
+- Bump @types/node 26.1.1 → 26.1.2 in dashboard
+- Bump @biomejs/biome 2.5.5 → 2.5.6
+- Bump postcss override 8.5.10 → >=8.5.18 (GHSA-r28c-9q8g-f849)
+- Bump next-auth 5.0.0-beta.31 → 5.0.0-beta.32 in dashboard
+- Bump @vitejs/plugin-react 6.0.3 → 6.0.4 in dashboard
+- Bump lint-staged 17.1.0 → 17.1.1
+- Bump radix-ui 1.6.4 → 1.6.5 in dashboard
+- Add sharp >=0.35.0 override (GHSA-f88m-g3jw-g9cj)
+- Bump react/react-dom 19.2.7 → 19.2.8 in dashboard
+- Bump oxc-parser 0.140.0 → 0.141.0
+- Bump next 16.2.10 → 16.2.11
+- Bump @biomejs/biome 2.5.4 → 2.5.5
+- Bump @testing-library/jest-dom 6.9.1 → 7.0.0 in dashboard
+- Bump recharts 3.9.2 → 3.10.0 in dashboard
+- Bump radix-ui 1.6.3 → 1.6.4 in dashboard
+- Bump radix-ui 1.6.2 → 1.6.3 in dashboard
+- Bump lint-staged 17.0.8 → 17.1.0
+- Bump hono 4.12.30 → 4.12.31
+- Bump lucide-react 1.24.0 → 1.25.0 in dashboard
+- Bump vite 8.1.4 → 8.1.5
+- Bump tailwindcss 4.3.2 → 4.3.3 in dashboard
+- Bump @tailwindcss/postcss 4.3.2 → 4.3.3 in dashboard
+- Bump oxc-parser 0.139.0 → 0.140.0
+- Bump @biomejs/biome 2.5.3 → 2.5.4
+
+### Fixed
+- Drop seed passthrough; require tool call meta
+- Harden chat-via-responses protocol edges
+- Parse Responses usage in shim end log
+- Switch radix-ui root barrel to typed subpath imports
+
 ## v2.4.0
 
 ### Changed
