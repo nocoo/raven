@@ -1,6 +1,6 @@
 # 24 — Chat Completions ↔ Responses Endpoint Auto-Shim
 
-> 状态：**Design — Codex 二轮复审已合入（§15 Q4/Q5）；可签核实施**
+> 状态：**Design — Codex 三轮复审已合入（§15 Q4–Q6）；可签核实施**
 > 范围：`packages/proxy` 路由决策 + 协议翻译 + 第 7 策略；不改 Manifest / Dashboard
 > 关键属性：**catalog-driven 热更新** + **client Chat shape 不变** + **upstream `/responses` 一跳** + **failed 不得误报成功** + **tool call_id 往返**
 > 关联：`docs/16-openai-responses-api.md`（Responses 入向透传）、`docs/18-native-anthropic-messages.md`（`supported_endpoints` 门闩先例）、`docs/20-architecture-refactor.md`（七层 + Strategy）、`docs/23-token-sentinel.md`（`cacheModels` 刷新路径）
@@ -332,18 +332,42 @@ Responses 的失败是 **普通 SSE/JSON 字段**，不是 HTTP 非 2xx。Runner
 
 | 路径 | 条件 | 必须行为 |
 |---|---|---|
-| **非流式 `adaptJson`** | body `status === "failed"` 或存在顶层 `error` | **抛出** 协议错误（`HTTPError` 或 strategy 约定错误类型）；**不得** 返回 `chat.completion` 200 body |
-| **流式 `adaptChunk`** | `event === "error"` 或 `event === "response.failed"`（或 data.type 同上） | **抛出**（或返回后由 strategy 抛出），进入 Runner 的 `adaptStreamError` 路径；**不得** 发 `finish_reason` 成功收尾 chunk，**不得** 发 `data: [DONE]` 作为成功结束 |
+| **非流式 `adaptJson`** | `isResponsesFailure(body)` 为 true（见下） | **抛出** 协议错误；**不得** 返回 `chat.completion` 200 body |
+| **流式 `adaptChunk`** | `event === "error"` 或 `event === "response.failed"`（或 data.type 同上） | **抛出**，进入 Runner `adaptStreamError`；**不得** 成功收尾 / 成功 `[DONE]` |
 | **流式成功 terminal** | 仅 `response.completed` / `response.incomplete`（及等价 done） | 才允许 `finish_reason` + 可选 usage + `[DONE]` |
-| **`request_end`** | 上述失败路径 | `describeEndLog` / Runner 记 **error**（非 200 success）；`routingPath` 仍可保留 |
+| **`request_end`** | 上述失败路径 | 记 **error**（非 200 success）；`routingPath` 仍可保留 |
+
+**非流式失败谓词（P0 — 勿把 `error: null` 当失败）：**
+
+真实 Copilot / OpenAI Responses **成功** JSON 常带 `"error": null`。  
+**禁止** 用「存在顶层 `error` 键」或 truthy 宽松判断。
+
+```ts
+function isResponsesFailure(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false
+  const b = body as { status?: unknown; error?: unknown }
+  if (b.status === "failed") return true
+  // 仅非 null 的 error 对象/字符串算失败；null / undefined 不算
+  return b.error != null
+}
+```
+
+| body | `isResponsesFailure` |
+|---|---|
+| `{ status:"completed", error:null, output:[...] }` | **false**（成功） |
+| `{ status:"incomplete", error:null, ... }` | **false**（走 finish_reason 映射，不 throw） |
+| `{ status:"failed", error:{...} }` | **true** |
+| `{ status:"completed", error:{ message:"..." } }` | **true**（防御） |
+| `{ error:null }` 无 status | **false** |
 
 L1 必测：
 
-- non-stream fixture：`status:"failed"` → throw，无 choices
-- stream fixture：golden 中真实 `response.failed` 序列 → 客户端收到 **OpenAI chat error envelope**，无成功 `[DONE]`
-- `request_end` 带 error 字段
+- non-stream：`status:"failed"` → throw
+- non-stream：`status:"completed", error:null` → **成功** chat.completion（回归防回归）
+- stream：`response.failed` → chat error envelope，无成功 `[DONE]`
+- `request_end` 失败路径带 error 字段
 
-> 历史笔误：早期草稿把 `failed` 与 `completed` 并列写进成功 terminal——**已废止**。以本节为准。
+> 历史笔误：① `failed` 与 `completed` 并列成功 terminal；②「存在顶层 error 即失败」——均已废止。
 
 ### 6.3 请求 Chat → Responses
 
@@ -382,7 +406,7 @@ L1 必测：
 伪代码：
 
 ```ts
-prepare(chat) {
+prepare(chat: ChatViaResponsesClientReq) {
   return {
     originalChat: chat,
     includeUsage: !!chat.stream_options?.include_usage,
@@ -390,16 +414,36 @@ prepare(chat) {
   }
 }
 async dispatch(up) {
-  assertChatViaResponsesSupported(up.originalChat) // throws HTTPError 400
+  assertChatViaResponsesSupported(up.originalChat) // throws ClientInputError
   return client.send(up.responsesPayload)
 }
 ```
 
-路由层 `forwardError` 仍负责 HTTP 400 body；Runner 的 `emitErrorEnd` 负责 `request_end`。
+**本地 400 错误类型（P1 — 不得记成 upstream 400）：**
+
+现有 `HTTPError` + `extractErrorDetails` 会把 `error.status` 写成 `upstreamStatus`（`lib/error.ts`），`forwardError` 的 `type` 固定为 `"error"`。  
+本地参数拒绝 **没有** 打上游，不能走裸 `HTTPError(400)`。
+
+```ts
+// protocols/chat-responses/errors.ts 或 lib/error.ts（shim 专用优先放 protocols 侧可构造、route 识别）
+class ClientInputError extends Error {
+  readonly status = 400
+  readonly type = "invalid_request_error"
+  constructor(message: string) { super(message) }
+}
+```
+
+| 层 | 行为 |
+|---|---|
+| `assertChatViaResponsesSupported` | `throw new ClientInputError("...")` |
+| `extractErrorDetails` / Runner end log | 识别 `ClientInputError` → `statusCode:400`，**`upstreamStatus: null`**（不是 400） |
+| `forwardError` | `c.json({ error: { message, type: "invalid_request_error" } }, 400)` |
+
+若不愿改全局 `extractErrorDetails`：strategy `describeEndLog` error 臂显式写 `upstreamStatus: null`，且 route 对 `ClientInputError` 分支 `forwardError`——**至少一端必须覆盖**，L1 钉死 log 字段。
 
 **可选后续（非本功能阻塞）**：Runner 将 `prepare` 移入 try——惠及所有策略；另开 commit，不绑 shim。
 
-L1：mock strategy/`execute` 路径，`n=2` → 400 **且** 观测到一条 `request_end`（error 臂）。
+L1：`n=2` → HTTP 400 + body `type:invalid_request_error` + `request_end` 且 **`upstreamStatus === null`**。
 
 #### 6.3.2 `messages` → `input` 与工具 ID（P0）
 
@@ -573,7 +617,59 @@ interface ChatViaResponsesStreamState {
 packages/proxy/src/strategies/copilot-chat-via-responses.ts
 ```
 
-### 7.1 Upstream request wrapper（P1 — `includeUsage` 不得进 JSON body）
+### 7.1 客户端请求扩展类型（P1）
+
+现有 `ChatCompletionsPayload`（`upstream/copilot-openai.ts`）**缺少** shim 需要的字段，例如：
+
+- `stream_options?: { include_usage?: boolean }`
+- `tools[].function.strict?: boolean`
+- 完整 `response_format`（`json_schema` 等，今日类型仅 `json_object`）
+- 其它映射表已列、wire 上常见但类型未声明的字段
+
+**禁止** 把 `originalChat` 窄成旧 `ChatCompletionsPayload` 后靠 `as any` 读字段。
+
+在 `protocols/chat-responses/types.ts` 定义：
+
+```ts
+/** Strategy 入向 ClientReq：OpenAI Chat wire 的超集，仅 shim 使用 */
+export interface ChatViaResponsesClientReq {
+  model: string
+  messages: ChatCompletionsPayload["messages"] // 可再扩 developer 等
+  stream?: boolean | null
+  stream_options?: { include_usage?: boolean } | null
+  max_tokens?: number | null
+  max_completion_tokens?: number | null
+  n?: number | null
+  stop?: string | string[] | null
+  temperature?: number | null
+  top_p?: number | null
+  user?: string | null
+  tools?: Array<{
+    type: "function"
+    function: {
+      name: string
+      description?: string | null
+      parameters?: Record<string, unknown>
+      strict?: boolean
+    }
+  }> | null
+  tool_choice?: ChatCompletionsPayload["tool_choice"]
+  response_format?:
+    | { type: "text" }
+    | { type: "json_object" }
+    | { type: "json_schema"; json_schema: Record<string, unknown> }
+    | null
+  reasoning_effort?: ChatCompletionsPayload["reasoning_effort"]
+  // 安全忽略类字段可可选声明，便于 prepare 枚举 droppedFields
+  [key: string]: unknown
+}
+```
+
+- Strategy 泛型：`Strategy<ChatViaResponsesClientReq, ChatViaResponsesUpReq, ...>`
+- handler 在确认 `decision.name === "copilot-chat-via-responses"` 后把 body 当作此类型传入（或 dispatch 统一 `unknown` 再收窄）
+- **不** 为 shim 污染全局 `ChatCompletionsPayload`（避免 direct 路径类型膨胀）；若未来要统一，另开 refactor
+
+### 7.2 Upstream request wrapper（P1 — `includeUsage` 不得进 JSON body）
 
 `prepare` 的返回类型 **不是** 裸 `ResponsesPayload`。若把 `includeUsage` 挂在 payload 上，`JSON.stringify` 会发给 Copilot，导致未知字段风险。
 
@@ -581,8 +677,8 @@ packages/proxy/src/strategies/copilot-chat-via-responses.ts
 
 ```ts
 interface ChatViaResponsesUpReq {
-  /** 原 Chat 请求；dispatch 内做 n/stop 校验；describeEndLog 可回读 model */
-  originalChat: ChatCompletionsPayload
+  /** 原 Chat 请求（扩展类型）；dispatch 内 n/stop 校验；describeEndLog 回读 model */
+  originalChat: ChatViaResponsesClientReq
   /** 仅本地；initStreamState / adaptChunk 读取 */
   includeUsage: boolean
   /** 唯一允许 send 的 body */
@@ -592,26 +688,26 @@ interface ChatViaResponsesUpReq {
 
 | 方法 | 读 | 写/发 |
 |---|---|---|
-| `prepare` | chat | 组装 wrapper；`responsesPayload` **不含** `includeUsage` / `stream_options` |
-| `dispatch` | wrapper | `assert*(originalChat)` 后 `client.send(responsesPayload)` **仅** payload |
+| `prepare` | `ChatViaResponsesClientReq` | 组装 wrapper；`responsesPayload` **不含** `includeUsage` / `stream_options` |
+| `dispatch` | wrapper | `assert*` → `ClientInputError`；`client.send(responsesPayload)` **仅** payload |
 | `initStreamState` | wrapper | `includeUsage` → stream state |
 | `adaptJson` | body + wrapper | 映射时可用 `originalChat.model` 作 fallback |
-| `describeEndLog` | wrapper | `routingPath` + model |
+| `describeEndLog` | wrapper | `routingPath` + model；本地 400 时 `upstreamStatus: null` |
 
 备选 WeakMap 仅当 wrapper 与既有 `Strategy` 泛型冲突时再考虑；**默认不用**。
 
-### 7.2 方法表
+### 7.3 方法表
 
 | 方法 | 行为 |
 |---|---|
 | `name` | `"copilot-chat-via-responses"` |
-| `prepare` | **不抛 400**；返回 `ChatViaResponsesUpReq`（§7.1）；`includeUsage` 从 `stream_options` 提取后 **剥离**，不进入 `responsesPayload` |
-| `dispatch` | §6.3.1a 本地校验 → `deps.client.send(up.responsesPayload)` |
-| `adaptJson` | 若 failed/error → **throw**（§6.2）；否则 `responsesJsonToChatCompletion(...)` |
-| `initStreamState` | 初始化 §6.5 状态；`includeUsage: up.includeUsage` |
-| `adaptChunk` | 失败事件 → **throw**；成功 → `stream.adapt` → `SSEMessage[]`（可一次多 chunk；usage chunk 见 §6.5） |
-| `adaptStreamError` | OpenAI chat error envelope（`{ error: { message, type } }` data chunk）；**不** 发成功 DONE |
-| `describeEndLog` | success：model/tokens/`routingPath`；error：error 臂 + 同 routingPath |
+| `prepare` | **不抛 400**；入参 `ChatViaResponsesClientReq`（§7.1）；返回 `ChatViaResponsesUpReq`（§7.2）；`includeUsage` 提取后 **剥离** |
+| `dispatch` | §6.3.1a → `ClientInputError` 或 `client.send(up.responsesPayload)` |
+| `adaptJson` | `isResponsesFailure` → **throw**（§6.2）；否则映射成功 body |
+| `initStreamState` | §6.5 状态；`includeUsage: up.includeUsage` |
+| `adaptChunk` | 失败事件 → **throw**；成功 → 可多 chunk；usage 见 §6.5 |
+| `adaptStreamError` | OpenAI chat error envelope；**不** 发成功 DONE |
+| `describeEndLog` | success：model/tokens/`routingPath`；error：含本地 400 的 `upstreamStatus:null` |
 
 Deps：
 
@@ -897,7 +993,9 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 | 与 doc 16 文案冲突 | D.1 收窄 Non-Goals |
 | 翻译丢字段导致工具调用失败 | B/C 金样强制 tools 往返；**L2 §9.2 #3 必做两轮 tool call** |
 | `prepare` 抛错丢 `request_end` | 校验放 `dispatch`（§6.3.1a）；L1 断言 error 臂 end log |
-| `includeUsage` 泄漏进上游 body | wrapper 类型（§7.1）；单测 `JSON.stringify(responsesPayload)` 无该键 |
+| `includeUsage` 泄漏进上游 body | wrapper 类型（§7.2）；单测 `JSON.stringify(responsesPayload)` 无该键 |
+| 成功 body `error:null` 被误判失败 | `isResponsesFailure` 用 `error != null`（§6.2）；L1 completed+null |
+| 本地 400 记成 upstream 400 | `ClientInputError` + `upstreamStatus:null` + `invalid_request_error` |
 
 ---
 
@@ -952,14 +1050,22 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 | # | 严重度 | 问题 | 文档落点 |
 |---|---|---|---|
 | 1 | P0 | `prepare` 抛 400 无 `request_end` | §6.3.1a：校验移入 `dispatch` |
-| 2 | P1 | `includeUsage` 保存机制 / 泄漏上游 | §7.1 wrapper；§6.5 usage chunk `choices:[]` |
+| 2 | P1 | `includeUsage` 保存机制 / 泄漏上游 | §7.2 wrapper；§6.5 usage chunk `choices:[]` |
 | 3 | P1 | `developer` 不得降级 `system` | §6.3.2 分列保留 role |
 | — | 文案 | §12/§14 与 §9.2 工具 L2 必做不一致 | 已对齐为必做 |
+
+### Q6：Codex 三轮修正摘要（2026-08-04）
+
+| # | 严重度 | 问题 | 文档落点 |
+|---|---|---|---|
+| 1 | P0 | 成功 JSON 也有 `error:null`，不能「有 error 键就失败」 | §6.2 `isResponsesFailure`：`error != null` |
+| 2 | P1 | `ChatCompletionsPayload` 缺 stream_options/strict/json_schema | §7.1 `ChatViaResponsesClientReq` |
+| 3 | P1 | 本地 400 被记成 `upstreamStatus:400` 且 type 非 invalid_request | §6.3.1a `ClientInputError` |
 
 ---
 
 ## 16. 参考
 
 - Manifest（外部）：`buildCustomEndpoint` 仅 openai/anthropic path
-- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `core/runner.ts`（`prepare` 在 try 外；`dispatch`/`adaptJson`/`adaptChunk` 抛错 → `request_end`）, `docs/16`, `docs/18`, `docs/20`, `docs/23`
+- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `core/runner.ts`（`prepare` 在 try 外）, `lib/error.ts`（`HTTPError`→`upstreamStatus`）, `upstream/copilot-openai.ts`（`ChatCompletionsPayload` 基线）, `docs/16`, `docs/18`, `docs/20`, `docs/23`
 - OpenAI：migrate-to-responses（function `strict` 默认差异）、function-calling streaming（`call_id`）、Responses input roles（含 `developer`）
