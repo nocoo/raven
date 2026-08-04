@@ -1,8 +1,8 @@
 # 24 — Chat Completions ↔ Responses Endpoint Auto-Shim
 
-> 状态：**Design — 待 Review / 待实施**
+> 状态：**Design — Codex protocol review 已合入（§15 Q4）；待签核实施**
 > 范围：`packages/proxy` 路由决策 + 协议翻译 + 第 7 策略；不改 Manifest / Dashboard
-> 关键属性：**catalog-driven 热更新** + **client Chat shape 不变** + **upstream `/responses` 一跳**
+> 关键属性：**catalog-driven 热更新** + **client Chat shape 不变** + **upstream `/responses` 一跳** + **failed 不得误报成功** + **tool call_id 往返**
 > 关联：`docs/16-openai-responses-api.md`（Responses 入向透传）、`docs/18-native-anthropic-messages.md`（`supported_endpoints` 门闩先例）、`docs/20-architecture-refactor.md`（七层 + Strategy）、`docs/23-token-sentinel.md`（`cacheModels` 刷新路径）
 
 ---
@@ -319,55 +319,171 @@ packages/proxy/src/protocols/chat-responses/
   request.ts         # chatRequestToResponses
   response.ts        # responsesJsonToChatCompletion
   stream.ts          # ResponsesStreamToChatState + adapt event → chunks
-  finish-reason.ts   # status / incomplete → finish_reason
+  finish-reason.ts   # status / incomplete → finish_reason（不含 failed→success）
   types.ts           # 窄类型（避免 any 蔓延）
+  errors.ts          # ResponsesFailure → 可抛出的协议错误（供 adaptJson / adaptChunk）
 ```
 
 **dep-cruiser**：`protocols/**` 不得 import `state` / `log-emitter` / `hono`（已有规则 #1）。
 
-### 6.2 请求 Chat → Responses
+### 6.2 失败语义（P0 — 不得误报成功）
 
-| Chat Completions | Responses |
-|---|---|
-| `model` | `model` |
-| `messages[]` | `input`（见下） |
-| `max_completion_tokens` / `max_tokens` | `max_output_tokens` |
-| `stream` | `stream` |
-| `tools[]` `{type:"function", function:{name,description,parameters}}` | `tools[]` `{type:"function", name, description, parameters}` |
-| `tool_choice` `"auto"\|"none"\|"required"\|{type:"function",function:{name}}` | 规范化到 Responses 形状 |
-| `user`, `temperature`, `top_p`, … | 同名透传（白名单）；未知字段默认 **丢弃**（宁少勿错） |
-| `n` ≠ 1 | 首版强制按 1 处理或 400（单测钉死） |
+Responses 的失败是 **普通 SSE/JSON 字段**，不是 HTTP 非 2xx。Runner 只在 `adaptChunk` **抛错** 或上游 iterator 抛错时调用 `adaptStreamError`（见 `core/runner.ts`）。因此 shim **禁止** 把 `response.failed` / `event:error` 当成成功 terminal。
 
-#### `messages` → `input`
+| 路径 | 条件 | 必须行为 |
+|---|---|---|
+| **非流式 `adaptJson`** | body `status === "failed"` 或存在顶层 `error` | **抛出** 协议错误（`HTTPError` 或 strategy 约定错误类型）；**不得** 返回 `chat.completion` 200 body |
+| **流式 `adaptChunk`** | `event === "error"` 或 `event === "response.failed"`（或 data.type 同上） | **抛出**（或返回后由 strategy 抛出），进入 Runner 的 `adaptStreamError` 路径；**不得** 发 `finish_reason` 成功收尾 chunk，**不得** 发 `data: [DONE]` 作为成功结束 |
+| **流式成功 terminal** | 仅 `response.completed` / `response.incomplete`（及等价 done） | 才允许 `finish_reason` + 可选 usage + `[DONE]` |
+| **`request_end`** | 上述失败路径 | `describeEndLog` / Runner 记 **error**（非 200 success）；`routingPath` 仍可保留 |
+
+L1 必测：
+
+- non-stream fixture：`status:"failed"` → throw，无 choices
+- stream fixture：golden 中真实 `response.failed` 序列 → 客户端收到 **OpenAI chat error envelope**，无成功 `[DONE]`
+- `request_end` 带 error 字段
+
+> 历史笔误：早期草稿把 `failed` 与 `completed` 并列写进成功 terminal——**已废止**。以本节为准。
+
+### 6.3 请求 Chat → Responses
+
+#### 6.3.1 字段分类总表（映射 / 本地消费 / 明确拒绝 / 安全忽略）
+
+| 分类 | 字段 | 行为 |
+|---|---|---|
+| **映射** | `model` | → `model` |
+| **映射** | `messages[]` | → `input`（§6.3.2） |
+| **映射** | `max_completion_tokens` / `max_tokens` | → `max_output_tokens`（handler 已 normalize 到单一 token 字段后再映） |
+| **映射** | `stream` | → `stream` |
+| **映射** | `tools[]` | → Responses `tools[]`（§6.3.3，含 `strict`） |
+| **映射** | `tool_choice` | 规范化到 Responses 形状（`"auto"\|"none"\|"required"\|{type:"function",name}`） |
+| **映射** | `temperature`, `top_p`, `user` | 同名透传 |
+| **映射** | `response_format` | → `text.format`（json_schema / json_object / text；形状按官方 migrate 指南转换） |
+| **映射** | `reasoning_effort` | → `reasoning.effort` |
+| **本地消费** | `stream_options.include_usage` | **不转发**上游；shim 在 stream 成功 terminal 时若 client 要求则附加 usage chunk（本地元数据） |
+| **明确拒绝 400** | `n` 存在且 `n !== 1` | `invalid_request_error`：shim 不支持多 choice；**禁止**静默改成 1 |
+| **明确拒绝 400** | `stop`（非空） | 无稳定 Responses 等价；首版拒绝并提示 |
+| **安全忽略** | `logit_bias`, `logprobs`, `top_logprobs`, `presence_penalty`, `frequency_penalty`, `suffix`, … | 无害丢弃；debug 可记 `droppedFields` |
+| **安全忽略** | `previous_response_id`（client 误传） | 丢弃；不建立 Responses 会话链 |
+| **安全忽略** | 未列出的未知字段 | 默认丢弃（不透传），避免上游 400 |
+
+`prepare` 阶段对 **明确拒绝** 类应抛错，由 Runner/route `forwardError` 变成 400；不得等到上游。
+
+#### 6.3.2 `messages` → `input` 与工具 ID（P0）
 
 | Chat message | Responses input item |
 |---|---|
-| `{role:"system"\|"developer", content}` | `{role:"system", content}` 或合并进 instructions（优先 role 透传） |
+| `{role:"system"\|"developer", content}` | `{role:"system", content}`（优先 role 透传；不强制塞 `instructions`） |
 | `{role:"user", content: string\|parts}` | `{role:"user", content: ...}`；image_url → best-effort `input_image` |
-| `{role:"assistant", content, tool_calls?}` | message + 后续 `function_call` items |
-| `{role:"tool", tool_call_id, content}` | `{type:"function_call_output", call_id, output}` |
+| `{role:"assistant", content, tool_calls?}` | message item + 后续 `function_call` items |
+| `{role:"tool", tool_call_id, content}` | `{type:"function_call_output", call_id: tool_call_id, output}` |
 
-### 6.3 响应 Responses → Chat（非流式）
+**工具调用 ID 不变量（P0，单测钉死）：**
+
+| 方向 | 规则 |
+|---|---|
+| Chat → Responses | `function_call.call_id = tool_call.id`（Chat 侧的 `tool_calls[].id`） |
+| Chat → Responses | `function_call_output.call_id = message.tool_call_id` |
+| Responses → Chat | `tool_calls[].id = function_call.call_id`（**不是** item `id`） |
+| 流式 | Responses item `id`（如 `fc_...` item id）**仅** 用于关联 `function_call_arguments.delta` → index；**不得** 写入 Chat `tool_calls[].id` |
+| 缺 `call_id` | 视为上游缺陷：非流式 throw / 流式走错误路径；禁止用 item id 冒充 |
+
+依据：OpenAI Function calling 流式文档要求后续 `role:"tool"` 与 `call_id` 对齐。
+
+#### 6.3.3 `tools[]` 与 `strict`（P1）
+
+Chat：
+
+```ts
+{ type: "function", function: { name, description?, parameters?, strict?: boolean } }
+```
+
+Responses：
+
+```ts
+{ type: "function", name, description?, parameters?, strict: boolean }
+```
+
+**强制：**
+
+```ts
+strict: chatTool.function.strict ?? false
+```
+
+原因：Chat 默认非 strict；Responses **省略 `strict` 时会尝试 strict**，会改变工具 schema 校验语义（见 OpenAI migrate-to-responses § function definitions）。  
+单测：Chat 无 `strict` → 上游 body `strict: false`；Chat `strict: true` → 原样 true。
+
+### 6.4 响应 Responses → Chat（非流式）
+
+#### 6.4.1 完整 Chat Completions 形状（P1）
+
+成功时（`status` 为 `completed` 或 `incomplete`）必须产出合法 `chat.completion`：
+
+```ts
+{
+  id: string,                    // 策略：保留 Responses id 原样（单测钉死；不加 chatcmpl- 前缀，避免双 id 体系）
+  object: "chat.completion",
+  created: number,               // = response.created_at（秒）；缺失则 floor(Date.now()/1000)
+  model: string,                 // response.model ?? 请求 model
+  system_fingerprint: null,      // 固定 null（Responses 无稳定等价）
+  choices: [{
+    index: 0,
+    message: {
+      role: "assistant",
+      content: string | null,    // 纯 tool_calls 时必须 null（不是 ""）
+      tool_calls?: [...],        // 有 function_call 时必填；id = call_id
+      refusal?: null
+    },
+    finish_reason: "stop" | "length" | "tool_calls" | "content_filter",
+    logprobs: null,              // 固定 null
+  }],
+  usage: {
+    prompt_tokens: number,       // usage.input_tokens ?? 0
+    completion_tokens: number,   // usage.output_tokens ?? 0
+    total_tokens: number,        // 两者之和（或 usage.total_tokens）
+    prompt_tokens_details: null,
+    completion_tokens_details: null,
+  } | null
+}
+```
+
+#### 6.4.2 `finish_reason` 优先级
+
+按 **高 → 低** 判定，命中即停：
+
+1. 存在任意 `function_call` output → `"tool_calls"`
+2. `status === "incomplete"` 且 `incomplete_details.reason` 含 max tokens / `max_output_tokens` → `"length"`
+3. 内容过滤 / `content_filter` 类 reason → `"content_filter"`
+4. 否则 → `"stop"`
+
+`status === "failed"`：**不** 走本表，见 §6.2 抛错。
+
+#### 6.4.3 字段对照简表
 
 | Responses | Chat Completions |
 |---|---|
-| `id` | `id`（可加 `chatcmpl-` 前缀策略：保留原 id 或映射，单测钉死一种） |
+| `id` | `id` |
+| `created_at` | `created` |
 | `model` | `model` |
-| `output[]` type=message text parts | `choices[0].message.content` |
-| `output[]` type=function_call | `choices[0].message.tool_calls[]` |
-| `status` / `incomplete_details` | `choices[0].finish_reason`（`stop`/`length`/`tool_calls`/`content_filter`） |
-| `usage.input_tokens` / `output_tokens` | `usage.prompt_tokens` / `completion_tokens`；`total_tokens` 求和 |
-| — | `object: "chat.completion"`，`choices[0].index=0` |
+| `output[]` message text parts | `choices[0].message.content`（无 text 且有 tool → `null`） |
+| `output[]` `function_call` | `tool_calls[]`，**`id = call_id`** |
+| `status` / `incomplete_details` | `finish_reason`（§6.4.2） |
+| `usage.input_tokens` / `output_tokens` | `prompt_tokens` / `completion_tokens` |
+| — | `object`, `system_fingerprint:null`, `logprobs:null` |
 
-### 6.4 流式状态机（P1）
+### 6.5 流式状态机（P1）
 
 事件 → Chat chunk 要点：
 
 1. `response.created`（或首个有用事件）→ 发 `role:"assistant"` 的起始 chunk（id/model/created）
 2. `response.output_text.delta` → `delta.content`
-3. function_call：item added → `delta.tool_calls[{index,id,type,function:{name,arguments:""}}]`；`function_call_arguments.delta` → arguments 增量
-4. terminal：`response.completed` / `incomplete` / `failed` → `finish_reason` 收尾 chunk + usage chunk（若有）+ `data: [DONE]`
-5. 中途错误 → `adaptStreamError` 输出 **OpenAI chat** 错误 envelope（不是 Responses `event:error`）
+3. function_call：item added 时记录 `itemId → index`，并向客户端发  
+   `delta.tool_calls[{ index, id: call_id, type:"function", function:{ name, arguments:"" } }]`  
+   （**`id` 必须是 `call_id`**；item id 只进内部 Map）
+4. `response.function_call_arguments.delta` → 按 item id 查 index，增量 `arguments`
+5. **成功** terminal：仅 `response.completed` / `response.incomplete`（+ 等价 done）  
+   → `finish_reason` 收尾 chunk +（若 `stream_options.include_usage`）usage chunk + `data: [DONE]`
+6. **失败** terminal：`event:error` / `response.failed` / data 内 failed → **§6.2 错误路径**（抛错 → `adaptStreamError` → chat error envelope）；**禁止** 成功 `[DONE]`
 
 复用 `protocols/responses/stream-state.ts` 的 usage/model 抽取；**不** 复用 A↔O `stream-translation.ts`。
 
@@ -379,20 +495,25 @@ interface ChatViaResponsesStreamState {
   model: string
   created: number
   roleSent: boolean
+  /** Responses item id → chat tool_calls index（仅流式关联 delta） */
   toolCallIndexByItemId: Map<string, number>
+  /** item id → call_id（写入 Chat tool_calls[].id） */
+  callIdByItemId: Map<string, string>
   nextToolIndex: number
   finishReason: "stop" | "length" | "tool_calls" | "content_filter" | null
+  includeUsage: boolean  // from stream_options.include_usage
   inputTokens: number
   outputTokens: number
   done: boolean
+  failed: boolean
 }
 ```
 
-### 6.5 非目标字段（首版）
+### 6.6 非目标字段（首版）
 
-- reasoning / encrypted content → strip 或忽略
-- `previous_response_id` → 不生成、不转发（除非 client 误传且上游需要——默认丢弃）
-- parallel `n>1` → 不支持
+- reasoning / encrypted content → strip 或忽略（安全忽略）
+- Responses 会话链（`previous_response_id` 往返）→ 不做
+- parallel `n>1` → 明确 400（§6.3.1），不是静默降级
 
 ---
 
@@ -405,13 +526,13 @@ packages/proxy/src/strategies/copilot-chat-via-responses.ts
 | 方法 | 行为 |
 |---|---|
 | `name` | `"copilot-chat-via-responses"` |
-| `prepare` | `chatRequestToResponses(req)` |
+| `prepare` | 校验拒绝类字段（`n`/`stop`）→ `chatRequestToResponses(req)`；保留 `includeUsage` 等到 stream state |
 | `dispatch` | `deps.client.send(up)` → `CopilotResponsesClient`（registry kind 已有 `copilot-responses`） |
-| `adaptJson` | `responsesJsonToChatCompletion(body, originalModel)` |
-| `initStreamState` | 初始化 §6.4 状态 |
-| `adaptChunk` | `stream.adapt(event, state)` → `SSEMessage[]` |
-| `adaptStreamError` | OpenAI chat error chunk |
-| `describeEndLog` | model / tokens / `routingPath: "chat-via-responses"` |
+| `adaptJson` | 若 failed/error → **throw**（§6.2）；否则 `responsesJsonToChatCompletion(...)` |
+| `initStreamState` | 初始化 §6.5 状态（含 `includeUsage`） |
+| `adaptChunk` | 失败事件 → **throw**；成功 → `stream.adapt` → `SSEMessage[]`（可一次多 chunk） |
+| `adaptStreamError` | OpenAI chat error envelope（`{ error: { message, type } }` data chunk）；**不** 发成功 DONE |
+| `describeEndLog` | success：model/tokens/`routingPath`；error：error 臂 + 同 routingPath |
 
 Deps：
 
@@ -471,24 +592,27 @@ interface CopilotChatViaResponsesDeps {
 | 套件 | 覆盖 |
 |---|---|
 | `endpoints.test.ts` | 空/仅 chat/仅 resp/两栖/ws/别名 `/v1/*` |
-| `request.test.ts` | messages/tools/tool_choice/max_tokens 映射金样 |
-| `response.test.ts` | text / tool_calls / usage / finish_reason |
-| `stream.test.ts` | text-only 流、tool_call 流、incomplete、error |
+| `request.test.ts` | messages/tools/**strict 默认 false**/tool_choice/max_tokens；**call_id 往返**；`n≠1`/`stop` → 拒绝 |
+| `response.test.ts` | 完整 shape（created/system_fingerprint/logprobs/content null）；finish_reason 优先级；**failed → throw** |
+| `stream.test.ts` | text-only；tool_call（**id=call_id**）；incomplete 成功 DONE；**failed/error 不发成功 DONE** |
 | `router.fixtures.json` | 每个 endpoint 分组至少 1 fixture；custom 不变 |
 | `router-live-catalog` | §4.2.4 热更新序列 |
-| `copilot-chat-via-responses.test.ts` | prepare/dispatch URL/adaptJson/adaptChunk |
-| `characterisation/chat-via-responses-stream` | SSE 字节级快照 |
+| `copilot-chat-via-responses.test.ts` | prepare/dispatch URL/adaptJson throw on failed/adaptChunk error path |
+| `characterisation/chat-via-responses-stream` | 成功流 + **failed 流** 快照 |
 | 回归 | 现有 chat-completions / responses characterisation **0 diff** |
 
 ### 9.2 L2 — API E2E（手动，anti-ban）
 
-每条 **恰好 1 请求**，fail-fast：
+每条请求遵守 anti-ban（fail-fast、不进 CI）。**必做**清单：
 
-1. `grok-4.5` non-stream chat → 200 + content
-2. `grok-4.5` stream → 200 + chunks + DONE
-3. `gpt-4o`（或 empty endpoints 模型）→ 仍 chat 上游（可通过日志 `routingPath` 或 mock 在 L1 钉死；L2 只做 smoke）
-4. 可选：`gpt-5.3-codex` 1 次
+| # | 场景 | 断言 | 请求数 |
+|---|---|---|---|
+| 1 | `grok-4.5` non-stream 纯文本 | 200，`choices[0].message.content` 非空，完整 chat shape | 1 |
+| 2 | `grok-4.5` stream 纯文本 | 200，chunks + 成功 `[DONE]`，`routingPath=chat-via-responses` | 1 |
+| 3 | **responses-only 完整两轮 tool call（必做，非可选）** | Round1：assistant `tool_calls[].id` 存在；Round2：`role:tool` + 同一 id → 最终 content 200。验证 **call_id 往返** | 2（同 test 内串行，仍 fail-fast） |
+| 4 | empty-endpoints 模型（如 `gpt-4o`）smoke | 仍走 chat 直通（L1 已钉死 routing；L2 仅确认不 5xx） | 1 |
 
+可选加测：`gpt-5.3-codex` 文本 1 次。  
 **不** 进 CI / pre-commit。
 
 ### 9.3 L3 — UI E2E
@@ -550,7 +674,7 @@ feat(proxy): add responses-only endpoint classifiers
 #### B.1 feat(proxy): translate chat request body to responses
 
 - `request.ts` + `types.ts` + 金样单测
-- 覆盖：system/user/assistant/tool 消息、tools、tool_choice、max_tokens→max_output_tokens
+- 覆盖：system/user/assistant/tool 消息；**call_id 双向**；tools + **`strict ?? false`**；tool_choice；max_tokens→max_output_tokens；`response_format`/`reasoning_effort`；**`n≠1`/`stop` 拒绝**
 
 ```
 feat(proxy): translate chat request body to responses
@@ -558,8 +682,8 @@ feat(proxy): translate chat request body to responses
 
 #### B.2 feat(proxy): translate responses json to chat completion
 
-- `response.ts` + `finish-reason.ts` + 金样
-- 覆盖：text、tool_calls、usage、completed/incomplete
+- `response.ts` + `finish-reason.ts` + `errors.ts` + 金样
+- 覆盖：§6.4 完整 shape；finish_reason 优先级；tool `id=call_id`；**`status:failed` → throw**（不得 200）
 
 ```
 feat(proxy): translate responses json to chat completion
@@ -567,7 +691,7 @@ feat(proxy): translate responses json to chat completion
 
 #### B.3 feat(proxy): add responses-to-chat stream state machine
 
-- `stream.ts` + 单测（text-only + tool_call + terminal + error）
+- `stream.ts` + 单测（text-only + tool_call call_id + completed/incomplete 成功 DONE + **failed/error 走抛错路径**）
 - 尚不挂 strategy
 
 ```
@@ -730,9 +854,21 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 
 两栖仍走 chat 直通（零翻译、现网行为）。仅当上游日后从两栖降级为 responses-only，下一次 catalog 刷新后自动切 shim（H-5）——这正是 catalog-driven 的价值。
 
+### Q4：Codex review 修正摘要（2026-08-04）
+
+| # | 严重度 | 问题 | 文档落点 |
+|---|---|---|---|
+| 1 | P0 | `response.failed` 不得当成功 DONE | §6.2、§6.5、§7 adaptJson/Chunk |
+| 2 | P0 | Chat `tool_calls[].id` = Responses `call_id` | §6.3.2、§6.4、§6.5 |
+| 3 | P1 | `strict: chat.strict ?? false` | §6.3.3 |
+| 4 | P1 | 映射/本地/拒绝/忽略 四分类 | §6.3.1 |
+| 5 | P1 | 完整 chat.completion 形状 + finish_reason 优先级 | §6.4 |
+| 6 | P1 | L2 必做两轮 tool call | §9.2 #3 |
+
 ---
 
 ## 16. 参考
 
 - Manifest（外部）：`buildCustomEndpoint` 仅 openai/anthropic path
-- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `docs/16`, `docs/18`, `docs/20`, `docs/23`
+- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `core/runner.ts`（adaptChunk 抛错 → adaptStreamError）, `docs/16`, `docs/18`, `docs/20`, `docs/23`
+- OpenAI：migrate-to-responses（function `strict` 默认差异）、function-calling streaming（`call_id`）
