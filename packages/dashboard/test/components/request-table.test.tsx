@@ -44,6 +44,8 @@ function makeRecord(overrides: Partial<ExtendedRequestRecord> = {}): ExtendedReq
     ttft_ms: null,
     input_tokens: 100,
     output_tokens: 200,
+    cache_read_tokens: 500,
+    cache_write_tokens: 50,
     stream: 1,
     session_id: "user_abc_test123456",
     client_name: "Claude Code",

@@ -34,6 +34,8 @@ export interface RequestRecord {
   stream: number;
   input_tokens: number | null;
   output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
   latency_ms: number;
   ttft_ms: number | null;
   status: string;
@@ -62,6 +64,8 @@ export interface SummaryStats {
   total_tokens: number;
   total_input_tokens: number;
   total_output_tokens: number;
+  total_cache_read_tokens: number;
+  total_cache_write_tokens: number;
   error_count: number;
   error_rate: number;
   avg_latency_ms: number;
@@ -81,6 +85,8 @@ export interface ExtendedTimeseriesBucket {
   total_tokens: number;
   input_tokens: number;
   output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
   avg_latency_ms: number;
   p95_latency_ms: number;
   p99_latency_ms: number;
@@ -95,6 +101,8 @@ export interface BreakdownEntry {
   count: number;
   input_tokens: number;
   output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
   total_tokens: number;
   avg_latency_ms: number;
   p95_latency_ms: number;

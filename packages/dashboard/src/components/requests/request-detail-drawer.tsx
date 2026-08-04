@@ -171,6 +171,16 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
               }
               mono
             />
+            <DetailRow
+              label="Cache Read"
+              value={request.cache_read_tokens != null ? request.cache_read_tokens.toLocaleString() : "—"}
+              mono
+            />
+            <DetailRow
+              label="Cache Write"
+              value={request.cache_write_tokens != null ? request.cache_write_tokens.toLocaleString() : "—"}
+              mono
+            />
           </section>
 
           {/* Routing */}

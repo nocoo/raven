@@ -43,16 +43,21 @@ function TimeseriesTooltip({
   label,
   formatter,
   showTotal = false,
+  excludeKeys = [],
 }: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: number;
   formatter?: (value: number, name: string) => string;
   showTotal?: boolean;
+  /** Data keys excluded from the "Total" row — e.g. cache layers that are not part of the DB total_tokens count. */
+  excludeKeys?: string[];
 }) {
   if (!active || !payload?.length) return null;
   const fmt = formatter ?? ((v: number) => v.toLocaleString());
-  const total = showTotal ? payload.reduce((s, e) => s + e.value, 0) : 0;
+  const total = showTotal
+    ? payload.filter((e) => !excludeKeys.includes(e.name)).reduce((s, e) => s + e.value, 0)
+    : 0;
   return (
     <ChartTooltip title={label ? formatBucketTime(label) : undefined}>
       {payload.map((entry) => (
@@ -345,7 +350,17 @@ function TokenBurnChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
         <DashboardCartesianGrid />
         <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
         <YAxis tickFormatter={(v: number) => formatCompact(v)} {...AXIS_CONFIG} />
-        <Tooltip content={<TimeseriesTooltip formatter={(v) => formatCompact(v)} showTotal />} />
+        <Tooltip
+          content={
+            <TimeseriesTooltip
+              formatter={(v) => formatCompact(v)}
+              showTotal
+              // cache_read_tokens is not part of total_tokens (generated col =
+              // input + output); including it in "Total" would mislead.
+              excludeKeys={["cache_read_tokens"]}
+            />
+          }
+        />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Area
           type="monotone"
@@ -367,6 +382,18 @@ function TokenBurnChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
           fill={getChartColor(4)}
           fillOpacity={0.2}
           strokeWidth={2}
+          {...ANIMATION_PROPS}
+        />
+        <Area
+          type="monotone"
+          dataKey="cache_read_tokens"
+          name="Cache Read"
+          stackId="tokens"
+          stroke={getChartColor(3)}
+          fill={getChartColor(3)}
+          fillOpacity={0.12}
+          strokeWidth={1.5}
+          strokeDasharray="4 3"
           {...ANIMATION_PROPS}
         />
       </AreaChart>

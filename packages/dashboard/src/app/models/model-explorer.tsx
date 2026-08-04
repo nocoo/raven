@@ -5,7 +5,7 @@ import { useCallback } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
+import { formatCompact, formatLatency, formatPercent, cacheHitRate } from "@/lib/chart-config";
 import type { BreakdownEntry } from "@/lib/types";
 
 interface ModelExplorerProps {
@@ -20,6 +20,9 @@ const COLUMNS = [
   { key: "total_tokens", label: "Total Tokens", sortable: true },
   { key: "input_tokens", label: "Input", sortable: true },
   { key: "output_tokens", label: "Output", sortable: true },
+  // Derived value (read/(read+input)); not sortable — breakdown SQL has no
+  // cache_hit column, and passing it as a sort would silently fall back to count.
+  { key: "cache_hit", label: "Cache Hit", sortable: false },
   { key: "avg_latency_ms", label: "Avg Latency", sortable: true },
   { key: "p95_latency_ms", label: "P95 Latency", sortable: true },
   { key: "avg_ttft_ms", label: "Avg TTFT", sortable: true },
@@ -47,6 +50,10 @@ function formatCellValue(entry: BreakdownEntry, key: string): string {
       return formatCompact(entry.input_tokens);
     case "output_tokens":
       return formatCompact(entry.output_tokens);
+    case "cache_hit": {
+      const rate = cacheHitRate(entry.cache_read_tokens, entry.input_tokens);
+      return rate != null ? formatPercent(rate) : "—";
+    }
     case "avg_latency_ms":
       return formatLatency(entry.avg_latency_ms);
     case "p95_latency_ms":

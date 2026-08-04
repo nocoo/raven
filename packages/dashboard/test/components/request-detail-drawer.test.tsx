@@ -63,6 +63,8 @@ function makeExtendedRecord(overrides: Partial<ExtendedRequestRecord> = {}): Ext
     ttft_ms: 450,
     input_tokens: 1200,
     output_tokens: 800,
+    cache_read_tokens: 9000,
+    cache_write_tokens: 600,
     stream: 1,
     session_id: "sess_abc123",
     client_name: "Claude Code",

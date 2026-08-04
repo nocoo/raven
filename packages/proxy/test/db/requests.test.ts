@@ -215,6 +215,17 @@ describe("querySummary", () => {
     expect(result.avg_ttft_ms).toBeNull();
     expect(result.avg_processing_ms).toBeNull();
   });
+
+  test("aggregates cache read/write tokens", () => {
+    insertRequest(db, makeRecord({ input_tokens: 100, output_tokens: 50, cache_read_tokens: 400, cache_write_tokens: 20 }));
+    insertRequest(db, makeRecord({ input_tokens: 200, output_tokens: 100, cache_read_tokens: 600, cache_write_tokens: 30 }));
+    // cache_write NULL → skipped by SUM (Responses path has no write counter)
+    insertRequest(db, makeRecord({ input_tokens: 50, output_tokens: 25, cache_read_tokens: 150, cache_write_tokens: null }));
+
+    const result = querySummary(db, "", []);
+    expect(result.total_cache_read_tokens).toBe(1150);
+    expect(result.total_cache_write_tokens).toBe(50);
+  });
 });
 
 // ===========================================================================
@@ -325,6 +336,18 @@ describe("queryTimeseries", () => {
     const result = queryTimeseries(db, "hour", "invalid");
     expect(result.length).toBeGreaterThanOrEqual(1);
   });
+
+  test("aggregates cache tokens per bucket", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
+    // cache_write NULL → skipped by SUM
+    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, cache_read_tokens: 150, cache_write_tokens: null }));
+
+    const result = queryTimeseries(db, "hour", "24h");
+    const bucket = result[result.length - 1]!;
+    expect(bucket.cache_read_tokens).toBe(550);
+    expect(bucket.cache_write_tokens).toBe(20);
+  });
 });
 
 // ===========================================================================
@@ -388,6 +411,27 @@ describe("queryBreakdown", () => {
     const result = queryBreakdown(db, { by: "model", whereClause: "WHERE status = ?", bindings: ["error"] });
     expect(result).toHaveLength(1);
     expect(result[0]!.key).toBe("a");
+  });
+
+  test("aggregates cache tokens per group", () => {
+    insertRequest(db, makeRecord({ model: "claude-3", cache_read_tokens: 400, cache_write_tokens: 20 }));
+    // cache_write NULL → skipped by SUM
+    insertRequest(db, makeRecord({ model: "claude-3", cache_read_tokens: 600, cache_write_tokens: null }));
+    insertRequest(db, makeRecord({ model: "gpt-4o", cache_read_tokens: 150, cache_write_tokens: 5 }));
+
+    const result = queryBreakdown(db, { by: "model" });
+    const claude = result.find((e) => e.key === "claude-3")!;
+    expect(claude.cache_read_tokens).toBe(1000);
+    expect(claude.cache_write_tokens).toBe(20);
+  });
+
+  test("sorts by cache_read_tokens", () => {
+    insertRequest(db, makeRecord({ model: "a", cache_read_tokens: 100 }));
+    insertRequest(db, makeRecord({ model: "b", cache_read_tokens: 900 }));
+    insertRequest(db, makeRecord({ model: "b", cache_read_tokens: 800 }));
+
+    const result = queryBreakdown(db, { by: "model", sort: "cache_read_tokens" });
+    expect(result[0]!.key).toBe("b");
   });
 });
 

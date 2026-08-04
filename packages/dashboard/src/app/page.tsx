@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { Activity, Zap, Clock, AlertTriangle, Timer, Gauge } from "lucide-react";
+import { Activity, Zap, Clock, AlertTriangle, Timer, Gauge, Database } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/stats/stat-card";
 import { FetchError } from "@/components/fetch-error";
@@ -9,7 +9,7 @@ import { AnalyticsCharts } from "./analytics-charts";
 import { SentinelStatusPanel } from "./sentinel-status-panel";
 import { safeFetch } from "@/lib/proxy";
 import type { SummaryStats, ExtendedTimeseriesBucket, BreakdownEntry, Percentiles } from "@/lib/types";
-import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
+import { formatCompact, formatLatency, formatPercent, cacheHitRate } from "@/lib/chart-config";
 import {
   searchParamsToFilters,
   filtersToApiQuery,
@@ -56,6 +56,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   }
 
   const summary = summaryResult.data;
+  const cacheHit = cacheHitRate(summary.total_cache_read_tokens, summary.total_input_tokens);
   const timeseries = timeseriesResult.ok ? timeseriesResult.data : [];
   const p95 = p95Result.ok ? p95Result.data : null;
   const modelBreakdown = modelBkResult.ok ? modelBkResult.data : [];
@@ -88,7 +89,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         </Suspense>
 
         {/* Stat cards row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
           <StatCard
             icon={Activity}
             label="Total Requests"
@@ -129,6 +130,14 @@ export default async function HomePage({ searchParams }: PageProps) {
             value={formatCompact(summary.total_tokens)}
             sparkline={tokensSpark}
             className="animate-fade-up stagger-6"
+          />
+          <StatCard
+            icon={Database}
+            label="Cache Hit"
+            value={cacheHit != null ? formatPercent(cacheHit) : "—"}
+            detail={`${formatCompact(summary.total_cache_read_tokens)} read / ${formatCompact(summary.total_cache_write_tokens)} write`}
+            accent={cacheHit == null ? "default" : cacheHit >= 0.7 ? "success" : cacheHit >= 0.4 ? "warning" : "danger"}
+            className="animate-fade-up stagger-7"
           />
         </div>
 
