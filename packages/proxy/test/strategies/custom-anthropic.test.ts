@@ -145,6 +145,42 @@ describe("strategies/custom-anthropic", () => {
     expect(st.outputTokens).toBe(22)
   })
 
+  test("adaptChunk keeps message_start input_tokens when message_delta omits it", () => {
+    // Standard Anthropic streams report input on message_start and only
+    // output on message_delta; the delta must not zero the input.
+    const s = makeCustomAnthropic({ client: fakeClient(() => makeJsonResp()) })
+    const st = s.initStreamState(makeReq(), makeCtx())
+    s.adaptChunk(
+      {
+        event: "message_start",
+        data: JSON.stringify({
+          type: "message_start",
+          message: {
+            usage: {
+              input_tokens: 31,
+              cache_read_input_tokens: 800,
+              cache_creation_input_tokens: 12,
+            },
+          },
+        }),
+        id: null, retry: null,
+      },
+      st, makeCtx(),
+    )
+    s.adaptChunk(
+      {
+        event: "message_delta",
+        data: JSON.stringify({ type: "message_delta", usage: { output_tokens: 44 } }),
+        id: null, retry: null,
+      },
+      st, makeCtx(),
+    )
+    expect(st.inputTokens).toBe(31)
+    expect(st.outputTokens).toBe(44)
+    expect(st.cacheReadTokens).toBe(800)
+    expect(st.cacheWriteTokens).toBe(12)
+  })
+
   test("adaptChunk swallows JSON parse errors silently", () => {
     const s = makeCustomAnthropic({ client: fakeClient(() => makeJsonResp()) })
     const st = s.initStreamState(makeReq(), makeCtx())

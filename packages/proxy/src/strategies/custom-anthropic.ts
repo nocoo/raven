@@ -87,15 +87,17 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
           message?: { usage?: Usage }
           usage?: Usage
         }
-        // Cache counters only ever appear on message_start; message_delta
-        // carries the final input/output totals.
+        // message_start carries input + cache counters; message_delta carries
+        // output totals and usually omits input_tokens — keep the prior value
+        // rather than zeroing it.
         if (parsed.type === "message_start" && parsed.message?.usage) {
+          st.inputTokens = parsed.message.usage.input_tokens ?? st.inputTokens
           st.cacheReadTokens = parsed.message.usage.cache_read_input_tokens ?? 0
           st.cacheWriteTokens = parsed.message.usage.cache_creation_input_tokens ?? 0
         }
         if (parsed.type === "message_delta" && parsed.usage) {
-          st.inputTokens = parsed.usage.input_tokens ?? 0
-          st.outputTokens = parsed.usage.output_tokens ?? 0
+          st.inputTokens = parsed.usage.input_tokens ?? st.inputTokens
+          st.outputTokens = parsed.usage.output_tokens ?? st.outputTokens
         }
       } catch {
         // Ignore parse errors for metrics
