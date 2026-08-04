@@ -25,6 +25,16 @@ export function isTerminalResponseEvent(event: string | null | undefined): boole
 }
 
 /**
+ * Persisted `input_tokens` uniformly means "non-cached input" (Anthropic
+ * convention, three mutually exclusive buckets). Responses/OpenAI usage counts
+ * cached tokens *inside* `input_tokens`, so subtract at the log boundary only —
+ * wire responses must keep the raw upstream value.
+ */
+export function nonCachedInputTokens(inputTokens: number, cachedInputTokens: number): number {
+  return Math.max(0, inputTokens - cachedInputTokens)
+}
+
+/**
  * Extract `response.model` from a `response.created` event's JSON data.
  * Returns `null` when the data cannot be parsed or the field is missing.
  */

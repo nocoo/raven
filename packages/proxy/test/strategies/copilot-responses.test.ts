@@ -168,7 +168,7 @@ describe("strategies/copilot-responses", () => {
     expect(out).toEqual({
       model: "gpt-4o",
       resolvedModel: "gpt-4o-resp",
-      inputTokens: 11,
+      inputTokens: 5,
       outputTokens: 7,
       cacheReadTokens: 6,
     })
@@ -184,10 +184,33 @@ describe("strategies/copilot-responses", () => {
     expect(out).toEqual({
       model: "gpt-4o",
       resolvedModel: "gpt-4o-resolved",
-      inputTokens: 22,
+      inputTokens: 11,
       outputTokens: 13,
       cacheReadTokens: 11,
     })
+  })
+
+  test("describeEndLog subtracts cached tokens so input means non-cached input", () => {
+    // Responses usage counts cached tokens inside input_tokens; persisted
+    // input_tokens must be the non-cached remainder (Anthropic convention).
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const st: CopilotResponsesStreamState = {
+      resolvedModel: "gpt-4o-resolved", inputTokens: 100, outputTokens: 5,
+      cacheReadTokens: 90,
+    }
+    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
+    expect(out.inputTokens).toBe(10)
+    expect(out.cacheReadTokens).toBe(90)
+  })
+
+  test("describeEndLog clamps at zero when cached exceeds input", () => {
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const st: CopilotResponsesStreamState = {
+      resolvedModel: "gpt-4o-resolved", inputTokens: 5, outputTokens: 1,
+      cacheReadTokens: 40,
+    }
+    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
+    expect(out.inputTokens).toBe(0)
   })
 
   test("describeEndLog error arm carries model from request", () => {

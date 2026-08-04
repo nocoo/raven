@@ -17,6 +17,7 @@ import {
   extractResolvedModel,
   extractUsage,
   isTerminalResponseEvent,
+  nonCachedInputTokens,
 } from "../protocols/responses/stream-state"
 
 export interface CopilotResponsesDeps {
@@ -335,7 +336,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         return {
           model: result.req.model,
           resolvedModel: meta.resolvedModel,
-          inputTokens: meta.inputTokens,
+          inputTokens: nonCachedInputTokens(meta.inputTokens, meta.cachedInputTokens),
           outputTokens: meta.outputTokens,
           cacheReadTokens: meta.cachedInputTokens,
         }
@@ -344,7 +345,10 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         return {
           model: result.req.model,
           resolvedModel: result.state.resolvedModel,
-          inputTokens: result.state.inputTokens,
+          inputTokens: nonCachedInputTokens(
+            result.state.inputTokens,
+            result.state.cacheReadTokens,
+          ),
           outputTokens: result.state.outputTokens,
           cacheReadTokens: result.state.cacheReadTokens,
         }

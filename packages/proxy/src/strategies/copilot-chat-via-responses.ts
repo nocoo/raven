@@ -31,7 +31,7 @@ import type {
   ChatViaResponsesStreamState,
   ChatViaResponsesUpReq,
 } from "../protocols/chat-responses/types"
-import { extractNonStreamingMeta } from "../protocols/responses/stream-state"
+import { extractNonStreamingMeta, nonCachedInputTokens } from "../protocols/responses/stream-state"
 
 export interface CopilotChatViaResponsesDeps {
   client: CopilotResponsesClient
@@ -131,7 +131,7 @@ export function makeCopilotChatViaResponses(
         return {
           model: result.req.originalChat.model,
           resolvedModel: meta.resolvedModel,
-          inputTokens: meta.inputTokens,
+          inputTokens: nonCachedInputTokens(meta.inputTokens, meta.cachedInputTokens),
           outputTokens: meta.outputTokens,
           cacheReadTokens: meta.cachedInputTokens,
           routingPath,
@@ -142,7 +142,10 @@ export function makeCopilotChatViaResponses(
         return {
           model: result.req.originalChat.model,
           resolvedModel: result.state.model,
-          inputTokens: result.state.inputTokens,
+          inputTokens: nonCachedInputTokens(
+            result.state.inputTokens,
+            result.state.cacheReadTokens,
+          ),
           outputTokens: result.state.outputTokens,
           cacheReadTokens: result.state.cacheReadTokens,
           routingPath,
