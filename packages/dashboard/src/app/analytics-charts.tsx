@@ -46,17 +46,23 @@ function TimeseriesTooltip({
   excludeKeys = [],
 }: {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: Array<{ name: string; value: number; color: string; dataKey?: string | number }>;
   label?: number;
   formatter?: (value: number, name: string) => string;
   showTotal?: boolean;
-  /** Data keys excluded from the "Total" row — e.g. cache layers that are not part of the DB total_tokens count. */
+  /** Series excluded from the "Total" row — e.g. cache layers that are not part of the DB total_tokens count. */
   excludeKeys?: string[];
 }) {
   if (!active || !payload?.length) return null;
   const fmt = formatter ?? ((v: number) => v.toLocaleString());
   const total = showTotal
-    ? payload.filter((e) => !excludeKeys.includes(e.name)).reduce((s, e) => s + e.value, 0)
+    ? payload
+        .filter(
+          (e) =>
+            !excludeKeys.includes(e.name) &&
+            !excludeKeys.includes(String(e.dataKey ?? "")),
+        )
+        .reduce((s, e) => s + e.value, 0)
     : 0;
   return (
     <ChartTooltip title={label ? formatBucketTime(label) : undefined}>
