@@ -104,7 +104,7 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 Runs in parallel via `scripts/pre-commit.ts`:
 - **L1** `gate:coverage` (`scripts/check-coverage.ts` — proxy tests + §4.5 baseline floors / untested-file gate; **same entry as CI**)
-- **L1** dashboard unit tests + `test:root` (scripts/ harness tests)
+- **L1** dashboard unit tests + `vitest --project scripts` (hook/coverage harness tests)
 - **G1** lint-staged, typecheck, fetch-boundary, dynamic-delete, ts-expect-error
 - **G2** gitleaks (staged-only)
 
