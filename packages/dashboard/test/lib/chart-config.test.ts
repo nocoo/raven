@@ -53,6 +53,11 @@ describe("formatCompact", () => {
     expect(formatCompact(1500)).toBe("1.5K");
     expect(formatCompact(2_000_000)).toBe("2.0M");
   });
+
+  it("degrades undefined/NaN to em-dash instead of throwing", () => {
+    expect(formatCompact(undefined as unknown as number)).toBe("—");
+    expect(formatCompact(NaN)).toBe("—");
+  });
 });
 
 describe("formatLatency", () => {
