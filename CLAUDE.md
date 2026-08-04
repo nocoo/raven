@@ -15,13 +15,14 @@ Seven layers, top → bottom. Each layer imports only from the layers below (enf
 1. **`routes/`** — HTTP entry points (Hono handlers). Owns request parsing, logging start, and composition dispatch. Must not import `strategies/` or `upstream/` directly.
 2. **`composition/`** — the **sole bridge** between `routes/`, `strategies/`, and `upstream/`. `dispatch()` picks a strategy factory, builds it with state-derived deps, and drives the Runner.
 3. **`core/`** — abstract `Strategy`/`Runner`/router contracts + `RequestContext`. Concretion-free: never imports `strategies/` or `upstream/`.
-4. **`strategies/`** — six `makeXxx(deps)` factories implementing the 7-method `Strategy` interface (`prepare` / `dispatch` / `adaptJson` / `initStreamState` / `adaptChunk` / `adaptStreamError` / `describeEndLog`). Per-strategy files (`strategies/*.ts`) read no `infra/state` — deps are injected. `strategies/support/` holds cross-strategy helpers (server-tool `decorate()`, effort-fallback, capability gates).
+4. **`strategies/`** — seven `makeXxx(deps)` factories implementing the 7-method `Strategy` interface (`prepare` / `dispatch` / `adaptJson` / `initStreamState` / `adaptChunk` / `adaptStreamError` / `describeEndLog`). Per-strategy files (`strategies/*.ts`) read no `infra/state` — deps are injected. `strategies/support/` holds cross-strategy helpers (server-tool `decorate()`, effort-fallback, capability gates).
 5. **`protocols/`** — pure translation zone (Anthropic ↔ OpenAI, SSE adapters, preprocess). No state, no logging, no Hono streaming.
 6. **`upstream/`** — upstream HTTP clients (Copilot native, Copilot OpenAI, custom providers) registered via `composition/upstream-registry.ts`.
 7. **`infra/` + `lib/` + `util/`** — state, auth, rate-limit, logging primitives, IDs.
 
-**Six strategies** (all registered in `composition/strategy-registry.ts`):
+**Seven strategies** (all registered in `composition/strategy-registry.ts`):
 - `copilot-openai-direct` — `/v1/chat/completions` to Copilot
+- `copilot-chat-via-responses` — `/v1/chat/completions` → Copilot `/responses` (responses-only models)
 - `copilot-translated` — `/v1/messages` Anthropic → Copilot OpenAI
 - `copilot-native` — `/v1/messages` to Copilot native endpoint (claude-* models)
 - `copilot-responses` — `/v1/responses` to Copilot
@@ -101,15 +102,26 @@ bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers
 
 ### Pre-commit hook
 
-Runs 4 tasks in parallel via `scripts/pre-commit.ts`: L1 tests, lint-staged, typecheck, gitleaks (staged-only). All must pass.
+Runs in parallel via `scripts/pre-commit.ts`:
+- **L1** `gate:coverage` (`scripts/check-coverage.ts` — proxy tests + §4.5 baseline floors / untested-file gate; **same entry as CI**)
+- **L1** dashboard unit tests + `test:root` (scripts/ harness tests)
+- **G1** lint-staged, typecheck, fetch-boundary, dynamic-delete, ts-expect-error
+- **G2** gitleaks (staged-only)
+
+Do **not** replace `gate:coverage` with bare `bun run test` / `--filter @raven/proxy test` — vitest thresholds alone miss baseline regressions CI catches.
 
 ### Pre-push hook
 
-Runs `bun run gate:security` (full G2: osv-scanner + gitleaks). L2 E2E tests are manual-only (anti-ban protocol). L3 Playwright is manual-only.
+Runs in parallel via `scripts/pre-push.ts`:
+- **G2** `gate:security` (osv-scanner + gitleaks)
+- **L1** `gate:coverage` (again — same baseline gate as CI)
+- **G1** `gate:arch` + full `lint`
+
+L2 E2E and L3 Playwright remain manual-only (anti-ban).
 
 ### CI
 
-GitHub Actions runs on push to main and PRs: L1 + G1 + G2. L2/L3 are disabled (need Copilot credentials).
+GitHub Actions runs on push to main and PRs: L1 (`check-coverage.ts` job) + G1 + G2. L2/L3 need credentials / are optional in workflow.
 
 ### Package manager — bun only
 
@@ -191,3 +203,4 @@ See [docs/14-vps-deployment.md](docs/14-vps-deployment.md) for full guide. Key s
 - `a7c6fcf` deleted `RAVEN_API_KEY` env var support and `multiKeyAuth` env path entirely, breaking backward compatibility and removing `/api/*` auth. Three compounding errors: (1) removed a design-doc-mandated backward compat path without consulting the doc, (2) widened dev mode to "DB empty = no auth" which is a security regression when env key is set but DB has no keys yet, (3) left `/api/*` management endpoints unauthenticated while they should share the same auth. Root cause: user said "remove RAVEN_API_KEY" and I complied without cross-checking the design doc's compatibility requirements. Always re-read the design doc before making protocol-level changes, even if the user requests them conversationally.
 - `34ae0f7` dashboard 56 tests FAIL blocking pre-commit. Root cause: someone ran `pnpm install` inside `packages/dashboard/` after `bun install`, creating a `.pnpm/` store alongside bun's `.bun/` symlinks. `react` resolved from `.pnpm/` (pnpm copy) while `@testing-library/react` resolved from root `.bun/` (bun copy) — two physical React instances = "Invalid hook call" on all component/hook tests. Fix: `rm -rf packages/dashboard/node_modules && bun install`. Also added `turbopack.root` to next.config.ts since Turbopack lost workspace root inference after the reinstall. Rule: never mix package managers in a monorepo; this project uses bun exclusively.
 - `d15e6e6` + `8b9aad1` added dot→hyphen model-ID translation (`claude-opus-4.8` → `claude-opus-4-8`) to Raven's `/v1/models` route, then native `adaptChunk`/`adaptJson` + `preprocess.ts` — both reverted same-day (`d0c647e`, `809c3c3`), net zero. Root cause: assumed the "Opus 4 instead of Opus 4.8" display glitch was Raven's to fix. It is **not** — Copilot upstream accepts both dot and hyphen forms; the display name is resolved client-side by `ccstatusline`'s `includes()` matching, which only recognizes the hyphen form. Correct fix lives in the **cc switch** client config (use `claude-opus-4-8`), and Raven stays a passthrough on model IDs. Rule: when a symptom only manifests in a client's display, confirm the upstream actually mishandles the value before adding translation logic to the proxy — don't make Raven compensate for a client-side resolver. The "fix + revert" pair is a closed investigation, not an open bug.
+- v2.5.0 release: local pre-push reported L1 coverage ✅ while CI `check-coverage.ts` failed (protocols/ floor + untested new files + global regression vs `docs/20-baseline.json`). Root cause: `scripts/pre-push.ts` ran bare `bun run --filter @raven/proxy test` (vitest % thresholds only) and never invoked the §4.5 baseline gate that CI uses. Fix: pre-commit + pre-push both run `gate:coverage` → `scripts/check-coverage.ts`; unit test locks the wiring. Rule: any hook labeled "coverage" must call the same entrypoint as CI — never a weaker substitute.
