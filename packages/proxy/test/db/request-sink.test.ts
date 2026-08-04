@@ -273,6 +273,55 @@ describe("request-sink", () => {
     expect(rows[0]!.client_version).toBe("2.0.0-beta.1")
   })
 
+  test("persists cache token fields round-trip", () => {
+    logEmitter.emitLog(
+      makeRequestEndEvent({
+        requestId: "req_cache_rt",
+        data: {
+          path: "/v1/messages",
+          format: "anthropic",
+          model: "claude-opus-5",
+          stream: false,
+          latencyMs: 900,
+          status: "success",
+          statusCode: 200,
+          accountName: "default",
+          inputTokens: 8,
+          outputTokens: 4,
+          cacheReadTokens: 8403,
+          cacheWriteTokens: 0,
+        },
+      }),
+    )
+
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.cache_read_tokens).toBe(8403)
+    expect(rows[0]!.cache_write_tokens).toBe(0)
+  })
+
+  test("defaults cache token fields to null when absent", () => {
+    logEmitter.emitLog(
+      makeRequestEndEvent({
+        requestId: "req_cache_absent",
+        data: {
+          path: "/v1/messages",
+          format: "anthropic",
+          model: "claude-opus-5",
+          stream: false,
+          latencyMs: 900,
+          status: "success",
+          statusCode: 200,
+          accountName: "default",
+        },
+      }),
+    )
+
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
+    expect(rows[0]!.cache_read_tokens).toBeNull()
+    expect(rows[0]!.cache_write_tokens).toBeNull()
+  })
+
   test("persists null client_version", () => {
     logEmitter.emitLog(
       makeRequestEndEvent({

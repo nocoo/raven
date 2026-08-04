@@ -49,6 +49,8 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     routing_path: "",
     stop_reason: "",
     tool_call_count: 0,
+    cache_read_tokens: null,
+    cache_write_tokens: null,
     ...overrides,
   };
 }

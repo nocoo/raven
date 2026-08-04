@@ -55,6 +55,8 @@ export function startRequestSink(db: Database): () => void {
 			routing_path: (d.routingPath as string) ?? "",
 			stop_reason: (d.stopReason as string) ?? "",
 			tool_call_count: (d.toolCallCount as number) ?? 0,
+			cache_read_tokens: (d.cacheReadTokens as number) ?? null,
+			cache_write_tokens: (d.cacheWriteTokens as number) ?? null,
 		};
 
     try {

@@ -14,6 +14,8 @@ export interface RequestRecord {
 	stream: number;
 	input_tokens: number | null;
 	output_tokens: number | null;
+	cache_read_tokens: number | null;
+	cache_write_tokens: number | null;
 	latency_ms: number;
 	ttft_ms: number | null;
 	status: string;
@@ -207,6 +209,8 @@ export function initDatabase(db: Database): void {
 	safeAddColumn("ALTER TABLE requests ADD COLUMN routing_path TEXT NOT NULL DEFAULT ''");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN stop_reason TEXT NOT NULL DEFAULT ''");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN tool_call_count INTEGER NOT NULL DEFAULT 0");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN cache_read_tokens INTEGER");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN cache_write_tokens INTEGER");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_strategy ON requests(strategy)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_account ON requests(account_name)");
@@ -226,14 +230,16 @@ INSERT INTO requests (
   status, status_code, upstream_status, error_message, account_name,
   session_id, client_name, client_version,
   processing_ms, strategy, upstream, upstream_format,
-  translated_model, copilot_model, routing_path, stop_reason, tool_call_count
+  translated_model, copilot_model, routing_path, stop_reason, tool_call_count,
+  cache_read_tokens, cache_write_tokens
 ) VALUES (
   $id, $timestamp, $path, $client_format, $model, $resolved_model,
   $stream, $input_tokens, $output_tokens, $latency_ms, $ttft_ms,
   $status, $status_code, $upstream_status, $error_message, $account_name,
   $session_id, $client_name, $client_version,
   $processing_ms, $strategy, $upstream, $upstream_format,
-  $translated_model, $copilot_model, $routing_path, $stop_reason, $tool_call_count
+  $translated_model, $copilot_model, $routing_path, $stop_reason, $tool_call_count,
+  $cache_read_tokens, $cache_write_tokens
 )`;
 
 export function insertRequest(db: Database, record: RequestRecord): void {
@@ -266,6 +272,8 @@ export function insertRequest(db: Database, record: RequestRecord): void {
 		$routing_path: record.routing_path,
 		$stop_reason: record.stop_reason,
 		$tool_call_count: record.tool_call_count,
+		$cache_read_tokens: record.cache_read_tokens,
+		$cache_write_tokens: record.cache_write_tokens,
 	});
 }
 
