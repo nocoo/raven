@@ -96,10 +96,17 @@ export function adaptResponsesEventToChatChunks(
       if (!st.roleSent) out.push(...emitRoleChunk(st))
       const itemId = item.id ?? `item_${st.nextToolIndex}`
       const callId = item.call_id
+      const name = item.name
       if (!callId) {
         st.failed = true
         throw new ResponsesStreamFailedError(
           "function_call item missing call_id",
+        )
+      }
+      if (!name) {
+        st.failed = true
+        throw new ResponsesStreamFailedError(
+          "function_call item missing name",
         )
       }
       const index = st.nextToolIndex++
@@ -114,7 +121,7 @@ export function adaptResponsesEventToChatChunks(
               id: callId,
               type: "function",
               function: {
-                name: item.name ?? "",
+                name,
                 arguments: "",
               },
             },
@@ -132,29 +139,37 @@ export function adaptResponsesEventToChatChunks(
     ensureMeta(st, data)
     const itemId = extractItemId(data)
     const delta = extractDeltaText(data) || extractArgsDelta(data)
-    if (itemId != null && delta) {
-      const index = st.toolCallIndexByItemId.get(itemId)
-      if (index === undefined) {
-        // Must not invent incomplete tool_calls (missing id/type/name) or
-        // substitute item id for call_id — violates call_id invariant.
-        st.failed = true
-        throw new ResponsesStreamFailedError(
-          "function_call_arguments.delta before output_item.added with call_id",
-        )
-      }
-      st.finishReason = "tool_calls"
-      if (!st.roleSent) out.push(...emitRoleChunk(st))
-      out.push(
-        chatChunk(st, {
-          tool_calls: [
-            {
-              index,
-              function: { arguments: delta },
-            },
-          ],
-        }),
+    if (!itemId) {
+      st.failed = true
+      throw new ResponsesStreamFailedError(
+        "function_call_arguments.delta missing item_id",
       )
     }
+    if (!delta) {
+      // Empty delta is a no-op once item is known
+      return out
+    }
+    const index = st.toolCallIndexByItemId.get(itemId)
+    if (index === undefined) {
+      // Must not invent incomplete tool_calls (missing id/type/name) or
+      // substitute item id for call_id — violates call_id invariant.
+      st.failed = true
+      throw new ResponsesStreamFailedError(
+        "function_call_arguments.delta before output_item.added with call_id",
+      )
+    }
+    st.finishReason = "tool_calls"
+    if (!st.roleSent) out.push(...emitRoleChunk(st))
+    out.push(
+      chatChunk(st, {
+        tool_calls: [
+          {
+            index,
+            function: { arguments: delta },
+          },
+        ],
+      }),
+    )
     return out
   }
 

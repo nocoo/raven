@@ -386,3 +386,47 @@ describe("stream uncovered branches", () => {
     expect(usage.usage.prompt_tokens).toBe(7)
   })
 })
+
+describe("function_call metadata completeness", () => {
+  test("function_call item missing name throws", () => {
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    expect(() =>
+      adaptResponsesEventToChatChunks(
+        sse(
+          "response.output_item.added",
+          JSON.stringify({
+            item: {
+              type: "function_call",
+              id: "fc1",
+              call_id: "call_1",
+            },
+          }),
+        ),
+        st,
+      ),
+    ).toThrow(/missing name/)
+  })
+
+  test("args delta missing item_id throws", () => {
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    adaptResponsesEventToChatChunks(
+      sse(
+        "response.created",
+        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
+      ),
+      st,
+    )
+    expect(() =>
+      adaptResponsesEventToChatChunks(
+        sse(
+          "response.function_call_arguments.delta",
+          JSON.stringify({
+            type: "response.function_call_arguments.delta",
+            delta: "{}",
+          }),
+        ),
+        st,
+      ),
+    ).toThrow(/missing item_id/)
+  })
+})

@@ -123,11 +123,17 @@ function extractOutput(output: unknown): {
           "function_call missing call_id; cannot map to chat tool_calls[].id",
         )
       }
+      const name = typeof it.name === "string" ? it.name : ""
+      if (!name) {
+        throw new ResponsesProtocolError(
+          "function_call missing name; cannot map to chat tool_calls",
+        )
+      }
       toolCalls.push({
         id: callId,
         type: "function",
         function: {
-          name: typeof it.name === "string" ? it.name : "",
+          name,
           arguments:
             typeof it.arguments === "string"
               ? it.arguments

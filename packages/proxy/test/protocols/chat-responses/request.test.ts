@@ -293,3 +293,15 @@ describe("assistant multipart EasyInputMessage", () => {
     expect(input[0]!.content.map((c) => c.text)).toEqual(["a", "b"])
   })
 })
+
+describe("unknown field discard", () => {
+  test("seed is not forwarded to Responses payload", () => {
+    const p = chatRequestToResponses(
+      base({ seed: 42 } as Parameters<typeof chatRequestToResponses>[0] & {
+        seed: number
+      }),
+    )
+    expect(p).not.toHaveProperty("seed")
+    expect(JSON.stringify(p)).not.toContain('"seed"')
+  })
+})

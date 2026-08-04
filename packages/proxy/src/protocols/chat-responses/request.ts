@@ -2,11 +2,11 @@ import { ClientInputError } from "../../lib/error"
 import type { ResponsesPayload } from "../../upstream/copilot-responses"
 import type { ChatViaResponsesClientReq } from "./types"
 
+/** Only fields present on official Responses create schema. */
 const PASSTHROUGH_KEYS = [
   "temperature",
   "top_p",
   "user",
-  "seed",
 ] as const
 
 /** Local rejects — must be called from strategy.dispatch (Runner try). */
