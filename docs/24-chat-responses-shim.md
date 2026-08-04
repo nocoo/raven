@@ -1,6 +1,6 @@
 # 24 — Chat Completions ↔ Responses Endpoint Auto-Shim
 
-> 状态：**Design — Codex 三轮复审已合入（§15 Q4–Q6）；可签核实施**
+> 状态：**Design — Codex 终轮一致性已合入（§15 Q4–Q7）；可签核实施**
 > 范围：`packages/proxy` 路由决策 + 协议翻译 + 第 7 策略；不改 Manifest / Dashboard
 > 关键属性：**catalog-driven 热更新** + **client Chat shape 不变** + **upstream `/responses` 一跳** + **failed 不得误报成功** + **tool call_id 往返**
 > 关联：`docs/16-openai-responses-api.md`（Responses 入向透传）、`docs/18-native-anthropic-messages.md`（`supported_endpoints` 门闩先例）、`docs/20-architecture-refactor.md`（七层 + Strategy）、`docs/23-token-sentinel.md`（`cacheModels` 刷新路径）
@@ -399,8 +399,8 @@ L1 必测：
 
 | 阶段 | 允许做什么 | 禁止 |
 |---|---|---|
-| `prepare` | **纯转换** + 组装 `ChatViaResponsesUpReq`（§7）；可做非抛错的字段丢弃 | **禁止** 对 `n`/`stop` 等抛 400 |
-| `dispatch`（在 Runner 的 try 内） | 调用 `assertChatViaResponsesSupported(originalChat)`；不通过则 `throw HTTPError(400, ...)` | 不得在 `client.send` 之后才发现可本地拒绝的参数 |
+| `prepare` | **纯转换** + 组装 `ChatViaResponsesUpReq`（§7）；可做非抛错的字段丢弃 | **禁止** 对 `n`/`stop` 等抛 400 / 抛任何 Error |
+| `dispatch`（在 Runner 的 try 内） | `assertChatViaResponsesSupported(originalChat)`；不通过则 **`throw new ClientInputError(...)`** | 裸 `HTTPError(400)`；在 `client.send` 之后才发现可本地拒绝的参数 |
 | `adaptJson` / `adaptChunk` | 上游协议失败 throw（已有 try 覆盖 → 有 `request_end`） | — |
 
 伪代码：
@@ -414,36 +414,58 @@ prepare(chat: ChatViaResponsesClientReq) {
   }
 }
 async dispatch(up) {
-  assertChatViaResponsesSupported(up.originalChat) // throws ClientInputError
+  assertChatViaResponsesSupported(up.originalChat) // throws ClientInputError — 禁止 HTTPError(400)
   return client.send(up.responsesPayload)
 }
 ```
 
-**本地 400 错误类型（P1 — 不得记成 upstream 400）：**
+**本地 400 错误类型（P1 — 不得记成 upstream 400 / 502）：**
 
-现有 `HTTPError` + `extractErrorDetails` 会把 `error.status` 写成 `upstreamStatus`（`lib/error.ts`），`forwardError` 的 `type` 固定为 `"error"`。  
-本地参数拒绝 **没有** 打上游，不能走裸 `HTTPError(400)`。
+现有 `HTTPError` + `extractErrorDetails`（`lib/error.ts`）：
+
+- `upstreamStatus = error.status`（本地 400 会被误记成 **upstream 400**）
+- 非 `HTTPError` 时 `statusCode = upstreamStatus ?? **502**`（未知 Error 会变成 **502**）
+- `forwardError` 的 `type` 固定 `"error"`，不是 `invalid_request_error`
+
+本地参数拒绝 **没有** 打上游 → **禁止** 裸 `HTTPError(400)`。
+
+**放置（强制）**：`ClientInputError` 定义在 **`packages/proxy/src/lib/error.ts`**（与 `HTTPError` / `extractErrorDetails` / `forwardError` 同层）。  
+**禁止** 放在 `protocols/chat-responses/`——公共错误层不得反向依赖 shim protocol；protocols 只 `import type` 或 import 类后 `throw`。
 
 ```ts
-// protocols/chat-responses/errors.ts 或 lib/error.ts（shim 专用优先放 protocols 侧可构造、route 识别）
-class ClientInputError extends Error {
-  readonly status = 400
-  readonly type = "invalid_request_error"
-  constructor(message: string) { super(message) }
+// lib/error.ts
+export class ClientInputError extends Error {
+  readonly status = 400 as const
+  readonly type = "invalid_request_error" as const
+  constructor(message: string) {
+    super(message)
+    this.name = "ClientInputError"
+  }
 }
 ```
 
-| 层 | 行为 |
+| 层 | 行为（**推荐主路径：改全局 helper**） |
 |---|---|
 | `assertChatViaResponsesSupported` | `throw new ClientInputError("...")` |
-| `extractErrorDetails` / Runner end log | 识别 `ClientInputError` → `statusCode:400`，**`upstreamStatus: null`**（不是 400） |
+| `extractErrorDetails` | 识别 `ClientInputError` → **`statusCode: 400`** + **`upstreamStatus: null`**（两字段都要；缺 `statusCode` 会落成 502） |
 | `forwardError` | `c.json({ error: { message, type: "invalid_request_error" } }, 400)` |
+| Runner `emitErrorEnd` | 继续调 `extractErrorDetails` 即可拿到正确双字段 |
 
-若不愿改全局 `extractErrorDetails`：strategy `describeEndLog` error 臂显式写 `upstreamStatus: null`，且 route 对 `ClientInputError` 分支 `forwardError`——**至少一端必须覆盖**，L1 钉死 log 字段。
+**备选（不改 `extractErrorDetails` 时必须同时满足，禁止只改一半）：**
+
+1. route `forwardError` 分支：`ClientInputError` → 400 + `invalid_request_error`
+2. strategy `describeEndLog` error 臂 **或** Runner 调用前包装：显式  
+   `statusCode: 400` **且** `upstreamStatus: null`  
+   （只写 `upstreamStatus: null` 而 `statusCode` 仍走默认 → Runner 记 **502**，验收失败）
+
+L1 钉死（缺一不可）：
+
+- HTTP 400
+- body `error.type === "invalid_request_error"`
+- `request_end.data.statusCode === 400`
+- `request_end.data.upstreamStatus === null`
 
 **可选后续（非本功能阻塞）**：Runner 将 `prepare` 移入 try——惠及所有策略；另开 commit，不绑 shim。
-
-L1：`n=2` → HTTP 400 + body `type:invalid_request_error` + `request_end` 且 **`upstreamStatus === null`**。
 
 #### 6.3.2 `messages` → `input` 与工具 ID（P0）
 
@@ -739,6 +761,7 @@ interface CopilotChatViaResponsesDeps {
 
 | 路径 | 变更 |
 |---|---|
+| `src/lib/error.ts` | 新增 `ClientInputError`；`extractErrorDetails` / `forwardError` 识别（statusCode 400 + upstreamStatus null + invalid_request_error） |
 | `src/core/router.ts` | `CatalogModel`、openai 分支、`StrategyName` |
 | `src/core/strategy.ts` | `STRATEGY_NAMES` +1 |
 | `src/composition/strategy-registry.ts` | case 注册 |
@@ -748,6 +771,7 @@ interface CopilotChatViaResponsesDeps {
 | `test/core/router.test.ts` + `router.fixtures.json` | 新 fixtures |
 | `test/core/strategy.test.ts` | length 7 |
 | `test/composition/strategy-registry.test.ts` | 新 case |
+| `test/lib/error.test.ts`（或现有 error 测） | `ClientInputError` 双字段 + forward envelope |
 | `docs/README.md`、根 `README.md` 文档表 | 索引 |
 | `docs/16-openai-responses-api.md` | Non-Goals 收窄一句：入向 passthrough 不变；Chat 入向 shim 见 24 |
 
@@ -995,7 +1019,7 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 | `prepare` 抛错丢 `request_end` | 校验放 `dispatch`（§6.3.1a）；L1 断言 error 臂 end log |
 | `includeUsage` 泄漏进上游 body | wrapper 类型（§7.2）；单测 `JSON.stringify(responsesPayload)` 无该键 |
 | 成功 body `error:null` 被误判失败 | `isResponsesFailure` 用 `error != null`（§6.2）；L1 completed+null |
-| 本地 400 记成 upstream 400 | `ClientInputError` + `upstreamStatus:null` + `invalid_request_error` |
+| 本地 400 记成 upstream 400 / 502 | `ClientInputError` in `lib/error.ts`；**`statusCode:400` + `upstreamStatus:null`** + `invalid_request_error`（两字段缺一不可） |
 
 ---
 
@@ -1062,10 +1086,18 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 | 2 | P1 | `ChatCompletionsPayload` 缺 stream_options/strict/json_schema | §7.1 `ChatViaResponsesClientReq` |
 | 3 | P1 | 本地 400 被记成 `upstreamStatus:400` 且 type 非 invalid_request | §6.3.1a `ClientInputError` |
 
+### Q7：Codex 终轮一致性（2026-08-04）
+
+| # | 问题 | 文档落点 |
+|---|---|---|
+| 1 | 表内仍写 `throw HTTPError(400)`，与后文 `ClientInputError` 冲突 | §6.3.1a 阶段表 / 伪代码统一为 `ClientInputError` |
+| 2 | 备选路径只写 `upstreamStatus:null` 会落成 Runner **502** | 备选必须 **同时** `statusCode:400` + `upstreamStatus:null` |
+| 3 | `ClientInputError` 应在 `lib/error.ts`，禁止 protocols 反向被公共层依赖 | §6.3.1a 放置强制；§8.2 文件清单 |
+
 ---
 
 ## 16. 参考
 
 - Manifest（外部）：`buildCustomEndpoint` 仅 openai/anthropic path
-- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `core/runner.ts`（`prepare` 在 try 外）, `lib/error.ts`（`HTTPError`→`upstreamStatus`）, `upstream/copilot-openai.ts`（`ChatCompletionsPayload` 基线）, `docs/16`, `docs/18`, `docs/20`, `docs/23`
+- Raven：`core/router.ts`, `strategies/copilot-translated.ts`, `strategies/support/model-capabilities.ts`, `lib/utils.ts` `cacheModels`, `middleware.ts` `refreshModelsIfStale`, `core/runner.ts`（`prepare` 在 try 外；`emitErrorEnd` 用 `extractErrorDetails` → 默认非 HTTPError 为 502）, `lib/error.ts`（`HTTPError` / **`ClientInputError`**）, `upstream/copilot-openai.ts`（`ChatCompletionsPayload` 基线）, `docs/16`, `docs/18`, `docs/20`, `docs/23`
 - OpenAI：migrate-to-responses（function `strict` 默认差异）、function-calling streaming（`call_id`）、Responses input roles（含 `developer`）
