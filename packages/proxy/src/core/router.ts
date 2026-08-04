@@ -9,14 +9,21 @@
 
 import type { CompiledProvider } from "../db/providers"
 import { resolveAgainstCatalog, translateModelName } from "../protocols/anthropic/preprocess"
+import { isResponsesOnly } from "../protocols/chat-responses/endpoints"
 
 export type StrategyName =
   | "copilot-native"
   | "copilot-translated"
   | "copilot-openai-direct"
   | "copilot-responses"
+  | "copilot-chat-via-responses"
   | "custom-openai"
   | "custom-anthropic"
+
+export interface CatalogModel {
+  id: string
+  supported_endpoints?: string[]
+}
 
 export type ClientProtocol = "anthropic" | "openai" | "responses"
 
@@ -39,6 +46,11 @@ export interface RouterInput {
   providers: CompiledProvider[]
   /** Catalog of Copilot models exposed today (state.models?.data ids). */
   modelsCatalogIds: string[]
+  /**
+   * Full catalog entries for endpoint-aware openai routing.
+   * When omitted, openai path never selects chat-via-responses (legacy-safe).
+   */
+  modelsCatalog?: CatalogModel[]
 }
 
 const REJECT_OPENAI_TO_ANTHROPIC: StrategyDecision = {
@@ -103,7 +115,8 @@ function nativeSupported(model: string, modelsCatalogIds: string[]): boolean {
 }
 
 export function pickStrategy(input: RouterInput): StrategyDecision {
-  const { protocol, model, anthropicBeta, providers, modelsCatalogIds } = input
+  const { protocol, model, anthropicBeta, providers, modelsCatalogIds, modelsCatalog } =
+    input
 
   if (protocol === "anthropic") {
     const normalisedModel = translateModelName(model, anthropicBeta ?? null)
@@ -131,6 +144,10 @@ export function pickStrategy(input: RouterInput): StrategyDecision {
         return REJECT_OPENAI_TO_ANTHROPIC
       }
       return { kind: "ok", name: "custom-openai", providerId: matched.provider.id }
+    }
+    const entry = modelsCatalog?.find((m) => m.id === model)
+    if (isResponsesOnly(entry?.supported_endpoints)) {
+      return { kind: "ok", name: "copilot-chat-via-responses" }
     }
     return { kind: "ok", name: "copilot-openai-direct" }
   }

@@ -8,9 +8,9 @@
 // this file is responsible for translating `state.optToolCallDebug` etc into
 // constructor args.
 //
-// All six strategies registered:
+// All seven strategies registered:
 //   copilot-openai-direct, copilot-native, copilot-responses,
-//   custom-openai, custom-anthropic, copilot-translated.
+//   copilot-chat-via-responses, custom-openai, custom-anthropic, copilot-translated.
 // ---------------------------------------------------------------------------
 
 import type { SSEMessage } from "hono/streaming"
@@ -22,6 +22,7 @@ import { buildUpstreamClient } from "./upstream-registry"
 import { makeCopilotOpenAIDirect } from "../strategies/copilot-openai-direct"
 import { makeCopilotNative } from "../strategies/copilot-native"
 import { makeCopilotResponses } from "../strategies/copilot-responses"
+import { makeCopilotChatViaResponses } from "../strategies/copilot-chat-via-responses"
 import { makeCustomOpenAI } from "../strategies/custom-openai"
 import { makeCustomAnthropic } from "../strategies/custom-anthropic"
 import { makeCopilotTranslated } from "../strategies/copilot-translated"
@@ -68,6 +69,11 @@ export function buildStrategy(
     case "copilot-responses":
       return makeCopilotResponses({
         client: buildUpstreamClient("copilot-responses"),
+      }) as unknown as AnyStrategy
+    case "copilot-chat-via-responses":
+      return makeCopilotChatViaResponses({
+        client: buildUpstreamClient("copilot-responses"),
+        toolCallDebug: deps.toolCallDebug,
       }) as unknown as AnyStrategy
     case "custom-openai":
       return makeCustomOpenAI({

@@ -5,6 +5,7 @@ import { STRATEGY_NAMES, isStrategyName } from "../../src/core/strategy"
 describe("core/strategy", () => {
   test("STRATEGY_NAMES enumerates every shipped strategy (§3.2)", () => {
     expect([...STRATEGY_NAMES].sort()).toEqual([
+      "copilot-chat-via-responses",
       "copilot-native",
       "copilot-openai-direct",
       "copilot-responses",
@@ -12,8 +13,7 @@ describe("core/strategy", () => {
       "custom-anthropic",
       "custom-openai",
     ])
-    // §1.1: exactly 6 strategies as of this doc.
-    expect(STRATEGY_NAMES.length).toBe(6)
+    expect(STRATEGY_NAMES.length).toBe(7)
   })
 
   test("isStrategyName accepts known + rejects unknown", () => {

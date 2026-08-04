@@ -151,6 +151,102 @@ describe("pickStrategy — branch coverage assertions", () => {
     ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
   })
 
+  test("openai responses-only catalog entry picks copilot-chat-via-responses", () => {
+    expect(
+      pickStrategy({
+        protocol: "openai",
+        model: "grok-4.5",
+        providers: [],
+        modelsCatalogIds: ["grok-4.5"],
+        modelsCatalog: [
+          { id: "grok-4.5", supported_endpoints: ["/responses"] },
+        ],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-chat-via-responses" })
+  })
+
+  test("openai responses+ws only picks shim", () => {
+    expect(
+      pickStrategy({
+        protocol: "openai",
+        model: "gpt-5.3-codex",
+        providers: [],
+        modelsCatalogIds: ["gpt-5.3-codex"],
+        modelsCatalog: [
+          {
+            id: "gpt-5.3-codex",
+            supported_endpoints: ["/responses", "ws:/responses"],
+          },
+        ],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-chat-via-responses" })
+  })
+
+  test("openai amphibious stays on copilot-openai-direct", () => {
+    expect(
+      pickStrategy({
+        protocol: "openai",
+        model: "gpt-5.4",
+        providers: [],
+        modelsCatalogIds: ["gpt-5.4"],
+        modelsCatalog: [
+          {
+            id: "gpt-5.4",
+            supported_endpoints: ["/responses", "/chat/completions"],
+          },
+        ],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
+  })
+
+  test("openai empty endpoints stays on copilot-openai-direct", () => {
+    expect(
+      pickStrategy({
+        protocol: "openai",
+        model: "gpt-4o",
+        providers: [],
+        modelsCatalogIds: ["gpt-4o"],
+        modelsCatalog: [{ id: "gpt-4o", supported_endpoints: [] }],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
+  })
+
+  test("live catalog swap flips openai routing without restart", () => {
+    const base = {
+      protocol: "openai" as const,
+      model: "grok-4.5",
+      providers: [],
+      modelsCatalogIds: ["grok-4.5"],
+    }
+    expect(
+      pickStrategy({
+        ...base,
+        modelsCatalog: [{ id: "grok-4.5" }],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
+
+    expect(
+      pickStrategy({
+        ...base,
+        modelsCatalog: [
+          { id: "grok-4.5", supported_endpoints: ["/responses"] },
+        ],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-chat-via-responses" })
+
+    expect(
+      pickStrategy({
+        ...base,
+        modelsCatalog: [
+          {
+            id: "grok-4.5",
+            supported_endpoints: ["/responses", "/chat/completions"],
+          },
+        ],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
+  })
+
   test("responses with no provider always picks copilot-responses", () => {
     expect(
       pickStrategy({

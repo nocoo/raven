@@ -14,8 +14,7 @@
 //      `runner.execute`. Any throw from `runner.execute` is re-raised so the
 //      route can surface it through `forwardError`.
 //
-// All six strategies (copilot-openai-direct, copilot-native, copilot-responses,
-// custom-openai, custom-anthropic, copilot-translated) flow through here.
+// All seven strategies (including copilot-chat-via-responses) flow through here.
 // `dispatch` itself is fully generic and unaware of which strategies the
 // registry can build.
 // ---------------------------------------------------------------------------
@@ -39,8 +38,10 @@ export interface DispatchInput {
   anthropicBeta?: string | null
   /** Live router inputs. Composition reads `state` and threads them in. */
   providers: CompiledProvider[]
-  /** Catalog model IDs (structural — composition stays decoupled from get-models). */
-  models: Array<{ id: string }>
+  /**
+   * Catalog models. `id` required; `supported_endpoints` drives chat-via-responses.
+   */
+  models: Array<{ id: string; supported_endpoints?: string[] }>
   /** Strategy-construction deps. */
   buildDeps: BuildStrategyDeps
 }
@@ -65,6 +66,7 @@ export async function dispatch<Payload>(
     anthropicBeta: input.anthropicBeta ?? null,
     providers: input.providers,
     modelsCatalogIds: input.models.map((m) => m.id),
+    modelsCatalog: input.models,
   })
 
   if (decision.kind === "reject") {

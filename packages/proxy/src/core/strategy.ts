@@ -14,6 +14,7 @@ export type StrategyName =
   | "copilot-translated"
   | "copilot-openai-direct"
   | "copilot-responses"
+  | "copilot-chat-via-responses"
   | "custom-openai"
   | "custom-anthropic"
 
@@ -28,6 +29,7 @@ export const STRATEGY_NAMES = [
   "copilot-translated",
   "copilot-openai-direct",
   "copilot-responses",
+  "copilot-chat-via-responses",
   "custom-openai",
   "custom-anthropic",
 ] as const satisfies readonly StrategyName[]

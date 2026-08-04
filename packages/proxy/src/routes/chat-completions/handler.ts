@@ -52,11 +52,18 @@ export async function handleCompletion(c: Context) {
   // chat/completions payloads on a single canonical token limit field.
   payload = normalizeTokenLimitParams(payload)
 
+  const modelsCatalog = (state.models?.data ?? []).map((m) => {
+    const entry: { id: string; supported_endpoints?: string[] } = { id: m.id }
+    if (m.supported_endpoints) entry.supported_endpoints = m.supported_endpoints
+    return entry
+  })
+
   const decision = pickStrategy({
     protocol: "openai",
     model,
     providers: state.providers,
-    modelsCatalogIds: state.models?.data?.map((m) => m.id) ?? [],
+    modelsCatalogIds: modelsCatalog.map((m) => m.id),
+    modelsCatalog,
   })
 
   if (decision.kind === "ok" && decision.name === "custom-openai") {

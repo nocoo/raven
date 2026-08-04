@@ -44,6 +44,19 @@ describe("composition/strategy-registry", () => {
     expect(typeof s.initStreamState).toBe("function")
   })
 
+  test("returns a Strategy with name=copilot-chat-via-responses for ok decision", () => {
+    const decision: StrategyDecision = { kind: "ok", name: "copilot-chat-via-responses" }
+    const s = buildStrategy(decision, { toolCallDebug: false })
+    expect(s.name).toBe("copilot-chat-via-responses")
+    expect(typeof s.prepare).toBe("function")
+    expect(typeof s.dispatch).toBe("function")
+    expect(typeof s.adaptJson).toBe("function")
+    expect(typeof s.adaptChunk).toBe("function")
+    expect(typeof s.adaptStreamError).toBe("function")
+    expect(typeof s.describeEndLog).toBe("function")
+    expect(typeof s.initStreamState).toBe("function")
+  })
+
   test("returns a Strategy with name=custom-openai for ok decision", () => {
     const decision: StrategyDecision = { kind: "ok", name: "custom-openai" }
     const s = buildStrategy(decision, { toolCallDebug: false, filterWhitespaceChunks: false })

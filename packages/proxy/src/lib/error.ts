@@ -28,6 +28,17 @@ export class HTTPError extends Error {
   }
 }
 
+/** Local client input rejection — not an upstream failure. */
+export class ClientInputError extends Error {
+  readonly status = 400 as const
+  readonly type = "invalid_request_error" as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = "ClientInputError"
+  }
+}
+
 /**
  * Extract structured error details from a caught error.
  * Used by every handler's request_end log to unify error reporting.
@@ -37,6 +48,13 @@ export function extractErrorDetails(error: unknown): {
   upstreamStatus: number | null
   statusCode: number
 } {
+  if (error instanceof ClientInputError) {
+    return {
+      errorDetail: error.message,
+      upstreamStatus: null,
+      statusCode: 400,
+    }
+  }
   const errorMsg = error instanceof Error ? error.message : String(error)
   const upstreamStatus =
     error instanceof HTTPError ? error.status : null
@@ -52,6 +70,18 @@ export function extractErrorDetails(error: unknown): {
 export async function forwardError(c: Context, error: unknown) {
   // Error details are already logged by the handler's request_end event.
   // This function only builds the HTTP response for the client.
+
+  if (error instanceof ClientInputError) {
+    return c.json(
+      {
+        error: {
+          message: error.message,
+          type: "invalid_request_error",
+        },
+      },
+      400,
+    )
+  }
 
   if (error instanceof HTTPError) {
     return c.json(
