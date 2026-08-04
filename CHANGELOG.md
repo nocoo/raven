@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.5.1
+
+### Added
+- Report cache tokens from every strategy
+- Persist cache read/write tokens on requests
+
+### Changed
+- Add messages-responses shim design (25)
+- Clarify scripts project in pre-commit description
+- Document gate:coverage in hooks and retrospective
+- Refresh coverage baseline after chat-responses
+
+### Fixed
+- Keep message_start input tokens on anthropic stream
+- Exclude cached tokens from responses input count
+- Forward cache_control on copilot native path
+- Run CI baseline coverage gate in pre-commit/push
+
 ## v2.5.0
 
 ### Added
