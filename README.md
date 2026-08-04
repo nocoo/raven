@@ -473,6 +473,11 @@ cp packages/dashboard/.env.example packages/dashboard/.env.local
 | 17 | [SOCKS5 Proxy Relay](docs/17-socks5-proxy-relay.md) | SOCKS5 代理中继：隐藏出口 IP，per-upstream 路由策略 |
 | 18 | [Native Anthropic Messages](docs/18-native-anthropic-messages.md) | 原生 Anthropic 透传：Claude 模型默认走 `/v1/messages` |
 | 19 | [Pipeline Refactor](docs/19-pipeline-refactor.md) | 请求处理管线重构 |
+| 20 | [Architecture Refactor](docs/20-architecture-refactor.md) | 七层架构 + Strategy/Runner 重构 |
+| 21 | [Dashboard Analytics](docs/21-dashboard-analytics-enhancement.md) | Dashboard 分析增强 |
+| 22 | [Dashboard Design System](docs/22-dashboard-design-system.md) | Dashboard 设计系统 |
+| 23 | [Token Sentinel](docs/23-token-sentinel.md) | Copilot token 单写者刷新架构：哨兵 loop + 信号通道 |
+| 24 | [Chat ↔ Responses Shim](docs/24-chat-responses-shim.md) | Chat Completions 入向自动转 Responses 上游 |
 
 <details><summary>Archive</summary>
 
