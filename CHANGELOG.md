@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.5.2
+
+### Added
+- Aggregate observed-input tokens for cache stats
+- Surface cache hit rate across stats and dashboard
+
+### Changed
+- Bump vite 8.1.5 → 8.2.0
+- Bump lucide-react 1.27.0 → 1.28.0 in dashboard
+
+### Fixed
+- Degrade formatCompact on missing values
+- Exclude cache layer from chart tooltip total
+- Hit rate includes cache writes
+
 ## v2.5.1
 
 ### Added
