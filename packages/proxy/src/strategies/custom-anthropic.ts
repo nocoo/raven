@@ -34,6 +34,8 @@ export interface CustomAnthropicUpReq {
 export interface CustomAnthropicStreamState {
   inputTokens: number
   outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
 }
 
 const isAnthropicNonStreaming = (
@@ -65,13 +67,31 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
 
     adaptJson: (resp) => resp,
 
-    initStreamState: () => ({ inputTokens: 0, outputTokens: 0 }),
+    initStreamState: () => ({
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    }),
 
     adaptChunk: (sseEvent, st) => {
       try {
+        type Usage = {
+          input_tokens?: number | null
+          output_tokens?: number | null
+          cache_read_input_tokens?: number | null
+          cache_creation_input_tokens?: number | null
+        }
         const parsed = JSON.parse(sseEvent.data) as {
           type?: string
-          usage?: { input_tokens?: number; output_tokens?: number }
+          message?: { usage?: Usage }
+          usage?: Usage
+        }
+        // Cache counters only ever appear on message_start; message_delta
+        // carries the final input/output totals.
+        if (parsed.type === "message_start" && parsed.message?.usage) {
+          st.cacheReadTokens = parsed.message.usage.cache_read_input_tokens ?? 0
+          st.cacheWriteTokens = parsed.message.usage.cache_creation_input_tokens ?? 0
         }
         if (parsed.type === "message_delta" && parsed.usage) {
           st.inputTokens = parsed.usage.input_tokens ?? 0
@@ -102,6 +122,8 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
           resolvedModel: result.req.payload.model,
           inputTokens: result.resp.usage?.input_tokens ?? 0,
           outputTokens: result.resp.usage?.output_tokens ?? 0,
+          cacheReadTokens: result.resp.usage?.cache_read_input_tokens ?? 0,
+          cacheWriteTokens: result.resp.usage?.cache_creation_input_tokens ?? 0,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
         }
@@ -111,6 +133,8 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
           model: result.req.payload.model,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          cacheReadTokens: result.state.cacheReadTokens,
+          cacheWriteTokens: result.state.cacheWriteTokens,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
         }

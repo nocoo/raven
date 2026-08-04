@@ -33,6 +33,7 @@ export interface CopilotDirectStreamState {
   resolvedModel: string
   inputTokens: number
   outputTokens: number
+  cacheReadTokens: number
   toolCallIds: Set<string>
 }
 
@@ -69,6 +70,7 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
       resolvedModel: req.model,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
       toolCallIds: new Set<string>(),
     }),
 
@@ -83,6 +85,7 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
             const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
             st.inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
             st.outputTokens = parsed.usage.completion_tokens ?? 0
+            st.cacheReadTokens = cached
           }
 
           if (deps.toolCallDebug && parsed.choices?.[0]?.delta?.tool_calls) {
@@ -134,6 +137,7 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
           resolvedModel: result.resp.model,
           inputTokens,
           outputTokens,
+          cacheReadTokens: cached,
         }
       }
       if (result.kind === "stream") {
@@ -146,6 +150,7 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
           resolvedModel: result.state.resolvedModel,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          cacheReadTokens: result.state.cacheReadTokens,
           stopReason: toolCallCount > 0 ? "tool_calls" : "stop",
           toolCallCount,
           ...debugExtras,

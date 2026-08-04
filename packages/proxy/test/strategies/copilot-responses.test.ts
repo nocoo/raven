@@ -97,7 +97,9 @@ describe("strategies/copilot-responses", () => {
   test("initStreamState seeds resolvedModel from request model", () => {
     const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
     const st = s.initStreamState(makeReq(), makeCtx())
-    expect(st).toEqual({ resolvedModel: "gpt-4o", inputTokens: 0, outputTokens: 0 })
+    expect(st).toEqual({
+      resolvedModel: "gpt-4o", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0,
+    })
   })
 
   test("adaptChunk emits upstream raw SSE", () => {
@@ -154,13 +156,21 @@ describe("strategies/copilot-responses", () => {
 
   test("describeEndLog json arm uses extractNonStreamingMeta", () => {
     const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const resp = { model: "gpt-4o-resp", usage: { input_tokens: 11, output_tokens: 7 } }
+    const resp = {
+      model: "gpt-4o-resp",
+      usage: {
+        input_tokens: 11,
+        output_tokens: 7,
+        input_tokens_details: { cached_tokens: 6 },
+      },
+    }
     const out = s.describeEndLog({ kind: "json", req: makeReq(), resp }, makeCtx())
     expect(out).toEqual({
       model: "gpt-4o",
       resolvedModel: "gpt-4o-resp",
       inputTokens: 11,
       outputTokens: 7,
+      cacheReadTokens: 6,
     })
   })
 
@@ -168,6 +178,7 @@ describe("strategies/copilot-responses", () => {
     const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
     const st: CopilotResponsesStreamState = {
       resolvedModel: "gpt-4o-resolved", inputTokens: 22, outputTokens: 13,
+      cacheReadTokens: 11,
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
     expect(out).toEqual({
@@ -175,6 +186,7 @@ describe("strategies/copilot-responses", () => {
       resolvedModel: "gpt-4o-resolved",
       inputTokens: 22,
       outputTokens: 13,
+      cacheReadTokens: 11,
     })
   })
 

@@ -46,27 +46,46 @@ describe("extractResolvedModel", () => {
 describe("extractUsage", () => {
   test("returns usage tokens when present", () => {
     const data = JSON.stringify({
-      response: { usage: { input_tokens: 42, output_tokens: 17 } },
+      response: {
+        usage: {
+          input_tokens: 42,
+          output_tokens: 17,
+          input_tokens_details: { cached_tokens: 30 },
+        },
+      },
     })
-    expect(extractUsage(data)).toEqual({ inputTokens: 42, outputTokens: 17 })
+    expect(extractUsage(data)).toEqual({
+      inputTokens: 42,
+      outputTokens: 17,
+      cachedInputTokens: 30,
+    })
   })
 
   test("defaults missing fields to 0", () => {
     expect(extractUsage(JSON.stringify({ response: { usage: {} } }))).toEqual({
       inputTokens: 0,
       outputTokens: 0,
+      cachedInputTokens: 0,
     })
     expect(
       extractUsage(JSON.stringify({ response: { usage: { input_tokens: 5 } } })),
-    ).toEqual({ inputTokens: 5, outputTokens: 0 })
+    ).toEqual({ inputTokens: 5, outputTokens: 0, cachedInputTokens: 0 })
   })
 
   test("coerces non-number fields to 0", () => {
     expect(
       extractUsage(
-        JSON.stringify({ response: { usage: { input_tokens: "nope", output_tokens: null } } }),
+        JSON.stringify({
+          response: {
+            usage: {
+              input_tokens: "nope",
+              output_tokens: null,
+              input_tokens_details: { cached_tokens: "nope" },
+            },
+          },
+        }),
       ),
-    ).toEqual({ inputTokens: 0, outputTokens: 0 })
+    ).toEqual({ inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 })
   })
 
   test("returns null when usage absent", () => {
@@ -82,15 +101,32 @@ describe("extractUsage", () => {
 describe("extractNonStreamingMeta", () => {
   test("pulls model + usage from complete body", () => {
     const meta = extractNonStreamingMeta(
-      { model: "gpt-5", usage: { input_tokens: 10, output_tokens: 20 } },
+      {
+        model: "gpt-5",
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          input_tokens_details: { cached_tokens: 4 },
+        },
+      },
       "fallback",
     )
-    expect(meta).toEqual({ resolvedModel: "gpt-5", inputTokens: 10, outputTokens: 20 })
+    expect(meta).toEqual({
+      resolvedModel: "gpt-5",
+      inputTokens: 10,
+      outputTokens: 20,
+      cachedInputTokens: 4,
+    })
   })
 
   test("falls back to given model when missing", () => {
     const meta = extractNonStreamingMeta({}, "fallback")
-    expect(meta).toEqual({ resolvedModel: "fallback", inputTokens: 0, outputTokens: 0 })
+    expect(meta).toEqual({
+      resolvedModel: "fallback",
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+    })
   })
 
   test("handles null/undefined response", () => {
@@ -98,11 +134,13 @@ describe("extractNonStreamingMeta", () => {
       resolvedModel: "fb",
       inputTokens: 0,
       outputTokens: 0,
+      cachedInputTokens: 0,
     })
     expect(extractNonStreamingMeta(undefined, "fb")).toEqual({
       resolvedModel: "fb",
       inputTokens: 0,
       outputTokens: 0,
+      cachedInputTokens: 0,
     })
   })
 
@@ -111,6 +149,11 @@ describe("extractNonStreamingMeta", () => {
       { model: 123, usage: { input_tokens: "x", output_tokens: undefined } },
       "fallback",
     )
-    expect(meta).toEqual({ resolvedModel: "fallback", inputTokens: 0, outputTokens: 0 })
+    expect(meta).toEqual({
+      resolvedModel: "fallback",
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+    })
   })
 })

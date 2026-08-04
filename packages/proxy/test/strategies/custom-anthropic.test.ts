@@ -105,7 +105,9 @@ describe("strategies/custom-anthropic", () => {
   test("initStreamState seeds zero counters", () => {
     const s = makeCustomAnthropic({ client: fakeClient(() => makeJsonResp()) })
     const st = s.initStreamState(makeReq(), makeCtx())
-    expect(st).toEqual({ inputTokens: 0, outputTokens: 0 })
+    expect(st).toEqual({
+      inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0,
+    })
   })
 
   test("adaptChunk passes through SSE event with event tag", () => {
@@ -173,17 +175,21 @@ describe("strategies/custom-anthropic", () => {
       model: "claude-3-5",
       resolvedModel: "claude-3-5",
       inputTokens: 7, outputTokens: 3,
+      cacheReadTokens: 0, cacheWriteTokens: 0,
       upstream: "anth-co", upstreamFormat: "anthropic",
     })
   })
 
   test("describeEndLog stream arm uses state counters", () => {
     const s = makeCustomAnthropic({ client: fakeClient(() => makeJsonResp()) })
-    const st: CustomAnthropicStreamState = { inputTokens: 17, outputTokens: 9 }
+    const st: CustomAnthropicStreamState = {
+      inputTokens: 17, outputTokens: 9, cacheReadTokens: 3, cacheWriteTokens: 4,
+    }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
     expect(out).toEqual({
       model: "claude-3-5",
       inputTokens: 17, outputTokens: 9,
+      cacheReadTokens: 3, cacheWriteTokens: 4,
       upstream: "anth-co", upstreamFormat: "anthropic",
     })
   })

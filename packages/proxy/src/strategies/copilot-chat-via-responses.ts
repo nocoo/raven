@@ -133,6 +133,7 @@ export function makeCopilotChatViaResponses(
           resolvedModel: meta.resolvedModel,
           inputTokens: meta.inputTokens,
           outputTokens: meta.outputTokens,
+          cacheReadTokens: meta.cachedInputTokens,
           routingPath,
           stopReason: mapResponsesFinishReason(body),
         }
@@ -143,6 +144,7 @@ export function makeCopilotChatViaResponses(
           resolvedModel: result.state.model,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          cacheReadTokens: result.state.cacheReadTokens,
           routingPath,
           stopReason: result.state.finishReason,
         }

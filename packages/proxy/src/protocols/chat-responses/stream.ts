@@ -23,6 +23,7 @@ export function initChatViaResponsesStreamState(opts: {
     includeUsage: opts.includeUsage,
     inputTokens: 0,
     outputTokens: 0,
+    cacheReadTokens: 0,
     done: false,
     failed: false,
   }
@@ -371,19 +372,29 @@ function applyUsage(data: string, st: ChatViaResponsesStreamState): void {
   if (usage) {
     st.inputTokens = usage.inputTokens
     st.outputTokens = usage.outputTokens
+    st.cacheReadTokens = usage.cachedInputTokens
     return
   }
   try {
     const parsed = JSON.parse(data) as {
       response?: {
-        usage?: { input_tokens?: number; output_tokens?: number }
+        usage?: {
+          input_tokens?: number
+          output_tokens?: number
+          input_tokens_details?: { cached_tokens?: number }
+        }
       }
-      usage?: { input_tokens?: number; output_tokens?: number }
+      usage?: {
+        input_tokens?: number
+        output_tokens?: number
+        input_tokens_details?: { cached_tokens?: number }
+      }
     }
     const u = parsed.response?.usage ?? parsed.usage
     if (u) {
       st.inputTokens = u.input_tokens ?? st.inputTokens
       st.outputTokens = u.output_tokens ?? st.outputTokens
+      st.cacheReadTokens = u.input_tokens_details?.cached_tokens ?? st.cacheReadTokens
     }
   } catch {
     // ignore

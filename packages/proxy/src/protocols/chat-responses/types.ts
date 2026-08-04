@@ -54,6 +54,8 @@ export interface ChatViaResponsesStreamState {
   includeUsage: boolean
   inputTokens: number
   outputTokens: number
+  /** Cached prefix tokens; already included in `inputTokens` (OpenAI convention). */
+  cacheReadTokens: number
   done: boolean
   failed: boolean
 }

@@ -41,6 +41,7 @@
     "resolvedModel": "grok-4.5",
     "inputTokens": 10,
     "outputTokens": 2,
+    "cacheReadTokens": 0,
     "routingPath": "chat-via-responses",
     "stopReason": "stop"
   }

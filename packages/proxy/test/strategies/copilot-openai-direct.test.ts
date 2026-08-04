@@ -85,6 +85,7 @@ describe("strategies/copilot-openai-direct", () => {
       resolvedModel: "gpt-4o",
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
       toolCallIds: new Set<string>(),
     })
   })
@@ -192,6 +193,7 @@ describe("strategies/copilot-openai-direct", () => {
     expect(out).toEqual({
       model: "gpt-4o-2024",
       resolvedModel: "gpt-4o-2024",
+      cacheReadTokens: 5,
       inputTokens: 45,
       outputTokens: 10,
     })
@@ -200,7 +202,7 @@ describe("strategies/copilot-openai-direct", () => {
   test("describeEndLog stream arm with toolCallDebug=true includes stopReason+toolCallNames", () => {
     const s = makeCopilotOpenAIDirect({ client: fakeClient(() => ({})), toolCallDebug: true })
     const st: import("../../src/strategies/copilot-openai-direct").CopilotDirectStreamState = {
-      model: "m", resolvedModel: "m", inputTokens: 1, outputTokens: 2,
+      model: "m", resolvedModel: "m", inputTokens: 1, outputTokens: 2, cacheReadTokens: 0,
       toolCallIds: new Set(["a", "b"]),
     }
     const out = s.describeEndLog({ kind: "stream", req: { model: "m" } as ChatCompletionsPayload, state: st }, makeCtx())
@@ -215,7 +217,7 @@ describe("strategies/copilot-openai-direct", () => {
     const sDebug = makeCopilotOpenAIDirect({ client: fakeClient(() => ({})), toolCallDebug: true })
     const sNoDebug = makeCopilotOpenAIDirect({ client: fakeClient(() => ({})), toolCallDebug: false })
     const st: import("../../src/strategies/copilot-openai-direct").CopilotDirectStreamState = {
-      model: "m", resolvedModel: "m", inputTokens: 0, outputTokens: 0, toolCallIds: new Set(),
+      model: "m", resolvedModel: "m", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, toolCallIds: new Set(),
     }
     const debugOut = sDebug.describeEndLog({ kind: "stream", req: { model: "m" } as ChatCompletionsPayload, state: st }, makeCtx())
     expect(debugOut).toMatchObject({ stopReason: "stop", toolCallCount: 0 })

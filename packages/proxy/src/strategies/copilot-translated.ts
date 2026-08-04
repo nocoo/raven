@@ -47,6 +47,7 @@ export interface CopilotTranslatedStreamState extends AnthropicStreamState {
   resolvedModel: string
   inputTokens: number
   outputTokens: number
+  cacheReadTokens: number
   lastToolCallCount: number
   originalModel: string
 }
@@ -87,6 +88,7 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
       resolvedModel: req.originalModel,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
       lastToolCallCount: 0,
       originalModel: req.originalModel,
     }),
@@ -103,6 +105,7 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
         const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
         st.inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
         st.outputTokens = chunk.usage.completion_tokens ?? 0
+        st.cacheReadTokens = cached
       }
 
       const events = translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
@@ -156,6 +159,7 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
           resolvedModel: result.resp.model,
           translatedModel: result.req.openAIPayload.model,
           inputTokens, outputTokens,
+          cacheReadTokens: cached,
         }
       }
       if (result.kind === "stream") {
@@ -169,6 +173,7 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
           translatedModel: result.req.openAIPayload.model,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          cacheReadTokens: result.state.cacheReadTokens,
           stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
           toolCallCount,
           ...debugExtras,

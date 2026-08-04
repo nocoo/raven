@@ -45,6 +45,8 @@ export interface CopilotNativeStreamState {
   resolvedModel: string
   inputTokens: number
   outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
   copilotModel: string
   originalModel: string
 }
@@ -82,6 +84,8 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
       resolvedModel: req.options.copilotModel,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
       copilotModel: req.options.copilotModel,
       originalModel: req.originalModel,
     }),
@@ -97,6 +101,8 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
           }
           if (parsed.type === "message_start" && parsed.message?.usage) {
             st.inputTokens = parsed.message.usage.input_tokens ?? 0
+            st.cacheReadTokens = parsed.message.usage.cache_read_input_tokens ?? 0
+            st.cacheWriteTokens = parsed.message.usage.cache_creation_input_tokens ?? 0
           }
           if (parsed.type === "message_delta" && parsed.usage) {
             st.outputTokens = parsed.usage.output_tokens ?? 0
@@ -134,6 +140,8 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
           copilotModel: result.req.options.copilotModel,
           inputTokens: result.resp.usage?.input_tokens ?? 0,
           outputTokens: result.resp.usage?.output_tokens ?? 0,
+          cacheReadTokens: result.resp.usage?.cache_read_input_tokens ?? 0,
+          cacheWriteTokens: result.resp.usage?.cache_creation_input_tokens ?? 0,
           routingPath: "native",
         }
       }
@@ -144,6 +152,8 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
           copilotModel: result.state.copilotModel,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          cacheReadTokens: result.state.cacheReadTokens,
+          cacheWriteTokens: result.state.cacheWriteTokens,
           routingPath: "native",
         }
       }

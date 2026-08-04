@@ -27,6 +27,7 @@ export interface CopilotResponsesStreamState {
   resolvedModel: string
   inputTokens: number
   outputTokens: number
+  cacheReadTokens: number
   namespaceToolMapping?: NamespaceToolMapping
 }
 
@@ -287,6 +288,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         resolvedModel: req.model,
         inputTokens: 0,
         outputTokens: 0,
+        cacheReadTokens: 0,
         ...(namespaceToolMapping ? { namespaceToolMapping } : {}),
       }
     },
@@ -304,6 +306,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         if (usage) {
           st.inputTokens = usage.inputTokens
           st.outputTokens = usage.outputTokens
+          st.cacheReadTokens = usage.cachedInputTokens
         }
       }
 
@@ -334,6 +337,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
           resolvedModel: meta.resolvedModel,
           inputTokens: meta.inputTokens,
           outputTokens: meta.outputTokens,
+          cacheReadTokens: meta.cachedInputTokens,
         }
       }
       if (result.kind === "stream") {
@@ -342,6 +346,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
           resolvedModel: result.state.resolvedModel,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          cacheReadTokens: result.state.cacheReadTokens,
         }
       }
       if (result.kind === "error") {

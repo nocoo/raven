@@ -44,6 +44,8 @@
     "model": "claude-3-5-sonnet-20241022",
     "inputTokens": 7,
     "outputTokens": 2,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
     "upstream": "AnthropicProvider",
     "upstreamFormat": "anthropic"
   }

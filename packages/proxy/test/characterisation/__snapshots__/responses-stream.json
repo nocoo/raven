@@ -40,6 +40,7 @@
     "model": "gpt-5",
     "resolvedModel": "gpt-5-2025-09",
     "inputTokens": 11,
-    "outputTokens": 1
+    "outputTokens": 1,
+    "cacheReadTokens": 0
   }
 }

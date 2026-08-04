@@ -109,6 +109,8 @@ describe("strategies/copilot-native", () => {
       resolvedModel: "claude-3.5-sonnet",
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
       copilotModel: "claude-3.5-sonnet",
       originalModel: "claude-3-5-sonnet-20241022",
     })
@@ -187,7 +189,12 @@ describe("strategies/copilot-native", () => {
     const s = makeCopilotNative({ client: fakeClient(() => ({}) as AnthropicResponse) })
     const resp = {
       model: "claude-3-5-sonnet-20241022",
-      usage: { input_tokens: 50, output_tokens: 10 },
+      usage: {
+        input_tokens: 50,
+        output_tokens: 10,
+        cache_read_input_tokens: 900,
+        cache_creation_input_tokens: 40,
+      },
     } as AnthropicResponse
     const req = makeReq()
     const out = s.describeEndLog({ kind: "json", req, resp }, makeCtx())
@@ -197,6 +204,8 @@ describe("strategies/copilot-native", () => {
       copilotModel: "claude-3.5-sonnet",
       inputTokens: 50,
       outputTokens: 10,
+      cacheReadTokens: 900,
+      cacheWriteTokens: 40,
       routingPath: "native",
     })
   })
@@ -206,6 +215,7 @@ describe("strategies/copilot-native", () => {
     const st: CopilotNativeStreamState = {
       resolvedModel: "claude-3-5-sonnet-resolved",
       inputTokens: 20, outputTokens: 30,
+      cacheReadTokens: 5, cacheWriteTokens: 7,
       copilotModel: "claude-3.5-sonnet",
       originalModel: "claude-3-5-sonnet-20241022",
     }
@@ -216,6 +226,8 @@ describe("strategies/copilot-native", () => {
       copilotModel: "claude-3.5-sonnet",
       inputTokens: 20,
       outputTokens: 30,
+      cacheReadTokens: 5,
+      cacheWriteTokens: 7,
       routingPath: "native",
     })
   })

@@ -160,6 +160,7 @@ describe("strategies/custom-openai", () => {
     expect(out).toEqual({
       model: "gpt-x", resolvedModel: "gpt-x",
       inputTokens: 10, outputTokens: 5,
+      cacheReadTokens: 0,
       upstream: "myco", upstreamFormat: "openai",
     })
   })
@@ -169,7 +170,7 @@ describe("strategies/custom-openai", () => {
     const st: CustomOpenAIStreamState = {
       messageStartSent: false, contentBlockIndex: 0, contentBlockOpen: false, toolCalls: {},
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
-      inputTokens: 9, outputTokens: 4,
+      inputTokens: 9, outputTokens: 4, cacheReadTokens: 2,
       upstream: "myco", upstreamFormat: "openai",
       originalModel: undefined, lastToolCallCount: 0,
     }
@@ -177,6 +178,7 @@ describe("strategies/custom-openai", () => {
     expect(out).toEqual({
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
       inputTokens: 9, outputTokens: 4,
+      cacheReadTokens: 2,
       upstream: "myco", upstreamFormat: "openai",
       stopReason: "end_turn", toolCallCount: 0,
     })
@@ -268,6 +270,7 @@ describe("strategies/custom-openai", () => {
       resolvedModel: "gpt-r",
       translatedModel: "gpt-4o",
       inputTokens: 10, outputTokens: 5,
+      cacheReadTokens: 0,
       upstream: "myco", upstreamFormat: "openai",
     })
   })
@@ -277,7 +280,7 @@ describe("strategies/custom-openai", () => {
     const st: CustomOpenAIStreamState = {
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
-      inputTokens: 22, outputTokens: 13,
+      inputTokens: 22, outputTokens: 13, cacheReadTokens: 6,
       upstream: "myco", upstreamFormat: "openai",
       originalModel: "claude-3-5", lastToolCallCount: 0,
     }
@@ -287,6 +290,7 @@ describe("strategies/custom-openai", () => {
       resolvedModel: "gpt-4o-r",
       translatedModel: "gpt-4o",
       inputTokens: 22, outputTokens: 13,
+      cacheReadTokens: 6,
       upstream: "myco", upstreamFormat: "openai",
       stopReason: "end_turn", toolCallCount: 0,
     })

@@ -58,6 +58,7 @@ export interface CustomOpenAIStreamState extends AnthropicStreamState {
   resolvedModel: string
   inputTokens: number
   outputTokens: number
+  cacheReadTokens: number
   upstream: string
   upstreamFormat: string
   /** Set ⇔ translated mode. */
@@ -112,6 +113,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
       resolvedModel: req.originalModel ?? req.payload.model,
       inputTokens: 0,
       outputTokens: 0,
+      cacheReadTokens: 0,
       upstream: req.provider.name,
       upstreamFormat: req.provider.format,
       originalModel: req.originalModel,
@@ -147,6 +149,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
         const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
         st.inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
         st.outputTokens = chunk.usage.completion_tokens ?? 0
+        st.cacheReadTokens = cached
       }
 
       if (st.originalModel) {
@@ -214,6 +217,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
             resolvedModel: result.resp.model,
             translatedModel: result.req.payload.model,
             inputTokens, outputTokens,
+            cacheReadTokens: cached,
             upstream: result.req.provider.name,
             upstreamFormat: result.req.provider.format,
           }
@@ -222,6 +226,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
           model: result.resp.model,
           resolvedModel: result.resp.model,
           inputTokens, outputTokens,
+          cacheReadTokens: cached,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
         }
@@ -238,6 +243,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
             translatedModel: result.state.model,
             inputTokens: result.state.inputTokens,
             outputTokens: result.state.outputTokens,
+            cacheReadTokens: result.state.cacheReadTokens,
             upstream: result.state.upstream,
             upstreamFormat: result.state.upstreamFormat,
             stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
@@ -250,6 +256,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
           resolvedModel: result.state.resolvedModel,
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
+          cacheReadTokens: result.state.cacheReadTokens,
           upstream: result.state.upstream,
           upstreamFormat: result.state.upstreamFormat,
           stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",

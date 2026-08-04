@@ -177,6 +177,7 @@ describe("strategies/copilot-translated", () => {
       resolvedModel: "gpt-r",
       translatedModel: "gpt-4o",
       inputTokens: 10, outputTokens: 5,
+      cacheReadTokens: 0,
     })
   })
 
@@ -185,7 +186,7 @@ describe("strategies/copilot-translated", () => {
     const st: CopilotTranslatedStreamState = {
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
       resolvedModel: "gpt-4o-r",
-      inputTokens: 22, outputTokens: 13,
+      inputTokens: 22, outputTokens: 13, cacheReadTokens: 8,
       lastToolCallCount: 0, originalModel: "claude-3-5",
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
@@ -194,6 +195,7 @@ describe("strategies/copilot-translated", () => {
       resolvedModel: "gpt-4o-r",
       translatedModel: "gpt-4o",
       inputTokens: 22, outputTokens: 13,
+      cacheReadTokens: 8,
       stopReason: "end_turn", toolCallCount: 0,
     })
   })
