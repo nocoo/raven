@@ -14,7 +14,7 @@
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {
-    "gpt-tokenizer": "^3.0.1",
+    "gpt-tokenizer": "^4.0.0",
     "hono": "4.13.2",
     "socks": "^2.8.7",
     "zod": "^4.3.6"
