@@ -61,6 +61,17 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
   };
 }
 
+/**
+ * Timestamp for paired samples `t` / `t - 1000` that must share one hour bucket.
+ * If wall clock is within 1s of the hour boundary, nudge forward so `t - 1000`
+ * stays in-bucket; otherwise keep wall clock (never lags by up to 30 minutes).
+ */
+function stableHourTimestamp(now = Date.now()): number {
+  const hourMs = 3_600_000;
+  const hourStart = Math.floor(now / hourMs) * hourMs;
+  return Math.max(now, hourStart + 1000);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -243,7 +254,7 @@ describe("querySummary", () => {
 
 describe("queryTimeseries", () => {
   test("aggregates by hour", () => {
-    const now = Date.now();
+    const now = stableHourTimestamp();
     const oneHourAgo = now - 3600_000;
 
     insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));
@@ -259,7 +270,7 @@ describe("queryTimeseries", () => {
   });
 
   test("returns extended bucket fields", () => {
-    const now = Date.now();
+    const now = stableHourTimestamp();
     insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, stream: 1, status: "success", status_code: 200, ttft_ms: 50 }));
     insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, stream: 0, status: "error", status_code: 429 }));
 
@@ -347,7 +358,7 @@ describe("queryTimeseries", () => {
   });
 
   test("aggregates cache tokens per bucket", () => {
-    const now = Date.now();
+    const now = stableHourTimestamp();
     insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
     insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, cache_read_tokens: 150, cache_write_tokens: null }));
 
@@ -358,7 +369,7 @@ describe("queryTimeseries", () => {
   });
 
   test("observed input excludes unobserved rows per bucket", () => {
-    const now = Date.now();
+    const now = stableHourTimestamp();
     insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, input_tokens: 30, cache_read_tokens: 500, cache_write_tokens: 0 }));
     insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 100, input_tokens: 70, cache_read_tokens: null, cache_write_tokens: null }));
 
@@ -366,6 +377,20 @@ describe("queryTimeseries", () => {
     const bucket = result[result.length - 1]!;
     expect(bucket.input_tokens).toBe(100);
     expect(bucket.observed_input_tokens).toBe(30);
+  });
+
+  test("paired samples stay in one hour bucket at hour boundary", () => {
+    // CI flake window: wall clock just after :00 would put Date.now()-1000 in the previous hour.
+    const hourMs = 3_600_000;
+    const nearBoundary = Math.floor(Date.now() / hourMs) * hourMs + 200;
+    const now = stableHourTimestamp(nearBoundary);
+    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
+    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, cache_read_tokens: 150, cache_write_tokens: null }));
+
+    const result = queryTimeseries(db, "hour", "24h");
+    const bucket = result[result.length - 1]!;
+    expect(bucket.cache_read_tokens).toBe(550);
+    expect(bucket.cache_write_tokens).toBe(20);
   });
 });
 
