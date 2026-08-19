@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.2.9",
-    "@vitest/coverage-istanbul": "4.1.10",
-    "vitest": "4.1.10"
+    "@vitest/coverage-istanbul": "4.1.11",
+    "vitest": "4.1.11"
   }
 }
