@@ -419,6 +419,8 @@ describe("socks5-bridge", () => {
           const client = net.createConnection({ host: "127.0.0.1", port: bridgePort }, () => {
             client.write("CONNECT example.com:443 HTTP/1.1\r\n\r\n");
           });
+          // Drain inbound bytes so the socket can fully close under bun/vitest.
+          client.on("data", () => {});
           client.on("close", () => resolve(true));
           setTimeout(() => resolve(false), 5000);
         });
