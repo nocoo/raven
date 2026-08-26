@@ -49,6 +49,7 @@ export interface ChatViaResponsesStreamState {
   roleSent: boolean
   toolCallIndexByItemId: Map<string, number>
   toolCallIndexByOutputIndex: Map<number, number>
+  toolMetaByIndex: Map<number, { callId: string; name: string }>
   nextToolIndex: number
   finishReason: ChatFinishReason | null
   includeUsage: boolean

@@ -18,6 +18,7 @@ export function initChatViaResponsesStreamState(opts: {
     roleSent: false,
     toolCallIndexByItemId: new Map(),
     toolCallIndexByOutputIndex: new Map(),
+    toolMetaByIndex: new Map(),
     nextToolIndex: 0,
     finishReason: null,
     includeUsage: opts.includeUsage,
@@ -136,6 +137,13 @@ export function adaptResponsesEventToChatChunks(
       }
       const reuse = existingByItem ?? existingByOutput
       if (reuse !== undefined) {
+        const meta = st.toolMetaByIndex.get(reuse)
+        if (!meta || meta.callId !== callId || meta.name !== name) {
+          st.failed = true
+          throw new ResponsesStreamFailedError(
+            "function_call replay metadata does not match prior call_id/name",
+          )
+        }
         if (itemId) st.toolCallIndexByItemId.set(itemId, reuse)
         if (outputIndex !== null) {
           st.toolCallIndexByOutputIndex.set(outputIndex, reuse)
@@ -147,6 +155,7 @@ export function adaptResponsesEventToChatChunks(
       if (outputIndex !== null) {
         st.toolCallIndexByOutputIndex.set(outputIndex, index)
       }
+      st.toolMetaByIndex.set(index, { callId, name })
       st.finishReason = "tool_calls"
       out.push(
         chatChunk(st, {

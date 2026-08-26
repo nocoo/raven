@@ -722,6 +722,45 @@ describe("rotating Copilot item ids", () => {
     expect(parseData(args[0]!).choices[0].delta.tool_calls[0].index).toBe(0)
   })
 
+  test.each([
+    {
+      name: "call_id mismatch on output_index hit",
+      first: { id: "fc_1", call_id: "call_a", name: "a", output_index: 1 },
+      second: { id: "fc_2", call_id: "call_b", name: "a", output_index: 1 },
+    },
+    {
+      name: "name mismatch on item.id hit",
+      first: { id: "fc_same", call_id: "call_a", name: "ping", output_index: 1 },
+      second: { id: "fc_same", call_id: "call_a", name: "pong", output_index: 2 },
+    },
+  ])("replay metadata conflict: $name", ({ first, second }) => {
+    const st = createdState()
+    added(
+      st,
+      {
+        type: "function_call",
+        id: first.id,
+        call_id: first.call_id,
+        name: first.name,
+      },
+      first.output_index,
+    )
+    expect(() =>
+      added(
+        st,
+        {
+          type: "function_call",
+          id: second.id,
+          call_id: second.call_id,
+          name: second.name,
+        },
+        second.output_index,
+      ),
+    ).toThrow(/replay metadata does not match prior call_id\/name/)
+    expect(st.toolCallIndexByItemId.has("fc_2")).toBe(false)
+    expect(st.toolCallIndexByOutputIndex.has(2)).toBe(false)
+  })
+
   test("added with only output_index succeeds", () => {
     const st = createdState()
     const start = added(
