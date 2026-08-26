@@ -576,7 +576,7 @@ strict: chatTool.function.strict ?? false
 
 1. `response.created`（或首个有用事件）→ 发 `role:"assistant"` 的起始 chunk（id/model/created）
 2. `response.output_text.delta` → `delta.content`
-3. function_call：item added 时强制 `call_id` + `name`；真实非空 `item.id` 与合法 `output_index`（非负安全整数）至少要有一个，否则 added 阶段 fail closed。先查已有映射：两键已有且冲突则 throw；任一键已有则复用其 chatIndex 并补登记另一键，不重复发 tool-start。两键都新才分配 chatIndex，并登记 `item.id → chatIndex`（仅真实 id）和 `output_index → chatIndex`（仅 function_call）。向客户端发
+3. function_call：item added 时强制 `call_id` + `name`；真实非空 `item.id` 与合法 `output_index`（非负安全整数）至少要有一个，否则 added 阶段 fail closed。先查已有映射：两键已有且冲突则 throw；任一键已有则仅当 `call_id` 与 `name` 与首次完全一致才复用 chatIndex 并补登记另一键，不重复发 tool-start；元数据不一致则 throw，且不得登记新 alias。两键都新才分配 chatIndex，并登记 `item.id → chatIndex`（仅真实 id）和 `output_index → chatIndex`（仅 function_call）。向客户端发
    `delta.tool_calls[{ index, id: call_id, type:"function", function:{ name, arguments:"" } }]`
    （**`id` 必须是 `call_id`**）。任一关联 key 已指向不同 chatIndex → throw；相同 index → 幂等。
 4. `response.function_call_arguments.delta` → 两键都命中且 chatIndex 不同则 throw；否则 `byItemId ?? byOutputIndex`；都未命中则 throw（文案：`function_call_arguments.delta has no matching prior function_call by item_id or output_index`）。**不加** `call_id` 第三键。空 delta 仍 no-op。
