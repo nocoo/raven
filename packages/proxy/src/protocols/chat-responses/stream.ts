@@ -117,18 +117,35 @@ export function adaptResponsesEventToChatChunks(
           "function_call item missing item.id and output_index",
         )
       }
-      const index = st.nextToolIndex++
-      if (itemId) {
-        assignIndex(st.toolCallIndexByItemId, itemId, index, st, "item.id")
-      }
-      if (outputIndex !== null) {
-        assignIndex(
-          st.toolCallIndexByOutputIndex,
-          outputIndex,
-          index,
-          st,
-          "output_index",
+      const existingByItem = itemId
+        ? st.toolCallIndexByItemId.get(itemId)
+        : undefined
+      const existingByOutput =
+        outputIndex === null
+          ? undefined
+          : st.toolCallIndexByOutputIndex.get(outputIndex)
+      if (
+        existingByItem !== undefined &&
+        existingByOutput !== undefined &&
+        existingByItem !== existingByOutput
+      ) {
+        st.failed = true
+        throw new ResponsesStreamFailedError(
+          "function_call item.id and output_index map to different tool indexes",
         )
+      }
+      const reuse = existingByItem ?? existingByOutput
+      if (reuse !== undefined) {
+        if (itemId) st.toolCallIndexByItemId.set(itemId, reuse)
+        if (outputIndex !== null) {
+          st.toolCallIndexByOutputIndex.set(outputIndex, reuse)
+        }
+        return out
+      }
+      const index = st.nextToolIndex++
+      if (itemId) st.toolCallIndexByItemId.set(itemId, index)
+      if (outputIndex !== null) {
+        st.toolCallIndexByOutputIndex.set(outputIndex, index)
       }
       st.finishReason = "tool_calls"
       out.push(
@@ -373,23 +390,6 @@ function extractOutputIndex(data: string): number | null {
   } catch {
     return null
   }
-}
-
-function assignIndex<K>(
-  map: Map<K, number>,
-  key: K,
-  index: number,
-  st: ChatViaResponsesStreamState,
-  kind: string,
-): void {
-  const existing = map.get(key)
-  if (existing !== undefined && existing !== index) {
-    st.failed = true
-    throw new ResponsesStreamFailedError(
-      `function_call ${kind} already mapped to a different tool index`,
-    )
-  }
-  map.set(key, index)
 }
 
 function extractItem(data: string): {

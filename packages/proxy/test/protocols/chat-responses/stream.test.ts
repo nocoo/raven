@@ -701,30 +701,74 @@ describe("rotating Copilot item ids", () => {
     )
   })
 
+  test("replay of the same added event is idempotent", () => {
+    const st = createdState()
+    const item = {
+      type: "function_call",
+      id: "fc_same",
+      call_id: "call_same",
+      name: "ping",
+    }
+    const first = added(st, item, 1)
+    expect(toolStart(first)?.index).toBe(0)
+    const second = added(st, item, 1)
+    expect(second).toEqual([])
+    expect(st.nextToolIndex).toBe(1)
+    const args = argsDelta(st, {
+      item_id: "enc_later",
+      output_index: 1,
+      delta: '{"ok":1}',
+    })
+    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].index).toBe(0)
+  })
+
+  test("added with only output_index succeeds", () => {
+    const st = createdState()
+    const start = added(
+      st,
+      { type: "function_call", call_id: "call_o", name: "ping" },
+      4,
+    )
+    expect(toolStart(start)).toMatchObject({ id: "call_o", index: 0 })
+    const args = argsDelta(st, { item_id: "enc_x", output_index: 4, delta: "{}" })
+    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
+      "{}",
+    )
+  })
+
   test.each([
-    {
-      name: "duplicate item.id for a different chat index",
-      first: { item: { id: "fc_dup", call_id: "call_1", name: "a" }, output_index: 1 },
-      second: { item: { id: "fc_dup", call_id: "call_2", name: "b" }, output_index: 2 },
-    },
-    {
-      name: "duplicate output_index for a different chat index",
-      first: { item: { id: "fc_1", call_id: "call_1", name: "a" }, output_index: 3 },
-      second: { item: { id: "fc_2", call_id: "call_2", name: "b" }, output_index: 3 },
-    },
-  ])("register conflict: $name", ({ first, second }) => {
+    { name: "negative", output_index: -1 },
+    { name: "non-integer", output_index: 1.5 },
+    { name: "above max safe integer", output_index: Number.MAX_SAFE_INTEGER + 1 },
+  ])("empty item.id plus $name output_index throws", ({ output_index }) => {
+    const st = createdState()
+    expect(() =>
+      added(
+        st,
+        { type: "function_call", id: "", call_id: "call_x", name: "ping" },
+        output_index,
+      ),
+    ).toThrow(/missing item\.id and output_index/)
+  })
+
+  test("added joining keys from two tools throws", () => {
     const st = createdState()
     added(
       st,
-      { type: "function_call", ...first.item },
-      first.output_index,
+      { type: "function_call", id: "fc_a", call_id: "call_a", name: "a" },
+      1,
+    )
+    added(
+      st,
+      { type: "function_call", id: "fc_b", call_id: "call_b", name: "b" },
+      2,
     )
     expect(() =>
       added(
         st,
-        { type: "function_call", ...second.item },
-        second.output_index,
+        { type: "function_call", id: "fc_a", call_id: "call_x", name: "x" },
+        2,
       ),
-    ).toThrow(/already mapped to a different tool index/)
+    ).toThrow(/map to different tool indexes/)
   })
 })
