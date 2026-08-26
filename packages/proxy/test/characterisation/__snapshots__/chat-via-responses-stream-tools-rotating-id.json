@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "branch": "chat-via-responses-stream-tools-rotating-id",
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "model": "grok-4.5",
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "ping example.com"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "ping",
+            "description": "Ping a host",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "host": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "host"
+              ]
+            }
+          }
+        }
+      ],
+      "tool_choice": "required"
+    }
+  },
+  "upstreamChunks": [
+    "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_tools\",\"model\":\"grok-4.5\",\"created_at\":1700000000}}\n\n",
+    "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"enc_added\",\"call_id\":\"call_ping\",\"name\":\"ping\",\"status\":\"in_progress\"}}\n\n",
+    "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"enc_d1\",\"output_index\":0,\"delta\":\"{\\\"host\\\":\"}\n\n",
+    "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"enc_d2\",\"output_index\":0,\"delta\":\"\\\"example.com\\\"}\"}\n\n",
+    "event: response.function_call_arguments.done\ndata: {\"type\":\"response.function_call_arguments.done\",\"item_id\":\"enc_done\",\"output_index\":0}\n\n",
+    "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"enc_item_done\",\"call_id\":\"call_ping\",\"name\":\"ping\",\"status\":\"completed\"}}\n\n",
+    "event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":8,\"output_tokens\":4}}}\n\n"
+  ],
+  "responseStatus": 200,
+  "responseHeaders": {
+    "content-type": "text/event-stream",
+    "transfer-encoding": "chunked"
+  },
+  "responseBody": "data: {\"id\":\"resp_tools\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_tools\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_ping\",\"type\":\"function\",\"function\":{\"name\":\"ping\",\"arguments\":\"\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_tools\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"host\\\":\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_tools\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"example.com\\\"}\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_tools\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n",
+  "endLog": {
+    "path": "/v1/chat/completions",
+    "format": "openai",
+    "stream": true,
+    "status": "success",
+    "statusCode": 200,
+    "upstreamStatus": 200,
+    "strategy": "copilot-chat-via-responses",
+    "model": "grok-4.5",
+    "resolvedModel": "grok-4.5",
+    "inputTokens": 8,
+    "outputTokens": 4,
+    "cacheReadTokens": 0,
+    "routingPath": "chat-via-responses",
+    "stopReason": "tool_calls"
+  }
+}

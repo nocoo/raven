@@ -296,7 +296,9 @@ describe("stream uncovered branches", () => {
         ),
         st,
       ),
-    ).toThrow(/before output_item.added/)
+    ).toThrow(
+      /no matching prior function_call by item_id or output_index/,
+    )
   })
 
   test("refusal.delta maps to delta.refusal", () => {
@@ -511,5 +513,218 @@ describe("extra coverage edges", () => {
       st,
     )
     expect(out.length).toBeLessThanOrEqual(1)
+  })
+})
+
+function createdState() {
+  const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+  adaptResponsesEventToChatChunks(
+    sse(
+      "response.created",
+      JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
+    ),
+    st,
+  )
+  return st
+}
+
+function added(
+  st: ReturnType<typeof initChatViaResponsesStreamState>,
+  item: Record<string, unknown>,
+  output_index?: number,
+) {
+  const payload: Record<string, unknown> = {
+    type: "response.output_item.added",
+    item,
+  }
+  if (output_index !== undefined) payload.output_index = output_index
+  return adaptResponsesEventToChatChunks(
+    sse("response.output_item.added", JSON.stringify(payload)),
+    st,
+  )
+}
+
+function argsDelta(
+  st: ReturnType<typeof initChatViaResponsesStreamState>,
+  payload: Record<string, unknown>,
+) {
+  return adaptResponsesEventToChatChunks(
+    sse(
+      "response.function_call_arguments.delta",
+      JSON.stringify({
+        type: "response.function_call_arguments.delta",
+        ...payload,
+      }),
+    ),
+    st,
+  )
+}
+
+function toolStart(chunks: SSEMessage[]) {
+  for (const msg of chunks) {
+    const parsed = parseData(msg)
+    const tc = parsed?.choices?.[0]?.delta?.tool_calls?.[0]
+    if (tc?.id) return tc
+  }
+  return null
+}
+
+function collectedArgs(chunks: SSEMessage[], index: number): string {
+  let out = ""
+  for (const msg of chunks) {
+    const parsed = parseData(msg)
+    const tcs = parsed?.choices?.[0]?.delta?.tool_calls
+    if (!Array.isArray(tcs)) continue
+    for (const tc of tcs) {
+      if (tc.index === index && typeof tc.function?.arguments === "string") {
+        out += tc.function.arguments
+      }
+    }
+  }
+  return out
+}
+
+describe("rotating Copilot item ids", () => {
+  test("rotating item_id + stable output_index attaches args to same chat index", () => {
+    const st = createdState()
+    const start = added(
+      st,
+      {
+        type: "function_call",
+        id: "enc_added",
+        call_id: "call_x",
+        name: "ping",
+      },
+      0,
+    )
+    expect(toolStart(start)?.id).toBe("call_x")
+    expect(toolStart(start)?.index).toBe(0)
+
+    const d1 = argsDelta(st, {
+      item_id: "enc_d1",
+      output_index: 0,
+      delta: '{"',
+    })
+    const d2 = argsDelta(st, {
+      item_id: "enc_d2",
+      output_index: 0,
+      delta: "host",
+    })
+    const d3 = argsDelta(st, {
+      item_id: "enc_d3",
+      output_index: 0,
+      delta: '":"example.com"}',
+    })
+    expect(collectedArgs([...d1, ...d2, ...d3], 0)).toBe(
+      '{"host":"example.com"}',
+    )
+  })
+
+  test("parallel tools: output_index is not the chat tool index", () => {
+    const st = createdState()
+    adaptResponsesEventToChatChunks(
+      sse(
+        "response.output_item.added",
+        JSON.stringify({
+          type: "response.output_item.added",
+          output_index: 0,
+          item: { type: "reasoning", id: "rsn" },
+        }),
+      ),
+      st,
+    )
+    const a = added(
+      st,
+      { type: "function_call", id: "enc_a0", call_id: "call_a", name: "ping" },
+      1,
+    )
+    const b = added(
+      st,
+      { type: "function_call", id: "enc_b0", call_id: "call_b", name: "pong" },
+      2,
+    )
+    expect(toolStart(a)).toMatchObject({ id: "call_a", index: 0 })
+    expect(toolStart(b)).toMatchObject({ id: "call_b", index: 1 })
+
+    const a1 = argsDelta(st, { item_id: "enc_a1", output_index: 1, delta: '{"h"' })
+    const b1 = argsDelta(st, { item_id: "enc_b1", output_index: 2, delta: '{"p"' })
+    const a2 = argsDelta(st, { item_id: "enc_a2", output_index: 1, delta: ':1}' })
+    const b2 = argsDelta(st, { item_id: "enc_b2", output_index: 2, delta: ':2}' })
+    expect(collectedArgs([...a1, ...a2], 0)).toBe('{"h":1}')
+    expect(collectedArgs([...b1, ...b2], 1)).toBe('{"p":2}')
+  })
+
+  test("rotating item_id without output_index throws", () => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", id: "enc_added", call_id: "call_x", name: "ping" },
+    )
+    expect(() =>
+      argsDelta(st, { item_id: "enc_other", delta: "{" }),
+    ).toThrow(/no matching prior function_call by item_id or output_index/)
+  })
+
+  test("item_id and output_index mapping to different chat indexes throws", () => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", id: "fc_a", call_id: "call_a", name: "ping" },
+      1,
+    )
+    added(
+      st,
+      { type: "function_call", id: "fc_b", call_id: "call_b", name: "pong" },
+      2,
+    )
+    expect(() =>
+      argsDelta(st, { item_id: "fc_a", output_index: 2, delta: "{" }),
+    ).toThrow(/map to different tool indexes/)
+  })
+
+  test("added without real item.id and output_index throws", () => {
+    const st = createdState()
+    expect(() =>
+      added(st, { type: "function_call", call_id: "call_x", name: "ping" }),
+    ).toThrow(/missing item\.id and output_index/)
+  })
+
+  test("stable item_id without output_index still works", () => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", id: "fc_stable", call_id: "call_s", name: "fn" },
+    )
+    const out = argsDelta(st, { item_id: "fc_stable", delta: '{"ok":true}' })
+    expect(parseData(out[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
+      '{"ok":true}',
+    )
+  })
+
+  test.each([
+    {
+      name: "duplicate item.id for a different chat index",
+      first: { item: { id: "fc_dup", call_id: "call_1", name: "a" }, output_index: 1 },
+      second: { item: { id: "fc_dup", call_id: "call_2", name: "b" }, output_index: 2 },
+    },
+    {
+      name: "duplicate output_index for a different chat index",
+      first: { item: { id: "fc_1", call_id: "call_1", name: "a" }, output_index: 3 },
+      second: { item: { id: "fc_2", call_id: "call_2", name: "b" }, output_index: 3 },
+    },
+  ])("register conflict: $name", ({ first, second }) => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", ...first.item },
+      first.output_index,
+    )
+    expect(() =>
+      added(
+        st,
+        { type: "function_call", ...second.item },
+        second.output_index,
+      ),
+    ).toThrow(/already mapped to a different tool index/)
   })
 })

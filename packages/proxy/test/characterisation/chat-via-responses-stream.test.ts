@@ -143,4 +143,127 @@ describe("characterisation/chat-via-responses stream", () => {
       endLog: scrubEndLog(endLog.data as Record<string, unknown>),
     })
   })
+
+  test("snapshot: rotating item ids on function_call stream", async () => {
+    const upstreamChunks = [
+      `event: response.created\ndata: ${JSON.stringify({
+        type: "response.created",
+        response: { id: "resp_tools", model: "grok-4.5", created_at: 1700000000 },
+      })}\n\n`,
+      `event: response.output_item.added\ndata: ${JSON.stringify({
+        type: "response.output_item.added",
+        output_index: 0,
+        item: {
+          type: "function_call",
+          id: "enc_added",
+          call_id: "call_ping",
+          name: "ping",
+          status: "in_progress",
+        },
+      })}\n\n`,
+      `event: response.function_call_arguments.delta\ndata: ${JSON.stringify({
+        type: "response.function_call_arguments.delta",
+        item_id: "enc_d1",
+        output_index: 0,
+        delta: '{"host":',
+      })}\n\n`,
+      `event: response.function_call_arguments.delta\ndata: ${JSON.stringify({
+        type: "response.function_call_arguments.delta",
+        item_id: "enc_d2",
+        output_index: 0,
+        delta: '"example.com"}',
+      })}\n\n`,
+      `event: response.function_call_arguments.done\ndata: ${JSON.stringify({
+        type: "response.function_call_arguments.done",
+        item_id: "enc_done",
+        output_index: 0,
+      })}\n\n`,
+      `event: response.output_item.done\ndata: ${JSON.stringify({
+        type: "response.output_item.done",
+        output_index: 0,
+        item: {
+          type: "function_call",
+          id: "enc_item_done",
+          call_id: "call_ping",
+          name: "ping",
+          status: "completed",
+        },
+      })}\n\n`,
+      `event: response.completed\ndata: ${JSON.stringify({
+        type: "response.completed",
+        response: {
+          usage: { input_tokens: 8, output_tokens: 4 },
+        },
+      })}\n\n`,
+    ]
+    fetchSpy.mockResolvedValueOnce(mockFetchStream(upstreamChunks))
+
+    const events: LogEvent[] = []
+    const listener = (e: LogEvent) => events.push(e)
+    logEmitter.on("log", listener)
+
+    const requestBody = {
+      model: "grok-4.5",
+      stream: true,
+      messages: [{ role: "user", content: "ping example.com" }],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "ping",
+            description: "Ping a host",
+            parameters: {
+              type: "object",
+              properties: { host: { type: "string" } },
+              required: ["host"],
+            },
+          },
+        },
+      ],
+      tool_choice: "required",
+    }
+    const request: CharacterisationRequest = {
+      method: "POST",
+      path: "/v1/chat/completions",
+      headers: { "content-type": "application/json" },
+      body: requestBody,
+    }
+
+    const app = new Hono()
+    app.post("/v1/chat/completions", handleCompletion)
+    const res = await app.request(
+      new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(requestBody),
+      }),
+    )
+    const responseBody = await res.text()
+    await new Promise((r) => setTimeout(r, 10))
+    logEmitter.off("log", listener)
+
+    expect(res.status).toBe(200)
+    expect(responseBody).toContain('"id":"call_ping"')
+    expect(responseBody).toContain('\\"host\\":')
+    expect(responseBody).toContain('example.com')
+    expect(responseBody).toContain('"finish_reason":"tool_calls"')
+    expect(responseBody).not.toContain("no matching prior function_call")
+    expect(responseBody).toContain("[DONE]")
+
+    const endLog = events.find((e) => e.type === "request_end")
+    if (!endLog?.data) throw new Error("missing request_end")
+
+    expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
+
+    await captureOrDiff({
+      version: 1,
+      branch: "chat-via-responses-stream-tools-rotating-id",
+      request,
+      upstreamChunks,
+      responseStatus: res.status,
+      responseHeaders: scrubResponseHeaders(res.headers),
+      responseBody,
+      endLog: scrubEndLog(endLog.data as Record<string, unknown>),
+    })
+  })
 })
