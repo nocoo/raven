@@ -615,6 +615,8 @@ interface ChatViaResponsesStreamState {
   toolCallIndexByItemId: Map<string, number>
   /** Responses output[] 位置 → chat tool_calls index（仅 function_call） */
   toolCallIndexByOutputIndex: Map<number, number>
+  /** chatIndex → 首次 added 的 call_id/name；replay 必须完全一致才可幂等 */
+  toolMetaByIndex: Map<number, { callId: string; name: string }>
   nextToolIndex: number
   finishReason: "stop" | "length" | "tool_calls" | "content_filter" | null
   includeUsage: boolean  // from UpReq.includeUsage — 不是 payload 字段
