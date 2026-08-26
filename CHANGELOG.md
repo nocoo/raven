@@ -1,5 +1,61 @@
 # Changelog
 
+## v2.5.3
+
+### Changed
+- Keep stream correlation commits
+- Document toolMetaByIndex stream state
+- Require matching call_id on replay
+- Clarify idempotent function_call added
+- Update chat-via-responses stream key
+- Bump hono 4.13.3 → 4.13.4 (#306)
+- Bump lucide-react 1.33.0 → 1.34.0
+- Bump oxc-parser 0.146.0 → 0.147.0
+- [deps] @types/node 26.2.0 → 26.3.0
+- Upgrade @types/react-dom to 19.2.5
+- Bump @testing-library/user-event 14.6.5 → 14.6.6
+- Bump @biomejs/biome 2.5.9 → 2.5.10 (#295)
+- Bump next 16.3.1 → 16.3.2
+- Bump @biomejs/biome 2.5.9 → 2.5.10
+- Bump @types/bun to 1.4.0
+- Bump @vitejs/plugin-react 6.0.5 → 6.1.0
+- Bump vite 8.2.1 → 8.2.2
+- Bump oxc-parser 0.145.0 → 0.146.0
+- Bump lucide-react from 1.32.0 to 1.33.0
+- Pin paired timeseries samples within hour bucket
+- Bump @testing-library/user-event 14.6.4 → 14.6.5
+- Bump oxc-parser 0.144.0 → 0.145.0
+- Bump lucide-react 1.31.0 → 1.32.0 (#278)
+- Bump hono 4.13.2 → 4.13.3
+- Bump vitest family 4.1.10 → 4.1.11
+- Bump gpt-tokenizer 3.0.1 → 4.0.0
+- Bump @biomejs/biome 2.5.8 → 2.5.9
+- Refresh next-env.d.ts for next 16.3.1
+- Upgrade next 16.3.0 → 16.3.1
+- Upgrade hono 4.13.1 → 4.13.2
+- Pin nanoid 3.3.18 override (GHSA-2v37-7h3g-55p8)
+- Upgrade swr 2.5.0 → 2.5.1
+- Upgrade biome 2.5.8 and user-event 14.6.4
+- Upgrade dependency-cruiser to 18.2.0
+- Upgrade oxc-parser to 0.144.0
+- Upgrade lucide-react to 1.31.0
+- Upgrade @testing-library/jest-dom to 7.0.1
+- Upgrade lucide-react to 1.30.0
+- Upgrade @types/node to 26.2.0
+- Upgrade hono to 4.13.1
+- Upgrade lucide-react to 1.29.0
+- Upgrade vite to 8.2.1
+- Upgrade next to 16.3.0
+- Upgrade biome to 2.5.7
+
+### Fixed
+- Reject mismatched replay tool metadata
+- Reuse existing tool index on replay
+- Correlate tool deltas by output_index
+- Drain socks5 client so close is observed
+- Correct @types/react-dom@19.2.5 integrity hash
+- Preserve vite postcss requirement
+
 ## v2.5.2
 
 ### Added
