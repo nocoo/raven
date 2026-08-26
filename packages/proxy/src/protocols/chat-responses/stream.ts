@@ -17,7 +17,8 @@ export function initChatViaResponsesStreamState(opts: {
     created: Math.floor(Date.now() / 1000),
     roleSent: false,
     toolCallIndexByItemId: new Map(),
-    callIdByItemId: new Map(),
+    toolCallIndexByOutputIndex: new Map(),
+    toolMetaByIndex: new Map(),
     nextToolIndex: 0,
     finishReason: null,
     includeUsage: opts.includeUsage,
@@ -95,7 +96,8 @@ export function adaptResponsesEventToChatChunks(
     const item = extractItem(data)
     if (item?.type === "function_call") {
       if (!st.roleSent) out.push(...emitRoleChunk(st))
-      const itemId = item.id ?? `item_${st.nextToolIndex}`
+      const itemId = realItemId(item.id)
+      const outputIndex = extractOutputIndex(data)
       const callId = item.call_id
       const name = item.name
       if (!callId) {
@@ -110,9 +112,50 @@ export function adaptResponsesEventToChatChunks(
           "function_call item missing name",
         )
       }
+      if (!itemId && outputIndex === null) {
+        st.failed = true
+        throw new ResponsesStreamFailedError(
+          "function_call item missing item.id and output_index",
+        )
+      }
+      const existingByItem = itemId
+        ? st.toolCallIndexByItemId.get(itemId)
+        : undefined
+      const existingByOutput =
+        outputIndex === null
+          ? undefined
+          : st.toolCallIndexByOutputIndex.get(outputIndex)
+      if (
+        existingByItem !== undefined &&
+        existingByOutput !== undefined &&
+        existingByItem !== existingByOutput
+      ) {
+        st.failed = true
+        throw new ResponsesStreamFailedError(
+          "function_call item.id and output_index map to different tool indexes",
+        )
+      }
+      const reuse = existingByItem ?? existingByOutput
+      if (reuse !== undefined) {
+        const meta = st.toolMetaByIndex.get(reuse)
+        if (!meta || meta.callId !== callId || meta.name !== name) {
+          st.failed = true
+          throw new ResponsesStreamFailedError(
+            "function_call replay metadata does not match prior call_id/name",
+          )
+        }
+        if (itemId) st.toolCallIndexByItemId.set(itemId, reuse)
+        if (outputIndex !== null) {
+          st.toolCallIndexByOutputIndex.set(outputIndex, reuse)
+        }
+        return out
+      }
       const index = st.nextToolIndex++
-      st.toolCallIndexByItemId.set(itemId, index)
-      st.callIdByItemId.set(itemId, callId)
+      if (itemId) st.toolCallIndexByItemId.set(itemId, index)
+      if (outputIndex !== null) {
+        st.toolCallIndexByOutputIndex.set(outputIndex, index)
+      }
+      st.toolMetaByIndex.set(index, { callId, name })
       st.finishReason = "tool_calls"
       out.push(
         chatChunk(st, {
@@ -150,13 +193,27 @@ export function adaptResponsesEventToChatChunks(
       // Empty delta is a no-op once item is known
       return out
     }
-    const index = st.toolCallIndexByItemId.get(itemId)
-    if (index === undefined) {
-      // Must not invent incomplete tool_calls (missing id/type/name) or
-      // substitute item id for call_id — violates call_id invariant.
+    const byItemId = st.toolCallIndexByItemId.get(itemId)
+    const outputIndex = extractOutputIndex(data)
+    const byOutputIndex =
+      outputIndex === null
+        ? undefined
+        : st.toolCallIndexByOutputIndex.get(outputIndex)
+    if (
+      byItemId !== undefined &&
+      byOutputIndex !== undefined &&
+      byItemId !== byOutputIndex
+    ) {
       st.failed = true
       throw new ResponsesStreamFailedError(
-        "function_call_arguments.delta before output_item.added with call_id",
+        "function_call_arguments.delta item_id and output_index map to different tool indexes",
+      )
+    }
+    const index = byItemId ?? byOutputIndex
+    if (index === undefined) {
+      st.failed = true
+      throw new ResponsesStreamFailedError(
+        "function_call_arguments.delta has no matching prior function_call by item_id or output_index",
       )
     }
     st.finishReason = "tool_calls"
@@ -326,6 +383,21 @@ function extractArgsDelta(data: string): string {
     return ""
   } catch {
     return ""
+  }
+}
+
+function realItemId(id: string | undefined): string | null {
+  return typeof id === "string" && id.length > 0 ? id : null
+}
+
+function extractOutputIndex(data: string): number | null {
+  try {
+    const parsed = JSON.parse(data) as { output_index?: unknown }
+    const n = parsed.output_index
+    if (typeof n === "number" && Number.isSafeInteger(n) && n >= 0) return n
+    return null
+  } catch {
+    return null
   }
 }
 

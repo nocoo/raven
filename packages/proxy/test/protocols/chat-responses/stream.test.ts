@@ -296,7 +296,9 @@ describe("stream uncovered branches", () => {
         ),
         st,
       ),
-    ).toThrow(/before output_item.added/)
+    ).toThrow(
+      /no matching prior function_call by item_id or output_index/,
+    )
   })
 
   test("refusal.delta maps to delta.refusal", () => {
@@ -511,5 +513,301 @@ describe("extra coverage edges", () => {
       st,
     )
     expect(out.length).toBeLessThanOrEqual(1)
+  })
+})
+
+function createdState() {
+  const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+  adaptResponsesEventToChatChunks(
+    sse(
+      "response.created",
+      JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
+    ),
+    st,
+  )
+  return st
+}
+
+function added(
+  st: ReturnType<typeof initChatViaResponsesStreamState>,
+  item: Record<string, unknown>,
+  output_index?: number,
+) {
+  const payload: Record<string, unknown> = {
+    type: "response.output_item.added",
+    item,
+  }
+  if (output_index !== undefined) payload.output_index = output_index
+  return adaptResponsesEventToChatChunks(
+    sse("response.output_item.added", JSON.stringify(payload)),
+    st,
+  )
+}
+
+function argsDelta(
+  st: ReturnType<typeof initChatViaResponsesStreamState>,
+  payload: Record<string, unknown>,
+) {
+  return adaptResponsesEventToChatChunks(
+    sse(
+      "response.function_call_arguments.delta",
+      JSON.stringify({
+        type: "response.function_call_arguments.delta",
+        ...payload,
+      }),
+    ),
+    st,
+  )
+}
+
+function toolStart(chunks: SSEMessage[]) {
+  for (const msg of chunks) {
+    const parsed = parseData(msg)
+    const tc = parsed?.choices?.[0]?.delta?.tool_calls?.[0]
+    if (tc?.id) return tc
+  }
+  return null
+}
+
+function collectedArgs(chunks: SSEMessage[], index: number): string {
+  let out = ""
+  for (const msg of chunks) {
+    const parsed = parseData(msg)
+    const tcs = parsed?.choices?.[0]?.delta?.tool_calls
+    if (!Array.isArray(tcs)) continue
+    for (const tc of tcs) {
+      if (tc.index === index && typeof tc.function?.arguments === "string") {
+        out += tc.function.arguments
+      }
+    }
+  }
+  return out
+}
+
+describe("rotating Copilot item ids", () => {
+  test("rotating item_id + stable output_index attaches args to same chat index", () => {
+    const st = createdState()
+    const start = added(
+      st,
+      {
+        type: "function_call",
+        id: "enc_added",
+        call_id: "call_x",
+        name: "ping",
+      },
+      0,
+    )
+    expect(toolStart(start)?.id).toBe("call_x")
+    expect(toolStart(start)?.index).toBe(0)
+
+    const d1 = argsDelta(st, {
+      item_id: "enc_d1",
+      output_index: 0,
+      delta: '{"',
+    })
+    const d2 = argsDelta(st, {
+      item_id: "enc_d2",
+      output_index: 0,
+      delta: "host",
+    })
+    const d3 = argsDelta(st, {
+      item_id: "enc_d3",
+      output_index: 0,
+      delta: '":"example.com"}',
+    })
+    expect(collectedArgs([...d1, ...d2, ...d3], 0)).toBe(
+      '{"host":"example.com"}',
+    )
+  })
+
+  test("parallel tools: output_index is not the chat tool index", () => {
+    const st = createdState()
+    adaptResponsesEventToChatChunks(
+      sse(
+        "response.output_item.added",
+        JSON.stringify({
+          type: "response.output_item.added",
+          output_index: 0,
+          item: { type: "reasoning", id: "rsn" },
+        }),
+      ),
+      st,
+    )
+    const a = added(
+      st,
+      { type: "function_call", id: "enc_a0", call_id: "call_a", name: "ping" },
+      1,
+    )
+    const b = added(
+      st,
+      { type: "function_call", id: "enc_b0", call_id: "call_b", name: "pong" },
+      2,
+    )
+    expect(toolStart(a)).toMatchObject({ id: "call_a", index: 0 })
+    expect(toolStart(b)).toMatchObject({ id: "call_b", index: 1 })
+
+    const a1 = argsDelta(st, { item_id: "enc_a1", output_index: 1, delta: '{"h"' })
+    const b1 = argsDelta(st, { item_id: "enc_b1", output_index: 2, delta: '{"p"' })
+    const a2 = argsDelta(st, { item_id: "enc_a2", output_index: 1, delta: ':1}' })
+    const b2 = argsDelta(st, { item_id: "enc_b2", output_index: 2, delta: ':2}' })
+    expect(collectedArgs([...a1, ...a2], 0)).toBe('{"h":1}')
+    expect(collectedArgs([...b1, ...b2], 1)).toBe('{"p":2}')
+  })
+
+  test("rotating item_id without output_index throws", () => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", id: "enc_added", call_id: "call_x", name: "ping" },
+    )
+    expect(() =>
+      argsDelta(st, { item_id: "enc_other", delta: "{" }),
+    ).toThrow(/no matching prior function_call by item_id or output_index/)
+  })
+
+  test("item_id and output_index mapping to different chat indexes throws", () => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", id: "fc_a", call_id: "call_a", name: "ping" },
+      1,
+    )
+    added(
+      st,
+      { type: "function_call", id: "fc_b", call_id: "call_b", name: "pong" },
+      2,
+    )
+    expect(() =>
+      argsDelta(st, { item_id: "fc_a", output_index: 2, delta: "{" }),
+    ).toThrow(/map to different tool indexes/)
+  })
+
+  test("added without real item.id and output_index throws", () => {
+    const st = createdState()
+    expect(() =>
+      added(st, { type: "function_call", call_id: "call_x", name: "ping" }),
+    ).toThrow(/missing item\.id and output_index/)
+  })
+
+  test("stable item_id without output_index still works", () => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", id: "fc_stable", call_id: "call_s", name: "fn" },
+    )
+    const out = argsDelta(st, { item_id: "fc_stable", delta: '{"ok":true}' })
+    expect(parseData(out[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
+      '{"ok":true}',
+    )
+  })
+
+  test("replay of the same added event is idempotent", () => {
+    const st = createdState()
+    const item = {
+      type: "function_call",
+      id: "fc_same",
+      call_id: "call_same",
+      name: "ping",
+    }
+    const first = added(st, item, 1)
+    expect(toolStart(first)?.index).toBe(0)
+    const second = added(st, item, 1)
+    expect(second).toEqual([])
+    expect(st.nextToolIndex).toBe(1)
+    const args = argsDelta(st, {
+      item_id: "enc_later",
+      output_index: 1,
+      delta: '{"ok":1}',
+    })
+    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].index).toBe(0)
+  })
+
+  test.each([
+    {
+      name: "call_id mismatch on output_index hit",
+      first: { id: "fc_1", call_id: "call_a", name: "a", output_index: 1 },
+      second: { id: "fc_2", call_id: "call_b", name: "a", output_index: 1 },
+    },
+    {
+      name: "name mismatch on item.id hit",
+      first: { id: "fc_same", call_id: "call_a", name: "ping", output_index: 1 },
+      second: { id: "fc_same", call_id: "call_a", name: "pong", output_index: 2 },
+    },
+  ])("replay metadata conflict: $name", ({ first, second }) => {
+    const st = createdState()
+    added(
+      st,
+      {
+        type: "function_call",
+        id: first.id,
+        call_id: first.call_id,
+        name: first.name,
+      },
+      first.output_index,
+    )
+    expect(() =>
+      added(
+        st,
+        {
+          type: "function_call",
+          id: second.id,
+          call_id: second.call_id,
+          name: second.name,
+        },
+        second.output_index,
+      ),
+    ).toThrow(/replay metadata does not match prior call_id\/name/)
+    expect(st.toolCallIndexByItemId.has("fc_2")).toBe(false)
+    expect(st.toolCallIndexByOutputIndex.has(2)).toBe(false)
+  })
+
+  test("added with only output_index succeeds", () => {
+    const st = createdState()
+    const start = added(
+      st,
+      { type: "function_call", call_id: "call_o", name: "ping" },
+      4,
+    )
+    expect(toolStart(start)).toMatchObject({ id: "call_o", index: 0 })
+    const args = argsDelta(st, { item_id: "enc_x", output_index: 4, delta: "{}" })
+    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
+      "{}",
+    )
+  })
+
+  test.each([
+    { name: "negative", output_index: -1 },
+    { name: "non-integer", output_index: 1.5 },
+    { name: "above max safe integer", output_index: Number.MAX_SAFE_INTEGER + 1 },
+  ])("empty item.id plus $name output_index throws", ({ output_index }) => {
+    const st = createdState()
+    expect(() =>
+      added(
+        st,
+        { type: "function_call", id: "", call_id: "call_x", name: "ping" },
+        output_index,
+      ),
+    ).toThrow(/missing item\.id and output_index/)
+  })
+
+  test("added joining keys from two tools throws", () => {
+    const st = createdState()
+    added(
+      st,
+      { type: "function_call", id: "fc_a", call_id: "call_a", name: "a" },
+      1,
+    )
+    added(
+      st,
+      { type: "function_call", id: "fc_b", call_id: "call_b", name: "b" },
+      2,
+    )
+    expect(() =>
+      added(
+        st,
+        { type: "function_call", id: "fc_a", call_id: "call_x", name: "x" },
+        2,
+      ),
+    ).toThrow(/map to different tool indexes/)
   })
 })
