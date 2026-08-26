@@ -484,7 +484,7 @@ L1 钉死（缺一不可）：
 | Chat → Responses | `function_call.call_id = tool_call.id`（Chat 侧的 `tool_calls[].id`） |
 | Chat → Responses | `function_call_output.call_id = message.tool_call_id` |
 | Responses → Chat | `tool_calls[].id = function_call.call_id`（**不是** item `id`） |
-| 流式 | Responses item `id`（如 `fc_...` item id）**仅** 用于关联 `function_call_arguments.delta` → index；**不得** 写入 Chat `tool_calls[].id` |
+| 流式 | Chat `tool_calls[].id` **必须** 是 `call_id`。关联 delta 时：稳定的 item `id` 可作第一键；Copilot 旋转密文 item id 以 `output_index` 为第二键。禁止用假 id（如 `item_${n}`）写入 map。两键命中不同 chatIndex → fail closed |
 | 缺 `call_id` | 视为上游缺陷：非流式 throw / 流式走错误路径；禁止用 item id 冒充 |
 
 依据：OpenAI Function calling 流式文档要求后续 `role:"tool"` 与 `call_id` 对齐。
@@ -576,10 +576,10 @@ strict: chatTool.function.strict ?? false
 
 1. `response.created`（或首个有用事件）→ 发 `role:"assistant"` 的起始 chunk（id/model/created）
 2. `response.output_text.delta` → `delta.content`
-3. function_call：item added 时记录 `itemId → index`，并向客户端发  
+3. function_call：item added 时强制 `call_id` + `name`；真实非空 `item.id` 与合法 `output_index`（非负安全整数）至少要有一个，否则 added 阶段 fail closed。登记 `item.id → chatIndex`（仅真实 id）和 `output_index → chatIndex`（仅 function_call）。向客户端发  
    `delta.tool_calls[{ index, id: call_id, type:"function", function:{ name, arguments:"" } }]`  
-   （**`id` 必须是 `call_id`**；item id 只进内部 Map）
-4. `response.function_call_arguments.delta` → 按 item id 查 index，增量 `arguments`
+   （**`id` 必须是 `call_id`**）。任一关联 key 已指向不同 chatIndex → throw；相同 index → 幂等。
+4. `response.function_call_arguments.delta` → 两键都命中且 chatIndex 不同则 throw；否则 `byItemId ?? byOutputIndex`；都未命中则 throw（文案：`function_call_arguments.delta has no matching prior function_call by item_id or output_index`）。**不加** `call_id` 第三键。空 delta 仍 no-op。
 5. **成功** terminal：仅 `response.completed` / `response.incomplete`（+ 等价 done）  
    → `finish_reason` 收尾 chunk（`choices` 含 finish_reason）  
    → 若 `includeUsage === true`：再发 **usage-only** chunk（形状见下）  
@@ -611,10 +611,10 @@ interface ChatViaResponsesStreamState {
   model: string
   created: number
   roleSent: boolean
-  /** Responses item id → chat tool_calls index（仅流式关联 delta） */
+  /** 稳定 item id → chat tool_calls index；旋转密文不得当作主键 */
   toolCallIndexByItemId: Map<string, number>
-  /** item id → call_id（写入 Chat tool_calls[].id） */
-  callIdByItemId: Map<string, string>
+  /** Responses output[] 位置 → chat tool_calls index（仅 function_call） */
+  toolCallIndexByOutputIndex: Map<number, number>
   nextToolIndex: number
   finishReason: "stop" | "length" | "tool_calls" | "content_filter" | null
   includeUsage: boolean  // from UpReq.includeUsage — 不是 payload 字段
@@ -1011,7 +1011,7 @@ A.1 ──► A.2 ──► B.1 ──► B.2 ──► B.3 ──► C.1 ──
 |---|---|
 | Copilot endpoint 字符串漂移 | 双别名归一化；真实 `/v1/models` 样例进 fixture |
 | catalog 1h 过期窗口 | H-5；不 retry；可后续配置 TTL |
-| stream 事件顺序因模型而异 | 状态机容忍乱序；金样覆盖 |
+| Copilot 流式 `item.id`/`item_id` 每帧密文不同 | 用稳定 `output_index` 关联 function_call delta；禁止假 item id；两键冲突 fail closed |
 | `max_tokens` vs `max_completion_tokens` | handler 已有 normalize，再映 `max_output_tokens` |
 | STRATEGY_NAMES / registry 漏改 | C.1 单测 length=7 锁死 |
 | 与 doc 16 文案冲突 | D.1 收窄 Non-Goals |
