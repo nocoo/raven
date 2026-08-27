@@ -381,7 +381,7 @@ L1 必测：
 | **映射** | `stream` | → `stream` |
 | **映射** | `tools[]` | → Responses `tools[]`（§6.3.3，含 `strict`） |
 | **映射** | `tool_choice` | 规范化到 Responses 形状（`"auto"\|"none"\|"required"\|{type:"function",name}`） |
-| **映射** | `temperature`, `top_p`, `user` | 同名透传 |
+| **映射** | `temperature`, `top_p`, `user` | 同名透传后走 `sanitizeCopilotResponsesSampling`：GPT-5 家族在 reasoning 模式下丢非默认 sampling（temperature 仅 `===1` 或 `effort==="none"` 保留；top_p 仅 `effort==="none"` 保留）。非 GPT-5 仍透传 |
 | **映射** | `response_format` | → `text.format`（json_schema / json_object / text；形状按官方 migrate 指南转换） |
 | **映射** | `reasoning_effort` | → `reasoning.effort` |
 | **本地消费** | `stream_options.include_usage` | **绝不**写入 Responses JSON body；经 §7 wrapper 的 `includeUsage` 字段保存；成功 terminal 时附加 usage chunk（形状 §6.5） |

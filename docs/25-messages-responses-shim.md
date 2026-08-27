@@ -383,7 +383,7 @@ A 的问题：`translateToOpenAI` 为 **Chat 上游** 调参（reasoning、strip
 | **映射** | `stream` | → `stream` |
 | **映射** | `tools[]` | → Responses function tools；`strict: input_schema` 侧默认 **false**（同 24：省略 strict 会改变上游语义） |
 | **映射** | `tool_choice` | `auto/any/none/tool` → Responses `tool_choice` 等价（`any`→`required`，`tool`→`{type:"function",name}`） |
-| **映射** | `temperature`, `top_p` | 同名透传（上游不支持则 400 透传，不在 shim 预判 model 名） |
+| **映射** | `temperature`, `top_p` | 同名透传后走 `sanitizeCopilotResponsesSampling`（GPT-5 家族 reasoning 模式丢非默认 sampling；非 GPT-5 透传）。不维护版本黑名单 |
 | **映射** | `metadata.user_id` | → `user`（若非空） |
 | **映射** | `output_config.effort` / thinking 相关 | → `reasoning.effort` **best-effort**；无法映射则 **安全忽略** 并 debug `droppedFields`（P1 单测锁定忽略而非 500） |
 | **明确拒绝 400** | 首版无法安全映射且会静默错行为的字段（若有） | `ClientInputError`；清单在实现前补全，默认宁忽略勿拒，除非破坏 call_id |
@@ -733,7 +733,7 @@ docs: mark 25 implemented + link from 24
 | failed 当成功 | 共享 isResponsesFailure；stream throw |
 | messages 未传 catalog | H-7；handler diff 必审 |
 | 级联诱惑 | §6.0.3 禁止响应级联 |
-| temperature 等上游 400 | 透传；不在 shim 维护 model 黑名单（与 24 live 经验一致） |
+| temperature 等上游 400 | GPT-5 家族在 Responses 路径剥离非默认 sampling（`sampling.ts`）；非 GPT-5 仍透传。不维护版本黑名单 |
 | jp1 内存 | 纯逻辑无新服务；注意测试不增重 build |
 
 ---

@@ -6,7 +6,7 @@ GitHub Copilot 后端原生支持 `/responses` 端点（与 OpenAI Responses API
 
 ## Goals
 
-**极简 passthrough** — 直接转发请求到 Copilot `/responses` 端点，原样返回响应/SSE 流。
+**极简 passthrough** — 直接转发请求到 Copilot `/responses` 端点，原样返回响应/SSE 流。例外：GPT-5 家族在 reasoning 模式下会丢掉上游拒绝的 `temperature` / `top_p`（见下方）。
 
 ## Architecture
 
@@ -29,7 +29,7 @@ GitHub Copilot 后端原生支持 `/responses` 端点（与 OpenAI Responses API
 
 ## 上游契约假设
 
-Raven 依赖以下上游行为，**不做协议修复**：
+Raven 依赖以下上游行为，**除 GPT-5 sampling 外不做协议修复**：
 
 | 条件 | 期望上游行为 | Raven 行为 |
 |------|-------------|-----------|
@@ -37,6 +37,7 @@ Raven 依赖以下上游行为，**不做协议修复**：
 | `stream: false` 或省略 | 返回单个 JSON response object | 原样返回 JSON |
 | 上游 4xx/5xx | 返回错误体 | `forwardError()` 保留状态码，上游 body 作为 `error.message` |
 | 上游违反契约 | — | 直接转发/报错，不做修复 |
+| GPT-5 家族 + `temperature`/`top_p` | reasoning 模式拒绝非默认 sampling（`invalid_request_body`） | `sanitizeCopilotResponsesSampling`：`model` 匹配 `^gpt-5(?:$|[.-])` 时，`temperature===1` 或 `reasoning.effort==="none"` 才保留 temperature；top_p 仅在 `effort==="none"` 时保留。不查 catalog、不改 effort |
 
 ---
 
@@ -206,6 +207,8 @@ Raven 作为 **`/v1/responses` 入向** passthrough 代理，**不做**（Chat �
 - previous_response_id 管理
 - Model capability 检查（交给上游返回错误）
 - 错误体原样透传（错误响应按 `forwardError()` 封装）
+
+例外：GPT-5 家族 sampling 字段按上表剥离，避免 Copilot reasoning 默认模式 400。不把 `effort` 改成 `none` 来迁就 temperature。
 
 ---
 
