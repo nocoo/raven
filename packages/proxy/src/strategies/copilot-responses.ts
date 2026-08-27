@@ -12,6 +12,7 @@ import type {
   CopilotResponsesClient,
   ResponsesPayload,
 } from "../upstream/copilot-responses"
+import { sanitizeCopilotResponsesSampling } from "../protocols/responses/sampling"
 import {
   extractNonStreamingMeta,
   extractResolvedModel,
@@ -268,7 +269,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
   return {
     name: "copilot-responses",
 
-    prepare: (req) => prepareResponsesTools(req),
+    prepare: (req) => prepareResponsesTools(sanitizeCopilotResponsesSampling(req)),
 
     dispatch: async (up) => {
       const response = await deps.client.send(up)

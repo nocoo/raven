@@ -147,6 +147,44 @@ describe("Gap 3: Codex Responses tool type filtering", () => {
     expect(resp.output[0]!.name).toBe("mcp__workiq__ask_work_iq")
   })
 
+  test("drops gpt-5 sampling and still restores namespace tools", () => {
+    const s = makeCopilotResponses({ client: noopClient })
+    const req = {
+      model: "gpt-5.5",
+      input: "hi",
+      temperature: 0.7,
+      top_p: 0.9,
+      tools: [
+        {
+          type: "namespace",
+          name: "mcp__workiq__",
+          tools: [{ type: "function", name: "ask_work_iq", parameters: {} }],
+        },
+      ],
+    } as unknown as ResponsesPayload
+    const prepared = s.prepare(req, makeCtx())
+    expect(prepared).not.toBe(req)
+    expect(prepared.temperature).toBeUndefined()
+    expect(prepared.top_p).toBeUndefined()
+    expect(asTools(prepared)[0]).toMatchObject({ name: "mcp__workiq__ask_work_iq" })
+
+    const resp = {
+      output: [
+        {
+          type: "function_call",
+          name: "mcp__workiq__ask_work_iq",
+          arguments: "{}",
+          call_id: "call_1",
+        },
+      ],
+    }
+    const out = s.adaptJson(resp, prepared, makeCtx()) as typeof resp
+    expect(out.output[0]).toMatchObject({
+      namespace: "mcp__workiq__",
+      name: "ask_work_iq",
+    })
+  })
+
   test("restores flattened namespace function calls in stream chunks", () => {
     const s = makeCopilotResponses({ client: noopClient })
     const req = {

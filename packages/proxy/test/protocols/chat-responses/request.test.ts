@@ -198,6 +198,32 @@ describe("chatRequestToResponses content edge cases", () => {
     expect(payload.user).toBe("u1")
   })
 
+  test("drops gpt-5 sampling unless effort none or temperature=1", () => {
+    const dropped = chatRequestToResponses(
+      base({ model: "gpt-5.6-sol", temperature: 0.7, top_p: 0.9 }),
+    )
+    expect(dropped.temperature).toBeUndefined()
+    expect(dropped.top_p).toBeUndefined()
+
+    const tempOne = chatRequestToResponses(
+      base({ model: "gpt-5.6-sol", temperature: 1, top_p: 0.9 }),
+    )
+    expect(tempOne.temperature).toBe(1)
+    expect(tempOne.top_p).toBeUndefined()
+
+    const none = chatRequestToResponses(
+      base({
+        model: "gpt-5.6-sol",
+        temperature: 0.7,
+        top_p: 0.9,
+        reasoning_effort: "none",
+      }),
+    )
+    expect(none.temperature).toBe(0.7)
+    expect(none.top_p).toBe(0.9)
+    expect(none.reasoning).toEqual({ effort: "none" })
+  })
+
   test("empty stop array is allowed", () => {
     expect(() => assertChatViaResponsesSupported(base({ stop: [] }))).not.toThrow()
   })

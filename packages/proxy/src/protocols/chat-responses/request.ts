@@ -1,5 +1,6 @@
 import { ClientInputError } from "../../lib/error"
 import type { ResponsesPayload } from "../../upstream/copilot-responses"
+import { sanitizeCopilotResponsesSampling } from "../responses/sampling"
 import type { ChatViaResponsesClientReq } from "./types"
 
 /** Only fields present on official Responses create schema. */
@@ -75,7 +76,7 @@ export function chatRequestToResponses(
     }
   }
 
-  return payload
+  return sanitizeCopilotResponsesSampling(payload)
 }
 
 function mapToolChoice(
