@@ -79,6 +79,13 @@ describe("sanitizeCopilotResponsesSampling", () => {
     expect(sanitizeCopilotResponsesSampling(arr)).toBe(arr)
   })
 
+  test("explicit null sampling fields are dropped unless effort is none", () => {
+    expect(sanitizeCopilotResponsesSampling(req({ temperature: null })).temperature).toBeUndefined()
+    expect(sanitizeCopilotResponsesSampling(req({ top_p: null })).top_p).toBeUndefined()
+    const kept = req({ temperature: null, top_p: null, reasoning: { effort: "none" } })
+    expect(sanitizeCopilotResponsesSampling(kept)).toBe(kept)
+  })
+
   test("malformed reasoning is treated as omitted effort", () => {
     expect(sanitizeCopilotResponsesSampling(req({ temperature: 0.7, reasoning: "none" })).temperature).toBeUndefined()
     expect(sanitizeCopilotResponsesSampling(req({ temperature: 0.7, reasoning: null })).temperature).toBeUndefined()

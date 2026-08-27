@@ -37,8 +37,9 @@ export function sanitizeCopilotResponsesSampling(
 
   const effort = reasoningEffort(payload.reasoning)
   const dropTemperature =
-    payload.temperature != null && !keepTemperature(payload.temperature, effort)
-  const dropTopP = payload.top_p != null && !keepTopP(payload.top_p, effort)
+    payload.temperature !== undefined && !keepTemperature(payload.temperature, effort)
+  const dropTopP =
+    payload.top_p !== undefined && !keepTopP(payload.top_p, effort)
   if (!dropTemperature && !dropTopP) return payload
 
   const next = { ...payload }
