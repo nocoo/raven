@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.5.4
+
+### Changed
+- Bump hono to 4.13.5
+- Bump next to 16.3.3
+
+### Fixed
+- Drop null gpt-5 sampling fields
+- Omit gpt-5 sampling on copilot responses
+
+### Removed
+- Document gpt-5 responses sampling drop
+- Remove leftover autoresearch files
+
 ## v2.5.3
 
 ### Changed
