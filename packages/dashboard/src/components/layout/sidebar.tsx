@@ -1,51 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
 import {
-  LayoutDashboard,
-  Boxes,
-  Cable,
-  Cpu,
-  CircleUser,
-  PanelLeft,
-  LogOut,
-  ChevronUp,
-  Terminal,
-  Settings,
-  Shield,
-  Wrench,
-  Globe,
-  List,
-  Users,
-  MessageSquare,
-  Route,
-} from "lucide-react";
-import { cn, getAvatarColor } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Button,
+  Sidebar,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarIconItem,
+  SidebarItem,
+  SidebarNav,
+  SidebarUser,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@nocoo/basalt";
 import {
-  Collapsible,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Badge } from "@/components/ui/badge";
-import { useSidebar } from "./sidebar-context";
-import { APP_VERSION } from "@/lib/version";
+  Boxes,
+  Cable,
+  CircleUser,
+  Cpu,
+  Globe,
+  LayoutDashboard,
+  List,
+  LogOut,
+  MessageSquare,
+  PanelLeft,
+  Route,
+  Settings,
+  Shield,
+  Terminal,
+  Users,
+  Wrench,
+} from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
+import type { ElementType } from "react";
 import { useAuthConfig } from "@/hooks/use-auth-config";
-
-// ── Types ──
+import { cn, getAvatarColor } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/version";
 
 interface NavItem {
   href: string;
   label: string;
-  icon: React.ElementType;
+  icon: ElementType;
 }
 
 interface NavGroup {
@@ -53,8 +53,6 @@ interface NavGroup {
   items: NavItem[];
   defaultOpen?: boolean;
 }
-
-// ── Navigation config ──
 
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -99,113 +97,40 @@ const NAV_GROUPS: NavGroup[] = [
 
 const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
-// ── Sub-components ──
+function navActive(pathname: string, href: string): boolean {
+  return href === "/" || href === "/dashboard" || href === "/settings"
+    ? pathname === href
+    : pathname.startsWith(href);
+}
 
-function NavGroupSection({
-  group,
-  pathname,
-  onNavigate,
-}: {
-  group: NavGroup;
-  pathname: string;
-  onNavigate: () => void;
-}) {
-  const [open, setOpen] = useState(group.defaultOpen ?? true);
-
+function RavenMark({ className }: { className?: string }) {
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="px-3 mt-2">
-        <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-2">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
-            {group.label}
-          </span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-            <ChevronUp
-              className={cn(
-                "h-3.5 w-3.5 text-muted-foreground/50 transition-transform duration-200",
-                !open && "rotate-180",
-              )}
-              strokeWidth={1.5}
-            />
-          </span>
-        </CollapsibleTrigger>
-      </div>
-      <div
-        className="grid overflow-hidden"
-        style={{
-          gridTemplateRows: open ? "1fr" : "0fr",
-          transition: "grid-template-rows 300ms ease-out",
-        }}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="flex flex-col gap-0.5 px-3">
-            {group.items.map((item) => {
-              const isActive =
-                item.href === "/" || item.href === "/dashboard" || item.href === "/settings"
-                  ? pathname === item.href
-                  : pathname.startsWith(item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-normal transition-colors",
-                    isActive
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                  )}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                  <span className="flex-1 text-left">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </Collapsible>
+    // biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit
+    <img src="/logo-24.png" alt="Raven" width={24} height={24} className={className} />
   );
 }
 
-// ── Main component ──
-
-interface SidebarProps {
-  mobile?: boolean;
+interface AppSidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ mobile = false }: SidebarProps) {
+export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps) {
   const pathname = usePathname();
-  const { collapsed, toggle, setMobileOpen } = useSidebar();
+  const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { authEnabled, isLoading: authLoading, hasError } = useAuthConfig();
 
-  // Determine whether to show auth mode UI:
-  // - While loading (auth config or session): assume auth mode to avoid "Local mode" flash
-  // - On auth config error: use session presence IF session has resolved,
-  //   otherwise stay in "unknown" state (treat as auth to fail closed)
-  // - On success: use authEnabled from API
-  //
-  // Key insight: useSession() status can be "loading" | "authenticated" | "unauthenticated"
-  // If status is "loading", we can't trust !session?.user — session might exist but hasn't loaded yet.
   const sessionLoading = sessionStatus === "loading";
   const hasSession = !!session?.user;
 
   let showAsAuth: boolean;
   if (authLoading) {
-    // Auth config loading: if session also loading, assume auth (fail closed)
-    // If session resolved, use session presence as hint
     showAsAuth = sessionLoading || hasSession;
   } else if (hasError) {
-    // Auth config failed: fail closed
-    // If session is still loading, assume auth mode (fail closed)
-    // If session loaded and exists, show as auth
-    // If session loaded and empty, we truly don't know — but since this is
-    // the sidebar (post-login UI), empty session + error is rare; show as local
     showAsAuth = sessionLoading || hasSession;
   } else {
-    // Auth config succeeded: use the actual value
     showAsAuth = authEnabled;
   }
 
@@ -214,200 +139,159 @@ export function Sidebar({ mobile = false }: SidebarProps) {
   const userImage = showAsAuth ? session?.user?.image : undefined;
   const userInitial = userName[0] ?? "?";
 
-  const handleNavigate = () => setMobileOpen(false);
+  const go = (href: string) => {
+    router.push(href);
+    onNavigate?.();
+  };
+
+  const avatar = (
+    <Avatar className="h-9 w-9 shrink-0">
+      {userImage ? <AvatarImage src={userImage} alt={userName} /> : null}
+      <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
+        {userInitial}
+      </AvatarFallback>
+    </Avatar>
+  );
+
+  const signOutButton = (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          aria-label="Sign out"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+        >
+          <LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">Sign out</TooltipContent>
+    </Tooltip>
+  );
 
   return (
-    <TooltipProvider delayDuration={0}>
-      <aside
-        aria-label={mobile ? "Main navigation drawer" : "Main navigation"}
-        className={cn(
-          "sticky top-0 flex h-screen shrink-0 flex-col bg-background transition-all duration-300 ease-in-out overflow-hidden",
-          collapsed ? "w-[68px]" : "w-[260px]",
-        )}
-      >
-        {collapsed ? (
-          /* ── Collapsed (icon-only) view ── */
-          <div className="flex h-screen w-[68px] flex-col items-center">
-            {/* Logo */}
-            <div className="flex h-14 w-full items-center justify-start pl-6 pr-3">
-              {/* biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit */}
-              <img
-                src="/logo-24.png"
-                alt="Raven"
-                width={24}
-                height={24}
-                className="shrink-0"
-              />
-            </div>
-
-            {/* Expand toggle */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button type="button"
-                  onClick={toggle}
-                  aria-label="Expand sidebar"
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors mb-2"
-                >
-                  <PanelLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={8}>
-                Expand sidebar
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Navigation — flat icon list */}
-            <nav className="flex-1 flex flex-col items-center gap-1 overflow-y-auto pt-1">
-              {ALL_NAV_ITEMS.map((item) => {
-                const isActive =
-                  item.href === "/" || item.href === "/dashboard" || item.href === "/settings"
-                    ? pathname === item.href
-                    : pathname.startsWith(item.href);
-
-                return (
-                  <Tooltip key={item.href}>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={item.href}
-                        onClick={handleNavigate}
-                        className={cn(
-                          "relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
-                          isActive
-                            ? "bg-accent text-foreground"
-                            : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                        )}
-                      >
-                        <item.icon className="h-4 w-4" strokeWidth={1.5} />
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={8}>
-                      {item.label}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </nav>
-
-            {/* User avatar + sign out */}
-            <div className="py-3 flex justify-center w-full">
-              {showAsAuth ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button type="button"
-                      onClick={() => signOut({ callbackUrl: "/login" })}
-                      aria-label="Sign out"
-                      className="cursor-pointer"
-                    >
-                      <Avatar className="h-9 w-9">
-                        {userImage && <AvatarImage src={userImage} alt={userName} />}
-                        <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
-                          {userInitial}
-                        </AvatarFallback>
-                      </Avatar>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>
-                    {userName} · Sign out
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
-                          {userInitial}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>
-                    {userName} · Local mode
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* ── Expanded view ── */
-          <div className="flex h-screen w-[260px] flex-col">
-            {/* Header: logo + collapse toggle */}
-            <div className="px-3 h-14 flex items-center">
-              <div className="flex w-full items-center justify-between px-3">
-                <div className="flex items-center gap-3">
-                  {/* biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit */}
-                  <img
-                    src="/logo-24.png"
-                    alt="Raven"
-                    width={24}
-                    height={24}
-                    className="shrink-0"
-                  />
-                  <span className="text-lg font-bold tracking-tighter">raven</span>
-                  <Badge
-                    variant="secondary"
-                    className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground"
+    <Sidebar collapsed={collapsed}>
+      {collapsed ? (
+        <>
+          <SidebarHeader className="justify-center px-0">
+            <RavenMark className="h-5 w-5" />
+          </SidebarHeader>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mb-1 self-center"
+            onClick={onToggle}
+            aria-label="Expand sidebar"
+          >
+            <PanelLeft aria-hidden="true" />
+          </Button>
+          <SidebarNav className="w-full items-center gap-1 pt-1">
+            {ALL_NAV_ITEMS.map((item) => (
+              <Tooltip key={item.href} delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <SidebarIconItem
+                    active={navActive(pathname, item.href)}
+                    aria-label={item.label}
+                    className="self-center"
+                    onClick={() => go(item.href)}
                   >
-                    v{APP_VERSION}
-                  </Badge>
-                </div>
-                <button type="button"
-                  onClick={toggle}
-                  aria-label="Collapse sidebar"
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <PanelLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
-                </button>
+                    <item.icon className="h-4 w-4" strokeWidth={1.5} />
+                  </SidebarIconItem>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </SidebarNav>
+          <SidebarFooter className="flex w-full justify-center px-0">
+            {showAsAuth ? (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="cursor-pointer"
+                    aria-label="Sign out"
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                  >
+                    {avatar}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {userName} · Sign out
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">{avatar}</span>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {userName} · Local mode
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </SidebarFooter>
+        </>
+      ) : (
+        <>
+          <SidebarHeader>
+            <div className="flex w-full items-center justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <RavenMark className="h-5 w-5 shrink-0" />
+                <span className="truncate text-lg font-semibold text-basalt-foreground md:text-xl">
+                  raven
+                </span>
+                <span className="shrink-0 rounded-md bg-basalt-secondary px-1.5 py-0.5 text-[10px] leading-none font-medium text-basalt-muted-foreground">
+                  v{APP_VERSION}
+                </span>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={onToggle}
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeft aria-hidden="true" />
+              </Button>
             </div>
-
-            {/* Navigation — grouped with collapsible sections */}
-            <nav className="flex-1 overflow-y-auto">
-              {NAV_GROUPS.map((group) => (
-                <NavGroupSection
-                  key={group.label}
-                  group={group}
-                  pathname={pathname}
-                  onNavigate={handleNavigate}
-                />
-              ))}
-            </nav>
-
-            {/* User info + sign out */}
-            <div className="px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9 shrink-0">
-                  {userImage && <AvatarImage src={userImage} alt={userName} />}
-                  <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
-                    {userInitial}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-                  <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-                </div>
-                {showAsAuth && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button"
-                        onClick={() => signOut({ callbackUrl: "/login" })}
-                        aria-label="Sign out"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-                      >
-                        <LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">Sign out</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </aside>
-    </TooltipProvider>
+          </SidebarHeader>
+          <SidebarNav className="pt-1">
+            {NAV_GROUPS.map((group) => (
+              <SidebarGroup
+                key={group.label}
+                label={group.label}
+                defaultOpen={group.defaultOpen ?? true}
+              >
+                {group.items.map((item) => (
+                  <SidebarItem
+                    key={item.href}
+                    active={navActive(pathname, item.href)}
+                    onClick={() => go(item.href)}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span className="flex-1 truncate text-left">{item.label}</span>
+                  </SidebarItem>
+                ))}
+              </SidebarGroup>
+            ))}
+          </SidebarNav>
+          <SidebarFooter>
+            <SidebarUser
+              name={userName}
+              email={userEmail}
+              avatar={avatar}
+              {...(showAsAuth ? { action: signOutButton } : {})}
+            />
+          </SidebarFooter>
+        </>
+      )}
+    </Sidebar>
   );
 }
 
 export { NAV_GROUPS, ALL_NAV_ITEMS };
 export type { NavItem, NavGroup };
+export { AppSidebar as Sidebar };
