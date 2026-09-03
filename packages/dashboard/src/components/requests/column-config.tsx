@@ -1,7 +1,8 @@
+"use client";
+
 import { useState } from "react";
 import { Settings2, Check } from "lucide-react";
 import { Button } from "@nocoo/basalt";
-"use client";
 
 
 export interface ColumnDef {

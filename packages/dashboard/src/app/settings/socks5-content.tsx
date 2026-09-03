@@ -1,9 +1,10 @@
+"use client";
+
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Switch, Button, Input, Label } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
-"use client";
 
 
 
