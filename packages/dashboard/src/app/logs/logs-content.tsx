@@ -523,10 +523,10 @@ function RequestCard({
               <div className={cn(
                 "absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px]",
                 isError
-                  ? "border-l-destructive/50"
+                  ? "border-l-basalt-destructive/50"
                   : isInProgress
-                    ? "border-l-info/40"
-                    : "border-l-success/50",
+                    ? "border-l-basalt-info/40"
+                    : "border-l-basalt-chart-5/50",
               )} />
               {/* Metrics above line */}
               <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
@@ -577,7 +577,7 @@ function RequestCard({
                 </div>
                 <div className="relative mx-1 flex flex-1 max-w-16 items-center">
                   <div className="h-0.5 w-full rounded-full bg-basalt-destructive/40" />
-                  <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-destructive/50" />
+                  <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-basalt-destructive/50" />
                 </div>
               </>
             )}
