@@ -7,7 +7,7 @@ import type { CopilotModel } from "@/lib/types";
 import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
-import { Button, Badge } from "@nocoo/basalt";
+import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatCompact } from "@/lib/chart-config";
 import {
@@ -169,7 +169,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
             <Badge variant="secondary">{models.length}</Badge>
           </div>
 
-          <div className="overflow-hidden rounded-card bg-secondary">
+          <LayerCard padding="none" className="overflow-hidden">
             <div className="overflow-x-auto">
             <Table className="table-fixed">
               <TableHeader>
@@ -231,7 +231,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
               </TableBody>
             </Table>
             </div>
-          </div>
+          </LayerCard>
         </div>
       ))}
     </>

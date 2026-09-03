@@ -19,7 +19,7 @@ import type {
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Edit2, ArrowUpDown, Activity, Loader2, Check, Copy, AlertCircle } from "lucide-react";
-import { Button, Badge, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@nocoo/basalt";
+import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@nocoo/basalt";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
@@ -39,15 +39,15 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
       </div>
 
       {providers.length === 0 ? (
-        <div className="rounded-card bg-secondary px-6 py-8 text-center">
+        <LayerCard className="px-6 py-8 text-center">
           <ArrowUpDown className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
           <p className="text-sm text-muted-foreground">No upstream providers configured</p>
           <p className="text-xs text-muted-foreground/70 mt-1">
             Add custom providers to route specific models to external APIs
           </p>
-        </div>
+        </LayerCard>
       ) : (
-        <div className="overflow-hidden rounded-card bg-secondary">
+        <LayerCard padding="none" className="overflow-hidden">
           <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -110,7 +110,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
             </TableBody>
           </Table>
           </div>
-        </div>
+        </LayerCard>
       )}
     </section>
   );
