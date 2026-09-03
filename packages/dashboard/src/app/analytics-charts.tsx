@@ -30,6 +30,7 @@ import {
   ChartTooltipSummary,
   DashboardCartesianGrid,
 } from "@/components/dashboard/chart-primitives";
+import { LayerCard } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import type { ExtendedTimeseriesBucket, BreakdownEntry } from "@/lib/types";
 
@@ -88,10 +89,10 @@ function TimeseriesTooltip({
 function ChartSkeleton() {
   const height = CHART_HEIGHTS.standard + 48;
   return (
-    <div className="bg-secondary rounded-card p-3 md:p-4" style={{ height }}>
-      <Skeleton className="h-4 w-32 mb-3" />
-      <Skeleton className="h-full w-full rounded-widget" />
-    </div>
+    <LayerCard padding="sm" style={{ height }}>
+      <Skeleton className="mb-3 h-4 w-32" />
+      <Skeleton className="h-full w-full rounded-basalt-widget" />
+    </LayerCard>
   );
 }
 
@@ -128,14 +129,14 @@ function ChartPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-secondary rounded-card p-3 md:p-4">
+    <LayerCard padding="sm">
       <h3 className="text-card-label mb-3 font-medium">{title}</h3>
       <div style={{ height: CHART_HEIGHTS.standard }}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           {children as React.ReactElement}
         </ResponsiveContainer>
       </div>
-    </div>
+    </LayerCard>
   );
 }
 
@@ -416,7 +417,7 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
   const maxCount = top.length > 0 ? Math.max(...top.map((e) => e.count)) : 1;
 
   return (
-    <div className="bg-secondary rounded-card p-3 md:p-4">
+    <LayerCard padding="sm">
       <h3 className="text-card-label mb-3 font-medium">{title}</h3>
       <div className="space-y-2">
         {top.map((entry) => (
@@ -437,7 +438,7 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
           <p className="text-meta">No data</p>
         )}
       </div>
-    </div>
+    </LayerCard>
   );
 }
 

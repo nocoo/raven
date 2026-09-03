@@ -7,7 +7,7 @@ import type { CorsInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Plus, Trash2, Loader2 } from "lucide-react";
-import { Switch, Button, Input } from "@nocoo/basalt";
+import { Button, Input, LayerCard, Switch } from "@nocoo/basalt";
 
 interface CorsContentProps {
   data: CorsInfo;
@@ -129,7 +129,7 @@ export function CorsContent({ data }: CorsContentProps) {
         Control which origins can make cross-origin requests to the proxy.
       </p>
 
-      <div className="rounded-card bg-secondary p-4 space-y-4">
+      <LayerCard className="space-y-4">
         {/* Enable/Disable toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -208,7 +208,7 @@ export function CorsContent({ data }: CorsContentProps) {
             allowed (default behavior).
           </p>
         </div>
-      </div>
+      </LayerCard>
     </section>
   );
 }

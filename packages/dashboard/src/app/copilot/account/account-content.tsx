@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw, User, Building2, CreditCard, MessageSquare, Globe, Calendar, Gauge, CheckCircle2, XCircle, Infinity as InfinityIcon, } from "lucide-react";
-import { Button, Badge } from "@nocoo/basalt";
+import { Badge, Button, LayerCard } from "@nocoo/basalt";
 
 interface AccountContentProps {
   data: CopilotUser;
@@ -321,7 +321,7 @@ export function AccountContent({ data }: AccountContentProps) {
       {/* Feature toggles */}
       <div className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Feature Toggles</h2>
-        <div className="rounded-card bg-secondary overflow-hidden divide-y divide-border/50">
+        <LayerCard padding="none" className="overflow-hidden divide-y divide-border/50">
           {data.chat_enabled != null && (
             <ToggleRow label="Chat" value={data.chat_enabled} />
           )}
@@ -337,7 +337,7 @@ export function AccountContent({ data }: AccountContentProps) {
           {data.can_signup_for_limited != null && (
             <ToggleRow label="Can Signup for Limited" value={data.can_signup_for_limited} />
           )}
-        </div>
+        </LayerCard>
       </div>
 
       {/* Endpoints */}
@@ -347,7 +347,7 @@ export function AccountContent({ data }: AccountContentProps) {
             <Globe className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
             <h2 className="text-sm font-medium text-muted-foreground">Endpoints</h2>
           </div>
-          <div className="rounded-card bg-secondary overflow-hidden divide-y divide-border/50">
+          <LayerCard padding="none" className="overflow-hidden divide-y divide-border/50">
             {Object.entries(data.endpoints).map(([name, url]) => (
               <div
                 key={name}
@@ -361,7 +361,7 @@ export function AccountContent({ data }: AccountContentProps) {
                 </span>
               </div>
             ))}
-          </div>
+          </LayerCard>
         </div>
       )}
 
@@ -371,7 +371,7 @@ export function AccountContent({ data }: AccountContentProps) {
           <h2 className="text-sm font-medium text-muted-foreground">
             Other Properties
           </h2>
-          <div className="rounded-card bg-secondary overflow-hidden divide-y divide-border/50">
+          <LayerCard padding="none" className="overflow-hidden divide-y divide-border/50">
             {extraEntries.map(([key, value]) => (
               <div
                 key={key}
@@ -383,7 +383,7 @@ export function AccountContent({ data }: AccountContentProps) {
                 <div className="text-right">{renderValue(value)}</div>
               </div>
             ))}
-          </div>
+          </LayerCard>
         </div>
       )}
     </>

@@ -151,7 +151,7 @@ console.log(message.content);`,
   return (
     <section>
       <h2 className="text-sm font-medium text-muted-foreground mb-3">Code Examples</h2>
-      <div className="rounded-card bg-secondary overflow-hidden">
+      <LayerCard padding="none" className="overflow-hidden">
         <div className="flex border-b border-border/30 bg-background/50">
           {tabs.map((tab) => (
             <button type="button"
@@ -170,7 +170,7 @@ console.log(message.content);`,
           ))}
         </div>
         <CodeBlock code={examples[activeTab]} className="border-0 rounded-none" />
-      </div>
+      </LayerCard>
     </section>
   );
 }
@@ -194,7 +194,7 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
         <Terminal className="h-4 w-4" strokeWidth={1.5} />
         Setup Guides
       </h2>
-      <div className="rounded-card bg-secondary overflow-hidden">
+      <LayerCard padding="none" className="overflow-hidden">
         <div className="flex border-b border-border/30 bg-background/50">
           {tabs.map((tab) => (
             <button type="button"
@@ -216,7 +216,7 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
           {activeTab === "codex" && <CodexGuide baseUrl={baseUrl} />}
           {activeTab === "cc-switch" && <CCSwitchGuide />}
         </div>
-      </div>
+      </LayerCard>
     </section>
   );
 }
