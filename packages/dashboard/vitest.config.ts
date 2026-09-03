@@ -20,6 +20,7 @@ export default defineConfig({
         "src/components/stats/**",
         "src/components/layout/**",
         "src/components/auth-provider.tsx",
+        "src/components/providers.tsx",
         "src/components/fetch-error.tsx",
         "src/components/setup-wizard.tsx",
         "src/components/copy-button.tsx",

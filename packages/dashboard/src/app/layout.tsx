@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
-import { AuthProvider } from "@/components/auth-provider";
+import { AppProviders } from "@/components/providers";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -45,14 +45,14 @@ export default function RootLayout({
           strategy="beforeInteractive"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: static inline theme-init script; content is a literal, no user input flows here
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem("theme");var d=window.matchMedia("(prefers-color-scheme:dark)").matches;if(s==="dark"||(s!=="light"&&d))document.documentElement.classList.add("dark")}catch(e){}})()`,
+            __html: `(function(){try{var s=localStorage.getItem("theme");var d=window.matchMedia("(prefers-color-scheme:dark)").matches;var isDark=s==="dark"||(s!=="light"&&d);var root=document.documentElement;root.classList.toggle("dark",isDark);root.classList.toggle("light",!isDark);root.dataset.mode=isDark?"dark":"light"}catch(e){}})()`,
           }}
         />
       </head>
       <body
         className={`${inter.variable} ${dmSans.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
