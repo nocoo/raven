@@ -1,6 +1,7 @@
 "use client"
 
 import { Button, Input, Label, LayerCard, Switch } from "@nocoo/basalt"
+import { SectionRule } from "@nocoo/basalt/components/section-rule"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -88,10 +89,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
   }
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
-        Server Tools
-      </h2>
+    <SectionRule title="Server Tools">
       <p className="text-xs text-basalt-muted-foreground mb-4">
         Replace Anthropic server-side tools with third-party APIs. Required when routing through GitHub Copilot upstream.
       </p>
@@ -128,8 +126,8 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                     <div className="flex items-center justify-between">
                       <span className="text-sm">API Key</span>
                       {hasKey && !apiKey && (
-                        <span className="text-xs text-green-600 flex items-center gap-1">
-                          <span className="size-1.5 rounded-full bg-green-600" />
+                        <span className="text-xs text-basalt-chart-5 flex items-center gap-1">
+                          <span className="size-1.5 rounded-full bg-basalt-chart-5" />
                           Configured
                         </span>
                       )}
@@ -159,7 +157,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                     </div>
                     {keyError && <p className="text-xs text-basalt-destructive">{keyError}</p>}
                     {!hasKey && itemEnabled && (
-                      <p className="text-xs text-amber-600 dark:text-amber-500">
+                      <p className="text-xs text-basalt-warning">
                         API key required for search functionality
                       </p>
                     )}
@@ -181,6 +179,6 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
           )
         })}
       </div>
-    </section>
+    </SectionRule>
   )
 }

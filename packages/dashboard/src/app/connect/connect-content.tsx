@@ -14,8 +14,9 @@ import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/l
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Key, Trash2, Ban, AlertTriangle, Cable, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, } from "lucide-react";
+  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, } from "lucide-react";
 import { Badge, Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 interface ConnectContentProps {
@@ -76,26 +77,23 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
   ];
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-        <Cable className="h-4 w-4" strokeWidth={1.5} />
-        Endpoints
-      </h2>
+    <SectionRule title="Endpoints">
       <div className="grid gap-2">
         {endpoints.map((ep) => (
-          <div
+          <LayerCard
             key={ep.label}
-            className="flex items-center justify-between rounded-widget bg-basalt-secondary px-4 py-2.5"
+            padding="sm"
+            className="flex items-center justify-between"
           >
             <div className="flex items-center gap-3 min-w-0">
               <span className="text-xs text-basalt-muted-foreground shrink-0 w-36">{ep.label}</span>
               <code className="text-xs font-mono text-basalt-foreground truncate">{ep.value}</code>
             </div>
             <CopyButton value={ep.value} />
-          </div>
+          </LayerCard>
         ))}
       </div>
-    </section>
+    </SectionRule>
   );
 }
 
@@ -149,8 +147,7 @@ console.log(message.content);`,
   };
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">Code Examples</h2>
+    <SectionRule title="Code Examples">
       <LayerCard padding="none" className="overflow-hidden">
         <div className="flex border-b border-basalt-border/30 bg-basalt-background/50">
           {tabs.map((tab) => (
@@ -171,7 +168,7 @@ console.log(message.content);`,
         </div>
         <CodeBlock code={examples[activeTab]} className="border-0 rounded-none" />
       </LayerCard>
-    </section>
+    </SectionRule>
   );
 }
 
@@ -189,11 +186,7 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
   ];
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-        <Terminal className="h-4 w-4" strokeWidth={1.5} />
-        Setup Guides
-      </h2>
+    <SectionRule title="Setup Guides">
       <LayerCard padding="none" className="overflow-hidden">
         <div className="flex border-b border-basalt-border/30 bg-basalt-background/50">
           {tabs.map((tab) => (
@@ -217,7 +210,7 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
           {activeTab === "cc-switch" && <CCSwitchGuide />}
         </div>
       </LayerCard>
-    </section>
+    </SectionRule>
   );
 }
 
@@ -305,7 +298,7 @@ cc-switch status`}
           />
         </div>
       </div>
-      <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400">
+      <div className="flex items-start gap-2 text-xs text-basalt-warning">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
         <span>
           When configuring the model, use the hyphenated ID (e.g.{" "}
@@ -489,14 +482,9 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
   );
 
   return (
-    <section>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-sm font-medium">API Keys</h2>
-          <p className="text-xs text-basalt-muted-foreground mt-0.5">
-            Create and manage API keys for authenticating client requests
-          </p>
-        </div>
+    <SectionRule
+      title="API Keys"
+      actions={
         <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" className="gap-1.5">
@@ -506,7 +494,8 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
           </DialogTrigger>
           <CreateKeyDialog key={dialogInstance} onCreated={handleCreated} />
         </Dialog>
-      </div>
+      }
+    >
 
       {actionError && (
         <div className="flex items-center gap-2 rounded-widget border border-basalt-destructive/40 bg-basalt-destructive/10 px-3 py-2 mb-3">
@@ -614,7 +603,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
           </div>
         </LayerCard>
       )}
-    </section>
+    </SectionRule>
   );
 }
 
@@ -671,7 +660,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
             </code>
             <CopyButton value={createdKey} />
           </div>
-          <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400">
+          <div className="flex items-start gap-2 text-xs text-basalt-warning">
             <AlertTriangle
               className="h-3.5 w-3.5 shrink-0 mt-0.5"
               strokeWidth={1.5}

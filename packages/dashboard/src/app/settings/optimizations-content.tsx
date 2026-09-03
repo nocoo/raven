@@ -7,6 +7,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Switch, Label, LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 
 // ── Optimization item definitions ──
 
@@ -43,10 +44,7 @@ interface OptimizationsContentProps {
 
 export function OptimizationsContent({ data }: OptimizationsContentProps) {
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
-        Optimizations
-      </h2>
+    <SectionRule title="Optimizations">
       <p className="text-xs text-basalt-muted-foreground mb-4">
         Protocol-level fixes from upstream compatibility research. Enable
         individually as needed.
@@ -64,7 +62,7 @@ export function OptimizationsContent({ data }: OptimizationsContentProps) {
           );
         })}
       </div>
-    </section>
+    </SectionRule>
   );
 }
 

@@ -695,8 +695,8 @@ function RawEventLine({ event }: { event: LogEvent }) {
       </Badge>
       <span className={cn(
         "flex-1 break-all",
-        event.level === "error" ? "text-red-600 dark:text-red-400" :
-        event.level === "warn" ? "text-yellow-600 dark:text-yellow-400" :
+        event.level === "error" ? "text-basalt-destructive" :
+        event.level === "warn" ? "text-basalt-warning" :
         "text-basalt-muted-foreground",
       )}>
         {event.msg}
@@ -941,11 +941,11 @@ export function LogsContent() {
             className="flex-1 overflow-y-auto"
           >
             {groups.length === 0 ? (
-              <div className="flex h-32 items-center justify-center rounded-md bg-basalt-secondary text-sm text-basalt-muted-foreground">
-                {connected
-                  ? "Waiting for log events..."
-                  : "Connecting to log stream..."}
-              </div>
+              <LayerCard padding="none">
+                <LayerCard.Empty
+                  title={connected ? "Waiting for log events..." : "Connecting to log stream..."}
+                />
+              </LayerCard>
             ) : (
               <div className="space-y-2 pb-2">
                 {groups.map((group) => (

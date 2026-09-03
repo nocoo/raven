@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 
@@ -187,10 +188,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
   ]);
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
-        SOCKS5 Proxy
-      </h2>
+    <SectionRule title="SOCKS5 Proxy">
       <p className="text-xs text-basalt-muted-foreground mb-4">
         Route upstream requests through a SOCKS5 proxy to hide the
         server&apos;s exit IP. Useful when deployed on VPS with datacenter IPs.
@@ -206,7 +204,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           <div className="flex items-center gap-2">
             {data.enabled && (
               <span
-                className={`text-xs ${data.bridgeStatus === "running" ? "text-green-500" : "text-red-500"}`}
+                className={`text-xs ${data.bridgeStatus === "running" ? "text-basalt-chart-5" : "text-basalt-destructive"}`}
               >
                 Bridge: {data.bridgeStatus}
               </span>
@@ -297,7 +295,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                   )}
               </div>
               {passwordState === "cleared" && (
-                <p className="text-xs text-amber-500 mt-0.5">
+                <p className="text-xs text-basalt-warning mt-0.5">
                   Password will be cleared on save
                 </p>
               )}
@@ -320,7 +318,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             </Button>
             {testResult && (
               <span
-                className={`text-xs flex items-center gap-1 ${testResult.success ? "text-green-500" : "text-red-500"}`}
+                className={`text-xs flex items-center gap-1 ${testResult.success ? "text-basalt-chart-5" : "text-basalt-destructive"}`}
               >
                 {testResult.success ? (
                   <>
@@ -371,7 +369,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                     <span className="text-sm">{p.name}</span>
                     {p.use_socks5 === 1 &&
                       p.supports_models_endpoint === false && (
-                        <span className="text-xs text-amber-500 flex items-center gap-1">
+                        <span className="text-xs text-basalt-warning flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" />
                           Re-probe needed
                         </span>
@@ -399,7 +397,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         {/* Save button + feedback */}
         <div className="flex items-center justify-end gap-3">
           {saveSuccess && (
-            <span className="text-xs text-green-500 flex items-center gap-1">
+            <span className="text-xs text-basalt-chart-5 flex items-center gap-1">
               <CheckCircle className="h-3 w-3" />
               Settings saved
             </span>
@@ -423,6 +421,6 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           </Button>
         </div>
       </LayerCard>
-    </section>
+    </SectionRule>
   );
 }

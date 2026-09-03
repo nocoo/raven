@@ -51,7 +51,10 @@ export default async function HomePage({ searchParams }: PageProps) {
   if (!summaryResult.ok) {
     return (
       <AppShell>
-        <FetchError title="Failed to load dashboard" message={summaryResult.error} />
+        <div className="space-y-4 md:space-y-6">
+          <PageHeader title="Overview" description="Live analytics across all proxied requests, models, and clients." />
+          <FetchError title="Failed to load dashboard" message={summaryResult.error} />
+        </div>
       </AppShell>
     );
   }

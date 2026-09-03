@@ -9,6 +9,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Plus, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 
 interface IPWhitelistContentProps {
   data: IPWhitelistInfo;
@@ -140,10 +141,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
   );
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
-        IP Whitelist
-      </h2>
+    <SectionRule title="IP Whitelist">
       <p className="text-xs text-basalt-muted-foreground mb-4">
         Restrict access to the proxy by client IP address. Non-whitelisted IPs
         receive a silent 403 response.
@@ -182,7 +180,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
             />
           </div>
           {trustProxy && (
-            <div className="flex items-start gap-2 text-amber-500">
+            <div className="flex items-start gap-2 text-basalt-warning">
               <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <p className="text-xs">
                 Warning: When enabled, clients can spoof their IP via headers
@@ -260,6 +258,6 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
           </ul>
         </div>
       </LayerCard>
-    </section>
+    </SectionRule>
   );
 }

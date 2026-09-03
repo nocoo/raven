@@ -20,6 +20,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Edit2, ArrowUpDown, Activity, Loader2, Check, Copy, AlertCircle } from "lucide-react";
 import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
@@ -29,22 +30,14 @@ interface UpstreamsContentProps {
 
 export function UpstreamsContent({ providers }: UpstreamsContentProps) {
   return (
-    <section>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium text-basalt-muted-foreground flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4" strokeWidth={1.5} />
-          Custom Upstream Providers
-        </h2>
-        <CreateProviderDialog />
-      </div>
-
+    <SectionRule title="Custom Upstream Providers" actions={<CreateProviderDialog />}>
       {providers.length === 0 ? (
-        <LayerCard className="px-6 py-8 text-center">
-          <ArrowUpDown className="h-8 w-8 text-basalt-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
-          <p className="text-sm text-basalt-muted-foreground">No upstream providers configured</p>
-          <p className="text-xs text-basalt-muted-foreground/70 mt-1">
-            Add custom providers to route specific models to external APIs
-          </p>
+        <LayerCard padding="none">
+          <LayerCard.Empty
+            icon={<ArrowUpDown className="h-8 w-8" strokeWidth={1.5} />}
+            title="No upstream providers configured"
+            description="Add custom providers to route specific models to external APIs"
+          />
         </LayerCard>
       ) : (
         <LayerCard padding="none" className="overflow-hidden">
@@ -112,7 +105,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
           </div>
         </LayerCard>
       )}
-    </section>
+    </SectionRule>
   );
 }
 
@@ -200,7 +193,7 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
               <Loader2 className="h-6 w-6 animate-spin text-basalt-muted-foreground" />
             </div>
           ) : modelsNotSupported ? (
-            <div className="rounded-widget bg-basalt-secondary p-4">
+            <LayerCard>
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-basalt-muted-foreground mt-0.5 shrink-0" />
                 <div className="space-y-1">
@@ -211,7 +204,7 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
                   </p>
                 </div>
               </div>
-            </div>
+            </LayerCard>
           ) : data?.error ? (
             <div className="rounded-md border border-basalt-destructive/50 bg-basalt-destructive/10 p-4">
               <div className="flex items-start gap-2">
@@ -225,11 +218,11 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
           ) : data?.models ? (
             <div className="space-y-4">
               {/* Context window warning for local models */}
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+              <div className="rounded-md border border-basalt-warning/30 bg-basalt-warning/5 p-3">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                  <AlertCircle className="h-4 w-4 text-basalt-warning mt-0.5 shrink-0" />
                   <div className="space-y-1">
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                    <p className="text-xs text-basalt-warning">
                       Claude Code requires ~40K tokens context window. Models with smaller context may fail with &quot;prompt too long&quot; errors.
                     </p>
                   </div>
@@ -280,7 +273,7 @@ function ModelItem({ model }: { model: string }) {
   };
 
   return (
-    <div className="group flex items-center justify-between rounded-widget bg-basalt-secondary px-3 py-1.5">
+    <LayerCard padding="sm" className="group flex items-center justify-between">
       <code className="text-xs font-mono truncate">{model}</code>
       <Button
         size="icon"
@@ -290,12 +283,12 @@ function ModelItem({ model }: { model: string }) {
         aria-label="Copy model name"
       >
         {copied ? (
-          <Check className="h-3 w-3 text-green-500" strokeWidth={1.5} />
+          <Check className="h-3 w-3 text-basalt-chart-5" strokeWidth={1.5} />
         ) : (
           <Copy className="h-3 w-3" strokeWidth={1.5} />
         )}
       </Button>
-    </div>
+    </LayerCard>
   );
 }
 

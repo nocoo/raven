@@ -98,14 +98,14 @@ function DistributionBar({ data }: { data: BreakdownEntry[] }) {
   if (total === 0) return null;
 
   const BAR_COLORS = [
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-amber-500",
-    "bg-purple-500",
-    "bg-rose-500",
-    "bg-cyan-500",
-    "bg-orange-500",
-    "bg-indigo-500",
+    "bg-basalt-chart-1",
+    "bg-basalt-chart-2",
+    "bg-basalt-chart-3",
+    "bg-basalt-chart-4",
+    "bg-basalt-chart-5",
+    "bg-basalt-chart-6",
+    "bg-basalt-chart-7",
+    "bg-basalt-chart-8",
   ];
 
   return (

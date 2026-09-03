@@ -16,6 +16,7 @@ import {
   formatLatency as fmtLatency,
 } from "@/lib/chart-config";
 import { LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { StatCard } from "@/components/stats/stat-card";
 import { RpmChart } from "@/components/analytics/panels/rpm-chart";
 import { ModelDistribution } from "@/components/analytics/panels/model-distribution";
@@ -518,11 +519,7 @@ export function LogsStats({ events }: LogsStatsProps) {
       {/* ── Desktop: fixed-width left sidebar, always visible ── */}
       <div className="hidden lg:flex lg:w-[380px] lg:shrink-0 lg:flex-col lg:gap-6 lg:overflow-y-auto">
         {/* ── Section 1: Requests ── */}
-        <section>
-          <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-            <Activity className="h-4 w-4" strokeWidth={1.5} />
-            Requests
-          </h2>
+        <SectionRule title="Requests">
           <div className="space-y-3">
             <RequestCards stats={stats} hasData={hasData} />
             {hasData && (
@@ -532,36 +529,28 @@ export function LogsStats({ events }: LogsStatsProps) {
               </>
             )}
           </div>
-        </section>
+        </SectionRule>
 
         {/* ── Section 2: Models ── */}
         {hasData && (
-          <section>
-            <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-              <Coins className="h-4 w-4" strokeWidth={1.5} />
-              Models
-            </h2>
+          <SectionRule title="Models">
             <div className="space-y-3">
               <ModelCards stats={stats} hasData={hasData} />
               <ModelDistribution data={modelDist} />
             </div>
-          </section>
+          </SectionRule>
         )}
 
         {/* ── Section 3: Sessions ── */}
         {hasSessionData && (
-          <section>
-            <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4" strokeWidth={1.5} />
-              Sessions
-            </h2>
+          <SectionRule title="Sessions">
             <div className="space-y-3">
               <SessionSection
                 sessionTracker={sessionTracker}
                 concurrencyData={concurrencyData}
               />
             </div>
-          </section>
+          </SectionRule>
         )}
 
         {!hasData && !hasSessionData && (
@@ -598,11 +587,7 @@ export function LogsStats({ events }: LogsStatsProps) {
         {mobileExpanded && (
           <div className="border-t px-3 pb-3 pt-2 space-y-6">
             {/* ── Section 1: Requests ── */}
-            <section>
-              <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-                <Activity className="h-4 w-4" strokeWidth={1.5} />
-                Requests
-              </h2>
+            <SectionRule title="Requests">
               <div className="space-y-3">
                 <RequestCards stats={stats} hasData={hasData} />
                 {hasData && (
@@ -612,36 +597,28 @@ export function LogsStats({ events }: LogsStatsProps) {
                   </>
                 )}
               </div>
-            </section>
+            </SectionRule>
 
             {/* ── Section 2: Models ── */}
             {hasData && (
-              <section>
-                <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-                  <Coins className="h-4 w-4" strokeWidth={1.5} />
-                  Models
-                </h2>
+              <SectionRule title="Models">
                 <div className="space-y-3">
                   <ModelCards stats={stats} hasData={hasData} />
                   <ModelDistribution data={modelDist} />
                 </div>
-              </section>
+              </SectionRule>
             )}
 
             {/* ── Section 3: Sessions ── */}
             {hasSessionData && (
-              <section>
-                <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
-                  <Users className="h-4 w-4" strokeWidth={1.5} />
-                  Sessions
-                </h2>
+              <SectionRule title="Sessions">
                 <div className="space-y-3">
                   <SessionSection
                     sessionTracker={sessionTracker}
                     concurrencyData={concurrencyData}
                   />
                 </div>
-              </section>
+              </SectionRule>
             )}
 
             {!hasData && !hasSessionData && (

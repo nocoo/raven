@@ -17,7 +17,10 @@ export default async function ConnectPage() {
     const errorMsg = !keysResult.ok ? keysResult.error : !connResult.ok ? connResult.error : "Unknown error";
     return (
       <AppShell breadcrumbs={[{ label: "Connect" }]}>
-        <FetchError title="Failed to load connection info" message={errorMsg} />
+        <div className="space-y-4 md:space-y-6">
+          <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
+          <FetchError title="Failed to load connection info" message={errorMsg} />
+        </div>
       </AppShell>
     );
   }

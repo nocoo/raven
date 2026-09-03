@@ -42,7 +42,7 @@ function RpmTooltip({
       <p className={TOOLTIP_STYLES.title}>{label ? formatMinute(label) : ""}</p>
       <p className={TOOLTIP_STYLES.value}>{count?.value ?? 0} requests</p>
       {(errors?.value ?? 0) > 0 && (
-        <p className="text-red-500 text-xs">{errors?.value} errors</p>
+        <p className="text-basalt-destructive text-xs">{errors?.value} errors</p>
       )}
     </div>
   );

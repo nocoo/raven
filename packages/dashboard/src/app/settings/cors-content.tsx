@@ -8,6 +8,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Plus, Trash2, Loader2 } from "lucide-react";
 import { Button, Input, LayerCard, Switch } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 
 interface CorsContentProps {
   data: CorsInfo;
@@ -121,10 +122,7 @@ export function CorsContent({ data }: CorsContentProps) {
   );
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
-        CORS Allowed Origins
-      </h2>
+    <SectionRule title="CORS Allowed Origins">
       <p className="text-xs text-basalt-muted-foreground mb-4">
         Control which origins can make cross-origin requests to the proxy.
       </p>
@@ -209,6 +207,6 @@ export function CorsContent({ data }: CorsContentProps) {
           </p>
         </div>
       </LayerCard>
-    </section>
+    </SectionRule>
   );
 }

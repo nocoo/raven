@@ -12,7 +12,10 @@ export default async function ProxyPage() {
   if (!result.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Settings" }, { label: "Proxy" }]}>
-        <FetchError title="Failed to load proxy settings" message={result.error} />
+        <div className="space-y-4 md:space-y-6">
+          <PageHeader title="Proxy" description="SOCKS5 outbound proxy used for upstream connections." />
+          <FetchError title="Failed to load proxy settings" message={result.error} />
+        </div>
       </AppShell>
     );
   }

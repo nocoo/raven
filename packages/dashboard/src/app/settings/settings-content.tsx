@@ -8,6 +8,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Save, RotateCcw, Loader2 } from "lucide-react";
 import { Button, Badge, Input, LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 
 // ── Display config ──
 
@@ -43,10 +44,7 @@ interface SettingsContentProps {
 
 export function SettingsContent({ data }: SettingsContentProps) {
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
-        Version Overrides
-      </h2>
+    <SectionRule title="Version Overrides">
       <p className="text-xs text-basalt-muted-foreground mb-4">
         These versions are sent in HTTP headers when communicating with GitHub
         Copilot. Values are auto-detected from your local VS Code installation.
@@ -59,7 +57,7 @@ export function SettingsContent({ data }: SettingsContentProps) {
           return <SettingRow key={key} settingKey={key} info={info} />;
         })}
       </div>
-    </section>
+    </SectionRule>
   );
 }
 

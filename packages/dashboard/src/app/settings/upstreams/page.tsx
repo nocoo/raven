@@ -13,7 +13,10 @@ export default async function UpstreamsPage() {
   if (!result.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Settings" }, { label: "Upstreams" }]}>
-        <FetchError title="Failed to load upstreams" message={result.error} />
+        <div className="space-y-4 md:space-y-6">
+          <PageHeader title="Upstreams" description="Configured upstream providers and their available models." />
+          <FetchError title="Failed to load upstreams" message={result.error} />
+        </div>
       </AppShell>
     );
   }

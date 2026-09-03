@@ -1,6 +1,7 @@
 "use client"
 
 import { Label, LayerCard, Switch } from "@nocoo/basalt"
+import { SectionRule } from "@nocoo/basalt/components/section-rule"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -71,10 +72,7 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
   }
 
   return (
-    <section>
-      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
-        Debugging
-      </h2>
+    <SectionRule title="Debugging">
       <div className="grid gap-3">
         {DEBUG_ITEMS.map((item) => (
           <LayerCard key={item.id}>
@@ -102,6 +100,6 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
           </LayerCard>
         ))}
       </div>
-    </section>
+    </SectionRule>
   )
 }

@@ -18,7 +18,10 @@ export default async function SettingsPage() {
   if (!settingsResult.ok) {
     return (
       <AppShell breadcrumbs={[{ label: "Settings" }]}>
-        <FetchError title="Failed to load settings" message={settingsResult.error} />
+        <div className="space-y-4 md:space-y-6">
+          <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
+          <FetchError title="Failed to load settings" message={settingsResult.error} />
+        </div>
       </AppShell>
     );
   }
