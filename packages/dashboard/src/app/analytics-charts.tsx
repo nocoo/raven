@@ -423,13 +423,13 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
         {top.map((entry) => (
           <div key={entry.key} className="flex items-center gap-2">
             <span className="text-meta w-24 truncate shrink-0">{entry.key || "(empty)"}</span>
-            <div className="flex-1 h-5 bg-background rounded-sm overflow-hidden">
+            <div className="flex-1 h-5 bg-basalt-background rounded-sm overflow-hidden">
               <div
-                className="h-full bg-primary/60 rounded-sm transition-all"
+                className="h-full bg-basalt-primary/60 rounded-sm transition-all"
                 style={{ width: `${(entry.count / maxCount) * 100}%` }}
               />
             </div>
-            <span className="text-numeric w-12 text-right text-muted-foreground">
+            <span className="text-numeric w-12 text-right text-basalt-muted-foreground">
               {formatCompact(entry.count)}
             </span>
           </div>

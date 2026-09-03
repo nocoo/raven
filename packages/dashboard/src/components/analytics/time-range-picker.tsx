@@ -24,7 +24,7 @@ export function TimeRangePicker({ value, onChange }: TimeRangePickerProps) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as TimeRange)}>
       <SelectTrigger size="sm" className="text-xs min-w-[150px]">
-        <Clock className="size-3.5 text-muted-foreground" />
+        <Clock className="size-3.5 text-basalt-muted-foreground" />
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

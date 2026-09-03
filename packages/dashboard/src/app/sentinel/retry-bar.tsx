@@ -72,11 +72,11 @@ export const RetryBar = memo(function RetryBar({ stacks }: RetryBarProps) {
       <div className="flex-1 min-h-[60px] flex items-center">
         {isEmpty ? (
           <div
-            className="h-full w-full rounded-md bg-muted/40 flex items-center justify-center"
+            className="h-full w-full rounded-md bg-basalt-muted/40 flex items-center justify-center"
             role="img"
             aria-label="No LLM-401 retry attempts yet"
           >
-            <span className="text-meta text-muted-foreground">
+            <span className="text-meta text-basalt-muted-foreground">
               No LLM-401 retry attempts yet
             </span>
           </div>
@@ -133,13 +133,13 @@ export const RetryBar = memo(function RetryBar({ stacks }: RetryBarProps) {
                 className="inline-block h-2 w-2 rounded-full shrink-0"
                 style={{ background: s.color }}
               />
-              <span className="text-muted-foreground flex-1 truncate">
+              <span className="text-basalt-muted-foreground flex-1 truncate">
                 {s.label}
               </span>
-              <span className="tabular-nums text-foreground">
+              <span className="tabular-nums text-basalt-foreground">
                 {s.value.toLocaleString()}
               </span>
-              <span className="tabular-nums text-muted-foreground/70 w-8 text-right">
+              <span className="tabular-nums text-basalt-muted-foreground/70 w-8 text-right">
                 {pct}%
               </span>
             </li>

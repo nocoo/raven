@@ -9,7 +9,7 @@
  *   - <ChartTooltipRow />         — single key/value row inside the tooltip
  *   - <ChartTooltipSummary />     — bottom summary row (e.g. Total)
  *
- * The tooltip atoms render the L3 overlay treatment: bg-popover, border, shadow.
+ * The tooltip atoms render the L3 overlay treatment: bg-basalt-popover, border, shadow.
  */
 
 import type { ReactNode } from "react";
@@ -62,13 +62,13 @@ export function ChartTooltip({ title, className, children }: ChartTooltipProps) 
   return (
     <div
       className={cn(
-        "rounded-md border bg-popover px-3 py-2 text-sm shadow-lg",
+        "rounded-md border bg-basalt-popover px-3 py-2 text-sm shadow-lg",
         "min-w-[140px]",
         className,
       )}
     >
       {title !== undefined && title !== null && title !== "" && (
-        <p className="mb-1 font-medium text-popover-foreground">{title}</p>
+        <p className="mb-1 font-medium text-basalt-popover-foreground">{title}</p>
       )}
       {children}
     </div>
@@ -88,7 +88,7 @@ interface ChartTooltipRowProps {
 export function ChartTooltipRow({ color, label, value }: ChartTooltipRowProps) {
   return (
     <div className="flex items-center justify-between gap-3 py-0.5 text-xs">
-      <span className="flex items-center gap-1.5 text-muted-foreground">
+      <span className="flex items-center gap-1.5 text-basalt-muted-foreground">
         {color && (
           <span
             aria-hidden
@@ -98,7 +98,7 @@ export function ChartTooltipRow({ color, label, value }: ChartTooltipRowProps) {
         )}
         {label}
       </span>
-      <span className="font-medium text-popover-foreground tabular-nums">
+      <span className="font-medium text-basalt-popover-foreground tabular-nums">
         {value}
       </span>
     </div>
@@ -116,9 +116,9 @@ interface ChartTooltipSummaryProps {
  */
 export function ChartTooltipSummary({ label, value }: ChartTooltipSummaryProps) {
   return (
-    <div className="mt-1 flex items-center justify-between gap-3 border-t border-border/30 pt-1 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold text-popover-foreground tabular-nums">
+    <div className="mt-1 flex items-center justify-between gap-3 border-t border-basalt-border/30 pt-1 text-xs">
+      <span className="text-basalt-muted-foreground">{label}</span>
+      <span className="font-semibold text-basalt-popover-foreground tabular-nums">
         {value}
       </span>
     </div>

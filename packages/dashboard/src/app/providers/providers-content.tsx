@@ -111,7 +111,7 @@ function DistributionBar({ data }: { data: BreakdownEntry[] }) {
   return (
     <div className="space-y-2">
       {/* Stacked bar */}
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-background">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-basalt-background">
         {data.map((entry, i) => {
           const pct = (entry.count / total) * 100;
           if (pct < 0.5) return null;
@@ -132,7 +132,7 @@ function DistributionBar({ data }: { data: BreakdownEntry[] }) {
           return (
             <div key={entry.key} className="flex items-center gap-1.5 text-xs">
               <span className={cn("size-2 rounded-full shrink-0", BAR_COLORS[i % BAR_COLORS.length])} />
-              <span className="text-muted-foreground truncate max-w-[120px]">{entry.key || "(unknown)"}</span>
+              <span className="text-basalt-muted-foreground truncate max-w-[120px]">{entry.key || "(unknown)"}</span>
               <span className="tabular-nums font-medium">{pct.toFixed(1)}%</span>
             </div>
           );
@@ -164,7 +164,7 @@ function RankingTable({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border">
+            <tr className="border-b border-basalt-border">
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -199,13 +199,13 @@ function RankingTable({
             {data.map((entry) => (
               <tr
                 key={entry.key}
-                className="border-b border-border/50 hover:bg-background/50 transition-colors cursor-pointer"
+                className="border-b border-basalt-border/50 hover:bg-basalt-background/50 transition-colors cursor-pointer"
                 onClick={() => onRowClick(entry)}
               >
                 {COLUMNS.map((col) => (
                   <td key={col.key} className="px-3 py-2.5 whitespace-nowrap tabular-nums">
                     {col.key === "key" ? (
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-basalt-foreground">
                         {entry.key || "(unknown)"}
                       </span>
                     ) : col.key === "error_rate" ? (
@@ -222,7 +222,7 @@ function RankingTable({
                         {formatCellValue(entry, col.key)}
                       </Badge>
                     ) : (
-                      <span className="text-muted-foreground">
+                      <span className="text-basalt-muted-foreground">
                         {formatCellValue(entry, col.key)}
                       </span>
                     )}
@@ -232,7 +232,7 @@ function RankingTable({
             ))}
             {data.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
                   No data found for the selected time range
                 </td>
               </tr>
@@ -305,7 +305,7 @@ export function ProvidersContent({ strategies, upstreams, routingPaths }: Provid
   return (
     <div className="space-y-4">
       {/* Tab selector */}
-      <div className="flex gap-1 rounded-lg bg-background p-1 w-fit">
+      <div className="flex gap-1 rounded-lg bg-basalt-background p-1 w-fit">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -318,8 +318,8 @@ export function ProvidersContent({ strategies, upstreams, routingPaths }: Provid
             className={cn(
               "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
               activeTab === tab.id
-                ? "bg-secondary text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                ? "bg-basalt-secondary text-basalt-foreground shadow-sm"
+                : "text-basalt-muted-foreground hover:text-basalt-foreground",
             )}
           >
             <tab.icon className="size-3.5" />

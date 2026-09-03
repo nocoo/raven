@@ -21,13 +21,13 @@ export function LiveIndicator({ isLive, rangeLabel, className }: LiveIndicatorPr
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success",
+          "inline-flex items-center gap-1.5 rounded-full bg-basalt-chart-5/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-basalt-chart-5",
           className,
         )}
       >
         <span className="relative flex size-2">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-75" />
-          <span className="relative inline-flex size-2 rounded-full bg-success" />
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-basalt-chart-5 opacity-75" />
+          <span className="relative inline-flex size-2 rounded-full bg-basalt-chart-5" />
         </span>
         Live
       </span>
@@ -37,13 +37,13 @@ export function LiveIndicator({ isLive, rangeLabel, className }: LiveIndicatorPr
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground",
+        "inline-flex items-center gap-1 rounded-full bg-basalt-muted px-2 py-0.5 text-[10px] font-medium text-basalt-muted-foreground",
         className,
       )}
     >
       Historical
       {rangeLabel && (
-        <span className="text-muted-foreground/60">({rangeLabel})</span>
+        <span className="text-basalt-muted-foreground/60">({rangeLabel})</span>
       )}
     </span>
   );

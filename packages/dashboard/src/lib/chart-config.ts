@@ -81,9 +81,9 @@ export const AXIS_CONFIG = {
  * See docs/22-dashboard-design-system.md (Rule 6).
  */
 export const TOOLTIP_STYLES = {
-  container: "rounded-md border bg-popover px-3 py-2 text-sm shadow-md",
+  container: "rounded-md border bg-basalt-popover px-3 py-2 text-sm shadow-md",
   title: "font-medium",
-  value: "text-muted-foreground",
+  value: "text-basalt-muted-foreground",
 } as const;
 
 /**

@@ -94,7 +94,7 @@ export function ModelExplorer({ data, currentSort, currentOrder }: ModelExplorer
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border">
+            <tr className="border-b border-basalt-border">
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -129,7 +129,7 @@ export function ModelExplorer({ data, currentSort, currentOrder }: ModelExplorer
             {data.map((entry) => (
               <tr
                 key={entry.key}
-                className="border-b border-border/50 hover:bg-background/50 transition-colors"
+                className="border-b border-basalt-border/50 hover:bg-basalt-background/50 transition-colors"
               >
                 {COLUMNS.map((col) => (
                   <td
@@ -137,7 +137,7 @@ export function ModelExplorer({ data, currentSort, currentOrder }: ModelExplorer
                     className="px-3 py-2.5 whitespace-nowrap tabular-nums"
                   >
                     {col.key === "key" ? (
-                      <span className="font-medium text-foreground">{entry.key || "(unknown)"}</span>
+                      <span className="font-medium text-basalt-foreground">{entry.key || "(unknown)"}</span>
                     ) : col.key === "error_rate" ? (
                       <Badge
                         variant={entry.error_rate > 0.1 ? "destructive" : entry.error_rate > 0.05 ? "warning" : "secondary"}
@@ -146,7 +146,7 @@ export function ModelExplorer({ data, currentSort, currentOrder }: ModelExplorer
                         {formatCellValue(entry, col.key)}
                       </Badge>
                     ) : (
-                      <span className="text-muted-foreground">{formatCellValue(entry, col.key)}</span>
+                      <span className="text-basalt-muted-foreground">{formatCellValue(entry, col.key)}</span>
                     )}
                   </td>
                 ))}
@@ -154,7 +154,7 @@ export function ModelExplorer({ data, currentSort, currentOrder }: ModelExplorer
             ))}
             {data.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
                   No model data found for the selected time range
                 </td>
               </tr>

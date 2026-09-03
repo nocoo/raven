@@ -71,7 +71,7 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border">
+            <tr className="border-b border-basalt-border">
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
@@ -106,7 +106,7 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
             {data.map((entry) => (
               <tr
                 key={entry.key}
-                className="border-b border-border/50 hover:bg-background/50 transition-colors cursor-pointer"
+                className="border-b border-basalt-border/50 hover:bg-basalt-background/50 transition-colors cursor-pointer"
                 onClick={() => {
                   const params = new URLSearchParams(searchParams.toString());
                   params.set("session", entry.key);
@@ -114,23 +114,23 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
                 }}
               >
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  <span className="font-mono text-xs font-medium text-foreground">
+                  <span className="font-mono text-xs font-medium text-basalt-foreground">
                     {truncateSessionId(entry.key || "(unknown)")}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
                   {entry.client_name || "—"}
                 </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
                   {entry.account_name || "—"}
                 </td>
-                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
                   {formatCompact(entry.count)}
                 </td>
-                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
                   {formatDuration(entry.first_seen, entry.last_seen)}
                 </td>
-                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
                   {formatCompact(entry.total_tokens)}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
@@ -141,14 +141,14 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
                     {formatPercent(entry.error_rate)}
                   </Badge>
                 </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
+                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
                   {formatRelativeTime(entry.last_seen)}
                 </td>
               </tr>
             ))}
             {data.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
                   No session data found for the selected time range
                 </td>
               </tr>

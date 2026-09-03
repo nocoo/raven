@@ -6,8 +6,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Bridge old unprefixed utilities onto Basalt tokens until pages are migrated.
  * Brand primary is Raven purple-indigo (logo).
+ * Do not re-declare a parallel unprefixed color system.
  */
 :root,
 .light,
@@ -27,56 +27,6 @@
 }
 
 @theme inline {
-  --color-border: hsl(var(--basalt-border));
-  --color-input: hsl(var(--basalt-input));
-  --color-ring: hsl(var(--basalt-ring));
-  --color-background: hsl(var(--basalt-background));
-  --color-foreground: hsl(var(--basalt-foreground));
-
-  --color-primary: hsl(var(--basalt-primary));
-  --color-primary-foreground: hsl(var(--basalt-primary-foreground));
-
-  --color-secondary: hsl(var(--basalt-secondary));
-  --color-secondary-foreground: hsl(var(--basalt-secondary-foreground));
-
-  --color-destructive: hsl(var(--basalt-destructive));
-  --color-destructive-foreground: hsl(var(--basalt-destructive-foreground));
-
-  --color-muted: hsl(var(--basalt-muted));
-  --color-muted-foreground: hsl(var(--basalt-muted-foreground));
-
-  --color-accent: hsl(var(--basalt-accent));
-  --color-accent-foreground: hsl(var(--basalt-accent-foreground));
-
-  --color-popover: hsl(var(--basalt-popover));
-  --color-popover-foreground: hsl(var(--basalt-popover-foreground));
-
-  --color-card: hsl(var(--basalt-card));
-  --color-card-foreground: hsl(var(--basalt-card-foreground));
-
-  --color-sidebar: hsl(var(--basalt-background));
-  --color-sidebar-foreground: hsl(var(--basalt-foreground));
-  --color-sidebar-primary: hsl(var(--basalt-primary));
-  --color-sidebar-primary-foreground: hsl(var(--basalt-primary-foreground));
-  --color-sidebar-accent: hsl(var(--basalt-accent));
-  --color-sidebar-accent-foreground: hsl(var(--basalt-accent-foreground));
-  --color-sidebar-border: hsl(var(--basalt-border));
-  --color-sidebar-ring: hsl(var(--basalt-ring));
-
-  --color-success: hsl(var(--basalt-chart-5));
-  --color-success-foreground: hsl(0 0% 100%);
-  --color-warning: hsl(var(--basalt-warning));
-  --color-warning-foreground: hsl(var(--basalt-foreground));
-  --color-info: hsl(var(--basalt-info));
-  --color-info-foreground: hsl(0 0% 100%);
-  --color-purple: hsl(var(--basalt-chart-14));
-  --color-purple-foreground: hsl(0 0% 100%);
-  --color-teal: hsl(var(--basalt-chart-3));
-  --color-teal-foreground: hsl(0 0% 100%);
-  --color-badge-red: hsl(var(--basalt-danger));
-  --color-badge-red-foreground: hsl(0 0% 100%);
-
-  --radius-card: var(--basalt-radius-card);
   --radius-widget: var(--basalt-radius-widget);
   --radius-island: var(--basalt-radius-island);
   --radius-lg: var(--basalt-radius);
@@ -109,23 +59,13 @@
   }
 }
 
-:root {
-  --success: var(--basalt-chart-5);
-  --warning: var(--basalt-warning);
-  --info: var(--basalt-info);
-  --purple: var(--basalt-chart-14);
-  --teal: var(--basalt-chart-3);
-  --badge-red: var(--basalt-danger);
-  --radius: var(--basalt-radius);
-}
-
 @layer base {
   html,
   body {
     height: 100%;
   }
   * {
-    @apply border-border;
+    @apply border-basalt-border;
   }
   body {
     @apply bg-basalt-background text-basalt-foreground antialiased;

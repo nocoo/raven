@@ -31,7 +31,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+        <h2 className="text-sm font-medium text-basalt-muted-foreground flex items-center gap-2">
           <ArrowUpDown className="h-4 w-4" strokeWidth={1.5} />
           Custom Upstream Providers
         </h2>
@@ -40,9 +40,9 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
 
       {providers.length === 0 ? (
         <LayerCard className="px-6 py-8 text-center">
-          <ArrowUpDown className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
-          <p className="text-sm text-muted-foreground">No upstream providers configured</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
+          <ArrowUpDown className="h-8 w-8 text-basalt-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
+          <p className="text-sm text-basalt-muted-foreground">No upstream providers configured</p>
+          <p className="text-xs text-basalt-muted-foreground/70 mt-1">
             Add custom providers to route specific models to external APIs
           </p>
         </LayerCard>
@@ -71,14 +71,14 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
                     </Badge>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    <code className="text-xs text-muted-foreground truncate max-w-48 block">
+                    <code className="text-xs text-basalt-muted-foreground truncate max-w-48 block">
                       {provider.base_url}
                     </code>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">
                       {provider.model_patterns.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">None</span>
+                        <span className="text-xs text-basalt-muted-foreground">None</span>
                       ) : (
                         provider.model_patterns.map((pattern) => (
                           <Badge key={pattern} variant="secondary" className="font-mono text-[10px]">
@@ -89,7 +89,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
                     </div>
                   </TableCell>
                   <TableCell className="hidden xl:table-cell">
-                    <code className="text-xs text-muted-foreground">{provider.api_key_preview}</code>
+                    <code className="text-xs text-basalt-muted-foreground">{provider.api_key_preview}</code>
                   </TableCell>
                   <TableCell>
                     {provider.is_enabled ? (
@@ -197,15 +197,15 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
         <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 w-6 animate-spin text-basalt-muted-foreground" />
             </div>
           ) : modelsNotSupported ? (
-            <div className="rounded-widget bg-secondary p-4">
+            <div className="rounded-widget bg-basalt-secondary p-4">
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                <AlertCircle className="h-4 w-4 text-basalt-muted-foreground mt-0.5 shrink-0" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Models endpoint not supported</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-basalt-muted-foreground">
                     This provider&apos;s API does not expose a /v1/models endpoint.
                     The provider may still work for chat completions.
                   </p>
@@ -213,12 +213,12 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
               </div>
             </div>
           ) : data?.error ? (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">
+            <div className="rounded-md border border-basalt-destructive/50 bg-basalt-destructive/10 p-4">
               <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <AlertCircle className="h-4 w-4 text-basalt-destructive mt-0.5 shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-destructive">Connection Failed</p>
-                  <p className="text-xs text-muted-foreground">{data.error.message}</p>
+                  <p className="text-sm font-medium text-basalt-destructive">Connection Failed</p>
+                  <p className="text-xs text-basalt-muted-foreground">{data.error.message}</p>
                 </div>
               </div>
             </div>
@@ -237,7 +237,7 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
               </div>
               {Object.entries(data.models).map(([owner, models]) => (
                 <div key={owner} className="space-y-2">
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <h4 className="text-xs font-medium text-basalt-muted-foreground uppercase tracking-wide">
                     {owner} ({models.length})
                   </h4>
                   <div className="space-y-1">
@@ -280,7 +280,7 @@ function ModelItem({ model }: { model: string }) {
   };
 
   return (
-    <div className="group flex items-center justify-between rounded-widget bg-secondary px-3 py-1.5">
+    <div className="group flex items-center justify-between rounded-widget bg-basalt-secondary px-3 py-1.5">
       <code className="text-xs font-mono truncate">{model}</code>
       <Button
         size="icon"
@@ -504,7 +504,7 @@ function DeleteProviderButton({ id, name }: { id: string; name: string }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost" aria-label="Delete provider">
-          <Trash2 className="h-3.5 w-3.5 text-destructive" strokeWidth={1.5} />
+          <Trash2 className="h-3.5 w-3.5 text-basalt-destructive" strokeWidth={1.5} />
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -603,7 +603,7 @@ function ProviderForm<T extends CreateProviderInput | UpdateProviderInput>({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="api_key">API Key {isEdit && <span className="text-muted-foreground">(leave empty to keep current)</span>}</Label>
+        <Label htmlFor="api_key">API Key {isEdit && <span className="text-basalt-muted-foreground">(leave empty to keep current)</span>}</Label>
         <Input
           id="api_key"
           type="password"
@@ -636,7 +636,7 @@ function ProviderForm<T extends CreateProviderInput | UpdateProviderInput>({
             handlePatternsChange(e.target.value);
           }}
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-basalt-muted-foreground">
           Exact patterns (e.g. glm-5) match before glob patterns (e.g. glm-*). Globs serve as fallbacks.
         </p>
       </div>
@@ -653,7 +653,7 @@ function ProviderForm<T extends CreateProviderInput | UpdateProviderInput>({
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label htmlFor="supports_reasoning">Supports Reasoning</Label>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-basalt-muted-foreground">
             Enable for o1/o3-style models that accept reasoning_effort parameter
           </p>
         </div>
@@ -664,7 +664,7 @@ function ProviderForm<T extends CreateProviderInput | UpdateProviderInput>({
         />
       </div>
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-basalt-destructive">{error}</p>}
     </div>
   );
 }

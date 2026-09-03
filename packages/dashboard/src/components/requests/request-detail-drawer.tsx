@@ -53,8 +53,8 @@ function isJsonLike(value: string): boolean {
 function DetailRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   if (value === null || value === undefined || value === "") return null;
   return (
-    <div className="flex justify-between items-start gap-4 py-1.5 border-b border-border/30 last:border-0">
-      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+    <div className="flex justify-between items-start gap-4 py-1.5 border-b border-basalt-border/30 last:border-0">
+      <span className="text-xs text-basalt-muted-foreground shrink-0">{label}</span>
       <span className={`text-xs text-right ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
@@ -96,7 +96,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
         <div className="px-4 pb-4 space-y-4">
           {/* Request ID */}
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground truncate flex-1">
+            <span className="font-mono text-xs text-basalt-muted-foreground truncate flex-1">
               {request.id}
             </span>
             <Button
@@ -111,10 +111,10 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
           {/* Timing Breakdown */}
           <section>
-            <h4 className="text-xs font-medium text-foreground mb-2">Timing</h4>
+            <h4 className="text-xs font-medium text-basalt-foreground mb-2">Timing</h4>
             <div className="space-y-1">
               {/* Visual waterfall bar */}
-              <div className="h-6 flex rounded overflow-hidden bg-muted text-[10px]">
+              <div className="h-6 flex rounded overflow-hidden bg-basalt-muted text-[10px]">
                 {ttft != null && ttftPct > 0 && (
                   <div
                     className="flex items-center justify-center bg-basalt-chart-2 text-white"
@@ -148,7 +148,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
           {/* Request Details */}
           <section>
-            <h4 className="text-xs font-medium text-foreground mb-2">Request</h4>
+            <h4 className="text-xs font-medium text-basalt-foreground mb-2">Request</h4>
             <DetailRow label="Path" value={request.path} mono />
             <DetailRow label="Model" value={request.model} mono />
             <DetailRow label="Resolved Model" value={request.resolved_model} mono />
@@ -161,7 +161,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
           {/* Tokens */}
           <section>
-            <h4 className="text-xs font-medium text-foreground mb-2">Tokens</h4>
+            <h4 className="text-xs font-medium text-basalt-foreground mb-2">Tokens</h4>
             <DetailRow
               label="Input"
               value={request.input_tokens != null ? request.input_tokens.toLocaleString() : "—"}
@@ -195,7 +195,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
           {/* Routing */}
           <section>
-            <h4 className="text-xs font-medium text-foreground mb-2">Routing</h4>
+            <h4 className="text-xs font-medium text-basalt-foreground mb-2">Routing</h4>
             <DetailRow label="Strategy" value={request.strategy || null} />
             <DetailRow label="Upstream" value={request.upstream || null} />
             <DetailRow label="Upstream Format" value={request.upstream_format || null} />
@@ -205,14 +205,14 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
           {/* Client Context */}
           <section>
-            <h4 className="text-xs font-medium text-foreground mb-2">Client</h4>
+            <h4 className="text-xs font-medium text-basalt-foreground mb-2">Client</h4>
             <DetailRow label="Account" value={request.account_name || null} />
             <DetailRow label="Client" value={request.client_name || null} />
             <DetailRow label="Version" value={request.client_version} />
             {request.session_id && (
               isJsonLike(request.session_id) ? (
                 <div className="py-1.5">
-                  <div className="text-xs text-muted-foreground mb-1">Session</div>
+                  <div className="text-xs text-basalt-muted-foreground mb-1">Session</div>
                   <JsonBlock value={request.session_id} />
                 </div>
               ) : (
@@ -223,7 +223,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
           {/* Response Metadata */}
           <section>
-            <h4 className="text-xs font-medium text-foreground mb-2">Response</h4>
+            <h4 className="text-xs font-medium text-basalt-foreground mb-2">Response</h4>
             <DetailRow label="Stop Reason" value={request.stop_reason || null} />
             <DetailRow
               label="Tool Calls"
@@ -231,9 +231,9 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
               mono
             />
             {request.error_message && (
-              <div className="mt-2 p-2 rounded bg-destructive/10 border border-destructive/20">
-                <p className="text-xs font-medium text-destructive mb-1">Error</p>
-                <p className="text-xs text-destructive/80 font-mono whitespace-pre-wrap break-all">
+              <div className="mt-2 p-2 rounded bg-basalt-destructive/10 border border-basalt-destructive/20">
+                <p className="text-xs font-medium text-basalt-destructive mb-1">Error</p>
+                <p className="text-xs text-basalt-destructive/80 font-mono whitespace-pre-wrap break-all">
                   {request.error_message}
                 </p>
               </div>

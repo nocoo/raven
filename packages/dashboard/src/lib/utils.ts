@@ -16,22 +16,22 @@ function hashString(str: string): number {
 }
 
 const AVATAR_COLORS = [
-  "bg-badge-red",
-  "bg-purple",
-  "bg-purple/85",
-  "bg-purple/70",
-  "bg-info",
-  "bg-info/85",
-  "bg-primary",
-  "bg-info/70",
-  "bg-teal",
-  "bg-teal/85",
-  "bg-success",
-  "bg-success/85",
-  "bg-muted-foreground",
-  "bg-warning",
-  "bg-primary/85",
-  "bg-destructive",
+  "bg-basalt-danger",
+  "bg-basalt-chart-14",
+  "bg-basalt-chart-14/85",
+  "bg-basalt-chart-14/70",
+  "bg-basalt-info",
+  "bg-basalt-info/85",
+  "bg-basalt-primary",
+  "bg-basalt-info/70",
+  "bg-basalt-chart-3",
+  "bg-basalt-chart-3/85",
+  "bg-basalt-chart-5",
+  "bg-basalt-chart-5/85",
+  "bg-basalt-muted-foreground",
+  "bg-basalt-warning",
+  "bg-basalt-primary/85",
+  "bg-basalt-destructive",
 ] as const;
 
 export function getAvatarColor(name: string): string {

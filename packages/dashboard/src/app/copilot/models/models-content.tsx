@@ -33,11 +33,11 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button type="button"
       onClick={handleCopy}
-      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      className="inline-flex h-5 w-5 items-center justify-center rounded text-basalt-muted-foreground hover:text-basalt-foreground hover:bg-basalt-accent transition-colors"
       aria-label={`Copy ${text}`}
     >
       {copied ? (
-        <Check className="h-3 w-3 text-success" />
+        <Check className="h-3 w-3 text-basalt-chart-5" />
       ) : (
         <Copy className="h-3 w-3" />
       )}
@@ -134,7 +134,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
       </div>
 
       {refreshError && (
-        <p className="text-xs text-destructive">{refreshError}</p>
+        <p className="text-xs text-basalt-destructive">{refreshError}</p>
       )}
 
       {/* Summary tiles */}
@@ -195,7 +195,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                       </span>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell font-medium truncate">{model.name}</TableCell>
-                    <TableCell className="hidden xl:table-cell text-muted-foreground truncate">
+                    <TableCell className="hidden xl:table-cell text-basalt-muted-foreground truncate">
                       {model.version}
                     </TableCell>
                     <TableCell className="hidden xl:table-cell truncate">{model.capabilities.family}</TableCell>
@@ -223,7 +223,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                       {model.preview_state ? (
                         <Badge variant="info">{model.preview_state}</Badge>
                       ) : (
-                        <span className="text-muted-foreground">-</span>
+                        <span className="text-basalt-muted-foreground">-</span>
                       )}
                     </TableCell>
                   </TableRow>

@@ -145,10 +145,10 @@ export function RequestTable({
     return (
       <button type="button"
         onClick={() => toggleSort(column)}
-        className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1 hover:text-basalt-foreground transition-colors"
       >
         {children}
-        <ArrowUpDown className={`h-3 w-3 ${isActive ? "text-foreground" : "text-muted-foreground"}`} />
+        <ArrowUpDown className={`h-3 w-3 ${isActive ? "text-basalt-foreground" : "text-basalt-muted-foreground"}`} />
       </button>
     );
   }
@@ -166,7 +166,7 @@ export function RequestTable({
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
+              <TableRow className="border-basalt-border hover:bg-transparent">
                 {isVisible("timestamp") && (
                   <TableHead aria-sort={getAriaSort("timestamp")} className="px-3 py-2.5 h-auto text-card-label font-medium">
                     <SortButton column="timestamp">Time</SortButton>
@@ -212,10 +212,10 @@ export function RequestTable({
             </TableHeader>
             <TableBody>
               {data.length === 0 ? (
-                <TableRow className="border-border/50">
+                <TableRow className="border-basalt-border/50">
                   <TableCell
                     colSpan={visibleColumns.size}
-                    className="text-center text-muted-foreground py-8"
+                    className="text-center text-basalt-muted-foreground py-8"
                   >
                     No requests found
                   </TableCell>
@@ -225,23 +225,23 @@ export function RequestTable({
                   <TableRow
                     key={req.id}
                     className={cn(
-                      "border-border/50 hover:bg-background/50",
+                      "border-basalt-border/50 hover:bg-basalt-background/50",
                       onRowClick && "cursor-pointer",
                     )}
                     onClick={() => onRowClick?.(req)}
                   >
                     {isVisible("timestamp") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground tabular-nums whitespace-nowrap">
                         {formatTimestamp(req.timestamp)}
                       </TableCell>
                     )}
                     {isVisible("model") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs font-medium text-foreground max-w-[160px] truncate">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs font-medium text-basalt-foreground max-w-[160px] truncate">
                         {req.model}
                       </TableCell>
                     )}
                     {isVisible("path") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground max-w-[120px] truncate">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground max-w-[120px] truncate">
                         {truncate(req.path, 24)}
                       </TableCell>
                     )}
@@ -263,68 +263,68 @@ export function RequestTable({
                       </TableCell>
                     )}
                     {isVisible("latency_ms") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">
                         {formatLatency(req.latency_ms)}
                       </TableCell>
                     )}
                     {isVisible("ttft_ms") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">
                         {req.ttft_ms != null ? formatLatency(req.ttft_ms) : "—"}
                       </TableCell>
                     )}
                     {isVisible("processing_ms") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">
                         {req.processing_ms != null ? formatLatency(req.processing_ms) : "—"}
                       </TableCell>
                     )}
                     {isVisible("tokens") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">
                         {formatTokens(req.input_tokens, req.output_tokens)}
                       </TableCell>
                     )}
                     {isVisible("stream") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">
                         {req.stream ? "yes" : "no"}
                       </TableCell>
                     )}
                     {isVisible("strategy") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.strategy || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.strategy || "—"}</TableCell>
                     )}
                     {isVisible("upstream") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.upstream || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.upstream || "—"}</TableCell>
                     )}
                     {isVisible("account_name") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.account_name || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.account_name || "—"}</TableCell>
                     )}
                     {isVisible("client_name") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.client_name || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.client_name || "—"}</TableCell>
                     )}
                     {isVisible("session_id") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground max-w-[100px] truncate">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground max-w-[100px] truncate">
                         {req.session_id ? truncate(req.session_id, 12) : "—"}
                       </TableCell>
                     )}
                     {isVisible("status_code") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">{req.status_code}</TableCell>
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">{req.status_code}</TableCell>
                     )}
                     {isVisible("stop_reason") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.stop_reason || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.stop_reason || "—"}</TableCell>
                     )}
                     {isVisible("tool_call_count") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground tabular-nums">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">
                         {req.tool_call_count > 0 ? req.tool_call_count : "—"}
                       </TableCell>
                     )}
                     {isVisible("routing_path") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">{req.routing_path || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.routing_path || "—"}</TableCell>
                     )}
                     {isVisible("translated_model") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-muted-foreground max-w-[120px] truncate">
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground max-w-[120px] truncate">
                         {req.translated_model || "—"}
                       </TableCell>
                     )}
                     {isVisible("error_message") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-destructive max-w-[150px] truncate">
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-destructive max-w-[150px] truncate">
                         {req.error_message || "—"}
                       </TableCell>
                     )}
@@ -338,7 +338,7 @@ export function RequestTable({
 
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-basalt-muted-foreground">
           {total != null ? `${total.toLocaleString()} total` : `${data.length} shown`}
         </p>
         <div className="flex items-center gap-2">

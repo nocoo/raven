@@ -122,10 +122,10 @@ export function CorsContent({ data }: CorsContentProps) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
         CORS Allowed Origins
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-basalt-muted-foreground mb-4">
         Control which origins can make cross-origin requests to the proxy.
       </p>
 
@@ -133,7 +133,7 @@ export function CorsContent({ data }: CorsContentProps) {
         {/* Enable/Disable toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-muted-foreground" />
+            <Globe className="h-4 w-4 text-basalt-muted-foreground" />
             <span className="text-sm font-medium">Enable CORS restrictions</span>
           </div>
           <Switch
@@ -145,7 +145,7 @@ export function CorsContent({ data }: CorsContentProps) {
 
         {/* Origins list */}
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-basalt-muted-foreground">
             Add allowed origins (e.g., http://localhost:3000, https://app.example.com)
           </p>
 
@@ -155,13 +155,13 @@ export function CorsContent({ data }: CorsContentProps) {
               {origins.map((origin, index) => (
                 <div
                   key={origin}
-                  className="flex items-center gap-2 rounded bg-background px-3 py-1.5"
+                  className="flex items-center gap-2 rounded bg-basalt-background px-3 py-1.5"
                 >
                   <code className="flex-1 text-xs font-mono">{origin}</code>
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    className="h-6 w-6 text-basalt-muted-foreground hover:text-basalt-destructive"
                     onClick={() => handleRemoveOrigin(index)}
                     disabled={saving}
                   >
@@ -199,10 +199,10 @@ export function CorsContent({ data }: CorsContentProps) {
           </div>
         </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-basalt-destructive">{error}</p>}
 
         {/* Info notice */}
-        <div className="text-xs text-muted-foreground border-t border-border/30 pt-3">
+        <div className="text-xs text-basalt-muted-foreground border-t border-basalt-border/30 pt-3">
           <p>
             When disabled or the allowed origins list is empty, all origins are
             allowed (default behavior).

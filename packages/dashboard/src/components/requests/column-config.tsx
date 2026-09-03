@@ -71,15 +71,15 @@ export function ColumnConfig({ visibleColumns, onToggle }: ColumnConfigProps) {
             aria-hidden="true"
           />
           {/* Dropdown */}
-          <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-md border bg-popover p-1 shadow-md">
-            <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+          <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-md border bg-basalt-popover p-1 shadow-md">
+            <div className="px-2 py-1.5 text-xs font-medium text-basalt-muted-foreground">
               Toggle columns
             </div>
             {ALL_COLUMNS.map((col) => (
               <button type="button"
                 key={col.key}
                 onClick={() => onToggle(col.key)}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent transition-colors"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-basalt-accent transition-colors"
                 role="menuitemcheckbox"
                 aria-checked={visibleColumns.has(col.key)}
               >

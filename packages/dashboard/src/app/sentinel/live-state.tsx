@@ -23,10 +23,10 @@ const SIGNAL_THRESHOLD = 5;
 function ModeBadge({ mode }: ModeBadgeProps) {
   const { label, fg, bg } =
     mode === "steady"
-      ? { label: "STEADY", fg: "text-success", bg: "bg-success/10" }
+      ? { label: "STEADY", fg: "text-basalt-chart-5", bg: "bg-basalt-chart-5/10" }
       : mode === "probing"
-      ? { label: "PROBING", fg: "text-warning", bg: "bg-warning/10" }
-      : { label: "OFFLINE", fg: "text-destructive", bg: "bg-destructive/10" };
+      ? { label: "PROBING", fg: "text-basalt-warning", bg: "bg-basalt-warning/10" }
+      : { label: "OFFLINE", fg: "text-basalt-destructive", bg: "bg-basalt-destructive/10" };
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${fg} ${bg}`}
@@ -108,7 +108,7 @@ function SignalGauge({ score }: { score: number }) {
         <span className="text-2xl font-semibold tabular-nums leading-none">
           {clamped}
         </span>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+        <span className="text-[10px] uppercase tracking-wider text-basalt-muted-foreground mt-0.5">
           signal / {SIGNAL_MAX}
         </span>
       </div>
@@ -137,11 +137,11 @@ function CooldownBar({ remainingMs }: { remainingMs: number }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-meta text-muted-foreground w-16 shrink-0">
+      <span className="text-meta text-basalt-muted-foreground w-16 shrink-0">
         Cooldown
       </span>
       <div
-        className="flex-1 h-2 rounded-full bg-muted/40 overflow-hidden"
+        className="flex-1 h-2 rounded-full bg-basalt-muted/40 overflow-hidden"
         role="progressbar"
         aria-label={`Cooldown remaining: ${formatMs(remainingMs)}`}
         aria-valuenow={remainingMs}
@@ -175,13 +175,13 @@ function Cell({
 }) {
   const toneClass =
     tone === "danger"
-      ? "text-destructive"
+      ? "text-basalt-destructive"
       : tone === "warn"
-      ? "text-warning"
-      : "text-foreground";
+      ? "text-basalt-warning"
+      : "text-basalt-foreground";
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-meta text-muted-foreground">{label}</span>
+      <span className="text-meta text-basalt-muted-foreground">{label}</span>
       <span className={`text-numeric font-medium tabular-nums ${toneClass}`}>
         {value}
       </span>

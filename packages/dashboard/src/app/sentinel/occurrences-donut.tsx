@@ -94,7 +94,7 @@ export const OccurrencesDonut = memo(function OccurrencesDonut({
           <span className="text-2xl font-semibold tabular-nums leading-none">
             {formatCompact(total)}
           </span>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+          <span className="text-[10px] uppercase tracking-wider text-basalt-muted-foreground mt-1">
             401s
           </span>
         </div>
@@ -102,7 +102,7 @@ export const OccurrencesDonut = memo(function OccurrencesDonut({
 
       <div className="space-y-1 shrink-0">
         {isEmpty ? (
-          <p className="text-meta text-muted-foreground text-center">
+          <p className="text-meta text-basalt-muted-foreground text-center">
             No 401s recorded
           </p>
         ) : (
@@ -120,13 +120,13 @@ export const OccurrencesDonut = memo(function OccurrencesDonut({
                     className="inline-block h-2 w-2 rounded-full shrink-0"
                     style={{ background: s.color }}
                   />
-                  <span className="text-muted-foreground flex-1 truncate">
+                  <span className="text-basalt-muted-foreground flex-1 truncate">
                     {s.label}
                   </span>
-                  <span className="tabular-nums text-foreground">
+                  <span className="tabular-nums text-basalt-foreground">
                     {s.value.toLocaleString()}
                   </span>
-                  <span className="tabular-nums text-muted-foreground/70 w-9 text-right">
+                  <span className="tabular-nums text-basalt-muted-foreground/70 w-9 text-right">
                     {pct}%
                   </span>
                 </li>

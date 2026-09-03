@@ -245,7 +245,7 @@ export function FilterBar({
         {/* Active filter count + reset */}
         {activeCount > 0 && (
           <div className="flex items-center gap-1.5 ml-auto">
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-basalt-muted-foreground">
               <Filter className="inline size-3 mr-0.5" />
               {activeCount} active
             </span>
