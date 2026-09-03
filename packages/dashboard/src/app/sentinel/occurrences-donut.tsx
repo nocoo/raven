@@ -72,7 +72,7 @@ export const OccurrencesDonut = memo(function OccurrencesDonut({
               outerRadius="92%"
               startAngle={90}
               endAngle={-270}
-              stroke="hsl(var(--background))"
+              stroke="hsl(var(--basalt-background))"
               strokeWidth={2}
               {...ANIMATION_PROPS}
             >
