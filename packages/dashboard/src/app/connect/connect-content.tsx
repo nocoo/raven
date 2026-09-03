@@ -15,7 +15,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Key, Trash2, Ban, AlertTriangle, Cable, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, } from "lucide-react";
-import { Badge, Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { Badge, Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 interface ConnectContentProps {
@@ -421,7 +421,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
         <h4 className="text-sm font-medium">{displayName}</h4>
         <Badge variant="secondary" className="text-xs">{models.length}</Badge>
       </div>
-      <div className="overflow-hidden rounded-card bg-secondary">
+      <LayerCard padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
         <Table>
           <TableBody>
@@ -435,7 +435,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
           </TableBody>
         </Table>
         </div>
-      </div>
+      </LayerCard>
     </div>
   );
 }
@@ -530,7 +530,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-card bg-secondary">
+        <LayerCard padding="none" className="overflow-hidden">
           <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -615,7 +615,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
             </TableBody>
           </Table>
           </div>
-        </div>
+        </LayerCard>
       )}
     </section>
   );

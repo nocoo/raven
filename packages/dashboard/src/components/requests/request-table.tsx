@@ -6,7 +6,7 @@
 import { formatLatency } from "@/lib/chart-config";
 import { cn } from "@/lib/utils";
 import type { ExtendedRequestRecord } from "@/lib/types";
-import { Badge, Button } from "@nocoo/basalt";
+import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -162,7 +162,7 @@ export function RequestTable({
 
   return (
     <div>
-      <div className="bg-secondary rounded-card overflow-hidden">
+      <LayerCard padding="none" className="overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -334,7 +334,7 @@ export function RequestTable({
             </TableBody>
           </Table>
         </div>
-      </div>
+      </LayerCard>
 
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4">

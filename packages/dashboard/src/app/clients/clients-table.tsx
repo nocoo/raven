@@ -7,7 +7,7 @@ import type { BreakdownEntry } from "@/lib/types";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { Button, Badge } from "@nocoo/basalt";
+import { Badge, Button, LayerCard } from "@nocoo/basalt";
 
 interface ClientsTableProps {
   data: BreakdownEntry[];
@@ -87,7 +87,7 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
   );
 
   return (
-    <div className="bg-secondary rounded-card overflow-hidden">
+    <LayerCard padding="none" className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -164,6 +164,6 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
           </tbody>
         </table>
       </div>
-    </div>
+    </LayerCard>
   );
 }
