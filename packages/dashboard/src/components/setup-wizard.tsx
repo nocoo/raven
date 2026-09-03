@@ -7,10 +7,19 @@ import { CodeBlock } from "@/components/code-block";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { useState, useEffect } from "react";
 import {
-  Monitor, Shield, Terminal, Key, Cable, ChevronRight, ChevronLeft, Rocket, ExternalLink, } from "lucide-react";
+  Monitor, Shield, Terminal, Key, Cable, ChevronRight, ChevronLeft, Rocket, ExternalLink, X, } from "lucide-react";
 import { Github } from "@/components/icons/github";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button, Badge } from "@nocoo/basalt";
+  Badge,
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@nocoo/basalt";
 
 const STORAGE_KEY = "raven-setup-dismissed";
 const TOTAL_STEPS = 3;
@@ -331,10 +340,16 @@ export function SetupWizard() {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent size="xl" className="relative">
+        <DialogClose
+          aria-label="Close"
+          className="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-basalt-muted-foreground hover:bg-basalt-accent hover:text-basalt-foreground"
+        >
+          <X className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+        </DialogClose>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-primary" strokeWidth={1.5} />
+          <DialogTitle className="flex items-center gap-2 pr-8">
+            <Rocket className="h-5 w-5 text-basalt-primary" strokeWidth={1.5} />
             Welcome to Raven
           </DialogTitle>
           <DialogDescription>

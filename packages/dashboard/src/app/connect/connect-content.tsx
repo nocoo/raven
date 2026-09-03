@@ -15,7 +15,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Key, Trash2, Ban, AlertTriangle, Cable, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, } from "lucide-react";
-import { Button, Badge, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { Badge, Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 interface ConnectContentProps {
@@ -710,6 +710,9 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
       <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="outline">Cancel</Button>
+        </DialogClose>
         <Button onClick={handleCreate} disabled={loading || !name.trim()}>
           {loading ? "Creating..." : "Create"}
         </Button>

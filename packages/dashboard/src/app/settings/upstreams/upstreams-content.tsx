@@ -173,7 +173,7 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
           <TooltipContent>Health Check</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent size="lg" className="flex max-h-[80vh] flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {provider.name}
@@ -368,7 +368,7 @@ function CreateProviderDialog() {
           Add Provider
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Add Upstream Provider</DialogTitle>
           <DialogDescription>
@@ -452,7 +452,7 @@ function EditProviderDialog({ provider }: { provider: ProviderPublic }) {
           <Edit2 className="h-3.5 w-3.5" strokeWidth={1.5} />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Edit Provider</DialogTitle>
           <DialogDescription>
