@@ -9,7 +9,6 @@
 
 import { CopyButton } from "@/components/copy-button";
 import { CodeBlock } from "@/components/code-block";
-import { cn } from "@/lib/utils";
 import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -149,24 +148,17 @@ console.log(message.content);`,
   return (
     <SectionRule title="Code Examples">
       <LayerCard padding="none" className="overflow-hidden">
-        <div className="flex border-b border-basalt-border/30 bg-basalt-background/50">
-          {tabs.map((tab) => (
-            <button type="button"
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors",
-                activeTab === tab.id
-                  ? "text-basalt-foreground border-b-2 border-basalt-primary"
-                  : "text-basalt-muted-foreground hover:text-basalt-foreground"
-              )}
-            >
-              <tab.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <CodeBlock code={examples[activeTab]} className="border-0 rounded-none" />
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as CodeTab)}>
+          <TabsList>
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
+                <tab.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <CodeBlock code={examples[activeTab]} className="border-0 rounded-none" />
+        </Tabs>
       </LayerCard>
     </SectionRule>
   );
@@ -188,27 +180,20 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
   return (
     <SectionRule title="Setup Guides">
       <LayerCard padding="none" className="overflow-hidden">
-        <div className="flex border-b border-basalt-border/30 bg-basalt-background/50">
-          {tabs.map((tab) => (
-            <button type="button"
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors",
-                activeTab === tab.id
-                  ? "text-basalt-foreground border-b-2 border-basalt-primary"
-                  : "text-basalt-muted-foreground hover:text-basalt-foreground"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="p-4">
-          {activeTab === "claude-code" && <ClaudeCodeGuide baseUrl={baseUrl} />}
-          {activeTab === "codex" && <CodexGuide baseUrl={baseUrl} />}
-          {activeTab === "cc-switch" && <CCSwitchGuide />}
-        </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SetupTab)}>
+          <TabsList>
+            {tabs.map((tab) => (
+              <TabsTrigger key={tab.id} value={tab.id}>
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <div className="p-4">
+            {activeTab === "claude-code" && <ClaudeCodeGuide baseUrl={baseUrl} />}
+            {activeTab === "codex" && <CodexGuide baseUrl={baseUrl} />}
+            {activeTab === "cc-switch" && <CCSwitchGuide />}
+          </div>
+        </Tabs>
       </LayerCard>
     </SectionRule>
   );
@@ -383,22 +368,24 @@ function ModelsSection({ models }: { models: ModelInfo[] }) {
 
       {/* Copilot Models */}
       {copilotGroups.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-basalt-muted-foreground">Copilot Models</h3>
-          {copilotGroups.map(([vendor, vendorModels]) => (
-            <ModelGroup key={vendor} vendor={vendor} models={vendorModels} />
-          ))}
-        </div>
+        <SectionRule title="Copilot Models">
+          <div className="space-y-4">
+            {copilotGroups.map(([vendor, vendorModels]) => (
+              <ModelGroup key={vendor} vendor={vendor} models={vendorModels} />
+            ))}
+          </div>
+        </SectionRule>
       )}
 
       {/* Upstream Models */}
       {upstreamGroups.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium text-basalt-muted-foreground">Upstream Providers</h3>
-          {upstreamGroups.map(([provider, providerModels]) => (
-            <ModelGroup key={provider} vendor={provider} models={providerModels} />
-          ))}
-        </div>
+        <SectionRule title="Upstream Providers">
+          <div className="space-y-4">
+            {upstreamGroups.map(([provider, providerModels]) => (
+              <ModelGroup key={provider} vendor={provider} models={providerModels} />
+            ))}
+          </div>
+        </SectionRule>
       )}
     </div>
   );

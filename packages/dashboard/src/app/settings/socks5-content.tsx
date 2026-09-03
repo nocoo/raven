@@ -218,7 +218,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         </div>
 
         {/* Connection settings */}
-        <div className="rounded bg-basalt-background p-3 space-y-3">
+        <LayerCard.Well className="space-y-3">
           <p className="text-xs font-medium text-basalt-muted-foreground">
             Connection
           </p>
@@ -334,10 +334,10 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               </span>
             )}
           </div>
-        </div>
+        </LayerCard.Well>
 
         {/* Upstream routing */}
-        <div className="rounded bg-basalt-background p-3 space-y-3">
+        <LayerCard.Well className="space-y-3">
           <p className="text-xs font-medium text-basalt-muted-foreground">
             Upstream Routing
           </p>
@@ -392,7 +392,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               ))}
             </div>
           )}
-        </div>
+        </LayerCard.Well>
 
         {/* Save button + feedback */}
         <div className="flex items-center justify-end gap-3">

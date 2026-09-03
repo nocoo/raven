@@ -9,7 +9,8 @@ import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUpDown, ArrowUp, ArrowDown, Route, Globe, Shuffle, } from "lucide-react";
-import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { Badge, Button, LayerCard, Tabs, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -162,11 +163,11 @@ function RankingTable({
   return (
     <LayerCard padding="none" className="overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-basalt-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-b border-basalt-border">
               {COLUMNS.map((col) => (
-                <th
+                <TableHead
                   key={col.key}
                   className="px-3 py-2.5 text-left text-card-label font-medium whitespace-nowrap"
                 >
@@ -191,19 +192,19 @@ function RankingTable({
                   ) : (
                     col.label
                   )}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.map((entry) => (
-              <tr
+              <TableRow
                 key={entry.key}
                 className="border-b border-basalt-border/50 hover:bg-basalt-background/50 transition-colors cursor-pointer"
                 onClick={() => onRowClick(entry)}
               >
                 {COLUMNS.map((col) => (
-                  <td key={col.key} className="px-3 py-2.5 whitespace-nowrap tabular-nums">
+                  <TableCell key={col.key} className="px-3 py-2.5 whitespace-nowrap tabular-nums">
                     {col.key === "key" ? (
                       <span className="font-medium text-basalt-foreground">
                         {entry.key || "(unknown)"}
@@ -226,19 +227,19 @@ function RankingTable({
                         {formatCellValue(entry, col.key)}
                       </span>
                     )}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
             {data.length === 0 && (
-              <tr>
-                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
                   No data found for the selected time range
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </LayerCard>
   );
@@ -304,29 +305,23 @@ export function ProvidersContent({ strategies, upstreams, routingPaths }: Provid
 
   return (
     <div className="space-y-4">
-      {/* Tab selector */}
-      <div className="flex gap-1 rounded-lg bg-basalt-background p-1 w-fit">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => {
-              setActiveTab(tab.id);
-              setSortCol("count");
-              setSortOrder("desc");
-            }}
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              activeTab === tab.id
-                ? "bg-basalt-secondary text-basalt-foreground shadow-sm"
-                : "text-basalt-muted-foreground hover:text-basalt-foreground",
-            )}
-          >
-            <tab.icon className="size-3.5" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value as TabId);
+          setSortCol("count");
+          setSortOrder("desc");
+        }}
+      >
+        <TabsList>
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
+              <tab.icon className="size-3.5" />
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Distribution visualization */}
       <DistributionBar data={rawData} />

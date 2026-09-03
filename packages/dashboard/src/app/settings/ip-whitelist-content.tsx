@@ -162,7 +162,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
         </div>
 
         {/* Trust proxy toggle */}
-        <div className="rounded bg-basalt-background p-3 space-y-2">
+        <LayerCard.Well className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <Label className="text-sm font-medium cursor-pointer">
@@ -188,7 +188,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
               </p>
             </div>
           )}
-        </div>
+        </LayerCard.Well>
 
         {/* IP ranges list */}
         <div className="space-y-2">

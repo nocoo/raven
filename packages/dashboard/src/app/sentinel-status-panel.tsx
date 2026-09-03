@@ -33,9 +33,9 @@ function PanelShell({
   children: React.ReactNode;
 }) {
   return (
-    <LayerCard className="h-full flex flex-col">
-      <h3 className="text-card-label mb-3 font-medium">{title}</h3>
-      <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+    <LayerCard padding="none" className="h-full flex flex-col">
+      <LayerCard.Header className="text-card-label font-medium">{title}</LayerCard.Header>
+      <LayerCard.Body className="flex-1 min-h-0 flex flex-col">{children}</LayerCard.Body>
     </LayerCard>
   );
 }

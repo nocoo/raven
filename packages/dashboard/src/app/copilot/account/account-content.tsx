@@ -6,8 +6,9 @@ import type { CopilotUser, CopilotQuotaSnapshot } from "@/lib/types";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  RefreshCw, User, Building2, CreditCard, MessageSquare, Globe, Calendar, Gauge, CheckCircle2, XCircle, Infinity as InfinityIcon, } from "lucide-react";
+  RefreshCw, User, Building2, CreditCard, MessageSquare, Globe, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 
 interface AccountContentProps {
   data: CopilotUser;
@@ -300,27 +301,20 @@ export function AccountContent({ data }: AccountContentProps) {
 
       {/* Quota snapshots */}
       {quotas.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Gauge className="h-4 w-4 text-basalt-muted-foreground" strokeWidth={1.5} />
-            <h2 className="text-sm font-medium text-basalt-muted-foreground">Quota</h2>
-            {data.quota_reset_date && (
-              <span className="text-xs text-basalt-muted-foreground ml-auto">
-                Resets {data.quota_reset_date}
-              </span>
-            )}
-          </div>
+        <SectionRule
+          title="Quota"
+          hint={data.quota_reset_date ? `Resets ${data.quota_reset_date}` : undefined}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {quotas.map(([id, snapshot]) => (
               <QuotaCard key={id} id={id} snapshot={snapshot} />
             ))}
           </div>
-        </div>
+        </SectionRule>
       )}
 
       {/* Feature toggles */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium text-basalt-muted-foreground">Feature Toggles</h2>
+      <SectionRule title="Feature Toggles">
         <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
           {data.chat_enabled != null && (
             <ToggleRow label="Chat" value={data.chat_enabled} />
@@ -338,15 +332,11 @@ export function AccountContent({ data }: AccountContentProps) {
             <ToggleRow label="Can Signup for Limited" value={data.can_signup_for_limited} />
           )}
         </LayerCard>
-      </div>
+      </SectionRule>
 
       {/* Endpoints */}
       {data.endpoints && Object.keys(data.endpoints).length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-basalt-muted-foreground" strokeWidth={1.5} />
-            <h2 className="text-sm font-medium text-basalt-muted-foreground">Endpoints</h2>
-          </div>
+        <SectionRule title="Endpoints">
           <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
             {Object.entries(data.endpoints).map(([name, url]) => (
               <div
@@ -362,15 +352,12 @@ export function AccountContent({ data }: AccountContentProps) {
               </div>
             ))}
           </LayerCard>
-        </div>
+        </SectionRule>
       )}
 
       {/* Unknown extra fields */}
       {extraEntries.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-medium text-basalt-muted-foreground">
-            Other Properties
-          </h2>
+        <SectionRule title="Other Properties">
           <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
             {extraEntries.map(([key, value]) => (
               <div
@@ -384,7 +371,7 @@ export function AccountContent({ data }: AccountContentProps) {
               </div>
             ))}
           </LayerCard>
-        </div>
+        </SectionRule>
       )}
     </>
   );

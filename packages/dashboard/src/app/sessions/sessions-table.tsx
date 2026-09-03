@@ -8,6 +8,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 interface SessionsTableProps {
   data: BreakdownEntry[];
@@ -69,11 +70,11 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
   return (
     <LayerCard padding="none" className="overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-basalt-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-b border-basalt-border">
               {COLUMNS.map((col) => (
-                <th
+                <TableHead
                   key={col.key}
                   className="px-3 py-2.5 text-left text-card-label font-medium whitespace-nowrap"
                 >
@@ -98,13 +99,13 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
                   ) : (
                     col.label
                   )}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.map((entry) => (
-              <tr
+              <TableRow
                 key={entry.key}
                 className="border-b border-basalt-border/50 hover:bg-basalt-background/50 transition-colors cursor-pointer"
                 onClick={() => {
@@ -113,48 +114,48 @@ export function SessionsTable({ data, currentSort, currentOrder }: SessionsTable
                   router.push(`/requests?${params.toString()}`);
                 }}
               >
-                <td className="px-3 py-2.5 whitespace-nowrap">
+                <TableCell className="px-3 py-2.5 whitespace-nowrap">
                   <span className="font-mono text-xs font-medium text-basalt-foreground">
                     {truncateSessionId(entry.key || "(unknown)")}
                   </span>
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
                   {entry.client_name || "—"}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
                   {entry.account_name || "—"}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
                   {formatCompact(entry.count)}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
                   {formatDuration(entry.first_seen, entry.last_seen)}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2.5 whitespace-nowrap tabular-nums text-xs text-basalt-muted-foreground">
                   {formatCompact(entry.total_tokens)}
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap">
+                </TableCell>
+                <TableCell className="px-3 py-2.5 whitespace-nowrap">
                   <Badge
                     variant={entry.error_rate > 0.1 ? "destructive" : entry.error_rate > 0.05 ? "warning" : "secondary"}
                     className="text-[10px] px-1.5"
                   >
                     {formatPercent(entry.error_rate)}
                   </Badge>
-                </td>
-                <td className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
+                </TableCell>
+                <TableCell className="px-3 py-2.5 whitespace-nowrap text-xs text-basalt-muted-foreground">
                   {formatRelativeTime(entry.last_seen)}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
             {data.length === 0 && (
-              <tr>
-                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
                   No session data found for the selected time range
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </LayerCard>
   );

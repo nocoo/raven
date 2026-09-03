@@ -290,7 +290,7 @@ function PhaseDetail({
   const phaseLabel = phase === "start" ? "Request Start" : phase === "error" ? "Upstream Error" : "Request End";
 
   return (
-    <div className="mt-3 rounded-widget border border-basalt-border/50 bg-basalt-background p-2.5 font-mono text-[11px]">
+    <LayerCard.Well className="mt-3 font-mono text-[11px]">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[10px] font-medium text-basalt-muted-foreground uppercase tracking-wider">{phaseLabel}</span>
         <button
@@ -326,7 +326,7 @@ function PhaseDetail({
           </div>
         );
       })}
-    </div>
+    </LayerCard.Well>
   );
 }
 

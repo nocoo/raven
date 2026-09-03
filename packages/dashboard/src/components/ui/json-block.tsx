@@ -4,7 +4,7 @@
 import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Copy, Check } from "lucide-react";
-import { Button } from "@nocoo/basalt";
+import { Button, LayerCard } from "@nocoo/basalt";
 
 type TokenKind = "key" | "string" | "number" | "boolean" | "null" | "punct" | "whitespace";
 
@@ -138,7 +138,7 @@ export function JsonBlock({ value, maxHeightClass = "max-h-48", className }: Jso
   };
 
   return (
-    <div className={cn("relative rounded-basalt-widget border border-basalt-border/50 bg-basalt-secondary", className)}>
+    <LayerCard padding="none" className={cn("relative", className ?? "")}>
       <Button
         type="button"
         variant="ghost"
@@ -164,6 +164,6 @@ export function JsonBlock({ value, maxHeightClass = "max-h-48", className }: Jso
           ))}
         </code>
       </pre>
-    </div>
+    </LayerCard>
   );
 }

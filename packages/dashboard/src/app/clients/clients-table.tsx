@@ -8,6 +8,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 interface ClientsTableProps {
   data: BreakdownEntry[];
@@ -89,11 +90,11 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
   return (
     <LayerCard padding="none" className="overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-basalt-border">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-b border-basalt-border">
               {COLUMNS.map((col) => (
-                <th
+                <TableHead
                   key={col.key}
                   className="px-3 py-2.5 text-left text-card-label font-medium whitespace-nowrap"
                 >
@@ -118,13 +119,13 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
                   ) : (
                     col.label
                   )}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.map((entry) => (
-              <tr
+              <TableRow
                 key={entry.key}
                 className="border-b border-basalt-border/50 hover:bg-basalt-background/50 transition-colors cursor-pointer"
                 onClick={() => {
@@ -134,7 +135,7 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
                 }}
               >
                 {COLUMNS.map((col) => (
-                  <td
+                  <TableCell
                     key={col.key}
                     className="px-3 py-2.5 whitespace-nowrap tabular-nums"
                   >
@@ -150,19 +151,19 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
                     ) : (
                       <span className="text-basalt-muted-foreground">{formatCellValue(entry, col.key)}</span>
                     )}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
             {data.length === 0 && (
-              <tr>
-                <td colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
+              <TableRow>
+                <TableCell colSpan={COLUMNS.length} className="px-3 py-8 text-center text-basalt-muted-foreground">
                   No client data found for the selected time range
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </LayerCard>
   );

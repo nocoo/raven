@@ -8,6 +8,7 @@ import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatCompact } from "@/lib/chart-config";
 import {
@@ -163,12 +164,11 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
       </div>
 
       {groups.map(({ vendor, models }) => (
-        <div key={vendor} className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-medium">{vendor}</h2>
-            <Badge variant="secondary">{models.length}</Badge>
-          </div>
-
+        <SectionRule
+          key={vendor}
+          title={vendor}
+          actions={<Badge variant="secondary">{models.length}</Badge>}
+        >
           <LayerCard padding="none" className="overflow-hidden">
             <div className="overflow-x-auto">
             <Table className="table-fixed">
@@ -232,7 +232,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
             </Table>
             </div>
           </LayerCard>
-        </div>
+        </SectionRule>
       ))}
     </>
   );

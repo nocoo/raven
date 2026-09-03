@@ -129,13 +129,15 @@ function ChartPanel({
   children: React.ReactNode;
 }) {
   return (
-    <LayerCard padding="sm">
-      <h3 className="text-card-label mb-3 font-medium">{title}</h3>
-      <div style={{ height: CHART_HEIGHTS.standard }}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          {children as React.ReactElement}
-        </ResponsiveContainer>
-      </div>
+    <LayerCard padding="none">
+      <LayerCard.Header className="text-card-label font-medium">{title}</LayerCard.Header>
+      <LayerCard.Body>
+        <div style={{ height: CHART_HEIGHTS.standard }}>
+          <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
+            {children as React.ReactElement}
+          </ResponsiveContainer>
+        </div>
+      </LayerCard.Body>
     </LayerCard>
   );
 }

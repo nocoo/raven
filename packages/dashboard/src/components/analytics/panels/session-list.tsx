@@ -19,12 +19,10 @@ function SessionRow({ session }: { session: SessionInfo }) {
       : 0;
 
   return (
-    <div
+    <LayerCard.Well
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs",
-        isActive
-          ? "bg-basalt-chart-5/5 border border-basalt-chart-5/20"
-          : "bg-basalt-background",
+        isActive && "bg-basalt-chart-5/5 border border-basalt-chart-5/20",
       )}
     >
       <Circle
@@ -66,7 +64,7 @@ function SessionRow({ session }: { session: SessionInfo }) {
             {session.accountName}
           </Badge>
         )}
-    </div>
+    </LayerCard.Well>
   );
 }
 
