@@ -80,7 +80,7 @@ function SignalGauge({ score }: { score: number }) {
         <title>{`Signal score: ${clamped} of ${SIGNAL_MAX}`}</title>
         <path
           d={bgPath}
-          stroke="hsl(var(--chart-muted))"
+          stroke="hsl(var(--basalt-chart-muted))"
           strokeOpacity={0.3}
           strokeWidth={10}
           fill="none"
@@ -100,7 +100,7 @@ function SignalGauge({ score }: { score: number }) {
           y1={ty1}
           x2={tx2}
           y2={ty2}
-          stroke="hsl(var(--chart-axis))"
+          stroke="hsl(var(--basalt-chart-axis))"
           strokeWidth={1.5}
         />
       </svg>

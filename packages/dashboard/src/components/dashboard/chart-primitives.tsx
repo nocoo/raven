@@ -17,7 +17,7 @@ import { CartesianGrid } from "recharts";
 import { cn } from "@/lib/utils";
 
 interface DashboardCartesianGridProps {
-  /** Override stroke color (defaults to `var(--chart-axis)` via CSS) */
+  /** Override stroke color (defaults to `var(--basalt-chart-axis)` via CSS) */
   stroke?: string;
   /** Override dash pattern */
   strokeDasharray?: string;
@@ -39,7 +39,7 @@ export function DashboardCartesianGrid({
 }: DashboardCartesianGridProps) {
   return (
     <CartesianGrid
-      stroke={stroke ?? "hsl(var(--chart-axis))"}
+      stroke={stroke ?? "hsl(var(--basalt-chart-axis))"}
       strokeDasharray={strokeDasharray}
       strokeOpacity={strokeOpacity}
       vertical={vertical}

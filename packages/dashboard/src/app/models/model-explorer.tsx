@@ -7,7 +7,7 @@ import type { BreakdownEntry } from "@/lib/types";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { Button, Badge } from "@nocoo/basalt";
+import { Badge, Button, LayerCard } from "@nocoo/basalt";
 
 interface ModelExplorerProps {
   data: BreakdownEntry[];
@@ -90,7 +90,7 @@ export function ModelExplorer({ data, currentSort, currentOrder }: ModelExplorer
   );
 
   return (
-    <div className="bg-secondary rounded-card overflow-hidden">
+    <LayerCard padding="none" className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -162,6 +162,6 @@ export function ModelExplorer({ data, currentSort, currentOrder }: ModelExplorer
           </tbody>
         </table>
       </div>
-    </div>
+    </LayerCard>
   );
 }

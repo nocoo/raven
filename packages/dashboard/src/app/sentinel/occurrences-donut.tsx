@@ -57,7 +57,7 @@ export const OccurrencesDonut = memo(function OccurrencesDonut({
   // recharts Pie collapses a single zero datapoint; show a synthetic
   // grey ring for the empty state instead.
   const data = isEmpty
-    ? [{ key: "empty", label: "No data", value: 1, color: "hsl(var(--chart-muted))", _total: 0 }]
+    ? [{ key: "empty", label: "No data", value: 1, color: "hsl(var(--basalt-chart-muted))", _total: 0 }]
     : slices.map((s) => ({ ...s, _total: total }));
 
   return (

@@ -6,7 +6,7 @@
 // ── Color palette (CSS custom properties from globals.css) ──
 
 /** Helper — wraps a CSS custom property name for inline style usage. */
-const v = (token: string) => `hsl(var(--${token}))`;
+const v = (token: string) => `hsl(var(--basalt-${token}))`;
 
 const chart = {
   blue:      v("chart-1"),  // Brand slate-blue (= --primary)

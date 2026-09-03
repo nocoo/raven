@@ -97,10 +97,10 @@ export function tokenizeJson(input: string): JsonToken[] {
 }
 
 const TOKEN_CLASSES: Record<TokenKind, string> = {
-  key: "text-[hsl(var(--chart-2))]",
-  string: "text-[hsl(var(--chart-3))]",
-  number: "text-[hsl(var(--chart-1))]",
-  boolean: "text-[hsl(var(--chart-5))]",
+  key: "text-[hsl(var(--basalt-chart-2))]",
+  string: "text-[hsl(var(--basalt-chart-3))]",
+  number: "text-[hsl(var(--basalt-chart-1))]",
+  boolean: "text-[hsl(var(--basalt-chart-5))]",
   null: "text-muted-foreground",
   punct: "text-muted-foreground",
   whitespace: "",

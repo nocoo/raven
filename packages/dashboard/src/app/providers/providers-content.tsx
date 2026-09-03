@@ -9,7 +9,7 @@ import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUpDown, ArrowUp, ArrowDown, Route, Globe, Shuffle, } from "lucide-react";
-import { Button, Badge } from "@nocoo/basalt";
+import { Badge, Button, LayerCard } from "@nocoo/basalt";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -160,7 +160,7 @@ function RankingTable({
   onRowClick: (entry: BreakdownEntry) => void;
 }) {
   return (
-    <div className="bg-secondary rounded-card overflow-hidden">
+    <LayerCard padding="none" className="overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -240,7 +240,7 @@ function RankingTable({
           </tbody>
         </table>
       </div>
-    </div>
+    </LayerCard>
   );
 }
 

@@ -117,7 +117,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
               <div className="h-6 flex rounded overflow-hidden bg-muted text-[10px]">
                 {ttft != null && ttftPct > 0 && (
                   <div
-                    className="bg-chart-2 flex items-center justify-center text-white"
+                    className="flex items-center justify-center bg-basalt-chart-2 text-white"
                     style={{ width: `${ttftPct}%` }}
                     title={`TTFT: ${formatLatency(ttft)}`}
                   >
@@ -126,7 +126,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
                 )}
                 {processing != null && procPct > 0 && (
                   <div
-                    className="bg-chart-3 flex items-center justify-center text-white"
+                    className="flex items-center justify-center bg-basalt-chart-3 text-white"
                     style={{ width: `${procPct}%` }}
                     title={`Processing: ${formatLatency(processing)}`}
                   >
@@ -134,7 +134,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
                   </div>
                 )}
                 <div
-                  className="bg-chart-1 flex items-center justify-center text-white flex-1"
+                  className="flex flex-1 items-center justify-center bg-basalt-chart-1 text-white"
                   title={`Total: ${formatLatency(totalLatency)}`}
                 >
                   {formatLatency(totalLatency)}
