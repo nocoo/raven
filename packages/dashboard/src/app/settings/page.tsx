@@ -8,6 +8,7 @@ import { SettingsContent } from "./settings-content";
 import { OptimizationsContent } from "./optimizations-content";
 import { IPWhitelistContent } from "./ip-whitelist-content";
 import { CorsContent } from "./cors-content";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Settings" };
 
@@ -31,10 +32,7 @@ export default async function SettingsPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Settings" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Settings</h1>
-          <p className="text-meta">Server status, IP whitelist, CORS and request optimizations.</p>
-        </div>
+        <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
 
         {/* Status overview tiles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">

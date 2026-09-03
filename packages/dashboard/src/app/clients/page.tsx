@@ -12,6 +12,7 @@ import {
   filtersToApiQuery,
 } from "@/lib/analytics-filters";
 import { ClientsTable } from "./clients-table";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Clients" };
 
@@ -39,10 +40,7 @@ export default async function ClientsPage({ searchParams }: PageProps) {
     return (
       <AppShell breadcrumbs={[{ label: "Clients" }]}>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-display">Clients</h1>
-            <p className="text-meta">Top client applications by request volume.</p>
-          </div>
+          <PageHeader title="Clients" description="Top client applications by request volume." />
           <FetchError title="Failed to load client data" message={result.error} />
         </div>
       </AppShell>
@@ -52,10 +50,7 @@ export default async function ClientsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Clients" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Clients</h1>
-          <p className="text-meta">Top client applications by request volume.</p>
-        </div>
+        <PageHeader title="Clients" description="Top client applications by request volume." />
         <Suspense>
           <FilterBar compact />
         </Suspense>

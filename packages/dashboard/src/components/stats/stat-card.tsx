@@ -1,9 +1,11 @@
+import { LayerCard } from "@nocoo/basalt";
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import type { ComponentType } from "react";
 import { Sparkline } from "@/components/charts/sparkline";
+import { cn } from "@/lib/utils";
 
 interface StatCardProps {
-  icon: LucideIcon | React.ComponentType<{ className?: string }>;
+  icon: LucideIcon | ComponentType<{ className?: string }>;
   label: string;
   value: string;
   detail?: string;
@@ -17,10 +19,10 @@ interface StatCardProps {
 }
 
 const accentColors = {
-  default: "text-foreground",
-  danger: "text-destructive",
-  warning: "text-warning",
-  success: "text-success",
+  default: "text-basalt-foreground",
+  danger: "text-basalt-destructive",
+  warning: "text-basalt-warning",
+  success: "text-basalt-chart-5",
 } as const;
 
 export function StatCard({
@@ -35,28 +37,28 @@ export function StatCard({
 }: StatCardProps) {
   if (variant === "compact") {
     return (
-      <div className={cn("flex items-center gap-2.5 rounded-widget bg-secondary p-2.5", className)}>
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-background">
-          <Icon className="size-3.5 text-muted-foreground" />
+      <LayerCard padding="sm" className={cn("flex items-center gap-2.5", className ?? "")}>
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-basalt-background">
+          <Icon className="size-3.5 text-basalt-muted-foreground" />
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] text-muted-foreground truncate">{label}</p>
-          <p className={cn("text-base font-semibold leading-tight tabular-nums", accentColors[accent])}>
+          <p className="truncate text-[10px] text-basalt-muted-foreground">{label}</p>
+          <p className={cn("text-base leading-tight font-semibold tabular-nums", accentColors[accent])}>
             {value}
           </p>
           {detail && (
-            <p className="text-[10px] text-muted-foreground truncate">{detail}</p>
+            <p className="truncate text-[10px] text-basalt-muted-foreground">{detail}</p>
           )}
         </div>
-      </div>
+      </LayerCard>
     );
   }
 
   return (
-    <div className={cn("bg-secondary rounded-card p-4 md:p-5", className)}>
+    <LayerCard className={className ?? ""}>
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-widget bg-primary/10">
-          <Icon className="h-4 w-4 text-primary" strokeWidth={1.5} />
+        <div className="flex h-9 w-9 items-center justify-center rounded-basalt-widget bg-basalt-primary/10">
+          <Icon className="h-4 w-4 text-basalt-primary" strokeWidth={1.5} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-card-label">{label}</p>
@@ -71,6 +73,6 @@ export function StatCard({
           )}
         </div>
       </div>
-    </div>
+    </LayerCard>
   );
 }

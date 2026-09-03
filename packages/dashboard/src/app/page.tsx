@@ -15,6 +15,7 @@ import {
   filtersToApiQuery,
   rangeToInterval,
 } from "@/lib/analytics-filters";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -80,12 +81,7 @@ export default async function HomePage({ searchParams }: PageProps) {
     <AppShell>
       <div className="space-y-5 md:space-y-7">
         {/* Page header */}
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Overview</h1>
-          <p className="text-meta">
-            Live analytics across all proxied requests, models, and clients.
-          </p>
-        </div>
+        <PageHeader title="Overview" description="Live analytics across all proxied requests, models, and clients." />
 
         {/* Filter Bar */}
         <Suspense>

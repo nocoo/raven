@@ -9,6 +9,7 @@ import {
   filtersToApiQuery,
 } from "@/lib/analytics-filters";
 import { ProvidersContent } from "./providers-content";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Providers & Strategy" };
 
@@ -44,10 +45,7 @@ export default async function ProvidersPage({ searchParams }: PageProps) {
     return (
       <AppShell breadcrumbs={[{ label: "Providers" }]}>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-display">Providers &amp; Strategy</h1>
-            <p className="text-meta">Routing strategy, upstream usage and resolved routing paths.</p>
-          </div>
+          <PageHeader title="Providers & Strategy" description="Routing strategy, upstream usage and resolved routing paths." />
           <FetchError title="Failed to load provider data" message={strategyResult.error} />
         </div>
       </AppShell>
@@ -57,10 +55,7 @@ export default async function ProvidersPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Providers" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Providers &amp; Strategy</h1>
-          <p className="text-meta">Routing strategy, upstream usage and resolved routing paths.</p>
-        </div>
+        <PageHeader title="Providers & Strategy" description="Routing strategy, upstream usage and resolved routing paths." />
         <Suspense>
           <FilterBar compact />
         </Suspense>

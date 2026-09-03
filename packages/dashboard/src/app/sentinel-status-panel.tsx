@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DashboardSegment } from "@/components/layout/dashboard-segment";
+import { LayerCard } from "@nocoo/basalt";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { useRingBuffer } from "@/hooks/use-ring-buffer";
 import {
   derive401Slices,
@@ -77,21 +78,21 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
 
   if (error && !data) {
     return (
-      <DashboardSegment title="Token Refresh Sentinel">
-        <div className="bg-secondary rounded-card p-4">
-          <p className="text-meta text-destructive">Failed to load: {error}</p>
-        </div>
-      </DashboardSegment>
+      <SectionRule title="Token Refresh Sentinel">
+        <LayerCard>
+          <p className="text-meta text-basalt-destructive">Failed to load: {error}</p>
+        </LayerCard>
+      </SectionRule>
     );
   }
 
   if (!data) {
     return (
-      <DashboardSegment title="Token Refresh Sentinel">
-        <div className="bg-secondary rounded-card p-4">
-          <p className="text-meta text-muted-foreground">Loading…</p>
-        </div>
-      </DashboardSegment>
+      <SectionRule title="Token Refresh Sentinel">
+        <LayerCard>
+          <p className="text-meta text-basalt-muted-foreground">Loading…</p>
+        </LayerCard>
+      </SectionRule>
     );
   }
 
@@ -109,7 +110,7 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
     c.refreshFailedByReason.manual;
 
   return (
-    <DashboardSegment title="Token Refresh Sentinel">
+    <SectionRule title="Token Refresh Sentinel">
       {error && (
         <p className="text-meta text-destructive">Stale: {error}</p>
       )}
@@ -131,6 +132,6 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
           />
         </PanelShell>
       </div>
-    </DashboardSegment>
+    </SectionRule>
   );
 }

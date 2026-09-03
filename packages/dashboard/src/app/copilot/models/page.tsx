@@ -3,6 +3,7 @@ import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { CopilotModelList } from "@/lib/types";
 import { CopilotModelsContent } from "./models-content";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Copilot Models" };
 
@@ -13,10 +14,7 @@ export default async function CopilotModelsPage() {
     return (
       <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Models" }]}>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-display">Copilot Models</h1>
-            <p className="text-meta">All Copilot models exposed through the proxy with capabilities and limits.</p>
-          </div>
+          <PageHeader title="Copilot Models" description="All Copilot models exposed through the proxy with capabilities and limits." />
           <FetchError
             title="Failed to load Copilot models"
             message={result.error}
@@ -29,10 +27,7 @@ export default async function CopilotModelsPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Models" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Copilot Models</h1>
-          <p className="text-meta">All Copilot models exposed through the proxy with capabilities and limits.</p>
-        </div>
+        <PageHeader title="Copilot Models" description="All Copilot models exposed through the proxy with capabilities and limits." />
         <CopilotModelsContent data={result.data.data} />
       </div>
     </AppShell>

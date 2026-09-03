@@ -3,6 +3,7 @@ import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { ProviderPublic } from "@/lib/types";
 import { UpstreamsContent } from "./upstreams-content";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Upstreams" };
 
@@ -20,10 +21,7 @@ export default async function UpstreamsPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Settings" }, { label: "Upstreams" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Upstreams</h1>
-          <p className="text-meta">Configured upstream providers and their available models.</p>
-        </div>
+        <PageHeader title="Upstreams" description="Configured upstream providers and their available models." />
         <UpstreamsContent providers={result.data} />
       </div>
     </AppShell>

@@ -12,6 +12,7 @@ import {
   filtersToApiQuery,
 } from "@/lib/analytics-filters";
 import { SessionsTable } from "./sessions-table";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Sessions" };
 
@@ -39,10 +40,7 @@ export default async function SessionsPage({ searchParams }: PageProps) {
     return (
       <AppShell breadcrumbs={[{ label: "Sessions" }]}>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-display">Sessions</h1>
-            <p className="text-meta">Aggregate per-session activity grouped by session_id.</p>
-          </div>
+          <PageHeader title="Sessions" description="Aggregate per-session activity grouped by session_id." />
           <FetchError title="Failed to load session data" message={result.error} />
         </div>
       </AppShell>
@@ -52,10 +50,7 @@ export default async function SessionsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Sessions" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Sessions</h1>
-          <p className="text-meta">Aggregate per-session activity grouped by session_id.</p>
-        </div>
+        <PageHeader title="Sessions" description="Aggregate per-session activity grouped by session_id." />
         <Suspense>
           <FilterBar compact />
         </Suspense>

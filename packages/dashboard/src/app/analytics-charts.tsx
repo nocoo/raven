@@ -30,7 +30,7 @@ import {
   ChartTooltipSummary,
   DashboardCartesianGrid,
 } from "@/components/dashboard/chart-primitives";
-import { DashboardSegment } from "@/components/layout/dashboard-segment";
+import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import type { ExtendedTimeseriesBucket, BreakdownEntry } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ function ChartSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
-// Section wrapper — uppercase label + hairline (DashboardSegment), no outer
+// Section wrapper — uppercase label + hairline (SectionRule), no outer
 // card surface. Children are L2 ChartPanel atoms which carry their own bg.
 // ---------------------------------------------------------------------------
 
@@ -108,11 +108,11 @@ function ChartSection({
   children: React.ReactNode;
 }) {
   return (
-    <DashboardSegment title={title}>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+    <SectionRule title={title}>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 md:gap-4">
         {children}
       </div>
-    </DashboardSegment>
+    </SectionRule>
   );
 }
 
@@ -464,18 +464,18 @@ export function AnalyticsCharts({
   if (!mounted) {
     return (
       <div className="space-y-5 md:space-y-7">
-        <DashboardSegment title="Traffic">
+        <SectionRule title="Traffic">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <ChartSkeleton />
             <ChartSkeleton />
           </div>
-        </DashboardSegment>
-        <DashboardSegment title="Performance">
+        </SectionRule>
+        <SectionRule title="Performance">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <ChartSkeleton />
             <ChartSkeleton />
           </div>
-        </DashboardSegment>
+        </SectionRule>
       </div>
     );
   }
@@ -497,13 +497,13 @@ export function AnalyticsCharts({
         <TokenBurnChart data={timeseries} />
       </ChartSection>
 
-      <DashboardSegment title="Breakdowns">
+      <SectionRule title="Breakdowns">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           <BreakdownBar title="Top Models" data={modelBreakdown} />
           <BreakdownBar title="Top Clients" data={clientBreakdown} />
           <BreakdownBar title="Top Strategies" data={strategyBreakdown} />
         </div>
-      </DashboardSegment>
+      </SectionRule>
     </div>
   );
 }

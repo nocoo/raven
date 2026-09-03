@@ -12,6 +12,7 @@ import {
   filtersToApiQuery,
 } from "@/lib/analytics-filters";
 import { ModelExplorer } from "./model-explorer";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Models" };
 
@@ -39,10 +40,7 @@ export default async function ModelsPage({ searchParams }: PageProps) {
     return (
       <AppShell breadcrumbs={[{ label: "Models" }]}>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-display">Model Explorer</h1>
-            <p className="text-meta">Per-model traffic, latency, error rate and token usage.</p>
-          </div>
+          <PageHeader title="Model Explorer" description="Per-model traffic, latency, error rate and token usage." />
           <FetchError title="Failed to load model stats" message={result.error} />
         </div>
       </AppShell>
@@ -64,10 +62,7 @@ export default async function ModelsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Models" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Model Explorer</h1>
-          <p className="text-meta">Per-model traffic, latency, error rate and token usage.</p>
-        </div>
+        <PageHeader title="Model Explorer" description="Per-model traffic, latency, error rate and token usage." />
         <Suspense>
           <FilterBar models={models} compact />
         </Suspense>

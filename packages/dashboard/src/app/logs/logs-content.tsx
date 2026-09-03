@@ -15,6 +15,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -882,51 +883,55 @@ export function LogsContent() {
 
   return (
     <div className="flex h-full flex-col gap-3">
-      {/* Header */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 md:gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-display">Logs</h1>
-          <ConnectionIndicator connected={connected} />
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-28 md:w-48 text-xs"
-          />
-          <LevelSelect value={level} onChange={handleLevelChange} />
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1"
-            onClick={() => setPaused(!paused)}
-            title={paused ? "Resume" : "Pause"}
-          >
-            {paused ? (
-              <>
-                <Play className="size-3" />
-                <span className="hidden sm:inline">Resume</span>
-              </>
-            ) : (
-              <>
-                <Pause className="size-3" />
-                <span className="hidden sm:inline">Pause</span>
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1"
-            onClick={clear}
-            title="Clear"
-          >
-            <Trash2 className="size-3" />
-            <span className="hidden sm:inline">Clear</span>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Logs"
+        description={
+          <span className="inline-flex items-center gap-2">
+            Live proxy event stream.
+            <ConnectionIndicator connected={connected} />
+          </span>
+        }
+        actions={
+          <>
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-28 text-xs md:w-48"
+            />
+            <LevelSelect value={level} onChange={handleLevelChange} />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1"
+              onClick={() => setPaused(!paused)}
+              title={paused ? "Resume" : "Pause"}
+            >
+              {paused ? (
+                <>
+                  <Play className="size-3" />
+                  <span className="hidden sm:inline">Resume</span>
+                </>
+              ) : (
+                <>
+                  <Pause className="size-3" />
+                  <span className="hidden sm:inline">Pause</span>
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1"
+              onClick={clear}
+              title="Clear"
+            >
+              <Trash2 className="size-3" />
+              <span className="hidden sm:inline">Clear</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Pause banner */}
       {paused && (

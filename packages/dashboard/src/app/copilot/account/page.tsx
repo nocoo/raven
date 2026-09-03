@@ -3,6 +3,7 @@ import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { CopilotUser } from "@/lib/types";
 import { AccountContent } from "./account-content";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Copilot Account" };
 
@@ -13,10 +14,7 @@ export default async function CopilotAccountPage() {
     return (
       <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Account" }]}>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-display">Copilot Account</h1>
-            <p className="text-meta">GitHub Copilot subscription, plan and quota for the proxied account.</p>
-          </div>
+          <PageHeader title="Copilot Account" description="GitHub Copilot subscription, plan and quota for the proxied account." />
           <FetchError
             title="Failed to load account info"
             message={result.error}
@@ -29,10 +27,7 @@ export default async function CopilotAccountPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Copilot" }, { label: "Account" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Copilot Account</h1>
-          <p className="text-meta">GitHub Copilot subscription, plan and quota for the proxied account.</p>
-        </div>
+        <PageHeader title="Copilot Account" description="GitHub Copilot subscription, plan and quota for the proxied account." />
         <AccountContent data={result.data} />
       </div>
     </AppShell>

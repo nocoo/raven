@@ -3,6 +3,7 @@ import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { ApiKeyPublic, ConnectionInfo } from "@/lib/types";
 import { ConnectContent } from "./connect-content";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Connect" };
 
@@ -24,10 +25,7 @@ export default async function ConnectPage() {
   return (
     <AppShell breadcrumbs={[{ label: "Connect" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Connect</h1>
-          <p className="text-meta">API keys and the proxy endpoints to wire into your client.</p>
-        </div>
+        <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
         <ConnectContent
           keys={keysResult.data}
           connectionInfo={connResult.data}

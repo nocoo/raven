@@ -8,6 +8,7 @@ import {
   filtersToApiQuery,
 } from "@/lib/analytics-filters";
 import { RequestsContent } from "./requests-content";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 
 export const metadata = { title: "Requests" };
 
@@ -49,10 +50,7 @@ export default async function RequestsPage({ searchParams }: PageProps) {
     return (
       <AppShell breadcrumbs={[{ label: "Requests" }]}>
         <div className="space-y-4 md:space-y-6">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-display">Requests</h1>
-            <p className="text-meta">Inspect every proxied request, with filters, sorting and pagination.</p>
-          </div>
+          <PageHeader title="Requests" description="Inspect every proxied request, with filters, sorting and pagination." />
           <FetchError title="Failed to load requests" message={requestsResult.error} />
         </div>
       </AppShell>
@@ -68,10 +66,7 @@ export default async function RequestsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Requests" }]}>
       <div className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-display">Requests</h1>
-          <p className="text-meta">Inspect every proxied request, with filters, sorting and pagination.</p>
-        </div>
+        <PageHeader title="Requests" description="Inspect every proxied request, with filters, sorting and pagination." />
         <Suspense>
           <RequestsContent
             data={data as ExtendedRequestRecord[]}
