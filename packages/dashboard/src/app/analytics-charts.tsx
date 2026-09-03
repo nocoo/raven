@@ -419,9 +419,9 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
   const maxCount = top.length > 0 ? Math.max(...top.map((e) => e.count)) : 1;
 
   return (
-    <LayerCard padding="sm">
-      <h3 className="text-card-label mb-3 font-medium">{title}</h3>
-      <div className="space-y-2">
+    <LayerCard padding="none">
+      <LayerCard.Header className="text-card-label font-medium">{title}</LayerCard.Header>
+      <LayerCard.Body className="space-y-2">
         {top.map((entry) => (
           <div key={entry.key} className="flex items-center gap-2">
             <span className="text-meta w-24 truncate shrink-0">{entry.key || "(empty)"}</span>
@@ -439,7 +439,7 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
         {top.length === 0 && (
           <p className="text-meta">No data</p>
         )}
-      </div>
+      </LayerCard.Body>
     </LayerCard>
   );
 }

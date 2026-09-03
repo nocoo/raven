@@ -151,9 +151,9 @@ export function CorsContent({ data }: CorsContentProps) {
           {origins.length > 0 && (
             <div className="space-y-1.5">
               {origins.map((origin, index) => (
-                <div
+                <LayerCard.Well
                   key={origin}
-                  className="flex items-center gap-2 rounded bg-basalt-background px-3 py-1.5"
+                  className="flex items-center gap-2"
                 >
                   <code className="flex-1 text-xs font-mono">{origin}</code>
                   <Button
@@ -165,7 +165,7 @@ export function CorsContent({ data }: CorsContentProps) {
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
-                </div>
+                </LayerCard.Well>
               ))}
             </div>
           )}

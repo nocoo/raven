@@ -218,7 +218,6 @@ function StepCopilot() {
 [proxy]   Code: ABCD-1234
 [proxy] Waiting for authorization...
 [proxy] ✓ Authenticated as @your-github-username`}
-          className="bg-basalt-secondary"
         />
       </div>
     </div>

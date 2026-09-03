@@ -79,18 +79,18 @@ interface SessionListProps {
 export function SessionList({ sessions }: SessionListProps) {
   if (sessions.length === 0) return null;
   return (
-    <LayerCard padding="sm">
-      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
+    <LayerCard padding="none">
+      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
         Sessions
         <span className="ml-1 font-normal text-basalt-muted-foreground/60">
           ({sessions.length})
         </span>
-      </h4>
-      <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+      </LayerCard.Header>
+      <LayerCard.Body className="space-y-1.5 max-h-[200px] overflow-y-auto">
         {sessions.map((s) => (
           <SessionRow key={s.sessionId} session={s} />
         ))}
-      </div>
+      </LayerCard.Body>
     </LayerCard>
   );
 }

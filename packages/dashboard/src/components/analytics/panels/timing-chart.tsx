@@ -61,13 +61,14 @@ export function TimingChart({ data }: TimingChartProps) {
   const summary = `Request timing chart showing last ${data.length} requests. Average duration: ${fmtLatency(avgLatency)}. Peak: ${fmtLatency(peak)}.`;
 
   return (
-    <LayerCard padding="sm">
-      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
+    <LayerCard padding="none">
+      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
         Timing
         <span className="ml-1 font-normal text-basalt-muted-foreground/60">
           (last {data.length})
         </span>
-      </h4>
+      </LayerCard.Header>
+      <LayerCard.Body>
       <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <LineChart data={data}>
@@ -111,6 +112,7 @@ export function TimingChart({ data }: TimingChartProps) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      </LayerCard.Body>
     </LayerCard>
   );
 }

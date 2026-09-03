@@ -668,12 +668,12 @@ function RequestCard({
               )}
             </button>
             {expanded && (
-              <div id={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`} className="border-t border-basalt-border bg-basalt-background px-3 py-2 space-y-1">
+              <LayerCard.Well id={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`} className="border-t border-basalt-border space-y-1">
                 {events.map((event, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: index disambiguates events sharing the same ts
                   <RawEventLine key={`${event.ts}-${i}`} event={event} />
                 ))}
-              </div>
+              </LayerCard.Well>
             )}
           </div>
         )}

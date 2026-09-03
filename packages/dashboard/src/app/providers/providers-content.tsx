@@ -9,7 +9,7 @@ import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUpDown, ArrowUp, ArrowDown, Route, Globe, Shuffle, } from "lucide-react";
-import { Badge, Button, LayerCard, Tabs, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { Badge, Button, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 // ---------------------------------------------------------------------------
@@ -304,36 +304,33 @@ export function ProvidersContent({ strategies, upstreams, routingPaths }: Provid
   });
 
   return (
-    <div className="space-y-4">
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => {
-          setActiveTab(value as TabId);
-          setSortCol("count");
-          setSortOrder("desc");
-        }}
-      >
-        <TabsList>
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
-              <tab.icon className="size-3.5" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      {/* Distribution visualization */}
-      <DistributionBar data={rawData} />
-
-      {/* Ranking table */}
-      <RankingTable
-        data={sortedData}
-        sortCol={sortCol}
-        sortOrder={sortOrder}
-        onSort={handleSort}
-        onRowClick={handleRowClick}
-      />
-    </div>
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => {
+        setActiveTab(value as TabId);
+        setSortCol("count");
+        setSortOrder("desc");
+      }}
+      className="space-y-4"
+    >
+      <TabsList>
+        {TABS.map((tab) => (
+          <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
+            <tab.icon className="size-3.5" />
+            {tab.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      <TabsContent value={activeTab} className="space-y-4">
+        <DistributionBar data={rawData} />
+        <RankingTable
+          data={sortedData}
+          sortCol={sortCol}
+          sortOrder={sortOrder}
+          onSort={handleSort}
+          onRowClick={handleRowClick}
+        />
+      </TabsContent>
+    </Tabs>
   );
 }

@@ -55,10 +55,11 @@ export function ModelDistribution({ data }: ModelDistributionProps) {
   const summary = `Model distribution chart. ${data.length} models, ${total} total requests. Most used: ${topModel?.model ?? "none"} with ${topModel?.count ?? 0} requests.`;
 
   return (
-    <LayerCard padding="sm">
-      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
+    <LayerCard padding="none">
+      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
         Models
-      </h4>
+      </LayerCard.Header>
+      <LayerCard.Body>
       <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <BarChart
@@ -89,6 +90,7 @@ export function ModelDistribution({ data }: ModelDistributionProps) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      </LayerCard.Body>
     </LayerCard>
   );
 }

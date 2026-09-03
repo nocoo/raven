@@ -157,7 +157,11 @@ console.log(message.content);`,
               </TabsTrigger>
             ))}
           </TabsList>
-          <CodeBlock code={examples[activeTab]} className="border-0 rounded-none" />
+          {tabs.map((tab) => (
+            <TabsContent key={tab.id} value={tab.id}>
+              <CodeBlock code={examples[tab.id]} className="border-0 rounded-none" />
+            </TabsContent>
+          ))}
         </Tabs>
       </LayerCard>
     </SectionRule>
@@ -188,11 +192,15 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className="p-4">
-            {activeTab === "claude-code" && <ClaudeCodeGuide baseUrl={baseUrl} />}
-            {activeTab === "codex" && <CodexGuide baseUrl={baseUrl} />}
-            {activeTab === "cc-switch" && <CCSwitchGuide />}
-          </div>
+          <TabsContent value="claude-code" className="p-4">
+            <ClaudeCodeGuide baseUrl={baseUrl} />
+          </TabsContent>
+          <TabsContent value="codex" className="p-4">
+            <CodexGuide baseUrl={baseUrl} />
+          </TabsContent>
+          <TabsContent value="cc-switch" className="p-4">
+            <CCSwitchGuide />
+          </TabsContent>
         </Tabs>
       </LayerCard>
     </SectionRule>
@@ -218,13 +226,13 @@ function ClaudeCodeGuide({ baseUrl }: { baseUrl: string }) {
         env block:
       </p>
       <CodeBlock code={envConfig} className="text-xs" />
-      <div className="flex items-start gap-2 text-xs text-basalt-muted-foreground bg-basalt-background rounded-widget p-3">
+      <LayerCard.Well className="flex items-start gap-2 text-xs text-basalt-muted-foreground">
         <ChevronRight className="h-3.5 w-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
         <span>
           Replace <code className="bg-basalt-secondary/70 px-1 rounded">rk-...</code> with your API key from the Keys tab.
           Adjust model names as needed.
         </span>
-      </div>
+      </LayerCard.Well>
     </div>
   );
 }
@@ -396,12 +404,11 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
   const displayName = vendor.charAt(0).toUpperCase() + vendor.slice(1);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <h4 className="text-sm font-medium">{displayName}</h4>
+    <LayerCard padding="none" className="overflow-hidden">
+      <LayerCard.Header className="flex items-center gap-2">
+        <span className="text-sm font-medium">{displayName}</span>
         <Badge variant="secondary" className="text-xs">{models.length}</Badge>
-      </div>
-      <LayerCard padding="none" className="overflow-hidden">
+      </LayerCard.Header>
         <div className="overflow-x-auto">
         <Table>
           <TableBody>
@@ -415,8 +422,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
           </TableBody>
         </Table>
         </div>
-      </LayerCard>
-    </div>
+    </LayerCard>
   );
 }
 
@@ -641,12 +647,12 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="flex items-center gap-2 rounded-widget bg-basalt-secondary px-3 py-2">
+          <LayerCard.Well className="flex items-center gap-2">
             <code className="text-xs font-mono flex-1 break-all select-all">
               {createdKey}
             </code>
             <CopyButton value={createdKey} />
-          </div>
+          </LayerCard.Well>
           <div className="flex items-start gap-2 text-xs text-basalt-warning">
             <AlertTriangle
               className="h-3.5 w-3.5 shrink-0 mt-0.5"

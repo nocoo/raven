@@ -64,10 +64,11 @@ export function RpmChart({ data, gradientId = "rpmFill" }: RpmChartProps) {
   const summary = `Requests per minute chart. ${total} total requests over ${data.length} minutes. Peak: ${peak} requests/min.`;
 
   return (
-    <LayerCard padding="sm">
-      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
+    <LayerCard padding="none">
+      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
         Requests / min
-      </h4>
+      </LayerCard.Header>
+      <LayerCard.Body>
       <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
         <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
           <AreaChart data={data}>
@@ -92,6 +93,7 @@ export function RpmChart({ data, gradientId = "rpmFill" }: RpmChartProps) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      </LayerCard.Body>
     </LayerCard>
   );
 }
