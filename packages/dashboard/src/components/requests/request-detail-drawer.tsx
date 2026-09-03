@@ -6,8 +6,17 @@
 import { JsonBlock } from "@/components/ui/json-block";
 import type { ExtendedRequestRecord } from "@/lib/types";
 import { formatLatency } from "@/lib/chart-config";
-import { Copy, ExternalLink } from "lucide-react";
-import { Button, Badge, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@nocoo/basalt";
+import { Copy, ExternalLink, X } from "lucide-react";
+import {
+  Badge,
+  Button,
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@nocoo/basalt";
 
 interface RequestDetailDrawerProps {
   request: ExtendedRequestRecord | null;
@@ -65,13 +74,19 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent side="right" className="relative w-full overflow-y-auto sm:max-w-lg">
+        <SheetClose
+          aria-label="Close"
+          className="absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-basalt-muted-foreground hover:bg-basalt-accent hover:text-basalt-foreground"
+        >
+          <X className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+        </SheetClose>
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+          <SheetTitle className="flex items-center gap-2 pr-8">
             <Badge variant={request.status === "success" ? "success" : "destructive"}>
               {request.status}
             </Badge>
-            <span className="font-mono text-sm truncate">{request.model}</span>
+            <span className="truncate font-mono text-sm">{request.model}</span>
           </SheetTitle>
           <SheetDescription>
             {formatTimestamp(request.timestamp)}
