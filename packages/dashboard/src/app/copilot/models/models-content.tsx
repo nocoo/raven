@@ -169,7 +169,8 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
             <Badge variant="secondary">{models.length}</Badge>
           </div>
 
-          <div className="rounded-card bg-secondary overflow-hidden">
+          <div className="overflow-hidden rounded-card bg-secondary">
+            <div className="overflow-x-auto">
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
@@ -229,6 +230,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </div>
         </div>
       ))}

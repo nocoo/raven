@@ -421,7 +421,8 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
         <h4 className="text-sm font-medium">{displayName}</h4>
         <Badge variant="secondary" className="text-xs">{models.length}</Badge>
       </div>
-      <div className="rounded-card bg-secondary overflow-hidden">
+      <div className="overflow-hidden rounded-card bg-secondary">
+        <div className="overflow-x-auto">
         <Table>
           <TableBody>
             {models.map((model) => (
@@ -433,6 +434,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
     </div>
   );
@@ -528,7 +530,8 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
           </p>
         </div>
       ) : (
-        <div className="rounded-card bg-secondary overflow-hidden">
+        <div className="overflow-hidden rounded-card bg-secondary">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -611,6 +614,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
     </section>

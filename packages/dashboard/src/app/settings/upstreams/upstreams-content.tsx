@@ -47,7 +47,8 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
           </p>
         </div>
       ) : (
-        <div className="rounded-card bg-secondary overflow-hidden">
+        <div className="overflow-hidden rounded-card bg-secondary">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -108,6 +109,7 @@ export function UpstreamsContent({ providers }: UpstreamsContentProps) {
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       )}
     </section>
