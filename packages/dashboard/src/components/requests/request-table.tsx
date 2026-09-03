@@ -1,21 +1,17 @@
 "use client";
 
+
+
+
+import { formatLatency } from "@/lib/chart-config";
+import { cn } from "@/lib/utils";
+import type { ExtendedRequestRecord } from "@/lib/types";
+import { Badge, Button } from "@nocoo/basalt";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { formatLatency } from "@/lib/chart-config";
-import { cn } from "@/lib/utils";
-import type { ExtendedRequestRecord } from "@/lib/types";
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@nocoo/basalt/components/table";
 
 interface RequestTableProps {
   data: ExtendedRequestRecord[];

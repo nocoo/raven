@@ -1,43 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, Trash2, Edit2, ArrowUpDown, Activity, Loader2, Check, Copy, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
+
+
+
+
+
+
+
+
 import type {
   ProviderPublic,
   CreateProviderInput,
@@ -45,6 +16,12 @@ import type {
   ProviderFormat,
   UpstreamModelsResponse,
 } from "@/lib/types";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, Trash2, Edit2, ArrowUpDown, Activity, Loader2, Check, Copy, AlertCircle } from "lucide-react";
+import { Button, Badge, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Switch, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@nocoo/basalt";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 interface UpstreamsContentProps {
   providers: ProviderPublic[];
@@ -186,7 +163,7 @@ function HealthCheckDialog({ provider }: { provider: ProviderPublic }) {
         <Tooltip>
           <TooltipTrigger asChild>
             <DialogTrigger asChild>
-              <Button size="icon-xs" variant="ghost" aria-label="Health check">
+              <Button size="icon" variant="ghost" aria-label="Health check">
                 <Activity className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
             </DialogTrigger>
@@ -304,7 +281,7 @@ function ModelItem({ model }: { model: string }) {
     <div className="group flex items-center justify-between rounded-widget bg-secondary px-3 py-1.5">
       <code className="text-xs font-mono truncate">{model}</code>
       <Button
-        size="icon-xs"
+        size="icon"
         variant="ghost"
         onClick={handleCopy}
         className="opacity-0 group-hover:opacity-100 transition-opacity"
@@ -469,7 +446,7 @@ function EditProviderDialog({ provider }: { provider: ProviderPublic }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="icon-xs" variant="ghost" aria-label="Edit provider">
+        <Button size="icon" variant="ghost" aria-label="Edit provider">
           <Edit2 className="h-3.5 w-3.5" strokeWidth={1.5} />
         </Button>
       </DialogTrigger>
@@ -524,7 +501,7 @@ function DeleteProviderButton({ id, name }: { id: string; name: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="icon-xs" variant="ghost" aria-label="Delete provider">
+        <Button size="icon" variant="ghost" aria-label="Delete provider">
           <Trash2 className="h-3.5 w-3.5 text-destructive" strokeWidth={1.5} />
         </Button>
       </DialogTrigger>
@@ -597,7 +574,7 @@ function ProviderForm<T extends CreateProviderInput | UpdateProviderInput>({
           <Label htmlFor="format">Format</Label>
           <Select
             value={data.format ?? "anthropic"}
-            onValueChange={(value: ProviderFormat) => onChange({ ...data, format: value })}
+            onValueChange={(value) => onChange({ ...data, format: value as ProviderFormat })}
           >
             <SelectTrigger id="format">
               <SelectValue />

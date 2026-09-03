@@ -1,13 +1,14 @@
 "use client";
 
+
+
+
+
+import type { IPWhitelistInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Plus, Trash2, Loader2, AlertTriangle } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { IPWhitelistInfo } from "@/lib/types";
+import { Switch, Button, Input, Label } from "@nocoo/basalt";
 
 interface IPWhitelistContentProps {
   data: IPWhitelistInfo;

@@ -1,12 +1,13 @@
 "use client";
 
+
+
+
+import type { CorsInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Plus, Trash2, Loader2 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import type { CorsInfo } from "@/lib/types";
+import { Switch, Button, Input } from "@nocoo/basalt";
 
 interface CorsContentProps {
   data: CorsInfo;

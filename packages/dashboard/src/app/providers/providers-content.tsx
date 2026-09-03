@@ -1,20 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import {
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  Route,
-  Globe,
-  Shuffle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
+
 import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
 import { cn } from "@/lib/utils";
 import type { BreakdownEntry } from "@/lib/types";
+import { useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  ArrowUpDown, ArrowUp, ArrowDown, Route, Globe, Shuffle, } from "lucide-react";
+import { Button, Badge } from "@nocoo/basalt";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -178,7 +173,7 @@ function RankingTable({
                   {col.sortable ? (
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       className="gap-1 -ml-1.5"
                       onClick={() => onSort(col.key)}
                     >

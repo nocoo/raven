@@ -1,18 +1,13 @@
 "use client";
 
-import { Copy, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+
+
+
 import { JsonBlock } from "@/components/ui/json-block";
 import type { ExtendedRequestRecord } from "@/lib/types";
 import { formatLatency } from "@/lib/chart-config";
+import { Copy, ExternalLink } from "lucide-react";
+import { Button, Badge, Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@nocoo/basalt";
 
 interface RequestDetailDrawerProps {
   request: ExtendedRequestRecord | null;
@@ -91,7 +86,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
             </span>
             <Button
               variant="ghost"
-              size="xs"
+              size="sm"
               onClick={() => copyToClipboard(request.id)}
               aria-label="Copy request ID"
             >

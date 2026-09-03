@@ -1,8 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+
 import { filterLabel } from "@/lib/analytics-filters";
+import { X } from "lucide-react";
+import { Badge } from "@nocoo/basalt";
 
 interface FilterChipProps {
   filterKey: string;

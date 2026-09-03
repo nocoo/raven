@@ -1,14 +1,10 @@
 "use client";
 
+
+import type { TimeRange } from "@/lib/analytics-filters";
 import { Clock } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { TimeRange } from "@/lib/analytics-filters";
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 const RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: "15m", label: "Last 15 min" },

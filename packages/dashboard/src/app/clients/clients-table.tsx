@@ -1,12 +1,13 @@
 "use client";
 
+
+
+import { formatCompact, formatLatency, formatPercent, cacheHitRate } from "@/lib/chart-config";
+import type { BreakdownEntry } from "@/lib/types";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { formatCompact, formatLatency, formatPercent, cacheHitRate } from "@/lib/chart-config";
-import type { BreakdownEntry } from "@/lib/types";
+import { Button, Badge } from "@nocoo/basalt";
 
 interface ClientsTableProps {
   data: BreakdownEntry[];
@@ -99,7 +100,7 @@ export function ClientsTable({ data, currentSort, currentOrder }: ClientsTablePr
                   {col.sortable ? (
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       className="gap-1 -ml-1.5"
                       onClick={() => toggleSort(col.key)}
                     >

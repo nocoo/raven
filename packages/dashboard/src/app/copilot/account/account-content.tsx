@@ -1,23 +1,13 @@
 "use client";
 
+
+
+import type { CopilotUser, CopilotQuotaSnapshot } from "@/lib/types";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  RefreshCw,
-  User,
-  Building2,
-  CreditCard,
-  MessageSquare,
-  Globe,
-  Calendar,
-  Gauge,
-  CheckCircle2,
-  XCircle,
-  Infinity as InfinityIcon,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import type { CopilotUser, CopilotQuotaSnapshot } from "@/lib/types";
+  RefreshCw, User, Building2, CreditCard, MessageSquare, Globe, Calendar, Gauge, CheckCircle2, XCircle, Infinity as InfinityIcon, } from "lucide-react";
+import { Button, Badge } from "@nocoo/basalt";
 
 interface AccountContentProps {
   data: CopilotUser;

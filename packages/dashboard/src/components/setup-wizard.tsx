@@ -1,30 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Monitor,
-  Shield,
-  Terminal,
-  Key,
-  Cable,
-  ChevronRight,
-  ChevronLeft,
-  Rocket,
-  ExternalLink,
-} from "lucide-react";
-import { Github } from "@/components/icons/github";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
+
+
 import { CodeBlock } from "@/components/code-block";
 import { useAuthConfig } from "@/hooks/use-auth-config";
+import { useState, useEffect } from "react";
+import {
+  Monitor, Shield, Terminal, Key, Cable, ChevronRight, ChevronLeft, Rocket, ExternalLink, } from "lucide-react";
+import { Github } from "@/components/icons/github";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Button, Badge } from "@nocoo/basalt";
 
 const STORAGE_KEY = "raven-setup-dismissed";
 const TOTAL_STEPS = 3;

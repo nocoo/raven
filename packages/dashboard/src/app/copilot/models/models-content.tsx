@@ -1,21 +1,17 @@
 "use client";
 
+
+
+
+import type { CopilotModel } from "@/lib/types";
 import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button, Badge } from "@nocoo/basalt";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatCompact } from "@/lib/chart-config";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
-import type { CopilotModel } from "@/lib/types";
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@nocoo/basalt/components/table";
 
 interface CopilotModelsContentProps {
   data: CopilotModel[];

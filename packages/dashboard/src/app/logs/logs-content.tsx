@@ -1,31 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import {
-  Pause,
-  Play,
-  Trash2,
-  Circle,
-  ChevronDown,
-  ChevronRight,
-  Monitor,
-  Loader2,
-  Rocket,
-  Copy,
-  Check,
-} from "lucide-react";
-import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
+
+
+
 import { cn } from "@/lib/utils";
 import {
   useLogStream,
@@ -34,6 +12,13 @@ import {
 } from "@/hooks/use-log-stream";
 import { LogsStats } from "./logs-stats";
 import { groupEvents } from "./group-events";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  Pause, Play, Trash2, Circle, ChevronDown, ChevronRight, Monitor, Loader2, Rocket, Copy, Check, } from "lucide-react";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
+import { Button, Badge, Input } from "@nocoo/basalt";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 // ---------------------------------------------------------------------------
 // Constants

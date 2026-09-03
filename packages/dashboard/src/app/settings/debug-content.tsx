@@ -1,7 +1,6 @@
 "use client"
 
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
+import { Label, Switch } from "@nocoo/basalt"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"

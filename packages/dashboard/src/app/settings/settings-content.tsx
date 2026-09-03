@@ -1,12 +1,13 @@
 "use client";
 
+
+
+
+import type { SettingsData, SettingInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Save, RotateCcw, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import type { SettingsData, SettingInfo } from "@/lib/types";
+import { Button, Badge, Input } from "@nocoo/basalt";
 
 // ── Display config ──
 

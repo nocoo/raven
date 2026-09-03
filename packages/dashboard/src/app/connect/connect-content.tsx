@@ -1,47 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Plus,
-  Key,
-  Trash2,
-  Ban,
-  AlertTriangle,
-  Cable,
-  Terminal,
-  Code2,
-  Loader2,
-  Cpu,
-  ExternalLink,
-  ChevronRight,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+
+
+
+
+
+
 import { CopyButton } from "@/components/copy-button";
 import { CodeBlock } from "@/components/code-block";
 import { cn } from "@/lib/utils";
 import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/lib/types";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Plus, Key, Trash2, Ban, AlertTriangle, Cable, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, } from "lucide-react";
+import { Button, Badge, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
 interface ConnectContentProps {
   keys: ApiKeyPublic[];

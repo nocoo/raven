@@ -1,11 +1,12 @@
 "use client";
 
+
+
+import type { OptimizationInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import type { OptimizationInfo } from "@/lib/types";
+import { Switch, Label } from "@nocoo/basalt";
 
 // ── Optimization item definitions ──
 

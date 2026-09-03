@@ -1,9 +1,10 @@
 "use client";
 
+
+import { cn } from "@/lib/utils";
 import { useState, useCallback } from "react";
 import { Copy, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@nocoo/basalt";
 
 interface CopyButtonProps {
   value: string;
@@ -26,9 +27,9 @@ export function CopyButton({ value, className }: CopyButtonProps) {
   return (
     <Button
       variant="ghost"
-      size="icon-xs"
+      size="icon"
       onClick={handleCopy}
-      className={cn("text-muted-foreground hover:text-foreground", className)}
+      className={cn("text-basalt-muted-foreground hover:text-basalt-foreground", className)}
       aria-label="Copy to clipboard"
     >
       {copied ? (

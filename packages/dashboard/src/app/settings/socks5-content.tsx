@@ -1,19 +1,14 @@
-"use client";
-
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Switch, Button, Input, Label } from "@nocoo/basalt";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
+"use client";
+
+
+
+
+
 
 interface ProviderPolicy {
   id: string;

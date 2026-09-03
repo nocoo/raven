@@ -1,16 +1,7 @@
 "use client";
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
-import { Filter, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
+
 import { TimeRangePicker } from "./time-range-picker";
 import { FilterChip } from "./filter-chip";
 import {
@@ -21,6 +12,11 @@ import {
   type AnalyticsFilters,
   type TimeRange,
 } from "@/lib/analytics-filters";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useMemo } from "react";
+import { Filter, RotateCcw } from "lucide-react";
+import { Button } from "@nocoo/basalt";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 const STATUS_OPTIONS = ["success", "error"];
 const STREAM_OPTIONS = [
@@ -253,7 +249,7 @@ export function FilterBar({
               <Filter className="inline size-3 mr-0.5" />
               {activeCount} active
             </span>
-            <Button variant="ghost" size="xs" onClick={resetFilters}>
+            <Button variant="ghost" size="sm" onClick={resetFilters}>
               <RotateCcw className="size-3" />
               Reset
             </Button>

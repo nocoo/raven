@@ -1,9 +1,10 @@
 "use client";
 
+
+import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Copy, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@nocoo/basalt";
 
 type TokenKind = "key" | "string" | "number" | "boolean" | "null" | "punct" | "whitespace";
 
@@ -137,11 +138,11 @@ export function JsonBlock({ value, maxHeightClass = "max-h-48", className }: Jso
   };
 
   return (
-    <div className={cn("relative rounded-widget border border-border/50 bg-secondary", className)}>
+    <div className={cn("relative rounded-basalt-widget border border-basalt-border/50 bg-basalt-secondary", className)}>
       <Button
         type="button"
         variant="ghost"
-        size="icon-xs"
+        size="icon"
         onClick={handleCopy}
         aria-label="Copy JSON"
         className="absolute right-1 top-1 opacity-70 hover:opacity-100"
