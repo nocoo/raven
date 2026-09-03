@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
-import { Switch, Button, Input, Label } from "@nocoo/basalt";
+import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 
@@ -188,19 +188,19 @@ export function Socks5Content({ data }: Socks5ContentProps) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
         SOCKS5 Proxy
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-basalt-muted-foreground mb-4">
         Route upstream requests through a SOCKS5 proxy to hide the
         server&apos;s exit IP. Useful when deployed on VPS with datacenter IPs.
       </p>
 
-      <div className="rounded-card bg-secondary p-4 space-y-4">
+      <LayerCard className="space-y-4">
         {/* Enable toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-muted-foreground" />
+            <Globe className="h-4 w-4 text-basalt-muted-foreground" />
             <span className="text-sm font-medium">Enable SOCKS5 Proxy</span>
           </div>
           <div className="flex items-center gap-2">
@@ -220,8 +220,8 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         </div>
 
         {/* Connection settings */}
-        <div className="rounded bg-background p-3 space-y-3">
-          <p className="text-xs font-medium text-muted-foreground">
+        <div className="rounded bg-basalt-background p-3 space-y-3">
+          <p className="text-xs font-medium text-basalt-muted-foreground">
             Connection
           </p>
 
@@ -253,7 +253,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             <div>
               <Label className="text-xs">
                 Username{" "}
-                <span className="text-muted-foreground">(optional)</span>
+                <span className="text-basalt-muted-foreground">(optional)</span>
               </Label>
               <Input
                 value={username}
@@ -266,7 +266,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             <div>
               <Label className="text-xs">
                 Password{" "}
-                <span className="text-muted-foreground">(optional)</span>
+                <span className="text-basalt-muted-foreground">(optional)</span>
               </Label>
               <div className="flex gap-1">
                 <Input
@@ -288,7 +288,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
+                      className="h-8 px-2 text-xs text-basalt-muted-foreground hover:text-basalt-destructive"
                       onClick={handleClearPassword}
                       disabled={saving}
                     >
@@ -339,11 +339,11 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         </div>
 
         {/* Upstream routing */}
-        <div className="rounded bg-background p-3 space-y-3">
-          <p className="text-xs font-medium text-muted-foreground">
+        <div className="rounded bg-basalt-background p-3 space-y-3">
+          <p className="text-xs font-medium text-basalt-muted-foreground">
             Upstream Routing
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-basalt-muted-foreground">
             Default: Copilot &amp; GitHub = proxied, Custom providers = direct.
           </p>
 
@@ -364,7 +364,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
 
           {/* Provider policies */}
           {providerPolicies.length > 0 && (
-            <div className="border-t border-border/30 pt-2 space-y-2">
+            <div className="border-t border-basalt-border/30 pt-2 space-y-2">
               {providerPolicies.map((p) => (
                 <div key={p.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -405,7 +405,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             </span>
           )}
           {error && (
-            <span className="text-xs text-destructive flex items-center gap-1">
+            <span className="text-xs text-basalt-destructive flex items-center gap-1">
               <XCircle className="h-3 w-3" />
               {error}
             </span>
@@ -422,7 +422,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             Save
           </Button>
         </div>
-      </div>
+      </LayerCard>
     </section>
   );
 }

@@ -19,6 +19,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  LayerCard,
 } from "@nocoo/basalt";
 
 const STORAGE_KEY = "raven-setup-dismissed";
@@ -48,10 +49,10 @@ function StepIndicator({
             <div
               className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors ${
                 isActive
-                  ? "border-primary bg-primary text-primary-foreground"
+                  ? "border-basalt-primary bg-basalt-primary text-basalt-primary-foreground"
                   : isDone
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-muted-foreground/30 text-muted-foreground/50"
+                    ? "border-basalt-primary bg-basalt-primary/10 text-basalt-primary"
+                    : "border-basalt-muted-foreground/30 text-basalt-muted-foreground/50"
               }`}
             >
               {i + 1}
@@ -60,7 +61,7 @@ function StepIndicator({
             {i < total - 1 && (
               <div
                 className={`mx-1 h-0.5 w-10 rounded-full transition-colors ${
-                  isDone ? "bg-primary" : "bg-muted-foreground/20"
+                  isDone ? "bg-basalt-primary" : "bg-basalt-muted-foreground/20"
                 }`}
               />
             )}
@@ -84,16 +85,16 @@ function StepDashboard() {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Monitor className="h-5 w-5 text-primary" strokeWidth={1.5} />
+          <Monitor className="h-5 w-5 text-basalt-primary" strokeWidth={1.5} />
           <h3 className="text-base font-semibold">Dashboard Access</h3>
         </div>
 
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-basalt-muted-foreground">
           Raven runs locally on your machine. By default, the dashboard is open to
-          anyone who can reach <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
+          anyone who can reach <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
         </p>
 
-        <div className="rounded-card bg-secondary p-4 space-y-3">
+        <LayerCard className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Current mode</span>
             <Badge variant="secondary">
@@ -104,18 +105,18 @@ function StepDashboard() {
                 </>
               ) : (
                 <>
-                  <div className="h-3 w-3 animate-spin rounded-full border border-muted-foreground border-t-transparent" />
+                  <div className="h-3 w-3 animate-spin rounded-full border border-basalt-muted-foreground border-t-transparent" />
                   Loading…
                 </>
               )}
             </Badge>
           </div>
           {hasError && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-basalt-muted-foreground">
               Could not fetch auth configuration. Refresh the page to retry.
             </p>
           )}
-        </div>
+        </LayerCard>
       </div>
     );
   }
@@ -123,16 +124,16 @@ function StepDashboard() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Monitor className="h-5 w-5 text-primary" strokeWidth={1.5} />
+        <Monitor className="h-5 w-5 text-basalt-primary" strokeWidth={1.5} />
         <h3 className="text-base font-semibold">Dashboard Access</h3>
       </div>
 
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-basalt-muted-foreground">
         Raven runs locally on your machine. By default, the dashboard is open to
-        anyone who can reach <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
+        anyone who can reach <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
       </p>
 
-      <div className="rounded-card bg-secondary p-4 space-y-3">
+      <LayerCard className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Current mode</span>
           {authEnabled ? (
@@ -150,7 +151,7 @@ function StepDashboard() {
 
         {!authEnabled && (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-basalt-muted-foreground">
               To enable Google OAuth login, set these environment variables
               before starting the dashboard:
             </p>
@@ -163,12 +164,12 @@ NEXTAUTH_SECRET=your-random-secret`}
         )}
 
         {authEnabled && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-basalt-muted-foreground">
             Google OAuth is configured. Only authenticated users can access the
             dashboard.
           </p>
         )}
-      </div>
+      </LayerCard>
     </div>
   );
 }
@@ -181,19 +182,19 @@ function StepCopilot() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Github className="h-5 w-5 text-primary" strokeWidth={1.5} />
+        <Github className="h-5 w-5 text-basalt-primary" strokeWidth={1.5} />
         <h3 className="text-base font-semibold">GitHub Copilot</h3>
       </div>
 
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-basalt-muted-foreground">
         Raven proxies requests through your GitHub Copilot subscription. You
         need to authenticate via GitHub&apos;s Device Flow — this happens in
         your terminal, not in the browser.
       </p>
 
-      <div className="rounded-card bg-secondary p-4 space-y-3">
+      <LayerCard className="space-y-3">
         <p className="text-sm font-medium">Steps</p>
-        <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
+        <ol className="space-y-2 text-sm text-basalt-muted-foreground list-decimal list-inside">
           <li>Start the proxy server</li>
           <li>
             The proxy prints a <strong>device code</strong> and a{" "}
@@ -203,10 +204,10 @@ function StepCopilot() {
           <li>Authorize the GitHub Copilot app</li>
           <li>The proxy stores the token and is ready to forward requests</li>
         </ol>
-      </div>
+      </LayerCard>
 
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-basalt-muted-foreground">
           You&apos;ll see output like this in your terminal:
         </p>
         <CodeBlock
@@ -217,7 +218,7 @@ function StepCopilot() {
 [proxy]   Code: ABCD-1234
 [proxy] Waiting for authorization...
 [proxy] ✓ Authenticated as @your-github-username`}
-          className="bg-secondary"
+          className="bg-basalt-secondary"
         />
       </div>
     </div>
@@ -232,11 +233,11 @@ function StepApiKey() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Cable className="h-5 w-5 text-primary" strokeWidth={1.5} />
+        <Cable className="h-5 w-5 text-basalt-primary" strokeWidth={1.5} />
         <h3 className="text-base font-semibold">Connect Your Tools</h3>
       </div>
 
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-basalt-muted-foreground">
         Create an API key on the{" "}
         <strong>
           <Key className="inline h-3.5 w-3.5" strokeWidth={1.5} /> Connect
@@ -244,13 +245,13 @@ function StepApiKey() {
         page, then configure your tools to point at Raven.
       </p>
 
-      <div className="rounded-card bg-secondary p-4 space-y-3">
+      <LayerCard className="space-y-3">
         <div className="flex items-center gap-1.5">
-          <Terminal className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+          <Terminal className="h-3.5 w-3.5 text-basalt-muted-foreground" strokeWidth={1.5} />
           <p className="text-sm font-medium">Claude Code config</p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Add this to your Claude Code <code className="bg-secondary/70 px-1 py-0.5 rounded">settings.json</code> env block:
+        <p className="text-xs text-basalt-muted-foreground">
+          Add this to your Claude Code <code className="bg-basalt-secondary/70 px-1 py-0.5 rounded">settings.json</code> env block:
         </p>
         <CodeBlock
           code={`"env": {
@@ -263,26 +264,26 @@ function StepApiKey() {
   "ANTHROPIC_REASONING_MODEL": "claude-opus-4.6"
 }`}
         />
-      </div>
+      </LayerCard>
 
-      <div className="rounded-card bg-secondary p-4 space-y-2">
+      <LayerCard className="space-y-2">
         <p className="text-sm font-medium">Recommended tool</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-basalt-muted-foreground">
           Use{" "}
           <a
             href="https://github.com/farion1231/cc-switch"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 font-medium text-primary hover:underline"
+            className="inline-flex items-center gap-0.5 font-medium text-basalt-primary hover:underline"
           >
             CC Switch
             <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
           </a>{" "}
           to manage and switch between Claude Code configurations with ease.
         </p>
-      </div>
+      </LayerCard>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-basalt-muted-foreground">
         Head to the{" "}
         <strong>Connect</strong>{" "}
         page from the sidebar to create your first API key and see examples for
@@ -370,7 +371,7 @@ export function SetupWizard() {
         {/* Footer */}
         <DialogFooter className="flex-row items-center sm:justify-between">
           {/* Dismiss checkbox — left side */}
-          <label className="flex items-center gap-2 text-xs text-muted-foreground select-none cursor-pointer">
+          <label className="flex items-center gap-2 text-xs text-basalt-muted-foreground select-none cursor-pointer">
             <input
               type="checkbox"
               checked={dismiss}

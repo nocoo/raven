@@ -17,7 +17,7 @@ import { useSearchParams } from "next/navigation";
 import {
   Pause, Play, Trash2, Circle, ChevronDown, ChevronRight, Monitor, Loader2, Rocket, Copy, Check, } from "lucide-react";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { Button, Badge, Input } from "@nocoo/basalt";
+import { Button, Badge, Input, LayerCard } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 // ---------------------------------------------------------------------------
@@ -159,8 +159,8 @@ function CopyButton({ events }: { events: LogEvent[] }) {
       className={cn(
         "flex shrink-0 items-center justify-center min-h-11 min-w-11 transition-colors",
         copied
-          ? "text-success"
-          : "text-muted-foreground/40 hover:text-muted-foreground",
+          ? "text-basalt-chart-5"
+          : "text-basalt-muted-foreground/40 hover:text-basalt-muted-foreground",
       )}
       title="Copy raw events"
     >
@@ -179,10 +179,10 @@ function ConnectionIndicator({ connected }: { connected: boolean }) {
       <Circle
         className={cn(
           "size-2 fill-current",
-          connected ? "text-success" : "text-destructive animate-pulse",
+          connected ? "text-basalt-chart-5" : "text-basalt-destructive animate-pulse",
         )}
       />
-      <span className="text-muted-foreground">
+      <span className="text-basalt-muted-foreground">
         {connected ? "Connected" : "Reconnecting..."}
       </span>
     </div>
@@ -222,11 +222,12 @@ function SystemEventCard({ event }: { event: LogEvent }) {
       <div className="shrink-0 pt-3">
         <CopyButton events={[event]} />
       </div>
-      <div
+      <LayerCard
+        padding="sm"
         className={cn(
-          "flex-1 rounded-card bg-secondary p-3 font-mono text-xs",
-          event.level === "error" && "border border-destructive/30",
-          event.level === "warn" && "border border-warning/30",
+          "flex-1 font-mono text-xs",
+          event.level === "error" && "border border-basalt-destructive/30",
+          event.level === "warn" && "border border-basalt-warning/30",
         )}
       >
         <div className="flex items-center gap-2">
@@ -242,24 +243,24 @@ function SystemEventCard({ event }: { event: LogEvent }) {
               {event.level}
             </Badge>
           )}
-          <span className="text-muted-foreground tabular-nums">
+          <span className="text-basalt-muted-foreground tabular-nums">
             {formatTime(event.ts)}
           </span>
         </div>
         <p className={cn(
           "mt-1.5 leading-relaxed",
-          event.level === "error" ? "text-destructive" :
-          event.level === "warn" ? "text-warning" :
-          "text-foreground",
+          event.level === "error" ? "text-basalt-destructive" :
+          event.level === "warn" ? "text-basalt-warning" :
+          "text-basalt-foreground",
         )}>
           {event.msg}
         </p>
         {typeof event.data?.error === "string" && (
-          <p className="mt-1 text-destructive break-all leading-relaxed">
+          <p className="mt-1 text-basalt-destructive break-all leading-relaxed">
             {event.data.error}
           </p>
         )}
-      </div>
+      </LayerCard>
     </div>
   );
 }
@@ -289,14 +290,14 @@ function PhaseDetail({
   const phaseLabel = phase === "start" ? "Request Start" : phase === "error" ? "Upstream Error" : "Request End";
 
   return (
-    <div className="mt-3 rounded-widget border border-border/50 bg-background p-2.5 font-mono text-[11px]">
+    <div className="mt-3 rounded-widget border border-basalt-border/50 bg-basalt-background p-2.5 font-mono text-[11px]">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{phaseLabel}</span>
+        <span className="text-[10px] font-medium text-basalt-muted-foreground uppercase tracking-wider">{phaseLabel}</span>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close phase details"
-          className="flex items-center justify-center min-h-11 min-w-11 -mr-2 text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center justify-center min-h-11 min-w-11 -mr-2 text-basalt-muted-foreground hover:text-basalt-foreground transition-colors"
         >
           <span className="text-sm">✕</span>
         </button>
@@ -309,13 +310,13 @@ function PhaseDetail({
             key={`${ev.ts}-${i}`}
             className="space-y-1"
           >
-            <p className="text-muted-foreground">{ev.msg}</p>
+            <p className="text-basalt-muted-foreground">{ev.msg}</p>
             {data && Object.keys(data).length > 0 && (
               <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
                 {Object.entries(data).map(([key, val]) => (
                   <div key={key} className="contents">
-                    <span className="text-muted-foreground/70">{key}</span>
-                    <span className="text-foreground truncate">
+                    <span className="text-basalt-muted-foreground/70">{key}</span>
+                    <span className="text-basalt-foreground truncate">
                       {typeof val === "object" ? JSON.stringify(val) : String(val)}
                     </span>
                   </div>
@@ -381,10 +382,11 @@ function RequestCard({
       <div className="shrink-0 pt-3">
         <CopyButton events={events} />
       </div>
-      <div
+      <LayerCard
+        padding="none"
         className={cn(
-          "flex-1 rounded-card bg-secondary overflow-hidden",
-          isError && "border border-destructive/30",
+          "flex-1 overflow-hidden",
+          isError && "border border-basalt-destructive/30",
         )}
       >
         {/* ── Header ── */}
@@ -436,7 +438,7 @@ function RequestCard({
                   variant="outline"
                   className={cn(
                     "px-1.5 py-0 text-[10px]",
-                    stream && "border-info/40 text-info",
+                    stream && "border-basalt-info/40 text-basalt-info",
                   )}
                 >
                   {stream ? "stream" : "sync"}
@@ -490,20 +492,20 @@ function RequestCard({
                 aria-expanded={focusedPhase === "start"}
                 className={cn(
                   "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-full",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:rounded-full",
                 )}>
                 <span className={cn(
                   "flex items-center justify-center rounded-full size-7 border-2 transition-shadow",
                   isError
-                    ? "border-destructive/40 bg-destructive/10"
-                    : "border-info/40 bg-info/10",
-                  focusedPhase === "start" && "ring-2 ring-info/50",
-                  "group-hover:ring-2 group-hover:ring-info/30",
+                    ? "border-basalt-destructive/40 bg-basalt-destructive/10"
+                    : "border-basalt-info/40 bg-basalt-info/10",
+                  focusedPhase === "start" && "ring-2 ring-basalt-info/50",
+                  "group-hover:ring-2 group-hover:ring-basalt-info/30",
                 )}>
-                  <span className="text-[9px] font-bold text-info" aria-hidden="true">S</span>
+                  <span className="text-[9px] font-bold text-basalt-info" aria-hidden="true">S</span>
                 </span>
               </button>
-              <span className="mt-1 text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
+              <span className="mt-1 text-[10px] text-basalt-muted-foreground tabular-nums whitespace-nowrap">
                 {startEvent ? formatTime(startEvent.ts) : "—"}
               </span>
             </div>
@@ -513,10 +515,10 @@ function RequestCard({
               <div className={cn(
                 "h-0.5 w-full rounded-full",
                 isError
-                  ? "bg-destructive/40"
+                  ? "bg-basalt-destructive/40"
                   : isInProgress
-                    ? "bg-info/30 animate-pulse"
-                    : "bg-success/40",
+                    ? "bg-basalt-info/30 animate-pulse"
+                    : "bg-basalt-chart-5/40",
               )} />
               <div className={cn(
                 "absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px]",
@@ -529,12 +531,12 @@ function RequestCard({
               {/* Metrics above line */}
               <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
                 {latencyMs !== undefined && (
-                  <span className="rounded bg-background px-1 text-[10px] font-medium tabular-nums text-foreground">
+                  <span className="rounded bg-basalt-background px-1 text-[10px] font-medium tabular-nums text-basalt-foreground">
                     {formatLatency(latencyMs)}
                   </span>
                 )}
                 {isInProgress && (
-                  <span className="rounded bg-background px-1 text-[10px] text-muted-foreground">
+                  <span className="rounded bg-basalt-background px-1 text-[10px] text-basalt-muted-foreground">
                     waiting...
                   </span>
                 )}
@@ -542,7 +544,7 @@ function RequestCard({
               {/* Metrics below line */}
               {inputTokens !== undefined && outputTokens !== undefined && (
                 <div className="absolute inset-x-0 top-3 flex items-center justify-center">
-                  <span className="rounded bg-background px-1 text-[10px] tabular-nums text-muted-foreground">
+                  <span className="rounded bg-basalt-background px-1 text-[10px] tabular-nums text-basalt-muted-foreground">
                     input {formatTokens(inputTokens)} &middot; output {formatTokens(outputTokens)} &middot; total {formatTokens(inputTokens + outputTokens)}
                   </span>
                 </div>
@@ -560,21 +562,21 @@ function RequestCard({
                     aria-expanded={focusedPhase === "error"}
                     className={cn(
                       "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-full",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:rounded-full",
                     )}>
                     <span className={cn(
-                      "flex items-center justify-center rounded-full size-7 border-2 border-destructive/50 bg-destructive/10 transition-shadow",
-                      focusedPhase === "error" && "ring-2 ring-destructive/50",
+                      "flex items-center justify-center rounded-full size-7 border-2 border-basalt-destructive/50 bg-basalt-destructive/10 transition-shadow",
+                      focusedPhase === "error" && "ring-2 ring-basalt-destructive/50",
                     )}>
-                      <span className="text-[9px] font-bold text-destructive" aria-hidden="true">!</span>
+                      <span className="text-[9px] font-bold text-basalt-destructive" aria-hidden="true">!</span>
                     </span>
                   </button>
-                  <span className="mt-1 text-[10px] text-destructive whitespace-nowrap">
+                  <span className="mt-1 text-[10px] text-basalt-destructive whitespace-nowrap">
                     upstream
                   </span>
                 </div>
                 <div className="relative mx-1 flex flex-1 max-w-16 items-center">
-                  <div className="h-0.5 w-full rounded-full bg-destructive/40" />
+                  <div className="h-0.5 w-full rounded-full bg-basalt-destructive/40" />
                   <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-destructive/50" />
                 </div>
               </>
@@ -590,31 +592,31 @@ function RequestCard({
                   aria-expanded={focusedPhase === "end"}
                   className={cn(
                     "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-full",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:rounded-full",
                   )}>
                   <span className={cn(
                     "flex items-center justify-center rounded-full size-7 border-2 transition-shadow",
                     isError
-                      ? "border-destructive/50 bg-destructive/10"
-                      : "border-success/50 bg-success/10",
-                    focusedPhase === "end" && (isError ? "ring-2 ring-destructive/50" : "ring-2 ring-success/50"),
+                      ? "border-basalt-destructive/50 bg-basalt-destructive/10"
+                      : "border-basalt-chart-5/50 bg-basalt-chart-5/10",
+                    focusedPhase === "end" && (isError ? "ring-2 ring-basalt-destructive/50" : "ring-2 ring-basalt-chart-5/50"),
                   )}>
                     <span className={cn(
                       "text-[9px] font-bold",
-                      isError ? "text-destructive" : "text-success",
+                      isError ? "text-basalt-destructive" : "text-basalt-chart-5",
                     )} aria-hidden="true">
                       {isError ? "E" : "OK"}
                     </span>
                   </span>
                 </button>
               ) : (
-                <div className="flex items-center justify-center rounded-full size-7 border-2 border-dashed border-muted-foreground/40">
-                  <Loader2 className="size-3 text-muted-foreground animate-spin" />
+                <div className="flex items-center justify-center rounded-full size-7 border-2 border-dashed border-basalt-muted-foreground/40">
+                  <Loader2 className="size-3 text-basalt-muted-foreground animate-spin" />
                 </div>
               )}
               <span className={cn(
                 "mt-1 text-[10px] tabular-nums whitespace-nowrap",
-                isError ? "text-destructive" : isComplete ? "text-muted-foreground" : "text-muted-foreground/50",
+                isError ? "text-basalt-destructive" : isComplete ? "text-basalt-muted-foreground" : "text-basalt-muted-foreground/50",
               )}>
                 {endEvent ? formatTime(endEvent.ts) : "pending"}
               </span>
@@ -623,7 +625,7 @@ function RequestCard({
 
           {/* Error messages below timeline */}
           {error && (
-            <div className="mt-3 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            <div className="mt-3 rounded-md border border-basalt-destructive/20 bg-basalt-destructive/5 px-3 py-2 text-xs text-basalt-destructive">
               {error}
             </div>
           )}
@@ -631,7 +633,7 @@ function RequestCard({
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: index disambiguates errors with the same ts
               key={`${ev.ts}-${i}`}
-              className="mt-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+              className="mt-2 rounded-md border border-basalt-destructive/20 bg-basalt-destructive/5 px-3 py-2 text-xs text-basalt-destructive"
             >
               {(ev.data?.error as string) ?? ev.msg}
             </div>
@@ -649,13 +651,13 @@ function RequestCard({
 
         {/* ── Expandable raw events ── */}
         {events.length > 0 && (
-          <div className="border-t border-border">
+          <div className="border-t border-basalt-border">
             <button
               type="button"
               onClick={() => setExpanded(!expanded)}
               aria-expanded={expanded}
               aria-controls={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`}
-              className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-background/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-basalt-muted-foreground hover:bg-basalt-background/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:ring-inset"
             >
               {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
               {events.length} raw events
@@ -666,7 +668,7 @@ function RequestCard({
               )}
             </button>
             {expanded && (
-              <div id={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`} className="border-t border-border bg-background px-3 py-2 space-y-1">
+              <div id={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`} className="border-t border-basalt-border bg-basalt-background px-3 py-2 space-y-1">
                 {events.map((event, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: index disambiguates events sharing the same ts
                   <RawEventLine key={`${event.ts}-${i}`} event={event} />
@@ -675,7 +677,7 @@ function RequestCard({
             )}
           </div>
         )}
-      </div>
+      </LayerCard>
     </div>
   );
 }
@@ -685,7 +687,7 @@ function RawEventLine({ event }: { event: LogEvent }) {
   const badge = getRawBadge(event);
   return (
     <div className="flex items-start gap-2 font-mono text-[11px] leading-5">
-      <span className="shrink-0 text-muted-foreground tabular-nums">
+      <span className="shrink-0 text-basalt-muted-foreground tabular-nums">
         {formatTime(event.ts)}
       </span>
       <Badge variant={badge.variant} className="shrink-0 px-1 py-0 text-[9px]">
@@ -695,7 +697,7 @@ function RawEventLine({ event }: { event: LogEvent }) {
         "flex-1 break-all",
         event.level === "error" ? "text-red-600 dark:text-red-400" :
         event.level === "warn" ? "text-yellow-600 dark:text-yellow-400" :
-        "text-muted-foreground",
+        "text-basalt-muted-foreground",
       )}>
         {event.msg}
       </span>
@@ -920,7 +922,7 @@ export function LogsContent() {
 
       {/* Pause banner */}
       {paused && (
-        <div className="flex shrink-0 items-center gap-2 rounded-md bg-warning/10 px-3 py-1.5 text-xs text-warning">
+        <div className="flex shrink-0 items-center gap-2 rounded-md bg-basalt-warning/10 px-3 py-1.5 text-xs text-basalt-warning">
           <Pause className="size-3" />
           Paused — new events are being buffered
         </div>
@@ -939,7 +941,7 @@ export function LogsContent() {
             className="flex-1 overflow-y-auto"
           >
             {groups.length === 0 ? (
-              <div className="flex h-32 items-center justify-center rounded-md bg-secondary text-sm text-muted-foreground">
+              <div className="flex h-32 items-center justify-center rounded-md bg-basalt-secondary text-sm text-basalt-muted-foreground">
                 {connected
                   ? "Waiting for log events..."
                   : "Connecting to log stream..."}
@@ -963,7 +965,7 @@ export function LogsContent() {
             <button
               type="button"
               onClick={scrollToTop}
-              className="absolute bottom-4 right-4 flex items-center justify-center size-10 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 active:scale-95"
+              className="absolute bottom-4 right-4 flex items-center justify-center size-10 rounded-full bg-basalt-primary text-basalt-primary-foreground shadow-lg hover:bg-basalt-primary/90 transition-all hover:scale-105 active:scale-95"
               title="Back to latest"
             >
               <Rocket className="size-4" />

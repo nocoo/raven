@@ -77,7 +77,7 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
         <Cable className="h-4 w-4" strokeWidth={1.5} />
         Endpoints
       </h2>
@@ -85,11 +85,11 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
         {endpoints.map((ep) => (
           <div
             key={ep.label}
-            className="flex items-center justify-between rounded-widget bg-secondary px-4 py-2.5"
+            className="flex items-center justify-between rounded-widget bg-basalt-secondary px-4 py-2.5"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <span className="text-xs text-muted-foreground shrink-0 w-36">{ep.label}</span>
-              <code className="text-xs font-mono text-foreground truncate">{ep.value}</code>
+              <span className="text-xs text-basalt-muted-foreground shrink-0 w-36">{ep.label}</span>
+              <code className="text-xs font-mono text-basalt-foreground truncate">{ep.value}</code>
             </div>
             <CopyButton value={ep.value} />
           </div>
@@ -150,9 +150,9 @@ console.log(message.content);`,
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">Code Examples</h2>
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">Code Examples</h2>
       <LayerCard padding="none" className="overflow-hidden">
-        <div className="flex border-b border-border/30 bg-background/50">
+        <div className="flex border-b border-basalt-border/30 bg-basalt-background/50">
           {tabs.map((tab) => (
             <button type="button"
               key={tab.id}
@@ -160,8 +160,8 @@ console.log(message.content);`,
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors",
                 activeTab === tab.id
-                  ? "text-foreground border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-basalt-foreground border-b-2 border-basalt-primary"
+                  : "text-basalt-muted-foreground hover:text-basalt-foreground"
               )}
             >
               <tab.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -190,12 +190,12 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
         <Terminal className="h-4 w-4" strokeWidth={1.5} />
         Setup Guides
       </h2>
       <LayerCard padding="none" className="overflow-hidden">
-        <div className="flex border-b border-border/30 bg-background/50">
+        <div className="flex border-b border-basalt-border/30 bg-basalt-background/50">
           {tabs.map((tab) => (
             <button type="button"
               key={tab.id}
@@ -203,8 +203,8 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2 text-xs font-medium transition-colors",
                 activeTab === tab.id
-                  ? "text-foreground border-b-2 border-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-basalt-foreground border-b-2 border-basalt-primary"
+                  : "text-basalt-muted-foreground hover:text-basalt-foreground"
               )}
             >
               {tab.label}
@@ -234,16 +234,16 @@ function ClaudeCodeGuide({ baseUrl }: { baseUrl: string }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-basalt-muted-foreground">
         Add the following to your Claude Code{" "}
-        <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">settings.json</code>{" "}
+        <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">settings.json</code>{" "}
         env block:
       </p>
       <CodeBlock code={envConfig} className="text-xs" />
-      <div className="flex items-start gap-2 text-xs text-muted-foreground bg-background rounded-widget p-3">
+      <div className="flex items-start gap-2 text-xs text-basalt-muted-foreground bg-basalt-background rounded-widget p-3">
         <ChevronRight className="h-3.5 w-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
         <span>
-          Replace <code className="bg-secondary/70 px-1 rounded">rk-...</code> with your API key from the Keys tab.
+          Replace <code className="bg-basalt-secondary/70 px-1 rounded">rk-...</code> with your API key from the Keys tab.
           Adjust model names as needed.
         </span>
       </div>
@@ -257,13 +257,13 @@ export OPENAI_API_KEY="rk-..."`;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-basalt-muted-foreground">
         Set these environment variables in your shell profile{" "}
-        <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">~/.bashrc</code>,{" "}
-        <code className="text-xs bg-secondary/70 px-1 py-0.5 rounded">~/.zshrc</code>, etc:
+        <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">~/.bashrc</code>,{" "}
+        <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">~/.zshrc</code>, etc:
       </p>
       <CodeBlock code={envVars} className="text-xs" />
-      <p className="text-sm text-muted-foreground">Then run Codex:</p>
+      <p className="text-sm text-basalt-muted-foreground">Then run Codex:</p>
       <CodeBlock code='codex "Explain this codebase"' className="text-xs" />
     </div>
   );
@@ -272,12 +272,12 @@ export OPENAI_API_KEY="rk-..."`;
 function CCSwitchGuide() {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-basalt-muted-foreground">
         <a
           href="https://github.com/farion1231/cc-switch"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+          className="inline-flex items-center gap-1 font-medium text-basalt-primary hover:underline"
         >
           CC Switch
           <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
@@ -287,11 +287,11 @@ function CCSwitchGuide() {
       </p>
       <div className="space-y-3">
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">Installation</p>
+          <p className="text-xs font-medium text-basalt-muted-foreground mb-2">Installation</p>
           <CodeBlock code="brew install farion1231/tap/cc-switch" className="text-xs" />
         </div>
         <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2">Usage</p>
+          <p className="text-xs font-medium text-basalt-muted-foreground mb-2">Usage</p>
           <CodeBlock
             code={`# Switch to Raven
 cc-switch raven
@@ -309,8 +309,8 @@ cc-switch status`}
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
         <span>
           When configuring the model, use the hyphenated ID (e.g.{" "}
-          <code className="bg-secondary/70 px-1 rounded">claude-opus-4-8</code>), not the
-          dotted form (<code className="bg-secondary/70 px-1 rounded">claude-opus-4.8</code>).
+          <code className="bg-basalt-secondary/70 px-1 rounded">claude-opus-4-8</code>), not the
+          dotted form (<code className="bg-basalt-secondary/70 px-1 rounded">claude-opus-4.8</code>).
           Both work upstream, but the status line only resolves the marketing name
           (&ldquo;Opus 4.8&rdquo;) from the hyphenated form &mdash; the dotted form shows a
           generic &ldquo;Opus 4&rdquo;.
@@ -337,13 +337,13 @@ const COPILOT_VENDORS = new Set([
 function ModelsSection({ models }: { models: ModelInfo[] }) {
   if (models.length === 0) {
     return (
-      <div className="rounded-card bg-secondary px-6 py-8 text-center">
-        <Cpu className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" strokeWidth={1.5} />
-        <p className="text-sm text-muted-foreground">No models available</p>
-        <p className="text-xs text-muted-foreground/70 mt-1">
-          Connect to GitHub Copilot or add upstream providers
-        </p>
-      </div>
+      <LayerCard padding="none">
+        <LayerCard.Empty
+          icon={<Cpu className="h-8 w-8" strokeWidth={1.5} />}
+          title="No models available"
+          description="Connect to GitHub Copilot or add upstream providers"
+        />
+      </LayerCard>
     );
   }
 
@@ -374,7 +374,7 @@ function ModelsSection({ models }: { models: ModelInfo[] }) {
   return (
     <div className="space-y-6">
       {/* Summary */}
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+      <div className="flex items-center gap-4 text-sm text-basalt-muted-foreground">
         <span>{models.length} models available</span>
         {copilotGroups.length > 0 && (
           <Badge variant="secondary" className="text-xs">
@@ -391,7 +391,7 @@ function ModelsSection({ models }: { models: ModelInfo[] }) {
       {/* Copilot Models */}
       {copilotGroups.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">Copilot Models</h3>
+          <h3 className="text-sm font-medium text-basalt-muted-foreground">Copilot Models</h3>
           {copilotGroups.map(([vendor, vendorModels]) => (
             <ModelGroup key={vendor} vendor={vendor} models={vendorModels} />
           ))}
@@ -401,7 +401,7 @@ function ModelsSection({ models }: { models: ModelInfo[] }) {
       {/* Upstream Models */}
       {upstreamGroups.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">Upstream Providers</h3>
+          <h3 className="text-sm font-medium text-basalt-muted-foreground">Upstream Providers</h3>
           {upstreamGroups.map(([provider, providerModels]) => (
             <ModelGroup key={provider} vendor={provider} models={providerModels} />
           ))}
@@ -493,7 +493,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-medium">API Keys</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-basalt-muted-foreground mt-0.5">
             Create and manage API keys for authenticating client requests
           </p>
         </div>
@@ -509,26 +509,23 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
       </div>
 
       {actionError && (
-        <div className="flex items-center gap-2 rounded-widget border border-destructive/40 bg-destructive/10 px-3 py-2 mb-3">
+        <div className="flex items-center gap-2 rounded-widget border border-basalt-destructive/40 bg-basalt-destructive/10 px-3 py-2 mb-3">
           <AlertTriangle
-            className="h-3.5 w-3.5 text-destructive shrink-0"
+            className="h-3.5 w-3.5 text-basalt-destructive shrink-0"
             strokeWidth={1.5}
           />
-          <p className="text-xs text-destructive">{actionError}</p>
+          <p className="text-xs text-basalt-destructive">{actionError}</p>
         </div>
       )}
 
       {initialKeys.length === 0 ? (
-        <div className="rounded-card bg-secondary px-6 py-8 text-center">
-          <Key
-            className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2"
-            strokeWidth={1.5}
+        <LayerCard padding="none">
+          <LayerCard.Empty
+            icon={<Key className="h-8 w-8" strokeWidth={1.5} />}
+            title="No API keys yet"
+            description="Create a key to authenticate client requests"
           />
-          <p className="text-sm text-muted-foreground">No API keys yet</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Create a key to authenticate client requests
-          </p>
-        </div>
+        </LayerCard>
       ) : (
         <LayerCard padding="none" className="overflow-hidden">
           <div className="overflow-x-auto">
@@ -548,14 +545,14 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                 <TableRow key={key.id}>
                   <TableCell className="font-medium">{key.name}</TableCell>
                   <TableCell>
-                    <code className="text-xs text-muted-foreground">
+                    <code className="text-xs text-basalt-muted-foreground">
                       {key.key_prefix}...
                     </code>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
+                  <TableCell className="hidden sm:table-cell text-xs text-basalt-muted-foreground">
                     {new Date(key.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                  <TableCell className="hidden md:table-cell text-xs text-basalt-muted-foreground">
                     {key.last_used_at
                       ? new Date(key.last_used_at).toLocaleDateString()
                       : "Never"}
@@ -578,7 +575,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                         variant="ghost"
                         onClick={() => handleAction(key.id, "delete")}
                         disabled={actionLoading !== null}
-                        className="h-7 w-[72px] text-xs text-destructive hover:bg-destructive/10 gap-1.5"
+                        className="h-7 w-[72px] text-xs text-basalt-destructive hover:bg-basalt-destructive/10 gap-1.5"
                       >
                         {actionLoading === key.id ? (
                           <Loader2
@@ -596,7 +593,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                         variant="ghost"
                         onClick={() => handleAction(key.id, "revoke")}
                         disabled={actionLoading !== null}
-                        className="h-7 w-[72px] text-xs hover:bg-accent gap-1.5"
+                        className="h-7 w-[72px] text-xs hover:bg-basalt-accent gap-1.5"
                       >
                         {actionLoading === key.id ? (
                           <Loader2
@@ -668,7 +665,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="flex items-center gap-2 rounded-widget bg-secondary px-3 py-2">
+          <div className="flex items-center gap-2 rounded-widget bg-basalt-secondary px-3 py-2">
             <code className="text-xs font-mono flex-1 break-all select-all">
               {createdKey}
             </code>
@@ -707,7 +704,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           maxLength={64}
         />
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-basalt-destructive">{error}</p>}
       </div>
       <DialogFooter>
         <DialogClose asChild>

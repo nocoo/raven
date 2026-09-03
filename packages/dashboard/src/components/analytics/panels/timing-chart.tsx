@@ -19,6 +19,7 @@ import {
   formatLatency as fmtLatency,
   getChartColor,
 } from "@/lib/chart-config";
+import { LayerCard } from "@nocoo/basalt";
 import type { TimingPoint } from "./types";
 
 function TimingTooltip({
@@ -60,10 +61,10 @@ export function TimingChart({ data }: TimingChartProps) {
   const summary = `Request timing chart showing last ${data.length} requests. Average duration: ${fmtLatency(avgLatency)}. Peak: ${fmtLatency(peak)}.`;
 
   return (
-    <div className="bg-secondary rounded-card p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
+    <LayerCard padding="sm">
+      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
         Timing
-        <span className="ml-1 font-normal text-muted-foreground/60">
+        <span className="ml-1 font-normal text-basalt-muted-foreground/60">
           (last {data.length})
         </span>
       </h4>
@@ -110,6 +111,6 @@ export function TimingChart({ data }: TimingChartProps) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </LayerCard>
   );
 }

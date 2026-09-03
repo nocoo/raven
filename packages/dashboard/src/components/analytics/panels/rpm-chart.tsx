@@ -17,6 +17,7 @@ import {
   CHART_HEIGHTS,
   ANIMATION_PROPS,
 } from "@/lib/chart-config";
+import { LayerCard } from "@nocoo/basalt";
 import type { MinuteBucket } from "./types";
 
 function formatMinute(minute: number): string {
@@ -63,8 +64,8 @@ export function RpmChart({ data, gradientId = "rpmFill" }: RpmChartProps) {
   const summary = `Requests per minute chart. ${total} total requests over ${data.length} minutes. Peak: ${peak} requests/min.`;
 
   return (
-    <div className="bg-secondary rounded-card p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
+    <LayerCard padding="sm">
+      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
         Requests / min
       </h4>
       <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
@@ -91,6 +92,6 @@ export function RpmChart({ data, gradientId = "rpmFill" }: RpmChartProps) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </LayerCard>
   );
 }

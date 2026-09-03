@@ -59,15 +59,15 @@ function InfoRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-card bg-secondary p-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-widget bg-primary/10">
-        <Icon className="h-4 w-4 text-primary" strokeWidth={1.5} />
+    <LayerCard padding="sm" className="flex items-center gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-widget bg-basalt-primary/10">
+        <Icon className="h-4 w-4 text-basalt-primary" strokeWidth={1.5} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-xs text-basalt-muted-foreground">{label}</p>
         <div className="mt-0.5">{children}</div>
       </div>
-    </div>
+    </LayerCard>
   );
 }
 
@@ -107,7 +107,7 @@ function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean
           fill="none"
           stroke="currentColor"
           strokeWidth={RING_STROKE}
-          className="text-muted/40"
+          className="text-basalt-muted/40"
         />
         {/* Foreground arc */}
         <circle
@@ -120,14 +120,14 @@ function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean
           strokeLinecap="round"
           strokeDasharray={RING_CIRCUMFERENCE}
           strokeDashoffset={offset}
-          className={unlimited ? "text-primary" : clamped > 20 ? "text-primary" : "text-destructive"}
+          className={unlimited ? "text-basalt-primary" : clamped > 20 ? "text-basalt-primary" : "text-basalt-destructive"}
           style={{ transition: "stroke-dashoffset 0.3s ease" }}
         />
       </svg>
       {/* Center label */}
       <span className="absolute inset-0 flex items-center justify-center">
         {unlimited ? (
-          <InfinityIcon className="h-5 w-5 text-primary" strokeWidth={2} />
+          <InfinityIcon className="h-5 w-5 text-basalt-primary" strokeWidth={2} />
         ) : (
           <span className="text-sm font-semibold tabular-nums">{Math.round(clamped)}%</span>
         )}
@@ -142,24 +142,24 @@ function QuotaCard({ id, snapshot }: { id: string; snapshot: CopilotQuotaSnapsho
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="flex items-center gap-4 rounded-card bg-secondary p-4">
+    <LayerCard className="flex items-center gap-4">
       <QuotaRing percent={snapshot.percent_remaining} unlimited={snapshot.unlimited} />
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm font-medium">{label}</p>
         {snapshot.unlimited ? (
-          <p className="text-xs text-muted-foreground">Unlimited usage</p>
+          <p className="text-xs text-basalt-muted-foreground">Unlimited usage</p>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-basalt-muted-foreground">
             {snapshot.remaining.toLocaleString()} / {snapshot.entitlement.toLocaleString()} remaining
           </p>
         )}
         {snapshot.overage_count > 0 && (
-          <p className="text-xs text-destructive">
+          <p className="text-xs text-basalt-destructive">
             {snapshot.overage_count} overage{snapshot.overage_count !== 1 ? "s" : ""}
           </p>
         )}
       </div>
-    </div>
+    </LayerCard>
   );
 }
 
@@ -167,7 +167,7 @@ function QuotaCard({ id, snapshot }: { id: string; snapshot: CopilotQuotaSnapsho
 
 function renderValue(value: unknown): React.ReactNode {
   if (value === null || value === undefined) {
-    return <span className="text-muted-foreground">—</span>;
+    return <span className="text-basalt-muted-foreground">—</span>;
   }
   if (typeof value === "boolean") {
     return <BoolBadge value={value} />;
@@ -176,7 +176,7 @@ function renderValue(value: unknown): React.ReactNode {
     return <span className="font-mono text-xs break-all">{String(value)}</span>;
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="text-muted-foreground">[]</span>;
+    if (value.length === 0) return <span className="text-basalt-muted-foreground">[]</span>;
     // Array of primitives → comma-separated
     if (value.every((v) => typeof v === "string" || typeof v === "number")) {
       return <span className="font-mono text-xs break-all">{value.join(", ")}</span>;
@@ -238,7 +238,7 @@ export function AccountContent({ data }: AccountContentProps) {
       </div>
 
       {refreshError && (
-        <p className="text-xs text-destructive">{refreshError}</p>
+        <p className="text-xs text-basalt-destructive">{refreshError}</p>
       )}
 
       {/* Subscription overview */}
@@ -253,7 +253,7 @@ export function AccountContent({ data }: AccountContentProps) {
           <InfoRow icon={CreditCard} label="Plan">
             <Badge variant="info">{data.copilot_plan}</Badge>
             {data.access_type_sku && (
-              <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+              <p className="text-xs text-basalt-muted-foreground mt-0.5 font-mono">
                 {data.access_type_sku}
               </p>
             )}
@@ -266,7 +266,7 @@ export function AccountContent({ data }: AccountContentProps) {
               <p key={org.login} className="text-sm font-medium">
                 {org.name ?? org.login}
                 {org.name && (
-                  <span className="text-xs text-muted-foreground ml-1">
+                  <span className="text-xs text-basalt-muted-foreground ml-1">
                     ({org.login})
                   </span>
                 )}
@@ -291,7 +291,7 @@ export function AccountContent({ data }: AccountContentProps) {
 
         {data.analytics_tracking_id != null && (
           <InfoRow icon={Globe} label="Tracking ID">
-            <p className="text-xs font-mono text-muted-foreground break-all">
+            <p className="text-xs font-mono text-basalt-muted-foreground break-all">
               {data.analytics_tracking_id}
             </p>
           </InfoRow>
@@ -302,10 +302,10 @@ export function AccountContent({ data }: AccountContentProps) {
       {quotas.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Gauge className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
-            <h2 className="text-sm font-medium text-muted-foreground">Quota</h2>
+            <Gauge className="h-4 w-4 text-basalt-muted-foreground" strokeWidth={1.5} />
+            <h2 className="text-sm font-medium text-basalt-muted-foreground">Quota</h2>
             {data.quota_reset_date && (
-              <span className="text-xs text-muted-foreground ml-auto">
+              <span className="text-xs text-basalt-muted-foreground ml-auto">
                 Resets {data.quota_reset_date}
               </span>
             )}
@@ -320,8 +320,8 @@ export function AccountContent({ data }: AccountContentProps) {
 
       {/* Feature toggles */}
       <div className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Feature Toggles</h2>
-        <LayerCard padding="none" className="overflow-hidden divide-y divide-border/50">
+        <h2 className="text-sm font-medium text-basalt-muted-foreground">Feature Toggles</h2>
+        <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
           {data.chat_enabled != null && (
             <ToggleRow label="Chat" value={data.chat_enabled} />
           )}
@@ -344,16 +344,16 @@ export function AccountContent({ data }: AccountContentProps) {
       {data.endpoints && Object.keys(data.endpoints).length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
-            <h2 className="text-sm font-medium text-muted-foreground">Endpoints</h2>
+            <Globe className="h-4 w-4 text-basalt-muted-foreground" strokeWidth={1.5} />
+            <h2 className="text-sm font-medium text-basalt-muted-foreground">Endpoints</h2>
           </div>
-          <LayerCard padding="none" className="overflow-hidden divide-y divide-border/50">
+          <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
             {Object.entries(data.endpoints).map(([name, url]) => (
               <div
                 key={name}
                 className="flex items-center justify-between px-4 py-2.5 text-sm gap-4"
               >
-                <span className="font-mono text-xs text-muted-foreground shrink-0">
+                <span className="font-mono text-xs text-basalt-muted-foreground shrink-0">
                   {name}
                 </span>
                 <span className="font-mono text-xs truncate text-right">
@@ -368,16 +368,16 @@ export function AccountContent({ data }: AccountContentProps) {
       {/* Unknown extra fields */}
       {extraEntries.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">
+          <h2 className="text-sm font-medium text-basalt-muted-foreground">
             Other Properties
           </h2>
-          <LayerCard padding="none" className="overflow-hidden divide-y divide-border/50">
+          <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
             {extraEntries.map(([key, value]) => (
               <div
                 key={key}
                 className="flex items-start justify-between px-4 py-2.5 text-sm gap-4"
               >
-                <span className="font-mono text-xs text-muted-foreground shrink-0 pt-0.5">
+                <span className="font-mono text-xs text-basalt-muted-foreground shrink-0 pt-0.5">
                   {key}
                 </span>
                 <div className="text-right">{renderValue(value)}</div>

@@ -6,7 +6,7 @@ import type { OptimizationInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { Switch, Label } from "@nocoo/basalt";
+import { Switch, Label, LayerCard } from "@nocoo/basalt";
 
 // ── Optimization item definitions ──
 
@@ -44,10 +44,10 @@ interface OptimizationsContentProps {
 export function OptimizationsContent({ data }: OptimizationsContentProps) {
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
         Optimizations
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-basalt-muted-foreground mb-4">
         Protocol-level fixes from upstream compatibility research. Enable
         individually as needed.
       </p>
@@ -119,7 +119,7 @@ function OptimizationRow({
   );
 
   return (
-    <div className="rounded-card bg-secondary p-4">
+    <LayerCard>
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <Label
@@ -128,12 +128,12 @@ function OptimizationRow({
           >
             {item.label}
           </Label>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-basalt-muted-foreground mt-0.5">
             {item.description}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          {saving && <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />}
           <Switch
             id={`opt-${item.id}`}
             checked={enabled}
@@ -143,8 +143,8 @@ function OptimizationRow({
         </div>
       </div>
       {error && (
-        <p className="text-xs text-destructive mt-2">{error}</p>
+        <p className="text-xs text-basalt-destructive mt-2">{error}</p>
       )}
-    </div>
+    </LayerCard>
   );
 }

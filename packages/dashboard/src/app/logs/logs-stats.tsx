@@ -15,6 +15,7 @@ import {
   formatCompact,
   formatLatency as fmtLatency,
 } from "@/lib/chart-config";
+import { LayerCard } from "@nocoo/basalt";
 import { StatCard } from "@/components/stats/stat-card";
 import { RpmChart } from "@/components/analytics/panels/rpm-chart";
 import { ModelDistribution } from "@/components/analytics/panels/model-distribution";
@@ -518,7 +519,7 @@ export function LogsStats({ events }: LogsStatsProps) {
       <div className="hidden lg:flex lg:w-[380px] lg:shrink-0 lg:flex-col lg:gap-6 lg:overflow-y-auto">
         {/* ── Section 1: Requests ── */}
         <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
             <Activity className="h-4 w-4" strokeWidth={1.5} />
             Requests
           </h2>
@@ -536,7 +537,7 @@ export function LogsStats({ events }: LogsStatsProps) {
         {/* ── Section 2: Models ── */}
         {hasData && (
           <section>
-            <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
               <Coins className="h-4 w-4" strokeWidth={1.5} />
               Models
             </h2>
@@ -550,7 +551,7 @@ export function LogsStats({ events }: LogsStatsProps) {
         {/* ── Section 3: Sessions ── */}
         {hasSessionData && (
           <section>
-            <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
               <Users className="h-4 w-4" strokeWidth={1.5} />
               Sessions
             </h2>
@@ -564,33 +565,33 @@ export function LogsStats({ events }: LogsStatsProps) {
         )}
 
         {!hasData && !hasSessionData && (
-          <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-xs text-basalt-muted-foreground">
             Stats will appear as requests arrive
           </div>
         )}
       </div>
 
       {/* ── Mobile: collapsible strip above stream ── */}
-      <div className="lg:hidden shrink-0 rounded-card bg-secondary overflow-hidden">
+      <LayerCard padding="none" className="lg:hidden shrink-0 overflow-hidden">
         <button
           type="button"
           onClick={() => setMobileExpanded(!mobileExpanded)}
-          className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium hover:bg-background/50 transition-colors"
+          className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium hover:bg-basalt-background/50 transition-colors"
         >
           <span className="flex items-center gap-2">
-            <Activity className="size-4 text-muted-foreground" />
+            <Activity className="size-4 text-basalt-muted-foreground" />
             Stats
             {(hasData || hasSessionData) && (
-              <span className="text-xs font-normal text-muted-foreground tabular-nums">
+              <span className="text-xs font-normal text-basalt-muted-foreground tabular-nums">
                 {stats.total} req · {hasData ? fmtLatency(stats.avgLatency) : "—"} avg · {formatCompact(stats.totalTokens)} tok
                 {hasSessionData && ` · ${sessionTracker.activeCount} sessions`}
               </span>
             )}
           </span>
           {mobileExpanded ? (
-            <ChevronUp className="size-4 text-muted-foreground" />
+            <ChevronUp className="size-4 text-basalt-muted-foreground" />
           ) : (
-            <ChevronDown className="size-4 text-muted-foreground" />
+            <ChevronDown className="size-4 text-basalt-muted-foreground" />
           )}
         </button>
 
@@ -598,7 +599,7 @@ export function LogsStats({ events }: LogsStatsProps) {
           <div className="border-t px-3 pb-3 pt-2 space-y-6">
             {/* ── Section 1: Requests ── */}
             <section>
-              <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+              <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
                 <Activity className="h-4 w-4" strokeWidth={1.5} />
                 Requests
               </h2>
@@ -616,7 +617,7 @@ export function LogsStats({ events }: LogsStatsProps) {
             {/* ── Section 2: Models ── */}
             {hasData && (
               <section>
-                <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
                   <Coins className="h-4 w-4" strokeWidth={1.5} />
                   Models
                 </h2>
@@ -630,7 +631,7 @@ export function LogsStats({ events }: LogsStatsProps) {
             {/* ── Section 3: Sessions ── */}
             {hasSessionData && (
               <section>
-                <h2 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3 flex items-center gap-2">
                   <Users className="h-4 w-4" strokeWidth={1.5} />
                   Sessions
                 </h2>
@@ -644,13 +645,13 @@ export function LogsStats({ events }: LogsStatsProps) {
             )}
 
             {!hasData && !hasSessionData && (
-              <div className="flex items-center justify-center rounded-md border border-dashed py-6 text-xs text-muted-foreground">
+              <div className="flex items-center justify-center rounded-md border border-dashed py-6 text-xs text-basalt-muted-foreground">
                 Stats will appear as requests arrive
               </div>
             )}
           </div>
         )}
-      </div>
+      </LayerCard>
     </>
   );
 }

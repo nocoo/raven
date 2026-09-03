@@ -19,6 +19,7 @@ import {
   ANIMATION_PROPS,
   getChartColor,
 } from "@/lib/chart-config";
+import { LayerCard } from "@nocoo/basalt";
 import type { ModelCount } from "./types";
 
 function ModelTooltip({
@@ -54,8 +55,8 @@ export function ModelDistribution({ data }: ModelDistributionProps) {
   const summary = `Model distribution chart. ${data.length} models, ${total} total requests. Most used: ${topModel?.model ?? "none"} with ${topModel?.count ?? 0} requests.`;
 
   return (
-    <div className="bg-secondary rounded-card p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
+    <LayerCard padding="sm">
+      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
         Models
       </h4>
       <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
@@ -88,6 +89,6 @@ export function ModelDistribution({ data }: ModelDistributionProps) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </LayerCard>
   );
 }

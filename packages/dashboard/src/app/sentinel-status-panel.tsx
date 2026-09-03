@@ -33,10 +33,10 @@ function PanelShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-secondary rounded-card p-3 md:p-4 h-full flex flex-col">
+    <LayerCard className="h-full flex flex-col">
       <h3 className="text-card-label mb-3 font-medium">{title}</h3>
       <div className="flex-1 min-h-0 flex flex-col">{children}</div>
-    </div>
+    </LayerCard>
   );
 }
 
@@ -112,7 +112,7 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
   return (
     <SectionRule title="Token Refresh Sentinel">
       {error && (
-        <p className="text-meta text-destructive">Stale: {error}</p>
+        <p className="text-meta text-basalt-destructive">Stale: {error}</p>
       )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 items-stretch">
         <PanelShell title="401 Occurrences">

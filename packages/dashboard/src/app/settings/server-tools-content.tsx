@@ -1,6 +1,6 @@
 "use client"
 
-import { Button, Input, Label, Switch } from "@nocoo/basalt"
+import { Button, Input, Label, LayerCard, Switch } from "@nocoo/basalt"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -89,10 +89,10 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
         Server Tools
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-basalt-muted-foreground mb-4">
         Replace Anthropic server-side tools with third-party APIs. Required when routing through GitHub Copilot upstream.
       </p>
       <div className="grid gap-3">
@@ -101,19 +101,16 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
           const hasKey = item.id === "web_search" ? (webSearch?.has_api_key ?? false) : false
 
           return (
-            <div
-              key={item.id}
-              className="rounded-card bg-secondary p-4"
-            >
+            <LayerCard key={item.id}>
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <Label htmlFor={`st-${item.id}`} className="text-sm font-medium cursor-pointer">
                     {item.label}
                   </Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                  <p className="text-xs text-basalt-muted-foreground mt-0.5">{item.description}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  {saving && <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />}
                   <Switch
                     id={`st-${item.id}`}
                     checked={itemEnabled}
@@ -122,11 +119,11 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                   />
                 </div>
               </div>
-              {error && <p className="text-xs text-destructive mt-2">{error}</p>}
+              {error && <p className="text-xs text-basalt-destructive mt-2">{error}</p>}
 
               {/* Expanded config when enabled */}
               {itemEnabled && (
-                <div className="mt-4 pt-4 border-t border-border/30">
+                <div className="mt-4 pt-4 border-t border-basalt-border/30">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm">API Key</span>
@@ -160,19 +157,19 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                         )}
                       </Button>
                     </div>
-                    {keyError && <p className="text-xs text-destructive">{keyError}</p>}
+                    {keyError && <p className="text-xs text-basalt-destructive">{keyError}</p>}
                     {!hasKey && itemEnabled && (
                       <p className="text-xs text-amber-600 dark:text-amber-500">
                         API key required for search functionality
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-basalt-muted-foreground">
                       Get your API key at{" "}
                       <a
                         href="https://tavily.com/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline hover:text-foreground"
+                        className="underline hover:text-basalt-foreground"
                       >
                         tavily.com
                       </a>
@@ -180,7 +177,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                   </div>
                 </div>
               )}
-            </div>
+            </LayerCard>
           )
         })}
       </div>

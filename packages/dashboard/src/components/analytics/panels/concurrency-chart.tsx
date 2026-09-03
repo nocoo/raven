@@ -18,6 +18,7 @@ import {
   ANIMATION_PROPS,
   getChartColor,
 } from "@/lib/chart-config";
+import { LayerCard } from "@nocoo/basalt";
 import type { ConcurrencyBucket } from "./types";
 
 function formatMinute(minute: number): string {
@@ -64,10 +65,10 @@ export function ConcurrencyChart({ data, gradientId = "concurrencyFill" }: Concu
   const summary = `Parallel sessions chart over ${data.length} minutes. Current: ${current} sessions. Peak: ${peak} sessions.`;
 
   return (
-    <div className="bg-secondary rounded-card p-3">
-      <h4 className="text-xs font-medium text-muted-foreground mb-2">
+    <LayerCard padding="sm">
+      <h4 className="text-xs font-medium text-basalt-muted-foreground mb-2">
         Parallel Sessions
-        <span className="ml-1 font-normal text-muted-foreground/60">
+        <span className="ml-1 font-normal text-basalt-muted-foreground/60">
           / min
         </span>
       </h4>
@@ -117,6 +118,6 @@ export function ConcurrencyChart({ data, gradientId = "concurrencyFill" }: Concu
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </LayerCard>
   );
 }

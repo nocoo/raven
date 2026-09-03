@@ -1,6 +1,6 @@
 "use client"
 
-import { Label, Switch } from "@nocoo/basalt"
+import { Label, LayerCard, Switch } from "@nocoo/basalt"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -28,7 +28,7 @@ export function DebugContent({ data }: DebugContentProps) {
 
   if (!info) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-basalt-muted-foreground">
         Debug settings not available
       </p>
     )
@@ -72,15 +72,12 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
         Debugging
       </h2>
       <div className="grid gap-3">
         {DEBUG_ITEMS.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-card bg-secondary p-4"
-          >
+          <LayerCard key={item.id}>
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <Label
@@ -89,10 +86,10 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
                 >
                   {item.label}
                 </Label>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                <p className="text-xs text-basalt-muted-foreground mt-0.5">{item.description}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {saving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                {saving && <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />}
                 <Switch
                   id={`debug-${item.id}`}
                   checked={enabled}
@@ -101,8 +98,8 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
                 />
               </div>
             </div>
-            {error && <p className="text-xs text-destructive mt-2">{error}</p>}
-          </div>
+            {error && <p className="text-xs text-basalt-destructive mt-2">{error}</p>}
+          </LayerCard>
         ))}
       </div>
     </section>

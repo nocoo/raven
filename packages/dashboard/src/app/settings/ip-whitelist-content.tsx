@@ -8,7 +8,7 @@ import type { IPWhitelistInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Plus, Trash2, Loader2, AlertTriangle } from "lucide-react";
-import { Switch, Button, Input, Label } from "@nocoo/basalt";
+import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
 
 interface IPWhitelistContentProps {
   data: IPWhitelistInfo;
@@ -141,19 +141,19 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
 
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
         IP Whitelist
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-basalt-muted-foreground mb-4">
         Restrict access to the proxy by client IP address. Non-whitelisted IPs
         receive a silent 403 response.
       </p>
 
-      <div className="rounded-card bg-secondary p-4 space-y-4">
+      <LayerCard className="space-y-4">
         {/* Enable/Disable toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-muted-foreground" />
+            <Shield className="h-4 w-4 text-basalt-muted-foreground" />
             <span className="text-sm font-medium">Enable IP whitelist</span>
           </div>
           <Switch
@@ -164,13 +164,13 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
         </div>
 
         {/* Trust proxy toggle */}
-        <div className="rounded bg-background p-3 space-y-2">
+        <div className="rounded bg-basalt-background p-3 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <Label className="text-sm font-medium cursor-pointer">
                 Trust proxy headers
               </Label>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-basalt-muted-foreground mt-0.5">
                 Read client IP from X-Forwarded-For / X-Real-IP headers.
                 Only enable if behind a trusted reverse proxy (nginx, Cloudflare, etc).
               </p>
@@ -194,7 +194,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
 
         {/* IP ranges list */}
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-basalt-muted-foreground">
             Supported formats: single IP (192.168.1.1), CIDR (192.168.1.0/24),
             or range (192.168.1.1-192.168.1.100)
           </p>
@@ -205,13 +205,13 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
               {ranges.map((range, index) => (
                 <div
                   key={range}
-                  className="flex items-center gap-2 rounded bg-background px-3 py-1.5"
+                  className="flex items-center gap-2 rounded bg-basalt-background px-3 py-1.5"
                 >
                   <code className="flex-1 text-xs font-mono">{range}</code>
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    className="h-6 w-6 text-basalt-muted-foreground hover:text-basalt-destructive"
                     onClick={() => handleRemoveRange(index)}
                     disabled={saving}
                   >
@@ -249,17 +249,17 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
           </div>
         </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-basalt-destructive">{error}</p>}
 
         {/* Anti-lockout notice */}
-        <div className="text-xs text-muted-foreground border-t border-border/30 pt-3">
+        <div className="text-xs text-basalt-muted-foreground border-t border-basalt-border/30 pt-3">
           <p className="font-medium mb-1">Anti-lockout behavior:</p>
           <ul className="list-disc list-inside space-y-0.5 ml-1">
             <li>If no ranges are configured, all IPs are allowed</li>
             <li>If client IP cannot be determined, access is allowed</li>
           </ul>
         </div>
-      </div>
+      </LayerCard>
     </section>
   );
 }

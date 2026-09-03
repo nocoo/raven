@@ -7,7 +7,7 @@ import type { SettingsData, SettingInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Save, RotateCcw, Loader2 } from "lucide-react";
-import { Button, Badge, Input } from "@nocoo/basalt";
+import { Button, Badge, Input, LayerCard } from "@nocoo/basalt";
 
 // ── Display config ──
 
@@ -26,12 +26,12 @@ const SETTING_LABELS: Record<string, { label: string; description: string }> = {
 /** Version setting keys to render (excludes optimizations). */
 const VERSION_KEYS = ["vscode_version", "copilot_chat_version"] as const;
 
-const FALLBACK_BADGE = { label: "Fallback", className: "bg-warning/15 text-warning border-warning/20" };
+const FALLBACK_BADGE = { label: "Fallback", className: "bg-basalt-warning/15 text-basalt-warning border-basalt-warning/20" };
 
 const SOURCE_VARIANTS: Record<string, { label: string; className: string }> = {
-  override: { label: "Override", className: "bg-info/15 text-info border-info/20" },
-  local: { label: "Local", className: "bg-success/15 text-success border-success/20" },
-  aur: { label: "AUR", className: "bg-purple/15 text-purple border-purple/20" },
+  override: { label: "Override", className: "bg-basalt-info/15 text-basalt-info border-basalt-info/20" },
+  local: { label: "Local", className: "bg-basalt-chart-5/15 text-basalt-chart-5 border-basalt-chart-5/20" },
+  aur: { label: "AUR", className: "bg-basalt-chart-14/15 text-basalt-chart-14 border-basalt-chart-14/20" },
   fallback: FALLBACK_BADGE,
 };
 
@@ -44,10 +44,10 @@ interface SettingsContentProps {
 export function SettingsContent({ data }: SettingsContentProps) {
   return (
     <section>
-      <h2 className="text-sm font-medium text-muted-foreground mb-3">
+      <h2 className="text-sm font-medium text-basalt-muted-foreground mb-3">
         Version Overrides
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">
+      <p className="text-xs text-basalt-muted-foreground mb-4">
         These versions are sent in HTTP headers when communicating with GitHub
         Copilot. Values are auto-detected from your local VS Code installation.
         Set an override to pin a specific version.
@@ -140,7 +140,7 @@ function SettingRow({
   }, [settingKey, router]);
 
   return (
-    <div className="rounded-card bg-secondary p-4">
+    <LayerCard>
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -152,11 +152,11 @@ function SettingRow({
               {sourceBadge.label}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-basalt-muted-foreground mt-0.5">
             {meta.description}
           </p>
         </div>
-        <code className="text-xs font-mono text-muted-foreground shrink-0 bg-muted px-2 py-1 rounded">
+        <code className="text-xs font-mono text-basalt-muted-foreground shrink-0 bg-basalt-muted px-2 py-1 rounded">
           {info.effective}
         </code>
       </div>
@@ -191,7 +191,7 @@ function SettingRow({
             variant="ghost"
             onClick={handleReset}
             disabled={resetting}
-            className="h-8 px-3 text-xs text-muted-foreground"
+            className="h-8 px-3 text-xs text-basalt-muted-foreground"
           >
             {resetting ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -204,8 +204,8 @@ function SettingRow({
       </div>
 
       {error && (
-        <p className="text-xs text-destructive mt-2">{error}</p>
+        <p className="text-xs text-basalt-destructive mt-2">{error}</p>
       )}
-    </div>
+    </LayerCard>
   );
 }
