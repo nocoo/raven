@@ -33,19 +33,7 @@
   --radius-md: calc(var(--basalt-radius) - 2px);
   --radius-sm: calc(var(--basalt-radius) - 4px);
 
-  --animate-accordion-down: accordion-down 0.15s ease-out;
-  --animate-accordion-up: accordion-up 0.15s ease-out;
   --animate-fade-up: fade-up 0.5s ease-out both;
-}
-
-@keyframes accordion-down {
-  from { height: 0; }
-  to { height: var(--radix-accordion-content-height); }
-}
-
-@keyframes accordion-up {
-  from { height: var(--radix-accordion-content-height); }
-  to { height: 0; }
 }
 
 @keyframes fade-up {
