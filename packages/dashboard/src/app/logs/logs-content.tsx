@@ -175,7 +175,7 @@ function CopyButton({ events }: { events: LogEvent[] }) {
 
 function ConnectionIndicator({ connected }: { connected: boolean }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs">
+    <span className="inline-flex items-center gap-1.5 text-xs">
       <Circle
         className={cn(
           "size-2 fill-current",
@@ -185,7 +185,7 @@ function ConnectionIndicator({ connected }: { connected: boolean }) {
       <span className="text-basalt-muted-foreground">
         {connected ? "Connected" : "Reconnecting..."}
       </span>
-    </div>
+    </span>
   );
 }
 
@@ -198,7 +198,7 @@ function LevelSelect({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as LogLevel)}>
-      <SelectTrigger size="sm" className="text-xs min-w-[90px]">
+      <SelectTrigger size="sm" className="w-auto text-xs min-w-[90px]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
