@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import { Activity, Clock, AlertTriangle, Zap } from "lucide-react";
-import { FilterBar } from "@/components/analytics/filter-bar";
 import { RequestTable } from "@/components/requests/request-table";
 import { RequestDetailDrawer } from "@/components/requests/request-detail-drawer";
 import { ColumnConfig, getDefaultVisibleColumns } from "@/components/requests/column-config";
@@ -15,7 +14,6 @@ interface RequestsContentProps {
   hasMore: boolean;
   nextCursor?: string | undefined;
   total?: number | undefined;
-  models: string[];
   summary: SummaryStats | null;
 }
 
@@ -24,7 +22,6 @@ export function RequestsContent({
   hasMore,
   nextCursor,
   total,
-  models,
   summary,
 }: RequestsContentProps) {
   const [visibleColumns, setVisibleColumns] = useState(getDefaultVisibleColumns);
@@ -50,9 +47,6 @@ export function RequestsContent({
 
   return (
     <>
-      {/* Filter bar */}
-      <FilterBar models={models} />
-
       {/* Bulk analytics stats */}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">

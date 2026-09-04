@@ -55,10 +55,15 @@ export default async function ProvidersPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Providers" }]}>
       <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Providers & Strategy" description="Routing strategy, upstream usage and resolved routing paths." />
-        <Suspense>
-          <FilterBar compact />
-        </Suspense>
+        <PageHeader
+          title="Providers & Strategy"
+          description="Routing strategy, upstream usage and resolved routing paths."
+          filters={
+            <Suspense>
+              <FilterBar compact />
+            </Suspense>
+          }
+        />
         <ProvidersContent
           strategies={strategyResult.ok ? strategyResult.data : []}
           upstreams={upstreamResult.ok ? upstreamResult.data : []}

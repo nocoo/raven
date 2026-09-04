@@ -7,6 +7,7 @@ import {
   searchParamsToFilters,
   filtersToApiQuery,
 } from "@/lib/analytics-filters";
+import { FilterBar } from "@/components/analytics/filter-bar";
 import { RequestsContent } from "./requests-content";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 
@@ -66,14 +67,21 @@ export default async function RequestsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Requests" }]}>
       <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Requests" description="Inspect every proxied request, with filters, sorting and pagination." />
+        <PageHeader
+          title="Requests"
+          description="Inspect every proxied request, with filters, sorting and pagination."
+          filters={
+            <Suspense>
+              <FilterBar models={models} />
+            </Suspense>
+          }
+        />
         <Suspense>
           <RequestsContent
             data={data as ExtendedRequestRecord[]}
             hasMore={has_more}
             nextCursor={next_cursor}
             total={total}
-            models={models}
             summary={summary}
           />
         </Suspense>

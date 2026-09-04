@@ -50,10 +50,15 @@ export default async function SessionsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Sessions" }]}>
       <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Sessions" description="Aggregate per-session activity grouped by session_id." />
-        <Suspense>
-          <FilterBar compact />
-        </Suspense>
+        <PageHeader
+          title="Sessions"
+          description="Aggregate per-session activity grouped by session_id."
+          filters={
+            <Suspense>
+              <FilterBar compact />
+            </Suspense>
+          }
+        />
         {(() => {
           const totalSessions = result.data.length;
           const totalRequests = result.data.reduce((s, e) => s + e.count, 0);

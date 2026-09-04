@@ -50,10 +50,15 @@ export default async function ClientsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Clients" }]}>
       <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Clients" description="Top client applications by request volume." />
-        <Suspense>
-          <FilterBar compact />
-        </Suspense>
+        <PageHeader
+          title="Clients"
+          description="Top client applications by request volume."
+          filters={
+            <Suspense>
+              <FilterBar compact />
+            </Suspense>
+          }
+        />
         {(() => {
           const totalClients = result.data.length;
           const totalRequests = result.data.reduce((s, e) => s + e.count, 0);

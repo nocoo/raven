@@ -62,10 +62,15 @@ export default async function ModelsPage({ searchParams }: PageProps) {
   return (
     <AppShell breadcrumbs={[{ label: "Models" }]}>
       <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Model Explorer" description="Per-model traffic, latency, error rate and token usage." />
-        <Suspense>
-          <FilterBar models={models} compact />
-        </Suspense>
+        <PageHeader
+          title="Model Explorer"
+          description="Per-model traffic, latency, error rate and token usage."
+          filters={
+            <Suspense>
+              <FilterBar models={models} compact />
+            </Suspense>
+          }
+        />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
           <StatCard icon={Boxes} label="Total Models" value={formatCompact(totalModels)} />
           <StatCard icon={Activity} label="Total Requests" value={formatCompact(totalRequests)} />

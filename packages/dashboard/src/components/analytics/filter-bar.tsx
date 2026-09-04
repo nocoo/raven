@@ -131,7 +131,7 @@ export function FilterBar({
   }, [filters]);
 
   return (
-    <div className="space-y-2">
+    <div className="w-full space-y-2">
       {/* Primary row: time range + dimension dropdowns */}
       <div className="flex flex-wrap items-center gap-2">
         <TimeRangePicker value={filters.range} onChange={handleRangeChange} />
@@ -144,7 +144,7 @@ export function FilterBar({
                 value={filters.model ?? "__all__"}
                 onValueChange={(v) => setDimensionFilter("model", v)}
               >
-                <SelectTrigger size="sm" className="text-xs min-w-[140px]">
+                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]">
                   <SelectValue placeholder="All models" />
                 </SelectTrigger>
                 <SelectContent>
@@ -164,7 +164,7 @@ export function FilterBar({
                 value={filters.strategy ?? "__all__"}
                 onValueChange={(v) => setDimensionFilter("strategy", v)}
               >
-                <SelectTrigger size="sm" className="text-xs min-w-[140px]">
+                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]">
                   <SelectValue placeholder="All strategies" />
                 </SelectTrigger>
                 <SelectContent>
@@ -184,7 +184,7 @@ export function FilterBar({
                 value={filters.upstream ?? "__all__"}
                 onValueChange={(v) => setDimensionFilter("upstream", v)}
               >
-                <SelectTrigger size="sm" className="text-xs min-w-[140px]">
+                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]">
                   <SelectValue placeholder="All upstreams" />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,7 +203,7 @@ export function FilterBar({
               value={filters.status ?? "__all__"}
               onValueChange={(v) => setDimensionFilter("status", v)}
             >
-              <SelectTrigger size="sm" className="text-xs min-w-[120px]">
+              <SelectTrigger size="sm" className="w-auto text-xs min-w-[120px]">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -227,7 +227,7 @@ export function FilterBar({
                 }
               }}
             >
-              <SelectTrigger size="sm" className="text-xs min-w-[130px]">
+              <SelectTrigger size="sm" className="w-auto text-xs min-w-[130px]">
                 <SelectValue placeholder="All modes" />
               </SelectTrigger>
               <SelectContent>
