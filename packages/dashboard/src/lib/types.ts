@@ -76,6 +76,11 @@ export interface SummaryStats {
   sync_count: number;
 }
 
+export interface GroupedTimeseries {
+  keys: string[];
+  points: Array<{ bucket: number } & Record<string, number>>;
+}
+
 export interface ExtendedTimeseriesBucket {
   bucket: number;
   count: number;

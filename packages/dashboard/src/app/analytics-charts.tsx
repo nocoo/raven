@@ -4,8 +4,13 @@ import { useState, useEffect } from "react";
 import {
   AreaChart,
   Area,
+  Bar,
+  BarChart,
+  Cell,
   LineChart,
   Line,
+  Pie,
+  PieChart,
   XAxis,
   YAxis,
   Tooltip,
@@ -17,6 +22,7 @@ import {
   CHART_COLORS,
   AXIS_CONFIG,
   RESPONSIVE_CONTAINER_PROPS,
+  BAR_RADIUS,
   CHART_HEIGHTS,
   ANIMATION_PROPS,
   formatBucketTime,
@@ -32,7 +38,7 @@ import {
 } from "@/components/dashboard/chart-primitives";
 import { LayerCard } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
-import type { ExtendedTimeseriesBucket, BreakdownEntry } from "@/lib/types";
+import type { ExtendedTimeseriesBucket, BreakdownEntry, GroupedTimeseries } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Shared tooltip — uses chart-primitives atoms (Rule 6)
@@ -130,12 +136,29 @@ function ChartPanel({
 }) {
   return (
     <LayerCard padding="none">
-      <LayerCard.Header className="text-card-label font-medium">{title}</LayerCard.Header>
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">{title}</span>
+      </LayerCard.Header>
       <LayerCard.Body>
         <div style={{ height: CHART_HEIGHTS.standard }}>
           <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
             {children as React.ReactElement}
           </ResponsiveContainer>
+        </div>
+      </LayerCard.Body>
+    </LayerCard>
+  );
+}
+
+function EmptyChartPanel({ title }: { title: string }) {
+  return (
+    <LayerCard padding="none">
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">{title}</span>
+      </LayerCard.Header>
+      <LayerCard.Body>
+        <div className="flex items-center justify-center" style={{ height: CHART_HEIGHTS.standard }}>
+          <p className="text-meta">No data</p>
         </div>
       </LayerCard.Body>
     </LayerCard>
@@ -186,6 +209,98 @@ function TrafficVolumeChart({ data }: { data: ExtendedTimeseriesBucket[] }) {
           {...ANIMATION_PROPS}
         />
       </AreaChart>
+    </ChartPanel>
+  );
+}
+
+function ConnectTokenVolumeChart({ data }: { data: GroupedTimeseries }) {
+  if (data.keys.length === 0) {
+    return <EmptyChartPanel title="Connect Token Volume" />;
+  }
+
+  return (
+    <ChartPanel title="Connect Token Volume">
+      <BarChart data={data.points}>
+        <DashboardCartesianGrid />
+        <XAxis dataKey="bucket" tickFormatter={formatBucketTime} {...AXIS_CONFIG} />
+        <YAxis {...AXIS_CONFIG} />
+        <Tooltip content={<TimeseriesTooltip showTotal />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        {data.keys.map((key, i) => (
+          <Bar
+            key={key}
+            dataKey={key}
+            name={key}
+            stackId="token"
+            fill={getChartColor(i)}
+            radius={i === data.keys.length - 1 ? BAR_RADIUS.vertical : [0, 0, 0, 0]}
+            maxBarSize={28}
+            {...ANIMATION_PROPS}
+          />
+        ))}
+      </BarChart>
+    </ChartPanel>
+  );
+}
+
+function MixTooltip({
+  active,
+  payload,
+  total,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color?: string; payload?: { color: string } }>;
+  total: number;
+}) {
+  if (!active || !payload?.length) return null;
+  const entry = payload[0]!;
+  const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0";
+  return (
+    <ChartTooltip title={entry.name}>
+      <ChartTooltipRow
+        color={entry.payload?.color ?? entry.color ?? getChartColor(0)}
+        label={entry.name}
+        value={`${formatCompact(entry.value)} (${pct}%)`}
+      />
+    </ChartTooltip>
+  );
+}
+
+function ConnectTokenMixChart({ data }: { data: GroupedTimeseries }) {
+  const slices = data.keys
+    .map((key, i) => ({
+      name: key,
+      value: data.points.reduce((sum, point) => sum + (point[key] ?? 0), 0),
+      color: getChartColor(i),
+    }))
+    .filter((slice) => slice.value > 0);
+  const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+
+  if (total === 0) {
+    return <EmptyChartPanel title="Connect Token Mix" />;
+  }
+
+  return (
+    <ChartPanel title="Connect Token Mix">
+      <PieChart>
+        <Pie
+          data={slices}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          outerRadius="80%"
+          stroke="hsl(var(--basalt-background))"
+          strokeWidth={2}
+          {...ANIMATION_PROPS}
+        >
+          {slices.map((slice) => (
+            <Cell key={slice.name} fill={slice.color} />
+          ))}
+        </Pie>
+        <Tooltip content={<MixTooltip total={total} />} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+      </PieChart>
     </ChartPanel>
   );
 }
@@ -420,7 +535,9 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
 
   return (
     <LayerCard padding="none">
-      <LayerCard.Header className="text-card-label font-medium">{title}</LayerCard.Header>
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">{title}</span>
+      </LayerCard.Header>
       <LayerCard.Body className="space-y-2">
         {top.map((entry) => (
           <div key={entry.key} className="flex items-center gap-2">
@@ -450,6 +567,7 @@ function BreakdownBar({ title, data, limit = 5 }: { title: string; data: Breakdo
 
 interface AnalyticsChartsProps {
   timeseries: ExtendedTimeseriesBucket[];
+  tokenTimeseries?: GroupedTimeseries;
   modelBreakdown?: BreakdownEntry[];
   clientBreakdown?: BreakdownEntry[];
   strategyBreakdown?: BreakdownEntry[];
@@ -457,6 +575,7 @@ interface AnalyticsChartsProps {
 
 export function AnalyticsCharts({
   timeseries,
+  tokenTimeseries = { keys: [], points: [] },
   modelBreakdown = [],
   clientBreakdown = [],
   strategyBreakdown = [],
@@ -469,6 +588,8 @@ export function AnalyticsCharts({
       <div className="space-y-5 md:space-y-7">
         <SectionRule title="Traffic">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+            <ChartSkeleton />
+            <ChartSkeleton />
             <ChartSkeleton />
             <ChartSkeleton />
           </div>
@@ -488,6 +609,8 @@ export function AnalyticsCharts({
       <ChartSection title="Traffic">
         <TrafficVolumeChart data={timeseries} />
         <StreamSyncChart data={timeseries} />
+        <ConnectTokenVolumeChart data={tokenTimeseries} />
+        <ConnectTokenMixChart data={tokenTimeseries} />
       </ChartSection>
 
       <ChartSection title="Performance">

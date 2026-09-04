@@ -8,7 +8,7 @@ import { FilterBar } from "@/components/analytics/filter-bar";
 import { AnalyticsCharts } from "./analytics-charts";
 import { SentinelStatusPanel } from "./sentinel-status-panel";
 import { safeFetch } from "@/lib/proxy";
-import type { SummaryStats, ExtendedTimeseriesBucket, BreakdownEntry, Percentiles } from "@/lib/types";
+import type { SummaryStats, ExtendedTimeseriesBucket, BreakdownEntry, Percentiles, GroupedTimeseries } from "@/lib/types";
 import { formatCompact, formatLatency, formatPercent, cacheHitRate } from "@/lib/chart-config";
 import {
   searchParamsToFilters,
@@ -36,16 +36,20 @@ export default async function HomePage({ searchParams }: PageProps) {
   const interval = rangeToInterval(filters.range);
 
   // Fetch all data in parallel
-  const [summaryResult, timeseriesResult, p95Result, modelBkResult, clientBkResult, strategyBkResult] =
+  const tsSep = apiQuery ? "&" : "?";
+  const [summaryResult, timeseriesResult, p95Result, modelBkResult, clientBkResult, strategyBkResult, tokenTsResult] =
     await Promise.all([
       safeFetch<SummaryStats>(`/api/stats/summary${apiQuery}`),
       safeFetch<ExtendedTimeseriesBucket[]>(
-        `/api/stats/timeseries${apiQuery}${apiQuery ? "&" : "?"}interval=${interval}`,
+        `/api/stats/timeseries${apiQuery}${tsSep}interval=${interval}`,
       ),
-      safeFetch<Percentiles>(`/api/stats/percentiles${apiQuery}${apiQuery ? "&" : "?"}metric=latency_ms`),
-      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${apiQuery ? "&" : "?"}by=model&limit=5&sort=count&order=desc`),
-      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${apiQuery ? "&" : "?"}by=client_name&limit=5&sort=count&order=desc`),
-      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${apiQuery ? "&" : "?"}by=strategy&limit=5&sort=count&order=desc`),
+      safeFetch<Percentiles>(`/api/stats/percentiles${apiQuery}${tsSep}metric=latency_ms`),
+      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${tsSep}by=model&limit=5&sort=count&order=desc`),
+      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${tsSep}by=client_name&limit=5&sort=count&order=desc`),
+      safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${tsSep}by=strategy&limit=5&sort=count&order=desc`),
+      safeFetch<GroupedTimeseries>(
+        `/api/stats/timeseries-group${apiQuery}${tsSep}by=account_name&interval=${interval}`,
+      ),
     ]);
 
   if (!summaryResult.ok) {
@@ -70,6 +74,7 @@ export default async function HomePage({ searchParams }: PageProps) {
   const modelBreakdown = modelBkResult.ok ? modelBkResult.data : [];
   const clientBreakdown = clientBkResult.ok ? clientBkResult.data : [];
   const strategyBreakdown = strategyBkResult.ok ? strategyBkResult.data : [];
+  const tokenTimeseries = tokenTsResult.ok ? tokenTsResult.data : { keys: [], points: [] };
 
   // Extract models list for filter dropdown
   const models = modelBreakdown.map((e) => e.key).filter(Boolean);
@@ -84,12 +89,15 @@ export default async function HomePage({ searchParams }: PageProps) {
     <AppShell>
       <div className="space-y-5 md:space-y-7">
         {/* Page header */}
-        <PageHeader title="Overview" description="Live analytics across all proxied requests, models, and clients." />
-
-        {/* Filter Bar */}
-        <Suspense>
-          <FilterBar models={models} strategies={strategies} />
-        </Suspense>
+        <PageHeader
+          title="Overview"
+          description="Live analytics across all proxied requests, models, and clients."
+          filters={
+            <Suspense>
+              <FilterBar models={models} strategies={strategies} />
+            </Suspense>
+          }
+        />
 
         {/* Stat cards row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 md:gap-4">
@@ -147,6 +155,7 @@ export default async function HomePage({ searchParams }: PageProps) {
         {/* Analytics charts */}
         <AnalyticsCharts
           timeseries={timeseries}
+          tokenTimeseries={tokenTimeseries}
           modelBreakdown={modelBreakdown}
           clientBreakdown={clientBreakdown}
           strategyBreakdown={strategyBreakdown}

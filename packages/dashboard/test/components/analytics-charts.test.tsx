@@ -109,6 +109,8 @@ describe("AnalyticsCharts", () => {
     });
 
     expect(screen.getByText("Stream vs Sync")).toBeDefined();
+    expect(screen.getByText("Connect Token Volume")).toBeDefined();
+    expect(screen.getByText("Connect Token Mix")).toBeDefined();
     expect(screen.getByText("Latency")).toBeDefined();
     expect(screen.getByText("Error Rate")).toBeDefined();
     expect(screen.getByText("Token Usage")).toBeDefined();
@@ -132,6 +134,24 @@ describe("AnalyticsCharts", () => {
     });
 
     expect(screen.queryByText("Time to First Token")).toBeNull();
+  });
+
+  it("renders connect token charts from grouped timeseries", async () => {
+    const timeseries = [makeBucket()];
+    render(
+      <AnalyticsCharts
+        timeseries={timeseries}
+        tokenTimeseries={{
+          keys: ["claude-code", "cursor"],
+          points: [{ bucket: Date.now(), "claude-code": 8, cursor: 2 }],
+        }}
+      />,
+    );
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Connect Token Volume")).toBeDefined();
+    });
+    expect(screen.getByText("Connect Token Mix")).toBeDefined();
   });
 
   it("renders breakdown bars with data", async () => {
@@ -169,9 +189,9 @@ describe("AnalyticsCharts", () => {
       expect(screen.getByText("Top Models")).toBeDefined();
     });
 
-    // All three breakdown sections should show "No data"
+    // Three breakdowns plus two empty connect-token charts
     const noDataElements = screen.getAllByText("No data");
-    expect(noDataElements.length).toBe(3);
+    expect(noDataElements.length).toBe(5);
   });
 
   it("renders breakdown bars with (empty) label for empty keys", async () => {
