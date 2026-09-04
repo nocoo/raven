@@ -127,20 +127,19 @@ export function CorsContent({ data }: CorsContentProps) {
         Control which origins can make cross-origin requests to the proxy.
       </p>
 
-      <LayerCard className="space-y-4">
-        {/* Enable/Disable toggle */}
-        <div className="flex items-center justify-between">
+      <LayerCard>
+        <LayerCard.Header className="items-center">
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-basalt-muted-foreground" />
-            <span className="text-sm font-medium">Enable CORS restrictions</span>
+            <span className="text-sm font-semibold text-basalt-foreground">Enable CORS restrictions</span>
           </div>
           <Switch
             checked={enabled}
             onCheckedChange={handleToggle}
             disabled={saving}
           />
-        </div>
-
+        </LayerCard.Header>
+        <LayerCard.Body className="space-y-4">
         {/* Origins list */}
         <div className="space-y-2">
           <p className="text-xs text-basalt-muted-foreground">
@@ -206,6 +205,7 @@ export function CorsContent({ data }: CorsContentProps) {
             allowed (default behavior).
           </p>
         </div>
+        </LayerCard.Body>
       </LayerCard>
     </SectionRule>
   );

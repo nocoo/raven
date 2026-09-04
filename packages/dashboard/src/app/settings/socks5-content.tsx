@@ -194,12 +194,11 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         server&apos;s exit IP. Useful when deployed on VPS with datacenter IPs.
       </p>
 
-      <LayerCard className="space-y-4">
-        {/* Enable toggle */}
-        <div className="flex items-center justify-between">
+      <LayerCard>
+        <LayerCard.Header className="items-center">
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-basalt-muted-foreground" />
-            <span className="text-sm font-medium">Enable SOCKS5 Proxy</span>
+            <span className="text-sm font-semibold text-basalt-foreground">Enable SOCKS5 Proxy</span>
           </div>
           <div className="flex items-center gap-2">
             {data.enabled && (
@@ -215,8 +214,8 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               disabled={saving}
             />
           </div>
-        </div>
-
+        </LayerCard.Header>
+        <LayerCard.Body className="space-y-4">
         {/* Connection settings */}
         <LayerCard.Well className="space-y-3">
           <p className="text-xs font-medium text-basalt-muted-foreground">
@@ -420,6 +419,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             Save
           </Button>
         </div>
+        </LayerCard.Body>
       </LayerCard>
     </SectionRule>
   );

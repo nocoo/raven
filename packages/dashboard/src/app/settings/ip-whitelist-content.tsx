@@ -147,20 +147,19 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
         receive a silent 403 response.
       </p>
 
-      <LayerCard className="space-y-4">
-        {/* Enable/Disable toggle */}
-        <div className="flex items-center justify-between">
+      <LayerCard>
+        <LayerCard.Header className="items-center">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-basalt-muted-foreground" />
-            <span className="text-sm font-medium">Enable IP whitelist</span>
+            <span className="text-sm font-semibold text-basalt-foreground">Enable IP whitelist</span>
           </div>
           <Switch
             checked={enabled}
             onCheckedChange={handleToggle}
             disabled={saving}
           />
-        </div>
-
+        </LayerCard.Header>
+        <LayerCard.Body className="space-y-4">
         {/* Trust proxy toggle */}
         <LayerCard.Well className="space-y-2">
           <div className="flex items-center justify-between">
@@ -257,6 +256,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
             <li>If client IP cannot be determined, access is allowed</li>
           </ul>
         </div>
+        </LayerCard.Body>
       </LayerCard>
     </SectionRule>
   );
