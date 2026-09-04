@@ -7,9 +7,16 @@
 import type { IPWhitelistInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, Plus, Trash2, Loader2, AlertTriangle } from "lucide-react";
-import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
-import { SectionRule } from "@nocoo/basalt/components/section-rule";
+import { AlertTriangle } from "lucide-react";
+import { Switch, LayerCard } from "@nocoo/basalt";
+import {
+  SettingAddRow,
+  SettingListItem,
+  SettingNote,
+  SettingToggleRow,
+  SettingsCard,
+  SettingsSection,
+} from "./settings-ui";
 
 interface IPWhitelistContentProps {
   data: IPWhitelistInfo;
@@ -130,134 +137,71 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
     [ranges, saveRanges]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleAddRange();
-      }
-    },
-    [handleAddRange]
-  );
-
   return (
-    <SectionRule title="IP Whitelist">
-      <p className="text-xs text-basalt-muted-foreground mb-4">
-        Restrict access to the proxy by client IP address. Non-whitelisted IPs
-        receive a silent 403 response.
-      </p>
-
-      <LayerCard>
-        <LayerCard.Header className="items-center">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-basalt-muted-foreground" />
-            <span className="text-sm font-semibold text-basalt-foreground">Enable IP whitelist</span>
-          </div>
-          <Switch
-            checked={enabled}
-            onCheckedChange={handleToggle}
+    <SettingsSection
+      title="IP Whitelist"
+      hint="Restrict access to the proxy by client IP. Non-whitelisted IPs receive a silent 403."
+    >
+      <SettingsCard
+        title="Enable"
+        action={<Switch checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
+      >
+        <LayerCard.Well className="space-y-2">
+          <SettingToggleRow
+            id="ip-trust-proxy"
+            label="Trust proxy headers"
+            description="Read client IP from X-Forwarded-For / X-Real-IP. Only enable behind a trusted reverse proxy."
+            checked={trustProxy}
+            onCheckedChange={handleTrustProxyToggle}
             disabled={saving}
           />
-        </LayerCard.Header>
-        <LayerCard.Body className="space-y-4">
-        {/* Trust proxy toggle */}
-        <LayerCard.Well className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <Label className="text-sm font-medium cursor-pointer">
-                Trust proxy headers
-              </Label>
-              <p className="text-xs text-basalt-muted-foreground mt-0.5">
-                Read client IP from X-Forwarded-For / X-Real-IP headers.
-                Only enable if behind a trusted reverse proxy (nginx, Cloudflare, etc).
-              </p>
-            </div>
-            <Switch
-              checked={trustProxy}
-              onCheckedChange={handleTrustProxyToggle}
-              disabled={saving}
-            />
-          </div>
           {trustProxy && (
             <div className="flex items-start gap-2 text-basalt-warning">
-              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <p className="text-xs">
-                Warning: When enabled, clients can spoof their IP via headers
-                unless your proxy strips and rewrites them.
+                Clients can spoof their IP via headers unless your proxy strips and rewrites them.
               </p>
             </div>
           )}
         </LayerCard.Well>
 
-        {/* IP ranges list */}
         <div className="space-y-2">
-          <p className="text-xs text-basalt-muted-foreground">
-            Supported formats: single IP (192.168.1.1), CIDR (192.168.1.0/24),
-            or range (192.168.1.1-192.168.1.100)
-          </p>
-
-          {/* Existing ranges */}
+          <SettingNote>
+            Formats: single IP (192.168.1.1), CIDR (192.168.1.0/24), or range
+            (192.168.1.1-192.168.1.100)
+          </SettingNote>
           {ranges.length > 0 && (
             <div className="space-y-1.5">
               {ranges.map((range, index) => (
-                <LayerCard.Well
+                <SettingListItem
                   key={range}
-                  className="flex items-center gap-2"
-                >
-                  <code className="flex-1 text-xs font-mono">{range}</code>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-basalt-muted-foreground hover:text-basalt-destructive"
-                    onClick={() => handleRemoveRange(index)}
-                    disabled={saving}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </LayerCard.Well>
+                  value={range}
+                  onRemove={() => handleRemoveRange(index)}
+                  disabled={saving}
+                />
               ))}
             </div>
           )}
-
-          {/* Add new range */}
-          <div className="flex items-center gap-2">
-            <Input
-              value={newRange}
-              onChange={(e) => setNewRange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="e.g., 192.168.1.0/24"
-              className="flex-1 h-8 text-xs font-mono"
-              disabled={saving}
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleAddRange}
-              disabled={saving || !newRange.trim()}
-              className="h-8 px-3 text-xs"
-            >
-              {saving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Plus className="h-3 w-3" />
-              )}
-              <span className="ml-1.5">Add</span>
-            </Button>
-          </div>
+          <SettingAddRow
+            value={newRange}
+            onChange={setNewRange}
+            onAdd={handleAddRange}
+            placeholder="e.g., 192.168.1.0/24"
+            disabled={saving}
+            saving={saving}
+          />
         </div>
 
-        {error && <p className="text-xs text-basalt-destructive">{error}</p>}
+        {error ? <p className="text-xs text-basalt-destructive">{error}</p> : null}
 
-        {/* Anti-lockout notice */}
-        <div className="text-xs text-basalt-muted-foreground border-t border-basalt-border/30 pt-3">
-          <p className="font-medium mb-1">Anti-lockout behavior:</p>
-          <ul className="list-disc list-inside space-y-0.5 ml-1">
+        <SettingNote>
+          <p className="mb-1 font-medium">Anti-lockout:</p>
+          <ul className="ml-1 list-inside list-disc space-y-0.5">
             <li>If no ranges are configured, all IPs are allowed</li>
             <li>If client IP cannot be determined, access is allowed</li>
           </ul>
-        </div>
-        </LayerCard.Body>
-      </LayerCard>
-    </SectionRule>
+        </SettingNote>
+      </SettingsCard>
+    </SettingsSection>
   );
 }

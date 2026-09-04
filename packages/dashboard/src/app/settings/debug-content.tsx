@@ -1,10 +1,8 @@
 "use client"
 
-import { Label, LayerCard, Switch } from "@nocoo/basalt"
-import { SectionRule } from "@nocoo/basalt/components/section-rule"
-import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { SettingsCard, SettingsSection, SettingToggleRow } from "./settings-ui"
 
 interface DebugInfo {
   enabled: boolean
@@ -72,34 +70,22 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
   }
 
   return (
-    <SectionRule title="Debugging">
-      <div className="grid gap-3">
+    <SettingsSection title="Debugging">
+      <SettingsCard>
         {DEBUG_ITEMS.map((item) => (
-          <LayerCard key={item.id}>
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <Label
-                  htmlFor={`debug-${item.id}`}
-                  className="text-sm font-medium cursor-pointer"
-                >
-                  {item.label}
-                </Label>
-                <p className="text-xs text-basalt-muted-foreground mt-0.5">{item.description}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {saving && <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />}
-                <Switch
-                  id={`debug-${item.id}`}
-                  checked={enabled}
-                  onCheckedChange={handleToggle}
-                  disabled={saving}
-                />
-              </div>
-            </div>
-            {error && <p className="text-xs text-basalt-destructive mt-2">{error}</p>}
-          </LayerCard>
+          <SettingToggleRow
+            key={item.id}
+            id={`debug-${item.id}`}
+            label={item.label}
+            description={item.description}
+            checked={enabled}
+            onCheckedChange={handleToggle}
+            disabled={saving}
+            saving={saving}
+            error={error}
+          />
         ))}
-      </div>
-    </SectionRule>
+      </SettingsCard>
+    </SettingsSection>
   )
 }

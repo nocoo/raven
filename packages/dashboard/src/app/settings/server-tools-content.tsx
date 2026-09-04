@@ -1,10 +1,10 @@
 "use client"
 
-import { Button, Input, Label, LayerCard, Switch } from "@nocoo/basalt"
-import { SectionRule } from "@nocoo/basalt/components/section-rule"
+import { Button, Input, LayerCard, Switch } from "@nocoo/basalt"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { SettingNote, SettingsCard, SettingsSection } from "./settings-ui"
 
 interface ServerToolsContentProps {
   data: Record<string, { enabled: boolean; has_api_key: boolean }>
@@ -89,96 +89,83 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
   }
 
   return (
-    <SectionRule title="Server Tools">
-      <p className="text-xs text-basalt-muted-foreground mb-4">
-        Replace Anthropic server-side tools with third-party APIs. Required when routing through GitHub Copilot upstream.
-      </p>
-      <div className="grid gap-3">
-        {SERVER_TOOL_ITEMS.map((item) => {
-          const itemEnabled = item.id === "web_search" ? enabled : false
-          const hasKey = item.id === "web_search" ? (webSearch?.has_api_key ?? false) : false
+    <SettingsSection
+      title="Server Tools"
+      hint="Replace Anthropic server-side tools with third-party APIs. Required when routing through GitHub Copilot."
+    >
+      {SERVER_TOOL_ITEMS.map((item) => {
+        const itemEnabled = item.id === "web_search" ? enabled : false
+        const hasKey = item.id === "web_search" ? (webSearch?.has_api_key ?? false) : false
 
-          return (
-            <LayerCard key={item.id}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <Label htmlFor={`st-${item.id}`} className="text-sm font-medium cursor-pointer">
-                    {item.label}
-                  </Label>
-                  <p className="text-xs text-basalt-muted-foreground mt-0.5">{item.description}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {saving && <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />}
-                  <Switch
-                    id={`st-${item.id}`}
-                    checked={itemEnabled}
-                    onCheckedChange={handleToggle}
-                    disabled={saving}
-                  />
-                </div>
+        return (
+          <SettingsCard
+            key={item.id}
+            title={item.label}
+            action={
+              <div className="flex items-center gap-2">
+                {saving ? <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" /> : null}
+                <Switch
+                  id={`st-${item.id}`}
+                  checked={itemEnabled}
+                  onCheckedChange={handleToggle}
+                  disabled={saving}
+                />
               </div>
-              {error && <p className="text-xs text-basalt-destructive mt-2">{error}</p>}
+            }
+          >
+            <SettingNote>{item.description}</SettingNote>
+            {error ? <p className="text-xs text-basalt-destructive">{error}</p> : null}
 
-              {/* Expanded config when enabled */}
-              {itemEnabled && (
-                <div className="mt-4 pt-4 border-t border-basalt-border/30">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">API Key</span>
-                      {hasKey && !apiKey && (
-                        <span className="text-xs text-basalt-chart-5 flex items-center gap-1">
-                          <span className="size-1.5 rounded-full bg-basalt-chart-5" />
-                          Configured
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        type="password"
-                        placeholder={hasKey ? "Update API key..." : "Enter Tavily API key..."}
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        disabled={savingKey}
-                        className="flex-1 h-8 text-xs"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleSaveKey}
-                        disabled={savingKey || !apiKey.trim()}
-                        className="h-8 px-3 text-xs shrink-0"
-                      >
-                        {savingKey ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          "Save"
-                        )}
-                      </Button>
-                    </div>
-                    {keyError && <p className="text-xs text-basalt-destructive">{keyError}</p>}
-                    {!hasKey && itemEnabled && (
-                      <p className="text-xs text-basalt-warning">
-                        API key required for search functionality
-                      </p>
-                    )}
-                    <p className="text-xs text-basalt-muted-foreground">
-                      Get your API key at{" "}
-                      <a
-                        href="https://tavily.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline hover:text-basalt-foreground"
-                      >
-                        tavily.com
-                      </a>
-                    </p>
-                  </div>
+            {itemEnabled ? (
+              <LayerCard.Well className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">API Key</span>
+                  {hasKey && !apiKey ? (
+                    <span className="flex items-center gap-1 text-xs text-basalt-chart-5">
+                      <span className="size-1.5 rounded-full bg-basalt-chart-5" />
+                      Configured
+                    </span>
+                  ) : null}
                 </div>
-              )}
-            </LayerCard>
-          )
-        })}
-      </div>
-    </SectionRule>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder={hasKey ? "Update API key..." : "Enter Tavily API key..."}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    disabled={savingKey}
+                    className="h-8 flex-1 text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveKey}
+                    disabled={savingKey || !apiKey.trim()}
+                    className="h-8 shrink-0 px-3 text-xs"
+                  >
+                    {savingKey ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                  </Button>
+                </div>
+                {keyError ? <p className="text-xs text-basalt-destructive">{keyError}</p> : null}
+                {!hasKey && itemEnabled ? (
+                  <p className="text-xs text-basalt-warning">API key required for search functionality</p>
+                ) : null}
+                <SettingNote>
+                  Get your API key at{" "}
+                  <a
+                    href="https://tavily.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-basalt-foreground"
+                  >
+                    tavily.com
+                  </a>
+                </SettingNote>
+              </LayerCard.Well>
+            ) : null}
+          </SettingsCard>
+        )
+      })}
+    </SettingsSection>
   )
 }

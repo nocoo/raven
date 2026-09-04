@@ -7,8 +7,8 @@ import type { SettingsData, SettingInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Save, RotateCcw, Loader2 } from "lucide-react";
-import { Button, Badge, Input, LayerCard } from "@nocoo/basalt";
-import { SectionRule } from "@nocoo/basalt/components/section-rule";
+import { Button, Badge, Input } from "@nocoo/basalt";
+import { SettingsCard, SettingsSection } from "./settings-ui";
 
 // ── Display config ──
 
@@ -44,20 +44,18 @@ interface SettingsContentProps {
 
 export function SettingsContent({ data }: SettingsContentProps) {
   return (
-    <SectionRule title="Version Overrides">
-      <p className="text-xs text-basalt-muted-foreground mb-4">
-        These versions are sent in HTTP headers when communicating with GitHub
-        Copilot. Values are auto-detected from your local VS Code installation.
-        Set an override to pin a specific version.
-      </p>
-      <div className="grid gap-3">
+    <SettingsSection
+      title="Version Overrides"
+      hint="Sent in HTTP headers to GitHub Copilot. Auto-detected from local VS Code; set an override to pin a version."
+    >
+      <SettingsCard>
         {VERSION_KEYS.map((key) => {
           const info = data[key];
           if (!info) return null;
           return <SettingRow key={key} settingKey={key} info={info} />;
         })}
-      </div>
-    </SectionRule>
+      </SettingsCard>
+    </SettingsSection>
   );
 }
 
@@ -138,23 +136,23 @@ function SettingRow({
   }, [settingKey, router]);
 
   return (
-    <LayerCard>
-      <div className="flex items-start justify-between gap-4 mb-3">
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{meta.label}</span>
             <Badge
               variant="outline"
-              className={`text-[10px] px-1.5 py-0 font-normal ${sourceBadge.className}`}
+              className={`px-1.5 py-0 text-[10px] font-normal ${sourceBadge.className}`}
             >
               {sourceBadge.label}
             </Badge>
           </div>
-          <p className="text-xs text-basalt-muted-foreground mt-0.5">
+          <p className="mt-0.5 text-xs text-basalt-muted-foreground">
             {meta.description}
           </p>
         </div>
-        <code className="text-xs font-mono text-basalt-muted-foreground shrink-0 bg-basalt-muted px-2 py-1 rounded">
+        <code className="shrink-0 rounded bg-basalt-muted px-2 py-1 font-mono text-xs text-basalt-muted-foreground">
           {info.effective}
         </code>
       </div>
@@ -167,7 +165,7 @@ function SettingRow({
             setError(null);
           }}
           placeholder={info.effective}
-          className="h-8 text-xs font-mono max-w-60"
+          className="h-8 max-w-60 font-mono text-xs"
         />
         <Button
           size="sm"
@@ -201,9 +199,7 @@ function SettingRow({
         )}
       </div>
 
-      {error && (
-        <p className="text-xs text-basalt-destructive mt-2">{error}</p>
-      )}
-    </LayerCard>
+      {error ? <p className="text-xs text-basalt-destructive">{error}</p> : null}
+    </div>
   );
 }

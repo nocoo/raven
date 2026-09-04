@@ -5,9 +5,7 @@
 import type { OptimizationInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
-import { Switch, Label, LayerCard } from "@nocoo/basalt";
-import { SectionRule } from "@nocoo/basalt/components/section-rule";
+import { SettingsCard, SettingsSection, SettingToggleRow } from "./settings-ui";
 
 // ── Optimization item definitions ──
 
@@ -44,25 +42,18 @@ interface OptimizationsContentProps {
 
 export function OptimizationsContent({ data }: OptimizationsContentProps) {
   return (
-    <SectionRule title="Optimizations">
-      <p className="text-xs text-basalt-muted-foreground mb-4">
-        Protocol-level fixes from upstream compatibility research. Enable
-        individually as needed.
-      </p>
-      <div className="grid gap-3">
+    <SettingsSection
+      title="Optimizations"
+      hint="Protocol-level fixes from upstream compatibility research. Enable individually as needed."
+    >
+      <SettingsCard>
         {OPTIMIZATION_ITEMS.map((item) => {
           const info = data[item.id];
           if (!info) return null;
-          return (
-            <OptimizationRow
-              key={item.id}
-              item={item}
-              info={info}
-            />
-          );
+          return <OptimizationRow key={item.id} item={item} info={info} />;
         })}
-      </div>
-    </SectionRule>
+      </SettingsCard>
+    </SettingsSection>
   );
 }
 
@@ -117,32 +108,15 @@ function OptimizationRow({
   );
 
   return (
-    <LayerCard>
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <Label
-            htmlFor={`opt-${item.id}`}
-            className="text-sm font-medium cursor-pointer"
-          >
-            {item.label}
-          </Label>
-          <p className="text-xs text-basalt-muted-foreground mt-0.5">
-            {item.description}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {saving && <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />}
-          <Switch
-            id={`opt-${item.id}`}
-            checked={enabled}
-            onCheckedChange={handleToggle}
-            disabled={saving}
-          />
-        </div>
-      </div>
-      {error && (
-        <p className="text-xs text-basalt-destructive mt-2">{error}</p>
-      )}
-    </LayerCard>
+    <SettingToggleRow
+      id={`opt-${item.id}`}
+      label={item.label}
+      description={item.description}
+      checked={enabled}
+      onCheckedChange={handleToggle}
+      disabled={saving}
+      saving={saving}
+      error={error}
+    />
   );
 }

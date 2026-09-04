@@ -2,10 +2,10 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Globe, Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
-import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
+import { SettingNote, SettingsCard, SettingsSection } from "./settings-ui";
 
 
 
@@ -188,39 +188,47 @@ export function Socks5Content({ data }: Socks5ContentProps) {
   ]);
 
   return (
-    <SectionRule title="SOCKS5 Proxy">
-      <p className="text-xs text-basalt-muted-foreground mb-4">
-        Route upstream requests through a SOCKS5 proxy to hide the
-        server&apos;s exit IP. Useful when deployed on VPS with datacenter IPs.
-      </p>
-
-      <LayerCard>
-        <LayerCard.Header className="items-center">
+    <SettingsSection
+      title="SOCKS5 Proxy"
+      hint="Route upstream requests through a SOCKS5 proxy to hide the server's exit IP."
+    >
+      <SettingsCard
+        title="Enable"
+        action={
           <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-basalt-muted-foreground" />
-            <span className="text-sm font-semibold text-basalt-foreground">Enable SOCKS5 Proxy</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {data.enabled && (
+            {data.enabled ? (
               <span
                 className={`text-xs ${data.bridgeStatus === "running" ? "text-basalt-chart-5" : "text-basalt-destructive"}`}
               >
                 Bridge: {data.bridgeStatus}
               </span>
-            )}
-            <Switch
-              checked={enabled}
-              onCheckedChange={setEnabled}
-              disabled={saving}
-            />
+            ) : null}
+            <Switch checked={enabled} onCheckedChange={setEnabled} disabled={saving} />
           </div>
-        </LayerCard.Header>
-        <LayerCard.Body className="space-y-4">
-        {/* Connection settings */}
+        }
+        footer={
+          <>
+            {saveSuccess ? (
+              <span className="flex items-center gap-1 text-xs text-basalt-chart-5">
+                <CheckCircle className="h-3 w-3" />
+                Settings saved
+              </span>
+            ) : null}
+            {error ? (
+              <span className="flex items-center gap-1 text-xs text-basalt-destructive">
+                <XCircle className="h-3 w-3" />
+                {error}
+              </span>
+            ) : null}
+            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 text-xs">
+              {saving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+              Save
+            </Button>
+          </>
+        }
+      >
         <LayerCard.Well className="space-y-3">
-          <p className="text-xs font-medium text-basalt-muted-foreground">
-            Connection
-          </p>
+          <p className="text-xs font-medium text-basalt-muted-foreground">Connection</p>
 
           <div className="grid grid-cols-[1fr_100px] gap-2">
             <div>
@@ -337,12 +345,10 @@ export function Socks5Content({ data }: Socks5ContentProps) {
 
         {/* Upstream routing */}
         <LayerCard.Well className="space-y-3">
-          <p className="text-xs font-medium text-basalt-muted-foreground">
-            Upstream Routing
-          </p>
-          <p className="text-xs text-basalt-muted-foreground">
+          <p className="text-xs font-medium text-basalt-muted-foreground">Upstream Routing</p>
+          <SettingNote>
             Default: Copilot &amp; GitHub = proxied, Custom providers = direct.
-          </p>
+          </SettingNote>
 
           {/* Copilot policy */}
           <div className="flex items-center justify-between">
@@ -392,35 +398,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             </div>
           )}
         </LayerCard.Well>
-
-        {/* Save button + feedback */}
-        <div className="flex items-center justify-end gap-3">
-          {saveSuccess && (
-            <span className="text-xs text-basalt-chart-5 flex items-center gap-1">
-              <CheckCircle className="h-3 w-3" />
-              Settings saved
-            </span>
-          )}
-          {error && (
-            <span className="text-xs text-basalt-destructive flex items-center gap-1">
-              <XCircle className="h-3 w-3" />
-              {error}
-            </span>
-          )}
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving}
-            className="h-8 text-xs"
-          >
-            {saving ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-            ) : null}
-            Save
-          </Button>
-        </div>
-        </LayerCard.Body>
-      </LayerCard>
-    </SectionRule>
+      </SettingsCard>
+    </SettingsSection>
   );
 }

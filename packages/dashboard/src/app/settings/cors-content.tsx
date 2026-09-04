@@ -6,9 +6,14 @@
 import type { CorsInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Globe, Plus, Trash2, Loader2 } from "lucide-react";
-import { Button, Input, LayerCard, Switch } from "@nocoo/basalt";
-import { SectionRule } from "@nocoo/basalt/components/section-rule";
+import { Switch } from "@nocoo/basalt";
+import {
+  SettingAddRow,
+  SettingListItem,
+  SettingNote,
+  SettingsCard,
+  SettingsSection,
+} from "./settings-ui";
 
 interface CorsContentProps {
   data: CorsInfo;
@@ -111,102 +116,47 @@ export function CorsContent({ data }: CorsContentProps) {
     [origins, saveOrigins]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleAddOrigin();
-      }
-    },
-    [handleAddOrigin]
-  );
-
   return (
-    <SectionRule title="CORS Allowed Origins">
-      <p className="text-xs text-basalt-muted-foreground mb-4">
-        Control which origins can make cross-origin requests to the proxy.
-      </p>
-
-      <LayerCard>
-        <LayerCard.Header className="items-center">
-          <div className="flex items-center gap-2">
-            <Globe className="h-4 w-4 text-basalt-muted-foreground" />
-            <span className="text-sm font-semibold text-basalt-foreground">Enable CORS restrictions</span>
-          </div>
-          <Switch
-            checked={enabled}
-            onCheckedChange={handleToggle}
-            disabled={saving}
-          />
-        </LayerCard.Header>
-        <LayerCard.Body className="space-y-4">
-        {/* Origins list */}
+    <SettingsSection
+      title="CORS"
+      hint="Control which origins can make cross-origin requests to the proxy."
+    >
+      <SettingsCard
+        title="Enable"
+        action={<Switch checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
+      >
         <div className="space-y-2">
-          <p className="text-xs text-basalt-muted-foreground">
+          <SettingNote>
             Add allowed origins (e.g., http://localhost:3000, https://app.example.com)
-          </p>
-
-          {/* Existing origins */}
+          </SettingNote>
           {origins.length > 0 && (
             <div className="space-y-1.5">
               {origins.map((origin, index) => (
-                <LayerCard.Well
+                <SettingListItem
                   key={origin}
-                  className="flex items-center gap-2"
-                >
-                  <code className="flex-1 text-xs font-mono">{origin}</code>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-basalt-muted-foreground hover:text-basalt-destructive"
-                    onClick={() => handleRemoveOrigin(index)}
-                    disabled={saving}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </LayerCard.Well>
+                  value={origin}
+                  onRemove={() => handleRemoveOrigin(index)}
+                  disabled={saving}
+                />
               ))}
             </div>
           )}
-
-          {/* Add new origin */}
-          <div className="flex items-center gap-2">
-            <Input
-              value={newOrigin}
-              onChange={(e) => setNewOrigin(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="e.g., http://localhost:3000"
-              className="flex-1 h-8 text-xs font-mono"
-              disabled={saving}
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleAddOrigin}
-              disabled={saving || !newOrigin.trim()}
-              className="h-8 px-3 text-xs"
-            >
-              {saving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Plus className="h-3 w-3" />
-              )}
-              <span className="ml-1.5">Add</span>
-            </Button>
-          </div>
+          <SettingAddRow
+            value={newOrigin}
+            onChange={setNewOrigin}
+            onAdd={handleAddOrigin}
+            placeholder="e.g., http://localhost:3000"
+            disabled={saving}
+            saving={saving}
+          />
         </div>
 
-        {error && <p className="text-xs text-basalt-destructive">{error}</p>}
+        {error ? <p className="text-xs text-basalt-destructive">{error}</p> : null}
 
-        {/* Info notice */}
-        <div className="text-xs text-basalt-muted-foreground border-t border-basalt-border/30 pt-3">
-          <p>
-            When disabled or the allowed origins list is empty, all origins are
-            allowed (default behavior).
-          </p>
-        </div>
-        </LayerCard.Body>
-      </LayerCard>
-    </SectionRule>
+        <SettingNote>
+          When disabled or the allowed origins list is empty, all origins are allowed.
+        </SettingNote>
+      </SettingsCard>
+    </SettingsSection>
   );
 }
