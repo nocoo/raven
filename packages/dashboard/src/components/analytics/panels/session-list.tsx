@@ -80,10 +80,12 @@ export function SessionList({ sessions }: SessionListProps) {
   if (sessions.length === 0) return null;
   return (
     <LayerCard padding="none">
-      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
-        Sessions
-        <span className="ml-1 font-normal text-basalt-muted-foreground/60">
-          ({sessions.length})
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">
+          Sessions
+          <span className="ml-1 font-normal text-basalt-muted-foreground/60">
+            ({sessions.length})
+          </span>
         </span>
       </LayerCard.Header>
       <LayerCard.Body className="space-y-1.5 max-h-[200px] overflow-y-auto">

@@ -62,10 +62,12 @@ export function TimingChart({ data }: TimingChartProps) {
 
   return (
     <LayerCard padding="none">
-      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
-        Timing
-        <span className="ml-1 font-normal text-basalt-muted-foreground/60">
-          (last {data.length})
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">
+          Timing
+          <span className="ml-1 font-normal text-basalt-muted-foreground/60">
+            (last {data.length})
+          </span>
         </span>
       </LayerCard.Header>
       <LayerCard.Body>

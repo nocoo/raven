@@ -66,10 +66,12 @@ export function ConcurrencyChart({ data, gradientId = "concurrencyFill" }: Concu
 
   return (
     <LayerCard padding="none">
-      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
-        Parallel Sessions
-        <span className="ml-1 font-normal text-basalt-muted-foreground/60">
-          / min
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">
+          Parallel Sessions
+          <span className="ml-1 font-normal text-basalt-muted-foreground/60">
+            / min
+          </span>
         </span>
       </LayerCard.Header>
       <LayerCard.Body>

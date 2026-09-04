@@ -405,8 +405,8 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
 
   return (
     <LayerCard padding="none" className="overflow-hidden">
-      <LayerCard.Header className="flex items-center gap-2">
-        <span className="text-sm font-medium">{displayName}</span>
+      <LayerCard.Header className="items-center">
+        <span className="text-sm font-semibold text-basalt-foreground">{displayName}</span>
         <Badge variant="secondary" className="text-xs">{models.length}</Badge>
       </LayerCard.Header>
         <div className="overflow-x-auto">

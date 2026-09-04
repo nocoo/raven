@@ -56,8 +56,8 @@ export function ModelDistribution({ data }: ModelDistributionProps) {
 
   return (
     <LayerCard padding="none">
-      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
-        Models
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">Models</span>
       </LayerCard.Header>
       <LayerCard.Body>
       <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>

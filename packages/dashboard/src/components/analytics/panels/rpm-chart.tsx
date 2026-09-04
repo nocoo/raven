@@ -65,8 +65,8 @@ export function RpmChart({ data, gradientId = "rpmFill" }: RpmChartProps) {
 
   return (
     <LayerCard padding="none">
-      <LayerCard.Header className="text-xs font-medium text-basalt-muted-foreground">
-        Requests / min
+      <LayerCard.Header>
+        <span className="text-sm font-semibold text-basalt-foreground">Requests / min</span>
       </LayerCard.Header>
       <LayerCard.Body>
       <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
