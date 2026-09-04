@@ -32,7 +32,7 @@
         "react-dom": "19.2.8",
         "recharts": "3.10.1",
         "swr": "2.5.1",
-        "tailwind-merge": "^3.3.0",
+        "tailwind-merge": "^3.6.0",
       },
       "devDependencies": {
         "@playwright/test": "^1.62.0",
