@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.7.0
+
+### Added
+- Convert /logs route to global logs dock with fab trigger
+
 ## v2.6.1
 
 ### Added
