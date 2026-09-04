@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.6.1
+
+### Added
+- Chart connect token traffic
+- Add grouped timeseries stats
+
+### Changed
+- Unify settings card layout
+
+### Fixed
+- Restore settings card padding
+- Use basalt card title type
+- Keep logs indicator out of p
+- Unstretch page header filters
+
 ## v2.6.0
 
 ### Added
