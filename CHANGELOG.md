@@ -1,5 +1,54 @@
 # Changelog
 
+## v2.6.0
+
+### Added
+- Migrate page headers and sections
+- Migrate app shell to basalt
+- Migrate login badge to basalt
+- Wire basalt css and providers
+
+### Changed
+- Upgrade vitest to 5.0.0
+- Bump remaining patch versions
+- Bump tailwind-merge to 3.6.0
+- Bump lucide-react to 1.40.0
+- Bump biome to 2.5.12
+- Prune unused radix lockfile records
+- Prune unused lockfile packages
+- Wrap leftover cards in layer cards
+- Wrap remaining cards in layer cards
+- Wrap remaining tables in layer cards
+- Wrap tables in layer cards
+- Replace ui primitives with basalt
+- Add @nocoo/basalt 2.0.2
+- Upgrade testing library react to 16.3.3
+- Upgrade vite react plugin to 6.1.1
+- Upgrade zod to 4.5.4
+- Upgrade lucide-react to 1.38.0
+- Upgrade next to 16.3.4
+- Upgrade lint-staged to 17.4.1
+- Bump @biomejs/biome 2.5.10 → 2.5.11
+- Upgrade @types/node to 26.4.0
+
+### Fixed
+- Add tab panels and card headers
+- Use basalt table tabs and nested wells
+- Prefix leftover directional token classes
+- Finish remaining basalt chrome p2s
+- Remap leftover raw css color vars
+- Restore dialog size and close
+- Restore table horizontal overflow
+- Add request drawer close control
+- Restore misplaced use client
+- Align sharp with next 16.3.4
+
+### Removed
+- Drop unused root dependencies
+- Drop unused accordion css
+- Drop unprefixed css token bridge
+- Drop raw chart token aliases
+
 ## v2.5.4
 
 ### Changed
