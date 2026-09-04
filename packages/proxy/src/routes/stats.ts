@@ -3,6 +3,7 @@ import type { Database } from "bun:sqlite";
 import {
   queryOverview,
   queryTimeseries,
+  queryGroupedTimeseries,
   queryModels,
   queryRecent,
   querySummary,
@@ -45,6 +46,31 @@ export function createStatsRoute(db: Database): Hono {
 
   route.get("/stats/models", (c) => {
     const result = queryModels(db);
+    return c.json(result);
+  });
+
+  // Bucket × dimension series for stacked charts (Connect token, model, …)
+  route.get("/stats/timeseries-group", (c) => {
+    const by = c.req.query("by");
+    if (!by) return c.json({ error: "missing 'by' parameter" }, 400);
+
+    const interval = c.req.query("interval") ?? "hour";
+    const filters = parseAnalyticsFilters(c);
+    const { where, bindings } = buildWhereClause(filters);
+    const hasExplicitTimeRange = filters.from !== undefined;
+    const range = hasExplicitTimeRange ? undefined : (c.req.query("range") ?? "24h");
+    const limitStr = c.req.query("limit");
+    const topN = limitStr ? safeParseInt(limitStr) ?? 8 : 8;
+
+    const result = queryGroupedTimeseries(
+      db,
+      by,
+      interval,
+      range,
+      where,
+      bindings as (string | number | null)[],
+      topN,
+    );
     return c.json(result);
   });
 

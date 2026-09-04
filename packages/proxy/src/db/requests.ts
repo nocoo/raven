@@ -632,16 +632,13 @@ function rangeToMs(range: string): number {
   }
 }
 
-export function queryTimeseries(
-  db: Database,
+function bindTimeseriesWhere(
   interval: string,
   range: string | undefined,
-  whereClause = "",
-  bindings: (string | number | null)[] = [],
-): TimeseriesBucket[] {
+  whereClause: string,
+  bindings: (string | number | null)[],
+): { namedBindings: Record<string, string | number | null>; adjustedWhere: string } {
   const intMs = intervalToMs(interval);
-
-  // Only apply implicit time range when range is specified (no explicit from/to in filters)
   const rangeCondition = range ? `timestamp >= $since` : "";
   const extraConditions = whereClause ? whereClause.replace(/^WHERE\s+/i, "") : "";
 
@@ -656,7 +653,6 @@ export function queryTimeseries(
     fullWhere = "";
   }
 
-  // Convert positional bindings to named params
   const namedBindings: Record<string, string | number | null> = {
     $interval: intMs,
   };
@@ -673,6 +669,22 @@ export function queryTimeseries(
       return key;
     });
   }
+  return { namedBindings, adjustedWhere };
+}
+
+export function queryTimeseries(
+  db: Database,
+  interval: string,
+  range: string | undefined,
+  whereClause = "",
+  bindings: (string | number | null)[] = [],
+): TimeseriesBucket[] {
+  const { namedBindings, adjustedWhere } = bindTimeseriesWhere(
+    interval,
+    range,
+    whereClause,
+    bindings,
+  );
 
   // Main aggregate query
   const rows = db
@@ -772,6 +784,92 @@ function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
   const idx = Math.ceil(p * sorted.length) - 1;
   return sorted[Math.max(0, idx)]!;
+}
+
+// ---------------------------------------------------------------------------
+// queryGroupedTimeseries — bucket × dimension stacked series
+// ---------------------------------------------------------------------------
+
+export interface GroupedTimeseriesResult {
+  keys: string[];
+  points: Array<{ bucket: number } & Record<string, number>>;
+}
+
+const EMPTY_KEY_LABEL = "(empty)";
+const OTHERS_KEY_LABEL = "Others";
+
+export function queryGroupedTimeseries(
+  db: Database,
+  by: string,
+  interval: string,
+  range: string | undefined,
+  whereClause = "",
+  bindings: (string | number | null)[] = [],
+  topN = 8,
+): GroupedTimeseriesResult {
+  const column = VALID_BY_COLUMNS[by];
+  if (!column) return { keys: [], points: [] };
+
+  const { namedBindings, adjustedWhere } = bindTimeseriesWhere(
+    interval,
+    range,
+    whereClause,
+    bindings,
+  );
+
+  const rows = db
+    .query(
+      `SELECT
+        (timestamp / $interval) * $interval as bucket,
+        CAST(${column} AS TEXT) as key,
+        COUNT(*) as count
+      FROM requests
+      ${adjustedWhere}
+      GROUP BY bucket, key
+      ORDER BY bucket ASC`,
+    )
+    .all(namedBindings) as Array<{ bucket: number; key: string | null; count: number }>;
+
+  const labelOf = (raw: string | null): string => {
+    const key = raw ?? "";
+    return key === "" ? EMPTY_KEY_LABEL : key;
+  };
+
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    const key = labelOf(row.key);
+    totals.set(key, (totals.get(key) ?? 0) + row.count);
+  }
+
+  const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  const topKeys = ranked.slice(0, topN).map(([key]) => key);
+  const hasOthers = ranked.length > topN;
+  const keys = hasOthers ? [...topKeys, OTHERS_KEY_LABEL] : topKeys;
+  const topSet = new Set(topKeys);
+
+  const byBucket = new Map<number, Record<string, number>>();
+  for (const row of rows) {
+    const label = labelOf(row.key);
+    const seriesKey = topSet.has(label) ? label : OTHERS_KEY_LABEL;
+    let point = byBucket.get(row.bucket);
+    if (!point) {
+      point = {};
+      byBucket.set(row.bucket, point);
+    }
+    point[seriesKey] = (point[seriesKey] ?? 0) + row.count;
+  }
+
+  const points = [...byBucket.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([bucket, series]) => {
+      const point: { bucket: number } & Record<string, number> = { bucket };
+      for (const key of keys) {
+        point[key] = series[key] ?? 0;
+      }
+      return point;
+    });
+
+  return { keys, points };
 }
 
 // ---------------------------------------------------------------------------

@@ -260,6 +260,29 @@ describe("GET /api/stats/timeseries", () => {
   });
 });
 
+describe("GET /api/stats/timeseries-group", () => {
+  test("returns stacked series by account_name", async () => {
+    insertRequest(db, makeRecord({ account_name: "claude-code" }));
+    insertRequest(db, makeRecord({ account_name: "cursor" }));
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+
+    const res = await app.request("/api/stats/timeseries-group?by=account_name&interval=hour&range=24h");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.keys).toEqual(expect.arrayContaining(["claude-code", "cursor"]));
+    expect(Array.isArray(body.points)).toBe(true);
+    expect(body.points.length).toBeGreaterThan(0);
+  });
+
+  test("missing by → 400", async () => {
+    const app = new Hono();
+    app.route("/api", createStatsRoute(db));
+    const res = await app.request("/api/stats/timeseries-group");
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("GET /api/stats/models", () => {
   test("returns per-model stats", async () => {
     seedDb(db);

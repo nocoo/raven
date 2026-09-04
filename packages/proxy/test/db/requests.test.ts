@@ -5,6 +5,7 @@ import {
   insertRequest,
   queryOverview,
   queryTimeseries,
+  queryGroupedTimeseries,
   queryModels,
   queryRecent,
   queryRequests,
@@ -391,6 +392,85 @@ describe("queryTimeseries", () => {
     const bucket = result[result.length - 1]!;
     expect(bucket.cache_read_tokens).toBe(550);
     expect(bucket.cache_write_tokens).toBe(20);
+  });
+});
+
+// ===========================================================================
+// queryGroupedTimeseries
+// ===========================================================================
+
+describe("queryGroupedTimeseries", () => {
+  test("stacks request counts by account_name", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "claude-code" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "claude-code" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "cursor" }));
+
+    const result = queryGroupedTimeseries(db, "account_name", "hour", "24h");
+    expect(result.keys).toEqual(["claude-code", "cursor"]);
+    expect(result.points).toHaveLength(1);
+    expect(result.points[0]?.["claude-code"]).toBe(2);
+    expect(result.points[0]?.cursor).toBe(1);
+  });
+
+  test("labels empty keys and merges overflow into Others", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "a" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "a" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "a" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "b" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "c" }));
+
+    const result = queryGroupedTimeseries(db, "account_name", "hour", "24h", "", [], 2);
+    expect(result.keys).toEqual(["a", "(empty)", "Others"]);
+    expect(result.points[0]?.a).toBe(3);
+    expect(result.points[0]?.["(empty)"]).toBe(2);
+    expect(result.points[0]?.Others).toBe(2);
+  });
+
+  test("returns empty result for unknown dimension", () => {
+    insertRequest(db, makeRecord());
+    const result = queryGroupedTimeseries(db, "not_a_column", "hour", "24h");
+    expect(result).toEqual({ keys: [], points: [] });
+  });
+
+  test("applies extra WHERE alongside the implicit range", () => {
+    const now = Date.now();
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "keep", model: "claude-sonnet-4" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "drop", model: "gpt-4o" }));
+
+    const result = queryGroupedTimeseries(
+      db,
+      "account_name",
+      "hour",
+      "24h",
+      "WHERE model = ?",
+      ["claude-sonnet-4"],
+    );
+    expect(result.keys).toEqual(["keep"]);
+    expect(result.points[0]?.keep).toBe(1);
+  });
+
+  test("skips implicit range when from/to already bound the window", () => {
+    insertRequest(db, makeRecord({ timestamp: Date.now(), account_name: "now" }));
+    const result = queryGroupedTimeseries(db, "account_name", "hour", undefined);
+    expect(result.keys).toEqual(["now"]);
+  });
+
+  test("applies extra WHERE without an implicit range", () => {
+    insertRequest(db, makeRecord({ account_name: "keep", model: "claude-sonnet-4" }));
+    insertRequest(db, makeRecord({ account_name: "drop", model: "gpt-4o" }));
+    const result = queryGroupedTimeseries(
+      db,
+      "account_name",
+      "hour",
+      undefined,
+      "WHERE model = ?",
+      ["claude-sonnet-4"],
+    );
+    expect(result.keys).toEqual(["keep"]);
   });
 });
 
