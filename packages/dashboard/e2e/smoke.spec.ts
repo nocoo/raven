@@ -25,9 +25,13 @@ test.describe("smoke", () => {
     await expect(page.locator("text=Connect")).toBeVisible();
   });
 
-  test("logs page loads", async ({ page }) => {
-    await page.goto("/logs");
-    await expect(page.locator("text=Logs")).toBeVisible();
+  test("live logs dock opens via fab", async ({ page }) => {
+    await page.goto("/");
+    const fab = page.locator('button[aria-label="Open live logs"]');
+    await expect(fab).toBeVisible();
+    await fab.click();
+    await expect(page.locator('[aria-label="Live logs dock"]')).toBeVisible();
+    await expect(page.locator("text=Logs").first()).toBeVisible();
   });
 
   test("settings page loads", async ({ page }) => {
@@ -44,11 +48,11 @@ test.describe("smoke", () => {
     await page.goto("/");
 
     // Click on a nav link to another page
-    const logsLink = page.locator('nav a[href="/logs"], nav >> text=Logs');
-    if (await logsLink.count()) {
-      await logsLink.first().click();
-      await page.waitForURL("**/logs");
-      await expect(page.locator("text=Logs")).toBeVisible();
+    const requestsLink = page.locator('nav a[href="/requests"], nav >> text=Requests');
+    if (await requestsLink.count()) {
+      await requestsLink.first().click();
+      await page.waitForURL("**/requests");
+      await expect(page.locator("text=Requests").first()).toBeVisible();
     }
   });
 

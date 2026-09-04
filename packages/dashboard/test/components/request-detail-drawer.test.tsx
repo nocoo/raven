@@ -31,6 +31,22 @@ vi.mock("next/navigation", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock log dock context
+// ---------------------------------------------------------------------------
+
+const mockOpenLogs = vi.fn();
+vi.mock("@/components/logs/log-dock-context", () => ({
+  useLogDock: () => ({
+    openLogs: mockOpenLogs,
+    closeLogs: vi.fn(),
+    toggleLogs: vi.fn(),
+    isOpen: false,
+    requestIdFilter: null,
+    setRequestIdFilter: vi.fn(),
+  }),
+}));
+
+// ---------------------------------------------------------------------------
 // Import after mocks
 // ---------------------------------------------------------------------------
 
@@ -203,13 +219,20 @@ describe("RequestDetailDrawer", () => {
     expect(screen.getByLabelText("Copy JSON")).toBeDefined();
   });
 
-  it("shows link to live logs", () => {
+  it("shows button to live logs and opens dock on click", async () => {
+    mockOpenLogs.mockClear();
+    const onOpenChange = vi.fn();
     const req = makeExtendedRecord({ id: "req-xyz" });
     render(
-      <RequestDetailDrawer request={req} open={true} onOpenChange={() => {}} />,
+      <RequestDetailDrawer request={req} open={true} onOpenChange={onOpenChange} />,
     );
-    const link = screen.getByText("View in Live Logs");
-    expect(link.closest("a")?.getAttribute("href")).toBe("/logs?requestId=req-xyz");
+    const button = screen.getByRole("button", { name: /view in live logs/i });
+    expect(button).toBeDefined();
+
+    const user = userEvent.setup();
+    await user.click(button);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(mockOpenLogs).toHaveBeenCalledWith("req-xyz");
   });
 });
 

@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AuthProvider } from "@/components/auth-provider";
+import { LogDockProvider } from "@/components/logs/log-dock-context";
 
 function AppLink({
   href,
@@ -39,8 +40,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <LinkProvider render={AppLink}>
         <TooltipProvider>
           <AuthProvider>
-            <Toaster />
-            {children}
+            <LogDockProvider>
+              <Toaster />
+              {children}
+            </LogDockProvider>
           </AuthProvider>
         </TooltipProvider>
       </LinkProvider>

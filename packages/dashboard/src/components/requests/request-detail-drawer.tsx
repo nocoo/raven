@@ -6,7 +6,7 @@
 import { JsonBlock } from "@/components/ui/json-block";
 import type { ExtendedRequestRecord } from "@/lib/types";
 import { formatLatency } from "@/lib/chart-config";
-import { Copy, ExternalLink, X } from "lucide-react";
+import { Copy, Terminal, X } from "lucide-react";
 import {
   Badge,
   Button,
@@ -17,6 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@nocoo/basalt";
+import { useLogDock } from "@/components/logs/log-dock-context";
 
 interface RequestDetailDrawerProps {
   request: ExtendedRequestRecord | null;
@@ -61,6 +62,7 @@ function DetailRow({ label, value, mono }: { label: string; value: React.ReactNo
 }
 
 export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDetailDrawerProps) {
+  const { openLogs } = useLogDock();
   if (!request) return null;
 
   const totalLatency = request.latency_ms;
@@ -242,11 +244,17 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
 
           {/* Link to live log */}
           <div className="pt-2">
-            <Button variant="outline" size="sm" className="w-full" asChild>
-              <a href={`/logs?requestId=${request.id}`}>
-                <ExternalLink className="size-3 mr-1.5" />
-                View in Live Logs
-              </a>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                onOpenChange(false);
+                openLogs(request.id);
+              }}
+            >
+              <Terminal className="size-3 mr-1.5" />
+              View in Live Logs
             </Button>
           </div>
         </div>

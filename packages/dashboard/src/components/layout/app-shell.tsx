@@ -19,6 +19,7 @@ import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Github } from "@/components/icons/github";
+import { LogsDock } from "@/components/logs/logs-dock";
 import { SetupWizard } from "@/components/setup-wizard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AppSidebar } from "./sidebar";
@@ -118,6 +119,7 @@ export function AppShell({ children, breadcrumbs = [] }: AppShellProps) {
             {children}
           </ContentIsland>
         </div>
+        <LogsDock />
       </AppMain>
     </Shell>
   );

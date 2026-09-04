@@ -15,7 +15,7 @@ import { groupEvents } from "./group-events";
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Pause, Play, Trash2, Circle, ChevronDown, ChevronRight, Monitor, Loader2, Rocket, Copy, Check, } from "lucide-react";
+  Pause, Play, Trash2, Circle, ChevronDown, ChevronRight, Monitor, Loader2, Rocket, Copy, Check, X, } from "lucide-react";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { Button, Badge, Input, LayerCard } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
@@ -741,9 +741,19 @@ function EventGroup({
 // Main component
 // ---------------------------------------------------------------------------
 
-export function LogsContent() {
+interface LogsContentProps {
+  onClose?: () => void;
+  requestIdFilter?: string | undefined;
+  onClearRequestIdFilter?: () => void;
+}
+
+export function LogsContent({
+  onClose,
+  requestIdFilter: explicitRequestIdFilter,
+  onClearRequestIdFilter,
+}: LogsContentProps = {}) {
   const searchParams = useSearchParams();
-  const requestIdFilter = searchParams.get("requestId") ?? undefined;
+  const requestIdFilter = explicitRequestIdFilter ?? searchParams?.get("requestId") ?? undefined;
   const [level, setLevel] = useState<LogLevel>("info");
   const [search, setSearch] = useState("");
 
@@ -916,15 +926,44 @@ export function LogsContent() {
               <Trash2 className="size-3" />
               <span className="hidden sm:inline">Clear</span>
             </Button>
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onClose}
+                aria-label="Close logs dock"
+              >
+                <X className="size-4" />
+              </Button>
+            )}
           </>
         }
       />
 
-      {/* Pause banner */}
-      {paused && (
-        <div className="flex shrink-0 items-center gap-2 rounded-md bg-basalt-warning/10 px-3 py-1.5 text-xs text-basalt-warning">
-          <Pause className="size-3" />
-          Paused — new events are being buffered
+      {/* Pause & filter banner */}
+      {(paused || requestIdFilter) && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {paused && (
+            <div className="flex shrink-0 items-center gap-2 rounded-md bg-basalt-warning/10 px-3 py-1.5 text-xs text-basalt-warning">
+              <Pause className="size-3" />
+              Paused — new events are being buffered
+            </div>
+          )}
+          {requestIdFilter && (
+            <div className="flex shrink-0 items-center gap-2 rounded-md bg-basalt-info/10 px-3 py-1.5 text-xs text-basalt-info">
+              <span>Filtered by request: <code className="font-mono">{requestIdFilter}</code></span>
+              {onClearRequestIdFilter && (
+                <button
+                  type="button"
+                  onClick={onClearRequestIdFilter}
+                  className="hover:underline ml-1 font-medium"
+                >
+                  Clear filter
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -31,7 +31,6 @@ import {
   Route,
   Settings,
   Shield,
-  Terminal,
   Users,
   Wrench,
 } from "lucide-react";
@@ -65,7 +64,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/clients", label: "Clients", icon: Users },
       { href: "/sessions", label: "Sessions", icon: MessageSquare },
       { href: "/providers", label: "Providers", icon: Route },
-      { href: "/logs", label: "Logs", icon: Terminal },
     ],
   },
   {

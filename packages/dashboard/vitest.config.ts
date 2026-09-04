@@ -19,6 +19,7 @@ export default defineConfig({
         "src/components/models/**",
         "src/components/stats/**",
         "src/components/layout/**",
+        "src/components/logs/**",
         "src/components/auth-provider.tsx",
         "src/components/providers.tsx",
         "src/components/fetch-error.tsx",
