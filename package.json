@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
-    "@types/bun": "1.4.0",
+    "@types/bun": "1.4.1",
     "dependency-cruiser": "18.2.0",
     "husky": "^9.1.7",
     "lint-staged": "17.4.1",
