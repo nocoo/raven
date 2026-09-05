@@ -120,10 +120,9 @@ async function main(): Promise<number> {
 
     // Run Playwright
     const extraArgs = process.argv.slice(2);
-    const result =
-      await $`bunx playwright test --config packages/dashboard/e2e/playwright.config.ts ${extraArgs}`.cwd(
-        `${import.meta.dir}/..`,
-      ).nothrow();
+    const result = await $`bunx playwright test --config e2e/playwright.config.ts ${extraArgs}`
+      .cwd(`${import.meta.dir}/../packages/dashboard`)
+      .nothrow();
 
     return result.exitCode;
   } finally {
