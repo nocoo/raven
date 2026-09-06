@@ -40,7 +40,7 @@
     "@types/bun": "1.4.1",
     "dependency-cruiser": "18.2.0",
     "husky": "^9.1.7",
-    "lint-staged": "17.4.1",
+    "lint-staged": "17.5.0",
     "oxc-parser": "0.148.0",
     "typescript": "^7.0.2",
     "typescript6-for-depcruise": "npm:typescript@6.0.3"
