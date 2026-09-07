@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate all logo derivatives from root logo.png.
-
-Single-source pattern: one high-res logo → multiple sizes for
-favicon, sidebar, apple-icon, OG image, etc.
+Generate transparent app marks and separate touch/social presentations.
 
 Usage:
-    python3 scripts/resize-logos.py
+    uv run --with pillow python scripts/resize-logos.py
 """
 
 from pathlib import Path
@@ -42,6 +39,8 @@ def main() -> None:
         raise FileNotFoundError(f"Source logo not found: {SOURCE}")
 
     img = Image.open(SOURCE).convert("RGBA")
+    square = Image.open(ROOT / "assets/brand/icon.png").convert("RGBA")
+    rounded = Image.open(ROOT / "assets/brand/icon-rounded.png").convert("RGBA")
     print(f"Source: {SOURCE} ({img.size[0]}x{img.size[1]})")
 
     PUBLIC.mkdir(parents=True, exist_ok=True)
@@ -66,20 +65,18 @@ def main() -> None:
     print(f"  {icon_path.relative_to(ROOT)} (32x32)")
 
     # apple-icon — 180x180
-    apple = resize_square(img, 180)
+    apple = resize_square(square, 180).convert("RGB")
     apple_path = APP / "apple-icon.png"
     apple.save(apple_path, "PNG")
     print(f"  {apple_path.relative_to(ROOT)} (180x180)")
 
     # favicon.ico — 16+32 multi-size
-    ico_16 = resize_square(img, 16)
-    ico_32 = resize_square(img, 32)
     ico_path = APP / "favicon.ico"
-    ico_16.save(ico_path, format="ICO", sizes=[(16, 16), (32, 32)], append_images=[ico_32])
+    img.save(ico_path, format="ICO", sizes=[(16, 16), (32, 32)])
     print(f"  {ico_path.relative_to(ROOT)} (16+32 multi-size)")
 
     # opengraph-image — 1200x630
-    og = create_og_image(img)
+    og = create_og_image(rounded)
     og_path = APP / "opengraph-image.png"
     og.save(og_path, "PNG")
     print(f"  {og_path.relative_to(ROOT)} (1200x630)")

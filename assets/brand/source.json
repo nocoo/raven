@@ -1,0 +1,46 @@
+{
+  "study": "raven/2026-09-07-04",
+  "finishing": "02",
+  "model": "gpt-image-2",
+  "method": "generated-framing-repair",
+  "generationCalls": 1,
+  "nativeDimensions": [
+    2048,
+    2048
+  ],
+  "generation": {
+    "path": "raw/generated.png",
+    "sha256": "778f2af775a29b84ae8dae6e489afa8deb59b79362c8f5a041dd1f10addf0832"
+  },
+  "previous": {
+    "original": "/logos/originals/raven.png",
+    "sourceUrl": "https://github.com/nocoo/raven/blob/2e082931954fc48131177c57138c6956b1cd67c9/logo.png",
+    "sha256": "4de4df89c83e1fe24a02c6446e158793ccef0edfb7e4ee953a538edcf2004bf8",
+    "width": 2048,
+    "height": 2048
+  },
+  "masters": {
+    "logo.png": {
+      "sha256": "9b5f6ee551ad4e2e082b6f99ce690bcd782db67fc0d90fdfcf46f6e28af28319",
+      "width": 2048,
+      "height": 2048
+    },
+    "assets/brand/icon.png": {
+      "sha256": "bda85a414525de14ce551d234dbdc44161b447d8cdae0d88f7c6f026382bd32e",
+      "width": 2048,
+      "height": 2048
+    },
+    "assets/brand/icon-rounded.png": {
+      "sha256": "4ee7bf35d7a313219f2157233e5475a758ecade16ce465e02f60a1661d7ae781",
+      "width": 2048,
+      "height": 2048
+    }
+  },
+  "protectedFeatureClearancePx": 148.5,
+  "intentionalEdges": [
+    "bottom",
+    "lower-left"
+  ],
+  "review": "https://hexly.ai/logos/raven",
+  "archive": "https://github.com/nocoo/hexly.ai/tree/main/artwork/logo-family/raven/2026-09-07-04"
+}
