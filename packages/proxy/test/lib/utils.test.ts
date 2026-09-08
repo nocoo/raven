@@ -5,6 +5,7 @@ import { state } from "../../src/lib/state"
 import {
   cacheVersions,
   cacheModels,
+  refreshModelsIfStale,
   cacheServerTools,
   cacheOptimizations,
   cacheProviders,
@@ -139,6 +140,71 @@ describe("cacheModels", () => {
     await cacheModels()
     expect(state.models).toBeDefined()
     expect(state.models!.data[0]!.id).toBe("gpt-4")
+  })
+})
+
+// ===========================================================================
+// refreshModelsIfStale
+// ===========================================================================
+
+describe("refreshModelsIfStale", () => {
+  const ttl = 60 * 60 * 1000
+  const cachedModels = { object: "list", data: [] }
+  const refreshedModels = { object: "list", data: [{ id: "refreshed-model" }] }
+  let nowSpy: ReturnType<typeof vi.spyOn>
+
+  const settleRefresh = () => new Promise<void>((resolve) => setImmediate(resolve))
+
+  beforeEach(async () => {
+    nowSpy = vi.spyOn(Date, "now").mockReturnValue(0)
+    fetchSpy.mockImplementation(async () => Response.json(cachedModels))
+    await cacheModels()
+    fetchSpy.mockClear()
+  })
+
+  afterEach(async () => {
+    await settleRefresh()
+    nowSpy.mockRestore()
+  })
+
+  test("keeps fresh models and shares one refresh when the cache expires", async () => {
+    nowSpy.mockReturnValue(ttl - 1)
+    refreshModelsIfStale()
+    expect(fetchSpy).not.toHaveBeenCalled()
+
+    const refresh = Promise.withResolvers<Response>()
+    fetchSpy.mockImplementationOnce(() => refresh.promise)
+    nowSpy.mockReturnValue(ttl)
+
+    try {
+      refreshModelsIfStale()
+      refreshModelsIfStale()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(state.models).toEqual(cachedModels)
+    } finally {
+      refresh.resolve(Response.json(refreshedModels))
+      await settleRefresh()
+    }
+
+    expect(state.models).toEqual(refreshedModels)
+    refreshModelsIfStale()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  test("preserves cached models after a failed refresh and retries on the next call", async () => {
+    nowSpy.mockReturnValue(ttl)
+    fetchSpy.mockRejectedValueOnce(new Error("model service unavailable"))
+
+    refreshModelsIfStale()
+    await settleRefresh()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(state.models).toEqual(cachedModels)
+
+    fetchSpy.mockResolvedValueOnce(Response.json(refreshedModels))
+    refreshModelsIfStale()
+    await settleRefresh()
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    expect(state.models).toEqual(refreshedModels)
   })
 })
 

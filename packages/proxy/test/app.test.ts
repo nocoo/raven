@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "vitest"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Database } from "bun:sqlite"
 import { createApp } from "../src/app.ts"
 import { initDatabase } from "../src/db/requests.ts"
@@ -23,8 +23,13 @@ function createTestDb(): Database {
 
 describe("createApp", () => {
   let db: Database
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+  const savedModels = state.models
 
   beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      Response.json({ object: "list", data: [] }),
+    )
     db = createTestDb()
     invalidateKeyCountCache()
     state.corsEnabled = false
@@ -32,6 +37,8 @@ describe("createApp", () => {
   })
 
   afterEach(() => {
+    fetchSpy.mockRestore()
+    state.models = savedModels
     db.close()
   })
 
