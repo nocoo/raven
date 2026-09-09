@@ -131,7 +131,11 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
     const result = validateRequestToken(c, db, envApiKey, null);
     if (!result.valid) return result.response;
     c.set("keyName", result.keyName);
-    refreshModelsIfStale();
+    // Images use only explicitly matched custom upstreams, never Copilot's
+    // catalog. Avoid a background Copilot request on this independent path.
+    if (c.req.path.replace(/\/$/, "") !== "/v1/images/generations") {
+      refreshModelsIfStale();
+    }
     await next();
   });
 }

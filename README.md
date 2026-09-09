@@ -30,6 +30,7 @@ Raven 是用于个人研究和开发的模型 API 代理。Bun / Hono 服务接�
 | `POST /v1/chat/completions` | Copilot 或自定义 OpenAI provider；Copilot 的 Responses-only 模型自动转换到 Responses 上游。 |
 | `POST /v1/responses` | Copilot；自定义 provider 会被拒绝。 |
 | `POST /v1/embeddings` | Copilot 的嵌入接口。 |
+| `POST /v1/images/generations` | [JSON 图像生成](docs/27-image-generation.md)，仅转发到模型规则匹配的已启用自定义 OpenAI provider；不回退到 Copilot。 |
 | `GET /v1/models` | 查询可用模型信息。 |
 
 Messages 到 Responses-only 上游的自动转换仍是设计中的功能。OpenAI Chat 请求也不能路由到 Anthropic 格式的自定义上游。模型、上下文长度、thinking 与工具能力应以实际目录和上游响应为准；`/v1/messages/count_tokens` 是本地估算，缺少模型或计算失败时会返回回退值。

@@ -79,7 +79,7 @@ interface ProviderMatch {
  * state read). Earlier candidate beats later; exact beats glob across
  * the whole search space.
  */
-function matchProvider(
+export function matchProvider(
   candidates: string[],
   providers: CompiledProvider[],
 ): ProviderMatch | null {

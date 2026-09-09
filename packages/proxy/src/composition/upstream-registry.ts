@@ -36,6 +36,9 @@ import {
   defaultCustomAnthropicConfig,
   type CustomAnthropicConfig,
 } from "../upstream/custom-anthropic"
+import { CustomImagesClient, type CustomImagesConfig } from "../upstream/custom-images"
+import { getProxyUrl } from "../lib/socks5-bridge"
+import { state } from "../lib/state"
 
 export type UpstreamKind =
   | "copilot-openai"
@@ -44,6 +47,7 @@ export type UpstreamKind =
   | "copilot-embeddings"
   | "custom-openai"
   | "custom-anthropic"
+  | "custom-images"
 
 export interface UpstreamRegistryDeps {
   copilotOpenAI?: CopilotOpenAIConfig
@@ -52,6 +56,7 @@ export interface UpstreamRegistryDeps {
   copilotEmbeddings?: CopilotEmbeddingsConfig
   customOpenAI?: CustomOpenAIConfig
   customAnthropic?: CustomAnthropicConfig
+  customImages?: CustomImagesConfig
 }
 
 export type UpstreamClientByKind = {
@@ -61,6 +66,7 @@ export type UpstreamClientByKind = {
   "copilot-embeddings": CopilotEmbeddingsClient
   "custom-openai": CustomOpenAIClient
   "custom-anthropic": CustomAnthropicClient
+  "custom-images": CustomImagesClient
 }
 
 export function buildUpstreamClient<K extends UpstreamKind>(
@@ -68,6 +74,10 @@ export function buildUpstreamClient<K extends UpstreamKind>(
   deps: UpstreamRegistryDeps = {},
 ): UpstreamClientByKind[K] {
   switch (kind) {
+    case "custom-images":
+      return new CustomImagesClient(
+        deps.customImages ?? { getProxyUrl: (provider) => getProxyUrl(provider, state) },
+      ) as UpstreamClientByKind[K]
     case "copilot-openai":
       return new CopilotOpenAIClient(
         deps.copilotOpenAI ?? defaultCopilotOpenAIConfig(),

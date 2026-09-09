@@ -9,6 +9,7 @@ import { messageRoutes } from "./routes/messages/route"
 import { responsesRoutes } from "./routes/responses/route"
 import { modelRoutes } from "./routes/models/route"
 import { embeddingRoutes } from "./routes/embeddings/route"
+import { imageRoutes } from "./routes/images/route"
 import { createStatsRoute } from "./routes/stats"
 import { createRequestsRoute } from "./routes/requests"
 import { createCopilotInfoRoute } from "./routes/copilot-info"
@@ -83,6 +84,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/v1/responses", responsesRoutes)
   app.route("/v1/models", modelRoutes)
   app.route("/v1/embeddings", embeddingRoutes)
+  app.route("/v1/images/generations", imageRoutes)
   app.route("/embeddings", embeddingRoutes) // no-prefix alias
 
   // ------- dashboard API (Raven-owned) -------
