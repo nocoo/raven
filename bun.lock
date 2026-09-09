@@ -618,7 +618,7 @@
 
     "ast-v8-to-istanbul": ["ast-v8-to-istanbul@1.0.5", "https://registry.npmmirror.com/ast-v8-to-istanbul/-/ast-v8-to-istanbul-1.0.5.tgz", { "dependencies": { "@jridgewell/trace-mapping": "^0.3.31", "estree-walker": "^3.0.3", "js-tokens": "^10.0.0" } }, "sha512-UPAgKJFSEGMWSDr3LX4tqnAb4f7KGT8O40Tyx8wbYmmZ/yn58lNCm8h3svs3eXgiGd5AXxz8NDOvXWvicq+rJA=="],
 
-    "baseline-browser-mapping": ["baseline-browser-mapping@2.10.31", "https://registry.npmmirror.com/baseline-browser-mapping/-/baseline-browser-mapping-2.10.31.tgz", { "bin": { "baseline-browser-mapping": "dist/cli.cjs" } }, "sha512-MujYO3eP72uvmSE0i4wltsodRfIpZATP3jvzRNRGGxgzId7aVocVJJV3nf01qnzzKFGxQVC9bpWxl5cjxTr/7Q=="],
+    "baseline-browser-mapping": ["baseline-browser-mapping@2.11.21", "https://registry.npmmirror.com/baseline-browser-mapping/-/baseline-browser-mapping-2.11.21.tgz", { "bin": { "baseline-browser-mapping": "dist/cli.cjs" } }, "sha512-uh8vpY/1/YyFkunIDFH/12p7/7VdPKA1hejMVEbdkEaWnUz0Hesvx5EbiU6XxjyHZIOju+ZMbQJkRh+es3/spQ=="],
 
     "bidi-js": ["bidi-js@1.0.3", "https://registry.npmmirror.com/bidi-js/-/bidi-js-1.0.3.tgz", { "dependencies": { "require-from-string": "^2.0.2" } }, "sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw=="],
 
@@ -1067,8 +1067,6 @@
     "acorn-walk/acorn": ["acorn@8.16.0", "https://registry.npmmirror.com/acorn/-/acorn-8.16.0.tgz", { "bin": { "acorn": "bin/acorn" } }, "sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw=="],
 
     "ast-v8-to-istanbul/js-tokens": ["js-tokens@10.0.0", "https://registry.npmmirror.com/js-tokens/-/js-tokens-10.0.0.tgz", {}, "sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q=="],
-
-    "browserslist/baseline-browser-mapping": ["baseline-browser-mapping@2.11.21", "https://registry.npmmirror.com/baseline-browser-mapping/-/baseline-browser-mapping-2.11.21.tgz", { "bin": { "baseline-browser-mapping": "dist/cli.cjs" } }, "sha512-uh8vpY/1/YyFkunIDFH/12p7/7VdPKA1hejMVEbdkEaWnUz0Hesvx5EbiU6XxjyHZIOju+ZMbQJkRh+es3/spQ=="],
 
     "browserslist/caniuse-lite": ["caniuse-lite@1.0.30001810", "https://registry.npmmirror.com/caniuse-lite/-/caniuse-lite-1.0.30001810.tgz", {}, "sha512-TITQPUkaz+aVk5GL6NhOdwk1aEaNTSDPsGFWrTuhKGtjTF70jL/Oht2W4c6rXUe5fu7Ie19VIahAXHIIiWWNeg=="],
 
