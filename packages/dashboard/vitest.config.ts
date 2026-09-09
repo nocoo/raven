@@ -45,8 +45,6 @@ export default defineConfig({
         "src/app/providers/providers-content.tsx",
         // Reusable analytics panels (render-heavy recharts wrappers)
         "src/components/analytics/panels/**",
-        // Live indicator badge (purely visual)
-        "src/components/analytics/live-indicator.tsx",
         "src/app/connect/connect-content.tsx",
         "src/app/copilot/account/account-content.tsx",
         "src/app/copilot/models/models-content.tsx",
