@@ -59,7 +59,7 @@
         "gpt-tokenizer": "4.0.0",
         "hono": "4.13.7",
         "socks": "^2.8.10",
-        "zod": "^4.5.4",
+        "zod": "4.6.2",
       },
       "devDependencies": {
         "@types/bun": "1.4.2",
@@ -1006,7 +1006,7 @@
 
     "yaml": ["yaml@2.9.0", "https://registry.npmmirror.com/yaml/-/yaml-2.9.0.tgz", { "bin": { "yaml": "bin.mjs" } }, "sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA=="],
 
-    "zod": ["zod@4.5.4", "https://registry.npmmirror.com/zod/-/zod-4.5.4.tgz", {}, "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA=="],
+    "zod": ["zod@4.6.2", "", {}, "sha512-lh5RCAGFa1Cm2hjtNwLQhSs/AsqdWnTQaBER9fEwN/88pSh7KOtJavtBx/0VlkN/uFd61SwYmljLMDAsHlvzBQ=="],
 
     "@babel/core/@babel/code-frame": ["@babel/code-frame@7.29.7", "https://registry.npmmirror.com/@babel/code-frame/-/code-frame-7.29.7.tgz", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
