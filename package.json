@@ -38,7 +38,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
     "@types/bun": "1.4.2",
-    "dependency-cruiser": "18.2.0",
+    "dependency-cruiser": "18.3.0",
     "husky": "^9.1.7",
     "lint-staged": "17.5.1",
     "oxc-parser": "0.149.0",
