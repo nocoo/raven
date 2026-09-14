@@ -13,6 +13,10 @@ describe("cn", () => {
   it("deduplicates tailwind conflicts", () => {
     expect(cn("px-2", "px-4")).toBe("px-4");
   });
+
+  it("merges logical padding overridden by an axis shorthand", () => {
+    expect(cn("ps-2", "px-4")).toBe("px-4");
+  });
 });
 
 describe("getAvatarColor", () => {
