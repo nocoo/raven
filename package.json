@@ -48,7 +48,7 @@
   "overrides": {
     "flatted": ">=3.4.2",
     "brace-expansion": ">=5.0.5",
-    "vite": "8.2.2",
+    "vite": "8.3.0",
     "postcss": ">=8.5.25",
     "@babel/core": ">=7.29.6",
     "ip-address": "^10.3.1",
@@ -57,7 +57,7 @@
     "browserslist": ">=4.28.7"
   },
   "dependencies": {
-    "vite": "8.2.2",
+    "vite": "8.3.0",
     "vitest": "5.0.0"
   }
 }
