@@ -36,7 +36,7 @@
     "scripts/**/*.ts": "biome check --no-errors-on-unmatched --error-on-warnings --max-diagnostics=500"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.13",
+    "@biomejs/biome": "2.5.14",
     "@types/bun": "1.4.2",
     "dependency-cruiser": "18.3.1",
     "husky": "^9.1.7",
@@ -58,6 +58,6 @@
   },
   "dependencies": {
     "vite": "8.3.0",
-    "vitest": "5.0.0"
+    "vitest": "5.0.1"
   }
 }
