@@ -6,7 +6,6 @@ import {
   Sheet,
   SheetContent,
   SheetTitle,
-  ThemeToggle,
 } from "@nocoo/basalt";
 import { AppHeader } from "@nocoo/basalt/components/app-header";
 import {
@@ -14,14 +13,13 @@ import {
   AppSkipLink,
   AppShell as Shell,
 } from "@nocoo/basalt/components/app-shell";
-import { useTheme } from "@nocoo/basalt/providers/theme";
 import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Github } from "@/components/icons/github";
 import { LogsDock } from "@/components/logs/logs-dock";
 import { SetupWizard } from "@/components/setup-wizard";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { HeaderActions } from "./header-actions";
 import { AppSidebar } from "./sidebar";
 
 interface AppShellProps {
@@ -44,7 +42,6 @@ export function AppShell({ children, breadcrumbs = [] }: AppShellProps) {
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const { theme } = useTheme();
   const { crumbs, title } = headerTrail(breadcrumbs);
 
   // Close mobile sidebar on route change.
@@ -97,21 +94,7 @@ export function AppShell({ children, breadcrumbs = [] }: AppShellProps) {
           }
           breadcrumbs={crumbs}
           title={title}
-          actions={
-            <>
-              <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                <a
-                  href="https://github.com/nocoo/raven"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="GitHub repository"
-                >
-                  <Github className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.5} />
-                </a>
-              </Button>
-              <ThemeToggle aria-label={`Toggle theme (now ${theme})`} />
-            </>
-          }
+          actions={<HeaderActions />}
         />
         <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
           <ContentIsland>

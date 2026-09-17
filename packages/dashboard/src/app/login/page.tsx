@@ -1,12 +1,12 @@
 "use client";
 
-import { Button, ThemeToggle } from "@nocoo/basalt";
+import { Button } from "@nocoo/basalt";
 import { LoadingScreen } from "@nocoo/basalt/components/loading-screen";
 import { Bird } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { Github } from "@/components/icons/github";
+import { HeaderActions } from "@/components/layout/header-actions";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 
 function Barcode() {
@@ -61,17 +61,7 @@ function LoginContent() {
       <div className="pointer-events-none absolute inset-0 login-glow" />
 
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-          <a
-            href="https://github.com/nocoo/raven"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub repository"
-          >
-            <Github className="h-[18px] w-[18px]" aria-hidden="true" strokeWidth={1.5} />
-          </a>
-        </Button>
-        <ThemeToggle aria-label="Toggle theme" />
+        <HeaderActions />
       </div>
 
       <div className="flex flex-1 items-center justify-center p-4">
