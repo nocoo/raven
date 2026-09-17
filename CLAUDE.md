@@ -1,206 +1,94 @@
-# Raven — Project Instructions
+# Raven
 
-## Project Positioning
+Personal local model-API proxy and dashboard for GitHub Copilot and configured upstream providers.
+Profile: ts-worker-web (Bun server with local SQLite; no Cloudflare runtime).
+Direction: [architecture](docs/20-architecture-refactor.md), [operations](docs/26-agent-operations.md).
 
-Research-oriented, open-source, personal-use only. Not designed for multi-user deployment or server hosting. Runs locally.
+## Sources of Truth
 
-## Architecture
+This file is the contract; hooks, CI and config enforce it. Raise weaker enforcement to match, never reduce requirements. Frameworks must not replace this handbook.
 
-Bun workspace monorepo: `packages/proxy` (Hono, port 7024) + `packages/dashboard` (Next.js 16, port 7023).
+| Fact | Where |
+| --- | --- |
+| Human docs | [README.md](README.md), [docs/README.md](docs/README.md) |
+| Version | Root/dashboard `package.json`, `scripts/release.ts` |
+| Enforcement | `.husky/`, hook TS scripts, CI, Vitest configs and `docs/20-baseline.json` |
+| Environment | Ignored Proxy/Dashboard `.env.local`; package `.env.example` files |
+| Accidents | [Retrospective.md](Retrospective.md) |
 
-### Proxy layering (see `docs/20-architecture-refactor.md` for the full contract)
+## Project Invariants
 
-Seven layers, top → bottom. Each layer imports only from the layers below (enforced by `dependency-cruiser.config.cjs`):
+- Personal local research is the primary scope. Preserve API versus internal management keys and GitHub OAuth versus Copilot JWT distinctions; do not weaken authentication when a database is empty.
+- Seven-layer proxy architecture and seven strategies follow [operations](docs/26-agent-operations.md). Composition is the sole routes↔strategies/upstream bridge; strategies receive injected dependencies; protocols remain pure.
+- Share server-tool interception through the existing decorator; preserve correct JSON/SSE shapes and raw model IDs. Do not rewrite model names to compensate for a client's display bug.
+- Tokens/database belong in platform user directories with private permissions, not Git. Preserve `RAVEN_CONFIG_DIR`, `RAVEN_DATA_DIR`, `RAVEN_TOKEN_PATH`, `RAVEN_DB_PATH` and legacy migration semantics.
+- Upstream HTTP is always mocked in unit/in-process route tests. Never place real tokens in fixtures or automatically exercise a real Copilot/provider account.
+- Any separately authorized live diagnostic stops at the first upstream error, no retry/loop/load testing, one request per case. It does not qualify as isolated 6DQ proof.
+- Use Bun workspaces only; mixing package managers can create duplicate React instances. Keep MVVM and the shared log-stream path/ring-buffer/event contracts documented in [operations](docs/26-agent-operations.md).
 
-1. **`routes/`** — HTTP entry points (Hono handlers). Owns request parsing, logging start, and composition dispatch. Must not import `strategies/` or `upstream/` directly.
-2. **`composition/`** — the **sole bridge** between `routes/`, `strategies/`, and `upstream/`. `dispatch()` picks a strategy factory, builds it with state-derived deps, and drives the Runner.
-3. **`core/`** — abstract `Strategy`/`Runner`/router contracts + `RequestContext`. Concretion-free: never imports `strategies/` or `upstream/`.
-4. **`strategies/`** — seven `makeXxx(deps)` factories implementing the 7-method `Strategy` interface (`prepare` / `dispatch` / `adaptJson` / `initStreamState` / `adaptChunk` / `adaptStreamError` / `describeEndLog`). Per-strategy files (`strategies/*.ts`) read no `infra/state` — deps are injected. `strategies/support/` holds cross-strategy helpers (server-tool `decorate()`, effort-fallback, capability gates).
-5. **`protocols/`** — pure translation zone (Anthropic ↔ OpenAI, SSE adapters, preprocess). No state, no logging, no Hono streaming.
-6. **`upstream/`** — upstream HTTP clients (Copilot native, Copilot OpenAI, custom providers) registered via `composition/upstream-registry.ts`.
-7. **`infra/` + `lib/` + `util/`** — state, auth, rate-limit, logging primitives, IDs.
+## Stack / Layout
 
-**Seven strategies** (all registered in `composition/strategy-registry.ts`):
-- `copilot-openai-direct` — `/v1/chat/completions` to Copilot
-- `copilot-chat-via-responses` — `/v1/chat/completions` → Copilot `/responses` (responses-only models)
-- `copilot-translated` — `/v1/messages` Anthropic → Copilot OpenAI
-- `copilot-native` — `/v1/messages` to Copilot native endpoint (claude-* models)
-- `copilot-responses` — `/v1/responses` to Copilot
-- `custom-openai` — user-configured OpenAI-compatible providers
-- `custom-anthropic` — user-configured Anthropic providers
+| Component | Choice |
+| --- | --- |
+| Proxy | `packages/proxy`, Bun/Hono, SQLite, protocol/SSE adapters |
+| Dashboard | `packages/dashboard`, Next.js/React, Basalt, SWR/Recharts |
+| Quality | TypeScript 7 strict, Biome, Vitest, bun:test, Playwright |
+| Support | Root `scripts/` gates; dependency-cruiser architecture rules |
 
-**Server-tool interception** (Tavily `web_search`) runs via `strategies/support/server-tools.ts::decorate()`, which wraps `withServerToolInterception` + `request_end` log + JSON/SSE replay. Both translated and native paths share it.
+## Commands
 
-## Data Directory Structure
+Run from root with Bun 1.3.11+ and Node 24 LTS; use the pinned versions in CI for reproduction.
 
-Runtime data is stored in platform-standard user directories, not in the source tree:
-
-**macOS:**
-- Config: `~/Library/Application Support/raven/`
-  - `github_token` (0600 permissions)
-- Data: `~/Library/Application Support/raven/`
-  - `raven.db` (SQLite database)
-
-**Linux:**
-- Config: `~/.config/raven/`
-  - `github_token` (0600 permissions)
-- Data: `~/.local/share/raven/`
-  - `raven.db` (SQLite database)
-
-**Environment overrides:**
-- `RAVEN_CONFIG_DIR` — override config directory
-- `RAVEN_DATA_DIR` — override data directory
-- `RAVEN_TOKEN_PATH` — override token file path
-- `RAVEN_DB_PATH` — override database path
-
-**Migration:** Legacy `./data/` files are automatically migrated to new locations on first run.
-
-## Testing
-
-### Proxy tests — anti-ban protocol
-
-The proxy interacts with GitHub Copilot's upstream API. Careless testing can trigger rate limits or account bans.
-
-**Unit tests** (`bun run test`): Always mock upstream HTTP calls. Never use real tokens in fixtures.
-
-**E2E tests** (`bun run test:e2e`): Hit the real running proxy (localhost:7024) which forwards to real Copilot API. Rules:
-- **Fail fast**: stop the entire suite on first upstream error (non-2xx from Copilot). Do not retry, do not continue.
-- **Minimal requests**: each test sends exactly 1 request. No loops, no load testing, no rapid-fire.
-- **Never commit real tokens** into test files or fixtures.
-- **Require proxy running**: skip gracefully if proxy is not reachable.
-- E2E tests must **never** run in CI or pre-commit hooks — manual execution only.
-
-### Running tests
-
-```bash
-bun run test        # proxy unit tests only (pre-commit hook)
-bun run test:all    # proxy + dashboard unit tests
-bun run test:perf   # performance benchmarks (SSE parsing, translation)
-bun run test:e2e    # e2e tests (auto-starts proxy if needed)
-bun run test:ui     # Playwright dashboard smoke tests (auto-starts both servers)
+```sh
+bun install --frozen-lockfile
+bun run dev
+bun run typecheck
+bun run lint
+bun run build
+bun run test:all
+bun run test:root
+bun run test:l2
+bun run gate:coverage
+bun run gate:arch
+bun run gate:security
 ```
 
-### Test status (2026-04-21)
+`dev`/`start:proxy` perform real GitHub/Copilot authentication; they are not test setup. Proxy needs separate `RAVEN_API_KEY` and `RAVEN_INTERNAL_KEY`; Dashboard uses matching internal key and `RAVEN_PROXY_URL`. `test:e2e` uses real configuration/database/upstream; `test:ui` uses test DB but still needs real GitHub auth. Do not run those for routine verification; a fully isolated local system runner is planned.
 
-| Package | Runner | Tests | Pass | Coverage (stmts) | Threshold | Status |
-|---------|--------|-------|------|-------------------|-----------|--------|
-| proxy | vitest | 1222 | 1222 | 95.6% | 90% | ✅ |
-| dashboard | vitest 4 + jsdom | 277 | 277 | 98.6% | 90% | ✅ |
-| e2e (L2) | bun:test | 41 | 41 | — | — | ✅ |
+## Verification
 
-**L1 (UT)**: All 1499 tests pass. Dashboard coverage excludes pure UI components (shadcn, charts, layout, settings pages, login) — only business logic (API routes, hooks, lib, auth) is measured.
+6DQ = L1/L2/L3 + G1/G2 + D1. Status: `enforced`, `planned`, `manual`, `N/A`. No focused/skipped tests; all four L1 metrics ≥95%, preserving stricter baseline floors.
 
-**L2 (API E2E)**: `bun run test:e2e` — uses production database to test real configurations (server-side tools, providers). Reuses running proxy if available, otherwise auto-starts one. Manual only (anti-ban protocol). **Requires `RAVEN_API_KEY`** — generate a temporary DB key via the proxy API before running (see below).
+| Piece | Requirement and current reality | Status | Evidence |
+| --- | --- | --- | --- |
+| L1 Proxy | Four metrics ≥95%, plus baseline line floor ≥97.5%, ≤0.1pp regression and no untested files | planned | `gate:coverage` enforces stronger line baseline in hooks/CI; Vitest branch threshold still 89% |
+| L1 Dashboard/scripts | Four metrics ≥95% | planned | Dashboard config only statements 90%; script config branches 89% |
+| L2 | Every API endpoint/method through real isolated HTTP/SQLite | planned | CI `test:l2` is in-process route/handler tests with mocked upstream; legacy live E2E uses real state |
+| L3 | Real isolated dashboard/auth/provider workflows | planned | Playwright manual runner uses real auth and fixed test DB |
+| G1 | Strict types, zero-warning/error Biome and architecture boundaries | planned | Checks enforced; pre-commit lint-staged mutation/worktree concurrency violates check-only target |
+| G2 | Required OSV and gitleaks, fail when absent | enforced | `gate:security`, pre-push and CI |
+| D1 | Per-run test DB/config/token paths and local fixture upstream | planned | Legacy HTTP E2E reuses real database; browser fixed test DB still uses real credentials |
+| Build | Next production bundle | manual | Root `build`; mandatory for runtime/bundler changes |
+| Docs | Protocol and gate-baseline evidence kept current | manual | Numbered guide review |
 
-**L3 (UI E2E)**: `bun run test:ui` — 25 Playwright tests across 5 specs for dashboard. Auto-starts proxy + dashboard. Manual only.
+Pre-commit runs `gate:coverage`, Dashboard/script tests, lint-staged/types/micro-gates and staged secrets in parallel. Pre-push runs the same baseline gate, architecture, full lint and G2 on working files. Never replace baseline entry with bare Vitest. Target: check-only index L1/G1 <30s, stdin pushed-ref local L2/G2 <3min; no hook bypass or soft-security mode.
 
-**G1 (Static Analysis)**: Both packages pass `biome check` and `tsc --noEmit` (with strict extras) with 0 errors, 0 warnings. Biome lints `src/` + `test/` in one pass (config: `biome.json`). Pre-commit runs lint-staged (biome, incremental) + full typecheck.
+## Resources / Isolation
 
-**G2 (Security)**: `bun run gate:security` — osv-scanner + gitleaks. gitleaks runs at pre-commit (staged-only); full G2 runs at pre-push. CI runs both.
+| Purpose | Resource | Policy |
+| --- | --- | --- |
+| Daily dev | Dashboard 7023 / Proxy 7024 | Actual account/config/database |
+| Unit/routes | Mocked upstream and synthetic state | No real token/provider requests |
+| Legacy browser | Fixed `packages/proxy/data/raven-test.db`, dev ports | Partial isolation; complete per-run local harness required |
 
-**D1 (Test Isolation)**: Playwright UI tests use isolated test database. L2 E2E tests use production database intentionally — they validate real upstream integration including server-side tools (Tavily web_search).
+Physical test isolation includes DB, credentials, configuration and upstream receiver. Fresh per-run directories plus guards before seed/reset/cleanup must separate tests from daily-dev and production. This Bun/SQLite application needs no remote test Workers or Cloudflare D1 resources.
 
-### Pre-commit hook
+## Operations / Release
 
-Runs in parallel via `scripts/pre-commit.ts`:
-- **L1** `gate:coverage` (`scripts/check-coverage.ts` — proxy tests + §4.5 baseline floors / untested-file gate; **same entry as CI**)
-- **L1** dashboard unit tests + `vitest --project scripts` (hook/coverage harness tests)
-- **G1** lint-staged, typecheck, fetch-boundary, dynamic-delete, ts-expect-error
-- **G2** gitleaks (staged-only)
-
-Do **not** replace `gate:coverage` with bare `bun run test` / `--filter @raven/proxy test` — vitest thresholds alone miss baseline regressions CI catches.
-
-### Pre-push hook
-
-Runs in parallel via `scripts/pre-push.ts`:
-- **G2** `gate:security` (osv-scanner + gitleaks)
-- **L1** `gate:coverage` (again — same baseline gate as CI)
-- **G1** `gate:arch` + full `lint`
-
-L2 E2E and L3 Playwright remain manual-only (anti-ban).
-
-### CI
-
-GitHub Actions runs on push to main and PRs: L1 (`check-coverage.ts` job) + G1 + G2. L2/L3 need credentials / are optional in workflow.
-
-### Package manager — bun only
-
-This monorepo uses **bun workspaces** exclusively. The lockfile is `bun.lock`. Never run `pnpm install` or `npm install` in any package — mixing package managers creates duplicate dependency instances (e.g. dual React copies) that cause silent runtime failures in tests and dev server.
-
-### Running E2E tests (L2) — step by step
-
-E2E tests authenticate to the proxy via `RAVEN_API_KEY`. The proxy must be running with valid GitHub/Copilot credentials.
-
-```bash
-# 1. Ensure proxy is running
-bun run dev:proxy   # or: proxy already running on :7024
-
-# 2. Create a temporary API key via the proxy management API
-#    (management endpoints are unauthenticated when no env key is set)
-curl -s http://localhost:7024/api/keys -X POST \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"e2e-test"}' | jq .key
-# Returns: "rk-..."
-
-# 3. Run e2e with the key
-RAVEN_API_KEY=rk-... bun run test:e2e
-
-# 4. Clean up: revoke the key after testing
-curl -s http://localhost:7024/api/keys/<id>/revoke -X POST
-# Or delete from Dashboard → Connect page
-```
-
-**Troubleshooting:**
-- 401 errors on all tests → missing or invalid `RAVEN_API_KEY`, or GitHub token expired (re-auth by deleting `~/Library/Application Support/raven/github_token` and restarting proxy)
-- Timeout failures (5s default) → upstream latency; retry with `--timeout 30000` or re-run individual tests
-- To run specific tests: `RAVEN_API_KEY=rk-... bun test packages/proxy/test/e2e/<file> -t "test name" --timeout 30000`
-
-## Debugging — Real-time log stream
-
-The proxy has a built-in structured logging system with real-time WebSocket streaming. No third-party logging library — fully custom, based on `EventEmitter` + ring buffer.
-
-### Observing live logs
-
-Connect to the WebSocket endpoint while the proxy is running:
-
-```bash
-# listen to all levels (debug/info/warn/error)
-bun -e '
-const ws = new WebSocket("ws://localhost:7024/ws/logs?level=debug");
-ws.onmessage = (e) => {
-  const ev = JSON.parse(e.data);
-  const ts = new Date(ev.ts).toISOString().slice(11, 23);
-  console.log(`[${ts}] ${ev.level.toUpperCase().padEnd(5)} ${ev.type.padEnd(15)} ${ev.msg}${ev.requestId ? ` (${ev.requestId.slice(0,8)})` : ""}`);
-};'
-```
-
-If `RAVEN_API_KEY` is set or DB has API keys, append `&token=<key>` to the query string.
-
-### Key concepts
-
-- **Log levels**: `debug | info | warn | error`. Default level is `info` (configurable via `RAVEN_LOG_LEVEL` env var). Level gating happens before JSON serialization (zero cost for filtered-out events).
-- **Event types**: `system`, `request_start`, `request_end`, `sse_chunk`, `upstream_error`. Each request carries a ULID `requestId` linking start → chunks → end.
-- **Ring buffer**: Last 200 events cached in memory. New WebSocket connections receive backfill automatically.
-- **Client commands**: Send JSON to the WebSocket to adjust filtering on the fly:
-  - `{ "type": "set_level", "level": "debug" }` — change minimum level
-  - `{ "type": "set_filter", "requestId": "..." }` — isolate a single request
-  - `{ "type": "set_filter" }` — clear request filter
-- **Three sinks**: terminal (JSON lines → stdout), WebSocket (real-time push), DB (`request_end` → SQLite).
-- **Dashboard path**: proxy WebSocket → dashboard SSE bridge (`/api/logs/stream`) → `useLogStream` hook → `/logs` page UI.
-
-## Remote Deployment (VPS)
-
-See [docs/14-vps-deployment.md](docs/14-vps-deployment.md) for full guide. Key security requirements:
-
-1. **Dashboard must use Google OAuth** — never deploy with Local mode on a public server. Local mode skips all authentication.
-2. **Enable IP whitelist** — restrict API access to known client IPs via Dashboard Settings → IP Whitelist. Even with API key protection, IP whitelist provides defense-in-depth against key leakage.
+Authorized release entry: `bun run release`; build and verify the intended version/CI. Normal use remains local. Network deployment requires Google OAuth for Dashboard, explicit API/management access controls and IP whitelist; follow [VPS guide](docs/14-vps-deployment.md). Keep live diagnostics separate from automated tests and never imply a dry run published or validated live upstreams.
 
 ## Retrospective
 
-- `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.
-- `6ea7485` wrongly switched `copilot_internal/user` from GitHub OAuth token to Copilot JWT, causing 401. Root cause: assumed all copilot_internal endpoints use the same auth — they don't. Both `/copilot_internal/v2/token` and `/copilot_internal/user` on `api.github.com` require `token ${githubOAuth}`, not `Bearer ${copilotJwt}`. Always verify auth by curl-testing the real endpoint before committing auth changes.
-- `f477dcc` stream translator emitted `input: ""` (empty string) instead of `input: {}` (empty object) in `content_block_start` for `tool_use` blocks. Anthropic protocol requires an object. Clients silently failed to render tool calls (e.g. AskUserQuestion). Root cause: wrote the literal without checking the Anthropic SSE spec. Always verify emitted event shapes against the protocol spec or a known-good reference implementation.
-- `a7c6fcf` deleted `RAVEN_API_KEY` env var support and `multiKeyAuth` env path entirely, breaking backward compatibility and removing `/api/*` auth. Three compounding errors: (1) removed a design-doc-mandated backward compat path without consulting the doc, (2) widened dev mode to "DB empty = no auth" which is a security regression when env key is set but DB has no keys yet, (3) left `/api/*` management endpoints unauthenticated while they should share the same auth. Root cause: user said "remove RAVEN_API_KEY" and I complied without cross-checking the design doc's compatibility requirements. Always re-read the design doc before making protocol-level changes, even if the user requests them conversationally.
-- `34ae0f7` dashboard 56 tests FAIL blocking pre-commit. Root cause: someone ran `pnpm install` inside `packages/dashboard/` after `bun install`, creating a `.pnpm/` store alongside bun's `.bun/` symlinks. `react` resolved from `.pnpm/` (pnpm copy) while `@testing-library/react` resolved from root `.bun/` (bun copy) — two physical React instances = "Invalid hook call" on all component/hook tests. Fix: `rm -rf packages/dashboard/node_modules && bun install`. Also added `turbopack.root` to next.config.ts since Turbopack lost workspace root inference after the reinstall. Rule: never mix package managers in a monorepo; this project uses bun exclusively.
-- `d15e6e6` + `8b9aad1` added dot→hyphen model-ID translation (`claude-opus-4.8` → `claude-opus-4-8`) to Raven's `/v1/models` route, then native `adaptChunk`/`adaptJson` + `preprocess.ts` — both reverted same-day (`d0c647e`, `809c3c3`), net zero. Root cause: assumed the "Opus 4 instead of Opus 4.8" display glitch was Raven's to fix. It is **not** — Copilot upstream accepts both dot and hyphen forms; the display name is resolved client-side by `ccstatusline`'s `includes()` matching, which only recognizes the hyphen form. Correct fix lives in the **cc switch** client config (use `claude-opus-4-8`), and Raven stays a passthrough on model IDs. Rule: when a symptom only manifests in a client's display, confirm the upstream actually mishandles the value before adding translation logic to the proxy — don't make Raven compensate for a client-side resolver. The "fix + revert" pair is a closed investigation, not an open bug.
-- v2.5.0 release: local pre-push reported L1 coverage ✅ while CI `check-coverage.ts` failed (protocols/ floor + untested new files + global regression vs `docs/20-baseline.json`). Root cause: `scripts/pre-push.ts` ran bare `bun run --filter @raven/proxy test` (vitest % thresholds only) and never invoked the §4.5 baseline gate that CI uses. Fix: pre-commit + pre-push both run `gate:coverage` → `scripts/check-coverage.ts`; unit test locks the wiring. Rule: any hook labeled "coverage" must call the same entrypoint as CI — never a weaker substitute.
+Full narratives live in [Retrospective.md](Retrospective.md). Keep recurring rules brief; cross-project lessons belong in global rules/nmem and deterministic checks in hooks/tests.
+
+- Use exactly the same coverage-baseline gate in hooks and CI; preserve protocol event shapes and authentication compatibility.
