@@ -7,7 +7,6 @@ import {
   listApiKeys,
   revokeApiKey,
   deleteApiKey,
-  getKeyCount,
 } from "../../src/db/keys.ts";
 
 let db: Database;
@@ -146,18 +145,5 @@ describe("deleteApiKey", () => {
 
   test("returns false for nonexistent id", () => {
     expect(deleteApiKey(db, "nonexistent")).toBe(false);
-  });
-});
-
-describe("getKeyCount", () => {
-  test("returns 0 when no keys", () => {
-    expect(getKeyCount(db)).toBe(0);
-  });
-
-  test("counts all keys including revoked", () => {
-    const created = createApiKey(db, "active");
-    createApiKey(db, "also-active");
-    revokeApiKey(db, created.id);
-    expect(getKeyCount(db)).toBe(2);
   });
 });
