@@ -25,6 +25,29 @@ function makeChunk(overrides: Record<string, unknown> = {}): string {
 }
 
 describe("consumeStreamToResponse", () => {
+  test("reassembles sparse out-of-order tool fragments while defaulting absent usage", async () => {
+    async function* stream(): AsyncGenerator<ServerSentEvent> {
+      yield makeEvent("")
+      yield makeEvent(JSON.stringify({ choices: [], usage: {} }))
+      yield makeEvent(JSON.stringify({ choices: [{ delta: { tool_calls: [
+        null, { index: 9, function: {} },
+        { index: 1, id: "call-b", function: { name: "second" } },
+        { index: 0, id: "call-a", function: { name: "first", arguments: "{" } },
+      ] } }] }))
+      yield makeEvent(JSON.stringify({ choices: [{ delta: { tool_calls: [
+        { index: 0, function: { arguments: "}" } }, { index: 1 },
+      ] }, finish_reason: "tool_calls" }] }))
+      yield makeEvent("[DONE]")
+    }
+    const response = await consumeStreamToResponse(stream())
+    expect(response.id).toMatch(/^chatcmpl-/)
+    expect(response.usage).toMatchObject({ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 })
+    expect(response.choices[0]?.message.tool_calls).toEqual([
+      { id: "call-a", type: "function", function: { name: "first", arguments: "{}" } },
+      { id: "call-b", type: "function", function: { name: "second", arguments: "" } },
+    ])
+  })
+
   test("reassembles text content from stream", async () => {
     async function* stream(): AsyncGenerator<ServerSentEvent> {
       // First chunk: role

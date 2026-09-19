@@ -101,6 +101,25 @@ async function runDecorate(
 }
 
 describe("decorate()", () => {
+  test("logs zero usage when an upstream omits token metadata and no strategy extras exist", async () => {
+    const { extras: _extras, ...log } = baseLogFields()
+    const sparse = { ...makeResp(), usage: undefined } as unknown as AnthropicResponse
+    const { response, events } = await runDecorate({ log, sendRequest: async () => sparse })
+    expect(response.status).toBe(200)
+    const end = events.find((event) => event.type === "request_end")
+    expect(end?.data).toMatchObject({ inputTokens: 0, outputTokens: 0, status: "success" })
+    expect(end?.data).not.toHaveProperty("routingPath")
+  })
+
+  test("records an upstream failure without requiring optional strategy log extras", async () => {
+    const { extras: _extras, ...log } = baseLogFields()
+    const { response, events } = await runDecorate({ log, sendRequest: async () => { throw new Error("fixture denied") } })
+    expect(response.status).toBe(500)
+    const end = events.find((event) => event.type === "request_end")
+    expect(end?.data).toMatchObject({ status: "error" })
+    expect(end?.data).not.toHaveProperty("routingPath")
+  })
+
   let originalApiKey: string | null
   beforeEach(() => {
     originalApiKey = state.stWebSearchApiKey

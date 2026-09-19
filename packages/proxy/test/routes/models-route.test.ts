@@ -40,7 +40,7 @@ beforeEach(() => {
       },
     }],
   }
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unconfigured test upstream"))
 })
 
 afterEach(() => {
@@ -58,6 +58,22 @@ afterEach(() => {
 // ===========================================================================
 
 describe("GET /v1/models (route wrapper)", () => {
+  test.each([{}, { data: "invalid" }, { data: [] }])("omits a malformed or empty public-provider catalog without adding authentication: %j", async (catalog) => {
+    setProviders([{
+      id: "public-fixture", name: "Public fixture", base_url: "https://models.fixture.invalid",
+      format: "openai", api_key: "", model_patterns: '["*"]', enabled: 1,
+      supports_reasoning: 0, supports_models_endpoint: 1, auth_style: null, use_socks5: null,
+      created_at: 0, updated_at: 0,
+    }])
+    fetchSpy.mockResolvedValueOnce(Response.json(catalog))
+    const response = await new Hono().route("/v1/models", modelRoutes).request("/v1/models")
+    expect(response.status).toBe(200)
+    const result = await response.json() as { data: { id: string }[] }
+    expect(result.data.map((entry) => entry.id)).toEqual(["gpt-4o"])
+    expect(fetchSpy).toHaveBeenCalledOnce()
+    expect(fetchSpy.mock.calls[0]?.[1]?.headers).toEqual({ "Content-Type": "application/json" })
+  })
+
   test("returns model list in OpenAI format", async () => {
     const app = new Hono()
     app.route("/v1/models", modelRoutes)

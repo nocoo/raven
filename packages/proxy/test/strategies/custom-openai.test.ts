@@ -70,6 +70,21 @@ function makeJsonResp(model = "gpt-4o"): ChatCompletionResponse {
 }
 
 describe("strategies/custom-openai", () => {
+  test.each([undefined, "client-model"])("handles empty SSE data and missing usage in mode %s", (originalModel) => {
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const req = makeReq(originalModel ? { originalModel } : {})
+    const st = s.initStreamState(req, makeCtx())
+    const empty = { event: null, data: "", id: null, retry: null }
+    expect(s.adaptChunk(empty, st, makeCtx())).toEqual(originalModel ? [] : [empty])
+    const chunk = { event: null, data: JSON.stringify({ id: "c1", choices: [], usage: {} }), id: null, retry: null }
+    s.adaptChunk(chunk, st, makeCtx())
+    expect(st.inputTokens).toBe(0)
+    expect(st.outputTokens).toBe(0)
+    const response = { ...makeJsonResp(), usage: undefined } as unknown as ChatCompletionResponse
+    expect(s.describeEndLog({ kind: "json", req, resp: response }, makeCtx())).toMatchObject({ inputTokens: 0, outputTokens: 0 })
+    expect(s.describeEndLog({ kind: "stream", req, state: st }, makeCtx())).toMatchObject({ stopReason: "end_turn", toolCallCount: 0 })
+  })
+
   let captured: LogEvent[]
   let off: () => void
   beforeEach(() => {

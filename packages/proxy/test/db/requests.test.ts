@@ -87,6 +87,29 @@ afterEach(() => {
   db.close();
 });
 
+describe("request storage boundary contracts", () => {
+  test.each([new Error("fixture migration denied"), "fixture migration denied"])("does not swallow a non-duplicate migration failure: %#", (failure) => {
+    const failingDb = { exec(sql: string) { if (sql.startsWith("ALTER TABLE")) throw failure } } as unknown as Database
+    let caught: unknown
+    try { initDatabase(failingDb) } catch (error) { caught = error }
+    expect(caught).toBe(failure)
+  })
+
+  test("supports default retrieval and ascending cursor pagination without duplicating the boundary row", () => {
+    insertRequest(db, makeRecord({ id: "first", timestamp: 1 }))
+    insertRequest(db, makeRecord({ id: "second", timestamp: 2 }))
+    expect(queryRequests(db).data.map((row) => row.id)).toEqual(["second", "first"])
+    const result = queryRequests(db, { model: null, status: null, format: null, sort: "timestamp", order: "asc", cursor: "first", offset: null, limit: 10 })
+    expect(result.data.map((row) => row.id)).toEqual(["second"])
+  })
+
+  test("sorts computed latency percentiles in ascending order", () => {
+    insertRequest(db, makeRecord({ model: "slow", latency_ms: 500 }))
+    insertRequest(db, makeRecord({ model: "fast", latency_ms: 10 }))
+    expect(queryBreakdown(db, { by: "model", sort: "p95_latency_ms", order: "asc" }).map((row) => row.key)).toEqual(["fast", "slow"])
+  })
+})
+
 // ===========================================================================
 // Schema initialization
 // ===========================================================================

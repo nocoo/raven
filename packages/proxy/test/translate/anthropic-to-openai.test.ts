@@ -82,6 +82,39 @@ describe("system prompt", () => {
 // ===========================================================================
 
 describe("text messages", () => {
+  test("reorders known tool results while retaining unknown results when orphan sanitization is disabled", () => {
+    const result = translateToOpenAI(makeRequest({ messages: [
+      { role: "assistant", content: [
+        { type: "tool_use", id: "a", name: "read", input: {} },
+        { type: "tool_use", id: "b", name: "read", input: {} },
+      ] },
+      { role: "user", content: [
+        { type: "tool_result", tool_use_id: "unknown-x", content: null },
+        { type: "tool_result", tool_use_id: "b", content: "second" },
+        { type: "tool_result", tool_use_id: "unknown-y", content: "extra" },
+        { type: "tool_result", tool_use_id: "a", content: "first" },
+      ] },
+    ] } as unknown as Partial<AnthropicMessagesPayload>), { reorderToolResults: true, sanitizeOrphanedToolResults: false })
+    const tools = result.messages.filter((message) => message.role === "tool")
+    expect(tools.map((message) => message.tool_call_id)).toEqual(["a", "b", "unknown-x", "unknown-y"])
+    expect(tools[2]?.content).toBeNull()
+  })
+
+  test("normalizes non-string legacy user content without fabricating text", () => {
+    const request = makeRequest({ messages: [{ role: "user", content: null }] } as unknown as Partial<AnthropicMessagesPayload>)
+    expect(translateToOpenAI(request).messages[0]?.content).toBeNull()
+  })
+
+  test.each([
+    [[{ type: "text", text: "one" }, { type: "text", text: "two" }], "one\n\ntwo"],
+    [[{ type: "thinking", thinking: "one" }], "one"],
+    [[{ type: "thinking", thinking: "one" }, { type: "thinking", thinking: "two" }], "one\n\ntwo"],
+  ])("retains text or thinking beside a tool call: %#", (blocks, content) => {
+    const result = translateToOpenAI(makeRequest({ messages: [{ role: "assistant", content: [...blocks, { type: "tool_use", id: "call-1", name: "read", input: {} }] }] } as unknown as Partial<AnthropicMessagesPayload>))
+    expect(result.messages[0]?.content).toBe(content)
+    expect(result.messages[0]?.tool_calls?.[0]?.function.name).toBe("read")
+  })
+
   test("string content passes through", () => {
     const result = translateToOpenAI(
       makeRequest({

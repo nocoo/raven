@@ -5,7 +5,10 @@ import {
   parseReasoningEffortError,
   getSupportedEfforts,
   adjustEffortInPayload,
+  logEffortFallback,
 } from "../../src/strategies/support/effort-fallback"
+import { logEmitter } from "../../src/util/log-emitter"
+import type { LogEvent } from "../../src/util/log-event"
 import { state } from "../../src/lib/state"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 
@@ -73,6 +76,27 @@ describe("pickSupportedEffort", () => {
 // ---------------------------------------------------------------------------
 
 describe("parseReasoningEffortError", () => {
+  test.each([42, 'effort "future" is not supported; supported values: [high]'])("does not invent a fallback from an unsupported error message: %j", (message) => {
+    expect(parseReasoningEffortError({ error: { code: "invalid_reasoning_effort", message } })).toBeNull()
+  })
+
+  test("ignores unknown advertised effort levels while retaining valid supported levels", () => {
+    expect(parseReasoningEffortError({ error: { code: "invalid_reasoning_effort", message: 'effort "max" is not supported; supported values: [future, medium]' } })).toEqual({ requestedEffort: "max", supportedEfforts: ["medium"] })
+    expect(pickSupportedEffort("future" as Parameters<typeof pickSupportedEffort>[0], ["high"])).toBeNull()
+  })
+
+  test("records removal of unsupported effort without changing the raw model identifier", () => {
+    const events: LogEvent[] = []
+    const listener = (event: LogEvent) => { events.push(event) }
+    logEmitter.on("log", listener)
+    try {
+      logEffortFallback("fixture-effort", "fixture-model", "max", null)
+      expect(events).toHaveLength(1)
+      expect(events[0]?.msg).toContain("removed")
+      expect(events[0]?.data).toMatchObject({ model: "fixture-model", originalEffort: "max", fallbackEffort: null })
+    } finally { logEmitter.off("log", listener) }
+  })
+
   test("parses valid error response", () => {
     const error = {
       error: {

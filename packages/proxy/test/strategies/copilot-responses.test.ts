@@ -43,6 +43,55 @@ function makeReq(stream = false): ResponsesPayload {
 }
 
 describe("strategies/copilot-responses", () => {
+  test("drops malformed tool declarations while preserving valid namespaced functions", () => {
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const req = { model: "fixture", input: [], tools: [
+      null, 3, { type: "namespace", name: 3, tools: [] },
+      { type: "namespace", name: "ignored", tools: false },
+      { type: "namespace", name: "mcp__", tools: [null, 3, {}, { type: "function", name: 4 }, { type: "function", name: "read" }] },
+    ] } as unknown as ResponsesPayload
+    const prepared = s.prepare(req, makeCtx())
+    expect(prepared.tools).toEqual([{ type: "function", name: "mcp__read" }])
+    expect(req.tools).toHaveLength(5)
+  })
+
+  test("flattens an already-prefixed historical call even when all supplied tools were discarded", () => {
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const req = { model: "fixture", input: [{ type: "function_call", namespace: "mcp__", name: "mcp__read" }], tools: [null] } as unknown as ResponsesPayload
+    const prepared = s.prepare(req, makeCtx())
+    expect(prepared).not.toHaveProperty("tools")
+    expect(prepared.input).toEqual([{ type: "function_call", name: "mcp__read" }])
+  })
+
+  test("keeps unrelated and deeply nested output stable instead of rewriting arbitrary data", () => {
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const tools = [{ type: "namespace", name: "mcp__", tools: [{ type: "function", name: "read" }] }]
+    let deep: unknown = { type: "function_call", name: "mcp__read" }
+    for (let i = 0; i < 24; i++) deep = { nested: deep }
+    const req = s.prepare({ model: "fixture", input: [deep], tools } as unknown as ResponsesPayload, makeCtx())
+    const output = { unrelated: [null, 3, { type: "function_call", name: "other" }], deep }
+    expect(s.adaptJson(output, req, makeCtx())).toBe(output)
+    const st = s.initStreamState(req, makeCtx())
+    for (const data of ['{ "type": "reasoning", "values": [] }', "{"]) {
+      const chunk = { event: null, data, id: null, retry: null }
+      expect(s.adaptChunk(chunk, st, makeCtx())[0]?.data).toBe(data)
+    }
+  })
+
+  test("restores nested tool names without mutating unrelated response fields", () => {
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const req = s.prepare({ model: "fixture", input: [], tools: [{ type: "namespace", name: "mcp__", tools: [{ type: "function", name: "read" }] }] } as unknown as ResponsesPayload, makeCtx())
+    const response = { wrapper: { output: [{ type: "function_call", name: "mcp__read" }] }, untouched: [1, null] }
+    const restored = s.adaptJson(response, req, makeCtx())
+    expect(restored).toEqual({ wrapper: { output: [{ type: "function_call", name: "read", namespace: "mcp__" }] }, untouched: [1, null] })
+    expect(response.wrapper.output[0]?.name).toBe("mcp__read")
+  })
+
+  test("handles an empty non-iterable streaming response without starting any network activity", async () => {
+    const s = makeCopilotResponses({ client: fakeClient(() => null) })
+    expect(await s.dispatch(makeReq(true), makeCtx())).toEqual({ kind: "json", body: null })
+  })
+
   let captured: LogEvent[]
   let off: () => void
   beforeEach(() => {
