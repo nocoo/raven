@@ -11,6 +11,7 @@
       "devDependencies": {
         "@biomejs/biome": "2.5.14",
         "@types/bun": "1.4.2",
+        "@vitest/coverage-istanbul": "5.0.1",
         "dependency-cruiser": "18.3.1",
         "husky": "^9.1.7",
         "lint-staged": "17.5.1",

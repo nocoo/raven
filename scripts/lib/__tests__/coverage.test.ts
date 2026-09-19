@@ -53,6 +53,24 @@ function baseline(overrides: Partial<Baseline["enforcement"]> = {}, proxyOverrid
 }
 
 describe("parseLcov", () => {
+  test("handles empty counters and root entrypoints without dividing by zero or counting helper code", () => {
+    const report = parseLcov(
+      "SF:src/lib/types.ts\nLF:invalid\nLH:invalid\nend_of_record\n" +
+      "SF:src/index.ts\nLF:2\nLH:2\nend_of_record\n",
+    )
+    expect(report.total).toEqual({ linesFound: 0, linesHit: 0, pct: 0 })
+    expect(report.byDirectory.lib).toEqual({ linesFound: 0, linesHit: 0, pct: 0 })
+    expect(report.byFile).toHaveLength(2)
+  })
+
+  test("combines multiple files in the same directory using line counts, not average percentages", () => {
+    const report = parseLcov(
+      "SF:src/lib/a.ts\nLF:1\nLH:1\nend_of_record\n" +
+      "SF:src/lib/b.ts\nLF:9\nLH:0\nend_of_record\n",
+    )
+    expect(report.byDirectory.lib).toEqual({ linesFound: 10, linesHit: 1, pct: 10 })
+  })
+
   test("aggregates total lines found and hit", () => {
     const r = parseLcov(SAMPLE_LCOV)
     expect(r.total.linesFound).toBe(8)
@@ -97,6 +115,19 @@ describe("parseLcov", () => {
 
 describe("evaluateGate", () => {
   const report = parseLcov(SAMPLE_LCOV)
+
+  test("accepts a met directory floor without inventing a regression for an unmeasured baseline", () => {
+    const result = evaluateGate(report, baseline(
+      { mode: "enforce", globalFloorPct: 50, perDirectoryFloors: { routes: 60 } },
+      { l1TestCount: 100, perDirectoryCoveragePct: { routes: null } },
+    ))
+    expect(result).toEqual([])
+  })
+
+  test("does not classify a reported zero-runtime declaration as an untested executable file", () => {
+    const report = parseLcov(`${SAMPLE_LCOV}SF:src/lib/types.ts\nLF:0\nLH:0\nend_of_record\n`)
+    expect(evaluateGate(report, baseline(), { sourceFiles: ["src/lib/types.ts"] })).toEqual([])
+  })
 
   test("passes when above floor in placeholder mode", () => {
     expect(evaluateGate(report, baseline({ globalFloorPct: 50 }))).toEqual([])

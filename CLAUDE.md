@@ -63,7 +63,7 @@ bun run gate:security
 | --- | --- | --- | --- |
 | L1 Proxy | Four metrics ≥95%, plus baseline line floor ≥97.5%, ≤0.1pp regression and no untested files | enforced | `gate:coverage` retains the stronger line/directory baseline, regression and untested-file rules; Vitest enforces all four 95% thresholds |
 | L1 Dashboard | Four metrics ≥95% | enforced | Dashboard tests and CI enforce all four 95% thresholds on the declared scope |
-| L1 scripts | Four metrics ≥95% | planned | Script config branches 89%; coverage execution still needs enforcement |
+| L1 scripts | Four metrics ≥95% | enforced | The baseline gate explicitly runs the dedicated Bun/Istanbul config for the declared `scripts/lib` scope; reports are isolated in `coverage/scripts` |
 | L2 | Every API endpoint/method through real isolated HTTP/SQLite | planned | CI `test:l2` is in-process route/handler tests with mocked upstream; legacy live E2E uses real state |
 | L3 | Real isolated dashboard/auth/provider workflows | planned | Playwright manual runner uses real auth and fixed test DB |
 | G1 | Strict types, zero-warning/error Biome and architecture boundaries | planned | Checks enforced; pre-commit lint-staged mutation/worktree concurrency violates check-only target |
