@@ -59,7 +59,10 @@ export default defineConfig({
         "src/hooks/use-mobile.tsx",
       ],
       thresholds: {
-        statements: 90,
+        statements: 95,
+        branches: 95,
+        functions: 95,
+        lines: 95,
       },
     },
   },

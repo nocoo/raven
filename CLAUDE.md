@@ -62,7 +62,8 @@ bun run gate:security
 | Piece | Requirement and current reality | Status | Evidence |
 | --- | --- | --- | --- |
 | L1 Proxy | Four metrics ≥95%, plus baseline line floor ≥97.5%, ≤0.1pp regression and no untested files | planned | `gate:coverage` enforces stronger line baseline in hooks/CI; Vitest branch threshold still 89% |
-| L1 Dashboard/scripts | Four metrics ≥95% | planned | Dashboard config only statements 90%; script config branches 89% |
+| L1 Dashboard | Four metrics ≥95% | enforced | Dashboard tests and CI enforce all four 95% thresholds on the declared scope |
+| L1 scripts | Four metrics ≥95% | planned | Script config branches 89%; coverage execution still needs enforcement |
 | L2 | Every API endpoint/method through real isolated HTTP/SQLite | planned | CI `test:l2` is in-process route/handler tests with mocked upstream; legacy live E2E uses real state |
 | L3 | Real isolated dashboard/auth/provider workflows | planned | Playwright manual runner uses real auth and fixed test DB |
 | G1 | Strict types, zero-warning/error Biome and architecture boundaries | planned | Checks enforced; pre-commit lint-staged mutation/worktree concurrency violates check-only target |

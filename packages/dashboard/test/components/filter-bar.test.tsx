@@ -169,6 +169,64 @@ describe("FilterChip", () => {
 // ---------------------------------------------------------------------------
 
 describe("FilterBar", () => {
+  it("shows every deep-linked dimension, including zero latency and synchronous mode", () => {
+    mockSearchParams = new URLSearchParams({
+      model: "m", resolved_model: "resolved", strategy: "native", upstream: "fixture-provider",
+      account: "fixture-account", client: "fixture-client", client_version: "1.2.3",
+      session: "fixture-session", path: "/v1/messages", status: "error", status_code: "429",
+      stream: "false", has_error: "true", min_latency: "0", max_latency: "1000",
+      stop_reason: "length", routing_path: "fallback",
+    });
+    render(<FilterBar upstreams={["fixture-provider"]} />);
+    expect(screen.getByText("17 active")).toBeDefined();
+    expect(screen.getAllByRole("button", { name: /^Remove .* filter$/ })).toHaveLength(17);
+    expect(screen.getByText("0ms")).toBeDefined();
+    expect(screen.getByText("Version:")).toBeDefined();
+  });
+
+  it.each([
+    [1, "fixture-model", "model"], [2, "fixture-strategy", "strategy"],
+    [3, "fixture-provider", "upstream"], [4, "error", "status"],
+  ])("updates dimension %s through the actual dropdown", async (index, value, key) => {
+    render(<FilterBar models={["fixture-model"]} strategies={["fixture-strategy"]} upstreams={["fixture-provider"]} />);
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("combobox")[index]!);
+    await user.click(screen.getByRole("option", { name: value }));
+    const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
+    expect(params.get(key)).toBe(value);
+  });
+
+  it("clears the last upstream selection without retaining an empty query string", async () => {
+    mockSearchParams = new URLSearchParams("upstream=fixture-provider");
+    render(<FilterBar upstreams={["fixture-provider"]} />);
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("combobox")[1]!);
+    await user.click(screen.getByRole("option", { name: "All upstreams" }));
+    expect(mockPush).toHaveBeenCalledWith("/");
+  });
+
+  it.each([
+    ["stream=false", "Streaming", "/?stream=true"],
+    ["stream=true", "Synchronous", "/?stream=false"],
+    ["stream=true", "All modes", "/"],
+  ])("changes request mode from %s to %s", async (query, label, expected) => {
+    mockSearchParams = new URLSearchParams(query);
+    render(<FilterBar />);
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("combobox")[2]!);
+    await user.click(screen.getByRole("option", { name: label }));
+    expect(mockPush).toHaveBeenCalledWith(expected);
+  });
+
+  it("clears old custom bounds when selecting the default time range", async () => {
+    mockSearchParams = new URLSearchParams("range=custom&from=1000&to=2000");
+    render(<FilterBar />);
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("combobox")[0]!);
+    await user.click(screen.getByRole("option", { name: "Last 24 hours" }));
+    expect(mockPush).toHaveBeenCalledWith("/");
+  });
+
   it("renders time range picker with default 24h", () => {
     render(<FilterBar />);
     expect(screen.getByText("Last 24 hours")).toBeDefined();
