@@ -102,8 +102,9 @@ async function runVitest(
 }
 
 if (!skipTests) {
-  // Scripts/lib tests live under the root vitest "scripts" project.
-  const libRun = await runVitest(["--project", "scripts"], REPO_ROOT)
+  // Measure scripts/lib in its own Istanbul configuration. Running a workspace
+  // project without --coverage never enforced that project's declared floors.
+  const libRun = await runVitest(["--config", "vitest.scripts.config.ts", "--coverage"], REPO_ROOT)
   if (libRun.exitCode !== 0) process.exit(libRun.exitCode)
 
   // Proxy L1 tests with coverage — vitest istanbul provider emits

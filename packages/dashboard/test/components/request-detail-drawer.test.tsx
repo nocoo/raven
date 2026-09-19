@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 // ---------------------------------------------------------------------------
@@ -103,6 +103,49 @@ function makeExtendedRecord(overrides: Partial<ExtendedRequestRecord> = {}): Ext
 // ===========================================================================
 
 describe("RequestDetailDrawer", () => {
+  it("renders sparse non-streaming requests without fabricated token or routing details", () => {
+    const request = makeExtendedRecord({
+      latency_ms: 0, ttft_ms: 0, processing_ms: 0, stream: 0,
+      input_tokens: null, output_tokens: null, cache_read_tokens: null, cache_write_tokens: null,
+      translated_model: "", strategy: "", upstream: "", upstream_format: "", routing_path: "",
+      copilot_model: "", account_name: "", client_name: "", stop_reason: "", tool_call_count: 0,
+    });
+    render(<RequestDetailDrawer request={request} open onOpenChange={() => {}} />);
+    expect(screen.getByText("No")).toBeDefined();
+    expect(screen.getAllByText("—")).toHaveLength(5);
+    expect(screen.queryByText("Strategy")).toBeNull();
+    expect(screen.queryByText("Tool Calls")).toBeNull();
+    expect(screen.getAllByText("0ms").length).toBeGreaterThan(0);
+  });
+
+  it.each([null, {}])("leaves the drawer usable when clipboard support is %j", (clipboard) => {
+    const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard });
+    try {
+      render(<RequestDetailDrawer request={makeExtendedRecord()} open onOpenChange={() => {}} />);
+      fireEvent.click(screen.getByLabelText("Copy request ID"));
+      expect(screen.getByText("req-test-001")).toBeDefined();
+    } finally {
+      if (previous) Object.defineProperty(navigator, "clipboard", previous);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  it("handles denied clipboard writes without an unhandled rejection", async () => {
+    const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const writeText = vi.fn().mockRejectedValue(new Error("Permission denied"));
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<RequestDetailDrawer request={makeExtendedRecord()} open onOpenChange={() => {}} />);
+      fireEvent.click(screen.getByLabelText("Copy request ID"));
+      await Promise.resolve();
+      expect(writeText).toHaveBeenCalledWith("req-test-001");
+    } finally {
+      if (previous) Object.defineProperty(navigator, "clipboard", previous);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
   it("renders nothing when request is null", () => {
     const { container } = render(
       <RequestDetailDrawer request={null} open={false} onOpenChange={() => {}} />,

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { ALL_COLUMNS } from "@/components/requests/column-config";
 import { userEvent } from "@testing-library/user-event";
 
 // ---------------------------------------------------------------------------
@@ -344,5 +345,71 @@ describe("pathname-based routing", () => {
 
     const url = mockPush.mock.calls[0]![0] as string;
     expect(url).toMatch(/^\/requests\?/);
+  });
+});
+
+describe("request metadata and navigation boundaries", () => {
+  const allColumns = new Set(ALL_COLUMNS.map((column) => column.key));
+
+  it("shows optional diagnostics and non-streaming failures when all columns are enabled", () => {
+    const record = makeRecord({
+      path: "/v1/a-very-long-request-endpoint",
+      status: "error", status_code: 429, stream: 0,
+      ttft_ms: 12, processing_ms: 34, strategy: "fixture-strategy",
+      upstream: "fixture-upstream", account_name: "fixture-account",
+      client_name: "fixture-client", session_id: "short-session",
+      stop_reason: "length", tool_call_count: 3, routing_path: "fallback",
+      translated_model: "mapped-model", error_message: "fixture error",
+    });
+    render(<RequestTable data={[record]} hasMore={false} total={1200} visibleColumns={allColumns} />);
+    for (const text of ["Format", "Processing", "Strategy", "Session", "12ms", "34ms", "fixture-strategy", "fixture-upstream", "fixture-account", "fixture-client", "length", "fallback", "mapped-model", "fixture error", "no", "1,200 total"]) {
+      expect(screen.getByText(text)).toBeDefined();
+    }
+    expect(screen.getByText(/\/v1\/a-very-long-request.*…/)).toBeDefined();
+    fireEvent.click(screen.getAllByRole("row")[1]!);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("keeps missing optional diagnostic fields distinguishable from measured zero values", () => {
+    render(<RequestTable data={[makeRecord({
+      strategy: "", upstream: "", account_name: "", client_name: "",
+      session_id: "", stop_reason: "", routing_path: "", translated_model: "",
+      error_message: null, processing_ms: null, ttft_ms: 0, tool_call_count: 0,
+    })]} hasMore={false} visibleColumns={allColumns} />);
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(8);
+    expect(screen.getByText("0ms")).toBeDefined();
+  });
+
+  it("reverses an ascending sort and advertises the active order accessibly", () => {
+    mockSearchParams = new URLSearchParams("sort=processing_ms&order=asc");
+    render(<RequestTable data={[makeRecord()]} hasMore={false} visibleColumns={allColumns} />);
+    const button = screen.getByRole("button", { name: "Processing" });
+    expect(button.closest("th")).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(button);
+    expect(mockPush).toHaveBeenCalledWith("/requests?sort=processing_ms&order=desc");
+  });
+
+  it("retains cursor history and active filters on the next page", () => {
+    mockSearchParams = new URLSearchParams("cursor=cur-1&prevCursors=cur-0&model=fixture");
+    render(<RequestTable data={[makeRecord()]} hasMore nextCursor="cur-2" />);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
+    expect(params.get("prevCursors")).toBe("cur-0,cur-1");
+    expect(params.get("cursor")).toBe("cur-2");
+    expect(params.get("model")).toBe("fixture");
+  });
+
+  it("uses the default page size for offset pagination", () => {
+    mockSearchParams = new URLSearchParams("sort=latency_ms");
+    render(<RequestTable data={[makeRecord()]} hasMore />);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(mockPush).toHaveBeenCalledWith("/requests?sort=latency_ms&offset=50");
+  });
+
+  it("returns an offset page to the beginning using the default page size", () => {
+    mockSearchParams = new URLSearchParams("sort=latency_ms&offset=20");
+    render(<RequestTable data={[makeRecord()]} hasMore={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(mockPush).toHaveBeenCalledWith("/requests?sort=latency_ms");
   });
 });

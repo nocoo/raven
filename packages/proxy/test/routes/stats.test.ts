@@ -76,6 +76,36 @@ afterEach(() => {
 // Stats routes
 // ===========================================================================
 
+describe("analytics request boundaries with an isolated SQLite database", () => {
+  test.each(["timeseries-group", "breakdown"])("rejects %s without a grouping field", async (endpoint) => {
+    const app = new Hono().route("/api", createStatsRoute(db))
+    const response = await app.request(`/api/stats/${endpoint}`)
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: "missing 'by' parameter" })
+  })
+
+  test.each([
+    "/api/stats/timeseries-group?by=model&from=1&interval=minute&limit=bad",
+    "/api/stats/timeseries-group?by=model&range=7d&limit=2",
+    "/api/stats/breakdown?by=model&order=asc&sort=unsupported&limit=bad",
+    "/api/stats/breakdown?by=model&order=asc&from=1&limit=2",
+  ])("uses safe query defaults and preserves schema for %s", async (url) => {
+    seedDb(db)
+    const app = new Hono().route("/api", createStatsRoute(db))
+    const response = await app.request(url)
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    if (url.includes("/breakdown")) {
+      expect(body).toHaveLength(2)
+      expect(body.map((item: { count: number }) => item.count)).toEqual([2, 2])
+    } else {
+      expect(body.keys.sort()).toEqual(["claude-sonnet-4", "gpt-4o"])
+      expect(body.points.length).toBeGreaterThan(0)
+    }
+    expect(db.query("SELECT COUNT(*) AS n FROM requests").get()).toEqual({ n: 4 })
+  })
+})
+
 describe("GET /api/stats/overview", () => {
   test("returns aggregate stats", async () => {
     seedDb(db);
