@@ -29,6 +29,8 @@ export interface RequestContext {
   stream: boolean
   /** API key name from auth middleware, defaults to `"default"`. */
   accountName: string
+  /** Stable api_keys.id (or fixed env/internal identity) from auth middleware; display names can repeat across keys. */
+  keyId: string
   /** `User-Agent` header verbatim (may be `null`). */
   userAgent: string | null
   /** `anthropic-beta` header verbatim — only meaningful when `format === "anthropic"`. */
@@ -61,6 +63,7 @@ export function buildContext(
   stream = false,
 ): RequestContext {
   const accountName = c.get("keyName") ?? "default"
+  const keyId = c.get("keyId") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
   const anthropicBeta = c.req.header("anthropic-beta") ?? null
 
@@ -78,6 +81,7 @@ export function buildContext(
     path: c.req.path,
     stream,
     accountName,
+    keyId,
     userAgent,
     anthropicBeta,
     sessionId,

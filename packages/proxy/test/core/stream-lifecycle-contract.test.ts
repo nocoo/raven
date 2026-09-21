@@ -10,7 +10,7 @@ import type { LogEvent } from "../../src/util/log-event"
 
 const context: RequestContext = {
   requestId: "audit-lifecycle", startTime: 0, format: "anthropic",
-  path: "/v1/messages", stream: true, accountName: "audit", userAgent: null,
+  path: "/v1/messages", stream: true, accountName: "audit", keyId: "key-audit", userAgent: null,
   anthropicBeta: null, sessionId: "audit", clientName: "audit", clientVersion: null,
 }
 

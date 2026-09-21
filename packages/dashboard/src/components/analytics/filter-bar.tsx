@@ -13,9 +13,10 @@ import {
   type TimeRange,
 } from "@/lib/analytics-filters";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
-import { Filter, RotateCcw } from "lucide-react";
-import { Button } from "@nocoo/basalt";
+import { useCallback, useMemo, useTransition } from "react";
+import { Filter, RefreshCw, RotateCcw } from "lucide-react";
+import { Button, Input } from "@nocoo/basalt";
+import { formatMonitorTime, PROTOCOL_META, PROTOCOL_MODES } from "@/lib/monitor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 const STATUS_OPTIONS = ["success", "error"];
@@ -31,6 +32,8 @@ interface FilterBarProps {
   strategies?: string[];
   /** Available upstream names for the filter dropdown */
   upstreams?: string[];
+  keys?: { id: string; label: string }[];
+  investigation?: boolean;
   /** Show fewer filters (compact mode for sub-pages) */
   compact?: boolean;
 }
@@ -39,11 +42,14 @@ export function FilterBar({
   models = [],
   strategies = [],
   upstreams = [],
+  keys = [],
+  investigation = false,
   compact = false,
 }: FilterBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [refreshing, startRefresh] = useTransition();
 
   const filters = useMemo(
     () => searchParamsToFilters(searchParams),
@@ -115,6 +121,8 @@ export function FilterBar({
     if (filters.strategy) chips.push({ key: "strategy", value: filters.strategy });
     if (filters.upstream) chips.push({ key: "upstream", value: filters.upstream });
     if (filters.account) chips.push({ key: "account", value: filters.account });
+    if (filters.key_id) chips.push({ key: "key_id", value: filters.key_id });
+    if (filters.protocol_mode) chips.push({ key: "protocol_mode", value: filters.protocol_mode });
     if (filters.client) chips.push({ key: "client", value: filters.client });
     if (filters.client_version) chips.push({ key: "client_version", value: filters.client_version });
     if (filters.session) chips.push({ key: "session", value: filters.session });
@@ -138,13 +146,21 @@ export function FilterBar({
 
         {!compact && (
           <>
+            <Select value={filters.protocol_mode ?? "__all__"} onValueChange={(v) => setDimensionFilter("protocol_mode", v)}>
+              <SelectTrigger size="sm" className="w-auto min-w-[140px] text-xs" aria-label="Filter by protocol"><SelectValue placeholder="All protocols" /></SelectTrigger>
+              <SelectContent><SelectItem value="__all__">All protocols</SelectItem>{PROTOCOL_MODES.map(mode => <SelectItem key={mode} value={mode}>{PROTOCOL_META[mode].label}</SelectItem>)}</SelectContent>
+            </Select>
+            {keys.length > 0 && <Select value={filters.key_id ?? "__all__"} onValueChange={(v) => updateFilters({ key_id: v === "__all__" ? undefined : v, account: undefined })}>
+              <SelectTrigger size="sm" className="w-auto min-w-[140px] max-w-64 text-xs" aria-label="Filter by API key"><SelectValue placeholder="All keys" /></SelectTrigger>
+              <SelectContent><SelectItem value="__all__">All keys</SelectItem>{keys.map(key => <SelectItem key={key.id} value={key.id}>{key.label} · {key.id.startsWith("legacy:") ? "historical" : key.id.slice(-8)}</SelectItem>)}</SelectContent>
+            </Select>}
             {/* Model filter */}
             {models.length > 0 && (
               <Select
                 value={filters.model ?? "__all__"}
                 onValueChange={(v) => setDimensionFilter("model", v)}
               >
-                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]">
+                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]" aria-label="Filter by model">
                   <SelectValue placeholder="All models" />
                 </SelectTrigger>
                 <SelectContent>
@@ -164,7 +180,7 @@ export function FilterBar({
                 value={filters.strategy ?? "__all__"}
                 onValueChange={(v) => setDimensionFilter("strategy", v)}
               >
-                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]">
+                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]" aria-label="Filter by strategy">
                   <SelectValue placeholder="All strategies" />
                 </SelectTrigger>
                 <SelectContent>
@@ -184,7 +200,7 @@ export function FilterBar({
                 value={filters.upstream ?? "__all__"}
                 onValueChange={(v) => setDimensionFilter("upstream", v)}
               >
-                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]">
+                <SelectTrigger size="sm" className="w-auto text-xs min-w-[140px]" aria-label="Filter by upstream">
                   <SelectValue placeholder="All upstreams" />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,7 +219,7 @@ export function FilterBar({
               value={filters.status ?? "__all__"}
               onValueChange={(v) => setDimensionFilter("status", v)}
             >
-              <SelectTrigger size="sm" className="w-auto text-xs min-w-[120px]">
+              <SelectTrigger size="sm" className="w-auto text-xs min-w-[120px]" aria-label="Filter by status">
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -227,7 +243,7 @@ export function FilterBar({
                 }
               }}
             >
-              <SelectTrigger size="sm" className="w-auto text-xs min-w-[130px]">
+              <SelectTrigger size="sm" className="w-auto text-xs min-w-[130px]" aria-label="Filter by stream">
                 <SelectValue placeholder="All modes" />
               </SelectTrigger>
               <SelectContent>
@@ -241,6 +257,8 @@ export function FilterBar({
             </Select>
           </>
         )}
+
+        <Button variant="ghost" size="sm" disabled={refreshing} onClick={() => startRefresh(() => router.refresh())} aria-label="Refresh monitoring data"><RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />Refresh</Button>
 
         {/* Active filter count + reset */}
         {activeCount > 0 && (
@@ -256,6 +274,19 @@ export function FilterBar({
           </div>
         )}
       </div>
+
+      {filters.range === "custom" && filters.from !== undefined && filters.to !== undefined && <p className="text-xs text-basalt-muted-foreground">Selected interval: {formatMonitorTime(filters.from)} – {formatMonitorTime(filters.to)} UTC</p>}
+
+      {investigation && <details className="text-xs text-basalt-muted-foreground"><summary className="cursor-pointer py-1">Client & session filters</summary><form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={event => {
+        event.preventDefault();
+        const values = new FormData(event.currentTarget);
+        updateFilters({ client: String(values.get("client") ?? "").trim() || undefined, session: String(values.get("session") ?? "").trim() || undefined, upstream: String(values.get("upstream") ?? "").trim() || undefined });
+      }}>
+        <label htmlFor="monitor-client" className="space-y-1">Client<Input id="monitor-client" key={`client-${filters.client}`} name="client" aria-label="Client name" defaultValue={filters.client ?? ""} placeholder="Exact client name" className="h-8 w-44 text-xs" /></label>
+        <label htmlFor="monitor-session" className="space-y-1">Session<Input id="monitor-session" key={`session-${filters.session}`} name="session" aria-label="Session ID" defaultValue={filters.session ?? ""} placeholder="Exact session ID" className="h-8 w-64 text-xs" /></label>
+        <label htmlFor="monitor-upstream" className="space-y-1">Upstream<Input id="monitor-upstream" key={`upstream-${filters.upstream}`} name="upstream" aria-label="Upstream name" defaultValue={filters.upstream ?? ""} placeholder="Exact upstream name" className="h-8 w-44 text-xs" /></label>
+        <Button type="submit" variant="outline" size="sm">Apply</Button>
+      </form></details>}
 
       {/* Active filter chips */}
       {activeChips.length > 0 && (

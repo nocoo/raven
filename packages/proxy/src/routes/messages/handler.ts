@@ -48,6 +48,7 @@ export async function handleCompletion(c: Context) {
   const model = anthropicPayload.model
   const stream = !!anthropicPayload.stream
   const accountName = c.get("keyName") ?? "default"
+  const apiKeyId = c.get("keyId") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
   const anthropicBeta = c.req.header("anthropic-beta") ?? null
   const userId = anthropicPayload.metadata?.user_id ?? null
@@ -61,7 +62,7 @@ export async function handleCompletion(c: Context) {
       path: "/v1/messages", format: "anthropic", model, stream,
       messageCount: anthropicPayload.messages?.length ?? 0,
       toolCount: anthropicPayload.tools?.length ?? 0,
-      accountName, sessionId, clientName, clientVersion,
+      accountName, apiKeyId, sessionId, clientName, clientVersion,
     },
   })
 
@@ -104,7 +105,7 @@ export async function handleCompletion(c: Context) {
       requestId, startTime,
       path: "/v1/messages", format: "anthropic",
       model, stream,
-      accountName, sessionId, clientName, clientVersion,
+      accountName, apiKeyId, sessionId, clientName, clientVersion,
     })
   }
 
@@ -117,7 +118,7 @@ export async function handleCompletion(c: Context) {
       const runnerCtx: RunnerCtx = {
         requestId, startTime, format: "anthropic", path: "/v1/messages",
         stream,
-        accountName, userAgent, anthropicBeta,
+        accountName, keyId: apiKeyId, userAgent, anthropicBeta,
         sessionId, clientName, clientVersion,
       }
       const anthReq: CustomAnthropicUpReq = { provider, payload: anthropicPayload }
@@ -162,7 +163,7 @@ export async function handleCompletion(c: Context) {
     const runnerCtx: RunnerCtx = {
       requestId, startTime, format: "anthropic", path: "/v1/messages",
       stream,
-      accountName, userAgent, anthropicBeta,
+      accountName, keyId: apiKeyId, userAgent, anthropicBeta,
       sessionId, clientName, clientVersion,
     }
     const customReq: CustomOpenAIUpReq = {
@@ -238,8 +239,8 @@ export async function handleCompletion(c: Context) {
           sendRequest: createNativeSendNonStreaming(nativeOptions, requestId),
           log: {
             path: "/v1/messages", format: "anthropic",
-            accountName, sessionId, clientName, clientVersion,
-            extras: { copilotModel, routingPath: "native" },
+            accountName, apiKeyId, sessionId, clientName, clientVersion,
+            extras: { copilotModel, routingPath: "native", strategy: "copilot-native", upstreamFormat: "anthropic" },
           },
         })
       } catch (error) {
@@ -251,7 +252,7 @@ export async function handleCompletion(c: Context) {
     const runnerCtx: RunnerCtx = {
       requestId, startTime, format: "anthropic", path: "/v1/messages",
       stream,
-      accountName, userAgent, anthropicBeta,
+      accountName, keyId: apiKeyId, userAgent, anthropicBeta,
       sessionId, clientName, clientVersion,
     }
     const nativeReq: CopilotNativeUpReq = {
@@ -343,10 +344,12 @@ export async function handleCompletion(c: Context) {
         sendRequest: sendTranslatedRequest,
         log: {
           path: "/v1/messages", format: "anthropic",
-          accountName, sessionId, clientName, clientVersion,
+          accountName, apiKeyId, sessionId, clientName, clientVersion,
           extras: {
             translatedModel: openAIPayload.model,
             routingPath: "translated",
+            strategy: "copilot-translated",
+            upstreamFormat: "openai",
           },
         },
       })
@@ -359,7 +362,7 @@ export async function handleCompletion(c: Context) {
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "anthropic", path: "/v1/messages",
     stream,
-    accountName, userAgent, anthropicBeta,
+    accountName, keyId: apiKeyId, userAgent, anthropicBeta,
     sessionId, clientName, clientVersion,
   }
   const translatedReq: CopilotTranslatedUpReq = { openAIPayload, originalModel: model }

@@ -59,7 +59,15 @@ export interface PaginatedRequests {
 // Enhanced analytics types (matching proxy /stats/* endpoints)
 // ---------------------------------------------------------------------------
 
-export interface SummaryStats {
+export type ProtocolMode = "native" | "translated" | "unknown";
+
+export interface ProtocolCounts {
+  native_count: number;
+  translated_count: number;
+  unknown_count: number;
+}
+
+export interface SummaryStats extends ProtocolCounts {
   total_requests: number;
   total_tokens: number;
   total_input_tokens: number;
@@ -103,7 +111,7 @@ export interface ExtendedTimeseriesBucket {
   status_codes: Record<string, number>;
 }
 
-export interface BreakdownEntry {
+export interface BreakdownEntry extends ProtocolCounts {
   key: string;
   count: number;
   input_tokens: number;
@@ -141,6 +149,10 @@ export interface Percentiles {
 // ---------------------------------------------------------------------------
 
 export interface ExtendedRequestRecord extends RequestRecord {
+  api_key_id: string;
+  key_id: string;
+  protocol_mode: ProtocolMode;
+  server_tools_used: number;
   processing_ms: number | null;
   strategy: string;
   upstream: string;

@@ -18,6 +18,7 @@ const ctx: RequestContext = {
   path: "/v1/chat/completions",
   stream: false,
   accountName: "default",
+  keyId: "key-default",
   userAgent: null,
   anthropicBeta: null,
   sessionId: "s",

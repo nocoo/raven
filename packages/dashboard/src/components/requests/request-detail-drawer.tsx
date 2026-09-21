@@ -18,24 +18,15 @@ import {
   SheetTitle,
 } from "@nocoo/basalt";
 import { useLogDock } from "@/components/logs/log-dock-context";
+import Link from "next/link";
+import { DEFAULT_FILTERS, type AnalyticsFilters } from "@/lib/analytics-filters";
+import { dimensionHref, formatMonitorTime, keyIdentity, monitorHref, PROTOCOL_META, protocolLabel, requestProtocolRoute } from "@/lib/monitor";
 
 interface RequestDetailDrawerProps {
   request: ExtendedRequestRecord | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function formatTimestamp(ts: number): string {
-  return new Date(ts).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    fractionalSecondDigits: 3,
-    hour12: false,
-  });
+  filters?: AnalyticsFilters;
 }
 
 function copyToClipboard(text: string) {
@@ -61,7 +52,7 @@ function DetailRow({ label, value, mono }: { label: string; value: React.ReactNo
   );
 }
 
-export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDetailDrawerProps) {
+export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEFAULT_FILTERS }: RequestDetailDrawerProps) {
   const { openLogs } = useLogDock();
   if (!request) return null;
 
@@ -91,11 +82,16 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
             <span className="truncate font-mono text-sm">{request.model}</span>
           </SheetTitle>
           <SheetDescription>
-            {formatTimestamp(request.timestamp)}
+            {formatMonitorTime(request.timestamp, "millisecond")} UTC
           </SheetDescription>
         </SheetHeader>
 
         <div className="px-4 pb-4 space-y-4">
+          <section className="rounded-lg bg-basalt-muted/50 p-3">
+            <div className="flex flex-wrap items-center gap-2"><Badge variant={request.protocol_mode === "native" ? "success" : request.protocol_mode === "translated" ? "warning" : "secondary"}>{protocolLabel(request.protocol_mode)}</Badge>{request.server_tools_used > 0 && <Badge variant="secondary">Server tools</Badge>}</div>
+            <p className="mt-2 text-sm font-medium">{requestProtocolRoute(request)}</p>
+            <p className="mt-1 text-xs leading-relaxed text-basalt-muted-foreground">{PROTOCOL_META[request.protocol_mode].description}</p>
+          </section>
           {/* Request ID */}
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-basalt-muted-foreground truncate flex-1">
@@ -116,7 +112,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
             <h4 className="text-xs font-medium text-basalt-foreground mb-2">Timing</h4>
             <div className="space-y-1">
               {/* Visual waterfall bar */}
-              <div className="h-6 flex rounded overflow-hidden bg-basalt-muted text-[10px]">
+              <div className="h-6 flex rounded overflow-hidden bg-basalt-muted text-xs">
                 {ttft != null && ttftPct > 0 && (
                   <div
                     className="flex items-center justify-center bg-basalt-chart-2 text-white"
@@ -152,7 +148,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
           <section>
             <h4 className="text-xs font-medium text-basalt-foreground mb-2">Request</h4>
             <DetailRow label="Path" value={request.path} mono />
-            <DetailRow label="Model" value={request.model} mono />
+            <DetailRow label="Model" value={<Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("model", request.model, filters)}>Analyze {request.model}</Link>} mono />
             <DetailRow label="Resolved Model" value={request.resolved_model} mono />
             <DetailRow label="Translated Model" value={request.translated_model || null} mono />
             <DetailRow label="Format" value={request.client_format} />
@@ -208,8 +204,9 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
           {/* Client Context */}
           <section>
             <h4 className="text-xs font-medium text-basalt-foreground mb-2">Client</h4>
-            <DetailRow label="Account" value={request.account_name || null} />
-            <DetailRow label="Client" value={request.client_name || null} />
+            <DetailRow label="API Key" value={<Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("key_id", request.key_id, filters)}>{request.account_name || "Unattributed"}</Link>} />
+            <DetailRow label="Key identity" value={keyIdentity(request.key_id)} mono />
+            <DetailRow label="Client" value={request.client_name ? <Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("client", request.client_name, filters)}>{request.client_name}</Link> : null} />
             <DetailRow label="Version" value={request.client_version} />
             {request.session_id && (
               isJsonLike(request.session_id) ? (
@@ -218,7 +215,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange }: RequestDeta
                   <JsonBlock value={request.session_id} />
                 </div>
               ) : (
-                <DetailRow label="Session" value={request.session_id} mono />
+                <DetailRow label="Session" value={<Link className="text-basalt-primary underline underline-offset-2 break-all" href={monitorHref("/requests", filters, { session: request.session_id })}>{request.session_id}</Link>} mono />
               )
             )}
           </section>

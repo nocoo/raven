@@ -60,7 +60,7 @@ function makeResp(overrides: Partial<AnthropicResponse> = {}): AnthropicResponse
 function baseLogFields(): DecorateInput["log"] {
   return {
     path: "/v1/messages", format: "anthropic",
-    accountName: "acct", sessionId: "sess",
+    accountName: "acct", apiKeyId: "key-acct", sessionId: "sess",
     clientName: "test", clientVersion: null,
     extras: { routingPath: "translated" },
   }
@@ -203,6 +203,7 @@ describe("decorate()", () => {
     expect(ends).toHaveLength(1)
     const data = ends[0]!.data as Record<string, unknown>
     expect(data.status).toBe("error")
+    expect(data.serverToolsUsed).toBe(true)
     expect(data.error).toBeTruthy()
     expect(data.routingPath).toBe("translated")
   })

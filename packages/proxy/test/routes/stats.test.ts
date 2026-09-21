@@ -37,6 +37,7 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     upstream_status: 200,
     error_message: null,
     account_name: "default",
+    api_key_id: "",
     session_id: "",
     client_name: "",
     client_version: null,
@@ -49,6 +50,7 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     routing_path: "",
     stop_reason: "",
     tool_call_count: 0,
+    server_tools_used: 0,
     cache_read_tokens: null,
     cache_write_tokens: null,
     ...overrides,
@@ -641,5 +643,120 @@ describe("timeseries explicit from/to range", () => {
     expect(totalCount).toBe(1);
 
     db2.close();
+  });
+});
+
+// ===========================================================================
+// key identity + protocol_mode API surface
+// ===========================================================================
+
+describe("key_id and protocol_mode endpoints", () => {
+  function seedMixed(db: Database): void {
+    // Same display name, two distinct key ids — must stay separable
+    insertRequest(db, makeRecord({
+      id: "k1a", account_name: "claude-code", api_key_id: "K1",
+      strategy: "copilot-native", model: "claude-sonnet-4", timestamp: 2000,
+    }));
+    insertRequest(db, makeRecord({
+      id: "k1b", account_name: "claude-code", api_key_id: "K1",
+      strategy: "copilot-translated", translated_model: "gpt-4o", model: "gpt-4o", timestamp: 3000,
+    }));
+    insertRequest(db, makeRecord({
+      id: "k2", account_name: "claude-code", api_key_id: "K2",
+      strategy: "custom-openai", client_format: "openai", model: "gpt-5-mini", timestamp: 4000,
+    }));
+    // Legacy row predating api_key_id
+    insertRequest(db, makeRecord({
+      id: "legacy", account_name: "claude-code", api_key_id: "",
+      strategy: "", routing_path: "", model: "claude-sonnet-4", timestamp: 1000,
+    }));
+    // server-tools row: no strategy, explicit routing_path, flag set
+    insertRequest(db, makeRecord({
+      id: "st", account_name: "claude-code", api_key_id: "K1",
+      strategy: "", routing_path: "native", server_tools_used: 1,
+      model: "claude-sonnet-4", timestamp: 5000,
+    }));
+  }
+
+  function makeApp(): Hono {
+    return new Hono().route("/api", createStatsRoute(db)).route("/api", createRequestsRoute(db));
+  }
+
+  test("/api/requests returns key_id, protocol_mode and server_tools_used per row", async () => {
+    seedMixed(db);
+    const app = makeApp();
+    const res = await app.request("/api/requests?sort=timestamp&order=asc");
+    expect(res.status).toBe(200);
+    const body = await res.json() as { data: Array<{ id: string; key_id: string; protocol_mode: string; server_tools_used: number }> };
+
+    const byId = new Map(body.data.map((r) => [r.id, r]));
+    expect(byId.get("k1a")).toMatchObject({ key_id: "K1", protocol_mode: "native", server_tools_used: 0 });
+    expect(byId.get("k1b")).toMatchObject({ key_id: "K1", protocol_mode: "translated", server_tools_used: 0 });
+    expect(byId.get("k2")).toMatchObject({ key_id: "K2", protocol_mode: "native", server_tools_used: 0 });
+    expect(byId.get("legacy")).toMatchObject({ key_id: "legacy:claude-code", protocol_mode: "unknown", server_tools_used: 0 });
+    expect(byId.get("st")).toMatchObject({ key_id: "K1", protocol_mode: "native", server_tools_used: 1 });
+  });
+
+  test("breakdown by=key_id separates same-name keys and returns account_name label", async () => {
+    seedMixed(db);
+    const app = makeApp();
+    const res = await app.request("/api/stats/breakdown?by=key_id");
+    expect(res.status).toBe(200);
+    const body = await res.json() as Array<{ key: string; count: number; account_name: string }>;
+
+    const k1 = body.find((e) => e.key === "K1");
+    const k2 = body.find((e) => e.key === "K2");
+    const legacy = body.find((e) => e.key === "legacy:claude-code");
+    expect(k1).toMatchObject({ count: 3, account_name: "claude-code" });
+    expect(k2).toMatchObject({ count: 1, account_name: "claude-code" });
+    expect(legacy).toMatchObject({ count: 1, account_name: "claude-code" });
+  });
+
+  test("summary returns conserving native/translated/unknown counts", async () => {
+    seedMixed(db);
+    const app = makeApp();
+    const res = await app.request("/api/stats/summary");
+    const body = await res.json() as {
+      total_requests: number; native_count: number; translated_count: number; unknown_count: number;
+    };
+    expect(body.total_requests).toBe(5);
+    expect(body.native_count).toBe(3); // k1a + k2 + st
+    expect(body.translated_count).toBe(1); // k1b
+    expect(body.unknown_count).toBe(1); // legacy
+    expect(body.native_count + body.translated_count + body.unknown_count).toBe(body.total_requests);
+  });
+
+  test("breakdown by=protocol_mode groups and timeseries-group stacks", async () => {
+    seedMixed(db);
+    const app = makeApp();
+
+    const bd = await (await app.request("/api/stats/breakdown?by=protocol_mode")).json() as Array<{ key: string; count: number }>;
+    expect(bd.find((e) => e.key === "native")!.count).toBe(3);
+    expect(bd.find((e) => e.key === "translated")!.count).toBe(1);
+    expect(bd.find((e) => e.key === "unknown")!.count).toBe(1);
+
+    const tg = await (await app.request("/api/stats/timeseries-group?by=protocol_mode&from=0")).json() as { keys: string[] };
+    expect(tg.keys.sort()).toEqual(["native", "translated", "unknown"]);
+  });
+
+  test("combined key_id + model + protocol_mode + time filter drill-down", async () => {
+    seedMixed(db);
+    const app = makeApp();
+
+    // Drill: key K1, model claude-sonnet-4, native only, timestamp > 1500
+    const url = "/api/requests?key_id=K1&model=claude-sonnet-4&protocol_mode=native&from=1500";
+    const res = await app.request(url);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { data: Array<{ id: string }> };
+    // k1a (native, ts 2000) and st (native, ts 5000); legacy excluded by key_id, k1b by model+mode
+    expect(body.data.map((r) => r.id).sort()).toEqual(["k1a", "st"]);
+  });
+
+  test("legacy key_id filter matches only legacy rows, never new ones", async () => {
+    seedMixed(db);
+    const app = makeApp();
+    const res = await app.request("/api/requests?key_id=legacy:claude-code");
+    const body = await res.json() as { data: Array<{ id: string }> };
+    expect(body.data.map((r) => r.id)).toEqual(["legacy"]);
   });
 });

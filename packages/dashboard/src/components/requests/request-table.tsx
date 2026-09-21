@@ -6,6 +6,7 @@
 import { formatLatency } from "@/lib/chart-config";
 import { cn } from "@/lib/utils";
 import type { ExtendedRequestRecord } from "@/lib/types";
+import { formatMonitorTime, keyIdentity, protocolLabel } from "@/lib/monitor";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
@@ -22,18 +23,6 @@ interface RequestTableProps {
   onRowClick?: (req: ExtendedRequestRecord) => void;
 }
 
-function formatTimestamp(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-}
-
 function formatTokens(input: number | null, output: number | null): string {
   const i = input ?? 0;
   const o = output ?? 0;
@@ -47,7 +36,7 @@ function truncate(str: string, max: number): string {
 type SortColumn = "timestamp" | "latency_ms" | "total_tokens" | "ttft_ms" | "processing_ms";
 
 const DEFAULT_VISIBLE = new Set([
-  "timestamp", "model", "status", "latency_ms", "ttft_ms", "tokens", "stream", "path",
+  "timestamp", "model", "status", "latency_ms", "ttft_ms", "tokens", "protocol_mode", "account_name",
 ]);
 
 export function RequestTable({
@@ -169,7 +158,7 @@ export function RequestTable({
               <TableRow className="border-basalt-border hover:bg-transparent">
                 {isVisible("timestamp") && (
                   <TableHead aria-sort={getAriaSort("timestamp")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="timestamp">Time</SortButton>
+                    <SortButton column="timestamp">Time (UTC)</SortButton>
                   </TableHead>
                 )}
                 {isVisible("model") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Model</TableHead>}
@@ -199,7 +188,8 @@ export function RequestTable({
                 {isVisible("stream") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Stream</TableHead>}
                 {isVisible("strategy") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Strategy</TableHead>}
                 {isVisible("upstream") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Upstream</TableHead>}
-                {isVisible("account_name") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Account</TableHead>}
+                {isVisible("protocol_mode") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Protocol</TableHead>}
+                {isVisible("account_name") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">API Key</TableHead>}
                 {isVisible("client_name") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Client</TableHead>}
                 {isVisible("session_id") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Session</TableHead>}
                 {isVisible("status_code") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Code</TableHead>}
@@ -232,7 +222,7 @@ export function RequestTable({
                   >
                     {isVisible("timestamp") && (
                       <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground tabular-nums whitespace-nowrap">
-                        {formatTimestamp(req.timestamp)}
+                        <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" aria-label={`Inspect request ${req.id}`}>{formatMonitorTime(req.timestamp, "second")}</Button>
                       </TableCell>
                     )}
                     {isVisible("model") && (
@@ -247,7 +237,7 @@ export function RequestTable({
                     )}
                     {isVisible("client_format") && (
                       <TableCell className="px-3 py-2.5">
-                        <Badge variant="secondary" className="text-[10px]">
+                        <Badge variant="secondary" className="text-xs">
                           {req.client_format}
                         </Badge>
                       </TableCell>
@@ -256,7 +246,7 @@ export function RequestTable({
                       <TableCell className="px-3 py-2.5">
                         <Badge
                           variant={req.status === "success" ? "success" : "destructive"}
-                          className="text-[10px]"
+                          className="text-xs"
                         >
                           {req.status}
                         </Badge>
@@ -293,8 +283,9 @@ export function RequestTable({
                     {isVisible("upstream") && (
                       <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.upstream || "—"}</TableCell>
                     )}
+                    {isVisible("protocol_mode") && <TableCell className="px-3 py-2.5"><Badge variant={req.protocol_mode === "native" ? "success" : req.protocol_mode === "translated" ? "warning" : "secondary"} className="text-xs">{protocolLabel(req.protocol_mode)}</Badge></TableCell>}
                     {isVisible("account_name") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.account_name || "—"}</TableCell>
+                      <TableCell className="max-w-44 px-3 py-2.5 text-xs"><p className="truncate">{req.account_name || "Unattributed"}</p><p className="mt-0.5 truncate font-mono text-basalt-muted-foreground" title={keyIdentity(req.key_id)}>{keyIdentity(req.key_id)}</p></TableCell>
                     )}
                     {isVisible("client_name") && (
                       <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.client_name || "—"}</TableCell>

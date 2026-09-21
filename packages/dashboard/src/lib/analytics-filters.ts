@@ -9,6 +9,8 @@
 // Types
 // ---------------------------------------------------------------------------
 
+import type { ProtocolMode } from "./types";
+
 export type TimeRange = "15m" | "1h" | "6h" | "24h" | "7d" | "30d" | "custom";
 
 export interface AnalyticsFilters {
@@ -23,6 +25,8 @@ export interface AnalyticsFilters {
   strategy?: string;
   upstream?: string;
   account?: string;
+  key_id?: string;
+  protocol_mode?: ProtocolMode;
   client?: string;
   client_version?: string;
   session?: string;
@@ -61,6 +65,8 @@ export function filtersToSearchParams(filters: AnalyticsFilters): URLSearchParam
   if (filters.strategy) params.set("strategy", filters.strategy);
   if (filters.upstream) params.set("upstream", filters.upstream);
   if (filters.account) params.set("account", filters.account);
+  if (filters.key_id) params.set("key_id", filters.key_id);
+  if (filters.protocol_mode) params.set("protocol_mode", filters.protocol_mode);
   if (filters.client) params.set("client", filters.client);
   if (filters.client_version) params.set("client_version", filters.client_version);
   if (filters.session) params.set("session", filters.session);
@@ -103,6 +109,13 @@ export function searchParamsToFilters(params: URLSearchParams): AnalyticsFilters
 
   const account = params.get("account");
   if (account) filters.account = account;
+
+  const keyId = params.get("key_id");
+  if (keyId) filters.key_id = keyId;
+  const protocolMode = params.get("protocol_mode");
+  if (protocolMode === "native" || protocolMode === "translated" || protocolMode === "unknown") {
+    filters.protocol_mode = protocolMode;
+  }
 
   const client = params.get("client");
   if (client) filters.client = client;
@@ -192,8 +205,8 @@ export function filtersToApiQuery(filters: AnalyticsFilters): string {
 
   // Time range → from/to
   if (filters.range === "custom") {
-    if (filters.from) params.set("from", String(filters.from));
-    if (filters.to) params.set("to", String(filters.to));
+    if (filters.from !== undefined) params.set("from", String(filters.from));
+    if (filters.to !== undefined) params.set("to", String(filters.to));
   } else {
     const epoch = rangeToEpoch(filters.range);
     if (epoch) {
@@ -208,6 +221,8 @@ export function filtersToApiQuery(filters: AnalyticsFilters): string {
   if (filters.strategy) params.set("strategy", filters.strategy);
   if (filters.upstream) params.set("upstream", filters.upstream);
   if (filters.account) params.set("account", filters.account);
+  if (filters.key_id) params.set("key_id", filters.key_id);
+  if (filters.protocol_mode) params.set("protocol_mode", filters.protocol_mode);
   if (filters.client) params.set("client", filters.client);
   if (filters.client_version) params.set("client_version", filters.client_version);
   if (filters.session) params.set("session", filters.session);
@@ -236,6 +251,8 @@ export function countActiveFilters(filters: AnalyticsFilters): number {
   if (filters.strategy) count++;
   if (filters.upstream) count++;
   if (filters.account) count++;
+  if (filters.key_id) count++;
+  if (filters.protocol_mode) count++;
   if (filters.client) count++;
   if (filters.client_version) count++;
   if (filters.session) count++;
@@ -258,7 +275,9 @@ export function filterLabel(key: string): string {
     resolved_model: "Resolved Model",
     strategy: "Strategy",
     upstream: "Upstream",
-    account: "Account",
+    account: "Key name",
+    key_id: "Key",
+    protocol_mode: "Protocol",
     client: "Client",
     client_version: "Version",
     session: "Session",

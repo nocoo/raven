@@ -87,6 +87,7 @@ export function rechartsMockFactory() {
     AreaChart: MockChart,
     Area: MockElement,
     BarChart: MockChart,
+    ComposedChart: MockChart,
     Bar: MockElement,
     LineChart: MockChart,
     Line: MockElement,

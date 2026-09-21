@@ -25,6 +25,7 @@ export async function handleCompletion(c: Context) {
   const model = payload.model
   const stream = !!payload.stream
   const accountName = c.get("keyName") ?? "default"
+  const apiKeyId = c.get("keyId") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
   const openaiUser = payload.user ?? null
   const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, openaiUser)
@@ -33,7 +34,7 @@ export async function handleCompletion(c: Context) {
   logEmitter.emitLog({
     ts: Date.now(), level: "info", type: "request_start", requestId,
     msg: `POST /v1/chat/completions ${model}`,
-    data: { path: "/v1/chat/completions", format: "openai", model, stream, accountName, sessionId, clientName, clientVersion },
+    data: { path: "/v1/chat/completions", format: "openai", model, stream, accountName, apiKeyId, sessionId, clientName, clientVersion },
   })
 
   // Debug: log tool definitions
@@ -72,7 +73,7 @@ export async function handleCompletion(c: Context) {
     const runnerCtx: RunnerCtx = {
       requestId, startTime, format: "openai", path: "/v1/chat/completions",
       stream,
-      accountName, userAgent, anthropicBeta: null,
+      accountName, keyId: apiKeyId, userAgent, anthropicBeta: null,
       sessionId, clientName, clientVersion,
     }
     const customReq: CustomOpenAIUpReq = { provider: resolved.provider, payload }
@@ -100,7 +101,7 @@ export async function handleCompletion(c: Context) {
       requestId, startTime,
       path: "/v1/chat/completions", format: "openai",
       model, stream,
-      accountName, sessionId, clientName, clientVersion,
+      accountName, apiKeyId, sessionId, clientName, clientVersion,
       ...(provider ? { upstream: provider.name, upstreamFormat: provider.format } : {}),
     })
   }
@@ -125,7 +126,7 @@ export async function handleCompletion(c: Context) {
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "openai", path: "/v1/chat/completions",
     stream,
-    accountName, userAgent, anthropicBeta: null,
+    accountName, keyId: apiKeyId, userAgent, anthropicBeta: null,
     sessionId, clientName, clientVersion,
   }
   try {

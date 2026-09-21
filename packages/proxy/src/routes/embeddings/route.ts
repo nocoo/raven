@@ -13,6 +13,7 @@ embeddingRoutes.post("/", async (c) => {
   const startTime = performance.now()
   const requestId = generateRequestId()
   const accountName = c.get("keyName") ?? "default"
+  const apiKeyId = c.get("keyId") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
   const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, null)
 
@@ -23,7 +24,7 @@ embeddingRoutes.post("/", async (c) => {
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_start", requestId,
       msg: `POST /v1/embeddings ${model}`,
-      data: { path: "/v1/embeddings", format: "openai", model, stream: false, accountName, sessionId, clientName, clientVersion },
+      data: { path: "/v1/embeddings", format: "openai", model, stream: false, accountName, apiKeyId, sessionId, clientName, clientVersion },
     })
 
     const response = await buildUpstreamClient("copilot-embeddings").send(payload)
@@ -36,7 +37,7 @@ embeddingRoutes.post("/", async (c) => {
         path: "/v1/embeddings", format: "openai", model, latencyMs,
         ttftMs: null, processingMs: null,
         stream: false, status: "success", statusCode: 200,
-        upstreamStatus: 200, accountName, sessionId, clientName, clientVersion,
+        upstreamStatus: 200, accountName, apiKeyId, sessionId, clientName, clientVersion,
       },
     })
 
@@ -51,7 +52,7 @@ embeddingRoutes.post("/", async (c) => {
       data: {
         path: "/v1/embeddings", format: "openai", latencyMs,
         stream: false, status: "error", statusCode,
-        upstreamStatus, error: errorDetail, accountName,
+        upstreamStatus, error: errorDetail, accountName, apiKeyId,
         sessionId, clientName, clientVersion,
       },
     })

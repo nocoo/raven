@@ -348,4 +348,40 @@ describe("request-sink", () => {
     expect(rows[0]!.client_name).toBe("Cursor")
     expect(rows[0]!.client_version).toBeNull()
   })
+
+  test("persists api_key_id from apiKeyId event data", () => {
+    logEmitter.emitLog(
+      makeRequestEndEvent({
+        requestId: "req_key_id",
+        data: { apiKeyId: "K1DUPKEY" },
+      }),
+    )
+
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.api_key_id).toBe("K1DUPKEY")
+  })
+
+  test("api_key_id defaults to empty string when absent (legacy identity)", () => {
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_key_absent" }))
+
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
+    expect(rows[0]!.api_key_id).toBe("")
+  })
+
+  test("persists serverToolsUsed as server_tools_used flag, independent per row", () => {
+    logEmitter.emitLog(
+      makeRequestEndEvent({
+        requestId: "req_st_used",
+        data: { serverToolsUsed: true },
+      }),
+    )
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_st_plain" }))
+
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
+    const used = rows.find((r) => r.id === "req_st_used")
+    const plain = rows.find((r) => r.id === "req_st_plain")
+    expect(used!.server_tools_used).toBe(1)
+    expect(plain!.server_tools_used).toBe(0)
+  })
 })

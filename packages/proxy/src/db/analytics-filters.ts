@@ -1,5 +1,7 @@
 import type { Context } from "hono";
 
+import { KEY_ID_EXPR, PROTOCOL_MODE_EXPR, type ProtocolMode } from "./requests.ts";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -25,6 +27,8 @@ export interface AnalyticsFilterParams {
 	max_latency?: number;
 	stop_reason?: string;
 	routing_path?: string;
+	key_id?: string;
+	protocol_mode?: ProtocolMode;
 }
 
 export interface WhereClause {
@@ -98,6 +102,14 @@ export function parseAnalyticsFilters(c: Context): AnalyticsFilterParams {
 
 	const routingPath = q("routing_path");
 	if (routingPath) filters.routing_path = routingPath;
+
+	const keyId = q("key_id");
+	if (keyId) filters.key_id = keyId;
+
+	const protocolMode = q("protocol_mode");
+	if (protocolMode === "native" || protocolMode === "translated" || protocolMode === "unknown") {
+		filters.protocol_mode = protocolMode;
+	}
 
 	return filters;
 }
@@ -185,6 +197,14 @@ export function buildWhereClause(filters: AnalyticsFilterParams): WhereClause {
 	if (filters.routing_path) {
 		conditions.push("routing_path = ?");
 		bindings.push(filters.routing_path);
+	}
+	if (filters.key_id) {
+		conditions.push(`${KEY_ID_EXPR} = ?`);
+		bindings.push(filters.key_id);
+	}
+	if (filters.protocol_mode) {
+		conditions.push(`${PROTOCOL_MODE_EXPR} = ?`);
+		bindings.push(filters.protocol_mode);
 	}
 
 	if (conditions.length === 0) {

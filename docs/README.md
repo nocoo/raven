@@ -27,6 +27,8 @@
 | 23 | [Token Sentinel](./23-token-sentinel.md) | Copilot token 单写者刷新架构：哨兵 loop + 信号通道，天然线程安全 |
 | 24 | [Chat ↔ Responses Shim](./24-chat-responses-shim.md) | Chat Completions 入向自动转 Responses 上游：catalog-driven 热更新 |
 | 25 | [Messages ↔ Responses Shim](./25-messages-responses-shim.md) | Design only; Messages → Responses is not implemented |
+| 26 | [Agent Operations](./26-agent-operations.md) | Proxy layers, shared logging and local operations |
+| 27 | [Monitor Dashboard](./27-monitor-dashboard.md) | Overview, model/key usage, protocol paths and request investigation |
 | — | [Interactive Proxy Architecture](./proxy-architecture.html) | Offline route explorer, protocol contract failures and measured UT coverage at b6e0f71 |
 
 ## Archive

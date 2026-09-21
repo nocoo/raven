@@ -5,6 +5,7 @@ import {
 	parseAnalyticsFilters,
 	type AnalyticsFilterParams,
 } from "../../src/db/analytics-filters.ts";
+import { KEY_ID_EXPR, PROTOCOL_MODE_EXPR } from "../../src/db/requests.ts";
 import { Hono } from "hono";
 
 // ---------------------------------------------------------------------------
@@ -109,6 +110,18 @@ describe("buildWhereClause", () => {
 		const result = buildWhereClause({ routing_path: "translated" });
 		expect(result.where).toBe("WHERE routing_path = ?");
 		expect(result.bindings).toEqual(["translated"]);
+	});
+
+	test("handles key_id filter against derived identity expression", () => {
+		const result = buildWhereClause({ key_id: "K1" });
+		expect(result.where).toBe(`WHERE ${KEY_ID_EXPR} = ?`);
+		expect(result.bindings).toEqual(["K1"]);
+	});
+
+	test("handles protocol_mode filter against derived classification expression", () => {
+		const result = buildWhereClause({ protocol_mode: "native" });
+		expect(result.where).toBe(`WHERE ${PROTOCOL_MODE_EXPR} = ?`);
+		expect(result.bindings).toEqual(["native"]);
 	});
 });
 
@@ -270,6 +283,22 @@ describe("parseAnalyticsFilters", () => {
 	test("parses routing_path", () => {
 		const filters = parse("routing_path=native");
 		expect(filters.routing_path).toBe("native");
+	});
+
+	test("parses key_id", () => {
+		const filters = parse("key_id=K1");
+		expect(filters.key_id).toBe("K1");
+	});
+
+	test("parses each valid protocol_mode value", () => {
+		expect(parse("protocol_mode=native").protocol_mode).toBe("native");
+		expect(parse("protocol_mode=translated").protocol_mode).toBe("translated");
+		expect(parse("protocol_mode=unknown").protocol_mode).toBe("unknown");
+	});
+
+	test("ignores invalid protocol_mode values", () => {
+		const filters = parse("protocol_mode=native2");
+		expect(filters.protocol_mode).toBeUndefined();
 	});
 
 	test("parses all params together", () => {

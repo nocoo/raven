@@ -22,6 +22,7 @@ function makeCtx(): RequestContext {
     path: "/v1/responses",
     stream: true,
     accountName: "acct",
+    keyId: "key-acct",
     userAgent: null,
     anthropicBeta: null,
     sessionId: "sess",

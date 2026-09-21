@@ -31,7 +31,6 @@ export default defineConfig({
         "src/app/**/layout.tsx",
         "src/app/overview-charts.tsx",
         "src/app/analytics-charts.tsx",
-        "src/app/models/model-explorer.tsx",
         // Sentinel viz subcomponents (recharts + SVG wrappers, no logic)
         "src/app/sentinel/**",
         // Render-heavy "use client" content pages (UI-dominant, test via E2E)
@@ -40,9 +39,6 @@ export default defineConfig({
         "src/app/logs/logs-stats.tsx",
         "src/app/settings/**",
         "src/app/requests/requests-content.tsx",
-        "src/app/clients/clients-table.tsx",
-        "src/app/sessions/sessions-table.tsx",
-        "src/app/providers/providers-content.tsx",
         // Reusable analytics panels (render-heavy recharts wrappers)
         "src/components/analytics/panels/**",
         "src/app/connect/connect-content.tsx",

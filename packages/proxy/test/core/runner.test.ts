@@ -64,6 +64,7 @@ function makeCtx(stream = false): RequestContext {
     path: "/v1/chat/completions",
     stream,
     accountName: "acct",
+    keyId: "key-acct",
     userAgent: null,
     anthropicBeta: null,
     sessionId: "sess",
@@ -112,6 +113,7 @@ describe("core/runner — JSON path", () => {
       resolvedModel: "fake-model",
       outputTokens: 7,
       accountName: "acct",
+      apiKeyId: "key-acct",
       sessionId: "sess",
     })
     expect(typeof end!.data!.latencyMs).toBe("number")
@@ -335,6 +337,7 @@ describe("core/runner — JSON path", () => {
         path: "/v1/messages",
         stream: false,
         accountName: "alice",
+        keyId: "key-alice",
         userAgent: "claude-code/1",
         anthropicBeta: null,
         sessionId: "sess-abc",

@@ -78,6 +78,7 @@ export async function dispatch<Payload>(
       model: input.model,
       stream: input.stream,
       accountName: ctx.accountName,
+      apiKeyId: ctx.keyId,
       sessionId: ctx.sessionId,
       clientName: ctx.clientName,
       clientVersion: ctx.clientVersion,

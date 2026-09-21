@@ -26,12 +26,10 @@ import {
   LayoutDashboard,
   List,
   LogOut,
-  MessageSquare,
+  KeyRound,
   PanelLeft,
-  Route,
   Settings,
   Shield,
-  Users,
   Wrench,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -40,6 +38,8 @@ import type { ElementType } from "react";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { cn, getAvatarColor } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/version";
+import { searchParamsToFilters } from "@/lib/analytics-filters";
+import { monitorHref } from "@/lib/monitor";
 
 interface NavItem {
   href: string;
@@ -59,11 +59,9 @@ const NAV_GROUPS: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard },
-      { href: "/requests", label: "Requests", icon: List },
       { href: "/models", label: "Models", icon: Boxes },
-      { href: "/clients", label: "Clients", icon: Users },
-      { href: "/sessions", label: "Sessions", icon: MessageSquare },
-      { href: "/providers", label: "Providers", icon: Route },
+      { href: "/keys", label: "API Keys", icon: KeyRound },
+      { href: "/requests", label: "Requests", icon: List },
     ],
   },
   {
@@ -138,7 +136,10 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
   const userInitial = userName[0] ?? "?";
 
   const go = (href: string) => {
-    router.push(href);
+    const monitorRoutes = ["/", "/models", "/keys", "/requests"];
+    router.push(monitorRoutes.includes(href) && monitorRoutes.includes(pathname)
+      ? monitorHref(href, searchParamsToFilters(new URLSearchParams(window.location.search)))
+      : href);
     onNavigate?.();
   };
 

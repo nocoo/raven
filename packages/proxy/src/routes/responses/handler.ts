@@ -34,6 +34,7 @@ export const handleResponses = async (c: Context) => {
   const model = payload.model
   const stream = !!payload.stream
   const accountName = c.get("keyName") ?? "default"
+  const apiKeyId = c.get("keyId") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
   const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, null)
 
@@ -41,7 +42,7 @@ export const handleResponses = async (c: Context) => {
   logEmitter.emitLog({
     ts: Date.now(), level: "info", type: "request_start", requestId,
     msg: `POST /v1/responses ${model}`,
-    data: { path: "/v1/responses", format: "responses", model, stream, accountName, sessionId, clientName, clientVersion },
+    data: { path: "/v1/responses", format: "responses", model, stream, accountName, apiKeyId, sessionId, clientName, clientVersion },
   })
 
   const decision = pickStrategy({
@@ -56,7 +57,7 @@ export const handleResponses = async (c: Context) => {
       requestId, startTime,
       path: "/v1/responses", format: "responses",
       model, stream,
-      accountName, sessionId, clientName, clientVersion,
+      accountName, apiKeyId, sessionId, clientName, clientVersion,
     })
   }
 
@@ -64,7 +65,7 @@ export const handleResponses = async (c: Context) => {
   const runnerCtx: RunnerCtx = {
     requestId, startTime, format: "responses", path: "/v1/responses",
     stream,
-    accountName, userAgent, anthropicBeta: null,
+    accountName, keyId: apiKeyId, userAgent, anthropicBeta: null,
     sessionId, clientName, clientVersion,
   }
   try {

@@ -75,6 +75,10 @@ function makeExtendedRecord(overrides: Partial<ExtendedRequestRecord> = {}): Ext
     upstream_status: null,
     error_message: null,
     account_name: "alice",
+    api_key_id: "key-alice",
+    key_id: "key-alice",
+    protocol_mode: "translated",
+    server_tools_used: 0,
     latency_ms: 2500,
     ttft_ms: 450,
     input_tokens: 1200,
@@ -103,6 +107,16 @@ function makeExtendedRecord(overrides: Partial<ExtendedRequestRecord> = {}): Ext
 // ===========================================================================
 
 describe("RequestDetailDrawer", () => {
+  it.each(["native", "unknown"] as const)("exposes %s routing, stable key identity and server-tool execution", (mode) => {
+    render(<RequestDetailDrawer request={makeExtendedRecord({ protocol_mode: mode, server_tools_used: 1, key_id: "legacy:Editor", account_name: "" })} open onOpenChange={() => {}} filters={{ range: "7d", protocol_mode: mode }} />);
+    expect(screen.getByText(mode === "native" ? "Native" : "Unknown")).toBeDefined();
+    expect(screen.getByText("Server tools")).toBeDefined();
+    expect(screen.getByText("Historical name · ID not recorded")).toBeDefined();
+    const keyLink = screen.getByRole("link", { name: "Unattributed" });
+    const params = new URL(keyLink.getAttribute("href")!, "https://raven.test").searchParams;
+    expect(params.get("key_id")).toBe("legacy:Editor");
+    expect(params.get("range")).toBe("7d");
+  });
   it("renders sparse non-streaming requests without fabricated token or routing details", () => {
     const request = makeExtendedRecord({
       latency_ms: 0, ttft_ms: 0, processing_ms: 0, stream: 0,
@@ -352,8 +366,8 @@ describe("getDefaultVisibleColumns", () => {
     expect(defaults.has("model")).toBe(true);
     expect(defaults.has("status")).toBe(true);
     expect(defaults.has("latency_ms")).toBe(true);
-    expect(defaults.has("stream")).toBe(true);
-    expect(defaults.has("path")).toBe(true);
+    expect(defaults.has("protocol_mode")).toBe(true);
+    expect(defaults.has("account_name")).toBe(true);
   });
 
   it("does not include hidden-by-default columns", () => {

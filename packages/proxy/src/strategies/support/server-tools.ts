@@ -489,6 +489,7 @@ export interface DecorateLogFields {
   path: string
   format: string
   accountName: string
+  apiKeyId: string
   sessionId: string
   clientName: string | null
   clientVersion: string | null
@@ -539,6 +540,7 @@ export async function decorate(input: DecorateInput): Promise<Response> {
         upstreamStatus: 200,
         serverToolsUsed: true,
         accountName: log.accountName,
+        apiKeyId: log.apiKeyId,
         sessionId: log.sessionId,
         clientName: log.clientName,
         clientVersion: log.clientVersion,
@@ -560,7 +562,9 @@ export async function decorate(input: DecorateInput): Promise<Response> {
         path: log.path, format: log.format, model, stream,
         latencyMs, status: "error", statusCode,
         upstreamStatus, error: errorDetail,
+        serverToolsUsed: true,
         accountName: log.accountName,
+        apiKeyId: log.apiKeyId,
         sessionId: log.sessionId,
         clientName: log.clientName,
         clientVersion: log.clientVersion,

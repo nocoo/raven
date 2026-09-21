@@ -9,6 +9,7 @@ import { extractIPv4, parseIPv4, isIPInRanges } from "./lib/ip-whitelist.ts";
 declare module "hono" {
   interface ContextVariableMap {
     keyName: string;
+    keyId: string;
   }
 }
 
@@ -61,7 +62,7 @@ function validateRequestToken(
   db: Database,
   envApiKey: string | null,
   internalKey: string | null,
-): { valid: true; keyName: string } | { valid: false; response: Response } {
+): { valid: true; keyName: string; keyId: string } | { valid: false; response: Response } {
   // Accept token from Authorization: Bearer <token> or x-api-key: <token>
   // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
   const authHeader = c.req.header("Authorization");
@@ -84,17 +85,17 @@ function validateRequestToken(
     if (!keyRecord) {
       return { valid: false, response: unauthorized(c, "Invalid API key") };
     }
-    return { valid: true, keyName: keyRecord.name };
+    return { valid: true, keyName: keyRecord.name, keyId: keyRecord.id };
   }
 
   // env key timing-safe compare
   if (envApiKey && timingSafeEqual(token, envApiKey)) {
-    return { valid: true, keyName: "env:default" };
+    return { valid: true, keyName: "env:default", keyId: "env:default" };
   }
 
   // internal key timing-safe compare (dashboardAuth only, caller controls whether to pass this)
   if (internalKey && timingSafeEqual(token, internalKey)) {
-    return { valid: true, keyName: "internal" };
+    return { valid: true, keyName: "internal", keyId: "internal" };
   }
 
   return { valid: false, response: unauthorized(c, "Invalid API key") };
@@ -131,6 +132,7 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
     const result = validateRequestToken(c, db, envApiKey, null);
     if (!result.valid) return result.response;
     c.set("keyName", result.keyName);
+    c.set("keyId", result.keyId);
     refreshModelsIfStale();
     await next();
   });
@@ -167,6 +169,7 @@ export function dashboardAuth(opts: DashboardAuthOpts) {
     // DB key existence does NOT affect dashboard access
     if (!envApiKey && !internalKey) {
       c.set("keyName", "dev");
+      c.set("keyId", "dev");
       await next();
       return;
     }
@@ -174,6 +177,7 @@ export function dashboardAuth(opts: DashboardAuthOpts) {
     const result = validateRequestToken(c, db, envApiKey, internalKey);
     if (!result.valid) return result.response;
     c.set("keyName", result.keyName);
+    c.set("keyId", result.keyId);
     await next();
   });
 }

@@ -40,7 +40,7 @@ describe("respondRouterReject", () => {
       respondRouterReject(c, reject, {
         requestId: "req_1", startTime: performance.now(),
         path: "/v1/x", format: "openai", model: "m", stream: false,
-        accountName: "acc", sessionId: "sess",
+        accountName: "acc", apiKeyId: "key-acc", sessionId: "sess",
         clientName: null, clientVersion: null,
       }),
     )
@@ -56,7 +56,7 @@ describe("respondRouterReject", () => {
       respondRouterReject(c, reject, {
         requestId: "req_2", startTime: performance.now(),
         path: "/v1/responses", format: "responses", model: "gpt-5.2", stream: true,
-        accountName: "acc", sessionId: "sess",
+        accountName: "acc", apiKeyId: "key-acc", sessionId: "sess",
         clientName: "raven-test", clientVersion: "0.0.1",
       }),
     )
@@ -74,6 +74,7 @@ describe("respondRouterReject", () => {
     expect(data.upstreamStatus).toBeNull()
     expect(data.error).toBe("nope")
     expect(data.accountName).toBe("acc")
+    expect(data.apiKeyId).toBe("key-acc")
     expect(data.sessionId).toBe("sess")
     expect(data.clientName).toBe("raven-test")
     expect(data.clientVersion).toBe("0.0.1")
@@ -86,7 +87,7 @@ describe("respondRouterReject", () => {
       respondRouterReject(c, reject, {
         requestId: "req_3", startTime: performance.now(),
         path: "/v1/chat/completions", format: "openai", model: "claude-opus-4.6", stream: false,
-        accountName: "acc", sessionId: "sess",
+        accountName: "acc", apiKeyId: "key-acc", sessionId: "sess",
         clientName: null, clientVersion: null,
         upstream: "anthropic-up", upstreamFormat: "anthropic",
       }),

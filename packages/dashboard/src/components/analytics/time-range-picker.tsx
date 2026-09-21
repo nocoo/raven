@@ -28,6 +28,7 @@ export function TimeRangePicker({ value, onChange }: TimeRangePickerProps) {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
+        {value === "custom" && <SelectItem value="custom" disabled>Selected interval</SelectItem>}
         {RANGE_OPTIONS.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             {opt.label}

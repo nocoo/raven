@@ -41,6 +41,10 @@ function makeRecord(overrides: Partial<ExtendedRequestRecord> = {}): ExtendedReq
     upstream_status: null,
     error_message: null,
     account_name: "test",
+    api_key_id: "key-test",
+    key_id: "key-test",
+    protocol_mode: "native",
+    server_tools_used: 0,
     latency_ms: 1234,
     ttft_ms: null,
     input_tokens: 100,
@@ -75,6 +79,18 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("formatTimestamp", () => {
+  it("keeps request times in UTC when the browser default time zone differs", () => {
+    const formatter = vi.spyOn(Date.prototype, "toLocaleString").mockImplementation(function (this: Date, locale, options) {
+      return new Intl.DateTimeFormat(locale, { timeZone: "America/New_York", ...options }).format(this);
+    });
+    try {
+      render(<RequestTable data={[makeRecord({ timestamp: Date.UTC(2026, 8, 22, 12, 34, 56) })]} hasMore={false} />);
+      expect(screen.getByRole("button", { name: "Inspect request req-1" })).toHaveTextContent("2026-09-22 12:34:56");
+    } finally {
+      formatter.mockRestore();
+    }
+  });
+
   it("formats epoch ms to readable string", () => {
     render(
       <RequestTable
@@ -84,7 +100,7 @@ describe("formatTimestamp", () => {
     );
     const cells = screen.getAllByRole("cell");
     const timeCell = cells[0]!;
-    expect(timeCell.textContent).toMatch(/\w{3}\s+\d+/);
+    expect(timeCell.textContent).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
   });
 });
 
@@ -299,8 +315,8 @@ describe("column visibility", () => {
     const headers = screen.getAllByRole("columnheader");
     const headerTexts = headers.map((h) => h.textContent?.trim());
     expect(headerTexts).toContain("Model");
-    expect(headerTexts).toContain("Path");
-    expect(headerTexts).toContain("Stream");
+    expect(headerTexts).toContain("API Key");
+    expect(headerTexts).toContain("Protocol");
   });
 });
 

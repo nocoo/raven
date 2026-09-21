@@ -32,6 +32,7 @@
   },
   "responseBody": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"x1\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"gpt-4-custom\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":0,\"output_tokens\":0,\"cache_creation_input_tokens\":null,\"cache_read_input_tokens\":null,\"service_tier\":null}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hi\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"input_tokens\":8,\"output_tokens\":2,\"cache_creation_input_tokens\":null,\"cache_read_input_tokens\":null}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
   "endLog": {
+    "apiKeyId": "default",
     "path": "/v1/messages",
     "format": "anthropic",
     "stream": true,

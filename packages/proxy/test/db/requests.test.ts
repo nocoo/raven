@@ -12,6 +12,7 @@ import {
   querySummary,
   queryBreakdown,
   queryPercentiles,
+  PROTOCOL_MODE_EXPR,
   type RequestRecord,
   type ModelStats,
 } from "../../src/db/requests.ts";
@@ -44,6 +45,7 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     upstream_status: 200,
     error_message: null,
     account_name: "default",
+    api_key_id: "",
     session_id: "",
     client_name: "",
     client_version: null,
@@ -56,6 +58,7 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
     routing_path: "",
     stop_reason: "",
     tool_call_count: 0,
+    server_tools_used: 0,
     cache_read_tokens: null,
     cache_write_tokens: null,
     ...overrides,
@@ -803,5 +806,163 @@ describe("queryRequests", () => {
     const result = queryRequests(db, { limit: 999 });
     // Should be capped internally, but since we only have 5, just check it doesn't crash
     expect(result.data.length).toBeLessThanOrEqual(200);
+  });
+});
+
+// ===========================================================================
+// key_id derivation (api_key_id with legacy fallback)
+// ===========================================================================
+
+describe("key_id derivation", () => {
+  test("breakdown by key_id separates same-name keys and labels them with account_name", () => {
+    insertRequest(db, makeRecord({ id: "k1a", account_name: "dup", api_key_id: "K1" }));
+    insertRequest(db, makeRecord({ id: "k1b", account_name: "dup", api_key_id: "K1" }));
+    insertRequest(db, makeRecord({ id: "k2", account_name: "dup", api_key_id: "K2" }));
+    insertRequest(db, makeRecord({ id: "legacy", account_name: "dup", api_key_id: "" }));
+
+    const byKey = queryBreakdown(db, { by: "key_id", limit: 10 });
+    expect(byKey).toHaveLength(3);
+
+    const k1 = byKey.find((e) => e.key === "K1");
+    const k2 = byKey.find((e) => e.key === "K2");
+    const legacy = byKey.find((e) => e.key === "legacy:dup");
+    expect(k1!.count).toBe(2);
+    expect(k1!.account_name).toBe("dup");
+    expect(k2!.count).toBe(1);
+    expect(k2!.account_name).toBe("dup");
+    expect(legacy!.count).toBe(1);
+    expect(legacy!.account_name).toBe("dup");
+  });
+
+  test("new rows never merge with legacy rows of the same account name", () => {
+    insertRequest(db, makeRecord({ id: "old", account_name: "alice", api_key_id: "" }));
+    insertRequest(db, makeRecord({ id: "new", account_name: "alice", api_key_id: "K9" }));
+
+    const byKey = queryBreakdown(db, { by: "key_id" });
+    expect(byKey.map((e) => e.key).sort()).toEqual(["K9", "legacy:alice"]);
+  });
+
+  test("queryRequests returns derived key_id on every row", () => {
+    insertRequest(db, makeRecord({ id: "r1", account_name: "bob", api_key_id: "K7" }));
+    insertRequest(db, makeRecord({ id: "r2", account_name: "bob", api_key_id: "" }));
+
+    const result = queryRequests(db, {});
+    const r1 = result.data.find((r) => r.id === "r1");
+    const r2 = result.data.find((r) => r.id === "r2");
+    expect(r1!.key_id).toBe("K7");
+    expect(r2!.key_id).toBe("legacy:bob");
+  });
+
+  test("grouped timeseries by key_id stacks per identity", () => {
+    const now = stableHourTimestamp();
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "dup", api_key_id: "K1" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "dup", api_key_id: "K1" }));
+    insertRequest(db, makeRecord({ timestamp: now, account_name: "dup", api_key_id: "K2" }));
+
+    const result = queryGroupedTimeseries(db, "key_id", "hour", "24h");
+    expect(result.keys).toContain("K1");
+    expect(result.keys).toContain("K2");
+    const point = result.points.at(-1)!;
+    expect(point.K1).toBe(2);
+    expect(point.K2).toBe(1);
+  });
+});
+
+// ===========================================================================
+// protocol_mode classification (native / translated / unknown)
+// ===========================================================================
+
+describe("protocol_mode classification", () => {
+  let pmSeq = 0;
+  function modeOf(overrides: Partial<RequestRecord>): string {
+    const id = `pm_${pmSeq++}`;
+    insertRequest(db, makeRecord({ id, ...overrides }));
+    const row = db.query(`SELECT ${PROTOCOL_MODE_EXPR} as pm FROM requests WHERE id = ?`).get(id) as { pm: string };
+    return row.pm;
+  }
+
+  test("classifies all seven strategies", () => {
+    expect(modeOf({ strategy: "copilot-native" })).toBe("native");
+    expect(modeOf({ strategy: "copilot-openai-direct", client_format: "openai" })).toBe("native");
+    expect(modeOf({ strategy: "copilot-responses", client_format: "responses" })).toBe("native");
+    expect(modeOf({ strategy: "custom-anthropic", client_format: "anthropic" })).toBe("native");
+    expect(modeOf({ strategy: "copilot-translated", translated_model: "gpt-4o" })).toBe("translated");
+    expect(modeOf({ strategy: "copilot-chat-via-responses", client_format: "openai" })).toBe("translated");
+    expect(modeOf({ strategy: "custom-openai", client_format: "openai", translated_model: "" })).toBe("native");
+  });
+
+  test("custom-openai dual mode: Anthropic client with translated_model is translated", () => {
+    expect(
+      modeOf({ strategy: "custom-openai", client_format: "anthropic", translated_model: "gpt-5-mini" }),
+    ).toBe("translated");
+  });
+
+  test("custom-openai contradictions stay unknown, never guessed as native", () => {
+    // Anthropic client without translation evidence
+    expect(modeOf({ strategy: "custom-openai", client_format: "anthropic", translated_model: "" })).toBe("unknown");
+    // OpenAI client claiming a translated model
+    expect(modeOf({ strategy: "custom-openai", client_format: "openai", translated_model: "gpt-5-mini" })).toBe("unknown");
+    // Missing client format
+    expect(modeOf({ strategy: "custom-openai", client_format: "", translated_model: "gpt-5-mini" })).toBe("unknown");
+  });
+
+  test("server-tools rows classify via routing_path even without strategy", () => {
+    expect(modeOf({ strategy: "", routing_path: "native", server_tools_used: 1 })).toBe("native");
+    expect(modeOf({ strategy: "", routing_path: "translated", server_tools_used: 1 })).toBe("translated");
+    // server_tools_used alone does not imply a path
+    expect(modeOf({ strategy: "", routing_path: "", server_tools_used: 1 })).toBe("unknown");
+  });
+
+  test("early errors and dimension-less traffic stay unknown", () => {
+    expect(modeOf({ strategy: "", routing_path: "" })).toBe("unknown");
+    expect(modeOf({ strategy: "", routing_path: "", path: "/v1/models" })).toBe("unknown");
+  });
+
+  test("summary counts conserve: native + translated + unknown = total", () => {
+    insertRequest(db, makeRecord({ id: "c1", strategy: "copilot-native" }));
+    insertRequest(db, makeRecord({ id: "c2", strategy: "copilot-native" }));
+    insertRequest(db, makeRecord({ id: "c3", strategy: "copilot-translated", translated_model: "gpt-4o" }));
+    insertRequest(db, makeRecord({ id: "c4", strategy: "" }));
+
+    const result = querySummary(db, "", []);
+    expect(result.total_requests).toBe(4);
+    expect(result.native_count).toBe(2);
+    expect(result.translated_count).toBe(1);
+    expect(result.unknown_count).toBe(1);
+    expect(result.native_count + result.translated_count + result.unknown_count).toBe(result.total_requests);
+  });
+
+  test("summary counts are zero (not null) on an empty table", () => {
+    const result = querySummary(db, "", []);
+    expect(result.total_requests).toBe(0);
+    expect(result.native_count).toBe(0);
+    expect(result.translated_count).toBe(0);
+    expect(result.unknown_count).toBe(0);
+  });
+
+  test("breakdown by protocol_mode returns three conserving groups with counts", () => {
+    insertRequest(db, makeRecord({ id: "b1", strategy: "copilot-native" }));
+    insertRequest(db, makeRecord({ id: "b2", strategy: "copilot-chat-via-responses", client_format: "openai" }));
+    insertRequest(db, makeRecord({ id: "b3", strategy: "" }));
+    insertRequest(db, makeRecord({ id: "b4", strategy: "" }));
+
+    const result = queryBreakdown(db, { by: "protocol_mode" });
+    expect(result).toHaveLength(3);
+    for (const entry of result) {
+      expect(entry.native_count + entry.translated_count + entry.unknown_count).toBe(entry.count);
+    }
+    expect(result.find((e) => e.key === "native")!.count).toBe(1);
+    expect(result.find((e) => e.key === "translated")!.count).toBe(1);
+    expect(result.find((e) => e.key === "unknown")!.count).toBe(2);
+  });
+
+  test("grouped timeseries by protocol_mode stacks three series", () => {
+    const now = stableHourTimestamp();
+    insertRequest(db, makeRecord({ timestamp: now, strategy: "copilot-native" }));
+    insertRequest(db, makeRecord({ timestamp: now, strategy: "copilot-translated", translated_model: "gpt-4o" }));
+    insertRequest(db, makeRecord({ timestamp: now, strategy: "" }));
+
+    const result = queryGroupedTimeseries(db, "protocol_mode", "hour", "24h");
+    expect(result.keys.sort()).toEqual(["native", "translated", "unknown"]);
   });
 });

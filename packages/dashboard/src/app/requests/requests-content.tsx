@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Activity, Clock, AlertTriangle, Zap } from "lucide-react";
 import { RequestTable } from "@/components/requests/request-table";
 import { RequestDetailDrawer } from "@/components/requests/request-detail-drawer";
 import { ColumnConfig, getDefaultVisibleColumns } from "@/components/requests/column-config";
-import { StatCard } from "@/components/stats/stat-card";
-import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
 import type { ExtendedRequestRecord, SummaryStats } from "@/lib/types";
+import { useSearchParams } from "next/navigation";
+import { searchParamsToFilters } from "@/lib/analytics-filters";
+import { MonitorSummary } from "@/components/analytics/panels/monitor-panels";
 
 interface RequestsContentProps {
   data: ExtendedRequestRecord[];
@@ -24,6 +24,7 @@ export function RequestsContent({
   total,
   summary,
 }: RequestsContentProps) {
+  const filters = searchParamsToFilters(useSearchParams());
   const [visibleColumns, setVisibleColumns] = useState(getDefaultVisibleColumns);
   const [selectedRequest, setSelectedRequest] = useState<ExtendedRequestRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -48,37 +49,7 @@ export function RequestsContent({
   return (
     <>
       {/* Bulk analytics stats */}
-      {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-          <StatCard
-            icon={Activity}
-            label="Requests"
-            value={formatCompact(summary.total_requests)}
-          />
-          <StatCard
-            icon={AlertTriangle}
-            label="Error Rate"
-            value={formatPercent(summary.error_rate)}
-            accent={
-              summary.error_rate > 0.1
-                ? "danger"
-                : summary.error_rate > 0.05
-                  ? "warning"
-                  : "default"
-            }
-          />
-          <StatCard
-            icon={Clock}
-            label="Avg Latency"
-            value={formatLatency(summary.avg_latency_ms)}
-          />
-          <StatCard
-            icon={Zap}
-            label="Total Tokens"
-            value={formatCompact(summary.total_tokens)}
-          />
-        </div>
-      )}
+      {summary && <MonitorSummary summary={summary} percentiles={null} filters={filters} />}
 
       {/* Table toolbar: count badge + column config */}
       <div className="flex items-center justify-between">
@@ -104,6 +75,7 @@ export function RequestsContent({
         request={selectedRequest}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        filters={filters}
       />
     </>
   );

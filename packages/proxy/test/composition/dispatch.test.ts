@@ -33,6 +33,7 @@ function makeCtx(overrides: Partial<RequestContext> = {}): RequestContext {
     path: "/v1/chat/completions",
     stream: false,
     accountName: "acct",
+  keyId: "key-acct",
     userAgent: null,
     anthropicBeta: null,
     sessionId: "sess",

@@ -8,7 +8,13 @@ Several delegated audit commands used the default development directory instead 
 
 Concurrent full hook probes and development checks also amplified machine contention and test timeouts. Heavy audit probes were stopped; the final development hook passed with two Vitest workers after moving two existing tests' module initialization outside their per-test timeout. Every future audit command must specify its working directory, and full-suite runs owned by the same task must be coordinated. Formal audit evidence remains in nmem.
 
-## Undated entries migrated from CLAUDE.md
+## 2026-09-22: Dashboard verification used the wrong runtime
+
+A targeted Dashboard test command invoked Vitest through Bun directly. Its jsdom workers failed during environment setup with an EventTarget error, so that run was discarded. Repeating the same checks under Node, as the Dashboard package script specifies, passed. Proxy tests require Bun for SQLite; Dashboard component tests require the package's Node runner. During route removal, a fresh TypeScript check also caught stale fixture types that an incremental invocation had not reported; final verification includes a fresh check and production build.
+
+A UTC-only timestamp fix passed component tests but still failed Chrome hydration: the server's Intl formatter inserted "at" while Chrome inserted a comma. Monitor now uses a shared ISO-based UTC formatter. The final browser check uses a different time zone from the server and asserts that there are no hydration errors; matching time zones alone is insufficient verification.
+
+## Undated entries migrated from the previous handbook
 
 - `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.
 - `6ea7485` wrongly switched `copilot_internal/user` from GitHub OAuth token to Copilot JWT, causing 401. Root cause: assumed all copilot_internal endpoints use the same auth — they don't. Both `/copilot_internal/v2/token` and `/copilot_internal/user` on `api.github.com` require `token ${githubOAuth}`, not `Bearer ${copilotJwt}`. Always verify auth by curl-testing the real endpoint before committing auth changes.

@@ -11,6 +11,7 @@ import { buildContext, type RequestContext } from "../../src/core/context"
 async function runBuild(opts: {
   headers?: Record<string, string>
   keyName?: string | null
+  keyId?: string | null
   format?: "openai" | "anthropic" | "responses"
   signals?: { anthropicUserId?: string | null; openaiUser?: string | null }
 }): Promise<RequestContext> {
@@ -19,6 +20,9 @@ async function runBuild(opts: {
   app.post("/x", (c: Context) => {
     if (opts.keyName !== undefined && opts.keyName !== null) {
       c.set("keyName", opts.keyName)
+    }
+    if (opts.keyId !== undefined && opts.keyId !== null) {
+      c.set("keyId", opts.keyId)
     }
     captured = buildContext(c, opts.format ?? "openai", opts.signals)
     return c.json({ ok: true })
@@ -66,6 +70,17 @@ describe("core/context", () => {
 
   test("accountName uses c.get('keyName') when present", async () => {
     const ctx = await runBuild({ keyName: "alice" })
+    expect(ctx.accountName).toBe("alice")
+  })
+
+  test("keyId defaults to 'default' when keyId not set", async () => {
+    const ctx = await runBuild({})
+    expect(ctx.keyId).toBe("default")
+  })
+
+  test("keyId uses c.get('keyId') when present and is independent of keyName", async () => {
+    const ctx = await runBuild({ keyName: "alice", keyId: "K1SAME" })
+    expect(ctx.keyId).toBe("K1SAME")
     expect(ctx.accountName).toBe("alice")
   })
 

@@ -17,6 +17,7 @@ function makeCtx(): RequestContext {
     path: "/v1/chat/completions",
     stream: true,
     accountName: "acct",
+    keyId: "key-acct",
     userAgent: null,
     anthropicBeta: null,
     sessionId: "sess",

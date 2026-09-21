@@ -26,7 +26,8 @@ function createAiApp(db: Database, envApiKey: string | null = null) {
   app.use("/v1/*", auth);
   app.get("/v1/models", (c) => {
     const keyName = c.get("keyName");
-    return c.json({ keyName });
+    const keyId = c.get("keyId");
+    return c.json({ keyName, keyId });
   });
   app.post("/v1/chat/completions", (c) => c.json({ ok: true }));
   return app;
@@ -39,7 +40,8 @@ function createDashboardApp(db: Database, envApiKey: string | null = null, inter
   app.use("/api/*", auth);
   app.get("/api/stats/overview", (c) => {
     const keyName = c.get("keyName");
-    return c.json({ ok: true, keyName });
+    const keyId = c.get("keyId");
+    return c.json({ ok: true, keyName, keyId });
   });
   return app;
 }
@@ -107,11 +109,12 @@ describe("apiKeyAuth middleware", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.keyName).toBe("env:default");
+      expect(body.keyId).toBe("env:default");
     });
   });
 
   describe("DB key path (rk- prefix)", () => {
-    test("accepts valid DB key, keyName = key name", async () => {
+    test("accepts valid DB key, keyName = key name, keyId = api_keys.id", async () => {
       const created = createApiKey(db, "test-key");
       invalidateKeyCountCache();
       const app = createAiApp(db);
@@ -121,6 +124,7 @@ describe("apiKeyAuth middleware", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.keyName).toBe("test-key");
+      expect(body.keyId).toBe(created.id);
     });
 
     test("rejects invalid rk- key (no fallback to env)", async () => {
@@ -190,6 +194,7 @@ describe("dashboardAuth middleware", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.keyName).toBe("dev");
+      expect(body.keyId).toBe("dev");
     });
 
     test("dev mode persists even when active DB keys exist", async () => {
@@ -245,6 +250,7 @@ describe("dashboardAuth middleware", () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.keyName).toBe("internal");
+      expect(body.keyId).toBe("internal");
     });
   });
 });

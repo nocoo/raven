@@ -97,6 +97,7 @@ modelRoutes.get("/", async (c) => {
   const startTime = performance.now()
   const requestId = generateRequestId()
   const accountName = c.get("keyName") ?? "default"
+  const apiKeyId = c.get("keyId") ?? "default"
   const userAgent = c.req.header("user-agent") ?? null
   const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, null)
 
@@ -104,7 +105,7 @@ modelRoutes.get("/", async (c) => {
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_start", requestId,
       msg: "GET /v1/models",
-      data: { path: "/v1/models", format: "openai", model: "models", stream: false, accountName, sessionId, clientName, clientVersion },
+      data: { path: "/v1/models", format: "openai", model: "models", stream: false, accountName, apiKeyId, sessionId, clientName, clientVersion },
     })
 
     if (!state.models) {
@@ -216,7 +217,7 @@ modelRoutes.get("/", async (c) => {
         path: "/v1/models", format: "openai", model: "models", latencyMs,
         ttftMs: null, processingMs: null,
         stream: false, status: "success", statusCode: 200,
-        modelCount: models?.length ?? 0, accountName,
+        modelCount: models?.length ?? 0, accountName, apiKeyId,
         sessionId, clientName, clientVersion,
       },
     })
@@ -236,7 +237,7 @@ modelRoutes.get("/", async (c) => {
       data: {
         path: "/v1/models", format: "openai", model: "models", latencyMs,
         stream: false, status: "error", statusCode,
-        upstreamStatus, error: errorDetail, accountName,
+        upstreamStatus, error: errorDetail, accountName, apiKeyId,
         sessionId, clientName, clientVersion,
       },
     })

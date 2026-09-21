@@ -17,6 +17,7 @@ export interface RejectLogContext {
   model: string
   stream: boolean
   accountName: string
+  apiKeyId: string
   sessionId: string
   clientName: string | null
   clientVersion: string | null
@@ -51,6 +52,7 @@ export function respondRouterReject(
       ...(ctx.upstream ? { upstream: ctx.upstream } : {}),
       ...(ctx.upstreamFormat ? { upstreamFormat: ctx.upstreamFormat } : {}),
       accountName: ctx.accountName,
+      apiKeyId: ctx.apiKeyId,
       sessionId: ctx.sessionId,
       clientName: ctx.clientName,
       clientVersion: ctx.clientVersion,

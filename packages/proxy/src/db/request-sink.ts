@@ -43,6 +43,7 @@ export function startRequestSink(db: Database): () => void {
 			upstream_status: (d.upstreamStatus as number) ?? null,
 			error_message: (d.error as string) ?? null,
 			account_name: (d.accountName as string) ?? "default",
+			api_key_id: (d.apiKeyId as string) ?? "",
 			session_id: (d.sessionId as string) ?? "",
 			client_name: (d.clientName as string) ?? "",
 			client_version: (d.clientVersion as string) ?? null,
@@ -57,6 +58,7 @@ export function startRequestSink(db: Database): () => void {
 			tool_call_count: (d.toolCallCount as number) ?? 0,
 			cache_read_tokens: (d.cacheReadTokens as number) ?? null,
 			cache_write_tokens: (d.cacheWriteTokens as number) ?? null,
+			server_tools_used: d.serverToolsUsed ? 1 : 0,
 		};
 
     try {

@@ -1,207 +1,54 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { monitorData, entry, summary } from "../helpers/monitor-fixtures";
 
-// ---------------------------------------------------------------------------
-// Mock recharts to avoid ResizeObserver + canvas issues in jsdom
-// ---------------------------------------------------------------------------
-
-vi.mock("recharts", async () => {
-  const { rechartsMockFactory } = await import("../helpers/recharts-mock");
-  return rechartsMockFactory();
-});
-
-// ---------------------------------------------------------------------------
-// Import after mocks
-// ---------------------------------------------------------------------------
+vi.mock("recharts", async () => (await import("../helpers/recharts-mock")).rechartsMockFactory());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { AnalyticsCharts } from "@/app/analytics-charts";
-import type { ExtendedTimeseriesBucket, BreakdownEntry } from "@/lib/types";
+import { MonitorSummary } from "@/components/analytics/panels/monitor-panels";
+import { UsageExplorer } from "@/components/analytics/panels/usage-explorer";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeBucket(overrides: Partial<ExtendedTimeseriesBucket> = {}): ExtendedTimeseriesBucket {
-  return {
-    bucket: Date.now(),
-    count: 100,
-    success_count: 90,
-    error_count: 10,
-    stream_count: 60,
-    sync_count: 40,
-    total_tokens: 5000,
-    input_tokens: 3000,
-    output_tokens: 2000,
-    cache_read_tokens: 7000,
-    cache_write_tokens: 500,
-    observed_input_tokens: 3000,
-    avg_latency_ms: 250,
-    p95_latency_ms: 800,
-    p99_latency_ms: 1200,
-    avg_ttft_ms: 50,
-    p95_ttft_ms: 150,
-    avg_processing_ms: 200,
-    status_codes: { "200": 90, "429": 10 },
-    ...overrides,
-  };
-}
-
-function makeBreakdown(key: string, count: number): BreakdownEntry {
-  return {
-    key,
-    count,
-    input_tokens: count * 30,
-    output_tokens: count * 20,
-    cache_read_tokens: count * 90,
-    cache_write_tokens: 0,
-    observed_input_tokens: count * 30,
-    total_tokens: count * 50,
-    avg_latency_ms: 300,
-    p95_latency_ms: 800,
-    avg_ttft_ms: 50,
-    error_count: Math.floor(count * 0.1),
-    error_rate: 0.1,
-    first_seen: Date.now() - 86400000,
-    last_seen: Date.now(),
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe("AnalyticsCharts", () => {
-  it("renders section headings after mount", async () => {
-    const timeseries = [makeBucket(), makeBucket({ bucket: Date.now() + 3600000 })];
-    render(<AnalyticsCharts timeseries={timeseries} />);
-
-    // Wait for useEffect mount
-    await vi.waitFor(() => {
-      expect(screen.getByText("Traffic")).toBeDefined();
-    });
-
-    expect(screen.getByText("Performance")).toBeDefined();
-    expect(screen.getByText("Reliability")).toBeDefined();
-    expect(screen.getByText("Breakdowns")).toBeDefined();
+describe("monitor investigation links", () => {
+  it("carries time, key and native selection into model and error investigation", () => {
+    const data = monitorData({ filters: { range: "custom", from: 60_000, to: 239_999, key_id: "key-1", protocol_mode: "native" } });
+    render(<AnalyticsCharts data={data} />);
+    const model = new URL(screen.getByRole("link", { name: /claude.opus-4.6/ }).getAttribute("href")!, "https://raven.test");
+    expect(model.pathname).toBe("/models");
+    expect(model.searchParams.get("key_id")).toBe("key-1");
+    expect(model.searchParams.get("protocol_mode")).toBe("native");
+    expect(model.searchParams.get("from")).toBe("60000");
+    const failures = new URL(screen.getByRole("link", { name: "2 errors" }).getAttribute("href")!, model);
+    expect(failures.pathname).toBe("/requests");
+    expect(failures.searchParams.get("status")).toBe("error");
+    expect(failures.searchParams.get("to")).toBe("239999");
   });
 
-  it("renders all sections when timeseries has data", async () => {
-    const timeseries = [makeBucket()];
-    render(<AnalyticsCharts timeseries={timeseries} />);
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Traffic")).toBeDefined();
-    });
-
-    // Verify all major sections rendered
-    expect(screen.getByText("Performance")).toBeDefined();
-    expect(screen.getByText("Reliability")).toBeDefined();
-    expect(screen.getByText("Breakdowns")).toBeDefined();
+  it("does not inflate native adoption by dropping unknown records", () => {
+    render(<MonitorSummary summary={summary({ native_count: 4, translated_count: 3, unknown_count: 3 })} percentiles={null} filters={{ range: "24h" }} />);
+    expect(screen.getByText("40.0%")).toBeDefined();
+    expect(screen.getByRole("link", { name: "3 unknown" })).toHaveAttribute("href", "/requests?protocol_mode=unknown");
   });
 
-  it("renders chart sub-headings after mount", async () => {
-    const timeseries = [makeBucket(), makeBucket()];
-    render(<AnalyticsCharts timeseries={timeseries} />);
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Request Volume")).toBeDefined();
-    });
-
-    expect(screen.getByText("Stream vs Sync")).toBeDefined();
-    expect(screen.getByText("Connect Token Volume")).toBeDefined();
-    expect(screen.getByText("Connect Token Mix")).toBeDefined();
-    expect(screen.getByText("Latency")).toBeDefined();
-    expect(screen.getByText("Error Rate")).toBeDefined();
-    expect(screen.getByText("Token Usage")).toBeDefined();
+  it("keeps same-name keys separate and crosses from a key to its model without losing identity", () => {
+    const data = monitorData({ filters: { range: "7d", key_id: "key-2" }, keys: [entry("key-1", { account_name: "Editor" }), entry("key-2", { account_name: "Editor" })] });
+    render(<UsageExplorer data={data} dimension="key_id" />);
+    const keyLinks = screen.getAllByRole("link", { name: /^Editor.*key-/ });
+    expect(keyLinks).toHaveLength(2);
+    expect(keyLinks[0]).toHaveAttribute("href", "/keys?range=7d&key_id=key-1");
+    expect(keyLinks[1]).toHaveAttribute("href", "/keys?range=7d&key_id=key-2");
+    const model = screen.getByRole("link", { name: /claude.opus-4.6/ });
+    expect(new URL(model.getAttribute("href")!, "https://raven.test").searchParams.get("key_id")).toBe("key-2");
   });
 
-  it("renders TTFT chart when data has avg_ttft_ms", async () => {
-    const timeseries = [makeBucket({ avg_ttft_ms: 50 }), makeBucket({ avg_ttft_ms: 80 })];
-    render(<AnalyticsCharts timeseries={timeseries} />);
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Time to First Token")).toBeDefined();
-    });
+  it("labels ambiguous historical key groups without presenting them as a specific current key", () => {
+    render(<UsageExplorer data={monitorData({ filters: { range: "24h", key_id: "legacy:Editor" }, keys: [entry("legacy:Editor", { account_name: "Editor" })] })} dimension="key_id" />);
+    expect(screen.getByText("Historical name group · may contain multiple keys")).toBeDefined();
   });
 
-  it("hides TTFT chart when all buckets have null avg_ttft_ms", async () => {
-    const timeseries = [makeBucket({ avg_ttft_ms: null }), makeBucket({ avg_ttft_ms: null })];
-    render(<AnalyticsCharts timeseries={timeseries} />);
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Latency")).toBeDefined();
-    });
-
-    expect(screen.queryByText("Time to First Token")).toBeNull();
-  });
-
-  it("renders connect token charts from grouped timeseries", async () => {
-    const timeseries = [makeBucket()];
-    render(
-      <AnalyticsCharts
-        timeseries={timeseries}
-        tokenTimeseries={{
-          keys: ["claude-code", "cursor"],
-          points: [{ bucket: Date.now(), "claude-code": 8, cursor: 2 }],
-        }}
-      />,
-    );
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Connect Token Volume")).toBeDefined();
-    });
-    expect(screen.getByText("Connect Token Mix")).toBeDefined();
-  });
-
-  it("renders breakdown bars with data", async () => {
-    const timeseries = [makeBucket()];
-    const modelBreakdown = [makeBreakdown("claude-3", 50), makeBreakdown("gpt-4o", 30)];
-    const clientBreakdown = [makeBreakdown("vscode", 40)];
-    const strategyBreakdown = [makeBreakdown("copilot-native", 60)];
-
-    render(
-      <AnalyticsCharts
-        timeseries={timeseries}
-        modelBreakdown={modelBreakdown}
-        clientBreakdown={clientBreakdown}
-        strategyBreakdown={strategyBreakdown}
-      />,
-    );
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Top Models")).toBeDefined();
-    });
-
-    expect(screen.getByText("Top Clients")).toBeDefined();
-    expect(screen.getByText("Top Strategies")).toBeDefined();
-    expect(screen.getByText("claude-3")).toBeDefined();
-    expect(screen.getByText("gpt-4o")).toBeDefined();
-    expect(screen.getByText("vscode")).toBeDefined();
-    expect(screen.getByText("copilot-native")).toBeDefined();
-  });
-
-  it("shows 'No data' for empty breakdowns", async () => {
-    const timeseries = [makeBucket()];
-    render(<AnalyticsCharts timeseries={timeseries} />);
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("Top Models")).toBeDefined();
-    });
-
-    // Three breakdowns plus two empty connect-token charts
-    const noDataElements = screen.getAllByText("No data");
-    expect(noDataElements.length).toBe(5);
-  });
-
-  it("renders breakdown bars with (empty) label for empty keys", async () => {
-    const timeseries = [makeBucket()];
-    const modelBreakdown = [makeBreakdown("", 50)];
-
-    render(<AnalyticsCharts timeseries={timeseries} modelBreakdown={modelBreakdown} />);
-
-    await vi.waitFor(() => {
-      expect(screen.getByText("(empty)")).toBeDefined();
-    });
+  it("does not turn an unattributed model into a link that silently clears the model filter", () => {
+    render(<AnalyticsCharts data={monitorData({ models: [entry("")] })} />);
+    expect(screen.getByText("Unattributed").closest("a")).toBeNull();
   });
 });

@@ -2,16 +2,13 @@
 
 import { Suspense } from "react";
 import { Dock } from "@nocoo/basalt/components/dock";
-import { Fab } from "@nocoo/basalt/components/fab";
-import { Terminal } from "lucide-react";
 import { LogsContent } from "@/app/logs/logs-content";
 import { useLogDock } from "./log-dock-context";
 
 export function LogsDock() {
-  const { isOpen, requestIdFilter, closeLogs, openLogs, setRequestIdFilter } = useLogDock();
+  const { isOpen, requestIdFilter, closeLogs, setRequestIdFilter } = useLogDock();
 
   return (
-    <>
       <Dock
         mode="overlay"
         open={isOpen}
@@ -31,16 +28,5 @@ export function LogsDock() {
           </Suspense>
         </div>
       </Dock>
-
-      <Fab
-        open={isOpen}
-        placement="fixed"
-        aria-label="Open live logs"
-        onClick={() => openLogs()}
-        className="right-6 bottom-6 z-40 bg-basalt-primary text-basalt-primary-foreground hover:bg-basalt-primary/90"
-      >
-        <Terminal className="size-6" />
-      </Fab>
-    </>
   );
 }

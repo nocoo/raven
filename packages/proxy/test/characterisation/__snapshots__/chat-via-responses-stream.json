@@ -30,6 +30,7 @@
   },
   "responseBody": "data: {\"id\":\"resp_char\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_char\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"},\"logprobs\":null,\"finish_reason\":null}]}\n\ndata: {\"id\":\"resp_char\",\"object\":\"chat.completion.chunk\",\"created\":1700000000,\"model\":\"grok-4.5\",\"system_fingerprint\":null,\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
   "endLog": {
+    "apiKeyId": "default",
     "path": "/v1/chat/completions",
     "format": "openai",
     "stream": true,

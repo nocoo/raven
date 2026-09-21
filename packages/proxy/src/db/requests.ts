@@ -23,6 +23,7 @@ export interface RequestRecord {
 	upstream_status: number | null;
 	error_message: string | null;
 	account_name: string;
+	api_key_id: string;
 	session_id: string;
 	client_name: string;
 	client_version: string | null;
@@ -35,6 +36,15 @@ export interface RequestRecord {
 	routing_path: string;
 	stop_reason: string;
 	tool_call_count: number;
+	server_tools_used: number;
+}
+
+export type ProtocolMode = "native" | "translated" | "unknown";
+
+/** RequestRecord plus query-derived fields returned by /api/requests. */
+export interface RequestRow extends RequestRecord {
+	key_id: string;
+	protocol_mode: ProtocolMode;
 }
 
 export interface OverviewResult {
@@ -59,6 +69,9 @@ export interface SummaryResult {
   avg_processing_ms: number | null;
   stream_count: number;
   sync_count: number;
+  native_count: number;
+  translated_count: number;
+  unknown_count: number;
 }
 
 export interface TimeseriesBucket {
@@ -111,7 +124,10 @@ export interface BreakdownEntry {
   error_rate: number;
   first_seen: number;
   last_seen: number;
-  // Extra fields for session breakdown
+  native_count: number;
+  translated_count: number;
+  unknown_count: number;
+  // Extra fields for session / key breakdown
   client_name?: string;
   account_name?: string;
   client_version?: string | null;
@@ -151,11 +167,47 @@ export interface QueryParams {
 }
 
 export interface QueryResult {
-  data: RequestRecord[];
+  data: RequestRow[];
   next_cursor?: string | null;
   has_more: boolean;
   total?: number | null;
 }
+
+// ---------------------------------------------------------------------------
+// Derived SQL expressions (shared by request query, group-by and filters)
+// ---------------------------------------------------------------------------
+
+/**
+ * Stable requester identity: api_keys.id captured at auth time, or a
+ * `legacy:`-prefixed account_name for rows persisted before api_key_id
+ * existed. New and old rows for the same key never merge.
+ */
+export const KEY_ID_EXPR = `COALESCE(NULLIF(api_key_id, ''), 'legacy:' || account_name)`;
+
+/**
+ * Protocol path classification, mirroring core/router.ts strategy names and
+ * each strategy's describeEndLog contract:
+ * - copilot-translated / copilot-chat-via-responses translate the client
+ *   payload to another wire format → translated
+ * - copilot-native / copilot-openai-direct / copilot-responses /
+ *   custom-anthropic preserve the client format end-to-end → native
+ * - custom-openai is dual-mode: Anthropic clients always translate
+ *   (translated_model set); OpenAI clients pass through (never set).
+ * Contradictory or missing evidence on that branch stays unknown instead of
+ * being guessed as native.
+ * - server-tools rows bypass the Runner (strategy empty) but carry an
+ *   explicit routing_path written by decorate()'s log extras.
+ * - Everything else (early failures, router rejects, embeddings/models
+ *   traffic) has no path evidence → unknown.
+ */
+export const PROTOCOL_MODE_EXPR = `CASE
+  WHEN strategy IN ('copilot-translated', 'copilot-chat-via-responses') THEN 'translated'
+  WHEN strategy IN ('copilot-native', 'copilot-openai-direct', 'copilot-responses', 'custom-anthropic') THEN 'native'
+  WHEN strategy = 'custom-openai' AND client_format = 'anthropic' AND translated_model != '' THEN 'translated'
+  WHEN strategy = 'custom-openai' AND client_format = 'openai' AND translated_model = '' THEN 'native'
+  WHEN strategy = '' AND routing_path IN ('native', 'translated') THEN routing_path
+  ELSE 'unknown'
+END`;
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -220,9 +272,12 @@ export function initDatabase(db: Database): void {
 	safeAddColumn("ALTER TABLE requests ADD COLUMN tool_call_count INTEGER NOT NULL DEFAULT 0");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN cache_read_tokens INTEGER");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN cache_write_tokens INTEGER");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN api_key_id TEXT NOT NULL DEFAULT ''");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN server_tools_used INTEGER NOT NULL DEFAULT 0");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_strategy ON requests(strategy)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_account ON requests(account_name)");
+	db.exec(`CREATE INDEX IF NOT EXISTS idx_requests_key_identity ON requests(${KEY_ID_EXPR}, timestamp)`);
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_client ON requests(client_name)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_path ON requests(path)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_upstream ON requests(upstream)");
@@ -236,19 +291,19 @@ const INSERT_SQL = `
 INSERT INTO requests (
   id, timestamp, path, client_format, model, resolved_model,
   stream, input_tokens, output_tokens, latency_ms, ttft_ms,
-  status, status_code, upstream_status, error_message, account_name,
+  status, status_code, upstream_status, error_message, account_name, api_key_id,
   session_id, client_name, client_version,
   processing_ms, strategy, upstream, upstream_format,
   translated_model, copilot_model, routing_path, stop_reason, tool_call_count,
-  cache_read_tokens, cache_write_tokens
+  cache_read_tokens, cache_write_tokens, server_tools_used
 ) VALUES (
   $id, $timestamp, $path, $client_format, $model, $resolved_model,
   $stream, $input_tokens, $output_tokens, $latency_ms, $ttft_ms,
-  $status, $status_code, $upstream_status, $error_message, $account_name,
+  $status, $status_code, $upstream_status, $error_message, $account_name, $api_key_id,
   $session_id, $client_name, $client_version,
   $processing_ms, $strategy, $upstream, $upstream_format,
   $translated_model, $copilot_model, $routing_path, $stop_reason, $tool_call_count,
-  $cache_read_tokens, $cache_write_tokens
+  $cache_read_tokens, $cache_write_tokens, $server_tools_used
 )`;
 
 export function insertRequest(db: Database, record: RequestRecord): void {
@@ -269,6 +324,7 @@ export function insertRequest(db: Database, record: RequestRecord): void {
 		$upstream_status: record.upstream_status,
 		$error_message: record.error_message,
 		$account_name: record.account_name,
+		$api_key_id: record.api_key_id,
 		$session_id: record.session_id,
 		$client_name: record.client_name,
 		$client_version: record.client_version,
@@ -283,6 +339,7 @@ export function insertRequest(db: Database, record: RequestRecord): void {
 		$tool_call_count: record.tool_call_count,
 		$cache_read_tokens: record.cache_read_tokens,
 		$cache_write_tokens: record.cache_write_tokens,
+		$server_tools_used: record.server_tools_used,
 	});
 }
 
@@ -325,7 +382,10 @@ export function querySummary(
     COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
     AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
     AVG(CASE WHEN processing_ms IS NOT NULL THEN processing_ms END) as avg_processing_ms,
-    COUNT(CASE WHEN stream = 1 THEN 1 END) as stream_count
+    COUNT(CASE WHEN stream = 1 THEN 1 END) as stream_count,
+    COALESCE(SUM(CASE WHEN ${PROTOCOL_MODE_EXPR} = 'native' THEN 1 ELSE 0 END), 0) as native_count,
+    COALESCE(SUM(CASE WHEN ${PROTOCOL_MODE_EXPR} = 'translated' THEN 1 ELSE 0 END), 0) as translated_count,
+    COALESCE(SUM(CASE WHEN ${PROTOCOL_MODE_EXPR} = 'unknown' THEN 1 ELSE 0 END), 0) as unknown_count
   FROM requests ${whereClause}`;
 
   const row = db.query(sql).get(...bindings) as {
@@ -341,6 +401,9 @@ export function querySummary(
     avg_ttft_ms: number | null;
     avg_processing_ms: number | null;
     stream_count: number;
+    native_count: number;
+    translated_count: number;
+    unknown_count: number;
   };
 
   const totalRequests = row.total_requests;
@@ -359,6 +422,9 @@ export function querySummary(
     avg_processing_ms: row.avg_processing_ms,
     stream_count: row.stream_count,
     sync_count: totalRequests - row.stream_count,
+    native_count: row.native_count,
+    translated_count: row.translated_count,
+    unknown_count: row.unknown_count,
   };
 }
 
@@ -381,6 +447,8 @@ const VALID_BY_COLUMNS: Record<string, string> = {
   stream: "stream",
   routing_path: "routing_path",
   session_id: "session_id",
+  key_id: KEY_ID_EXPR,
+  protocol_mode: PROTOCOL_MODE_EXPR,
 };
 
 export interface BreakdownParams {
@@ -429,11 +497,15 @@ export function queryBreakdown(
     });
   }
 
-  // Session breakdown includes extra context columns
+  // Session breakdown includes extra context columns; key breakdown adds a
+  // display label (account names can repeat across distinct key ids).
   const isSession = params.by === "session_id";
+  const isKey = params.by === "key_id";
   const extraSelect = isSession
     ? `, MIN(client_name) as _client_name, MIN(account_name) as _account_name, MIN(client_version) as _client_version`
-    : "";
+    : isKey
+      ? `, MIN(account_name) as _account_name`
+      : "";
 
   const sql = `SELECT
     CAST(${column} AS TEXT) as key,
@@ -448,6 +520,9 @@ export function queryBreakdown(
     AVG(CASE WHEN ttft_ms IS NOT NULL THEN ttft_ms END) as avg_ttft_ms,
     COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
     CASE WHEN COUNT(*) > 0 THEN CAST(COUNT(CASE WHEN status = 'error' THEN 1 END) AS REAL) / CAST(COUNT(*) AS REAL) ELSE 0.0 END as error_rate,
+    SUM(CASE WHEN ${PROTOCOL_MODE_EXPR} = 'native' THEN 1 ELSE 0 END) as native_count,
+    SUM(CASE WHEN ${PROTOCOL_MODE_EXPR} = 'translated' THEN 1 ELSE 0 END) as translated_count,
+    SUM(CASE WHEN ${PROTOCOL_MODE_EXPR} = 'unknown' THEN 1 ELSE 0 END) as unknown_count,
     MIN(timestamp) as first_seen,
     MAX(timestamp) as last_seen${extraSelect}
   FROM requests
@@ -469,6 +544,9 @@ export function queryBreakdown(
     avg_ttft_ms: number | null;
     error_count: number;
     error_rate: number;
+    native_count: number;
+    translated_count: number;
+    unknown_count: number;
     first_seen: number;
     last_seen: number;
     _client_name?: string;
@@ -500,12 +578,19 @@ export function queryBreakdown(
       error_rate: row.error_rate,
       first_seen: row.first_seen,
       last_seen: row.last_seen,
+      native_count: row.native_count,
+      translated_count: row.translated_count,
+      unknown_count: row.unknown_count,
     };
 
     if (isSession) {
       entry.client_name = row._client_name ?? "";
       entry.account_name = row._account_name ?? "";
       entry.client_version = row._client_version ?? null;
+    }
+
+    if (isKey) {
+      entry.account_name = row._account_name ?? "";
     }
 
     return entry;
@@ -1023,8 +1108,8 @@ export function queryRequests(
       ? `LIMIT ${limit + 1}` // fetch one extra to detect has_more
       : `LIMIT ${limit + 1} OFFSET ${offset ?? 0}`;
 
-  const query = `SELECT * FROM requests ${adjustedWhereClause} ${orderBy} ${limitClause}`;
-  const rows = db.query(query).all(allBindings) as RequestRecord[];
+  const query = `SELECT *, ${KEY_ID_EXPR} as key_id, ${PROTOCOL_MODE_EXPR} as protocol_mode FROM requests ${adjustedWhereClause} ${orderBy} ${limitClause}`;
+  const rows = db.query(query).all(allBindings) as RequestRow[];
 
   const hasMore = rows.length > limit;
   const data = hasMore ? rows.slice(0, limit) : rows;

@@ -2,10 +2,11 @@
 
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
 import { useTheme } from "@nocoo/basalt/providers/theme";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Monitor, Moon, Sun, Terminal } from "lucide-react";
 import type { ReactElement } from "react";
 import { Github } from "@/components/icons/github";
 import { Hexly } from "@/components/icons/hexly";
+import { useLogDock } from "@/components/logs/log-dock-context";
 
 function HeaderTooltip({ label, children }: { label: string; children: ReactElement }) {
   return (
@@ -18,12 +19,18 @@ function HeaderTooltip({ label, children }: { label: string; children: ReactElem
 
 export function HeaderActions() {
   const { theme, setTheme } = useTheme();
+  const { isOpen, toggleLogs } = useLogDock();
   const nextTheme = theme === "system" ? "light" : theme === "light" ? "dark" : "system";
   const themeLabel = nextTheme === "system" ? "Use system theme" : `Switch to ${nextTheme} theme`;
   const ThemeIcon = theme === "system" ? Monitor : theme === "dark" ? Moon : Sun;
 
   return (
     <>
+      <HeaderTooltip label="Live logs">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleLogs} aria-label="Toggle live logs" aria-expanded={isOpen}>
+          <Terminal className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
+        </Button>
+      </HeaderTooltip>
       <HeaderTooltip label="GitHub repository">
         <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
           <a

@@ -25,11 +25,12 @@ if (!Element.prototype.scrollIntoView) {
 // ---------------------------------------------------------------------------
 
 const mockPush = vi.fn();
+const mockRefresh = vi.fn();
 let mockSearchParams = new URLSearchParams();
 const mockPathname = "/";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush, refresh: vi.fn() }),
+  useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
   useSearchParams: () => mockSearchParams,
   usePathname: () => mockPathname,
 }));
@@ -48,6 +49,7 @@ import { FilterChip } from "@/components/analytics/filter-chip";
 
 beforeEach(() => {
   mockPush.mockClear();
+  mockRefresh.mockClear();
   mockSearchParams = new URLSearchParams();
 });
 
@@ -169,6 +171,71 @@ describe("FilterChip", () => {
 // ---------------------------------------------------------------------------
 
 describe("FilterBar", () => {
+  it("selects a stable key ID without retaining a historical name filter", async () => {
+    mockSearchParams = new URLSearchParams("range=7d&model=gpt-5&account=Editor&protocol_mode=native");
+    render(<FilterBar keys={[{ id: "key-1", label: "Editor" }, { id: "key-2", label: "Editor" }, { id: "legacy:Editor", label: "Editor" }]} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: "Filter by API key" }));
+    expect(screen.getByRole("option", { name: "Editor · historical" })).toBeDefined();
+    await user.click(screen.getByRole("option", { name: "Editor · key-2" }));
+    const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
+    expect(params.get("key_id")).toBe("key-2");
+    expect(params.has("account")).toBe(false);
+    expect(params.get("model")).toBe("gpt-5");
+    expect(params.get("range")).toBe("7d");
+    expect(params.get("protocol_mode")).toBe("native");
+  });
+
+  it("clears a key selection while keeping the selected time interval", async () => {
+    mockSearchParams = new URLSearchParams("range=custom&from=0&to=60000&key_id=key-1");
+    render(<FilterBar keys={[{ id: "key-1", label: "Editor" }]} />);
+    const user = userEvent.setup();
+    expect(screen.getByText(/Selected interval:/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "Remove Key filter" })).toBeDefined();
+    await user.click(screen.getByRole("combobox", { name: "Filter by API key" }));
+    await user.click(screen.getByRole("option", { name: "All keys" }));
+    expect(mockPush).toHaveBeenCalledWith("/?range=custom&from=0&to=60000");
+  });
+
+  it.each([["", "Unknown", "unknown"], ["protocol_mode=native", "All protocols", null]])("changes the protocol selection from %s", async (query, label, expected) => {
+    mockSearchParams = new URLSearchParams(query!);
+    render(<FilterBar />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: "Filter by protocol" }));
+    await user.click(screen.getByRole("option", { name: label! }));
+    const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
+    expect(params.get("protocol_mode")).toBe(expected);
+  });
+
+  it("refreshes the current monitoring snapshot", async () => {
+    render(<FilterBar />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Refresh monitoring data" }));
+    expect(mockRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("applies exact client, session and upstream values while preserving the model and key", async () => {
+    mockSearchParams = new URLSearchParams("model=gpt-5&key_id=key-1");
+    render(<FilterBar investigation />);
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Client & session filters"));
+    await user.type(screen.getByRole("textbox", { name: "Client name" }), " Editor ");
+    await user.type(screen.getByRole("textbox", { name: "Session ID" }), "sess&2");
+    await user.type(screen.getByRole("textbox", { name: "Upstream name" }), "provider");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
+    expect(Object.fromEntries(params)).toEqual({ model: "gpt-5", key_id: "key-1", client: "Editor", session: "sess&2", upstream: "provider" });
+  });
+
+  it("clears exact-match investigation fields without widening the time range", async () => {
+    mockSearchParams = new URLSearchParams("range=7d&client=Editor&session=sess-1&upstream=provider");
+    render(<FilterBar investigation />);
+    const user = userEvent.setup();
+    await user.click(screen.getByText("Client & session filters"));
+    for (const name of ["Client name", "Session ID", "Upstream name"]) await user.clear(screen.getByRole("textbox", { name }));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(mockPush).toHaveBeenCalledWith("/?range=7d");
+  });
+
   it("shows every deep-linked dimension, including zero latency and synchronous mode", () => {
     mockSearchParams = new URLSearchParams({
       model: "m", resolved_model: "resolved", strategy: "native", upstream: "fixture-provider",
@@ -185,12 +252,12 @@ describe("FilterBar", () => {
   });
 
   it.each([
-    [1, "fixture-model", "model"], [2, "fixture-strategy", "strategy"],
-    [3, "fixture-provider", "upstream"], [4, "error", "status"],
-  ])("updates dimension %s through the actual dropdown", async (index, value, key) => {
+    ["fixture-model", "model"], ["fixture-strategy", "strategy"],
+    ["fixture-provider", "upstream"], ["error", "status"],
+  ])("selects %s through the actual dropdown", async (value, key) => {
     render(<FilterBar models={["fixture-model"]} strategies={["fixture-strategy"]} upstreams={["fixture-provider"]} />);
     const user = userEvent.setup();
-    await user.click(screen.getAllByRole("combobox")[index]!);
+    await user.click(screen.getByRole("combobox", { name: `Filter by ${key}` }));
     await user.click(screen.getByRole("option", { name: value }));
     const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
     expect(params.get(key)).toBe(value);
@@ -200,7 +267,7 @@ describe("FilterBar", () => {
     mockSearchParams = new URLSearchParams("upstream=fixture-provider");
     render(<FilterBar upstreams={["fixture-provider"]} />);
     const user = userEvent.setup();
-    await user.click(screen.getAllByRole("combobox")[1]!);
+    await user.click(screen.getByRole("combobox", { name: "Filter by upstream" }));
     await user.click(screen.getByRole("option", { name: "All upstreams" }));
     expect(mockPush).toHaveBeenCalledWith("/");
   });
@@ -213,7 +280,7 @@ describe("FilterBar", () => {
     mockSearchParams = new URLSearchParams(query);
     render(<FilterBar />);
     const user = userEvent.setup();
-    await user.click(screen.getAllByRole("combobox")[2]!);
+    await user.click(screen.getByRole("combobox", { name: "Filter by stream" }));
     await user.click(screen.getByRole("option", { name: label }));
     expect(mockPush).toHaveBeenCalledWith(expected);
   });
@@ -249,7 +316,7 @@ describe("FilterBar", () => {
     render(<FilterBar strategies={["copilot-native", "custom-openai"]} />);
     const triggers = screen.getAllByRole("combobox");
     // time + strategy + status + stream = 4
-    expect(triggers.length).toBe(4);
+    expect(triggers.length).toBe(5);
   });
 
   it("shows active filter count when filters are active", () => {
