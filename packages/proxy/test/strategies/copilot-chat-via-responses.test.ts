@@ -1,9 +1,14 @@
+import { Hono } from "hono"
 import { describe, expect, test, vi } from "vitest"
 
 import { makeCopilotChatViaResponses } from "../../src/strategies/copilot-chat-via-responses"
 import type { RequestContext } from "../../src/core/context"
 import { ClientInputError } from "../../src/lib/error"
+import { state } from "../../src/lib/state"
+import { handleCompletion } from "../../src/routes/chat-completions/handler"
 import type { CopilotResponsesClient } from "../../src/upstream/copilot-responses"
+import { logEmitter } from "../../src/util/log-emitter"
+import type { LogEvent } from "../../src/util/log-event"
 import type { ServerSentEvent } from "../../src/util/sse"
 
 const ctx: RequestContext = {
@@ -252,12 +257,6 @@ describe("strategy error and end-log arms", () => {
 
 describe("integrated non-stream request_end tokens", () => {
   test("handler request_end carries Responses input/output tokens", async () => {
-    const { Hono } = await import("hono")
-    const { state } = await import("../../src/lib/state")
-    const { logEmitter } = await import("../../src/util/log-emitter")
-    const { handleCompletion } = await import("../../src/routes/chat-completions/handler")
-    type LogEvent = import("../../src/util/log-event").LogEvent
-
     const savedModels = state.models
     const savedToken = state.copilotToken
     state.copilotToken = "test-token"

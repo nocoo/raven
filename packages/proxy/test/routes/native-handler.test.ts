@@ -1,11 +1,9 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
 import { state } from "../../src/lib/state"
+import { handleCompletion } from "../../src/routes/messages/handler"
 import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/protocols/anthropic/types"
 import * as tavilyModule from "../../src/lib/server-tools/tavily"
-
-// We'll test the native handler through the main handleCompletion since handleCopilotNative
-// imports createNativeMessages directly, and we need to mock at the fetch level.
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -136,7 +134,7 @@ describe("handleCopilotNative integration", () => {
         },
       ],
     }
-    fetchSpy = vi.spyOn(globalThis, "fetch")
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
   })
 
   afterEach(() => {
@@ -156,8 +154,6 @@ describe("handleCopilotNative integration", () => {
 
     fetchSpy.mockResolvedValueOnce(mockFetchResponse(mockAnthropicResponse()))
 
-    // Import handleCompletion lazily to get fresh module state
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
 
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
@@ -179,7 +175,6 @@ describe("handleCopilotNative integration", () => {
   test("sends anthropic-version header on native path", async () => {
     fetchSpy.mockResolvedValueOnce(mockFetchResponse(mockAnthropicResponse()))
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
 
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
@@ -209,7 +204,6 @@ describe("handleCopilotNative integration", () => {
       ]),
     )
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
 
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
@@ -281,7 +275,6 @@ describe("handleCopilotNative integration", () => {
       usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
     }))
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
 
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
@@ -315,7 +308,6 @@ describe("handleCopilotNative integration", () => {
     // Second request succeeds with fallback effort
     fetchSpy.mockResolvedValueOnce(mockFetchResponse(mockAnthropicResponse()))
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
 
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
@@ -399,7 +391,7 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
         supported_endpoints: ["/v1/messages", "/chat/completions"],
       }],
     }
-    fetchSpy = vi.spyOn(globalThis, "fetch")
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
   })
 
   afterEach(() => {
@@ -471,7 +463,6 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
       }),
     )
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
 
@@ -505,7 +496,6 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
       }),
     )
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
 
@@ -539,7 +529,6 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
       }),
     )
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
 
@@ -576,7 +565,6 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
       }),
     )
 
-    const { handleCompletion } = await import("../../src/routes/messages/handler")
     const app = new Hono()
     app.post("/v1/messages", handleCompletion)
 
