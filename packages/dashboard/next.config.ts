@@ -12,6 +12,7 @@ const require = createRequire(import.meta.url);
 const rootPkg = require("../../package.json") as { version: string };
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   turbopack: {
     root: resolve(__dir, "../.."),
   },

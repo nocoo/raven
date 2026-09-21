@@ -1,6 +1,6 @@
 # 26 · 代理分层、日志与运维约定
 
-日常命令、测试目标与六维质量状态见根 CLAUDE.md。旧手册的生产数据库 E2E 不再是 6DQ 的合格测试方案；真实上游诊断必须另行获得明确任务授权。
+Daily commands, test targets and 6DQ status live in the root [AGENTS.md](../AGENTS.md). Legacy E2E tests against the daily database do not qualify as isolated 6DQ evidence; live upstream diagnostics require explicit task authorization.
 
 ## 分层与本机数据
 

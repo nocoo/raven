@@ -12,7 +12,7 @@
  *
  * Prerequisites:
  *   - Proxy running on :7024 with valid upstream credentials.
- *   - RAVEN_API_KEY exported (see CLAUDE.md "Running E2E tests (L2)").
+ *   - RAVEN_API_KEY exported (see AGENTS.md "Commands").
  *   - Custom-* strategies additionally require the provider rows to
  *     be configured in the database (Phase C.5/C.6 handle that).
  */

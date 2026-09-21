@@ -8,6 +8,8 @@ Direction: [architecture](docs/20-architecture-refactor.md), [operations](docs/2
 
 This file is the contract; hooks, CI and config enforce it. Raise weaker enforcement to match, never reduce requirements. Frameworks must not replace this handbook.
 
+Maintain project instructions only in this root `AGENTS.md`. Do not create nested instruction files or any `CLAUDE.md`. Dashboard disables Next.js agent-file generation with `agentRules: false`; consult the installed Next.js guides in `packages/dashboard/node_modules/next/dist/docs/` before changing framework APIs.
+
 | Fact | Where |
 | --- | --- |
 | Human docs | [README.md](README.md), [docs/README.md](docs/README.md) |

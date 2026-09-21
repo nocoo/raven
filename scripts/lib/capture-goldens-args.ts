@@ -37,7 +37,7 @@ export function checkCaptureEnv(env: Record<string, string | undefined>): Valida
     return {
       ok: false,
       exitCode: 2,
-      message: "RAVEN_API_KEY is not set — create a DB key first (see CLAUDE.md)",
+      message: "RAVEN_API_KEY is not set — create a DB key first (see AGENTS.md)",
     }
   }
   return null
