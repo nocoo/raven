@@ -14,6 +14,8 @@ A targeted Dashboard test command invoked Vitest through Bun directly. Its jsdom
 
 A UTC-only timestamp fix passed component tests but still failed Chrome hydration: the server's Intl formatter inserted "at" while Chrome inserted a comma. Monitor now uses a shared ISO-based UTC formatter. The final browser check uses a different time zone from the server and asserts that there are no hydration errors; matching time zones alone is insufficient verification.
 
+The populated production fixture did not expose a development SSR failure: Monitor actions passed a server-component child into Basalt's Radix Slot, and fresh document requests through Caddy returned 500. Restarting Next did not fix it. Making the interactive Monitor panels an explicit client boundary restored document rendering. Local verification must include direct Caddy document loads as well as the production fixture and client navigation.
+
 ## Undated entries migrated from the previous handbook
 
 - `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.

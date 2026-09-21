@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowRight, Activity, Clock3, KeyRound, Route, Zap } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
