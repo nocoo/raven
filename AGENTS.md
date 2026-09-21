@@ -82,6 +82,8 @@ Pre-commit runs `gate:coverage`, Dashboard/script tests, lint-staged/types/micro
 | Unit/routes | Mocked upstream and synthetic state | No real token/provider requests |
 | Legacy browser | Fixed `packages/proxy/data/raven-test.db`, dev ports | Partial isolation; complete per-run local harness required |
 
+For local development previews and manual browser verification, open **https://raven.dev.hexly.ai** through the machine's Caddy reverse proxy. Verify the mapping in `/opt/homebrew/etc/Caddyfile` before opening the browser. Ports 7023 (Dashboard) and 7024 (Proxy) are internal upstreams; loopback URLs are reserved for internal service calls and isolated automated tests. Use the Caddy HTTPS URL in user-facing preview links. Do not change certificates or Keychain trust for ordinary development.
+
 Physical test isolation includes DB, credentials, configuration and upstream receiver. Fresh per-run directories plus guards before seed/reset/cleanup must separate tests from daily-dev and production. This Bun/SQLite application needs no remote test Workers or Cloudflare D1 resources.
 
 ## Operations / Release
