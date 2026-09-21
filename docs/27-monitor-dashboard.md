@@ -86,6 +86,12 @@ at 50 and activity at six top series plus Others. Named partial-load warnings
 distinguish unavailable data from zero traffic. Rendering reuses the app's
 shared log stream instead of opening a connection per panel.
 
+The root layout owns the application shell, so route transitions retain the
+sidebar, header, navigation state and log dock. Each page has a route-level
+`loading.tsx` with a matching skeleton: Monitor summaries and charts, request
+tables, account cards, or settings forms. Loading states announce the target
+page without exposing placeholder controls, and respect reduced motion.
+
 Persisted input counters mean uncached input. The headline token sum is labeled
 uncached input plus output; cache read/write counters appear separately in the
 composition chart. These counters are not a billing estimate.
@@ -104,6 +110,10 @@ composition chart. These counters are not a billing estimate.
 - The production bundle is checked in Chrome against a temporary in-memory
   proxy fixture with 640 synthetic requests. No daily data or model upstream is
   used for the populated browser checks.
+- Delayed fixture responses verify skeletons on all 11 Dashboard routes,
+  persistent sidebar/header nodes and collapsed state, a single log connection,
+  interrupted navigation and the 390px mobile layout. Unit tests verify that
+  route fallbacks announce the destination without interactive placeholders.
 - Normal local preview and manual verification use
   **https://raven.dev.hexly.ai**, through the existing Caddy mapping to port 7023.
 

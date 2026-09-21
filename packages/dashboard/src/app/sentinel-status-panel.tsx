@@ -12,6 +12,7 @@ import type { SentinelStatus } from "@/lib/types";
 import { OccurrencesDonut } from "./sentinel/occurrences-donut";
 import { RetryBar } from "./sentinel/retry-bar";
 import { LiveState } from "./sentinel/live-state";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ---------------------------------------------------------------------------
 // SentinelStatusPanel — orchestrator
@@ -91,9 +92,9 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
   if (!data) {
     return (
       <SectionRule title="Token Refresh Sentinel">
-        <LayerCard>
-          <p className="text-meta text-basalt-muted-foreground">Loading…</p>
-        </LayerCard>
+        <div role="status" aria-label="Loading Token Refresh Sentinel" aria-busy="true" className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+          {["occurrences", "retry", "state"].map(key => <LayerCard key={key} aria-hidden="true" className="space-y-4"><Skeleton className="h-4 w-32" /><Skeleton className="h-40 w-full" /></LayerCard>)}
+        </div>
       </SectionRule>
     );
   }

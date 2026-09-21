@@ -3,6 +3,7 @@ import { Inter, DM_Sans } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { AppProviders } from "@/components/providers";
+import { AppShell } from "@/components/layout/app-shell";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -52,7 +53,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${dmSans.variable} antialiased`}
       >
-        <AppProviders>{children}</AppProviders>
+        <AppProviders><AppShell>{children}</AppShell></AppProviders>
       </body>
     </html>
   );

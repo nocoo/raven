@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { AppShell } from "@/components/layout/app-shell";
 import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { ExtendedRequestRecord, SummaryStats, PaginatedRequests } from "@/lib/types";
@@ -56,12 +55,10 @@ export default async function RequestsPage({ searchParams }: PageProps) {
 
   if (!requestsResult.ok) {
     return (
-      <AppShell breadcrumbs={[{ label: "Requests" }]}>
-        <div className="space-y-4 md:space-y-6">
-          <PageHeader title="Requests" description="Inspect every proxied request, with filters, sorting and pagination." />
-          <FetchError title="Failed to load requests" message={requestsResult.error} />
-        </div>
-      </AppShell>
+      <div className="space-y-4 md:space-y-6">
+        <PageHeader title="Requests" description="Inspect every proxied request, with filters, sorting and pagination." />
+        <FetchError title="Failed to load requests" message={requestsResult.error} />
+      </div>
     );
   }
 
@@ -72,27 +69,25 @@ export default async function RequestsPage({ searchParams }: PageProps) {
   const summary = summaryResult.ok ? summaryResult.data : null;
 
   return (
-    <AppShell breadcrumbs={[{ label: "Requests" }]}>
-      <div className="space-y-4 md:space-y-6">
-        <PageHeader
-          title="Requests"
-          description="Trace a model, key or time window to individual calls. Open a request for its protocol route, timing and logs."
-          filters={
-            <Suspense>
-              <FilterBar models={models} keys={keysResult.ok ? keysResult.data.map(entry => ({ id: entry.key, label: keyLabel(entry) })) : []} investigation />
-            </Suspense>
-          }
+    <div className="space-y-4 md:space-y-6">
+      <PageHeader
+        title="Requests"
+        description="Trace a model, key or time window to individual calls. Open a request for its protocol route, timing and logs."
+        filters={
+          <Suspense>
+            <FilterBar models={models} keys={keysResult.ok ? keysResult.data.map(entry => ({ id: entry.key, label: keyLabel(entry) })) : []} investigation />
+          </Suspense>
+        }
+      />
+      <Suspense>
+        <RequestsContent
+          data={data as ExtendedRequestRecord[]}
+          hasMore={has_more}
+          nextCursor={next_cursor}
+          total={total}
+          summary={summary}
         />
-        <Suspense>
-          <RequestsContent
-            data={data as ExtendedRequestRecord[]}
-            hasMore={has_more}
-            nextCursor={next_cursor}
-            total={total}
-            summary={summary}
-          />
-        </Suspense>
-      </div>
-    </AppShell>
+      </Suspense>
+    </div>
   );
 }

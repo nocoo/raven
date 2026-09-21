@@ -20,29 +20,31 @@ import { LogsDock } from "@/components/logs/logs-dock";
 import { SetupWizard } from "@/components/setup-wizard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { HeaderActions } from "./header-actions";
-import { AppSidebar } from "./sidebar";
+import { ALL_NAV_ITEMS, AppSidebar } from "./sidebar";
 
 interface AppShellProps {
   children: React.ReactNode;
-  breadcrumbs?: { label: string; href?: string }[];
 }
 
-function headerTrail(breadcrumbs: { label: string; href?: string }[]) {
-  if (breadcrumbs.length === 0) {
+function headerTrail(pathname: string) {
+  if (pathname === "/") {
     return { crumbs: [] as { href?: string; label: string }[], title: "Overview" };
   }
+  const crumbs: { href?: string; label: string }[] = [{ href: "/", label: "Home" }];
+  if (pathname.startsWith("/copilot/")) crumbs.push({ label: "Copilot" });
+  if (pathname.startsWith("/settings/")) crumbs.push({ href: "/settings", label: "Settings" });
   return {
-    crumbs: [{ href: "/", label: "Home" }, ...breadcrumbs.slice(0, -1)],
-    title: breadcrumbs[breadcrumbs.length - 1]?.label ?? "Overview",
+    crumbs,
+    title: pathname === "/settings" ? "Settings" : ALL_NAV_ITEMS.find(item => item.href === pathname)?.label ?? "Raven",
   };
 }
 
-export function AppShell({ children, breadcrumbs = [] }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const { crumbs, title } = headerTrail(breadcrumbs);
+  const { crumbs, title } = headerTrail(pathname);
 
   // Close mobile sidebar on route change.
   // biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger; setMobileOpen is stable
@@ -56,6 +58,8 @@ export function AppShell({ children, breadcrumbs = [] }: AppShellProps) {
       document.body.style.overflow = "";
     };
   }, [mobileOpen]);
+
+  if (pathname === "/login") return children;
 
   return (
     <Shell>

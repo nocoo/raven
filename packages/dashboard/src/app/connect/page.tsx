@@ -1,4 +1,3 @@
-import { AppShell } from "@/components/layout/app-shell";
 import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { ApiKeyPublic, ConnectionInfo } from "@/lib/types";
@@ -16,24 +15,20 @@ export default async function ConnectPage() {
   if (!keysResult.ok || !connResult.ok) {
     const errorMsg = !keysResult.ok ? keysResult.error : !connResult.ok ? connResult.error : "Unknown error";
     return (
-      <AppShell breadcrumbs={[{ label: "Connect" }]}>
-        <div className="space-y-4 md:space-y-6">
-          <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
-          <FetchError title="Failed to load connection info" message={errorMsg} />
-        </div>
-      </AppShell>
+      <div className="space-y-4 md:space-y-6">
+        <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
+        <FetchError title="Failed to load connection info" message={errorMsg} />
+      </div>
     );
   }
 
   return (
-    <AppShell breadcrumbs={[{ label: "Connect" }]}>
-      <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
-        <ConnectContent
-          keys={keysResult.data}
-          connectionInfo={connResult.data}
-        />
-      </div>
-    </AppShell>
+    <div className="space-y-4 md:space-y-6">
+      <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
+      <ConnectContent
+        keys={keysResult.data}
+        connectionInfo={connResult.data}
+      />
+    </div>
   );
 }

@@ -1,4 +1,3 @@
-import { AppShell } from "@/components/layout/app-shell";
 import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { SettingsData } from "@/lib/types";
@@ -15,27 +14,23 @@ export default async function SettingsPage() {
 
   if (!settingsResult.ok) {
     return (
-      <AppShell breadcrumbs={[{ label: "Settings" }]}>
-        <div className="space-y-4 md:space-y-6">
-          <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
-          <FetchError title="Failed to load settings" message={settingsResult.error} />
-        </div>
-      </AppShell>
+      <div className="space-y-4 md:space-y-6">
+        <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
+        <FetchError title="Failed to load settings" message={settingsResult.error} />
+      </div>
     );
   }
 
   const data = settingsResult.data;
 
   return (
-    <AppShell breadcrumbs={[{ label: "Settings" }]}>
-      <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
+    <div className="space-y-4 md:space-y-6">
+      <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
 
-        <SettingsContent data={data} />
-        <IPWhitelistContent data={data.ip_whitelist} />
-        <CorsContent data={data.cors} />
-        <OptimizationsContent data={data.optimizations} />
-      </div>
-    </AppShell>
+      <SettingsContent data={data} />
+      <IPWhitelistContent data={data.ip_whitelist} />
+      <CorsContent data={data.cors} />
+      <OptimizationsContent data={data.optimizations} />
+    </div>
   );
 }

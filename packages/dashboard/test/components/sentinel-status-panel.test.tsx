@@ -132,10 +132,10 @@ describe("SentinelStatusPanel", () => {
     });
   });
 
-  it("renders Loading on first paint when no initialData", () => {
+  it("keeps a loading status while the first poll is pending", () => {
     fetchMock.mockReturnValue(new Promise(() => {}));
     render(<SentinelStatusPanel />);
-    expect(screen.getByText("Loading…")).toBeTruthy();
+    expect(screen.getByRole("status", { name: "Loading Token Refresh Sentinel" })).toHaveAttribute("aria-busy", "true");
   });
 
   it("uses initialData immediately without waiting for fetch", () => {
