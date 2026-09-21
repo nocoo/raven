@@ -2,6 +2,12 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-09-22: Audit commands used the development checkout
+
+Several delegated audit commands used the default development directory instead of the dedicated baseline worktree. One coverage run regenerated ignored reports and observed the coordinator's unfinished contract tests; those results were discarded as baseline evidence. All reported baseline checks were rerun at the pinned revision with an explicit working directory. No tracked production files were changed by the auditor.
+
+Concurrent full hook probes and development checks also amplified machine contention and test timeouts. Heavy audit probes were stopped; the final development hook passed with two Vitest workers after moving two existing tests' module initialization outside their per-test timeout. Every future audit command must specify its working directory, and full-suite runs owned by the same task must be coordinated. Formal audit evidence remains in nmem.
+
 ## Undated entries migrated from CLAUDE.md
 
 - `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.

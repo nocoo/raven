@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Raven — Architecture & protocol contracts</title>
+  <style>
+    :root {
+      --bg: #f6f5fa; --panel: #ffffff; --subtle: #efedf5; --ink: #242136; --muted: #686379;
+      --border: #dfdce9; --primary: hsl(255 55% 52%); --primary-soft: #eee8fc;
+      --green: #146b55; --green-soft: #e2f3ec; --red: #ad3348; --red-soft: #fcebf0;
+      --amber: #926213; --amber-soft: #fff2d9; --cyan: #186e85; --cyan-soft: #e6f4f8;
+      --radius: 12px; --small: 8px; --s1: 6px; --s2: 12px; --s3: 18px; --s4: 24px;
+      --shadow: 0 8px 24px #29213b08; --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #17151e; --panel: #211e2b; --subtle: #2b2738; --ink: #eeeaf6; --muted: #b1a9c5;
+        --border: #3c364b; --primary: #b29aed; --primary-soft: #322743; --green: #8ad8b7;
+        --green-soft: #203a31; --red: #fba2b0; --red-soft: #442731; --amber: #ecc580;
+        --amber-soft: #403522; --cyan: #8cd2e7; --cyan-soft: #213941; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--bg); font: 14px/1.5 system-ui, sans-serif; }
+    button, select, input { font: inherit; color: inherit; }
+    button, select { cursor: pointer; }
+    button { border: 1px solid var(--border); background: var(--panel); border-radius: var(--small); padding: 8px 12px; }
+    button:hover, select:hover { border-color: var(--primary); }
+    button:focus-visible, select:focus-visible, a:focus-visible, summary:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+    button:disabled { opacity: .45; cursor: default; }
+    a { color: var(--primary); text-underline-offset: 3px; overflow-wrap: anywhere; }
+    code, pre, .mono { font-family: var(--mono); }
+    code { font-size: 12px; overflow-wrap: anywhere; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.65; background: var(--subtle); border-radius: var(--small); padding: var(--s2); margin: 8px 0; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(25px, 3vw, 34px); letter-spacing: -1px; font-weight: 650; }
+    h2 { font-size: 18px; letter-spacing: -.3px; }
+    h3 { font-size: 14px; }
+    p + p { margin-top: 10px; }
+    [hidden] { display: none !important; }
+    .shell { max-width: 1460px; margin: auto; padding: 26px 32px; }
+    .topline, .heading, .row, .section-heading, .controls, .trace-controls { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+    .topline { margin-bottom: var(--s3); font-size: 12px; color: var(--muted); }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 750; letter-spacing: 2px; }
+    .brand svg { color: var(--primary); }
+    .heading { align-items: end; margin-bottom: var(--s3); }
+    .lede { margin-top: 5px; color: var(--muted); max-width: 850px; }
+    .eyebrow { font: 11px var(--mono); text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 5px; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 6px; padding: 4px 8px; font: 11px/1.4 var(--mono); font-weight: 600; white-space: nowrap; background: var(--subtle); }
+    .good { color: var(--green); background: var(--green-soft); }
+    .bad { color: var(--red); background: var(--red-soft); }
+    .warn { color: var(--amber); background: var(--amber-soft); }
+    .info { color: var(--primary); background: var(--primary-soft); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2); margin-bottom: var(--s3); }
+    .stat { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 17px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .stat strong { font-size: 26px; font-weight: 650; letter-spacing: -1px; }
+    .stat span { display: block; color: var(--muted); font-size: 12px; }
+    .stat .stat-marker { width: 7px; height: 35px; background: var(--primary-soft); border-radius: 6px; }
+    .stat .stat-marker.alert { background: var(--red-soft); }
+    nav { display: flex; gap: 5px; border-bottom: 1px solid var(--border); margin-bottom: var(--s3); overflow-x: auto; }
+    nav button { background: transparent; border: 0; border-radius: 0; padding: 12px 15px; color: var(--muted); white-space: nowrap; border-bottom: 3px solid transparent; }
+    nav button[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 650; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s3); align-items: start; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
+    .padded { padding: var(--s3); }
+    .section-heading { margin-bottom: var(--s3); align-items: start; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .stack { display: grid; gap: var(--s2); }
+    .callout { padding: 12px 15px; border-radius: var(--small); border-left: 3px solid currentColor; font-size: 13px; }
+    .callout p { color: var(--ink); }
+    .callout strong { display: block; margin-bottom: 4px; }
+    .layers { display: grid; gap: 7px; }
+    .lane { display: grid; grid-template-columns: 112px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+    .lane:last-child { border: 0; }
+    .lane-label { font-size: 12px; color: var(--muted); padding-top: 10px; }
+    .lane-label b { color: var(--primary); font: 11px var(--mono); margin-right: 7px; }
+    .lane-nodes { display: flex; gap: 7px; flex-wrap: wrap; align-items: stretch; }
+    .node { text-align: left; flex: 1 1 160px; min-width: 0; position: relative; padding: 9px 12px; }
+    .node strong { font-size: 12px; display: block; }
+    .node span { display: block; font: 11px/1.6 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+    .node[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
+    .node[data-node="protocols"]::after, .node[data-node="runner"]::after { content: "!"; position: absolute; right: 10px; top: 9px; font: bold 11px var(--mono); color: var(--red); }
+    .external { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); margin-top: var(--s2); }
+    .external > div { background: var(--subtle); border-radius: var(--small); padding: 12px; font-size: 12px; }
+    .detail { min-height: 300px; }
+    .detail h2 { margin: 8px 0 10px; }
+    .detail p { color: var(--muted); font-size: 13px; }
+    .detail ul, .evidence-notes { padding-left: 18px; font-size: 13px; }
+    .detail li + li, .evidence-notes li + li { margin-top: 8px; }
+    .source-links { display: grid; gap: 8px; margin-top: var(--s3); font: 11px var(--mono); }
+    .controls { justify-content: flex-start; flex-wrap: wrap; padding: 14px var(--s3); border-bottom: 1px solid var(--border); }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    select { min-width: 160px; border: 1px solid var(--border); border-radius: var(--small); padding: 8px 32px 8px 10px; background: var(--panel); }
+    .route-summary { display: flex; align-items: start; gap: var(--s2); margin-bottom: 15px; }
+    .route-summary h2 { margin-bottom: 4px; }
+    .flow-scroll { overflow-x: auto; }
+    #flow { width: 100%; min-width: 660px; color: var(--primary); display: block; }
+    #flow .flow-box { fill: var(--panel); stroke: var(--border); }
+    #flow .flow-box.active { fill: var(--primary-soft); stroke: var(--primary); }
+    #flow text { fill: var(--ink); font: 12px system-ui, sans-serif; }
+    #flow .flow-sub { font: 11px var(--mono); fill: var(--muted); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+    .block-title { display: block; margin: 12px 0 5px; color: var(--muted); font: 11px var(--mono); text-transform: uppercase; letter-spacing: .7px; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; color: var(--muted); font-weight: 500; background: var(--subtle); }
+    td, th { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    tbody tr:last-child td { border: 0; }
+    td.numeric { text-align: right; font-family: var(--mono); white-space: nowrap; }
+    .findings-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .8fr); gap: var(--s3); align-items: start; }
+    .finding { border: 1px solid var(--border); border-radius: var(--small); background: var(--panel); overflow: hidden; }
+    .finding summary { display: flex; align-items: center; gap: 9px; padding: 12px; cursor: pointer; list-style: none; }
+    .finding summary::after { content: "+"; margin-left: auto; color: var(--muted); }
+    .finding[open] summary::after { content: "−"; }
+    .finding summary strong { font-size: 13px; }
+    .finding-body { border-top: 1px solid var(--border); padding: 12px; font-size: 13px; }
+    .finding-body dt { color: var(--muted); font: 11px var(--mono); margin-top: 11px; text-transform: uppercase; }
+    .finding-body dd { margin: 4px 0; }
+    .filter-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: var(--s2); }
+    .filter-row button[aria-pressed="true"] { color: var(--primary); background: var(--primary-soft); border-color: var(--primary); }
+    .trace-list { display: grid; gap: 6px; margin: 14px 0; }
+    .trace-event { display: grid; grid-template-columns: 26px 1fr; gap: 8px; padding: 10px; border-radius: 6px; background: var(--subtle); opacity: .45; }
+    .trace-event.seen { opacity: 1; }
+    .trace-event.current { outline: 1px solid var(--primary); background: var(--primary-soft); }
+    .trace-event.invalid.seen { background: var(--red-soft); color: var(--red); }
+    .trace-event code { font-size: 11px; }
+    .trace-event span { display: block; font-size: 12px; margin-top: 2px; }
+    .trace-controls { justify-content: flex-start; }
+    .trace-controls output { font: 12px var(--mono); margin-left: auto; }
+    .bar { width: 75px; height: 5px; background: var(--subtle); border-radius: 3px; overflow: hidden; display: inline-block; margin-right: 8px; }
+    .bar i { display: block; height: 100%; background: var(--primary); }
+    .footnote { color: var(--muted); font-size: 12px; margin-top: 12px; }
+    footer { border-top: 1px solid var(--border); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: var(--s4); padding-top: 14px; color: var(--muted); font-size: 11px; }
+    .copy-row { display: flex; gap: 8px; align-items: start; }
+    .copy-row pre { flex: 1; margin: 0; }
+    @media (max-width: 1050px) { .grid { grid-template-columns: minmax(0, 1fr) 285px; } .shell { padding: 20px; } }
+    @media (max-width: 780px) {
+      .shell { padding: 16px; } .heading { display: block; } .heading > .pill { margin-top: 12px; }
+      .grid, .findings-layout, .two-col { grid-template-columns: 1fr; } .stats { grid-template-columns: 1fr 1fr; }
+      .lane { grid-template-columns: 84px 1fr; gap: 6px; } .node { flex-basis: 140px; }
+      .controls label, .controls select { width: 100%; } .topline { align-items: start; }
+      .stat { padding: 10px 13px; } .stat strong { font-size: 22px; } .detail { min-height: 0; }
+    }
+    @media print { nav, .controls, .filter-row, .trace-controls, .copy-row button { display: none; } [role="tabpanel"][hidden] { display: block !important; margin-top: 24px; } .shell { max-width: none; } .grid, .findings-layout { display: block; } .panel { break-inside: avoid; margin-bottom: 15px; } }
+  </style>
+</head>
+<body>
+<main class="shell">
+  <div class="topline">
+    <div class="brand"><svg width="25" height="25" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m3 20 4-11 6-6 6 2 3 5-7-2 3 5-8 2-7 5Z"/></svg> RAVEN <span class="pill">2.7.0</span></div>
+    <span class="mono">SOURCE REVIEW · 2026-09-22 · b6e0f71</span>
+  </div>
+  <header class="heading">
+    <div><p class="eyebrow">A model gateway, traced from request to response</p><h1>Architecture, under test.</h1><p class="lede">Explore the seven strategies, follow protocol conversions, and inspect the contracts that coverage alone missed.</p></div>
+    <span class="pill warn">8 defect groups reproduced</span>
+  </header>
+  <div class="stats" aria-label="Review summary">
+    <div class="stat"><div><strong>3 <span style="display:inline;font-size:14px">→ 7</span></strong><span>protocols → strategies</span></div><i class="stat-marker"></i></div>
+    <div class="stat"><div><strong>98.86<span style="display:inline;font-size:15px">%</span></strong><span>baseline Proxy line coverage</span></div><i class="stat-marker"></i></div>
+    <div class="stat"><div><strong>19 / 9</strong><span>new passes / expected failures</span></div><i class="stat-marker alert"></i></div>
+    <div class="stat"><div><strong>0</strong><span>live provider calls in this review</span></div><i class="stat-marker"></i></div>
+  </div>
+  <nav role="tablist" aria-label="Architecture review sections">
+    <button type="button" role="tab" id="tab-architecture" aria-controls="architecture" aria-selected="true">01 Architecture</button>
+    <button type="button" role="tab" id="tab-routes" aria-controls="routes" aria-selected="false" tabindex="-1">02 Route explorer</button>
+    <button type="button" role="tab" id="tab-contracts" aria-controls="contracts" aria-selected="false" tabindex="-1">03 Contract failures</button>
+    <button type="button" role="tab" id="tab-evidence" aria-controls="evidence" aria-selected="false" tabindex="-1">04 Test evidence</button>
+  </nav>
+
+  <section id="architecture" role="tabpanel" aria-labelledby="tab-architecture">
+    <div class="grid">
+      <div class="panel padded">
+        <div class="section-heading"><div><h2>Seven layers. Seven strategies.</h2><p class="small muted">Select a component to inspect its responsibilities and source.</p></div><span class="pill info">Bun + Hono · :7024</span></div>
+        <div class="layers" id="layers"></div>
+        <div class="external">
+          <div><h3>Management & observability</h3><p>Next.js / React / Basalt · :7023<br>Dashboard API → internal-key auth → SQLite.<br>Logs: WebSocket → Dashboard SSE → SWR / views.</p></div>
+          <div><h3>Upstream boundary</h3><p>Copilot: token snapshot + bounded 401 retry.<br>Custom providers: configured credentials.<br>Optional SOCKS5 bridge; Tavily for server tools.</p></div>
+        </div>
+      </div>
+      <aside class="stack">
+        <article id="node-detail" class="panel padded detail" aria-live="polite"></article>
+        <div class="callout warn"><strong>What “bidirectional” means here</strong><p>Anthropic request → OpenAI upstream, then OpenAI response → Anthropic. OpenAI clients targeting an Anthropic provider receive HTTP 400.</p></div>
+        <div class="callout info"><strong>Design 25 is still a proposal</strong><p>Messages → Responses has no registered strategy. Chat → Responses is implemented. The architecture explorer shows the executable paths.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="routes" role="tabpanel" aria-labelledby="tab-routes" hidden>
+    <div class="panel">
+      <div class="controls">
+        <label>Client protocol<select id="client"><option value="anthropic">Anthropic Messages</option><option value="openai">OpenAI Chat Completions</option><option value="responses">OpenAI Responses</option></select></label>
+        <label>Provider / model capability<select id="target"><option value="copilot-chat">Copilot · Chat model</option><option value="copilot-native">Copilot · Claude with native support</option><option value="copilot-no-native">Copilot · Claude without native support</option><option value="copilot-responses">Copilot · Responses-only model</option><option value="custom-openai">Custom OpenAI</option><option value="custom-anthropic">Custom Anthropic</option></select></label>
+        <label>Response mode<select id="mode"><option value="json">JSON</option><option value="sse">SSE stream</option></select></label>
+      </div>
+      <div class="padded">
+        <div id="route-summary" class="route-summary" aria-live="polite"></div>
+        <div class="flow-scroll"><svg id="flow" viewBox="0 0 1050 205" role="img" aria-label="Selected route request and response flow"></svg></div>
+        <div class="two-col"><div><span class="block-title">Request transformation</span><pre id="route-request"></pre></div><div><span class="block-title">Response transformation</span><pre id="route-response"></pre></div></div>
+        <div id="route-notes" class="callout info" style="margin-top:12px"></div>
+      </div>
+    </div>
+    <div class="panel padded" style="margin-top:18px">
+      <div class="section-heading"><h2>Transport and feature boundaries</h2><span class="pill">Read with “native” claims</span></div>
+      <div class="two-col">
+        <div><h3>Native preserves selected protocol content</h3><p class="small muted">JSON bodies preserve response fields, citations and signatures. SSE preserves data and named events, including unknown event types. The parser and writer reframe the wire: comments, id and retry are not preserved by the native strategies.</p></div>
+        <div><h3>Outbound payloads are normalized</h3><p class="small muted">Copilot rewrites model aliases, filters beta headers, normalizes thinking and tool options. Custom Anthropic lowercases the model, drops context_management, keeps only output_config.effort and omits the incoming anthropic-beta header. These paths are not byte-transparent request relays.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contracts" role="tabpanel" aria-labelledby="tab-contracts" hidden>
+    <div class="section-heading"><div><h2>High coverage, failing semantic contracts</h2><p class="small muted">Eight groups, nine reproducible failures. Production behavior was left unchanged.</p></div><span class="pill bad">4 × P1 · 4 × P2</span></div>
+    <div class="findings-layout">
+      <div><div class="filter-row" aria-label="Filter findings"><button type="button" data-filter="all" aria-pressed="true">All 8</button><button type="button" data-filter="P1" aria-pressed="false">P1 · execution / transport</button><button type="button" data-filter="P2" aria-pressed="false">P2 · semantics / metrics</button></div><div id="findings" class="stack"></div></div>
+      <aside class="stack">
+        <div class="panel padded">
+          <div class="section-heading"><div><p class="eyebrow">Step through the failure</p><h2>Parallel tool calls</h2></div><span class="pill bad">R02</span></div>
+          <p class="small muted">Two tool arguments arrive interleaved. Starting tool B closes tool A before A has finished receiving its JSON.</p>
+          <div id="trace" class="trace-list"></div>
+          <div class="trace-controls"><button type="button" id="trace-prev" aria-label="Previous stream event">← Back</button><button type="button" id="trace-next" aria-label="Next stream event">Next →</button><button type="button" id="trace-reset">Reset</button><output id="trace-position" aria-live="polite"></output></div>
+          <div id="trace-state" class="callout info" aria-live="polite" style="margin-top:14px"></div>
+        </div>
+        <div class="panel padded"><h3>Performance: cancellation is observable work</h3><p class="small muted" style="margin-top:8px">The cancellation fixture pauses after the first delivered event. After the client cancels, it releases 20 more upstream events. All 20 are still consumed and adapted; the SSE iterator also releases its lock without cancelling its body.</p><pre>delivered before cancel:       1
+adapted after cancel:         20
+upstream reader cancellations: 0</pre><p class="small muted">These are deterministic work counts, not a throughput benchmark. Network billing and socket lifetime were not measured.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="evidence" role="tabpanel" aria-labelledby="tab-evidence" hidden>
+    <div class="grid">
+      <div class="stack">
+        <div class="panel padded">
+          <div class="section-heading"><div><h2>Fresh baseline coverage</h2><p class="small muted">Detached local main · <code>b6e0f712ceaa035f55fb4d248be43ec490437b99</code></p></div><span class="pill good">2,676 tests passed</span></div>
+          <div class="table-scroll"><table><thead><tr><th>Lane / executed tests</th><th>Statements</th><th>Branches</th><th>Functions</th><th>Lines</th></tr></thead><tbody>
+            <tr><td><strong>Proxy</strong> · 132 files / 2,093</td><td class="numeric">98.02%</td><td class="numeric">95.10%</td><td class="numeric">97.01%</td><td class="numeric">98.86%</td></tr>
+            <tr><td><strong>Dashboard</strong> · 36 files / 538</td><td class="numeric">98.73%</td><td class="numeric">96.27%</td><td class="numeric">97.43%</td><td class="numeric">98.64%</td></tr>
+            <tr><td><strong>Scripts</strong> · 3 files / 45</td><td class="numeric">100%</td><td class="numeric">98.92%</td><td class="numeric">100%</td><td class="numeric">100%</td></tr>
+          </tbody></table></div>
+          <p class="footnote">All four global floors ≥95%. Proxy also enforces its 97.5% line floor, directory baseline and regression limits. Baseline tests have no skips. Installed toolchain: Bun 1.4.2 / Node 26.9.0 / Vitest 5.0.1; CI pins Bun 1.3.11, so this is local evidence.</p>
+        </div>
+        <div class="panel padded">
+          <div class="section-heading"><div><h2>Coverage within the critical path</h2><p class="small muted">Per-file values are diagnostic; the project enforces aggregate thresholds.</p></div></div>
+          <div class="table-scroll"><table><thead><tr><th>Module</th><th>Lines</th><th>Branches</th><th>What the percentage misses</th></tr></thead><tbody id="file-coverage"></tbody></table></div>
+        </div>
+        <div class="panel padded">
+          <div class="section-heading"><h2>Run the added contract suite</h2><span class="pill warn">19 pass · 9 expected fail</span></div>
+          <div class="copy-row"><pre id="test-command">cd packages/proxy
+bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contract stream-lifecycle-contract</pre><button type="button" id="copy-command">Copy</button></div><p id="copy-status" class="footnote" aria-live="polite"></p>
+          <p class="footnote">The nine bug assertions were first run as ordinary tests: 19 passed / 9 failed / 0 skipped. They are retained as <code>test.fails</code> with the intended contract. An unexpected pass after a fix fails the suite until the marker is removed. Expected failures are evidence of defects, never a correctness certificate.</p>
+          <div class="source-links" id="test-links"></div>
+        </div>
+      </div>
+      <aside class="stack">
+        <div class="callout warn"><strong>Can the existing UT guarantee translation?</strong><p>No. Execution coverage does not test all event orderings, capability combinations or cancellation. This review reproduced failures in modules with 100% line coverage.</p></div>
+        <div class="panel padded"><h3>Scope and exclusions</h3><ul class="evidence-notes"><li>Proxy: <code>src/**/*.ts</code>, excluding declarations, index.ts, migration.ts, paths.ts and upstream/interface.ts.</li><li>Dashboard: its declared non-View scope; UI wrappers and other configured exclusions remain unchanged.</li><li>Scripts: <code>scripts/lib/**/*.ts</code>, excluding their tests.</li><li>Live E2E, real provider credentials, socket-level cancellation and deployed services were not exercised.</li></ul></div>
+        <div class="panel padded"><h3>Passing contracts added</h3><ul class="evidence-notes"><li>Anthropic ↔ Chat text, usage and two-turn tool IDs / escaped JSON.</li><li>JSON / SSE stop-reason parity and sequential tool block lifecycles.</li><li>Native JSON unknown fields, citations, signatures and prompt-cache metadata.</li><li>Native SSE opaque signatures and future event types.</li><li>Chat ↔ Responses call_id integrity over two turns.</li><li>Explicit unsupported-route 400 responses without upstream calls.</li><li>UTF-8 parsing across every two-chunk byte split for LF and CR line endings.</li></ul></div>
+        <div class="panel padded"><h3>Performance evidence and limits</h3><ul class="evidence-notes"><li>R06 measures wasted work deterministically: all 20 waiting chunks are adapted after cancellation. It does not use a timing threshold.</li><li>Server-tool interception bypasses the ordinary Runner and buffers full responses before SSE replay, delaying the first output and retaining the buffered content.</li><li>The existing <code>test/perf/sse.bench.test.ts</code> benchmarks <code>parseSSELine</code> and <code>parseSSEStream</code>, often with one full input buffer. It does not measure the production <code>events(response)</code> parser.</li><li>Large incomplete SSE lines are repeatedly rescanned: a static risk, not a measured latency or memory result.</li></ul></div>
+        <div class="panel padded"><h3>Remaining protocol limits</h3><p class="small muted" style="margin-top:8px">Malformed/truncated tool arguments currently throw; fallback semantics need an explicit contract. Model-specific sampling restrictions and vendor-specific split id/name fields were inspected but not certified. No live provider or socket-level cancellation claim is made.</p></div>
+      </aside>
+    </div>
+  </section>
+  <footer><span>Offline document · no libraries, network requests or production credentials</span><span>Source and protocol references are linked on demand · formal L1 record: nmem</span></footer>
+</main>
+<script>
+(() => {
+  "use strict";
+  const baseline = "b6e0f712ceaa035f55fb4d248be43ec490437b99";
+  const base = `https://github.com/nocoo/raven/blob/${baseline}/`;
+  const source = (path, line = 1) => `<a href="${base}${path}#L${line}" target="_blank" rel="noreferrer">${path.replace("packages/proxy/src/", "")}:${line} ↗</a>`;
+  const components = {
+    ingress: { label: "HTTP ingress & auth", sub: "AI keys ≠ internal keys", layer: "01 · routes", text: "Hono exposes Messages, Chat and Responses generation endpoints plus models, embeddings and management routes. IP filtering and CORS wrap the app.", points: ["AI clients authenticate independently from Dashboard management.", "Route handlers parse payloads, derive identity and start request logs.", "The added route tests use the real in-process handlers and mocked fetch; existing app tests cover the auth boundary."], refs: [["app.ts", 48], ["middleware.ts", 1]] },
+    handlers: { label: "Generation handlers", sub: "messages / chat / responses", layer: "01 · routes", text: "Handlers combine provider routing, payload preparation and protocol selection before entering composition.", points: ["Anthropic custom providers take precedence over Copilot.", "Messages does a native capability check here, but dispatch repeats routing without it: R01.", "Optional server-tool interception bypasses the ordinary Runner through a separate buffered decorator."], refs: [["routes/messages/handler.ts", 90], ["routes/chat-completions/handler.ts", 57]] },
+    composition: { label: "Composition", sub: "dispatch + two registries", layer: "02 · composition", text: "The composition root constructs all seven concrete strategies with injected clients and behavior flags, then executes the shared Runner.", points: ["All current strategies are registered in one switch.", "The generic registry erases request types to unknown.", "A repeated strategy decision can therefore receive the wrong request shape at runtime."], refs: [["composition/index.ts", 63], ["composition/strategy-registry.ts", 67]] },
+    router: { label: "Pure router", sub: "pickStrategy", layer: "03 · core", text: "Provider matches, model names and catalog capabilities choose a strategy. Exact provider patterns outrank prefixes.", points: ["Messages: custom → catalogued Claude native → translated.", "Chat: custom → Responses-only shim → direct.", "Responses: Copilot only; custom providers are rejected."], refs: [["core/router.ts", 117]] },
+    runner: { label: "Runner / SSE loop", sub: "prepare → dispatch → adapt → log", layer: "03 · core", text: "One executor coordinates JSON and streaming results. Each strategy adapts chunks; the Runner writes Hono SSE and emits request_end.", points: ["Thrown errors are mapped and logged.", "In-band native error events are still logged as success: R07.", "Downstream cancellation does not stop the loop or cancel upstream: R06."], refs: [["core/runner.ts", 25], ["core/runner.ts", 69]] },
+    native: { label: "2 native Messages strategies", sub: "copilot-native / custom-anthropic", layer: "04 · strategies", text: "Both preserve response JSON bodies and forward SSE data/event fields while collecting token counters.", points: ["Copilot native includes one reasoning-effort fallback on a qualifying HTTP 400.", "Native input normalization still changes some fields and headers.", "Both depend on the same SSE parser and Runner lifecycle."], refs: [["strategies/copilot-native.ts", 55], ["strategies/custom-anthropic.ts", 43]] },
+    translated: { label: "2 translation strategies", sub: "copilot-translated / custom-openai", layer: "04 · strategies", text: "Anthropic clients send a translated Chat payload; JSON and Chat deltas are converted back to Anthropic. custom-openai also serves OpenAI clients directly.", points: ["This is request/response bidirectionality, not arbitrary client/provider interchange.", "Parallel tools, usage trailers, whitespace filtering and refusals fail independent semantic tests.", "Two-turn tool IDs and escaped JSON inputs survive the normal path."], refs: [["strategies/copilot-translated.ts", 65], ["strategies/custom-openai.ts", 1]] },
+    openai: { label: "3 OpenAI strategies", sub: "direct / responses / chat-via-responses", layer: "04 · strategies", text: "Chat direct and Responses forward their own protocols. Chat → Responses uses catalog endpoint capabilities and a dedicated adapter.", points: ["Chat ↔ Responses separates item_id from function call_id.", "Responses failure and incomplete events have dedicated handling.", "Messages → Responses is design-only; there is no eighth strategy."], refs: [["strategies/copilot-chat-via-responses.ts", 1], ["strategies/copilot-openai-direct.ts", 1], ["strategies/copilot-responses.ts", 1]] },
+    protocols: { label: "Protocol transforms", sub: "Anthropic ↔ Chat · Chat ↔ Responses", layer: "05 · protocols", text: "Request field mapping, response projection, stream state machines, model aliases and Anthropic sanitization live here.", points: ["Some sanitizers mutate block/tool metadata; they are not universally lossless.", "100% streaming line coverage still missed interleaved tool block lifecycles.", "Request and response transformations need semantic oracles beyond snapshots."], refs: [["protocols/translate/non-stream-translation.ts", 202], ["protocols/translate/stream-translation.ts", 27], ["protocols/chat-responses/stream.ts", 1]] },
+    upstream: { label: "HTTP clients", sub: "Copilot / custom · mocked in UT", layer: "06 · upstream", text: "HTTP clients own provider URLs, credentials, fetch calls and body parsing. Streaming clients use the shared SSE reader.", points: ["Copilot snapshots the token actually used for a request.", "A qualifying expired-token 401 may trigger one retry after refresh.", "No downstream AbortSignal is propagated to these fetch calls."], refs: [["upstream/copilot-openai.ts", 192], ["upstream/copilot-native.ts", 84], ["upstream/custom-anthropic.ts", 60]] },
+    state: { label: "State & control services", sub: "catalog · providers · token sentinel", layer: "07 · lib / util / db", text: "The shared runtime state caches models, providers and options. The token sentinel coordinates refresh; optional proxy routing uses the SOCKS5 bridge.", points: ["Model-name translation cache is bounded to 64 entries.", "Provider configuration and request metadata are persisted in SQLite.", "Server-tool decoration buffers responses and replays synthetic SSE."], refs: [["lib/state.ts", 1], ["lib/token-sentinel.ts", 1], ["strategies/support/server-tools.ts", 1]] },
+    telemetry: { label: "SSE, logs & SQLite", sub: "parser → log emitter → sinks", layer: "07 · lib / util / db", text: "Shared primitives parse transport frames and fan out structured events to the terminal, WebSocket and SQLite request sink.", points: ["CRLF split between reads corrupts event framing: R05.", "Logging success currently follows loop completion, even after an upstream error event.", "Dashboard charts depend on these usage and outcome counters."], refs: [["util/sse.ts", 160], ["util/log-emitter.ts", 1], ["db/request-sink.ts", 1]] },
+  };
+  const layers = [
+    ["01", "HTTP routes", ["ingress", "handlers"]], ["02", "Composition", ["composition"]],
+    ["03", "Core", ["router", "runner"]], ["04", "Strategies", ["native", "translated", "openai"]],
+    ["05", "Protocols", ["protocols"]], ["06", "Upstream", ["upstream"]], ["07", "Infrastructure", ["state", "telemetry"]],
+  ];
+  document.getElementById("layers").innerHTML = layers.map(([n, label, ids]) => `<div class="lane"><div class="lane-label"><b>${n}</b>${label}</div><div class="lane-nodes">${ids.map(id => `<button type="button" class="node" data-node="${id}" aria-pressed="false"><strong>${components[id].label}</strong><span>${components[id].sub}</span></button>`).join("")}</div></div>`).join("");
+  function selectNode(id) {
+    const node = components[id];
+    document.querySelectorAll("[data-node]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.node === id)));
+    document.getElementById("node-detail").innerHTML = `<span class="pill info">${node.layer}</span><h2>${node.label}</h2><p>${node.text}</p><ul>${node.points.map(point => `<li>${point}</li>`).join("")}</ul><div class="source-links">${node.refs.map(([path, line]) => source(`packages/proxy/src/${path}`, line)).join("")}</div>`;
+  }
+  document.querySelectorAll("[data-node]").forEach(button => button.addEventListener("click", () => selectNode(button.dataset.node)));
+  selectNode("protocols");
+
+  const tabButtons = [...document.querySelectorAll('[role="tab"]')];
+  function selectTab(id) {
+    tabButtons.forEach(button => { const selected = button.getAttribute("aria-controls") === id; button.setAttribute("aria-selected", String(selected)); button.tabIndex = selected ? 0 : -1; });
+    document.querySelectorAll('[role="tabpanel"]').forEach(panel => { panel.hidden = panel.id !== id; });
+  }
+  tabButtons.forEach((button, index) => {
+    button.addEventListener("click", () => selectTab(button.getAttribute("aria-controls")));
+    button.addEventListener("keydown", event => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === "Home" ? 0 : event.key === "End" ? tabButtons.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabButtons.length) % tabButtons.length;
+      tabButtons[next].click(); tabButtons[next].focus();
+    });
+  });
+
+  function decide(client, target) {
+    const custom = target.startsWith("custom-");
+    if ((client === "openai" && target === "custom-anthropic") || (client === "responses" && custom)) return { name: "Rejected by router", status: "HTTP 400", kind: "bad", endpoint: "No upstream request", request: "Unsupported client/provider pairing.", response: "invalid_request_error JSON", notes: "The route rejects before fetch. This is an explicit product boundary, covered by passing route tests." };
+    if (client === "anthropic" && target === "copilot-no-native") return { name: "Native / translated decision mismatch", status: "R01 · HTTP 500", kind: "bad", endpoint: "No upstream request", request: "Handler: native capability absent → { openAIPayload, originalModel }\nComposition: catalogued Claude → copilot-native\nNative strategy expects { payload, options }", response: "HTTP 500 · missing options.copilotModel", notes: "The native capability fallback is undone by the second pickStrategy call. A typed request/strategy association or a single authoritative decision would prevent this mismatch." };
+    if (client === "anthropic" && target === "copilot-responses") return { name: "copilot-translated · missing Messages shim", status: "Design only", kind: "warn", endpoint: "/chat/completions", request: "Anthropic → Chat payload\nRouter never inspects Responses-only capability for this client.", response: "Still expects Chat JSON / Chat chunks.", notes: "Actual code forwards to /chat/completions. A Responses-only model cannot use that endpoint. Design 25 describes the missing Messages → Responses strategy; it has not been implemented." };
+    if (client === "anthropic") {
+      if (target === "copilot-native" || target === "custom-anthropic") return { name: target === "copilot-native" ? "copilot-native" : "custom-anthropic", status: "Native path", kind: "good", endpoint: "/v1/messages", request: "Anthropic Messages → Anthropic Messages\nNormalize selected model / fields / headers before fetch.", response: "JSON: preserve response body\nSSE: preserve event + data, extract token counters", notes: "Passing tests pin content, unknown response fields, signatures and caching. Shared transport still has CRLF fragmentation (R05), cancellation (R06) and error-accounting (R07) defects." };
+      return { name: custom ? "custom-openai" : "copilot-translated", status: "Translation path", kind: "info", endpoint: custom ? "/v1/chat/completions" : "/chat/completions", request: "system → system message\ntool_use → tool_calls; tool_result → tool role\nimage(base64) → image_url; max_tokens → token limit", response: "JSON: choices → Anthropic content + stop_reason\nSSE: Chat deltas → Anthropic block lifecycle", notes: "Text and two-turn tool IDs pass. Parallel tool blocks (R02), standard usage trailers (R03), optional whitespace filtering (R04), and refusal preservation (R08) fail semantic contracts. Custom streams also omit stream_options.include_usage." };
+    }
+    if (client === "responses") return { name: "copilot-responses", status: "Responses path", kind: "good", endpoint: "/responses", request: "Responses input → Copilot Responses\nApply sampling/tool policy before dispatch.", response: "Responses JSON / named Responses events", notes: "Copilot models must actually support this endpoint; this client branch does not gate on catalog endpoint support. Native protocol does not mean every payload field is untouched." };
+    if (target === "copilot-responses") return { name: "copilot-chat-via-responses", status: "Chat ↔ Responses", kind: "info", endpoint: "/responses", request: "Chat messages → Responses input\ntool_calls.id → function_call.call_id\ntool result → function_call_output.call_id", response: "Responses output / events → Chat choices / chunks\nitem_id tracks an item; call_id identifies a tool call", notes: "The two-turn test deliberately uses different item_id and call_id. Only the call_id returns to the client and back upstream. The dedicated shim validates failures and stream replay separately." };
+    return { name: custom ? "custom-openai" : "copilot-openai-direct", status: "Chat path", kind: "good", endpoint: custom ? "/v1/chat/completions" : "/chat/completions", request: "Chat messages → Chat messages\nNormalize max_tokens → max_completion_tokens.", response: "Chat JSON / Chat SSE data", notes: "Same-protocol forwarding still shares the SSE parser and Runner. Passing ordinary JSON does not certify cancellation or fragmented CRLF behavior." };
+  }
+  function renderRoute() {
+    const client = document.getElementById("client").value;
+    const route = decide(client, document.getElementById("target").value);
+    const mode = document.getElementById("mode").value;
+    const inbound = { anthropic: "/v1/messages", openai: "/v1/chat/completions", responses: "/v1/responses" }[client];
+    document.getElementById("route-summary").innerHTML = `<span class="pill ${route.kind}">${route.status}</span><div><h2 id="strategy-name">${route.name}</h2><p class="small muted">${inbound} · ${mode === "sse" ? "stream: true" : "stream: false"}</p></div>`;
+    document.getElementById("route-request").textContent = route.request;
+    document.getElementById("route-response").textContent = `${mode === "sse" ? "Selected: streaming response" : "Selected: JSON response"}\n${route.response}`;
+    const notes = document.getElementById("route-notes"); notes.className = `callout ${route.kind}`; notes.textContent = route.notes;
+    const blocks = [["Client", inbound], ["Route handler", "parse + prepare"], ["Composition", "pick + build"], ["Runner", mode === "sse" ? "stream loop" : "JSON adapter"], ["Upstream", route.endpoint]];
+    const stopped = route.kind === "bad";
+    document.getElementById("flow").innerHTML = `<title>${route.name}: ${inbound} to ${route.endpoint}</title><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="currentColor"/></marker></defs><text x="14" y="20" class="flow-sub">REQUEST →</text>${blocks.map(([title, sub], i) => { const x = 12 + i * 210; return `${i < 4 ? `<path d="M${x + 180} 66h26" fill="none" stroke="currentColor" marker-end="url(#arrow)" ${stopped && i > 1 ? 'stroke-dasharray="3 5" opacity=".25"' : ''}/>` : ""}<rect class="flow-box ${i === 2 || i === 3 ? "active" : ""}" x="${x}" y="34" width="180" height="65" rx="9"/><text x="${x + 12}" y="59">${title}</text><text class="flow-sub" x="${x + 12}" y="81">${sub}</text>`; }).join("")}<path d="M943 109v36H102v-36" fill="none" stroke="currentColor" stroke-dasharray="5 4" marker-end="url(#arrow)"/><text x="370" y="173">${stopped ? "Local error response" : mode === "sse" ? "← adaptChunk → SSE events → client" : "← adaptJson → client response"}</text><text class="flow-sub" x="375" y="193">request_end → terminal / WebSocket / SQLite</text>`;
+  }
+  ["client", "target", "mode"].forEach(id => document.getElementById(id).addEventListener("change", renderRoute)); renderRoute();
+
+  const findings = [
+    { id: "R01", priority: "P1", title: "Native eligibility is decided twice", input: 'Catalog: claude-sonnet-4, supported_endpoints:["/chat/completions"]. Client: /v1/messages.', expected: "Select copilot-translated and return an Anthropic message.", actual: "Handler prepares a translated request; composition reselects copilot-native. Missing options causes HTTP 500 before fetch.", gap: "The existing fallback fixture uses gpt-4o, so it never exercises a catalogued Claude with no native endpoint.", fix: "Use one capability-aware strategy decision and preserve the request/strategy type relationship.", refs: [["core/router.ts", 107], ["routes/messages/handler.ts", 198], ["composition/index.ts", 63]] },
+    { id: "R02", priority: "P1", title: "Parallel tool deltas target closed blocks", input: 'call-a starts "{"; call-b starts "{"; later chunks complete both arguments.', expected: "Every input_json_delta belongs to a content block that is still open.", actual: "Starting call-b emits content_block_stop for call-a, then a later delta is emitted for the already closed call-a block.", gap: "Existing multiple-tool tests send complete {} arguments sequentially and assert increasing indices, not interleaved lifecycle validity.", fix: "Track completion for each tool; buffer interleaved fragments if needed to emit complete Anthropic block lifecycles.", refs: [["protocols/translate/stream-translation.ts", 116], ["protocols/translate/stream-translation.ts", 149]] },
+    { id: "R03", priority: "P2", title: "Standard streaming usage disappears", input: "Finish chunk without usage → choices:[] usage trailer containing 31 input, 11 cached, 7 output tokens.", expected: "Anthropic usage: 20 uncached input, 11 cache-read, 7 output tokens.", actual: "message_stop is emitted at finish_reason with zero usage; the subsequent usage-only chunk produces no events. Custom requests also do not opt into stream_options.include_usage.", gap: "Fixtures put usage in the finish chunk. The empty-choices test supplies usage:null. Strategy counters can be correct while the client still receives zeros.", fix: "Request upstream usage when supported and retain terminal state until final usage can be emitted before message_stop.", refs: [["protocols/translate/stream-translation.ts", 36], ["protocols/translate/stream-translation.ts", 165], ["protocols/translate/non-stream-translation.ts", 237]] },
+    { id: "R04", priority: "P2", title: "Whitespace filtering changes generated content", input: 'filterWhitespaceChunks=true; content deltas: "hello", " ", "world".', expected: '"hello world"', actual: '"helloworld". Newline-only tokens are also lost. Default setting is false.', gap: "The existing optimization test explicitly asserts that a single space is discarded; coverage endorses the lossy behavior.", fix: "Keep meaningful stream text intact. Any cosmetic presentation rule belongs in the client display layer.", refs: [["protocols/translate/stream-translation.ts", 71]] },
+    { id: "R05", priority: "P1", title: "A split CRLF detaches the SSE event name", input: 'Read 1: event: content_block_delta\\r\nRead 2: \\ndata: {…}\\r\\n\\r\\n', expected: "One content_block_delta event containing the JSON data.", actual: "Two events: a named event with empty data, followed by an unnamed event with the JSON. Native Anthropic clients can miss the content event.", gap: "Boundary tests only split LF framing; the CRLF test supplies all bytes in one read.", fix: "Remember a trailing CR across reads so the following LF is part of the same line ending.", refs: [["util/sse.ts", 246]] },
+    { id: "R06", priority: "P1", title: "Client cancellation leaves upstream work running", input: "Read one event, cancel the downstream reader, then release 20 waiting upstream events.", expected: "Stop adapting after cancellation; cancel the upstream body. Allow at most one already pending read.", actual: "All 20 extra events are consumed and adapted. Returning the SSE generator calls releaseLock but never reader.cancel (two reproductions).", gap: "Runner tests read every response to completion or make the generator throw. No test cancels the response body.", fix: "Propagate abort through Runner and the HTTP client, settle the upstream iterator and cancel its reader in cleanup.", refs: [["core/runner.ts", 71], ["util/sse.ts", 260]] },
+    { id: "R07", priority: "P2", title: "Native error events count as successful requests", input: 'HTTP 200 SSE carrying event:error with type:overloaded_error, then EOF.', expected: "Forward the error and record one request_end with an error outcome.", actual: "The error reaches the client, but request_end.status is success because no exception escaped the iterator.", gap: "Existing runner failures are thrown exceptions. They do not model application errors inside an otherwise successful HTTP stream.", fix: "Represent protocol failure in strategy stream state and let Runner use that outcome for the end log.", refs: [["strategies/custom-anthropic.ts", 77], ["core/runner.ts", 150]] },
+    { id: "R08", priority: "P2", title: "Explicit refusal becomes an empty normal turn", input: 'message:{content:null,refusal:"I cannot help with that request."}; finish_reason:"content_filter".', expected: "An explicit message.refusal preserves the refusal outcome via stop_reason:refusal. The test does not prescribe a content-block representation.", actual: "content:[] and stop_reason:end_turn. The refusal explanation and outcome are both lost.", gap: "The existing stop-reason test covers content_filter without message.refusal and expects end_turn; it never checks an explicit refusal.", fix: "Preserve explicit refusal semantics, and define a separate policy for displaying its text in JSON and SSE. Do not infer refusal solely from every content_filter result.", refs: [["protocols/translate/non-stream-translation.ts", 633], ["protocols/translate/stop-reason.ts", 7]] },
+  ];
+  document.getElementById("findings").innerHTML = findings.map(f => `<details class="finding" data-priority="${f.priority}" id="finding-${f.id}" ${f.id === "R01" ? "open" : ""}><summary><span class="pill ${f.priority === "P1" ? "bad" : "warn"}">${f.priority}</span><code>${f.id}</code><strong>${f.title}</strong></summary><div class="finding-body"><dl><dt>Trigger</dt><dd><pre>${f.input}</pre></dd><dt>Expected contract</dt><dd>${f.expected}</dd><dt>Observed failure</dt><dd>${f.actual}</dd><dt>Why existing UT missed it</dt><dd>${f.gap}</dd><dt>Repair direction</dt><dd>${f.fix}</dd></dl><div class="source-links">${f.refs.map(([path, line]) => source(`packages/proxy/src/${path}`, line)).join("")}</div></div></details>`).join("");
+  document.querySelectorAll("[data-filter]").forEach(button => button.addEventListener("click", () => {
+    document.querySelectorAll("[data-filter]").forEach(other => other.setAttribute("aria-pressed", String(other === button)));
+    document.querySelectorAll(".finding").forEach(finding => { finding.hidden = button.dataset.filter !== "all" && finding.dataset.priority !== button.dataset.filter; });
+  }));
+  const trace = [
+    ["content_block_start · index 0", "Tool A opens; its argument is only “{”.", "Open blocks: A", false],
+    ["content_block_stop · index 0", "Tool B begins, so the adapter prematurely closes A.", "Closed: A · argument incomplete", false],
+    ["content_block_start · index 1", "Tool B opens; its argument is only “{”.", "Open blocks: B · A remains closed", false],
+    ["input_json_delta · index 0", 'Tool A continues with “\"a\":1}”, after its stop event.', "Invalid lifecycle: delta for closed block 0", true],
+    ["input_json_delta · index 1", "Tool B completes normally. A has already violated the contract.", "B complete · A was emitted out of lifecycle", false],
+    ["message_delta → message_stop", "The response ends despite the malformed tool sequence.", "End of stream · protocol contract failed", true],
+  ];
+  let step = 0;
+  function renderTrace() {
+    document.getElementById("trace").innerHTML = trace.map(([title, detail, , invalid], i) => `<div class="trace-event ${i <= step ? "seen" : ""} ${i === step ? "current" : ""} ${invalid ? "invalid" : ""}"><code>${String(i + 1).padStart(2, "0")}</code><div><code>${title}</code><span>${detail}</span></div></div>`).join("");
+    document.getElementById("trace-position").textContent = `${step + 1} / ${trace.length}`;
+    document.getElementById("trace-prev").disabled = step === 0; document.getElementById("trace-next").disabled = step === trace.length - 1;
+    const status = document.getElementById("trace-state"); status.className = `callout ${step >= 3 ? "bad" : "info"}`; status.textContent = trace[step][2];
+  }
+  document.getElementById("trace-prev").addEventListener("click", () => { step = Math.max(0, step - 1); renderTrace(); });
+  document.getElementById("trace-next").addEventListener("click", () => { step = Math.min(trace.length - 1, step + 1); renderTrace(); });
+  document.getElementById("trace-reset").addEventListener("click", () => { step = 0; renderTrace(); }); renderTrace();
+
+  const coverage = [
+    ["core/router.ts", "100.00", "100.00", "R01 · handler/dispatch capability disagreement"],
+    ["core/runner.ts", "100.00", "96.15", "R06, R07 · cancellation and in-band errors"],
+    ["protocols/translate/non-stream-translation.ts", "99.10", "97.74", "R08 · refusal field never asserted"],
+    ["protocols/translate/stream-translation.ts", "100.00", "91.07", "R02–R04 · ordering, final usage, whitespace"],
+    ["protocols/translate/consume-stream.ts", "100.00", "100.00", "Malformed / vendor-specific fragments remain limited"],
+    ["strategies/copilot-native.ts", "100.00", "88.64", "Native success fixtures cannot prove transport behavior"],
+    ["strategies/custom-anthropic.ts", "96.77", "87.18", "R07 · upstream error event is forwarded as data"],
+    ["util/sse.ts", "100.00", "92.65", "R05, R06 · CRLF boundary and reader lifetime"],
+    ["protocols/chat-responses/stream.ts", "98.05", "96.44", "Two-turn call_id contract passes new route test"],
+  ];
+  document.getElementById("file-coverage").innerHTML = coverage.map(([path, lines, branches, note]) => `<tr><td>${source(`packages/proxy/src/${path}`)}</td><td class="numeric">${lines}%</td><td class="numeric"><span class="${Number(branches) < 95 ? "pill warn" : ""}">${branches}%</span></td><td>${note}</td></tr>`).join("");
+  const testFiles = ["protocols/translate/semantic-contract.test.ts", "routes/proxy-contract-audit.test.ts", "util/sse-boundary-contract.test.ts", "core/stream-lifecycle-contract.test.ts"];
+  document.getElementById("test-links").innerHTML = testFiles.map(path => `<a href="../packages/proxy/test/${path}">${path}</a>`).join("") + `<a href="https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create" target="_blank" rel="noreferrer">OpenAI Chat schema · usage trailer / tools / refusal ↗</a><a href="https://platform.claude.com/docs/en/api/messages-streaming" target="_blank" rel="noreferrer">Anthropic stream lifecycle · blocks / usage / errors ↗</a>`;
+  document.getElementById("copy-command").addEventListener("click", async () => {
+    const command = document.getElementById("test-command");
+    try { await navigator.clipboard.writeText(command.textContent); document.getElementById("copy-status").textContent = "Command copied."; }
+    catch { const range = document.createRange(); range.selectNodeContents(command); const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range); document.getElementById("copy-status").textContent = "Command selected. Use your browser’s Copy command."; }
+  });
+})();
+</script>
+</body>
+</html>
