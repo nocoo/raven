@@ -29,6 +29,7 @@
 | 25 | [Messages ↔ Responses Shim](./25-messages-responses-shim.md) | Design only; Messages → Responses is not implemented |
 | 26 | [Agent Operations](./26-agent-operations.md) | Proxy layers, shared logging and local operations |
 | 27 | [Monitor Dashboard](./27-monitor-dashboard.md) | Overview, model/key usage, protocol paths and request investigation |
+| 28 | [Key-Bound Routing](./28-key-bound-routing.md) | Design: key-bound rules, UTC schedules, shared upstream quotas and cached model catalogs |
 | — | [Interactive Proxy Architecture](./proxy-architecture.html) | Offline route explorer, eight protocol repairs with local commits, and fresh UT/coverage evidence |
 
 ## Archive
