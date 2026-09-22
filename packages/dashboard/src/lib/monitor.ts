@@ -1,4 +1,5 @@
 import { filtersToSearchParams, rangeToInterval, type AnalyticsFilters } from "./analytics-filters";
+import { cacheHitRate } from "./chart-config";
 import type { BreakdownEntry, ExtendedRequestRecord, ExtendedTimeseriesBucket, GroupedTimeseries, ProtocolCounts, ProtocolMode } from "./types";
 
 export type UsageDimension = "model" | "key_id";
@@ -114,6 +115,18 @@ export function trafficSeries(data: ExtendedTimeseriesBucket[], window: { from: 
     cache_read_tokens: existing.get(point.bucket)?.cache_read_tokens ?? 0,
     cache_write_tokens: existing.get(point.bucket)?.cache_write_tokens ?? 0,
   }));
+}
+
+/** Observed cache columns only. Absent, empty, and unobserved buckets stay null so the line does not invent 0%. */
+export function tokenSeries(data: ExtendedTimeseriesBucket[], window: { from: number; to: number }, intervalMs: number) {
+  const existing = new Map(data.map(bucket => [bucket.bucket, bucket]));
+  return trafficSeries(data, window, intervalMs).map(point => {
+    const source = existing.get(point.bucket);
+    return {
+      ...point,
+      cache_hit_rate: source ? cacheHitRate(source.cache_read_tokens, source.cache_write_tokens, source.observed_input_tokens) : null,
+    };
+  });
 }
 
 export function protocolLabel(mode: ProtocolMode): string {

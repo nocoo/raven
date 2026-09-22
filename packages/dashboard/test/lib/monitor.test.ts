@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bucketHref, chartActivity, dimensionHref, fillActivity, formatAxisTime, formatMonitorTime, intervalMilliseconds, keyIdentity, keyLabel, monitorHref, monitorInterval, nativeShare, protocolLabel, requestProtocolRoute, trafficSeries } from "@/lib/monitor";
+import { cacheHitRate } from "@/lib/chart-config";
+import { bucketHref, chartActivity, dimensionHref, fillActivity, formatAxisTime, formatMonitorTime, intervalMilliseconds, keyIdentity, keyLabel, monitorHref, monitorInterval, nativeShare, protocolLabel, requestProtocolRoute, tokenSeries, trafficSeries } from "@/lib/monitor";
 import { countActiveFilters, filterLabel, filtersToApiQuery, filtersToSearchParams, searchParamsToFilters } from "@/lib/analytics-filters";
 import { bucket, request } from "../helpers/monitor-fixtures";
 
@@ -72,6 +73,32 @@ describe("honest identity and protocol presentation", () => {
 });
 
 describe("monitor timelines", () => {
+  it("rates only observed cache columns and leaves empty or unobserved buckets null", () => {
+    const points = tokenSeries([
+      bucket({ cache_read_tokens: 8403, cache_write_tokens: 8403, observed_input_tokens: 16, input_tokens: 20_000, output_tokens: 9_000 }),
+      bucket({ bucket: 180_000, input_tokens: 500, output_tokens: 200, cache_read_tokens: 0, cache_write_tokens: 0, observed_input_tokens: 0 }),
+    ], { from: 60_000, to: 239_999 }, 60_000);
+    expect(points).toHaveLength(3);
+    expect(points[0]?.cache_hit_rate).toBeCloseTo(0.4995244, 7);
+    expect(points[0]?.cache_hit_rate).not.toBe(cacheHitRate(8403, 8403, 20_000));
+    expect(points[0]?.cache_hit_rate).not.toBe(cacheHitRate(8403, 8403, 9_000));
+    expect(points[1]).toMatchObject({ bucket: 120_000, input_tokens: 0, output_tokens: 0, cache_hit_rate: null });
+    expect(points[2]?.cache_hit_rate).toBeNull();
+  });
+
+  it("keeps a measured zero distinct from a missing observation", () => {
+    const points = tokenSeries([
+      bucket({ cache_read_tokens: 0, cache_write_tokens: 100, observed_input_tokens: 0, input_tokens: 0, output_tokens: 80 }),
+      bucket({ bucket: 120_000, cache_read_tokens: 80, cache_write_tokens: 0, observed_input_tokens: 0, input_tokens: 400, output_tokens: 20 }),
+      bucket({ bucket: 180_000, cache_read_tokens: 0, cache_write_tokens: 0, observed_input_tokens: 40, output_tokens: 10 }),
+      bucket({ bucket: 240_000, cache_read_tokens: 10, cache_write_tokens: 0, observed_input_tokens: undefined as unknown as number, input_tokens: 900, output_tokens: 100 }),
+      bucket({ bucket: 300_000, cache_read_tokens: Number.NaN, cache_write_tokens: 0, observed_input_tokens: 10, input_tokens: 10 }),
+    ], { from: 60_000, to: 300_000 }, 60_000);
+    expect(points.map(point => point.cache_hit_rate)).toEqual([0, 1, 0, null, null]);
+    expect(points[1]?.cache_hit_rate).not.toBe(cacheHitRate(80, 0, 400));
+    expect(tokenSeries([], { from: Number.NaN, to: 1 }, 60_000)).toEqual([]);
+  });
+
   it("fills traffic gaps with zero requests and missing latency, preserving recorded samples", () => {
     const points = trafficSeries([bucket()], { from: 60_000, to: 239_999 }, 60_000);
     expect(points).toHaveLength(3);
