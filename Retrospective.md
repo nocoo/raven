@@ -16,6 +16,12 @@ A UTC-only timestamp fix passed component tests but still failed Chrome hydratio
 
 The populated production fixture did not expose a development SSR failure: Monitor actions passed a server-component child into Basalt's Radix Slot, and fresh document requests through Caddy returned 500. Restarting Next did not fix it. Making the interactive Monitor panels an explicit client boundary restored document rendering. Local verification must include direct Caddy document loads as well as the production fixture and client navigation.
 
+## 2026-09-22: Build credentials polluted isolated unit tests
+
+The final protocol-repair verification harness reused its synthetic build credentials for Dashboard unit tests. Two tests failed because they intentionally omit `NEXTAUTH_SECRET` or `RAVEN_INTERNAL_KEY`, but inherited the harness values. The first run stopped after these failures; its results were not presented as a successful final verification. No real credentials, provider calls or daily development state were involved.
+
+The harness now removes authentication keys from the Dashboard unit-test environment, while retaining isolated state paths and an unreachable proxy URL. Build commands keep their synthetic credentials. Production code, test assertions, coverage thresholds and timeout settings were unchanged. Verification environments must distinguish build inputs from variables that individual tests control, including missing-variable cases.
+
 ## Undated entries migrated from the previous handbook
 
 - `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.

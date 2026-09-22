@@ -80,7 +80,6 @@
     .node strong { font-size: 12px; display: block; }
     .node span { display: block; font: 11px/1.6 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
     .node[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
-    .node[data-node="protocols"]::after, .node[data-node="runner"]::after { content: "!"; position: absolute; right: 10px; top: 9px; font: bold 11px var(--mono); color: var(--red); }
     .external { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); margin-top: var(--s2); }
     .external > div { background: var(--subtle); border-radius: var(--small); padding: 12px; font-size: 12px; }
     .detail { min-height: 300px; }
@@ -149,29 +148,29 @@
 <main class="shell">
   <div class="topline">
     <div class="brand"><svg width="25" height="25" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m3 20 4-11 6-6 6 2 3 5-7-2 3 5-8 2-7 5Z"/></svg> RAVEN <span class="pill">2.7.0</span></div>
-    <span class="mono">源码审查 · 2026-09-22 · b6e0f71</span>
+    <span class="mono">初审 b6e0f71 → 修复 0bd9a77 · 2026-09-22</span>
   </div>
   <header class="heading">
-    <div><p class="eyebrow">从请求到响应，理解模型代理的完整链路</p><h1>用测试审视架构与协议正确性</h1><p class="lede">探索七种路由策略、跟踪协议转换，查看高覆盖率仍然遗漏的正确性问题。</p></div>
-    <span class="pill warn">已复现 8 类缺陷</span>
+    <div><p class="eyebrow">从请求到响应，理解模型代理的完整链路</p><h1>用测试审视架构与协议正确性</h1><p class="lede">探索七种路由策略，查看 8 类协议缺陷的复现、修复、独立 review 与本地提交记录。</p></div>
+    <span class="pill good">8 / 8 已修复 · 本地 main</span>
   </header>
   <div class="stats" aria-label="审查概览">
     <div class="stat"><div><strong>3 <span style="display:inline;font-size:14px">→ 7</span></strong><span>协议数量 → 策略数量</span></div><i class="stat-marker"></i></div>
-    <div class="stat"><div><strong>98.86<span style="display:inline;font-size:15px">%</span></strong><span>Proxy 基线行覆盖率</span></div><i class="stat-marker"></i></div>
-    <div class="stat"><div><strong>19 / 9</strong><span>新增通过 / 预期失败</span></div><i class="stat-marker alert"></i></div>
+    <div class="stat"><div><strong>98.89<span style="display:inline;font-size:15px">%</span></strong><span>修复后 Proxy 行覆盖率</span></div><i class="stat-marker"></i></div>
+    <div class="stat"><div><strong>8 / 8</strong><span>逐项复现 → 修复 → review → 提交</span></div><i class="stat-marker"></i></div>
     <div class="stat"><div><strong>0</strong><span>本次审查的真实上游调用次数</span></div><i class="stat-marker"></i></div>
   </div>
   <nav role="tablist" aria-label="架构审查栏目">
     <button type="button" role="tab" id="tab-architecture" aria-controls="architecture" aria-selected="true">01 项目架构</button>
     <button type="button" role="tab" id="tab-routes" aria-controls="routes" aria-selected="false" tabindex="-1">02 路由探索</button>
-    <button type="button" role="tab" id="tab-contracts" aria-controls="contracts" aria-selected="false" tabindex="-1">03 已复现缺陷</button>
+    <button type="button" role="tab" id="tab-contracts" aria-controls="contracts" aria-selected="false" tabindex="-1">03 缺陷与修复</button>
     <button type="button" role="tab" id="tab-evidence" aria-controls="evidence" aria-selected="false" tabindex="-1">04 测试证据</button>
   </nav>
 
   <section id="architecture" role="tabpanel" aria-labelledby="tab-architecture">
     <div class="grid">
       <div class="panel padded">
-        <div class="section-heading"><div><h2>七层架构，七种策略</h2><p class="small muted">点击组件，查看职责、审查发现与源码位置。</p></div><span class="pill info">Bun + Hono · :7024</span></div>
+        <div class="section-heading"><div><h2>七层架构，七种策略</h2><p class="small muted">点击组件查看当前职责与修复；源码链接固定为初审快照，修复内容以本地 commit 为准。</p></div><span class="pill info">Bun + Hono · :7024</span></div>
         <div class="layers" id="layers"></div>
         <div class="external">
           <div><h3>管理与可观测性</h3><p>Next.js / React / Basalt · :7023<br>管理面板 API → 内部密钥认证 → SQLite。<br>日志：WebSocket → 管理面板 SSE → SWR / 视图。</p></div>
@@ -203,36 +202,59 @@
     <div class="panel padded" style="margin-top:18px">
       <div class="section-heading"><h2>传输与功能边界</h2><span class="pill">理解“原生透传”的范围</span></div>
       <div class="two-col">
-        <div><h3>原生路径保留部分协议内容</h3><p class="small muted">JSON 响应保留字段、引用与签名。SSE 保留 data 和具名事件，包括未知事件类型。但解析器和写入器会重建报文，原生策略不保留注释、id 和 retry 等传输元数据。</p></div>
+        <div><h3>原生路径保留部分协议内容</h3><p class="small muted">Anthropic 原生 JSON 保留响应字段、引用与签名，SSE 保留 data 和具名事件，包括未知类型。解析器和写入器会重建报文；Anthropic 原生策略不转发注释、id、retry，Chat / Responses 路径则保留其已有的传输字段行为。</p></div>
         <div><h3>上游请求会经过规范化</h3><p class="small muted">Copilot 会处理模型别名、过滤 beta 请求头，并规范化 thinking 与工具选项。自定义 Anthropic 上游会将模型名转为小写、删除 context_management、仅保留 output_config.effort，且不转发入站的 anthropic-beta 请求头。因此，这些路径并非字节级透传。</p></div>
       </div>
     </div>
   </section>
 
   <section id="contracts" role="tabpanel" aria-labelledby="tab-contracts" hidden>
-    <div class="section-heading"><div><h2>高覆盖率下，仍有协议语义不正确</h2><p class="small muted">8 类缺陷，9 个可复现的失败用例。本次未修改生产逻辑。</p></div><span class="pill bad">4 × P1 · 4 × P2</span></div>
+    <div class="section-heading"><div><h2>8 类缺陷已逐项修复</h2><p class="small muted">每项先以普通 UT 复现，再修复、独立 review、提交。9 个初审失败契约均已转为普通回归测试。</p></div><span class="pill good">4 × P1 · 4 × P2 · 已验证</span></div>
     <div class="findings-layout">
       <div><div class="filter-row" aria-label="筛选缺陷"><button type="button" data-filter="all" aria-pressed="true">全部 8 类</button><button type="button" data-filter="P1" aria-pressed="false">P1 · 执行 / 传输</button><button type="button" data-filter="P2" aria-pressed="false">P2 · 语义 / 统计</button></div><div id="findings" class="stack"></div></div>
       <aside class="stack">
         <div class="panel padded">
-          <div class="section-heading"><div><p class="eyebrow">逐步回放失败过程</p><h2>并行工具调用</h2></div><span class="pill bad">R02</span></div>
-          <p class="small muted">两个工具的参数交错到达。工具 A 的 JSON 尚未接收完整，工具 B 的开始事件就提前关闭了 A。</p>
-          <div id="trace" class="trace-list"></div>
+          <div class="section-heading"><div><p class="eyebrow">对照修复前后的事件顺序</p><h2>并行工具调用</h2></div><span class="pill good" id="trace-badge">R02 · 修复后</span></div>
+          <p class="small muted">两个工具的参数交错到达。修复后缓存工具参数，在 finish_reason 处按工具索引逐个输出；文本仍实时传递。</p>
+          <label class="small">回放版本 <select id="trace-version"><option value="fixed">修复后</option><option value="baseline">初审失败复现</option></select></label><div id="trace" class="trace-list"></div>
           <div class="trace-controls"><button type="button" id="trace-prev" aria-label="上一个流事件">← 上一步</button><button type="button" id="trace-next" aria-label="下一个流事件">下一步 →</button><button type="button" id="trace-reset">重置</button><output id="trace-position" aria-live="polite"></output></div>
           <div id="trace-state" class="callout info" aria-live="polite" style="margin-top:14px"></div>
         </div>
-        <div class="panel padded"><h3>性能问题：取消后仍有多余工作</h3><p class="small muted" style="margin-top:8px">测试在交付第一个事件后暂停上游。客户端取消后，再释放 20 个事件，结果全部仍被消费和转换。SSE 迭代器退出时也只释放读取锁，没有取消响应流。</p><pre>取消前已交付的事件：    1
-取消后仍被转换的事件： 20
-上游读取器取消次数：    0</pre><p class="small muted">以上是确定性的工作量计数，没有用耗时阈值判断性能。本次未测量网络计费或套接字生命周期。</p></div>
+        <div class="panel padded"><h3>取消后停止无效工作</h3><p class="small muted" style="margin-top:8px">同一个确定性用例：交付第一个事件后取消下游，再释放 20 个事件。修复后不再转换新分片，读取器提前退出会取消上游响应体。</p><pre>                         初审 → 修复后
+取消后仍被转换的事件：     20 → 0
+上游读取器取消次数：        0 → 1
+允许的已在途读取：              ≤ 1</pre><p class="small muted">以上是确定性的工作量计数，没有用耗时阈值判断性能。本次未测量网络计费或套接字生命周期。</p></div>
       </aside>
     </div>
   </section>
 
   <section id="evidence" role="tabpanel" aria-labelledby="tab-evidence" hidden>
+    <div class="panel padded" style="margin-bottom:var(--s3)">
+      <div class="section-heading"><div><h2>修复后的独立验证</h2><p class="small muted">Pi review pane · 固定代码版本 <code>0bd9a778328fbdcd305892e9185ed468b4519c47</code> · 2026-09-22</p></div><span class="pill good">2,971 项 UT 全部通过</span></div>
+      <div class="table-scroll"><table><thead><tr><th>模块 / 已执行测试</th><th>语句</th><th>分支</th><th>函数</th><th>行</th></tr></thead><tbody><tr><td><strong>Proxy</strong> · 145 个文件 / 2,354 项</td><td class="numeric">98.07%</td><td class="numeric">95.40%</td><td class="numeric">97.37%</td><td class="numeric">98.89%</td></tr><tr><td><strong>Dashboard</strong> · 39 个文件 / 572 项</td><td class="numeric">98.88%</td><td class="numeric">96.06%</td><td class="numeric">97.86%</td><td class="numeric">98.78%</td></tr><tr><td><strong>脚本</strong> · 3 个文件 / 45 项</td><td class="numeric">100.00%</td><td class="numeric">98.92%</td><td class="numeric">100.00%</td><td class="numeric">100.00%</td></tr></tbody></table></div>
+      <div class="two-col" style="margin-top:var(--s2)">
+        <div><h3>构建与静态检查通过</h3><p class="small muted">Dashboard 生产构建、Proxy / Dashboard 全新类型检查（<code>--incremental false</code>）、全量 Biome 与架构门禁通过。每个修复 commit 的九项正常提交门禁均通过；未跳过门禁或降低阈值。</p></div>
+        <div><h3>原始缺陷全部转为普通回归</h3><p class="small muted">四个初审契约文件现有 55 项普通测试全部通过，已计入 Proxy 总数。测试目录与脚本内未发现 <code>only / skip / todo / fails</code> 标记。覆盖率仍使用项目原有范围与基线。</p></div>
+      </div>
+      <p class="footnote">Proxy 执行正式 <code>bun run gate:coverage</code>，包括脚本覆盖率、四项 95% 阈值、97.5% 行下限、目录基线、回退限制和未测试文件检查。工具链：Bun 1.4.2 / Node v26.9.0 / Vitest 5.0.1；这是本地验证，未执行 CI 或部署。</p>
+      <p class="footnote">报告页面已通过本机 Chrome 离线交互检查：12 个架构节点、36 种路由组合、8 条修复记录、筛选与事件回放、复制命令及键盘切换；390 / 768 / 1500 像素宽度无整页横向溢出，页面错误与自动网络请求均为 0。</p>
+      <details style="margin-top:var(--s2)"><summary>查看隔离条件、执行命令与验证过程</summary>
+        <p class="footnote">在固定 revision 的独立工作区复用已安装依赖，未复制 .env 或真实 token。配置、数据库和令牌路径均指向本次临时目录；上游调用由 UT mock，构建指向不可达的本地代理。未改动日常 Dashboard 的 .next、实际数据库或服务进程。</p>
+        <div class="table-scroll"><table><thead><tr><th>工作目录</th><th>执行入口</th><th>结果 / 耗时</th></tr></thead><tbody>
+          <tr><td>根目录</td><td><code>bun run gate:coverage</code></td><td>通过 · 10.22 秒</td></tr>
+          <tr><td>packages/dashboard</td><td><code>node ../../node_modules/vitest/vitest.mjs run --coverage</code></td><td>通过 · 14.15 秒</td></tr>
+          <tr><td>根目录</td><td><code>bun run build</code></td><td>通过 · 10.89 秒</td></tr>
+          <tr><td>两个 package</td><td><code>tsc --noEmit --incremental false</code></td><td>通过 · 0.55 / 0.76 秒</td></tr>
+          <tr><td>根目录</td><td><code>bun run lint</code> / <code>bun run gate:arch</code></td><td>通过 · 1.16 / 1.49 秒</td></tr>
+        </tbody></table></div>
+        <p class="footnote">所有 Vitest 命令限定 <code>VITEST_MAX_WORKERS=2</code>。Proxy 与脚本使用 Bun，Dashboard 使用 Node。首次验证因脚本把构建用的假密钥注入 Dashboard 单测，导致两条缺失环境变量用例失败；分离单测环境后完整重跑通过。源码、测试断言、超时与门槛未作迎合性调整，经过见 <a href="../Retrospective.md">Retrospective.md</a>。</p>
+        <p class="footnote">正式 L1 评级仍为 B：一致的 Git index 检查快照、lint-staged 与其他检查并发修改工作区、根脚本缺少类型检查入口，均未在本轮协议修复中处理。历史失败拦截证据与最新结果保留在同一条 nmem 记录。</p>
+      </details>
+    </div>
     <div class="grid">
       <div class="stack">
         <div class="panel padded">
-          <div class="section-heading"><div><h2>本次实测的基线覆盖率</h2><p class="small muted">本地 main 的独立审计工作区 · <code>b6e0f712ceaa035f55fb4d248be43ec490437b99</code></p></div><span class="pill good">2,676 项测试通过</span></div>
+          <div class="section-heading"><div><h2>初审基线覆盖率（历史证据）</h2><p class="small muted">本地 main 的独立审计工作区 · <code>b6e0f712ceaa035f55fb4d248be43ec490437b99</code></p></div><span class="pill good">2,676 项测试通过</span></div>
           <div class="table-scroll"><table><thead><tr><th>模块 / 已执行测试</th><th>语句</th><th>分支</th><th>函数</th><th>行</th></tr></thead><tbody>
             <tr><td><strong>代理</strong> · 132 个文件 / 2,093 项</td><td class="numeric">98.02%</td><td class="numeric">95.10%</td><td class="numeric">97.01%</td><td class="numeric">98.86%</td></tr>
             <tr><td><strong>管理面板</strong> · 36 个文件 / 538 项</td><td class="numeric">98.73%</td><td class="numeric">96.27%</td><td class="numeric">97.43%</td><td class="numeric">98.64%</td></tr>
@@ -241,27 +263,27 @@
           <p class="footnote">四项全局覆盖率门槛均为 ≥95%。Proxy 还执行 97.5% 的行覆盖率门槛、目录基线及回退限制。基线测试无跳过项。本机工具链为 Bun 1.4.2 / Node 26.9.0 / Vitest 5.0.1；CI 固定使用 Bun 1.3.11，因此这些结果属于本地验证证据。</p>
         </div>
         <div class="panel padded">
-          <div class="section-heading"><div><h2>关键路径的覆盖率</h2><p class="small muted">单文件数据用于定位盲点；项目门禁执行汇总覆盖率阈值。</p></div></div>
+          <div class="section-heading"><div><h2>初审关键路径的覆盖率</h2><p class="small muted">单文件数据用于定位盲点；项目门禁执行汇总覆盖率阈值。</p></div></div>
           <div class="table-scroll"><table><thead><tr><th>模块</th><th>行</th><th>分支</th><th>百分比未能说明的问题</th></tr></thead><tbody id="file-coverage"></tbody></table></div>
         </div>
         <div class="panel padded">
-          <div class="section-heading"><h2>运行新增的协议契约测试</h2><span class="pill warn">19 项通过 · 9 项预期失败</span></div>
+          <div class="section-heading"><h2>运行新增的协议契约测试</h2><span class="pill good">55 项通过 · 0 项预期失败</span></div>
           <div class="copy-row"><pre id="test-command">cd packages/proxy
-bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contract stream-lifecycle-contract</pre><button type="button" id="copy-command">复制命令</button></div><p id="copy-status" class="footnote" aria-live="polite"></p>
-          <p class="footnote">首次按普通测试运行时，结果为 19 项通过、9 项失败、0 项跳过。现用 <code>test.fails</code> 保留这 9 个缺陷的预期契约。修复后，若测试意外通过，测试套件会报错，提醒移除标记。“预期失败”代表已知缺陷仍可复现，不代表实现已正确。</p>
-          <div class="source-links" id="test-links"></div>
+VITEST_MAX_WORKERS=2 bun ../../node_modules/vitest/vitest.mjs run semantic-contract proxy-contract-audit sse-boundary-contract stream-lifecycle-contract</pre><button type="button" id="copy-command">复制命令</button></div><p id="copy-status" class="footnote" aria-live="polite"></p>
+          <p class="footnote">初审普通测试为 19 项通过、9 项失败，随后曾用 <code>test.fails</code> 保存已知缺陷。此次逐项移除标记，先确认真实失败，再修复并加入边界用例。当前这四个契约文件全部作为普通测试通过；没有跳过或预期失败。</p>
+          <p class="footnote">以下链接包含四个初审契约文件，以及全量门禁执行的新增策略回归套件。</p><div class="source-links" id="test-links"></div>
         </div>
       </div>
       <aside class="stack">
-        <div class="callout warn"><strong>现有 UT 能确保翻译正确吗？</strong><p>不能。执行覆盖率没有验证所有事件顺序、模型能力组合和取消行为。本次在行覆盖率为 100% 的模块中，仍复现了协议错误。</p></div>
+        <div class="callout warn"><strong>现有 UT 能确保翻译正确吗？</strong><p>UT 能证明已覆盖的契约，不能保证所有供应商与输入都正确。初审在行覆盖率 100% 的模块中仍复现缺陷；当前新增回归约束事件顺序、模型能力、用量、拒答和取消行为，保留未验证范围。</p></div>
         <div class="panel padded"><h3>验证范围与排除项</h3><ul class="evidence-notes"><li>Proxy：<code>src/**/*.ts</code>，排除声明文件、index.ts、migration.ts、paths.ts 和 upstream/interface.ts。</li><li>管理面板：按项目声明的非 View 范围统计；UI 包装层及其他既有排除项未作调整。</li><li>脚本：<code>scripts/lib/**/*.ts</code>，不含测试文件。</li><li>未验证真实端到端调用、真实上游凭据、套接字级取消或已部署服务。</li></ul></div>
-        <div class="panel padded"><h3>新增且通过的契约验证</h3><ul class="evidence-notes"><li>Anthropic ↔ Chat 的文本、用量，以及两轮交互中的工具 ID 和转义 JSON。</li><li>JSON / SSE 结束原因一致性，以及顺序工具调用的内容块生命周期。</li><li>原生 JSON 中的未知字段、引用、签名和提示词缓存元数据。</li><li>原生 SSE 中的签名内容与未知事件类型。</li><li>两轮 Chat ↔ Responses 交互中的 call_id 完整性。</li><li>不支持的路由明确返回 400，且不调用上游。</li><li>对 LF / CR 行尾，在每个可能的字节位置分成两片，验证 UTF-8 解析。</li></ul></div>
-        <div class="panel padded"><h3>性能证据与局限</h3><ul class="evidence-notes"><li>R06 用确定性计数验证多余工作：取消后仍转换全部 20 个待处理分片，不依赖计时阈值。</li><li>服务端工具拦截走独立路径，绕过常规 Runner；完整缓存响应后再回放 SSE，会推迟首次输出并占用缓存内存。</li><li>既有 <code>test/perf/sse.bench.test.ts</code> 测量的是 <code>parseSSELine</code> 和 <code>parseSSEStream</code>，通常一次提供完整缓冲区，没有测量生产路径使用的 <code>events(response)</code> 解析器。</li><li>未结束的超长 SSE 行会被反复扫描。这是静态审查发现的风险，尚无延迟或内存实测结果。</li></ul></div>
-        <div class="panel padded"><h3>尚未验证的协议边界</h3><p class="small muted" style="margin-top:8px">格式错误或被截断的工具参数目前会抛错，回退行为需要明确契约。已检查特定模型的采样限制、特定供应商拆分 id/name 的情况，但未证明其正确性。本次结果不涵盖真实上游或套接字级取消。</p></div>
+        <div class="panel padded"><h3>新增且通过的契约验证</h3><ul class="evidence-notes"><li>Anthropic ↔ Chat 的文本、用量，以及两轮交互中的工具 ID 和转义 JSON。</li><li>JSON / SSE 结束原因一致性，以及顺序工具调用的内容块生命周期。</li><li>原生 JSON 中的未知字段、引用、签名和提示词缓存元数据。</li><li>原生 SSE 中的签名内容与未知事件类型；流内错误保留原样转发并计入失败。</li><li>七种策略的请求 / 响应取消、挂起读取、背压与迟到 dispatch；服务端工具和重试路径也纳入取消验证。</li><li>两轮 Chat ↔ Responses 交互中的 call_id 完整性。</li><li>不支持的路由明确返回 400，且不调用上游。</li><li>对 LF / CR / CRLF 行尾，在每个可能的字节位置分片，并覆盖逐字节、空读取和 UTF-8 边界。</li></ul></div>
+        <div class="panel padded"><h3>性能证据与局限</h3><ul class="evidence-notes"><li>R06 的确定性对照：取消后额外转换从 20 降为 0，提前退出会取消上游读取器；没有测量网络计费或套接字关闭时延。</li><li>服务端工具拦截走独立路径，绕过常规 Runner；完整缓存响应后再回放 SSE，会推迟首次输出并占用缓存内存。</li><li>既有 <code>test/perf/sse.bench.test.ts</code> 测量的是 <code>parseSSELine</code> 和 <code>parseSSEStream</code>，通常一次提供完整缓冲区，没有测量生产路径使用的 <code>events(response)</code> 解析器。</li><li>R05 改为仅扫描新增分片，并在完整行出现时拼接缓存，消除反复扫描未结束长行的路径；字节分片与长行 UT 通过，未做吞吐或内存基准测量。</li></ul></div>
+        <div class="panel padded"><h3>尚未验证的协议边界</h3><p class="small muted" style="margin-top:8px">常规 Runner 翻译流缺失 finish_reason 时已验证会报错，不会伪造成功结束。格式错误的工具参数、供应商对 id/name 的特殊拆分及所有模型采样组合仍未穷尽验证。翻译工具参数会缓存到 finish_reason；服务端工具仍会完整缓存响应再回放 SSE，其重组器的异常工具分片与截断行为不在上述 Runner 契约的证明范围内。</p></div>
       </aside>
     </div>
   </section>
-  <footer><span>离线页面 · 无外部依赖、自动网络请求或生产凭据</span><span>点击链接可查看源码与协议参考 · 正式 L1 记录保存在 nmem</span></footer>
+  <footer><span>离线页面 · 无外部依赖、自动网络请求或生产凭据</span><span>修复提交仅在本地 main，尚未推送 · 正式 L1 记录保存在 nmem</span></footer>
 </main>
 <script>
 (() => {
@@ -271,17 +293,17 @@ bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contra
   const source = (path, line = 1) => `<a href="${base}${path}#L${line}" target="_blank" rel="noreferrer">${path.replace("packages/proxy/src/", "")}:${line} ↗</a>`;
   const components = {
     ingress: { label: "HTTP 入口与认证", sub: "AI 调用密钥 ≠ 内部管理密钥", layer: "01 · 路由层", text: "Hono 提供 Messages、Chat、Responses 生成接口，以及模型、嵌入和管理路由。应用入口统一处理 IP 过滤与 CORS。", points: ["AI 客户端与管理面板使用独立的认证边界。", "路由处理器解析请求、提取调用方身份并启动请求日志。", "新增路由测试运行真实的进程内处理器，并模拟 fetch；既有应用测试覆盖认证边界。"], refs: [["app.ts", 48], ["middleware.ts", 1]] },
-    handlers: { label: "生成请求处理器", sub: "messages / chat / responses", layer: "01 · 路由层", text: "处理器先匹配上游、准备请求并选择协议，再进入组装层。", points: ["Anthropic 请求优先匹配自定义上游，再考虑 Copilot。", "Messages 在此检查原生能力，但后续调度再次选路时遗漏该检查：R01。", "可选的服务端工具拦截通过独立的缓存装饰器执行，绕过常规 Runner。"], refs: [["routes/messages/handler.ts", 90], ["routes/chat-completions/handler.ts", 57]] },
-    composition: { label: "组装层", sub: "请求调度 + 两套注册表", layer: "02 · 组装层", text: "组装入口注入客户端与行为选项，创建七种具体策略，再交由共享 Runner 执行。", points: ["当前所有策略都在同一个 switch 中注册。", "通用注册表将请求类型擦除为 unknown。", "重复选路后，实际策略可能收到形状不匹配的请求对象。"], refs: [["composition/index.ts", 63], ["composition/strategy-registry.ts", 67]] },
+    handlers: { label: "生成请求处理器", sub: "messages / chat / responses", layer: "01 · 路由层", text: "处理器先匹配上游、准备请求并选择协议，再进入组装层。", points: ["Anthropic 请求优先匹配自定义上游，再考虑 Copilot。", "R01 已修复：处理器与调度共用同一份模型目录，只有明确支持 Messages 端点才走原生。", "可选的服务端工具拦截通过独立的缓存装饰器执行，绕过常规 Runner。"], refs: [["routes/messages/handler.ts", 90], ["routes/chat-completions/handler.ts", 57]] },
+    composition: { label: "组装层", sub: "请求调度 + 两套注册表", layer: "02 · 组装层", text: "组装入口注入客户端与行为选项，创建七种具体策略，再交由共享 Runner 执行。", points: ["当前所有策略都在同一个 switch 中注册。", "通用注册表将请求类型擦除为 unknown。", "R01 已统一原生能力判断，Chat-only Claude 正确进入翻译策略。"], refs: [["composition/index.ts", 63], ["composition/strategy-registry.ts", 67]] },
     router: { label: "纯函数路由器", sub: "pickStrategy", layer: "03 · 核心层", text: "根据上游匹配、模型名称与目录能力选择策略。上游模式的精确匹配优先于前缀匹配。", points: ["Messages：自定义上游 → 目录中的 Claude 原生路径 → 翻译路径。", "Chat：自定义上游 → 仅支持 Responses 时转换 → 直接转发。", "Responses：仅支持 Copilot；拒绝自定义上游。"], refs: [["core/router.ts", 117]] },
-    runner: { label: "Runner / SSE 执行循环", sub: "准备 → 调度 → 转换 → 记录", layer: "03 · 核心层", text: "统一执行器协调 JSON 与流式结果。策略负责分片转换，Runner 通过 Hono 写入 SSE 并发送 request_end 日志。", points: ["抛出的异常会被转换并记录。", "原生流内的错误事件仍被记为成功：R07。", "下游取消未能停止循环，也未取消上游：R06。"], refs: [["core/runner.ts", 25], ["core/runner.ts", 69]] },
+    runner: { label: "Runner / SSE 执行循环", sub: "准备 → 调度 → 转换 → 记录", layer: "03 · 核心层", text: "统一执行器协调 JSON 与流式结果。策略负责分片转换，Runner 通过 Hono 写入 SSE 并发送 request_end 日志。", points: ["抛出的异常会被转换并记录。", "R07 已修复：原生流内错误保留转发，最终请求结果记为错误。", "R06 已修复：下游取消会停止常规 Runner 转换并中止上游读取。"], refs: [["core/runner.ts", 25], ["core/runner.ts", 69]] },
     native: { label: "2 种原生 Messages 策略", sub: "copilot-native / custom-anthropic", layer: "04 · 策略层", text: "两种策略都保留 JSON 响应体、转发 SSE 的 data/event 字段，同时收集 token 用量。", points: ["Copilot 原生路径遇到符合条件的 HTTP 400 时，会对 reasoning effort 回退一次。", "原生路径的请求规范化仍会改变部分字段和请求头。", "两者依赖相同的 SSE 解析器与 Runner 生命周期。"], refs: [["strategies/copilot-native.ts", 55], ["strategies/custom-anthropic.ts", 43]] },
-    translated: { label: "2 种翻译策略", sub: "copilot-translated / custom-openai", layer: "04 · 策略层", text: "将 Anthropic 客户端请求转为 Chat 请求，再把 JSON 响应或 Chat 增量转回 Anthropic。custom-openai 也直接服务 OpenAI 客户端。", points: ["“双向”描述请求与响应的往返转换，并不支持任意客户端与上游协议组合。", "独立语义测试已复现并行工具、用量尾包、空白过滤与拒答处理的问题。", "常规路径能保留两轮交互中的工具 ID 与转义 JSON 输入。"], refs: [["strategies/copilot-translated.ts", 65], ["strategies/custom-openai.ts", 1]] },
+    translated: { label: "2 种翻译策略", sub: "copilot-translated / custom-openai", layer: "04 · 策略层", text: "将 Anthropic 客户端请求转为 Chat 请求，再把 JSON 响应或 Chat 增量转回 Anthropic。custom-openai 也直接服务 OpenAI 客户端。", points: ["“双向”描述请求与响应的往返转换，并不支持任意客户端与上游协议组合。", "R02 / R03 / R04 / R08 已修复并行工具、用量尾包、空白与拒答问题，并加入普通回归测试。", "常规路径能保留两轮交互中的工具 ID 与转义 JSON 输入。"], refs: [["strategies/copilot-translated.ts", 65], ["strategies/custom-openai.ts", 1]] },
     openai: { label: "3 种 OpenAI 策略", sub: "direct / responses / chat-via-responses", layer: "04 · 策略层", text: "Chat 直连和 Responses 路径分别转发自身协议。Chat → Responses 根据模型目录中的端点能力启用专用适配器。", points: ["Chat ↔ Responses 明确区分 item_id 与工具调用的 call_id。", "Responses 的失败与未完成事件有独立处理逻辑。", "Messages → Responses 仅有设计，尚无对应的第八种策略。"], refs: [["strategies/copilot-chat-via-responses.ts", 1], ["strategies/copilot-openai-direct.ts", 1], ["strategies/copilot-responses.ts", 1]] },
-    protocols: { label: "协议转换", sub: "Anthropic ↔ Chat · Chat ↔ Responses", layer: "05 · 协议层", text: "本层负责请求字段映射、响应转换、流状态机、模型别名以及 Anthropic 请求清理。", points: ["部分清理逻辑会修改内容块或工具元数据，并非所有字段都无损保留。", "流转换代码行覆盖率达 100%，仍漏检交错工具调用的内容块生命周期。", "请求与响应转换需要验证协议语义，不能仅依赖快照比对。"], refs: [["protocols/translate/non-stream-translation.ts", 202], ["protocols/translate/stream-translation.ts", 27], ["protocols/chat-responses/stream.ts", 1]] },
-    upstream: { label: "HTTP 客户端", sub: "Copilot / 自定义上游 · UT 中模拟", layer: "06 · 上游层", text: "HTTP 客户端负责上游地址、凭据、fetch 调用与响应体解析。流式客户端共用 SSE 读取器。", points: ["Copilot 保存本次请求实际使用的令牌快照。", "符合条件的令牌过期 401 可在刷新令牌后触发一次重试。", "下游 AbortSignal 没有传递给这些 fetch 调用。"], refs: [["upstream/copilot-openai.ts", 192], ["upstream/copilot-native.ts", 84], ["upstream/custom-anthropic.ts", 60]] },
+    protocols: { label: "协议转换", sub: "Anthropic ↔ Chat · Chat ↔ Responses", layer: "05 · 协议层", text: "本层负责请求字段映射、响应转换、流状态机、模型别名以及 Anthropic 请求清理。", points: ["部分清理逻辑会修改内容块或工具元数据，并非所有字段都无损保留。", "初审曾在 100% 行覆盖率下漏检交错工具调用；R02 已加入串行内容块生命周期与完整参数断言。", "请求与响应转换需要验证协议语义，不能仅依赖快照比对。"], refs: [["protocols/translate/non-stream-translation.ts", 202], ["protocols/translate/stream-translation.ts", 27], ["protocols/chat-responses/stream.ts", 1]] },
+    upstream: { label: "HTTP 客户端", sub: "Copilot / 自定义上游 · UT 中模拟", layer: "06 · 上游层", text: "HTTP 客户端负责上游地址、凭据、fetch 调用与响应体解析。流式客户端共用 SSE 读取器。", points: ["Copilot 保存本次请求实际使用的令牌快照。", "符合条件的令牌过期 401 可在刷新令牌后触发一次重试。", "R06 已修复：五个生成客户端接入下游 AbortSignal，取消后停止读取与本次生成重试；共享令牌刷新保持独立。"], refs: [["upstream/copilot-openai.ts", 192], ["upstream/copilot-native.ts", 84], ["upstream/custom-anthropic.ts", 60]] },
     state: { label: "状态与控制服务", sub: "模型目录 · 上游配置 · 令牌哨兵", layer: "07 · 基础设施层", text: "共享运行时状态缓存模型、上游与选项。令牌哨兵协调刷新；可选代理路径使用 SOCKS5 桥接。", points: ["模型名转换缓存上限为 64 项。", "上游配置与请求元数据持久化到 SQLite。", "服务端工具装饰器缓存响应，再回放合成的 SSE 事件。"], refs: [["lib/state.ts", 1], ["lib/token-sentinel.ts", 1], ["strategies/support/server-tools.ts", 1]] },
-    telemetry: { label: "SSE、日志与 SQLite", sub: "解析器 → 日志分发 → 持久化", layer: "07 · 基础设施层", text: "共享基础组件解析传输报文，并将结构化事件分发到终端、WebSocket 和 SQLite 请求存储。", points: ["CRLF 跨读取边界时，会破坏事件分帧：R05。", "当前只要循环结束就记为成功，即使流中出现过上游错误事件。", "管理面板图表依赖这些用量与结果计数。"], refs: [["util/sse.ts", 160], ["util/log-emitter.ts", 1], ["db/request-sink.ts", 1]] },
+    telemetry: { label: "SSE、日志与 SQLite", sub: "解析器 → 日志分发 → 持久化", layer: "07 · 基础设施层", text: "共享基础组件解析传输报文，并将结构化事件分发到终端、WebSocket 和 SQLite 请求存储。", points: ["R05 已修复：CRLF 跨读取边界仍保留同一个事件的名称与数据。", "R07 已修复：协议内失败参与最终结果统计，HTTP 200 不再等同于请求成功。", "管理面板图表依赖这些用量与结果计数。"], refs: [["util/sse.ts", 160], ["util/log-emitter.ts", 1], ["db/request-sink.ts", 1]] },
   };
   const layers = [
     ["01", "HTTP 路由", ["ingress", "handlers"]], ["02", "组装层", ["composition"]],
@@ -315,15 +337,14 @@ bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contra
   function decide(client, target) {
     const custom = target.startsWith("custom-");
     if ((client === "openai" && target === "custom-anthropic") || (client === "responses" && custom)) return { name: "路由器拒绝请求", status: "HTTP 400", kind: "bad", endpoint: "未调用上游", request: "不支持该客户端与上游协议组合。", response: "返回 invalid_request_error JSON", notes: "路由在 fetch 前拒绝请求。这是明确的产品边界，已有通过的路由测试验证。" };
-    if (client === "anthropic" && target === "copilot-no-native") return { name: "原生 / 翻译策略判断不一致", status: "R01 · HTTP 500", kind: "bad", endpoint: "未调用上游", request: "处理器：缺少原生能力 → { openAIPayload, originalModel }\n组装层：目录中的 Claude → copilot-native\n原生策略期望 { payload, options }", response: "HTTP 500 · 缺少 options.copilotModel", notes: "第二次 pickStrategy 调用推翻了原先的能力回退判断。应统一选路，或通过类型约束确保请求与策略始终对应。" };
     if (client === "anthropic" && target === "copilot-responses") return { name: "copilot-translated · 缺少 Messages 适配策略", status: "仅有设计", kind: "warn", endpoint: "/chat/completions", request: "Anthropic → Chat 请求\n该客户端路径的路由器未检查模型是否仅支持 Responses。", response: "仍按 Chat JSON / Chat 分片解析响应。", notes: "实际代码转发至 /chat/completions，仅支持 Responses 的模型无法使用该端点。设计文档 25 描述了缺失的 Messages → Responses 策略，但尚未实现。" };
     if (client === "anthropic") {
-      if (target === "copilot-native" || target === "custom-anthropic") return { name: target === "copilot-native" ? "copilot-native" : "custom-anthropic", status: "原生路径", kind: "good", endpoint: "/v1/messages", request: "Anthropic Messages → Anthropic Messages\n发送前规范化部分模型名、字段与请求头。", response: "JSON：保留响应体\nSSE：保留 event + data，并提取 token 用量", notes: "通过的测试验证内容、未知响应字段、签名与缓存元数据的保留。共享传输层仍存在 CRLF 分片（R05）、取消（R06）和错误统计（R07）缺陷。" };
-      return { name: custom ? "custom-openai" : "copilot-translated", status: "翻译路径", kind: "info", endpoint: custom ? "/v1/chat/completions" : "/chat/completions", request: "system → system 消息\ntool_use → tool_calls；tool_result → tool 角色\nimage(base64) → image_url；max_tokens → token 上限", response: "JSON：choices → Anthropic content + stop_reason\nSSE：Chat 增量 → Anthropic 内容块生命周期", notes: "文本与两轮工具 ID 验证通过。并行工具块（R02）、标准用量尾包（R03）、可选空白过滤（R04）和拒答保留（R08）未通过语义契约。自定义上游流式请求还遗漏了 stream_options.include_usage。" };
+      if (target === "copilot-native" || target === "custom-anthropic") return { name: target === "copilot-native" ? "copilot-native" : "custom-anthropic", status: "原生路径", kind: "good", endpoint: "/v1/messages", request: "Anthropic Messages → Anthropic Messages\n发送前规范化部分模型名、字段与请求头。", response: "JSON：保留响应体\nSSE：保留 event + data，并提取 token 用量", notes: "内容、未知响应字段、签名与缓存元数据保留通过测试。R05 / R06 / R07 已补齐跨片分帧、取消传播与流内错误统计的回归。原生指同协议转发，仍会重建 SSE 报文。" };
+      return { name: custom ? "custom-openai" : "copilot-translated", status: "翻译路径", kind: "info", endpoint: custom ? "/v1/chat/completions" : "/chat/completions", request: "system → system 消息\ntool_use → tool_calls；tool_result → tool 角色\nimage(base64) → image_url；max_tokens → token 上限", response: "JSON：choices → Anthropic content + stop_reason\nSSE：Chat 增量 → Anthropic 内容块生命周期", notes: "文本与两轮工具 ID，以及 R02 / R03 / R04 / R08 的工具生命周期、尾包用量、完整空白与显式拒答均通过回归。自定义 OpenAI 翻译流请求 include_usage；目录未声明原生 Messages 能力的 Claude 也进入此路径。工具参数缓存到 finish_reason，终局用量在正常 EOF 发出。" };
     }
     if (client === "responses") return { name: "copilot-responses", status: "Responses 路径", kind: "good", endpoint: "/responses", request: "Responses 输入 → Copilot Responses\n调度前应用采样与工具策略。", response: "Responses JSON / 具名 Responses 事件", notes: "Copilot 模型需要实际支持此端点，但这个客户端分支没有根据目录中的端点能力进行拦截。使用原生协议也不意味着所有请求字段都保持不变。" };
     if (target === "copilot-responses") return { name: "copilot-chat-via-responses", status: "Chat ↔ Responses", kind: "info", endpoint: "/responses", request: "Chat 消息 → Responses 输入\ntool_calls.id → function_call.call_id\n工具结果 → function_call_output.call_id", response: "Responses 输出 / 事件 → Chat choices / 分片\nitem_id 标识条目；call_id 标识工具调用", notes: "两轮测试特意使用不同的 item_id 和 call_id，验证返回客户端及再次发送上游的均为 call_id。专用适配器另有失败事件与流回放校验。" };
-    return { name: custom ? "custom-openai" : "copilot-openai-direct", status: "Chat 路径", kind: "good", endpoint: custom ? "/v1/chat/completions" : "/chat/completions", request: "Chat 消息 → Chat 消息\n规范化 max_tokens → max_completion_tokens。", response: "Chat JSON / Chat SSE 数据", notes: "同协议转发也共用 SSE 解析器与 Runner。普通 JSON 测试通过，不能证明取消或 CRLF 跨分片行为正确。" };
+    return { name: custom ? "custom-openai" : "copilot-openai-direct", status: "Chat 路径", kind: "good", endpoint: custom ? "/v1/chat/completions" : "/chat/completions", request: "Chat 消息 → Chat 消息\n规范化 max_tokens → max_completion_tokens。", response: "Chat JSON / Chat SSE 数据", notes: "同协议转发也共用 SSE 解析器与 Runner。R05 / R06 已补充跨片 CRLF 与取消传播回归；R07 覆盖流内错误统计。原生转发仍需满足传输与生命周期契约。" };
   }
   function renderRoute() {
     const client = document.getElementById("client").value;
@@ -340,6 +361,80 @@ bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contra
   }
   ["client", "target", "mode"].forEach(id => document.getElementById(id).addEventListener("change", renderRoute)); renderRoute();
 
+  const repairs = [
+  {
+    "id": "R01",
+    "commit": "bd83d33cac18532b260f8f870a04974a2e7f066f",
+    "change": "统一使用同一份模型目录进行能力选路；只有显式声明 /v1/messages 的 Claude 才走原生，移除重复的全局状态检查与隐式原生回退。",
+    "red": "普通 UT 先复现 HTTP 500：缺少 options.copilotModel，且尚未调用上游。",
+    "tests": "覆盖 JSON / SSE × Chat-only、空端点、缺失端点、原生端点四种目录形态；验证实际请求端点并完整读完 SSE。提交时九项门禁通过（53.2 秒）。",
+    "review": "Grok 实现；Pi 与主控 review 通过。草稿中的隐式原生回退和未排空 SSE 的测试已纠正。",
+    "limits": "未知模型能力不会被假定为原生。Messages → Responses 仍属于尚未实现的设计。"
+  },
+  {
+    "id": "R02",
+    "commit": "9e9536df0668e812eced12d1aab60c718bdb1f21",
+    "change": "缓存交错工具参数，在 finish_reason 处按 OpenAI 工具索引逐个发送合法的 start → deltas → stop；重复元数据不重置参数，缺失工具元数据显式报错。",
+    "red": "普通 UT 先复现向已关闭的 block 0 继续发送参数增量。",
+    "tests": "验证单 / 多工具、交错参数、转义与 Unicode、迟到 / 重复元数据、文本混合、重复结束不重放，以及两条翻译策略的事件日志。九项门禁通过（32.6 秒）。",
+    "review": "Grok 实现；Pi 与主控 review 通过。修正了草稿中的重复工具重放、元数据缺失处理和日志时序。",
+    "limits": "翻译路径的工具参数会等到 finish_reason 再输出，缓存占用随参数大小增长。文本继续流式输出，原生路径不受此缓存影响。"
+  },
+  {
+    "id": "R03",
+    "commit": "2283948d971946639df52d91f1edac2ae097409b",
+    "change": "在空 choices 的用量尾包中保留统计；正常 EOF 时只发送一次最终 message_delta / message_stop。缺少 finish_reason 的空流、文本流或工具流均报错。仅自定义 OpenAI 翻译流请求 include_usage。",
+    "red": "普通 UT 先复现最终用量为输入 0 / 缓存 null / 输出 0，而应为 20 / 11 / 7。",
+    "tests": "两条翻译策略 × 六种完整排空场景，共 12 项验证；包括有 / 无 DONE、重复信号、三种截断和 DONE 后读取异常。精确比对结束顺序、客户端用量与唯一 request_end。九项门禁通过（46.4 秒）。",
+    "review": "Grok 实现；Pi 与主控 review 通过。消除了提前成功收尾、结束后重开内容块、固定等待及测试类型问题。",
+    "limits": "最终用量与结束事件等待正常上游 EOF。直连 Chat 的 stream_options 继续由客户端决定。"
+  },
+  {
+    "id": "R04",
+    "commit": "8b0abf47c8e80fb548121a85a79250bb1695c3d3",
+    "change": "彻底删除空白过滤逻辑、参数传递、状态 / 数据库读取、设置 API 与 Dashboard 开关；保留全部有意义的空白文本。",
+    "red": "普通 UT 先复现期望 hello world，实际得到 helloworld；该有损选项原本默认关闭。",
+    "tests": "验证空格、换行、Tab、Unicode、空字符串及发射后的工具参数 JSON；已删除的设置键返回 HTTP 400。Proxy / Dashboard 严格类型检查和九项门禁通过（21.4 秒）。",
+    "review": "Grok 实现；Pi 与主控对全部 24 个文件 review 通过。移除冗余测试包装器，工具参数断言直接验证输出。",
+    "limits": "旧数据库残留键不再读取；未迁移或修改实际数据库。"
+  },
+  {
+    "id": "R05",
+    "commit": "c6215b08a3c1fa1306f329060a1fa30eeb3156cb",
+    "change": "以新增分片为单位扫描行尾；CR 只结束一次行，后续 LF 仅被跳过。未完成行以片段数组保存，到行尾 / EOF 才拼接，并正确结束 UTF-8 解码。",
+    "red": "普通 UT 复现事件名与 JSON 数据分裂成两个事件；第一版草稿的重复分帧也被主控与独立 review 拦下。",
+    "tests": "验证 LF / CR / CRLF 每个字节分割位置、逐字节与空分片、连续 CR、混合事件、末尾 CR、长行和 EOF 不完整 UTF-8；65 项普通回归与 16 项既有行为测试通过。九项门禁通过（27.6 秒）。",
+    "review": "Grok 完成初稿；模型服务中断后由主控收尾，Pi 独立 review 通过。",
+    "limits": "代码消除了重复扫描与反复拼接整条未完成长行的路径；未测量实际吞吐、堆内存或网络计费。"
+  },
+  {
+    "id": "R06",
+    "commit": "2ed5a3b66e367a2739aae2275c5644efa10a3164",
+    "change": "将客户端取消信号贯穿 Runner、七种策略、五个生成客户端和服务端工具路径。提前退出会取消上游读取、释放锁并清理监听器；取消后不再转换分片或生成成功结束事件，也不会继续模型重试。",
+    "red": "两条普通 UT 复现：取消上游读取器的次数为 0（预期 1），已取消请求仍额外转换 20 个事件（预期 0）。",
+    "tests": "覆盖请求头前等待、挂起读取、响应体取消、背压、迟到 dispatch、任意取消原因，以及 native / 翻译服务端工具、Tavily 超时和 Copilot 重试。扩大回归 717 项通过；九项门禁通过（25.6 秒）。",
+    "review": "Codex pane 完成核心修复，主控补齐上游与工具路径；Pi 独立审查全部 31 个文件并复跑 126 项普通回归与全新类型检查，结论通过。",
+    "limits": "验证的是 mock fetch / ReadableStream 的取消传播；未测量套接字关闭时延、真实上游计费或 embeddings 路径。共享 token 刷新保持独立；取消日志的 statusCode 沿用既有 502 分类。"
+  },
+  {
+    "id": "R07",
+    "commit": "16a6d47b2456f41171b191e6dc56fd2be43f4d54",
+    "change": "五条原生 / 直通路径在策略状态中持续记录流内失败。Runner 按该状态记录错误、跳过成功结束事件，并避免重复错误；原始错误报文保持既有转发行为，HTTP 200 与逻辑失败分别记录。",
+    "red": "普通 UT 复现：上游 overloaded_error 已转发，但 request_end.status 仍为 success，预期为 error。",
+    "tests": "覆盖具名 / 无名错误、格式损坏的具名错误、错误后的正常帧与用量、未知事件与拒答对照、非空成功终结器抑制，以及迟到传输错误不重复报错。独立复跑 122 项通过；九项门禁通过（31.8 秒）。",
+    "review": "Codex pane 实现；主控审查减少内容分片上的元数据分配，并补充终结器断言；Pi 独立 review 与全新类型检查通过。",
+    "limits": "范围包括两条原生 Messages、两条直通 Chat 和原生 Responses。翻译路径保留既有异常映射；request_end 使用通用错误描述，详细错误内容保留在客户端流中。拒答仍视为有效模型结果。"
+  },
+  {
+    "id": "R08",
+    "commit": "0bd9a778328fbdcd305892e9185ed468b4519c47",
+    "change": "JSON 与 SSE 均保留明确、非空的拒答文本，并以 refusal 结束。服务端工具的流重组、最终合成和日志也保留实际结束原因；拒答仍作为有效模型结果计为成功。",
+    "red": "普通 UT 复现：包含 message.refusal 的响应被转换为 end_turn，预期为 refusal，拒答说明也丢失。",
+    "tests": "覆盖两条翻译策略的 JSON / SSE、空值与纯空白对照、混合文本分片、用量尾包、截断报错、唯一终态及工具合成。扩大回归636项通过，独立复跑168项通过；九项门禁通过（29.6秒）。",
+    "review": "Codex pane 实现；主控复核契约；Pi 独立审查全部14个文件并复跑拒答、EOF、流内错误、取消及服务端工具套件，全新类型检查通过。",
+    "limits": "没有拒答字段的 content_filter 不会被一概视为拒答。JSON 使用独立文本块，SSE 按分片顺序合并文本；二者保留相同拒答语义。直通分支不改写 refusal，未扩展服务端工具重组器的全部异常分片语义。"
+  }
+];
   const findings = [
     { id: "R01", priority: "P1", title: "两次原生能力判断不一致", input: '模型目录：claude-sonnet-4，supported_endpoints:["/chat/completions"]。客户端：/v1/messages。', expected: "选择 copilot-translated，并返回 Anthropic 消息。", actual: "处理器已准备翻译请求，组装层却重新选择 copilot-native。缺少 options 导致 fetch 前返回 HTTP 500。", gap: "现有回退用例使用 gpt-4o，没有覆盖“目录中存在、但不支持原生端点的 Claude”。", fix: "统一依据模型能力选择策略，并保持请求类型与策略的对应关系。", refs: [["core/router.ts", 107], ["routes/messages/handler.ts", 198], ["composition/index.ts", 63]] },
     { id: "R02", priority: "P1", title: "并行工具增量写入已关闭的内容块", input: 'call-a 开始接收 "{"；call-b 开始接收 "{"；后续分片交错补齐两者的参数。', expected: "每个 input_json_delta 都必须属于尚未关闭的内容块。", actual: "开始 call-b 时就为 call-a 发出 content_block_stop，随后又向已关闭的 call-a 内容块发送增量。", gap: "现有多工具测试按顺序发送完整的 {} 参数，只检查索引递增，没有验证交错分片时的生命周期。", fix: "跟踪每个工具的完成状态；必要时缓存交错分片，按合法的 Anthropic 内容块生命周期输出。", refs: [["protocols/translate/stream-translation.ts", 116], ["protocols/translate/stream-translation.ts", 149]] },
@@ -350,12 +445,21 @@ bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contra
     { id: "R07", priority: "P2", title: "原生错误事件被统计为成功请求", input: 'HTTP 200 的 SSE 流中出现 event:error、type:overloaded_error，然后结束。', expected: "转发错误，并记录一条结果为错误的 request_end。", actual: "客户端收到了错误，但因为迭代器没有抛出异常，request_end.status 仍被记为 success。", gap: "现有 Runner 错误用例均通过抛异常触发，没有模拟 HTTP 成功流内部的应用层错误。", fix: "在策略流状态中记录协议失败，并让 Runner 据此决定最终日志结果。", refs: [["strategies/custom-anthropic.ts", 77], ["core/runner.ts", 150]] },
     { id: "R08", priority: "P2", title: "显式拒答被转为空的正常结束", input: 'message:{content:null,refusal:"I cannot help with that request."}; finish_reason:"content_filter".', expected: "存在明确的 message.refusal 时，应通过 stop_reason:refusal 保留拒答结果。测试不强制规定内容块的展示形式。", actual: "实际为 content:[] 和 stop_reason:end_turn，拒答说明与拒答结果均丢失。", gap: "现有结束原因测试只覆盖不带 message.refusal 的 content_filter，并期望 end_turn，没有检查显式拒答。", fix: "保留显式拒答语义，并单独定义 JSON / SSE 中拒答文本的展示策略；不能把所有 content_filter 都直接视为拒答。", refs: [["protocols/translate/non-stream-translation.ts", 633], ["protocols/translate/stop-reason.ts", 7]] },
   ];
-  document.getElementById("findings").innerHTML = findings.map(f => `<details class="finding" data-priority="${f.priority}" id="finding-${f.id}" ${f.id === "R01" ? "open" : ""}><summary><span class="pill ${f.priority === "P1" ? "bad" : "warn"}">${f.priority}</span><code>${f.id}</code><strong>${f.title}</strong></summary><div class="finding-body"><dl><dt>触发条件</dt><dd><pre>${f.input}</pre></dd><dt>预期契约</dt><dd>${f.expected}</dd><dt>实际结果</dt><dd>${f.actual}</dd><dt>现有 UT 为何漏检</dt><dd>${f.gap}</dd><dt>修复方向</dt><dd>${f.fix}</dd></dl><div class="source-links">${f.refs.map(([path, line]) => source(`packages/proxy/src/${path}`, line)).join("")}</div></div></details>`).join("");
+  document.getElementById("findings").innerHTML = findings.map(f => {
+    const r = repairs.find(repair => repair.id === f.id);
+    return `<details class="finding" data-priority="${f.priority}" id="finding-${f.id}" ${f.id === "R01" ? "open" : ""}><summary><span class="pill good">已修复</span><code>${f.id} · ${f.priority}</code><strong>${f.title}</strong></summary><div class="finding-body"><dl><dt>触发条件</dt><dd><pre>${f.input}</pre></dd><dt>预期契约</dt><dd>${f.expected}</dd><dt>初审复现</dt><dd>${f.actual}</dd><dt>UT 原先为何漏检</dt><dd>${f.gap}</dd><dt>本次修复</dt><dd>${r.change}</dd><dt>失败 → 通过</dt><dd>${r.red}<br>${r.tests}</dd><dt>独立 review</dt><dd>${r.review}</dd><dt>修复 commit</dt><dd><code style="overflow-wrap:anywhere">${r.commit}</code><div class="copy-row"><pre>git show ${r.commit}</pre><button type="button" class="copy-fix" data-commit="${r.commit}" data-id="${r.id}">复制命令</button></div><output id="copy-${r.id}" class="footnote" aria-live="polite"></output></dd>${r.limits ? `<dt>边界与代价</dt><dd>${r.limits}</dd>` : ""}</dl><p class="footnote">以下源码链接固定到初审版本；当前修复请查看上面的本地 commit。</p><div class="source-links">${f.refs.map(([path, line]) => source(`packages/proxy/src/${path}`, line)).join("")}</div></div></details>`;
+  }).join("");
+  document.querySelectorAll(".copy-fix").forEach(button => button.addEventListener("click", async () => {
+    const command = `git show ${button.dataset.commit}`;
+    const status = document.getElementById(`copy-${button.dataset.id}`);
+    try { await navigator.clipboard.writeText(command); status.textContent = "命令已复制；该提交尚未推送。"; }
+    catch { status.textContent = command; }
+  }));
   document.querySelectorAll("[data-filter]").forEach(button => button.addEventListener("click", () => {
     document.querySelectorAll("[data-filter]").forEach(other => other.setAttribute("aria-pressed", String(other === button)));
     document.querySelectorAll(".finding").forEach(finding => { finding.hidden = button.dataset.filter !== "all" && finding.dataset.priority !== button.dataset.filter; });
   }));
-  const trace = [
+  const baselineTrace = [
     ["content_block_start · index 0", "工具 A 开始，参数目前只有“{”。", "已打开的内容块：A", false],
     ["content_block_stop · index 0", "工具 B 开始，适配器提前关闭了 A。", "A 已关闭 · 参数尚未完整", false],
     ["content_block_start · index 1", "工具 B 开始，参数目前只有“{”。", "已打开的内容块：B · A 仍处于关闭状态", false],
@@ -363,12 +467,29 @@ bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contra
     ["input_json_delta · index 1", "工具 B 正常完成，但 A 已违反协议契约。", "B 已完成 · A 的事件顺序非法", false],
     ["message_delta → message_stop", "工具事件顺序已出错，响应仍正常结束。", "流已结束 · 协议契约验证失败", true],
   ];
+  const fixedTrace = [
+    ["缓存 call-a / call-b 参数", "按 OpenAI 工具索引分别保存交错到达的碎片。", "未提前关闭任何工具块；文本仍可实时输出", false],
+    ["content_block_start · index 0", "收到 finish_reason 后，开始工具 A。", "开放块：A", false],
+    ["input_json_delta · index 0", "按原顺序输出 A 的全部参数碎片。", "A 参数可重建为完整 JSON", false],
+    ["content_block_stop · index 0", "A 的全部参数已发送，再关闭 A。", "无开放块", false],
+    ["start → deltas → stop · index 1", "逐个输出工具 B，参数不会写入已关闭的 A。", "B 参数完整；块索引单调且始终至多一个开放块", false],
+    ["message_delta → message_stop", "正常 EOF 后输出最终用量与唯一的结束事件。", "R02 / R03 回归通过；工具参数缓存量与参数大小成正比", false],
+  ];
+  let trace = fixedTrace;
   let step = 0;
+  document.getElementById("trace-version").addEventListener("change", event => {
+    const fixed = event.target.value === "fixed";
+    trace = fixed ? fixedTrace : baselineTrace; step = 0;
+    const badge = document.getElementById("trace-badge");
+    badge.className = `pill ${fixed ? "good" : "bad"}`;
+    badge.textContent = fixed ? "R02 · 修复后" : "R02 · 初审复现";
+    renderTrace();
+  });
   function renderTrace() {
     document.getElementById("trace").innerHTML = trace.map(([title, detail, , invalid], i) => `<div class="trace-event ${i <= step ? "seen" : ""} ${i === step ? "current" : ""} ${invalid ? "invalid" : ""}"><code>${String(i + 1).padStart(2, "0")}</code><div><code>${title}</code><span>${detail}</span></div></div>`).join("");
     document.getElementById("trace-position").textContent = `${step + 1} / ${trace.length}`;
     document.getElementById("trace-prev").disabled = step === 0; document.getElementById("trace-next").disabled = step === trace.length - 1;
-    const status = document.getElementById("trace-state"); status.className = `callout ${step >= 3 ? "bad" : "info"}`; status.textContent = trace[step][2];
+    const status = document.getElementById("trace-state"); status.className = `callout ${trace.slice(0, step + 1).some(event => event[3]) ? "bad" : "info"}`; status.textContent = trace[step][2];
   }
   document.getElementById("trace-prev").addEventListener("click", () => { step = Math.max(0, step - 1); renderTrace(); });
   document.getElementById("trace-next").addEventListener("click", () => { step = Math.min(trace.length - 1, step + 1); renderTrace(); });
@@ -386,7 +507,12 @@ bunx --bun vitest run semantic-contract proxy-contract-audit sse-boundary-contra
     ["protocols/chat-responses/stream.ts", "98.05", "96.44", "新增路由测试通过两轮 call_id 契约验证"],
   ];
   document.getElementById("file-coverage").innerHTML = coverage.map(([path, lines, branches, note]) => `<tr><td>${source(`packages/proxy/src/${path}`)}</td><td class="numeric">${lines}%</td><td class="numeric"><span class="${Number(branches) < 95 ? "pill warn" : ""}">${branches}%</span></td><td>${note}</td></tr>`).join("");
-  const testFiles = ["protocols/translate/semantic-contract.test.ts", "routes/proxy-contract-audit.test.ts", "util/sse-boundary-contract.test.ts", "core/stream-lifecycle-contract.test.ts"];
+  const testFiles = [
+    "protocols/translate/semantic-contract.test.ts", "routes/proxy-contract-audit.test.ts",
+    "util/sse-boundary-contract.test.ts", "core/stream-lifecycle-contract.test.ts",
+    "strategies/translated-stream-eof.test.ts", "strategies/request-cancellation.test.ts",
+    "strategies/inline-stream-error.test.ts", "strategies/refusal.test.ts", "strategies/server-tools-refusal.test.ts",
+  ];
   document.getElementById("test-links").innerHTML = testFiles.map(path => `<a href="../packages/proxy/test/${path}">${path}</a>`).join("") + `<a href="https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create" target="_blank" rel="noreferrer">OpenAI Chat 协议 · 用量尾包 / 工具 / 拒答 ↗</a><a href="https://platform.claude.com/docs/en/api/messages-streaming" target="_blank" rel="noreferrer">Anthropic 流生命周期 · 内容块 / 用量 / 错误 ↗</a>`;
   document.getElementById("copy-command").addEventListener("click", async () => {
     const command = document.getElementById("test-command");
