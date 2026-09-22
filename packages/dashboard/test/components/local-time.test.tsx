@@ -35,4 +35,10 @@ describe("local timestamps", () => {
     render(<LocalTime timestamp={Number.NaN} precision="second" />);
     expect(screen.getByText("—")).not.toHaveAttribute("dateTime");
   });
+
+  it("shows the local calendar date for date-only tables", () => {
+    vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(-480);
+    render(<LocalTime timestamp={Date.UTC(2026, 8, 22, 21)} precision="day" />);
+    expect(screen.getByText("2026-09-23")).toHaveAttribute("dateTime", "2026-09-22T21:00:00.000Z");
+  });
 });

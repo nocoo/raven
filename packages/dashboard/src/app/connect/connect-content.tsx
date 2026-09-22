@@ -12,6 +12,7 @@ import { COPILOT_RULE_ID } from "@/lib/routing-model";
 import { RoutingSelect } from "@/components/routing/routing-ui";
 import { KeyRuleBinding } from "./key-rule-binding";
 import { CopyButton } from "@/components/copy-button";
+import { LocalTime } from "@/components/local-time";
 import { CodeBlock } from "@/components/code-block";
 import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
@@ -553,11 +554,11 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                   </TableCell>
                   <TableCell><KeyRuleBinding apiKey={key} rules={rules} /></TableCell>
                   <TableCell className="hidden sm:table-cell text-xs text-basalt-muted-foreground">
-                    {new Date(key.created_at).toLocaleDateString()}
+                    <LocalTime timestamp={key.created_at} precision="day" />
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-xs text-basalt-muted-foreground">
-                    {key.last_used_at
-                      ? new Date(key.last_used_at).toLocaleDateString()
+                    {key.last_used_at !== null
+                      ? <LocalTime timestamp={key.last_used_at} precision="day" />
                       : "Never"}
                   </TableCell>
                   <TableCell>

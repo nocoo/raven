@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
+import { hydrateRoot, type Root } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 
 // ---------------------------------------------------------------------------
 // Mock next/navigation
@@ -82,6 +84,28 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("ApiKeysSection", () => {
+  it("hydrates key dates in the browser timezone when the server day differs", async () => {
+    const offset = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(0);
+    const ui = <ConnectContent rules={fixtureRules} keys={[makeKey({ created_at: Date.UTC(2026, 8, 22, 21), last_used_at: 0 })]} connectionInfo={makeConnectionInfo()} />;
+    const container = document.createElement("div");
+    const errors = vi.fn();
+    let root: Root | undefined;
+    try {
+      container.innerHTML = renderToString(ui);
+      expect([...container.querySelectorAll("time")].map(time => time.textContent)).toEqual(["—", "—"]);
+      document.body.append(container);
+      offset.mockReturnValue(-480);
+      await act(async () => { root = hydrateRoot(container, ui, { onRecoverableError: errors }); });
+      expect([...container.querySelectorAll("time")].map(time => time.textContent)).toEqual(["2026-09-23", "1970-01-01"]);
+      expect(errors).not.toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => root?.unmount());
+      container.remove();
+      offset.mockRestore();
+    }
+  });
+
   describe("handleAction — revoke", () => {
     it("calls POST /api/keys/{id}/revoke", async () => {
       fetchSpy.mockResolvedValueOnce(new Response("", { status: 200 }));

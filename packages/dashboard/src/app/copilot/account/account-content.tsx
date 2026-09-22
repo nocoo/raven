@@ -3,6 +3,7 @@
 
 
 import type { CopilotUser, CopilotQuotaSnapshot } from "@/lib/types";
+import { LocalTime } from "@/components/local-time";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -279,7 +280,7 @@ export function AccountContent({ data }: AccountContentProps) {
         {data.assigned_date != null && (
           <InfoRow icon={Calendar} label="Assigned Date">
             <p className="text-sm font-medium">
-              {new Date(data.assigned_date).toLocaleDateString()}
+              <LocalTime timestamp={new Date(data.assigned_date).getTime()} precision="day" />
             </p>
           </InfoRow>
         )}

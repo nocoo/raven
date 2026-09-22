@@ -50,10 +50,10 @@ export function bucketHref(filters: AnalyticsFilters, bucket: number, intervalMs
   });
 }
 
-export function formatMonitorTime(timestamp: number, precision: "minute" | "second" | "millisecond" = "minute"): string {
+export function formatMonitorTime(timestamp: number, precision: "day" | "minute" | "second" | "millisecond" = "minute"): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return "—";
-  const length = precision === "millisecond" ? 23 : precision === "second" ? 19 : 16;
+  const length = precision === "millisecond" ? 23 : precision === "second" ? 19 : precision === "day" ? 10 : 16;
   return new Date(timestamp - date.getTimezoneOffset() * 60_000).toISOString().slice(0, length).replace("T", " ");
 }
 
