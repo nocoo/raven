@@ -41,6 +41,7 @@ import { streamAnthropicResponse } from "./anthropic-stream-writer"
  */
 export type SendAnthropicRequestFn = (
   payload: AnthropicMessagesPayload,
+  signal?: AbortSignal,
 ) => Promise<AnthropicResponse>
 
 /**
@@ -50,6 +51,7 @@ export type ServerToolExecutorFn = (
   toolName: string,
   input: Record<string, unknown>,
   requestId: string,
+  signal?: AbortSignal,
 ) => Promise<{ content: unknown; textContent: string }>
 
 /**
@@ -72,6 +74,7 @@ export interface ServerToolExecutionResult {
 export interface ServerToolInterceptionOptions {
   /** Optional executor for testing (defaults to executeServerTool) */
   executor?: ServerToolExecutorFn
+  signal?: AbortSignal
 }
 
 /**
@@ -94,9 +97,13 @@ export async function withServerToolInterception(
   options?: ServerToolInterceptionOptions,
 ): Promise<AnthropicResponse> {
   const executor = options?.executor ?? executeServerTool
+  const signal = options?.signal
+  signal?.throwIfAborted()
 
   if (!serverToolContext.hasServerSideTools) {
-    return sendRequest(payload)
+    const response = await sendRequest(payload, signal)
+    signal?.throwIfAborted()
+    return response
   }
 
   logEmitter.emitLog({
@@ -113,10 +120,10 @@ export async function withServerToolInterception(
   })
 
   if (serverToolContext.allServerSide) {
-    return handlePureServerSideTools(payload, serverToolContext, sendRequest, requestId, executor)
+    return handlePureServerSideTools(payload, serverToolContext, sendRequest, requestId, executor, signal)
   }
 
-  return handleMixedTools(payload, serverToolContext, sendRequest, requestId, executor)
+  return handleMixedTools(payload, serverToolContext, sendRequest, requestId, executor, signal)
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +141,7 @@ async function handlePureServerSideTools(
   sendRequest: SendAnthropicRequestFn,
   requestId: string,
   executor: ServerToolExecutorFn,
+  signal?: AbortSignal,
 ): Promise<AnthropicResponse> {
   // Extract search query from the last user message
   const query = extractQueryFromPayload(payload)
@@ -145,7 +153,9 @@ async function handlePureServerSideTools(
       tools: null,
       tool_choice: null,
     }
-    return sendRequest(noToolsPayload)
+    const response = await sendRequest(noToolsPayload, signal)
+    signal?.throwIfAborted()
+    return response
   }
 
   const toolName =
@@ -163,7 +173,8 @@ async function handlePureServerSideTools(
   })
 
   // Execute web search
-  const searchResult = await executor(toolName, { query }, requestId)
+  const searchResult = await executor(toolName, { query }, requestId, signal)
+  signal?.throwIfAborted()
 
   logEmitter.emitLog({
     ts: Date.now(),
@@ -192,7 +203,8 @@ async function handlePureServerSideTools(
     ],
   }
 
-  const synthesisResp = await sendRequest(synthesisPayload)
+  const synthesisResp = await sendRequest(synthesisPayload, signal)
+  signal?.throwIfAborted()
 
   // Build native response with server_tool_use + web_search_tool_result + synthesized text
   const toolUseId = `srvtoolu_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
@@ -254,6 +266,7 @@ async function handleMixedTools(
   sendRequest: SendAnthropicRequestFn,
   requestId: string,
   executor: ServerToolExecutorFn,
+  signal?: AbortSignal,
 ): Promise<AnthropicResponse> {
   // Filter out server-side tools from definitions
   const clientTools = filterServerSideTools(payload.tools ?? [], serverToolContext.serverSideToolNames)
@@ -286,6 +299,7 @@ async function handleMixedTools(
   }
 
   while (iteration < MAX_ITERATIONS) {
+    signal?.throwIfAborted()
     iteration++
 
     const response = await sendRequest({
@@ -293,7 +307,8 @@ async function handleMixedTools(
       tool_choice: iteration > 1
         ? { type: "auto" }
         : (currentPayload.tool_choice ?? { type: "auto" }),
-    })
+    }, signal)
+    signal?.throwIfAborted()
 
     // Check for tool_use blocks in response
     const toolUseBlocks = (response.content ?? []).filter(
@@ -328,7 +343,8 @@ async function handleMixedTools(
       data: { eventType: "server_tool_intercept", toolName, toolInput },
     })
 
-    const toolResult = await executor(toolName, toolInput, requestId)
+    const toolResult = await executor(toolName, toolInput, requestId, signal)
+    signal?.throwIfAborted()
 
     logEmitter.emitLog({
       ts: Date.now(),
@@ -427,7 +443,9 @@ async function executeServerTool(
   toolName: string,
   input: Record<string, unknown>,
   requestId: string,
+  signal?: AbortSignal,
 ): Promise<{ content: unknown; textContent: string }> {
+  signal?.throwIfAborted()
   if (toolName === "web_search" && state.stWebSearchApiKey) {
     try {
       // Build search input, only including optional fields if they have values
@@ -437,7 +455,7 @@ async function executeServerTool(
       if (typeof input.count === "number") searchInput.count = input.count
       if (typeof input.offset === "number") searchInput.offset = input.offset
 
-      const result = await searchTavily(state.stWebSearchApiKey, searchInput)
+      const result = await searchTavily(state.stWebSearchApiKey, searchInput, signal)
       return {
         content: result.content,
         textContent: result.textContent,
@@ -506,7 +524,7 @@ export interface DecorateInput {
   serverToolContext: ServerToolContext
   sendRequest: SendAnthropicRequestFn
   log: DecorateLogFields
-  options?: ServerToolInterceptionOptions
+  options?: Pick<ServerToolInterceptionOptions, "executor">
 }
 
 /**
@@ -519,10 +537,11 @@ export async function decorate(input: DecorateInput): Promise<Response> {
     c, requestId, startTime, stream, model,
     payload, serverToolContext, sendRequest, log, options,
   } = input
+  const signal = c.req.raw.signal
 
   try {
     const response = await withServerToolInterception(
-      payload, serverToolContext, sendRequest, requestId, options,
+      payload, serverToolContext, sendRequest, requestId, { ...options, signal },
     )
 
     const latencyMs = Math.round(performance.now() - startTime)

@@ -69,9 +69,9 @@ export function makeCopilotChatViaResponses(
       }
     },
 
-    dispatch: async (up) => {
+    dispatch: async (up, ctx) => {
       assertChatViaResponsesSupported(up.originalChat)
-      const response = await deps.client.send(up.responsesPayload)
+      const response = await deps.client.send(up.responsesPayload, ctx.signal)
       if (up.responsesPayload.stream && isAsyncIterable<ServerSentEvent>(response)) {
         return { kind: "stream", chunks: response }
       }

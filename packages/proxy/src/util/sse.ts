@@ -190,11 +190,27 @@ function takeLines(
  */
 export async function* events(
   response: Response,
+  signal?: AbortSignal,
 ): AsyncGenerator<ServerSentEvent> {
   if (!response.body) return;
 
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
+  let completed = false;
+  let cancelled = false;
+  const cancel = () => {
+    if (completed || cancelled) return;
+    cancelled = true;
+    void reader.cancel(signal?.reason).catch(() => undefined);
+  };
+  const throwIfAborted = () => {
+    if (signal?.aborted) {
+      throw signal.reason instanceof Error
+        ? signal.reason
+        : new DOMException("The request was aborted", "AbortError");
+    }
+  };
+  signal?.addEventListener("abort", cancel, { once: true });
   const scan: LineScanState = { fragments: [], skipLF: false };
 
   // Accumulated fields for current event
@@ -256,10 +272,14 @@ export async function* events(
   }
 
   try {
+    if (signal?.aborted) cancel();
     while (true) {
+      throwIfAborted();
       const { done, value } = await reader.read();
+      throwIfAborted();
 
       if (done) {
+        completed = true;
         const tail = decoder.decode();
         if (tail) {
           for (const line of takeLines(tail, scan)) {
@@ -280,11 +300,14 @@ export async function* events(
 
       const text = decoder.decode(value, { stream: true });
       for (const line of takeLines(text, scan)) {
+        throwIfAborted();
         const event = processLine(line);
         if (event) yield event;
       }
     }
   } finally {
+    signal?.removeEventListener("abort", cancel);
+    cancel();
     reader.releaseLock();
   }
 }

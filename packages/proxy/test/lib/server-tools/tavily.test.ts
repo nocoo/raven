@@ -15,10 +15,63 @@ describe("tavily", () => {
 
   afterEach(() => {
     fetchSpy.mockRestore()
+    vi.useRealTimers()
   })
 
   describe("searchTavily", () => {
     const apiKey = "tvly-test-key-12345"
+
+    test("does not fetch an already canceled search", async () => {
+      const controller = new AbortController()
+      controller.abort(null)
+      await expect(searchTavily(apiKey, { query: "test" }, controller.signal)).rejects.toBeNull()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    })
+
+    test("preserves client cancellation instead of reporting a Tavily timeout", async () => {
+      vi.useFakeTimers()
+      const controller = new AbortController()
+      fetchSpy.mockImplementation((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason), { once: true })
+      }))
+      const reason = new DOMException("client disconnected", "AbortError")
+      const pending = expect(searchTavily(apiKey, { query: "test" }, controller.signal)).rejects.toBe(reason)
+      controller.abort(reason)
+      await pending
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    test("still enforces the local search timeout when a client signal exists", async () => {
+      vi.useFakeTimers()
+      const controller = new AbortController()
+      fetchSpy.mockImplementation((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason), { once: true })
+      }))
+      const pending = expect(searchTavily(apiKey, { query: "test" }, controller.signal)).rejects.toMatchObject({
+        type: "timeout", statusCode: 408,
+      })
+      await vi.advanceTimersByTimeAsync(30_000)
+      await pending
+      expect(controller.signal.aborted).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    test("keeps cancellation active while reading the search response body", async () => {
+      vi.useFakeTimers()
+      const controller = new AbortController()
+      const bodyStarted = Promise.withResolvers<void>()
+      const body = Promise.withResolvers<unknown>()
+      const response = new Response()
+      vi.spyOn(response, "json").mockImplementation(() => { bodyStarted.resolve(); return body.promise })
+      fetchSpy.mockResolvedValue(response)
+      const reason = new Error("client left during body read")
+      const pending = expect(searchTavily(apiKey, { query: "test" }, controller.signal)).rejects.toBe(reason)
+      await bodyStarted.promise
+      controller.abort(reason)
+      body.resolve({ results: [] })
+      await pending
+      expect(vi.getTimerCount()).toBe(0)
+    })
 
     test("rejects empty API key", async () => {
       fetchSpy.mockResolvedValueOnce(

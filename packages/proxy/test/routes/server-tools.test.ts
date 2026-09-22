@@ -91,7 +91,7 @@ describe("withServerToolInterception", () => {
       const result = await withServerToolInterception(payload, context, sendRequest, "req-001")
 
       expect(sendRequest).toHaveBeenCalledTimes(1)
-      expect(sendRequest).toHaveBeenCalledWith(payload)
+      expect(sendRequest).toHaveBeenCalledWith(payload, undefined)
       expect(result).toEqual(expectedResponse)
     })
 
@@ -142,7 +142,7 @@ describe("withServerToolInterception", () => {
 
       // Verify executor was called with extracted query
       expect(mockExecutor).toHaveBeenCalledTimes(1)
-      expect(mockExecutor).toHaveBeenCalledWith("web_search", { query: "What is quantum computing?" }, "req-003")
+      expect(mockExecutor).toHaveBeenCalledWith("web_search", { query: "What is quantum computing?" }, "req-003", undefined)
 
       // Verify sendRequest was called for synthesis (no tools)
       expect(sendRequest).toHaveBeenCalledTimes(1)
@@ -293,7 +293,7 @@ describe("withServerToolInterception", () => {
       // Verify two calls: first with client tools only, second with injected result
       expect(sendRequest).toHaveBeenCalledTimes(2)
       expect(mockExecutor).toHaveBeenCalledTimes(1)
-      expect(mockExecutor).toHaveBeenCalledWith("web_search", { query: "test query" }, "req-007")
+      expect(mockExecutor).toHaveBeenCalledWith("web_search", { query: "test query" }, "req-007", undefined)
 
       // Verify second call includes tool_result
       const secondPayload = sendRequest.mock.calls[1]?.[0] as AnthropicMessagesPayload | undefined
@@ -402,5 +402,66 @@ describe("withServerToolInterception", () => {
       expect(calledPayload?.tools).toHaveLength(1)
       expect(calledPayload?.tools?.[0]?.name).toBe("analyze")
     })
+  })
+})
+
+
+describe("server tool cancellation", () => {
+  const modes = [
+    { name: "direct", context: makeServerToolContext() },
+    { name: "pure", context: makeServerToolContext({ hasServerSideTools: true, allServerSide: true, serverSideToolNames: ["web_search"] }) },
+    { name: "mixed", context: makeServerToolContext({ hasServerSideTools: true, allServerSide: false, serverSideToolNames: ["web_search"] }) },
+  ]
+  const toolResponse = makeAnthropicResponse({ content: [{ type: "tool_use", id: "call-1", name: "web_search", input: { query: "test" } }] })
+
+  test.each(modes)("does not start work after cancellation in $name mode", async ({ context }) => {
+    const controller = new AbortController()
+    controller.abort(null)
+    const send = vi.fn()
+    const executor = vi.fn()
+    await expect(withServerToolInterception(makePayload(), context, send, "cancel", { signal: controller.signal, executor })).rejects.toBeNull()
+    expect(send).not.toHaveBeenCalled()
+    expect(executor).not.toHaveBeenCalled()
+  })
+
+  test.each(modes.slice(1))("does not start another model call after an aborted tool in $name mode", async ({ name, context }) => {
+    const controller = new AbortController()
+    const reason = new Error("search canceled")
+    const send = vi.fn().mockResolvedValue(toolResponse)
+    const executor = vi.fn<ServerToolExecutorFn>().mockImplementation(async (_name, _input, _id, signal) => {
+      expect(signal).toBe(controller.signal)
+      controller.abort(reason)
+      return { content: [], textContent: "late result" }
+    })
+    await expect(withServerToolInterception(makePayload(), context, send, "cancel", { signal: controller.signal, executor })).rejects.toBe(reason)
+    expect(send).toHaveBeenCalledTimes(name === "pure" ? 0 : 1)
+    if (name === "mixed") expect(send.mock.calls[0]?.[1]).toBe(controller.signal)
+    expect(executor).toHaveBeenCalledTimes(1)
+  })
+
+  test("does not execute a tool after a canceled model result", async () => {
+    const controller = new AbortController()
+    const executor = vi.fn()
+    const send = vi.fn().mockImplementation(async (_payload, signal) => {
+      expect(signal).toBe(controller.signal)
+      controller.abort(0)
+      return toolResponse
+    })
+    await expect(withServerToolInterception(makePayload(), modes[2]!.context, send, "cancel", { signal: controller.signal, executor })).rejects.toBe(0)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(executor).not.toHaveBeenCalled()
+  })
+
+  test.each([false, true])("rejects cancellation during pure synthesis, empty query=%s", async (empty) => {
+    const controller = new AbortController()
+    const send = vi.fn().mockImplementation(async (_payload, signal) => {
+      expect(signal).toBe(controller.signal)
+      controller.abort("synthesis canceled")
+      return makeAnthropicResponse()
+    })
+    const executor = vi.fn().mockResolvedValue({ content: [], textContent: "result" })
+    await expect(withServerToolInterception(makePayload({ messages: [{ role: "user", content: empty ? [] : "query" }] }), modes[1]!.context, send, "cancel", { signal: controller.signal, executor })).rejects.toBe("synthesis canceled")
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(executor).toHaveBeenCalledTimes(empty ? 0 : 1)
   })
 })

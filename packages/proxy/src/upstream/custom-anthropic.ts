@@ -59,7 +59,9 @@ export class CustomAnthropicClient
 
   async send(
     req: CustomAnthropicRequest,
+    signal?: AbortSignal,
   ): Promise<UpstreamResult<AnthropicResponse>> {
+    signal?.throwIfAborted()
     const { provider, payload } = req
     const url = `${provider.base_url.replace(/\/+$/, "")}/v1/messages`
     const proxyUrl = this.config.getProxyUrl(provider)
@@ -81,6 +83,7 @@ export class CustomAnthropicClient
     }
     const response = await fetch(url, {
       method: "POST",
+      signal,
       headers,
       body: JSON.stringify(requestBody),
       ...(proxyUrl ? { proxy: proxyUrl } : {}),
@@ -94,7 +97,7 @@ export class CustomAnthropicClient
     }
 
     return payload.stream
-      ? (events(response) as AsyncGenerator<ServerSentEvent>)
+      ? (events(response, signal) as AsyncGenerator<ServerSentEvent>)
       : ((await response.json()) as AnthropicResponse)
   }
 }

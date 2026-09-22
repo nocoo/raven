@@ -101,6 +101,40 @@ async function runDecorate(
 }
 
 describe("decorate()", () => {
+  test("cancels a pending tool on raw request abort and logs one failure", async () => {
+    const controller = new AbortController()
+    const started = Promise.withResolvers<AbortSignal>()
+    const sendRequest = vi.fn()
+    const executor: ServerToolExecutorFn = (_name, _input, _id, signal) => new Promise((_resolve, reject) => {
+      if (!signal) throw new Error("missing tool signal")
+      started.resolve(signal)
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+    })
+    const logs: LogEvent[] = []
+    const listener = (event: LogEvent) => { if (event.type === "request_end") logs.push(event) }
+    logEmitter.on("log", listener)
+    try {
+      const app = new Hono()
+      app.onError(() => new Response("canceled", { status: 500 }))
+      app.post("/x", (c) => decorate({
+        c, requestId: "cancel-tools", startTime: performance.now(), stream: true,
+        model: "claude-sonnet-4", payload: makePayload(), sendRequest,
+        serverToolContext: makeCtx({ hasServerSideTools: true, allServerSide: true, serverSideToolNames: ["web_search"] }),
+        log: baseLogFields(), options: { executor },
+      }))
+      const pending = app.request("http://localhost/x", { method: "POST", signal: controller.signal })
+      const signal = await started.promise
+      controller.abort(new Error("client left during search"))
+      expect((await pending).status).toBe(500)
+      expect(signal.aborted).toBe(true)
+      expect(sendRequest).not.toHaveBeenCalled()
+      expect(logs).toHaveLength(1)
+      expect(logs[0]!.data).toMatchObject({ status: "error", serverToolsUsed: true })
+    } finally {
+      logEmitter.off("log", listener)
+    }
+  })
+
   test("logs zero usage when an upstream omits token metadata and no strategy extras exist", async () => {
     const { extras: _extras, ...log } = baseLogFields()
     const sparse = { ...makeResp(), usage: undefined } as unknown as AnthropicResponse

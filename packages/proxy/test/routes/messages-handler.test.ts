@@ -1382,7 +1382,7 @@ describe("messages handler (server-side tools)", () => {
       usage: { server_tool_use?: { web_search_requests: number } | null }
     }
 
-    expect(searchSpy).toHaveBeenCalledWith("tvly-test-key", { query: "search the docs" })
+    expect(searchSpy).toHaveBeenCalledWith("tvly-test-key", { query: "search the docs" }, expect.any(AbortSignal))
     expect(createSpy).toHaveBeenCalledTimes(1)
     expect(json.content[0]?.type).toBe("server_tool_use")
     expect(json.content[1]?.type).toBe("web_search_tool_result")

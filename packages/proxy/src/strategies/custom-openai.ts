@@ -84,11 +84,11 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
 
     prepare: (req) => req,
 
-    dispatch: async (up) => {
+    dispatch: async (up, ctx) => {
       const response = await deps.client.send({
         provider: up.provider,
         payload: up.payload,
-      })
+      }, ctx.signal)
       if (isOpenAINonStreaming(response)) {
         return { kind: "json", body: response }
       }

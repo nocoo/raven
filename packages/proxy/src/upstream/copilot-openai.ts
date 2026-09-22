@@ -210,7 +210,9 @@ export class CopilotOpenAIClient
 
   async send(
     payload: ChatCompletionsPayload,
+    signal?: AbortSignal,
   ): Promise<UpstreamResult<ChatCompletionResponse>> {
+    signal?.throwIfAborted()
     // Force token check at request time (matches legacy semantics).
     this.config.getToken()
 
@@ -229,12 +231,14 @@ export class CopilotOpenAIClient
     const body = JSON.stringify(payload)
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
+      signal?.throwIfAborted()
       const { token, headers } = this.config.snapshotAuth({
         enableVision,
         isAgentCall,
       })
       const response = await fetch(url, {
         method: "POST",
+        signal,
         headers,
         body,
         ...(proxyUrl ? { proxy: proxyUrl } : {}),
@@ -247,6 +251,7 @@ export class CopilotOpenAIClient
 
     if (response.status === 401) {
       const respBody = await response.text().catch(() => "")
+      signal?.throwIfAborted()
       const tokenExpired = isTokenExpiredBody(401, respBody)
       tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401")
       noteLlm401(tokenExpired ? "token-expired" : "other-401")
@@ -256,6 +261,7 @@ export class CopilotOpenAIClient
       }
 
       const result = await refreshNow("llm-401", first.usedToken)
+      signal?.throwIfAborted()
       if (!result.ok || !result.tokenWasUpdated) {
         // refresh failed / cooled down / token unchanged → don't retry
         throw new HTTPError("Failed to create chat completions", 401, respBody)
@@ -270,7 +276,7 @@ export class CopilotOpenAIClient
     }
 
     if (payload.stream) {
-      return events(response) as AsyncGenerator<ServerSentEvent>
+      return events(response, signal) as AsyncGenerator<ServerSentEvent>
     }
 
     return (await response.json()) as ChatCompletionResponse

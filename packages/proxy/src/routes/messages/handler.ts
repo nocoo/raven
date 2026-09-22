@@ -316,14 +316,14 @@ export async function handleCompletion(c: Context) {
   // (copilot-translated strategy).
   if (serverToolContext.hasServerSideTools && webSearchEnabled) {
     // Create sendRequest wrapper: Anthropic → OpenAI → send → OpenAI response → Anthropic
-    const sendTranslatedRequest = async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
+    const sendTranslatedRequest = async (p: AnthropicMessagesPayload, signal?: AbortSignal): Promise<AnthropicResponse> => {
       const translated = translateToOpenAI(p, {
         targetFormat: "copilot",
         anthropicBeta,
         sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
         reorderToolResults: state.optReorderToolResults,
       })
-      const streamResponse = await buildUpstreamClient("copilot-openai").send({ ...translated, stream: true })
+      const streamResponse = await buildUpstreamClient("copilot-openai").send({ ...translated, stream: true }, signal)
       const response = await consumeStreamToResponse(streamResponse as AsyncGenerator<ServerSentEvent>)
       return translateToAnthropic(response, model)
     }
@@ -382,10 +382,12 @@ async function nativeSendWithEffortFallback(
   payload: AnthropicMessagesPayload,
   options: NativeMessagesOptions,
   requestId: string,
+  signal?: AbortSignal,
 ): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
   try {
-    return await buildUpstreamClient("copilot-native").send({ payload, options })
+    return await buildUpstreamClient("copilot-native").send({ payload, options }, signal)
   } catch (error) {
+    signal?.throwIfAborted()
     if (!(error instanceof HTTPError)) throw error
     if (error.status !== 400) throw error
     let errorBody: unknown
@@ -402,17 +404,17 @@ async function nativeSendWithEffortFallback(
     )
     logEffortFallback(requestId, options.copilotModel, effortError.requestedEffort, fallbackEffort)
     const adjustedPayload = adjustEffortInPayload(payload, fallbackEffort)
-    return await buildUpstreamClient("copilot-native").send({ payload: adjustedPayload, options })
+    return await buildUpstreamClient("copilot-native").send({ payload: adjustedPayload, options }, signal)
   }
 }
 
 function createNativeSendNonStreaming(
   nativeOptions: NativeMessagesOptions,
   requestId: string,
-): (p: AnthropicMessagesPayload) => Promise<AnthropicResponse> {
-  return async (p: AnthropicMessagesPayload): Promise<AnthropicResponse> => {
+): (p: AnthropicMessagesPayload, signal?: AbortSignal) => Promise<AnthropicResponse> {
+  return async (p: AnthropicMessagesPayload, signal?: AbortSignal): Promise<AnthropicResponse> => {
     const nonStreamPayload: AnthropicMessagesPayload = { ...p, stream: false }
-    const result = await nativeSendWithEffortFallback(nonStreamPayload, nativeOptions, requestId)
+    const result = await nativeSendWithEffortFallback(nonStreamPayload, nativeOptions, requestId, signal)
     return result as AnthropicResponse
   }
 }

@@ -111,7 +111,9 @@ const REQUEST_TIMEOUT = 30_000 // 30 seconds
 export async function searchTavily(
   apiKey: string,
   input: WebSearchInput,
+  signal?: AbortSignal,
 ): Promise<WebSearchToolResult> {
+  signal?.throwIfAborted()
   if (!apiKey || apiKey.trim() === "") {
     throw new TavilyError("API key not configured", 500, "auth")
   }
@@ -128,6 +130,9 @@ export async function searchTavily(
   // AbortController for timeout
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
+  const requestSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal
 
   try {
     const response = await fetch(TAVILY_API_URL, {
@@ -137,10 +142,10 @@ export async function searchTavily(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(tavilyRequest),
-      signal: controller.signal,
+      signal: requestSignal,
     })
 
-    clearTimeout(timeoutId)
+    requestSignal.throwIfAborted()
 
     // Handle authentication errors
     if (response.status === 401 || response.status === 403) {
@@ -170,9 +175,10 @@ export async function searchTavily(
     }
 
     const data = (await response.json()) as TavilySearchResponse
+    requestSignal.throwIfAborted()
     return formatWebSearchResult(data)
   } catch (err) {
-    clearTimeout(timeoutId)
+    signal?.throwIfAborted()
 
     if (err instanceof TavilyError) {
       throw err
@@ -193,6 +199,8 @@ export async function searchTavily(
     }
 
     throw new TavilyError("Unknown Tavily error", 500, "unknown")
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 

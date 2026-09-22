@@ -31,7 +31,7 @@ describe("server tool boundaries with a mocked search client", () => {
     const send = vi.fn().mockResolvedValue({ model: "fixture-model", id: "" })
     search.mockResolvedValueOnce({ content: { type: "web_search_tool_result_error", error_code: "unavailable" }, textContent: "No results" })
     const response = await withServerToolInterception(payload([{ role: "user", content: [{ type: "text", text: "query" }, { type: "image" }, { type: "text", text: 3 }] }]), pure, send, "fixture")
-    expect(search).toHaveBeenCalledWith("synthetic-web-key", { query: "query" })
+    expect(search).toHaveBeenCalledWith("synthetic-web-key", { query: "query" }, undefined)
     expect(response.id).toMatch(/^msg_/)
     expect(response.usage).toMatchObject({ input_tokens: 0, output_tokens: 0 })
     expect(response.content?.at(-1)).toEqual({ type: "text", text: "" })
@@ -43,7 +43,7 @@ describe("server tool boundaries with a mocked search client", () => {
       .mockResolvedValueOnce({ ...answer, content: [{ type: "tool_use", id: "call-1", name: "web_search", input: { count: 2, offset: 0 } }] })
       .mockResolvedValueOnce(answer)
     await withServerToolInterception(payload([{ role: "user", content: "query" }]), { ...pure, allServerSide: false }, send, "fixture")
-    expect(search).toHaveBeenCalledWith("synthetic-web-key", { query: "", count: 2, offset: 0 })
+    expect(search).toHaveBeenCalledWith("synthetic-web-key", { query: "", count: 2, offset: 0 }, undefined)
     expect(send).toHaveBeenCalledTimes(2)
   })
 

@@ -46,7 +46,8 @@ export class CopilotResponsesClient
 {
   constructor(private readonly config: CopilotResponsesConfig) {}
 
-  async send(payload: ResponsesPayload): Promise<UpstreamResult<unknown>> {
+  async send(payload: ResponsesPayload, signal?: AbortSignal): Promise<UpstreamResult<unknown>> {
+    signal?.throwIfAborted()
     this.config.getToken()
 
     const enableVision = hasVisionContent(payload)
@@ -57,9 +58,11 @@ export class CopilotResponsesClient
     const body = JSON.stringify(payload)
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
+      signal?.throwIfAborted()
       const { token, headers } = this.config.snapshotAuth({ enableVision, isAgentCall })
       const response = await fetch(url, {
         method: "POST",
+        signal,
         headers,
         body,
         ...(proxyUrl ? { proxy: proxyUrl } : {}),
@@ -72,6 +75,7 @@ export class CopilotResponsesClient
 
     if (response.status === 401) {
       const respBody = await response.text().catch(() => "")
+      signal?.throwIfAborted()
       const tokenExpired = isTokenExpiredBody(401, respBody)
       tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401")
       noteLlm401(tokenExpired ? "token-expired" : "other-401")
@@ -81,6 +85,7 @@ export class CopilotResponsesClient
       }
 
       const result = await refreshNow("llm-401", first.usedToken)
+      signal?.throwIfAborted()
       if (!result.ok || !result.tokenWasUpdated) {
         throw new HTTPError("Failed to create responses", 401, respBody)
       }
@@ -93,7 +98,7 @@ export class CopilotResponsesClient
     }
 
     if (payload.stream) {
-      return events(response) as AsyncGenerator<ServerSentEvent>
+      return events(response, signal) as AsyncGenerator<ServerSentEvent>
     }
 
     return await response.json()

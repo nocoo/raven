@@ -68,8 +68,8 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
 
     prepare: (req) => req,
 
-    dispatch: async (up) => {
-      const response = await deps.client.send(up.openAIPayload)
+    dispatch: async (up, ctx) => {
+      const response = await deps.client.send(up.openAIPayload, ctx.signal)
       if (isOpenAINonStreaming(response)) {
         return { kind: "json", body: response }
       }

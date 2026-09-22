@@ -55,8 +55,8 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
 
     prepare: (req) => req,
 
-    dispatch: async (up) => {
-      const response = await deps.client.send(up)
+    dispatch: async (up, ctx) => {
+      const response = await deps.client.send(up, ctx.signal)
       if (isNonStreaming(response)) {
         return { kind: "json", body: response }
       }

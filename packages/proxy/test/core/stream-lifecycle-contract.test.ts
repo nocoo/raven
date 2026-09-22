@@ -17,7 +17,7 @@ const context: RequestContext = {
 afterEach(() => vi.restoreAllMocks())
 
 describe("Runner stream lifecycle contracts", () => {
-  test.fails("BUG R06b: client cancellation must stop adapting upstream chunks", async () => {
+  test("BUG R06b: client cancellation must stop adapting upstream chunks", async () => {
     const release = Promise.withResolvers<void>()
     const finished = Promise.withResolvers<void>()
     let adapted = 0

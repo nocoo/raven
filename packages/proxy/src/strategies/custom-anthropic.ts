@@ -57,8 +57,8 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
 
     prepare: (req) => req,
 
-    dispatch: async (up) => {
-      const response = await deps.client.send(up)
+    dispatch: async (up, ctx) => {
+      const response = await deps.client.send(up, ctx.signal)
       if (isAnthropicNonStreaming(response)) {
         return { kind: "json", body: response }
       }

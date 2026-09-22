@@ -5,6 +5,8 @@ import { state } from "../../src/lib/state"
 import { handleCompletion as handleChat } from "../../src/routes/chat-completions/handler"
 import { createMessageRoutes } from "../../src/routes/messages/route"
 import { handleResponses } from "../../src/routes/responses/handler"
+import { logEmitter } from "../../src/util/log-emitter"
+import type { LogEvent } from "../../src/util/log-event"
 
 function model(id: string, endpoints?: string[]) {
   return {
@@ -101,6 +103,46 @@ afterEach(() => {
 })
 
 describe("Proxy route contracts at the HTTP boundary", () => {
+  test.each(["native", "translated"])("server tools propagate cancellation into the %s model request", async (path) => {
+    const modelName = "claude-sonnet-4"
+    state.models = { object: "list", data: [model(modelName, path === "native" ? ["/v1/messages"] : ["/chat/completions"])] }
+    state.stWebSearchEnabled = true
+    state.stWebSearchApiKey = "synthetic-tavily-key"
+    const controller = new AbortController()
+    const modelStarted = Promise.withResolvers<AbortSignal>()
+    const ends: LogEvent[] = []
+    const listener = (event: LogEvent) => { if (event.type === "request_end") ends.push(event) }
+    logEmitter.on("log", listener)
+    fetchSpy.mockImplementation((url, init) => {
+      if (String(url) === "https://api.tavily.com/search") return Promise.resolve(Response.json({ results: [] }))
+      expect(String(url)).toMatch(path === "native" ? /\/v1\/messages$/ : /\/chat\/completions$/)
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal
+        if (!signal) throw new Error("missing model request signal")
+        modelStarted.resolve(signal)
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+      })
+    })
+    try {
+      const pending = app().request("/v1/messages", {
+        method: "POST", signal: controller.signal, headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...messages(modelName, true),
+          tools: [{ name: "web_search", type: "web_search_20260209", input_schema: { type: "object" } }],
+        }),
+      })
+      const signal = await modelStarted.promise
+      controller.abort(new Error("client canceled synthesis"))
+      expect((await pending).ok).toBe(false)
+      expect(signal.aborted).toBe(true)
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      expect(ends).toHaveLength(1)
+      expect(ends[0]!.data).toMatchObject({ status: "error", serverToolsUsed: true, routingPath: path })
+    } finally {
+      logEmitter.off("log", listener)
+    }
+  })
+
   test.each(["copilot", "custom"])("Anthropic → %s Chat → Anthropic preserves text, model and usage", async (upstream) => {
     if (upstream === "custom") state.providers = [provider("openai")]
     fetchSpy.mockResolvedValueOnce(responseJson(chatResponse()))

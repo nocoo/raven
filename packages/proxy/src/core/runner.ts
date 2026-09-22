@@ -27,14 +27,22 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
   payload: Req,
 ): Promise<Response> {
+  const controller = new AbortController()
+  ctx = {
+    ...ctx,
+    signal: AbortSignal.any([controller.signal, c.req.raw.signal, ...(ctx.signal ? [ctx.signal] : [])]),
+  }
   const upstreamReq = strategy.prepare(payload, ctx)
 
   let dispatched: DispatchResult<UpResp, Ch>
   try {
+    throwIfAborted(ctx.signal!)
     dispatched = await strategy.dispatch(upstreamReq, ctx)
+    if (dispatched.kind === "json") throwIfAborted(ctx.signal!)
   } catch (err) {
-    emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: ctx.stream })
-    throw err
+    const error = ctx.signal!.aborted ? abortError(ctx.signal!) : err
+    emitErrorEnd(ctx, strategy, upstreamReq, error, { stream: ctx.stream })
+    throw error
   }
 
   if (dispatched.kind === "json") {
@@ -54,7 +62,7 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
     return c.json(clientResp as Record<string, unknown>)
   }
 
-  return runStream(c, ctx, strategy, upstreamReq, dispatched.chunks)
+  return runStream(c, ctx, strategy, upstreamReq, dispatched.chunks, controller)
 }
 
 function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
@@ -63,38 +71,64 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
   upstreamReq: UpReq,
   chunks: AsyncIterable<Ch>,
+  controller: AbortController,
 ): Response {
   const state = strategy.initStreamState(upstreamReq, ctx)
   let firstChunkTime: number | null = null
   let streamError: unknown | null = null
 
   return streamSSE(c, async (sseStream) => {
+    const signal = ctx.signal!
+    sseStream.onAbort(() => controller.abort())
+    const onAbort = () => sseStream.abort()
+    signal.addEventListener("abort", onAbort, { once: true })
     try {
+      if (signal.aborted) onAbort()
       for await (const upstreamChunk of chunks) {
+        throwIfAborted(signal)
         if (firstChunkTime === null) firstChunkTime = performance.now()
         const events = strategy.adaptChunk(upstreamChunk, state, ctx)
         for (const ev of events) {
+          throwIfAborted(signal)
           await sseStream.writeSSE(sanitizeSSEMessage(ev))
+          throwIfAborted(signal)
         }
       }
+      throwIfAborted(signal)
       const terminal = strategy.finalizeStream?.(state, ctx) ?? []
       for (const ev of terminal) {
+        throwIfAborted(signal)
         await sseStream.writeSSE(sanitizeSSEMessage(ev))
+        throwIfAborted(signal)
       }
     } catch (err) {
-      streamError = err
+      streamError = signal.aborted ? abortError(signal) : err
+      if (signal.aborted) return
       const terminal = strategy.adaptStreamError(err, state, ctx)
       for (const ev of terminal) {
         try {
+          if (signal.aborted) break
           await sseStream.writeSSE(sanitizeSSEMessage(ev))
         } catch {
           // Best-effort — connection may already be closed.
         }
       }
     } finally {
+      signal.removeEventListener("abort", onAbort)
+      if (signal.aborted) streamError = abortError(signal)
       emitStreamEnd(ctx, strategy, upstreamReq, state, firstChunkTime, streamError)
     }
   })
+}
+
+function abortError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException("The request was aborted", "AbortError")
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) throw abortError(signal)
 }
 
 // Since hono 4.12.31, writeSSE emits `retry: null` literally when retry is

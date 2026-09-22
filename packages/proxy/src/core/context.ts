@@ -17,6 +17,7 @@ import { generateRequestId } from "../util/id"
 export type RequestFormat = "openai" | "anthropic" | "responses"
 
 export interface RequestContext {
+  signal?: AbortSignal
   /** ULID-like; set once per request and reused as DB key + log correlation key. */
   requestId: string
   /** `performance.now()` at handler entry; used for TTFT / total latency. */

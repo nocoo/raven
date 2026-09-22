@@ -59,7 +59,8 @@ export class CopilotNativeClient
 {
   constructor(private readonly config: CopilotNativeConfig) {}
 
-  async send(req: CopilotNativeRequest): Promise<UpstreamResult<AnthropicResponse>> {
+  async send(req: CopilotNativeRequest, signal?: AbortSignal): Promise<UpstreamResult<AnthropicResponse>> {
+    signal?.throwIfAborted()
     this.config.getToken()
 
     const normalizedPayload = normalizeNativeThinkingPayload(req.payload, req.options.copilotModel)
@@ -88,6 +89,7 @@ export class CopilotNativeClient
     const body = JSON.stringify(requestBody)
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
+      signal?.throwIfAborted()
       const { token, headers } = this.config.snapshotAuth({
         anthropicBeta,
         visionRequest,
@@ -95,6 +97,7 @@ export class CopilotNativeClient
       })
       const response = await fetch(url, {
         method: "POST",
+        signal,
         headers,
         body,
         ...(proxyUrl ? { proxy: proxyUrl } : {}),
@@ -107,6 +110,7 @@ export class CopilotNativeClient
 
     if (response.status === 401) {
       const respBody = await response.text().catch(() => "")
+      signal?.throwIfAborted()
       const tokenExpired = isTokenExpiredBody(401, respBody)
       tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401")
       noteLlm401(tokenExpired ? "token-expired" : "other-401")
@@ -116,6 +120,7 @@ export class CopilotNativeClient
       }
 
       const result = await refreshNow("llm-401", first.usedToken)
+      signal?.throwIfAborted()
       if (!result.ok || !result.tokenWasUpdated) {
         throw new HTTPError("Failed to create native messages", 401, respBody)
       }
@@ -128,7 +133,7 @@ export class CopilotNativeClient
     }
 
     if (normalizedPayload.stream) {
-      return events(response) as AsyncGenerator<ServerSentEvent>
+      return events(response, signal) as AsyncGenerator<ServerSentEvent>
     }
 
     return (await response.json()) as AnthropicResponse

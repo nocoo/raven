@@ -271,8 +271,8 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
 
     prepare: (req) => prepareResponsesTools(sanitizeCopilotResponsesSampling(req)),
 
-    dispatch: async (up) => {
-      const response = await deps.client.send(up)
+    dispatch: async (up, ctx) => {
+      const response = await deps.client.send(up, ctx.signal)
       if (up.stream && isAsyncIterable<ServerSentEvent>(response)) {
         return { kind: "stream", chunks: response }
       }

@@ -71,7 +71,7 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
     prepare: (req) => req,
 
     dispatch: async (up, ctx) => {
-      const response = await sendWithEffortFallback(deps.client, up, ctx.requestId)
+      const response = await sendWithEffortFallback(deps.client, up, ctx.requestId, ctx.signal)
       if (isAsyncGenerator(response)) {
         return { kind: "stream", chunks: response }
       }
@@ -171,10 +171,12 @@ async function sendWithEffortFallback(
   client: CopilotNativeClient,
   req: CopilotNativeUpReq,
   requestId: string,
+  signal?: AbortSignal,
 ): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
   try {
-    return await client.send({ payload: req.payload, options: req.options })
+    return await client.send({ payload: req.payload, options: req.options }, signal)
   } catch (error) {
+    signal?.throwIfAborted()
     if (!(error instanceof HTTPError)) throw error
     if (error.status !== 400) throw error
     let errorBody: unknown
@@ -191,7 +193,7 @@ async function sendWithEffortFallback(
     )
     logEffortFallback(requestId, req.options.copilotModel, effortError.requestedEffort, fallbackEffort)
     const adjustedPayload = adjustEffortInPayload(req.payload, fallbackEffort)
-    return await client.send({ payload: adjustedPayload, options: req.options })
+    return await client.send({ payload: adjustedPayload, options: req.options }, signal)
   }
 }
 

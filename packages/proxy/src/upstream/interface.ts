@@ -21,5 +21,5 @@ import type { ServerSentEvent } from "../util/sse"
 export type UpstreamResult<Resp> = Resp | AsyncGenerator<ServerSentEvent>
 
 export interface UpstreamClient<Req, Resp> {
-  send(payload: Req): Promise<UpstreamResult<Resp>>
+  send(payload: Req, signal?: AbortSignal): Promise<UpstreamResult<Resp>>
 }

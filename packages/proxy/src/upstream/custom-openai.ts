@@ -29,12 +29,15 @@ export class CustomOpenAIClient
 
   async send(
     req: CustomOpenAIRequest,
+    signal?: AbortSignal,
   ): Promise<UpstreamResult<ChatCompletionResponse>> {
+    signal?.throwIfAborted()
     const { provider, payload } = req
     const url = `${provider.base_url.replace(/\/+$/, "")}/v1/chat/completions`
     const proxyUrl = this.config.getProxyUrl(provider)
     const response = await fetch(url, {
       method: "POST",
+      signal,
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${provider.api_key}`,
@@ -51,7 +54,7 @@ export class CustomOpenAIClient
     }
 
     return payload.stream
-      ? (events(response) as AsyncGenerator<ServerSentEvent>)
+      ? (events(response, signal) as AsyncGenerator<ServerSentEvent>)
       : ((await response.json()) as ChatCompletionResponse)
   }
 }

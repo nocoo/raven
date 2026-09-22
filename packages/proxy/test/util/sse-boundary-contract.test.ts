@@ -117,7 +117,7 @@ describe("SSE transport contracts", () => {
     ])))).toEqual([{ event: null, data: "\uFFFD", id: null, retry: null }])
   })
 
-  test.fails("BUG R06a: returning the SSE iterator must cancel the upstream body", async () => {
+  test("BUG R06a: returning the SSE iterator must cancel the upstream body", async () => {
     const cancel = vi.fn()
     const response = new Response(new ReadableStream<Uint8Array>({
       start(controller) {
