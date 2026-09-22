@@ -27,7 +27,6 @@ beforeEach(() => {
   // Reset state to defaults
   state.optSanitizeOrphanedToolResults = false;
   state.optReorderToolResults = false;
-  state.optFilterWhitespaceChunks = false;
   state.optToolCallDebug = false;
   state.stWebSearchEnabled = false;
   state.stWebSearchApiKey = null;
@@ -527,20 +526,14 @@ describe("settings route", () => {
       expect(state.optReorderToolResults).toBe(true);
     });
 
-    test("sets opt_filter_whitespace_chunks to false", async () => {
-      setSetting(db, "opt_filter_whitespace_chunks", "true");
-      cacheOptimizations(db);
-
+    test("rejects removed opt_filter_whitespace_chunks key", async () => {
       const app = createSettingsRoute(db);
       const res = await app.request("/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "opt_filter_whitespace_chunks", value: "false" }),
+        body: JSON.stringify({ key: "opt_filter_whitespace_chunks", value: "true" }),
       });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.optimizations.filter_whitespace_chunks.enabled).toBe(false);
-      expect(state.optFilterWhitespaceChunks).toBe(false);
+      expect(res.status).toBe(400);
     });
 
     test("sets tool_call_debug to true", async () => {

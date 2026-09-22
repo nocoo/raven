@@ -86,7 +86,6 @@ export async function handleCompletion(c: Context) {
         models: state.models?.data ?? [],
         buildDeps: {
           toolCallDebug: state.optToolCallDebug,
-          filterWhitespaceChunks: state.optFilterWhitespaceChunks,
         },
       })
     } catch (error) {

@@ -72,7 +72,7 @@ function makeJsonResp(model = "gpt-4o"): ChatCompletionResponse {
 
 describe("strategies/custom-openai", () => {
   test.each([undefined, "client-model"])("handles empty SSE data and missing usage in mode %s", (originalModel) => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const req = makeReq(originalModel ? { originalModel } : {})
     const st = s.initStreamState(req, makeCtx())
     const empty = { event: null, data: "", id: null, retry: null }
@@ -97,19 +97,19 @@ describe("strategies/custom-openai", () => {
   afterEach(() => { off() })
 
   test("name is 'custom-openai'", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     expect(s.name).toBe("custom-openai")
   })
 
   test("prepare is identity", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const req = makeReq()
     expect(s.prepare(req, makeCtx())).toBe(req)
   })
 
   test("dispatch returns json kind for non-streaming response", async () => {
     const resp = makeJsonResp()
-    const s = makeCustomOpenAI({ client: fakeClient(() => resp), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => resp), toolCallDebug: false })
     const out = await s.dispatch(makeReq(), makeCtx())
     expect(out.kind).toBe("json")
     if (out.kind === "json") expect(out.body).toBe(resp)
@@ -119,7 +119,7 @@ describe("strategies/custom-openai", () => {
     async function* gen(): AsyncGenerator<ServerSentEvent> {
       yield { event: null, data: '{"id":"x","model":"gpt-4o"}', id: null, retry: null }
     }
-    const s = makeCustomOpenAI({ client: fakeClient(() => gen()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => gen()), toolCallDebug: false })
     const out = await s.dispatch(makeReq(), makeCtx())
     expect(out.kind).toBe("stream")
   })
@@ -129,13 +129,13 @@ describe("strategies/custom-openai", () => {
   // --------------------------------------------------------------------------
 
   test("passthrough adaptJson is identity", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const resp = makeJsonResp()
     expect(s.adaptJson(resp, makeReq(), makeCtx())).toBe(resp)
   })
 
   test("passthrough initStreamState seeds upstream tags + originalModel undefined", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     expect(st.upstream).toBe("myco")
     expect(st.upstreamFormat).toBe("openai")
@@ -144,7 +144,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("passthrough adaptChunk forwards chunks as SSE", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const chunk: ServerSentEvent = { event: null, data: '{"model":"gpt-4o-r","usage":{"prompt_tokens":7,"completion_tokens":3}}', id: null, retry: null }
     const out = s.adaptChunk(chunk, st, makeCtx())
@@ -155,14 +155,14 @@ describe("strategies/custom-openai", () => {
   })
 
   test("passthrough adaptChunk forwards [DONE] sentinel", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const out = s.adaptChunk({ event: null, data: "[DONE]", id: null, retry: null }, st, makeCtx())
     expect(out).toHaveLength(1)
   })
 
   test("passthrough adaptStreamError emits OpenAI-shaped error", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const out = s.adaptStreamError(new Error("boom"), st, makeCtx())
     expect(out).toHaveLength(1)
@@ -171,7 +171,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("passthrough describeEndLog json arm uses response model + upstream tags", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.describeEndLog({ kind: "json", req: makeReq(), resp: makeJsonResp("gpt-x") }, makeCtx())
     expect(out).toEqual({
       model: "gpt-x", resolvedModel: "gpt-x",
@@ -182,7 +182,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("passthrough describeEndLog stream arm uses state", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st: CustomOpenAIStreamState = {
       messageStartSent: false, contentBlockIndex: 0, contentBlockOpen: false, toolCalls: {},
       stopReason: null, messageStopSent: false, lastUsage: null,
@@ -202,7 +202,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("passthrough describeEndLog error arm uses payload model", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.describeEndLog({ kind: "error", req: makeReq(), err: new Error("x") }, makeCtx())
     expect(out).toEqual({ model: "gpt-4o", upstream: "myco", upstreamFormat: "openai" })
   })
@@ -212,21 +212,21 @@ describe("strategies/custom-openai", () => {
   // --------------------------------------------------------------------------
 
   test("translated adaptJson translates OpenAI → Anthropic", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.adaptJson(makeJsonResp(), makeReq({ originalModel: "claude-3-5" }), makeCtx())
     // translate result has "type": "message"
     expect((out as { type: string }).type).toBe("message")
   })
 
   test("translated initStreamState sets originalModel + resolvedModel", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
     expect(st.originalModel).toBe("claude-3-5")
     expect(st.resolvedModel).toBe("claude-3-5")
   })
 
   test("translated adaptChunk produces Anthropic-shaped events", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
     const chunk: ServerSentEvent = {
       event: null,
@@ -243,7 +243,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("translated adaptChunk swallows [DONE] without forwarding", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
     const out = s.adaptChunk({ event: null, data: "[DONE]", id: null, retry: null }, st, makeCtx())
     expect(out).toHaveLength(0)
@@ -253,7 +253,7 @@ describe("strategies/custom-openai", () => {
     // Regression: prior code silently dropped malformed chunks in translated
     // mode, which corrupted Anthropic block bookkeeping without surfacing
     // any failure to the client.
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
     expect(() =>
       s.adaptChunk({ event: null, data: "{ not json", id: null, retry: null }, st, makeCtx()),
@@ -261,7 +261,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("passthrough adaptChunk forwards malformed chunks verbatim (no throw)", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const raw: ServerSentEvent = { event: null, data: "{ not json", id: null, retry: null }
     const out = s.adaptChunk(raw, st, makeCtx())
@@ -269,7 +269,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("translated adaptStreamError emits Anthropic-shaped error", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
     const out = s.adaptStreamError(new Error("boom"), st, makeCtx())
     expect(out).toHaveLength(1)
@@ -277,7 +277,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("translated describeEndLog json arm carries originalModel + translatedModel", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.describeEndLog(
       { kind: "json", req: makeReq({ originalModel: "claude-3-5" }), resp: makeJsonResp("gpt-r") },
       makeCtx(),
@@ -293,7 +293,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("translated describeEndLog stream arm uses state.originalModel", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st: CustomOpenAIStreamState = {
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
       stopReason: null, messageStopSent: false, lastUsage: null,
@@ -315,7 +315,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("translated describeEndLog error arm carries translatedModel", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.describeEndLog(
       { kind: "error", req: makeReq({ originalModel: "claude-3-5" }), err: new Error("x") },
       makeCtx(),
@@ -328,7 +328,7 @@ describe("strategies/custom-openai", () => {
   })
 
   test("translated adaptChunk emits tool_use_start debug log for each tool after finish", () => {
-    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: true })
+    const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: true })
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
     s.adaptChunk({
       event: null,

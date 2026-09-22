@@ -32,9 +32,9 @@ const usage: NonNullable<ChatCompletionChunk["usage"]> = {
   prompt_tokens_details: { cached_tokens: 11 }, completion_tokens_details: null,
 }
 
-function translate(chunks: ChatCompletionChunk[], filterWhitespaceChunks = false) {
+function translate(chunks: ChatCompletionChunk[]) {
   const streamState = createAnthropicStreamState()
-  const events = chunks.flatMap((item) => translateChunkToAnthropicEvents(item, streamState, "audit-model", { filterWhitespaceChunks }))
+  const events = chunks.flatMap((item) => translateChunkToAnthropicEvents(item, streamState, "audit-model"))
   events.push(...finalizeAnthropicStream(streamState))
   return events
 }
@@ -310,10 +310,10 @@ describe("Anthropic ↔ Chat semantic contracts", () => {
     expect(textFrom(translated)).toBe(parts.join(""))
   })
 
-  test.fails("BUG R04: whitespace optimization must preserve spaces inside generated text", () => {
+  test("BUG R04: whitespace optimization must preserve spaces inside generated text", () => {
     const translated = translate([
       chunk({ content: "hello" }), chunk({ content: " " }), chunk({ content: "world" }), chunk({}, "stop"),
-    ], true)
+    ])
     expect(textFrom(translated)).toBe("hello world")
   })
 

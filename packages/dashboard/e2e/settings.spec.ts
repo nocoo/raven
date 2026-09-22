@@ -16,7 +16,6 @@ test.describe("settings page", () => {
             copilot_chat_version: null,
             sanitize_orphaned_tool_results: true,
             reorder_tool_results: true,
-            filter_whitespace_chunks: true,
           },
         });
       } else if (route.request().method() === "PUT") {

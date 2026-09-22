@@ -36,7 +36,7 @@ let saved: typeof state;
 
 beforeEach(() => {
   saved = { ...state };
-  Object.assign(state, { copilotToken: "fixture-only", vsCodeVersion: "1.90.0", accountType: "individual", rateLimitSeconds: null, socks5Enabled: false, stWebSearchEnabled: false, optFilterWhitespaceChunks: false, providers: [provider("openai"), provider("anthropic")], models: { object: "list", data: [model("claude-monitor", ["/v1/messages"]), model("gpt-direct", ["/chat/completions"]), model("gpt-responses", ["/responses"])] } });
+  Object.assign(state, { copilotToken: "fixture-only", vsCodeVersion: "1.90.0", accountType: "individual", rateLimitSeconds: null, socks5Enabled: false, stWebSearchEnabled: false, providers: [provider("openai"), provider("anthropic")], models: { object: "list", data: [model("claude-monitor", ["/v1/messages"]), model("gpt-direct", ["/chat/completions"]), model("gpt-responses", ["/responses"])] } });
   vi.spyOn(globalThis, "fetch").mockImplementation(async input => {
     const url = String(input);
     if (url.endsWith("/v1/messages")) return Response.json(anthropicResponse);

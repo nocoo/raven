@@ -59,7 +59,7 @@ describe("composition/strategy-registry", () => {
 
   test("returns a Strategy with name=custom-openai for ok decision", () => {
     const decision: StrategyDecision = { kind: "ok", name: "custom-openai" }
-    const s = buildStrategy(decision, { toolCallDebug: false, filterWhitespaceChunks: false })
+    const s = buildStrategy(decision, { toolCallDebug: false })
     expect(s.name).toBe("custom-openai")
     expect(typeof s.prepare).toBe("function")
     expect(typeof s.dispatch).toBe("function")
@@ -97,7 +97,7 @@ describe("composition/strategy-registry", () => {
 
   test("returns a Strategy with name=copilot-translated for ok decision", () => {
     const decision: StrategyDecision = { kind: "ok", name: "copilot-translated" }
-    const s = buildStrategy(decision, { toolCallDebug: false, filterWhitespaceChunks: false })
+    const s = buildStrategy(decision, { toolCallDebug: false })
     expect(s.name).toBe("copilot-translated")
     expect(typeof s.prepare).toBe("function")
     expect(typeof s.dispatch).toBe("function")

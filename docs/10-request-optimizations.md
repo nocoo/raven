@@ -89,23 +89,6 @@ function translateAnthropicMessagesToOpenAI(
 **涉及文件**：
 - `packages/proxy/src/routes/messages/non-stream-translation.ts` — 重构遍历（与 OPT-1 共享）+ 排序逻辑
 
-### OPT-3: Filter Whitespace-Only Streaming Chunks
-
-**问题**：OpenAI → Anthropic 的流式翻译过程中，上游可能发来纯空白 `delta.content`（如 `" "` 或 `"\n"`）。这些翻译为 `content_block_delta` 后，在某些客户端（如 VS Code Copilot 扩展）中渲染出多余的空行。
-
-**现状**：`stream-translation.ts:59` 用 `if (delta.content)` 做 truthy 检查，过滤了 `null`/`undefined`/`""`，但 `" "` 和 `"\n"` 是 truthy 值，会正常通过并产生 delta 事件。
-
-**修复逻辑**：
-1. 在 `translateChunkToAnthropicEvents()` 中，当 `delta.content` 存在时增加 `.trim()` 检查
-2. 仅过滤同时满足以下三个条件的 chunk：
-   - `content.trim() === ""`（纯空白）
-   - 没有 `tool_calls`
-   - 没有 `finish_reason`
-3. fail-open：任何判断异常都 pass through，不阻断流
-
-**涉及文件**：
-- `packages/proxy/src/routes/messages/stream-translation.ts` — 添加过滤条件
-
 ---
 
 ## 设计方案
@@ -118,7 +101,6 @@ function translateAnthropicMessagesToOpenAI(
 |--------|-------|---------|
 | `opt_sanitize_orphaned_tool_results` | `"true"` / `"false"` | `"false"` |
 | `opt_reorder_tool_results` | `"true"` / `"false"` | `"false"` |
-| `opt_filter_whitespace_chunks` | `"true"` / `"false"` | `"false"` |
 
 ### Proxy State
 
@@ -132,7 +114,6 @@ export interface State {
   // Request optimizations (default: all false)
   optSanitizeOrphanedToolResults: boolean
   optReorderToolResults: boolean
-  optFilterWhitespaceChunks: boolean
 }
 ```
 
@@ -147,8 +128,7 @@ export interface State {
     "copilot_chat_version": { ... },
     "optimizations": {
       "sanitize_orphaned_tool_results": { "enabled": false, "key": "opt_sanitize_orphaned_tool_results" },
-      "reorder_tool_results": { "enabled": false, "key": "opt_reorder_tool_results" },
-      "filter_whitespace_chunks": { "enabled": false, "key": "opt_filter_whitespace_chunks" }
+      "reorder_tool_results": { "enabled": false, "key": "opt_reorder_tool_results" }
     }
   }
   ```
@@ -183,10 +163,6 @@ export interface State {
 │ │ ○ Reorder Tool Results                              OFF │ │
 │ │   Reorder parallel tool results to match the            │ │
 │ │   tool_calls array order expected by upstream.          │ │
-│ ├─────────────────────────────────────────────────────────┤ │
-│ │ ○ Filter Whitespace-Only Chunks                     OFF │ │
-│ │   Skip streaming chunks with whitespace-only content    │ │
-│ │   that cause blank lines in some clients.               │ │
 │ └─────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -223,6 +199,8 @@ export interface State {
 ### ✅ Commit 4: `feat: implement OPT-2 reorder tool results` — `2f60f98`
 
 ### ✅ Commit 5: `feat: implement OPT-3 filter whitespace-only chunks` — `601994e`
+
+Retired by the R04 correctness repair. Streaming text now preserves whitespace; the setting and its UI were removed.
 
 ### ✅ Commit 6: `test: add tests for request optimizations` — `2515d12`
 

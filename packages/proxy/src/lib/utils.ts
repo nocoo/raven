@@ -100,8 +100,6 @@ export function cacheOptimizations(db: Database): void {
     getSetting(db, "opt_sanitize_orphaned_tool_results") === "true"
   state.optReorderToolResults =
     getSetting(db, "opt_reorder_tool_results") === "true"
-  state.optFilterWhitespaceChunks =
-    getSetting(db, "opt_filter_whitespace_chunks") === "true"
   state.optToolCallDebug = getSetting(db, "tool_call_debug") === "true"
 }
 

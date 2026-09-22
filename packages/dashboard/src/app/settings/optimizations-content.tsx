@@ -26,12 +26,6 @@ const OPTIMIZATION_ITEMS: Array<{
     description:
       "Reorder parallel tool results to match the tool_calls array order expected by upstream.",
   },
-  {
-    id: "filter_whitespace_chunks",
-    label: "Filter Whitespace-Only Chunks",
-    description:
-      "Skip streaming chunks with whitespace-only content that cause blank lines in some clients.",
-  },
 ];
 
 // ── Component ──

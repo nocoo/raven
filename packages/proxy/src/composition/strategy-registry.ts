@@ -30,8 +30,6 @@ import { makeCopilotTranslated } from "../strategies/copilot-translated"
 export interface BuildStrategyDeps {
   /** Mirrors `state.optToolCallDebug`; passed in so strategies stay state-free. */
   toolCallDebug: boolean
-  /** Mirrors `state.optFilterWhitespaceChunks`; consumed by translated strategies. */
-  filterWhitespaceChunks?: boolean
 }
 
 /**
@@ -78,7 +76,6 @@ export function buildStrategy(
     case "custom-openai":
       return makeCustomOpenAI({
         client: buildUpstreamClient("custom-openai"),
-        filterWhitespaceChunks: deps.filterWhitespaceChunks ?? false,
         toolCallDebug: deps.toolCallDebug,
       }) as unknown as AnyStrategy
     case "custom-anthropic":
@@ -88,7 +85,6 @@ export function buildStrategy(
     case "copilot-translated":
       return makeCopilotTranslated({
         client: buildUpstreamClient("copilot-openai"),
-        filterWhitespaceChunks: deps.filterWhitespaceChunks ?? false,
         toolCallDebug: deps.toolCallDebug,
       }) as unknown as AnyStrategy
   }

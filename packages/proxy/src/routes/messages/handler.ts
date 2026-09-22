@@ -180,7 +180,6 @@ export async function handleCompletion(c: Context) {
         models: modelsCatalog,
         buildDeps: {
           toolCallDebug: state.optToolCallDebug,
-          filterWhitespaceChunks: state.optFilterWhitespaceChunks,
         },
       })
     } catch (error) {
@@ -368,7 +367,6 @@ export async function handleCompletion(c: Context) {
       models: modelsCatalog,
       buildDeps: {
         toolCallDebug: state.optToolCallDebug,
-        filterWhitespaceChunks: state.optFilterWhitespaceChunks,
       },
     })
   } catch (error) {

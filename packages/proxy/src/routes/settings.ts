@@ -16,7 +16,6 @@ const VERSION_KEYS = ["vscode_version", "copilot_chat_version"] as const;
 const OPTIMIZATION_KEYS = [
   "opt_sanitize_orphaned_tool_results",
   "opt_reorder_tool_results",
-  "opt_filter_whitespace_chunks",
   "tool_call_debug",
 ] as const;
 
@@ -170,10 +169,6 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
       reorder_tool_results: {
         enabled: state.optReorderToolResults,
         key: "opt_reorder_tool_results",
-      },
-      filter_whitespace_chunks: {
-        enabled: state.optFilterWhitespaceChunks,
-        key: "opt_filter_whitespace_chunks",
       },
       tool_call_debug: {
         enabled: state.optToolCallDebug,

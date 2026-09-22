@@ -5,8 +5,7 @@
 // translation. Implements the canonical 7-method `Strategy` interface.
 //
 // The composition root supplies the upstream client and the per-state knobs
-// (`toolCallDebug`, `filterWhitespaceChunks`). Strategy reads no
-// `infra/state`.
+// (`toolCallDebug`). Strategy reads no `infra/state`.
 // ---------------------------------------------------------------------------
 
 import type { SSEMessage } from "hono/streaming"
@@ -32,8 +31,6 @@ import {
 
 export interface CopilotTranslatedDeps {
   client: CopilotOpenAIClient
-  /** Forwarded to translateChunkToAnthropicEvents. */
-  filterWhitespaceChunks: boolean
   /** When true, emit `tool_use_start` debug events as new tool calls arrive. */
   toolCallDebug: boolean
 }
@@ -106,9 +103,7 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
       }
 
       return emitTranslated(
-        translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
-          filterWhitespaceChunks: deps.filterWhitespaceChunks,
-        }),
+        translateChunkToAnthropicEvents(chunk, st, st.originalModel),
         ctx, deps.toolCallDebug,
       )
     },

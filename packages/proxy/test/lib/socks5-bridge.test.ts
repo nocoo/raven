@@ -30,7 +30,6 @@ function makeState(overrides: Partial<State> = {}): State {
     lastRequestTimestamp: null,
     optSanitizeOrphanedToolResults: false,
     optReorderToolResults: false,
-    optFilterWhitespaceChunks: false,
     optToolCallDebug: false,
     stWebSearchEnabled: false,
     stWebSearchApiKey: null,

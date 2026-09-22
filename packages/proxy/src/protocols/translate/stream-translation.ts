@@ -6,11 +6,6 @@ import type {
 } from "../anthropic/types"
 import { mapOpenAIStopReasonToAnthropic } from "./stop-reason"
 
-export interface StreamTranslateOptions {
-  /** When true, drop whitespace-only content deltas that produce blank lines in some clients. */
-  filterWhitespaceChunks?: boolean
-}
-
 export function createAnthropicStreamState(): AnthropicStreamState {
   return {
     messageStartSent: false,
@@ -125,7 +120,6 @@ export function translateChunkToAnthropicEvents(
   chunk: ChatCompletionChunk,
   state: AnthropicStreamState,
   originalModel?: string,
-  options?: StreamTranslateOptions,
 ): Array<AnthropicStreamEventData> {
   const events: Array<AnthropicStreamEventData> = []
   if (state.messageStopSent) return events
@@ -167,35 +161,26 @@ export function translateChunkToAnthropicEvents(
   }
 
   if (delta.content) {
-    // OPT-3: Skip whitespace-only content chunks that cause blank lines in some clients
-    const skipWhitespace =
-      options?.filterWhitespaceChunks
-      && delta.content.trim() === ""
-      && !delta.tool_calls?.length
-      && !choice.finish_reason
-
-    if (!skipWhitespace) {
-      if (!state.contentBlockOpen) {
-        events.push({
-          type: "content_block_start",
-          index: state.contentBlockIndex,
-          content_block: {
-            type: "text",
-            text: "",
-          },
-        })
-        state.contentBlockOpen = true
-      }
-
+    if (!state.contentBlockOpen) {
       events.push({
-        type: "content_block_delta",
+        type: "content_block_start",
         index: state.contentBlockIndex,
-        delta: {
-          type: "text_delta",
-          text: delta.content,
+        content_block: {
+          type: "text",
+          text: "",
         },
       })
+      state.contentBlockOpen = true
     }
+
+    events.push({
+      type: "content_block_delta",
+      index: state.contentBlockIndex,
+      delta: {
+        type: "text_delta",
+        text: delta.content,
+      },
+    })
   }
 
   if (delta.tool_calls) {

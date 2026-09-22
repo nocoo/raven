@@ -37,8 +37,6 @@ import {
 
 export interface CustomOpenAIDeps {
   client: CustomOpenAIClient
-  /** Forwarded to translateChunkToAnthropicEvents in translated mode. */
-  filterWhitespaceChunks: boolean
   /** When true, emit `tool_use_start` debug events as new tool calls arrive. */
   toolCallDebug: boolean
 }
@@ -150,9 +148,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
 
       if (st.originalModel) {
         return emitTranslated(
-          translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
-            filterWhitespaceChunks: deps.filterWhitespaceChunks,
-          }),
+          translateChunkToAnthropicEvents(chunk, st, st.originalModel),
           ctx, deps.toolCallDebug,
         )
       }

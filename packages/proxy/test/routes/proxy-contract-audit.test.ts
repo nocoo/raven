@@ -90,7 +90,7 @@ beforeEach(() => {
   Object.assign(state, {
     copilotToken: "fixture-only", providers: [], models: null,
     vsCodeVersion: "1.90.0", accountType: "individual", rateLimitSeconds: null,
-    stWebSearchEnabled: false, socks5Enabled: false, optFilterWhitespaceChunks: false,
+    stWebSearchEnabled: false, socks5Enabled: false,
   })
   fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
 })

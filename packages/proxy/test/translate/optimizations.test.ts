@@ -4,13 +4,11 @@ import {
 } from "../../src/protocols/translate/non-stream-translation"
 import {
   createAnthropicStreamState,
-  finalizeAnthropicStream,
-  translateChunkToAnthropicEvents as translateChunkToAnthropicEventsRaw,
+  translateChunkToAnthropicEvents,
 } from "../../src/protocols/translate/stream-translation"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import type { AnthropicStreamState } from "../../src/protocols/anthropic/types"
 import type { ChatCompletionChunk } from "../../src/upstream/copilot-openai"
-import type { AnthropicStreamEventData } from "../../src/protocols/anthropic/types"
 import { state } from "../../src/lib/state"
 
 /**
@@ -22,16 +20,6 @@ function translateToOpenAI(payload: AnthropicMessagesPayload) {
   return translateToOpenAIRaw(payload, {
     sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
     reorderToolResults: state.optReorderToolResults,
-  })
-}
-
-function translateChunkToAnthropicEvents(
-  chunk: ChatCompletionChunk,
-  streamState: AnthropicStreamState,
-  originalModel?: string,
-): Array<AnthropicStreamEventData> {
-  return translateChunkToAnthropicEventsRaw(chunk, streamState, originalModel, {
-    filterWhitespaceChunks: state.optFilterWhitespaceChunks,
   })
 }
 
@@ -95,7 +83,6 @@ function makeChunk(
 beforeEach(() => {
   state.optSanitizeOrphanedToolResults = false
   state.optReorderToolResults = false
-  state.optFilterWhitespaceChunks = false
 })
 
 // ===========================================================================
@@ -609,119 +596,41 @@ describe("OPT-1 + OPT-2 combined", () => {
   })
 })
 
-// ===========================================================================
-// OPT-3: Filter Whitespace-Only Streaming Chunks
-// ===========================================================================
-
-describe("OPT-3: filter whitespace-only streaming chunks", () => {
-  test("disabled: whitespace content produces delta events", () => {
-    state.optFilterWhitespaceChunks = false
+describe("streaming whitespace preservation", () => {
+  test("spaces, newlines and tabs in text deltas are kept", () => {
     const streamState = makeStreamState()
-    // First chunk to trigger message_start
-    translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "hello" } }),
-      streamState,
-    )
-    // Whitespace chunk
-    const events = translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "  \n  " } }),
-      streamState,
-    )
-    const deltas = events.filter(
-      (e: AnthropicStreamEventData) => e.type === "content_block_delta",
-    )
-    expect(deltas).toHaveLength(1)
+    translateChunkToAnthropicEvents(makeChunk({ delta: { content: "hello" } }), streamState)
+    const space = translateChunkToAnthropicEvents(makeChunk({ delta: { content: " " } }), streamState)
+    const tab = translateChunkToAnthropicEvents(makeChunk({ delta: { content: "\t" } }), streamState)
+    const newline = translateChunkToAnthropicEvents(makeChunk({ delta: { content: "\n" } }), streamState)
+    expect(space).toMatchObject([{ type: "content_block_delta", delta: { text: " " } }])
+    expect(tab).toMatchObject([{ type: "content_block_delta", delta: { text: "\t" } }])
+    expect(newline).toMatchObject([{ type: "content_block_delta", delta: { text: "\n" } }])
   })
 
-  test("enabled: whitespace-only content is filtered", () => {
-    state.optFilterWhitespaceChunks = true
+  test("empty content emits no text delta", () => {
     const streamState = makeStreamState()
-    // First chunk to trigger message_start + open block
-    translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "hello" } }),
-      streamState,
-    )
-    // Whitespace chunk — should produce no events
-    const events = translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "  \n  " } }),
-      streamState,
-    )
-    expect(events).toHaveLength(0)
+    const events = translateChunkToAnthropicEvents(makeChunk({ delta: { content: "" } }), streamState)
+    expect(events.filter((e) => e.type === "content_block_delta")).toHaveLength(0)
   })
 
-  test("enabled: normal content passes through", () => {
-    state.optFilterWhitespaceChunks = true
-    const streamState = makeStreamState()
-    const events = translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "hello world" } }),
-      streamState,
-    )
-    const deltas = events.filter(
-      (e: AnthropicStreamEventData) => e.type === "content_block_delta",
-    )
-    expect(deltas).toHaveLength(1)
-  })
-
-  test("enabled: whitespace with finish_reason passes through", () => {
-    state.optFilterWhitespaceChunks = true
-    const streamState = makeStreamState()
-    // Open a text block first
-    translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "hi" } }),
-      streamState,
-    )
-    // Whitespace + finish_reason should NOT be filtered
-    const events = translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: " " }, finish_reason: "stop" }),
-      streamState,
-    )
-    expect(events.length).toBeGreaterThanOrEqual(1)
-    const terminal = finalizeAnthropicStream(streamState)
-    expect(terminal.some((e: AnthropicStreamEventData) => e.type === "message_stop")).toBe(true)
-  })
-
-  test("enabled: empty string is already filtered by truthy check", () => {
-    state.optFilterWhitespaceChunks = true
-    const streamState = makeStreamState()
-    // Empty string delta
-    const events = translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "" } }),
-      streamState,
-    )
-    // message_start is emitted but no content_block events
-    const deltas = events.filter(
-      (e: AnthropicStreamEventData) => e.type === "content_block_delta",
-    )
-    expect(deltas).toHaveLength(0)
-  })
-
-  test("enabled: single space is filtered", () => {
-    state.optFilterWhitespaceChunks = true
-    const streamState = makeStreamState()
-    // First establish a text block
-    translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "text" } }),
-      streamState,
-    )
-    // Single space
-    const events = translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: " " } }),
-      streamState,
-    )
-    expect(events).toHaveLength(0)
-  })
-
-  test("enabled: newline-only is filtered", () => {
-    state.optFilterWhitespaceChunks = true
+  test("whitespace inside tool argument fragments is kept", () => {
     const streamState = makeStreamState()
     translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "text" } }),
+      makeChunk({
+        delta: {
+          tool_calls: [{
+            index: 0, id: "call-1", type: "function",
+            function: { name: "lookup", arguments: '{"q": "a b\\n\\t"}' },
+          }],
+        },
+      }),
       streamState,
     )
-    const events = translateChunkToAnthropicEvents(
-      makeChunk({ delta: { content: "\n" } }),
-      streamState,
-    )
-    expect(events).toHaveLength(0)
+    const events = translateChunkToAnthropicEvents(makeChunk({ finish_reason: "tool_calls" }), streamState)
+    const parameters = events.flatMap((event) => event.type === "content_block_delta"
+      && event.delta.type === "input_json_delta" ? [event.delta.partial_json] : []).join("")
+    expect(parameters).toBe('{"q": "a b\\n\\t"}')
+    expect(JSON.parse(parameters)).toEqual({ q: "a b\n\t" })
   })
 })

@@ -67,19 +67,19 @@ describe("strategies/copilot-translated", () => {
   afterEach(() => { off() })
 
   test("name is 'copilot-translated'", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     expect(s.name).toBe("copilot-translated")
   })
 
   test("prepare is identity", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const req = makeReq()
     expect(s.prepare(req, makeCtx())).toBe(req)
   })
 
   test("dispatch returns json kind for non-streaming response", async () => {
     const resp = makeJsonResp()
-    const s = makeCopilotTranslated({ client: fakeClient(() => resp), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => resp), toolCallDebug: false })
     const out = await s.dispatch(makeReq(), makeCtx())
     expect(out.kind).toBe("json")
     if (out.kind === "json") expect(out.body).toBe(resp)
@@ -89,19 +89,19 @@ describe("strategies/copilot-translated", () => {
     async function* gen(): AsyncGenerator<ServerSentEvent> {
       yield { event: null, data: '{"id":"x","model":"gpt-4o"}', id: null, retry: null }
     }
-    const s = makeCopilotTranslated({ client: fakeClient(() => gen()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => gen()), toolCallDebug: false })
     const out = await s.dispatch(makeReq(), makeCtx())
     expect(out.kind).toBe("stream")
   })
 
   test("adaptJson translates OpenAI → Anthropic", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.adaptJson(makeJsonResp(), makeReq(), makeCtx())
     expect((out as { type: string }).type).toBe("message")
   })
 
   test("initStreamState seeds originalModel + zero counters", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     expect(st.originalModel).toBe("claude-3-5")
     expect(st.resolvedModel).toBe("claude-3-5")
@@ -110,21 +110,21 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("adaptChunk swallows [DONE] sentinel", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const out = s.adaptChunk({ event: null, data: "[DONE]", id: null, retry: null }, st, makeCtx())
     expect(out).toEqual([])
   })
 
   test("adaptChunk swallows empty data", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const out = s.adaptChunk({ event: null, data: "", id: null, retry: null }, st, makeCtx())
     expect(out).toEqual([])
   })
 
   test("adaptChunk emits Anthropic-shaped events for first delta chunk", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const chunk: ServerSentEvent = {
       event: null,
@@ -140,7 +140,7 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("adaptChunk extracts usage and resolvedModel from chunk", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     s.adaptChunk(
       {
@@ -160,7 +160,7 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("adaptStreamError emits Anthropic-shaped error event", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const out = s.adaptStreamError(new Error("boom"), st, makeCtx())
     expect(out).toHaveLength(1)
@@ -168,7 +168,7 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("describeEndLog json arm carries originalModel + translatedModel", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.describeEndLog(
       { kind: "json", req: makeReq(), resp: makeJsonResp("gpt-r") },
       makeCtx(),
@@ -183,7 +183,7 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("describeEndLog stream arm uses state", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st: CopilotTranslatedStreamState = {
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
       stopReason: null, messageStopSent: false, lastUsage: null,
@@ -203,7 +203,7 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("describeEndLog error arm carries translatedModel", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const out = s.describeEndLog({ kind: "error", req: makeReq(), err: new Error("x") }, makeCtx())
     expect(out).toEqual({
       model: "claude-3-5",
@@ -212,7 +212,7 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("adaptChunk serializes interleaved tool arguments at finish", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st = s.initStreamState(makeReq(), makeCtx())
     const feed = (delta: Record<string, unknown>, finish_reason: string | null = null) =>
       s.adaptChunk({
@@ -249,7 +249,7 @@ describe("strategies/copilot-translated", () => {
   })
 
   test("toolCallDebug=true logs each emitted tool_use start after finish", () => {
-    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: true })
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: true })
     const st = s.initStreamState(makeReq(), makeCtx())
     s.adaptChunk({
       event: null,

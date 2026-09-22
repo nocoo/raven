@@ -299,13 +299,11 @@ describe("sleep", () => {
 describe("cacheOptimizations", () => {
   const savedOptSanitize = state.optSanitizeOrphanedToolResults
   const savedOptReorder = state.optReorderToolResults
-  const savedOptFilter = state.optFilterWhitespaceChunks
   const savedOptDebug = state.optToolCallDebug
 
   afterEach(() => {
     state.optSanitizeOrphanedToolResults = savedOptSanitize
     state.optReorderToolResults = savedOptReorder
-    state.optFilterWhitespaceChunks = savedOptFilter
     state.optToolCallDebug = savedOptDebug
   })
 
@@ -313,7 +311,6 @@ describe("cacheOptimizations", () => {
     cacheOptimizations(db)
     expect(state.optSanitizeOrphanedToolResults).toBe(false)
     expect(state.optReorderToolResults).toBe(false)
-    expect(state.optFilterWhitespaceChunks).toBe(false)
     expect(state.optToolCallDebug).toBe(false)
   })
 
@@ -335,15 +332,6 @@ describe("cacheOptimizations", () => {
     expect(state.optReorderToolResults).toBe(true)
   })
 
-  test("loads opt_filter_whitespace_chunks = true", () => {
-    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
-      $key: "opt_filter_whitespace_chunks",
-      $value: "true",
-    })
-    cacheOptimizations(db)
-    expect(state.optFilterWhitespaceChunks).toBe(true)
-  })
-
   test("loads tool_call_debug = true", () => {
     db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
       $key: "tool_call_debug",
@@ -363,10 +351,6 @@ describe("cacheOptimizations", () => {
       $value: "true",
     })
     db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
-      $key: "opt_filter_whitespace_chunks",
-      $value: "true",
-    })
-    db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
       $key: "tool_call_debug",
       $value: "true",
     })
@@ -374,7 +358,6 @@ describe("cacheOptimizations", () => {
     cacheOptimizations(db)
     expect(state.optSanitizeOrphanedToolResults).toBe(true)
     expect(state.optReorderToolResults).toBe(true)
-    expect(state.optFilterWhitespaceChunks).toBe(true)
     expect(state.optToolCallDebug).toBe(true)
   })
 

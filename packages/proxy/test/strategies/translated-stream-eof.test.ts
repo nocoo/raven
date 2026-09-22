@@ -99,7 +99,7 @@ const strategies = [
       const client: Pick<CopilotOpenAIClient, "send"> = { send: async () => gen() }
       const strategy = makeCopilotTranslated({
         client: client as CopilotOpenAIClient,
-        filterWhitespaceChunks: false, toolCallDebug: false,
+        toolCallDebug: false,
       })
       return execute(c, ctx(), strategy, {
         openAIPayload: { model: "gpt-4o", messages: [], stream: true },
@@ -113,7 +113,7 @@ const strategies = [
       const client: Pick<CustomOpenAIClient, "send"> = { send: async () => gen() }
       const strategy = makeCustomOpenAI({
         client: client as CustomOpenAIClient,
-        filterWhitespaceChunks: false, toolCallDebug: false,
+        toolCallDebug: false,
       })
       return execute(c, ctx(), strategy, {
         provider,

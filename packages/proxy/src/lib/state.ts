@@ -24,7 +24,6 @@ export interface State {
   // Request optimizations (default: all false)
   optSanitizeOrphanedToolResults: boolean
   optReorderToolResults: boolean
-  optFilterWhitespaceChunks: boolean
 
   // Debug logging (default: all false)
   optToolCallDebug: boolean
@@ -71,7 +70,6 @@ export const state: State = {
   lastRequestTimestamp: null,
   optSanitizeOrphanedToolResults: false,
   optReorderToolResults: false,
-  optFilterWhitespaceChunks: false,
 
   optToolCallDebug: false,
   stWebSearchEnabled: false,
