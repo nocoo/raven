@@ -1,6 +1,7 @@
 # 28 — Key-Bound Routing, Schedules and Upstream Quotas
 
-Status: **Design — independent review in progress; not implemented**.
+Status: **Design — author, independent Codex and independent Grok signed off;
+not implemented**.
 
 Design revision: **R3**. Decisions confirmed with the owner on **2026-09-22**.
 
@@ -589,12 +590,21 @@ cases or unimplemented protocol directions complete.
 ## 13. Review record
 
 This section records review of the design, not implementation acceptance.
+Both independent reviewers signed the same R3 content on **2026-09-22**, after
+separate initial reviews and two revision rounds. The reviewed artifact is
+[`28-key-bound-routing.md`](28-key-bound-routing.md) at commit `20dd1f2`, SHA-256
+`d6dd85fa3b63a2eb54272c2bc28035435b42a58e084ac21a524dfa3482d12c0a`.
 
 | Reviewer | Revision | Result |
 | --- | --- | --- |
-| Author | R3 | Revised against independent R1/R2 findings and source evidence. |
-| Independent Codex | R2 → R3 | R1 findings closed; R2 withheld for one P2 capability-readiness gap; R3 verification pending. |
-| Independent Grok | R2 → R3 | R1 findings closed; R2 withheld for one P1 and three P2 interactions; R3 verification pending. |
+| Author | R3 | Signed off after resolving the independent findings against confirmed requirements and source. |
+| Independent Codex | R3 | SIGN OFF for design and implementation planning; no actionable P0/P1/P2/P3 findings remain. |
+| Independent Grok | R3 | SIGN OFF for design consensus; no P0/P1/P2/P3 findings remain. |
+
+R1 produced five Codex findings and 22 Grok findings. R2 closed those findings
+and the reviewers accepted the three alternatives below; one Codex P2 and one
+Grok P1 plus three P2 interactions remained. Both R3 reviews explicitly closed
+those remaining issues.
 
 R2 clarifies accounting normalization and attempt identity, failure recovery,
 UTC fragment identity, database migration/constraints, cache-only startup,
@@ -614,5 +624,15 @@ the embeddings endpoint requires positive capabilities for `auto` while preservi
 explicit IDs, and joins the first usable stage. Copilot cold/unknown capability
 states now have deterministic `auto` and explicit-model dispatch policies.
 
-The document is ready for implementation planning only after actionable findings
-are resolved and both independent reviewers explicitly sign off the same revision.
+All actionable design findings are closed. Sections 1–12 are unchanged from the
+signed R3 artifact; subsequent edits record review status and verification only.
+The design is ready for implementation planning. Implementing the features and
+passing the acceptance cases remain future work.
+
+Documentation verification: local links and whitespace checks passed. Normal
+pre-commit gates passed for the design commits. Two default-concurrency runs hit
+the unchanged Dashboard analytics test's five-second timeout under high machine
+load. With the installed `VITEST_MAX_WORKERS=2` setting, the complete Dashboard
+suite passed all 588 tests and all four coverage thresholds, and the normal R3
+commit gates passed. Only test concurrency changed; no hook, timeout, coverage
+threshold, runtime code or test code was changed. No live provider was called.
