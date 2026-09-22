@@ -1,5 +1,9 @@
 # Multi-Key Management — 设计文档
 
+> Historical design. [R3 key-bound routing](28-key-bound-routing.md) adds a mandatory
+> `rule_id` foreign key and Connect rule selection. Existing key IDs, secrets and
+> revocation state are retained; the schema below describes the earlier version.
+
 ## 概述
 
 当前 Raven 使用单一 `RAVEN_API_KEY` 环境变量做认证，无法区分不同客户端、无法追踪各 key 用量、无法通过 UI 管理 key 生命周期。本文档设计数据库持久化的多 key 管理系统：key 存 SQLite、Dashboard 提供 CRUD UI 和连接指南、Proxy 负责验证和归因。

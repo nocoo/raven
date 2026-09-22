@@ -28,6 +28,24 @@ The request drawer and setup dialog passed `relative` to Basalt content componen
 
 The first focused verification command combined a root-relative Vitest config with `--root`, resolving the package directory twice. It failed before running tests. Running the package's Node-based Vitest command from the package directory passed; no failed startup result was counted as test evidence.
 
+## 2026-09-22: A local SOCKS test still had an external destination
+
+During R3 coverage review, an inherited test named "exercises temp bridge handler with real SOCKS5 proxy" was found to forward its locally accepted tunnel to the public IP-echo endpoint chosen by production code. Earlier whole-suite runs included this test; the latency-only assertion did not establish whether the external lookup succeeded and cannot substantiate complete network isolation. No real model credentials were used by this test.
+
+The test now rejects outbound fetch by default and uses a local fixture receiver plus deterministic HTTP results. Real socket assertions cover CONNECT 200, malformed-request 400, connection-failure 502 and tunnel closure. Final verification was rerun after this change. A local proxy listener does not imply a local destination; both ends of a test tunnel must be controlled.
+
+## 2026-09-22: Routing component tests missed browser geometry
+
+The time editor's End select rendered all 49 options, but the real browser could not click early options because the popup extended outside the viewport. Basalt already supplied the Popper positioning and scroll viewport; the integration lacked its available-height cap. The fix uses those existing facilities, with no force-click or custom scrolling implementation.
+
+A second production-browser review found a 3,222-pixel mobile document with the application confined to its 844-pixel viewport. The Basalt Shell and ContentIsland lacked the positioning contexts required by the installed integration guide, allowing absolute screen-reader labels from long rule forms to contribute overflow outside the island. Adding `relative` to those containers confines their descendants; the mobile header now retains the page title while omitting ancestor breadcrumbs that overlapped it. Component regressions cover keyboard/focus and responsive draft preservation. The isolated browser runner additionally checks popup bounds, document/body height, island scrolling and screen-reader-label offset parents.
+
+## 2026-09-22: Unified test execution used incompatible runtimes
+
+The package suites passed, but `test:root` forced every Vitest project through Bun. Twenty-four Dashboard jsdom files then failed before their tests could start. The root command now reuses the existing package runners and separately runs the scripts project: Bun for Proxy/scripts and Node for Dashboard. The complete selection passed without changing exclusions or thresholds.
+
+A subsequent normal pre-commit rejected a rule-deletion test that exceeded its existing five-second timeout under load. The test rendered a weekly timetable unrelated to deletion. It now uses a small all-day fixture while preserving cancel, reference-conflict, successful-delete and exact-request assertions; asynchronous UI assertions wait for completion. One focused check was mistakenly invoked through the full-scope coverage command: its 11 tests passed, but coverage correctly failed and was not counted as a passing gate. The unchanged complete commit gates remain the acceptance check.
+
 ## Undated entries migrated from the previous handbook
 
 

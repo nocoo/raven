@@ -12,14 +12,14 @@ Bun workspace monorepo: `packages/proxy` (Hono, port 7024) + `packages/dashboard
 Seven layers, top → bottom. Each layer imports only from the layers below (enforced by `dependency-cruiser.config.cjs`):
 
 1. **`routes/`** — HTTP entry points (Hono handlers). Owns request parsing, logging start, and composition dispatch. Must not import `strategies/` or `upstream/` directly.
-2. **`composition/`** — the **sole bridge** between `routes/`, `strategies/`, and `upstream/`. `dispatch()` picks a strategy factory, builds it with state-derived deps, and drives the Runner.
+2. **`composition/`** — the **sole bridge** between `routes/`, `strategies/`, and `upstream/`. `dispatch()` resolves the authenticated key's rule, captures one routing decision, injects the chosen client and usage observer, and drives the Runner.
 3. **`core/`** — abstract `Strategy`/`Runner`/router contracts + `RequestContext`. Concretion-free: never imports `strategies/` or `upstream/`.
-4. **`strategies/`** — seven `makeXxx(deps)` factories implementing the 7-method `Strategy` interface (`prepare` / `dispatch` / `adaptJson` / `initStreamState` / `adaptChunk` / `adaptStreamError` / `describeEndLog`). Per-strategy files (`strategies/*.ts`) read no `infra/state` — deps are injected. `strategies/support/` holds cross-strategy helpers (server-tool `decorate()`, effort-fallback, capability gates).
+4. **`strategies/`** — seven established factories plus `makeProtocolConverted(deps)`, implementing the `Strategy` interface (`prepare` / `dispatch` / `adaptJson` / `initStreamState` / `adaptChunk` / optional `finalizeStream` / `adaptStreamError` / `describeEndLog`). Per-strategy files (`strategies/*.ts`) read no `infra/state` — deps are injected. `strategies/support/` holds cross-strategy helpers (server-tool `decorate()`, effort-fallback, capability gates).
 5. **`protocols/`** — pure translation zone (Anthropic ↔ OpenAI, SSE adapters, preprocess). No state, no logging, no Hono streaming.
 6. **`upstream/`** — upstream HTTP clients (Copilot native, Copilot OpenAI, custom providers) registered via `composition/upstream-registry.ts`.
 7. **`infra/` + `lib/` + `util/`** — state, auth, rate-limit, logging primitives, IDs.
 
-**Seven strategies** (all registered in `composition/strategy-registry.ts`):
+**Registered strategies** (all registered in `composition/strategy-registry.ts`):
 - `copilot-openai-direct` — `/v1/chat/completions` to Copilot
 - `copilot-chat-via-responses` — `/v1/chat/completions` → Copilot `/responses` (responses-only models)
 - `copilot-translated` — `/v1/messages` Anthropic → Copilot OpenAI
@@ -27,8 +27,73 @@ Seven layers, top → bottom. Each layer imports only from the layers below (enf
 - `copilot-responses` — `/v1/responses` to Copilot
 - `custom-openai` — user-configured OpenAI-compatible providers
 - `custom-anthropic` — user-configured Anthropic providers
+- `protocol-converted` — Messages → Responses, Chat → Messages, custom Chat → Responses, Responses → Chat/Messages and custom native Responses. Pure adapters own conversion; the injected client owns HTTP.
 
 **Server-tool interception** (Tavily `web_search`) runs via `strategies/support/server-tools.ts::decorate()`, which wraps `withServerToolInterception` + `request_end` log + JSON/SSE replay. Both translated and native paths share it.
+
+## Key-bound routing and accounting
+
+[R3](28-key-bound-routing.md) is the current routing contract. Every database key
+has a required rule foreign key; environment client credentials use the protected
+Copilot rule. The transactional migration preserves existing key identities and
+secrets, enables conversion for the Copilot rule, and initializes its `auto` model
+to `gpt-5.6-sol`. New rules default to conversion off.
+
+Admission selects a UTC period or the visible default chain, then the first
+candidate with available quota. Only known exhaustion advances the chain; an
+eligible disabled/missing target, unhealthy enabled quota, protocol mismatch or
+upstream failure ends the request. Copilot is a protected upstream, with no
+implicit fallback. Explicit incoming model IDs follow the selected upstream and
+remain unchanged for custom providers; `auto` uses the configured candidate ID.
+
+Composition captures the provider configuration, model, admission time, quota
+window and multiplier once. The same capture and a monotonically increasing
+attempt ordinal span server-tool rounds and existing same-provider retries.
+`composition/usage-observer.ts` observes the actual HTTP response before protocol
+translation. Chat clients explicitly request streaming usage. The observer handles
+JSON errors even when a stream was requested, and recognizes semantic SSE completion before reader
+cancellation. Missing token buckets remain distinguishable from explicit zero.
+
+SQLite settles weighted usage atomically and deduplicates request/attempt IDs.
+Failed writes retain their original capture in process and emit a correlated
+operational error without replacing the generation result. Before reading each
+reached upstream's quota, composition retries its pending writes once. Quota OFF
+still attempts recovery but does not block admission on the accounting latch.
+This is approximate accounting; the in-process latch is not a durable outbox.
+
+Custom catalogs refresh only through explicit POST actions. Copilot restores its
+durable catalog at startup and refreshes independently on an hourly timer. Key
+authentication, model/Connect reads and configuration saves never fetch catalogs.
+`/v1/models` returns exact-ID-deduplicated cached/manual models plus `auto`, using
+Copilot metadata when IDs collide. Explicit diagnostics make at most one native
+generation attempt and consume the same upstream quota.
+
+Requests persist `routing.resolved_model` for the admitted/sent model, alongside
+the rule, upstream, quota and skipped exhausted candidates. The existing flat
+`resolvedModel` continues to describe the upstream's echoed model; `model` keeps
+the incoming client value. These fields can legitimately differ.
+
+## Isolated Routing browser acceptance
+
+Use Node 24 LTS and Bun 1.3.11 or newer. Install Chromium using the repository's
+existing Playwright dependency, then run from the root after building the
+production Dashboard:
+
+```sh
+GOOGLE_CLIENT_ID='' GOOGLE_CLIENT_SECRET='' NEXTAUTH_SECRET='' NEXT_TELEMETRY_DISABLED=1 \
+  RAVEN_PROXY_URL='http://127.0.0.1:1' RAVEN_INTERNAL_KEY='fixture-internal' \
+  RAVEN_API_KEY='fixture-client' bun run build
+bun run scripts/verify-routing-ui.ts
+```
+
+The runner creates a private per-run directory, real SQLite, synthetic keys, a
+local HTTP fixture upstream, an isolated Proxy and a production Next server on
+random loopback ports. It exercises real BFF/HTTP requests, schedule edits,
+drag/keyboard reordering, Connect bindings, catalog/test actions, conflict
+feedback and responsive layouts. External model/browser requests are blocked.
+Runtime state and owned processes are removed; screenshots, logs and `report.json`
+remain in the printed temporary artifact directory. This verifies the Routing
+workflows, not every application endpoint or the repository-wide L2/L3/D1 target.
 
 ## Data Directory Structure
 

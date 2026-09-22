@@ -21,7 +21,7 @@ Maintain project instructions only in this root `AGENTS.md`. Do not create neste
 ## Project Invariants
 
 - Personal local research is the primary scope. Preserve API versus internal management keys and GitHub OAuth versus Copilot JWT distinctions; do not weaken authentication when a database is empty.
-- Seven-layer proxy architecture and seven strategies follow [operations](docs/26-agent-operations.md). Composition is the sole routes↔strategies/upstream bridge; strategies receive injected dependencies; protocols remain pure.
+- Seven-layer proxy architecture, seven established strategies and the shared `protocol-converted` strategy follow [operations](docs/26-agent-operations.md). Composition is the sole routes↔strategies/upstream bridge; strategies receive injected dependencies; protocols remain pure.
 - Share server-tool interception through the existing decorator; preserve correct JSON/SSE shapes and raw model IDs. Do not rewrite model names to compensate for a client's display bug.
 - Tokens/database belong in platform user directories with private permissions, not Git. Preserve `RAVEN_CONFIG_DIR`, `RAVEN_DATA_DIR`, `RAVEN_TOKEN_PATH`, `RAVEN_DB_PATH` and legacy migration semantics.
 - Upstream HTTP is always mocked in unit/in-process route tests. Never place real tokens in fixtures or automatically exercise a real Copilot/provider account.
@@ -56,6 +56,8 @@ bun run gate:security
 ```
 
 `dev`/`start:proxy` perform real GitHub/Copilot authentication; they are not test setup. Proxy needs separate `RAVEN_API_KEY` and `RAVEN_INTERNAL_KEY`; Dashboard uses matching internal key and `RAVEN_PROXY_URL`. `test:e2e` uses real configuration/database/upstream; `test:ui` uses test DB but still needs real GitHub auth. Do not run those for routine verification; a fully isolated local system runner is planned.
+
+After a production build, `bun run scripts/verify-routing-ui.ts` exercises Routing/Upstreams/Connect/Requests with per-run SQLite, synthetic credentials, random loopback ports and a local fixture upstream. It preserves screenshots and a report outside the repository and removes its runtime state. This bounded workflow does not establish complete endpoint/workflow coverage or change the planned L2/L3/D1 status.
 
 ## Verification
 

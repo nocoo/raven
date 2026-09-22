@@ -11,7 +11,7 @@
 | 08 | [Local Auth Mode](./08-dev-auth-mode.md) | Dashboard local 模式：无 Google OAuth 时跳过认证 |
 | 09 | [Unified Auth](./09-unified-auth.md) | 统一认证架构：分离 AI API 认证与 Dashboard 管理认证 |
 | 10 | [Request Optimizations](./10-request-optimizations.md) | 可配置的请求优化项：协议兼容性修复，Settings 页面逐一开关 |
-| 11 | [Custom Upstream Routing](./11-custom-upstream-routing.md) | Current pattern-based routing; replaced by 28 only after that design is implemented |
+| 11 | [Custom Upstream Routing](./11-custom-upstream-routing.md) | Historical pattern-based routing, superseded by 28 |
 | 12 | [Quality System Upgrade](./12-quality-system-upgrade.md) | 质量体系升级：A- → S 级，D1 隔离 + 文档同步 |
 | 13 | [Server-Side Tools](./13-server-tools.md) | Server-side tool 拦截替换：web_search → Tavily，pure/mixed 双模式 |
 | 14 | [VPS Deployment](./14-vps-deployment.md) | 远程部署：Bun + systemd + Nginx + HTTPS + 安全须知 |
@@ -26,10 +26,10 @@
 | 22 | [Dashboard Design System](./22-dashboard-design-system.md) | Dashboard 设计系统 |
 | 23 | [Token Sentinel](./23-token-sentinel.md) | Copilot token 单写者刷新架构：哨兵 loop + 信号通道，天然线程安全 |
 | 24 | [Chat ↔ Responses Shim](./24-chat-responses-shim.md) | Chat Completions 入向自动转 Responses 上游：catalog-driven 热更新 |
-| 25 | [Messages ↔ Responses Shim](./25-messages-responses-shim.md) | Design only; Messages → Responses is not implemented |
+| 25 | [Messages ↔ Responses Shim](./25-messages-responses-shim.md) | Historical proposal; implemented through the shared protocol-converted strategy in 28 |
 | 26 | [Agent Operations](./26-agent-operations.md) | Proxy layers, shared logging and local operations |
 | 27 | [Monitor Dashboard](./27-monitor-dashboard.md) | Overview, model/key usage, protocol paths and request investigation |
-| 28 | [Key-Bound Routing](./28-key-bound-routing.md) | Reviewed R3 design: key-bound rules, UTC schedules, shared upstream quotas and cached model catalogs; not implemented |
+| 28 | [Key-Bound Routing](./28-key-bound-routing.md) | R3 contract and implementation: key-bound rules, UTC schedules, shared upstream quotas, cached model catalogs and isolated verification |
 | — | [Interactive Proxy Architecture](./proxy-architecture.html) | Offline route explorer, eight protocol repairs with local commits, and fresh UT/coverage evidence |
 
 ## Archive

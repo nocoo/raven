@@ -1,6 +1,9 @@
 # 25 — Anthropic Messages ↔ Responses Endpoint Auto-Shim
 
-> 状态：**Design — pending review**（未实现）
+> Status: **Historical proposal, superseded by [R3 key-bound routing](28-key-bound-routing.md)**.
+> Messages → Responses is implemented through `protocol-converted` and the pure
+> cross-format adapters. The dedicated strategy, auth-triggered discovery and
+> future-work checklist below are historical proposals, not the current contract.
 > 范围：`packages/proxy` 路由决策 + 协议翻译 + 第 8 策略；不改 Manifest / Dashboard
 > 关键属性：**catalog-driven 热更新** + **client Anthropic shape 不变** + **upstream `/responses` 一跳** + **failed 不得误报成功** + **tool call_id ↔ tool_use.id 往返**
 > 关联：

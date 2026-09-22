@@ -1,5 +1,9 @@
 # 11 — Custom Upstream Routing
 
+> Superseded by [R3 key-bound routing](28-key-bound-routing.md). Model patterns,
+> implicit Copilot fallback and discovery during ordinary reads/saves have been
+> removed. This document records the historical implementation only.
+
 将特定模型路由到自定义上游 API，而非默认的 GitHub Copilot。解决 Copilot 不认识的模型（如 `glm-5`）返回 502 的问题。
 
 **动机**：Claude Code 启动时可通过 `--model` 指定任意模型名。当该模型不在 Copilot 模型列表中时，上游直接 502。需要一个可配置的路由层，让不同模型走不同的上游 provider。

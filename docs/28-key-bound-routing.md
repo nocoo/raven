@@ -1,7 +1,6 @@
 # 28 — Key-Bound Routing, Schedules and Upstream Quotas
 
-Status: **Design — author, independent Codex and independent Grok signed off;
-not implemented**.
+Status: **Implemented and integration-verified on 2026-09-22**.
 
 Design revision: **R3**. Decisions confirmed with the owner on **2026-09-22**.
 
@@ -9,10 +8,11 @@ Scope: Dashboard navigation and configuration, Proxy routing, model catalogs,
 local SQLite persistence, migration and isolated verification.
 
 This document replaces the model-pattern routing design in
-[11](11-custom-upstream-routing.md) when implemented. It preserves the layering
+[11](11-custom-upstream-routing.md). It preserves the layering
 contract in [20](20-architecture-refactor.md) and the operational constraints in
-[26](26-agent-operations.md). It does not claim that proposed routes, adapters,
-migrations or tests already exist.
+[26](26-agent-operations.md). Sections 1–12 record the reviewed product contract;
+section 13 preserves the original design sign-off, and section 14 records the
+implementation and its verification.
 
 ## 1. Confirmed product contract
 
@@ -41,12 +41,14 @@ migrations or tests already exist.
 The model list is a global picker. It does not guarantee that the upstream
 selected by a particular key and period implements every listed model.
 
-## 2. Verified starting point
+## 2. Verified pre-refactor starting point
+
+This table records the state at design review, before R3 implementation.
 
 | Current implementation | Consequence for the refactor |
 | --- | --- |
 | [`db/keys.ts`](../packages/proxy/src/db/keys.ts) has no rule reference; [`middleware.ts`](../packages/proxy/src/middleware.ts) publishes only key identity. | Add a mandatory rule binding and carry its resolved identity into request context after authentication. Preserve the API-key/management-key separation. |
-| [`core/router.ts`](../packages/proxy/src/core/router.ts) and [`lib/upstream-router.ts`](../packages/proxy/src/lib/upstream-router.ts) both match model patterns; handlers resolve providers again. | Replace provider selection with one rule decision in composition. Do not retain parallel old/new routers. |
+| [`core/router.ts`](../packages/proxy/src/core/router.ts) and the former `lib/upstream-router.ts` both match model patterns; handlers resolve providers again. | Replace provider selection with one rule decision in composition. Do not retain parallel old/new routers. |
 | [`db/providers.ts`](../packages/proxy/src/db/providers.ts) stores patterns and only `openai`/`anthropic` formats. Copilot is outside this collection. | Store explicit upstream type/format and catalogs; make Copilot addressable by stable upstream ID. |
 | Provider create/update probes models; `/v1/models` and `/api/connection-info` fetch custom catalogs; authenticated requests can refresh Copilot's one-hour cache. | Remove discovery side effects from ordinary reads, auth and custom-upstream saves. Use explicit custom refresh and an independent Copilot timer. |
 | Copilot's cache is in memory; startup and an empty `/v1/models` read fetch it. Failed opportunistic refresh leaves the old timestamp, allowing the next authenticated request to retry immediately. | Persist the last successful snapshot, restore it without blocking server listen, and wait for the next timer interval after a failed background refresh. |
@@ -624,10 +626,10 @@ the embeddings endpoint requires positive capabilities for `auto` while preservi
 explicit IDs, and joins the first usable stage. Copilot cold/unknown capability
 states now have deterministic `auto` and explicit-model dispatch policies.
 
-All actionable design findings are closed. Sections 1–12 are unchanged from the
-signed R3 artifact; subsequent edits record review status and verification only.
-The design is ready for implementation planning. Implementing the features and
-passing the acceptance cases remain future work.
+All actionable design findings were closed in the signed R3 artifact. Design
+approval did not itself establish implementation acceptance. The original content
+is retained at the commit/hash above; the current document labels its historical
+starting point and records implementation separately below.
 
 Documentation verification: local links and whitespace checks passed. Normal
 pre-commit gates passed for the design commits. Two default-concurrency runs hit
@@ -636,3 +638,116 @@ load. With the installed `VITEST_MAX_WORKERS=2` setting, the complete Dashboard
 suite passed all 588 tests and all four coverage thresholds, and the normal R3
 commit gates passed. Only test concurrency changed; no hook, timeout, coverage
 threshold, runtime code or test code was changed. No live provider was called.
+
+## 14. Implementation and integration review
+
+The implementation removes model-pattern routing and the old
+`/settings/upstreams` page. Runtime routing, persistence, protocol adapters and
+Dashboard consume the same pure routing DTOs. The corresponding source areas are:
+
+| Concern | Implementation |
+| --- | --- |
+| Required key binding and one-time migration | `db/routing-migration.ts`, `db/keys.ts`, `middleware.ts` |
+| Schedule, chain and protocol selection | `core/schedule.ts`, `core/routing-selector.ts`, `core/router.ts`, `composition/routing.ts` |
+| Shared weighted quota and retained failed settlements | `db/quota.ts`, `core/usage.ts`, `composition/usage-observer.ts` |
+| Durable model catalog, manual refresh and Copilot timer | `db/catalog.ts`, `composition/catalog.ts`, `upstream/catalog.ts` |
+| Single-attempt diagnostic | `composition/diagnostic.ts` |
+| Protocol conversions | `protocols/cross-format/`, `strategies/protocol-converted.ts`, `composition/strategy-registry.ts` |
+| Management API | `routes/upstreams.ts`, `routes/routing-rules.ts`, `routes/keys.ts` |
+| Dashboard workbenches and key binding | `app/routing/`, `components/routing/`, `hooks/use-routing-rules.ts`, `hooks/use-upstreams.ts`, `app/connect/` |
+| Pure local-to-UTC editing | Dashboard `lib/routing-schedule.ts`, `lib/routing-model.ts`, `lib/upstream-model.ts` |
+| Isolated production-browser workflow | `scripts/verify-routing-ui.ts`, `packages/dashboard/e2e/routing-isolated.ts` |
+
+### Adjustments made during implementation review
+
+1. **One additional strategy.** The seven established strategies remain. A single
+   `protocol-converted` factory handles the missing conversion cells and custom
+   native Responses. It accepts parsed client bodies and an injected client;
+   conversion validation happens before sending. Native custom Responses retains
+   opaque state and sampling fields unchanged. No provider records or auth retry
+   logic are introduced inside this factory.
+2. **Separate chosen and echoed model telemetry.** `routing.resolved_model`
+   records the captured target ID. The existing flat `resolvedModel` keeps the
+   upstream's echoed model, and the incoming `model` remains unchanged. Existing
+   characterisation fields, response headers and exact SSE bytes are preserved.
+3. **Account for the actual transport result.** A streaming request can receive a
+   JSON error containing usage; the observer now uses the response content type.
+   Native Chat clients explicitly request streaming usage without mutating client
+   input or rewriting the downstream stream. SSE protocol completion remains
+   complete when its reader is released before the socket physically closes.
+4. **Preserve unknown usage.** Observed cached tokens remain billable even when
+   the inclusive input total is absent. Missing Anthropic cache buckets stay
+   unknown instead of becoming zero. Known buckets are charged while incomplete
+   usage remains visible. Database errors emit a request-correlated operational
+   event and retain the original generation result.
+5. **Retain the original failed debit.** Retrying the same failed attempt uses
+   its retained capture/usage snapshot, even if a caller changes its object after
+   a reset. Regression tests cover direct retries, partial recovery, old-window
+   completions, real SQLite locks and atomic rollback.
+6. **Use Basalt's existing popup and scroll behavior.** Time selects use Popper
+   and cap height at the available viewport, retaining the library's scroll
+   viewport. The production browser exposed an offscreen End-time option; ordinary
+   pointer selection and keyboard/focus regressions now cover all 49 choices.
+7. **Keep verification physically isolated.** The production-browser runner
+   uses a fresh private directory, local fixture receiver and synthetic credentials.
+   An older SOCKS test that could reach a public IP service was replaced by a local
+   receiver with real socket assertions. No live provider was exercised.
+8. **Contain long mobile forms.** Shell and ContentIsland use the positioning
+   contexts required by the installed Basalt integration guide, so absolute
+   screen-reader labels cannot enlarge the outer document. Mobile headers retain
+   the page title and actions while desktop keeps ancestor breadcrumbs. Browser
+   assertions check document/island geometry; a component regression checks that
+   viewport changes preserve the unsaved draft.
+9. **Use the required runtime for each test package.** The root test entry now
+   delegates to the existing package commands before running the scripts project.
+   Proxy and scripts retain Bun; Dashboard retains Node for jsdom and V8 coverage.
+   This fixes Dashboard worker initialization under the former all-Bun root entry
+   without changing test selection, coverage scope or thresholds.
+
+The Dashboard provides native drag handles, move buttons, Alt+Arrow keyboard
+reordering, an editable weekly overview, overnight/copy-day controls, UTC previews,
+unsaved-change confirmations and reduced-motion styling. The server rejects
+referenced deletion with the names needed to resolve the conflict. Ordinary
+read/save operations remain cache-only.
+
+### Reproduction and evidence boundary
+
+Run the required commands from section 12 with `VITEST_MAX_WORKERS=2`. The
+production-browser build/run command is documented in
+[operations](26-agent-operations.md#isolated-routing-browser-acceptance).
+The runner reports its artifact directory, checks actual popup bounds and
+responsive scroll geometry, and removes its SQLite/configuration state and
+owned services before writing the successful report.
+
+Final integration results on 2026-09-22:
+
+Runtime implementation: `8874699`. Isolated acceptance harness: `fe51e13`.
+The complete package suites, production build, isolated browser verification and
+normal commit gates passed with Node 26.9.0 and Bun 1.4.2. An additional production
+build and isolated browser run passed with Node 24.21.0; the full test gates were
+not rerun on Node 24.
+
+| Verification | Result |
+| --- | --- |
+| `test:all` and runtime-correct `test:root` | Proxy 161 files / 2,509 tests, Dashboard 53 files / 781 tests; root also runs 3 scripts files / 45 tests. All passed. |
+| Proxy coverage and `gate:coverage` | Statements 98.50%, branches 95.76%, functions 98.23%, lines 99.26%; stronger directory/regression/untested-file baseline passed. |
+| Dashboard coverage | Statements 99.16%, branches 97.29%, functions 98.86%, lines 99.13%. |
+| Scripts coverage | Statements 100%, branches 98.92%, functions 100%, lines 100%. |
+| `test:l2` | 31 files / 515 tests passed; this remains in-process route/handler evidence with mocked upstreams. |
+| Types, lint and architecture | Strict typecheck and zero-error/zero-warning Biome passed; architecture passed for 142 modules / 563 dependencies, together with all micro-gates. |
+| `gate:security` | Required OSV and gitleaks checks passed. |
+| Production build | Next production build passed with synthetic build configuration. |
+| Isolated production browser | 12 workflow checkpoints passed on 1440×1100 and 390×844 viewports, including dark theme and reduced motion; no browser, fixture or blocked-request errors. Temporary runtime state was removed. |
+| Characterisation preservation | All eight existing snapshots preserve their original fields, exact SSE bytes and response headers. Routing details are additive. |
+
+The browser checks native drag, button and keyboard reordering, overnight weekly
+periods and copied days, model refresh/test call counts, real HTTP key binding and
+dispatch, quota editing, cached reads, reference conflicts and request attribution.
+On mobile, the document/body remain 844 pixels high while ContentIsland owns the
+3,206-pixel rule form; the key-binding dialog is fully inside the viewport.
+Screenshots and the machine-readable report remain in the runner's printed
+artifact directory.
+
+Existing coverage floors and exclusions remain unchanged. This workflow supplies
+isolated evidence for Routing, Upstreams, Connect and Requests; it does not claim
+complete repository-wide L2/L3/D1 coverage or validate a real upstream account.
