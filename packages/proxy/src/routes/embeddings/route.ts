@@ -1,62 +1,35 @@
 import { Hono } from "hono"
-
-import { extractErrorDetails, forwardError } from "./../../lib/error"
-import { logEmitter } from "./../../util/log-emitter"
-import { generateRequestId } from "./../../util/id"
-import { deriveClientIdentity } from "./../../util/client-identity"
-import { buildUpstreamClient } from "../../composition/upstream-registry"
+import { dispatchEmbedding } from "../../composition/embeddings"
+import { buildContext } from "../../core/context"
+import { logRequestError, logRequestStart, requestIdentity } from "../../core/request-log"
+import { routingLog } from "../../core/routing-log"
+import { ClientInputError, forwardError } from "../../lib/error"
+import { logEmitter } from "../../util/log-emitter"
 import type { EmbeddingRequest } from "../../upstream/copilot-embeddings"
 
 export const embeddingRoutes = new Hono()
 
 embeddingRoutes.post("/", async (c) => {
-  const startTime = performance.now()
-  const requestId = generateRequestId()
-  const accountName = c.get("keyName") ?? "default"
-  const apiKeyId = c.get("keyId") ?? "default"
-  const userAgent = c.req.header("user-agent") ?? null
-  const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, null)
-
+  const ctx = buildContext(c, "openai")
   try {
-    const payload = await c.req.json<EmbeddingRequest>()
-    const model = payload.model
-
+    let payload: EmbeddingRequest
+    try { payload = await c.req.json<EmbeddingRequest>() }
+    catch { throw new ClientInputError("Invalid JSON") }
+    if (!payload || typeof payload.model !== "string" || !payload.model.trim()) throw new ClientInputError("A model is required")
+    logRequestStart(ctx, payload.model)
+    const response = await dispatchEmbedding(c, ctx, payload)
     logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "request_start", requestId,
-      msg: `POST /v1/embeddings ${model}`,
-      data: { path: "/v1/embeddings", format: "openai", model, stream: false, accountName, apiKeyId, sessionId, clientName, clientVersion },
-    })
-
-    const response = await buildUpstreamClient("copilot-embeddings").send(payload)
-    const latencyMs = Math.round(performance.now() - startTime)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "request_end", requestId,
-      msg: `200 ${model} ${latencyMs}ms`,
+      ts: Date.now(), level: "info", type: "request_end", requestId: ctx.requestId,
+      msg: "200 embeddings",
       data: {
-        path: "/v1/embeddings", format: "openai", model, latencyMs,
-        ttftMs: null, processingMs: null,
-        stream: false, status: "success", statusCode: 200,
-        upstreamStatus: 200, accountName, apiKeyId, sessionId, clientName, clientVersion,
+        ...requestIdentity(ctx), ...routingLog(ctx),
+        latencyMs: Math.round(performance.now() - ctx.startTime),
+        status: "success", statusCode: 200, upstreamStatus: 200,
       },
     })
-
     return c.json(response)
   } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} embeddings ${latencyMs}ms`,
-      data: {
-        path: "/v1/embeddings", format: "openai", latencyMs,
-        stream: false, status: "error", statusCode,
-        upstreamStatus, error: errorDetail, accountName, apiKeyId,
-        sessionId, clientName, clientVersion,
-      },
-    })
-
-    return await forwardError(c, error)
+    logRequestError(ctx, error)
+    return forwardError(c, error)
   }
 })

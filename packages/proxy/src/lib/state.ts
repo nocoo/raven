@@ -1,5 +1,4 @@
 import type { ModelsResponse } from "./../services/copilot/get-models"
-import type { CompiledProvider } from "./../db/providers"
 import type { IPRange } from "./ip-whitelist"
 
 export interface State {
@@ -32,8 +31,6 @@ export interface State {
   stWebSearchEnabled: boolean
   stWebSearchApiKey: string | null
 
-  // Custom providers — cached enabled records (compiled), refreshed on CRUD operations
-  providers: CompiledProvider[]
 
   // IP whitelist — access control (default: disabled)
   ipWhitelistEnabled: boolean
@@ -74,7 +71,6 @@ export const state: State = {
   optToolCallDebug: false,
   stWebSearchEnabled: false,
   stWebSearchApiKey: null,
-  providers: [],
   ipWhitelistEnabled: false,
   ipWhitelistRanges: [],
   ipWhitelistTrustProxy: false,

@@ -31,7 +31,7 @@ import {
   CustomAnthropicClient,
   defaultCustomAnthropicConfig,
 } from "../../src/upstream/custom-anthropic"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import {
   upstreamCharacterisations,
   type CharacterisationEntry,
@@ -185,7 +185,7 @@ describe("upstream characterisation (E.2)", () => {
     applyState(f.input.state)
     const client = new CustomOpenAIClient(defaultCustomOpenAIConfig())
     await client.send({
-      provider: f.input.provider as unknown as CompiledProvider,
+      provider: f.input.provider as unknown as UpstreamRecord,
       payload: f.input.payload as never,
     })
     expectMatches(captured[0]!, f.request)
@@ -196,7 +196,7 @@ describe("upstream characterisation (E.2)", () => {
     applyState(f.input.state)
     const client = new CustomOpenAIClient(defaultCustomOpenAIConfig())
     await client.send({
-      provider: f.input.provider as unknown as CompiledProvider,
+      provider: f.input.provider as unknown as UpstreamRecord,
       payload: f.input.payload as never,
     })
     expectMatches(captured[0]!, f.request)
@@ -207,7 +207,7 @@ describe("upstream characterisation (E.2)", () => {
     applyState(f.input.state)
     const client = new CustomAnthropicClient(defaultCustomAnthropicConfig())
     await client.send({
-      provider: f.input.provider as unknown as CompiledProvider,
+      provider: f.input.provider as unknown as UpstreamRecord,
       payload: f.input.payload as never,
     })
     expectMatches(captured[0]!, f.request)

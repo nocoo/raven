@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { Hono, type Context } from "hono"
 import { execute } from "../../src/core/runner"
 import type { RequestContext } from "../../src/core/context"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamFormat, UpstreamRecord } from "../../src/core/routing-types"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import { CopilotNativeClient } from "../../src/upstream/copilot-native"
 import { CopilotOpenAIClient } from "../../src/upstream/copilot-openai"
@@ -25,11 +25,28 @@ const config = {
   getProxyUrl: () => undefined,
   snapshotAuth: () => ({ token: "synthetic-token", headers: {} }),
 }
-const provider: CompiledProvider = {
-  id: "p1", name: "test", base_url: "https://upstream.invalid", format: "openai",
-  api_key: "synthetic-key", enabled: 1, supports_reasoning: 0, supports_models_endpoint: 0,
-  use_socks5: null, created_at: 0, updated_at: 0, patterns: [],
+function providerFor(format: UpstreamFormat, name = "test"): UpstreamRecord {
+  return {
+    id: "p1",
+    name,
+    kind: "custom",
+    format,
+    base_url: "https://upstream.invalid",
+    api_key: "synthetic-key",
+    is_enabled: true,
+    supports_reasoning: false,
+    auth_style: null,
+    use_socks5: null,
+    manual_models: [],
+    models: [],
+    last_refreshed_at: null,
+    last_refresh_error: null,
+    quota: null,
+    created_at: 0,
+    updated_at: 0,
+  }
 }
+const provider = providerFor("chat_completions")
 const chat = { model: "gpt-4o", messages: [], stream: true }
 const messages: AnthropicMessagesPayload = {
   model: "claude-sonnet-4", max_tokens: 128, messages: [], stream: true,
@@ -55,7 +72,7 @@ const paths = [
   {
     name: "custom-anthropic", family: "anthropic", metadata: false,
     run: (c: Context) => execute(c, context(), makeCustomAnthropic({ client: new CustomAnthropicClient(config) }), {
-      provider: { ...provider, format: "anthropic" }, payload: messages,
+      provider: providerFor("anthropic_messages"), payload: messages,
     }),
   },
   {
@@ -170,7 +187,7 @@ test("late transport failure after a forwarded error does not append another err
   const synthetic = vi.spyOn(strategy, "adaptStreamError")
   const app = new Hono()
   app.post("/x", (c) => execute(c, context(), strategy, {
-    provider: { ...provider, format: "anthropic" }, payload: messages,
+    provider: providerFor("anthropic_messages"), payload: messages,
   }))
   expect(await (await app.request("/x", { method: "POST" })).text()).toBe(
     frame("error", '{"type":"error","error":{"message":"busy"}}'),

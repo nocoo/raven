@@ -13,15 +13,15 @@ import {
 // ---------------------------------------------------------------------------
 
 const getCopilotTokenMock = vi.fn()
-const cacheModelsMock = vi.fn()
+const getModelsMock = vi.fn()
 
 vi.mock("../../src/services/github/get-copilot-token", () => ({
   getCopilotToken: (...args: unknown[]) =>
     getCopilotTokenMock(...args) as Promise<{ token: string; refresh_in: number; expires_at: number }>,
 }))
 
-vi.mock("../../src/lib/utils", () => ({
-  cacheModels: cacheModelsMock,
+vi.mock("../../src/services/copilot/get-models", () => ({
+  getModels: getModelsMock,
   sleep: () => Promise.resolve(),
   isNullish: (v: unknown) => v === null || v === undefined,
 }))
@@ -147,8 +147,8 @@ let handle: { stop(): void } | null = null
 beforeEach(() => {
   state.copilotToken = null
   getCopilotTokenMock.mockReset()
-  cacheModelsMock.mockReset()
-  cacheModelsMock.mockResolvedValue(undefined)
+  getModelsMock.mockReset()
+  getModelsMock.mockResolvedValue(undefined)
   _resetTokenSignalForTest()
   _resetSentinelCountersForTest()
   harness = createFakeTimers()
@@ -295,7 +295,7 @@ describe("sentinelTick: STEADY", () => {
     const pending = harness.timers.filter((t) => !t.cleared && !t.fired)
     expect(pending).toHaveLength(1)
     expect(pending[0]!.ms).toBe(540_000)
-    expect(cacheModelsMock).toHaveBeenCalled()
+    expect(getModelsMock).toHaveBeenCalled()
   })
 
   test("scheduled refresh failure: cooldown + forceSteadyAfterCooldown + skip cacheModels", async () => {
@@ -306,7 +306,7 @@ describe("sentinelTick: STEADY", () => {
     expect(_debugSnapshot().cooldownRemaining).toBeGreaterThan(0)
     expect(_debugSnapshot().consecutiveFailures).toBe(1)
     expect(_debugSnapshot().forceSteadyAfterCooldown).toBe(true)
-    expect(cacheModelsMock).not.toHaveBeenCalled()
+    expect(getModelsMock).not.toHaveBeenCalled()
     const pending = harness.timers.filter((t) => !t.cleared && !t.fired)
     expect(pending).toHaveLength(1)
     expect(pending[0]!.ms).toBeLessThanOrEqual(REFRESH_INITIAL_BACKOFF_MS_ASSERT)
@@ -367,7 +367,7 @@ describe("sentinelTick: STEADY", () => {
       expires_at: 9_999_999_999,
     })
     // cacheModels with tok-2 returns 401 (post-refresh validation failure)
-    cacheModelsMock.mockRejectedValueOnce(new HTTPError("models 401", 401))
+    getModelsMock.mockRejectedValueOnce(new HTTPError("models 401", 401))
     // sentinel-401 refresh must succeed too (gets tok-3) — bypasses min-interval
     getCopilotTokenMock.mockResolvedValueOnce({
       token: "tok-3",
@@ -379,7 +379,7 @@ describe("sentinelTick: STEADY", () => {
     // Two upstream calls: scheduled + sentinel-401 (NOT blocked by min-interval)
     expect(getCopilotTokenMock).toHaveBeenCalledTimes(2)
     expect(state.copilotToken).toBe("tok-3")
-    expect(cacheModelsMock).toHaveBeenCalledTimes(1)
+    expect(getModelsMock).toHaveBeenCalledTimes(1)
   })
 
   test("sentinel-401 bypass is bounded by cooldown: if cooldown active, still returns ok:false", async () => {
@@ -419,7 +419,7 @@ describe("sentinelTick: STEADY", () => {
       refresh_in: 1500,
       expires_at: 9_999_999_999,
     })
-    cacheModelsMock.mockRejectedValueOnce(new Error("server hiccup"))
+    getModelsMock.mockRejectedValueOnce(new Error("server hiccup"))
     await harness.flushPending()
 
     expect(getCopilotTokenMock).toHaveBeenCalledTimes(1)
@@ -677,13 +677,13 @@ describe("PROBING state machine", () => {
 
     // Reset upstream call counter; the upcoming PROBING tick should NOT call it
     getCopilotTokenMock.mockClear()
-    cacheModelsMock.mockClear()
-    cacheModelsMock.mockResolvedValueOnce(undefined)
+    getModelsMock.mockClear()
+    getModelsMock.mockResolvedValueOnce(undefined)
 
     await harness.advance(5_000 + 10)
 
     expect(getCopilotTokenMock).not.toHaveBeenCalled()
-    expect(cacheModelsMock).toHaveBeenCalledTimes(1)
+    expect(getModelsMock).toHaveBeenCalledTimes(1)
   })
 
   test("PROBING returns to STEADY after PROBE_TICKS (3) idle ticks (no fresh signals)", async () => {
@@ -700,7 +700,7 @@ describe("PROBING state machine", () => {
     expect(_debugSnapshot().mode).toBe("probing")
 
     // Hard upper bound: 3 PROBING ticks without new reports → STEADY
-    cacheModelsMock.mockResolvedValue(undefined)
+    getModelsMock.mockResolvedValue(undefined)
     for (let i = 0; i < 3; i++) {
       await harness.advance(5_000 + 10)
     }
@@ -725,7 +725,7 @@ describe("PROBING state machine", () => {
     await harness.flushPending()
     expect(_debugSnapshot().mode).toBe("probing")
 
-    cacheModelsMock.mockResolvedValue(undefined)
+    getModelsMock.mockResolvedValue(undefined)
     // Sustained burst: fresh signal every probing tick
     // Without the hard upper bound, PROBING would only exit when score
     // decays below threshold — but with cap = 10 and constant +3 reports,
@@ -827,11 +827,11 @@ describe("PROBING state machine", () => {
     // Set up: scheduled refresh succeeds quickly; cacheModels hangs until we
     // release it; meanwhile we trigger an external LLM refreshNow.
     let resolveCacheModels!: () => void
-    const cacheModelsPromise = new Promise<void>((r) => {
+    const getModelsPromise = new Promise<void>((r) => {
       resolveCacheModels = r
     })
-    cacheModelsMock.mockReset()
-    cacheModelsMock.mockReturnValueOnce(cacheModelsPromise)
+    getModelsMock.mockReset()
+    getModelsMock.mockReturnValueOnce(getModelsPromise)
     getCopilotTokenMock.mockResolvedValueOnce({
       token: "tok-2",
       refresh_in: 1500,

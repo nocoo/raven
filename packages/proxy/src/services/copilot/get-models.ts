@@ -7,6 +7,7 @@ export const getModels = async () => {
   const proxyUrl = getProxyUrl("copilot", state)
   const response = await fetch(`${copilotBaseUrl(state)}/models`, {
     headers: copilotHeaders(state),
+    signal: AbortSignal.timeout(10000),
     ...(proxyUrl ? { proxy: proxyUrl } : {}),
   } as RequestInit)
 

@@ -47,7 +47,7 @@ describe("GET /api/keys", () => {
 
     expect(res.status).toBe(401);
     const body = await res.json();
-    expect(body.error).toContain("Unauthorized");
+    expect(body.error.message).toContain("Unauthorized");
   });
 
   it("generic Error → returns 502", async () => {
@@ -58,7 +58,7 @@ describe("GET /api/keys", () => {
 
     expect(res.status).toBe(502);
     const body = await res.json();
-    expect(body.error).toBe("connection refused");
+    expect(body.error.message).toBe("connection refused");
   });
 });
 

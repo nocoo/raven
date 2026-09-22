@@ -46,7 +46,7 @@ describe("Runner stream lifecycle contracts", () => {
       ...context, startTime: performance.now(),
     }, strategy, {
       payload: { model: "claude-audit" },
-      provider: { name: "audit", format: "anthropic" },
+      provider: { name: "audit", format: "anthropic_messages" },
     } as CustomAnthropicUpReq))
     const response = await app.request("/v1/messages", { method: "POST" })
     const reader = response.body!.getReader()
@@ -80,7 +80,7 @@ describe("Runner stream lifecycle contracts", () => {
         ...context, startTime: performance.now(),
       }, strategy, {
         payload: { model: "claude-audit" },
-        provider: { name: "audit", format: "anthropic" },
+        provider: { name: "audit", format: "anthropic_messages" },
       } as CustomAnthropicUpReq))
       const response = await app.request("/v1/messages", { method: "POST" })
       const body = await response.text()

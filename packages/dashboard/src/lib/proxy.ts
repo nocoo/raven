@@ -1,3 +1,5 @@
+import { apiErrorDetail, type ApiErrorDetail } from "./routing-client";
+
 /**
  * Proxy connection configuration.
  * Dashboard Route Handlers use these to forward requests to the proxy server.
@@ -10,6 +12,7 @@ export class ProxyError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number | undefined,
+    public readonly detail?: ApiErrorDetail | undefined,
   ) {
     super(message);
     this.name = "ProxyError";
@@ -50,9 +53,11 @@ export async function proxyFetch<T>(
   });
 
   if (!res.ok) {
+    const detail = apiErrorDetail(await res.json().catch(() => null));
     throw new ProxyError(
-      `Proxy responded with ${res.status} ${res.statusText}`,
+      detail?.message ?? `Proxy responded with ${res.status} ${res.statusText}`,
       res.status,
+      detail,
     );
   }
 

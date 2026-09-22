@@ -1,9 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
+import { installTestRouting, routingHarness } from "../helpers/routing"
 
 import { state } from "../../src/lib/state"
 import { handleCountTokens as realHandleCountTokens } from "../../src/routes/messages/count-tokens-handler"
 import { createMessageRoutes } from "../../src/routes/messages/route"
+import * as messageHandler from "../../src/routes/messages/handler"
 
 // ---------------------------------------------------------------------------
 // Controllable mock for count-tokens-handler via factory injection.
@@ -25,8 +27,10 @@ function makeRoutes() {
 
 const savedToken = state.copilotToken
 let fetchSpy: ReturnType<typeof vi.spyOn>
+let harness: ReturnType<typeof routingHarness>
 
 beforeEach(() => {
+  harness = routingHarness()
   shouldThrow = false
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
@@ -45,13 +49,14 @@ beforeEach(() => {
       },
     }],
   }
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
 })
 
 afterEach(() => {
   if (savedToken !== undefined) state.copilotToken = savedToken
   else state.copilotToken = null
   fetchSpy.mockRestore()
+  harness.close()
 })
 
 // ===========================================================================
@@ -75,6 +80,8 @@ describe("POST /v1/messages (route wrapper)", () => {
     )
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages", { method: "POST", headers, body })
 
@@ -85,12 +92,32 @@ describe("POST /v1/messages (route wrapper)", () => {
     fetchSpy.mockRejectedValueOnce(new Error("upstream boom"))
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages", { method: "POST", headers, body })
 
     expect(res.status).toBe(500)
     const json = (await res.json()) as { error: { message: string } }
     expect(json.error).toBeDefined()
+  })
+
+  test("the route factory catches a rejection escaping the completion handler", async () => {
+    const handler = vi.spyOn(messageHandler, "handleCompletion").mockRejectedValueOnce(new Error("completion boundary failed"))
+    try {
+      const app = new Hono()
+      installTestRouting(app, harness.db)
+      app.route("/v1/messages", createMessageRoutes())
+      const res = await app.request("/v1/messages", { method: "POST", headers, body })
+
+      expect(res.status).toBe(500)
+      expect(res.headers.get("content-type")).toContain("application/json")
+      expect(await res.json()).toEqual({ error: { message: "completion boundary failed", type: "error" } })
+      expect(handler).toHaveBeenCalledTimes(1)
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      handler.mockRestore()
+    }
   })
 })
 
@@ -107,6 +134,8 @@ describe("POST /v1/messages/count_tokens (route wrapper)", () => {
 
   test("success → returns token count", async () => {
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages/count_tokens", { method: "POST", headers, body })
 
@@ -119,6 +148,7 @@ describe("POST /v1/messages/count_tokens (route wrapper)", () => {
     state.models = null
 
     const app = new Hono()
+    installTestRouting(app, harness.db)
     app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages/count_tokens", {
       method: "POST", headers,
@@ -134,6 +164,8 @@ describe("POST /v1/messages/count_tokens (route wrapper)", () => {
     shouldThrow = true
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.route("/v1/messages", makeRoutes())
     const res = await app.request("/v1/messages/count_tokens", { method: "POST", headers, body })
 

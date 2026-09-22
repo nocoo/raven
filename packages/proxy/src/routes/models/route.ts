@@ -1,247 +1,32 @@
 import { Hono } from "hono"
-
-import { extractErrorDetails, forwardError } from "./../../lib/error"
-import { state } from "./../../lib/state"
-import { cacheModels } from "./../../lib/utils"
-import { getProxyUrl } from "./../../lib/socks5-bridge"
-import { authStyleAttempts, buildAuthHeaders } from "./../../lib/auth-headers"
-import { logEmitter } from "./../../util/log-emitter"
-import { generateRequestId } from "./../../util/id"
-import { deriveClientIdentity } from "./../../util/client-identity"
-import type { CompiledProvider } from "./../../db/providers"
+import { projectCatalog } from "../../db/catalog"
+import { buildContext } from "../../core/context"
+import { extractErrorDetails, forwardError } from "../../lib/error"
+import { logEmitter } from "../../util/log-emitter"
 
 export const modelRoutes = new Hono()
 
-interface ModelEntry {
-  id: string
-  object: string
-  type: string
-  created: number
-  created_at: string
-  owned_by: string
-  display_name: string
-  context_length?: number | null
-  max_completion_tokens?: number | null
-  // Extended fields for native endpoint support (Copilot models only)
-  supported_endpoints?: string[]
-  capabilities?: {
-    supports?: {
-      reasoning_effort?: string[]
-      adaptive_thinking?: boolean
-      max_thinking_budget?: number
-    }
-    limits?: {
-      max_context_window_tokens?: number | null
-      max_output_tokens?: number | null
-    }
-  }
-}
-
-interface UpstreamModelInfo {
-  id: string
-  context_length?: number | null
-  max_completion_tokens?: number | null
-}
-
-/** Coerce a value to a positive integer or return null. */
-function toPositiveInt(v: unknown): number | null {
-  if (v == null) return null
-  const n = typeof v === "number" ? v : Number(v)
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
-}
-
-/**
- * Fetch models from an upstream provider that supports /v1/models.
- * Returns model info with context limits on success, empty array on failure.
- */
-async function fetchUpstreamModels(provider: CompiledProvider): Promise<UpstreamModelInfo[]> {
-  const baseUrl = provider.base_url.replace(/\/+$/, "")
-  const url = `${baseUrl}/v1/models`
-  const proxyUrl = getProxyUrl(provider, state)
-
-  const attempts = provider.api_key
-    ? authStyleAttempts(provider.format, provider.auth_style)
-    : [null]
-
-  for (const style of attempts) {
-    const headers: Record<string, string> = style && provider.api_key
-      ? buildAuthHeaders(provider.api_key, style)
-      : { "Content-Type": "application/json" }
-
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers,
-        signal: AbortSignal.timeout(5000),
-        ...(proxyUrl ? { proxy: proxyUrl } : {}),
-      } as RequestInit)
-
-      if (!response.ok) continue
-
-      const data = await response.json() as { data?: Array<Record<string, unknown>> }
-      if (!data.data || !Array.isArray(data.data)) return []
-
-      return data.data.map((m) => ({
-        id: m.id as string,
-        context_length: toPositiveInt(m.context_length ?? m.max_model_len ?? m.max_context_length ?? m.max_input_tokens),
-        max_completion_tokens: toPositiveInt(m.max_completion_tokens ?? m.max_output_tokens ?? m.max_tokens),
-      }))
-    } catch {
-      // Try next style
-    }
-  }
-  return []
-}
-
 modelRoutes.get("/", async (c) => {
-  const startTime = performance.now()
-  const requestId = generateRequestId()
-  const accountName = c.get("keyName") ?? "default"
-  const apiKeyId = c.get("keyId") ?? "default"
-  const userAgent = c.req.header("user-agent") ?? null
-  const { sessionId, clientName, clientVersion } = deriveClientIdentity(null, userAgent, accountName, null)
-
+  const ctx = buildContext(c, "openai")
+  const data = {
+    path: ctx.path, format: ctx.format, model: "models", stream: false,
+    accountName: ctx.accountName, apiKeyId: ctx.keyId, sessionId: ctx.sessionId,
+    clientName: ctx.clientName, clientVersion: ctx.clientVersion,
+  }
+  logEmitter.emitLog({ ts: Date.now(), level: "info", type: "request_start", requestId: ctx.requestId, msg: "GET /v1/models", data })
   try {
+    const models = projectCatalog(c.get("routingDb"))
     logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "request_start", requestId,
-      msg: "GET /v1/models",
-      data: { path: "/v1/models", format: "openai", model: "models", stream: false, accountName, apiKeyId, sessionId, clientName, clientVersion },
+      ts: Date.now(), level: "info", type: "request_end", requestId: ctx.requestId,
+      msg: "200 models", data: { ...data, modelCount: models.length, status: "success", statusCode: 200, latencyMs: Math.round(performance.now() - ctx.startTime), ttftMs: null, processingMs: null },
     })
-
-    if (!state.models) {
-      // This should be handled by startup logic, but as a fallback.
-      await cacheModels()
-    }
-
-    // Collect all model IDs to avoid duplicates
-    const seenModelIds = new Set(state.models?.data.map((m) => m.id) ?? [])
-
-    // Map Copilot models to response format
-    const models: ModelEntry[] = state.models?.data.map((model) => {
-      const base: ModelEntry = {
-        id: model.id,
-        object: "model",
-        type: "model",
-        created: 0, // No date available from source
-        created_at: new Date(0).toISOString(),
-        owned_by: model.vendor,
-        display_name: model.name,
-        context_length: toPositiveInt(model.capabilities?.limits?.max_context_window_tokens),
-        max_completion_tokens: toPositiveInt(model.capabilities?.limits?.max_output_tokens),
-      }
-      // Extended fields for native endpoint support (only add if present)
-      if (model.supported_endpoints) {
-        base.supported_endpoints = model.supported_endpoints
-      }
-      if (model.capabilities?.supports) {
-        const supports = model.capabilities.supports
-        const supportsObj: NonNullable<ModelEntry["capabilities"]>["supports"] = {}
-        if (supports.reasoning_effort) supportsObj.reasoning_effort = supports.reasoning_effort
-        if (supports.adaptive_thinking !== undefined) supportsObj.adaptive_thinking = supports.adaptive_thinking
-        if (supports.max_thinking_budget !== undefined) supportsObj.max_thinking_budget = supports.max_thinking_budget
-        base.capabilities = {
-          supports: supportsObj,
-          limits: {
-            max_context_window_tokens: model.capabilities.limits?.max_context_window_tokens,
-            max_output_tokens: model.capabilities.limits?.max_output_tokens,
-          },
-        }
-      }
-      return base
-    }) ?? []
-
-    // Process each provider
-    if (state.providers?.length) {
-      // Fetch models from upstreams that support /v1/models in parallel
-      const fetchPromises = state.providers
-        .filter((p) => p.enabled === 1 && p.supports_models_endpoint === 1)
-        .map(async (provider) => {
-          const upstreamModels = await fetchUpstreamModels(provider)
-          return { provider, models: upstreamModels }
-        })
-
-      const fetchResults = await Promise.all(fetchPromises)
-
-      // Add models from upstreams that support /v1/models
-      for (const { provider, models: upstreamModels } of fetchResults) {
-        for (const modelInfo of upstreamModels) {
-          if (!seenModelIds.has(modelInfo.id)) {
-            seenModelIds.add(modelInfo.id)
-            models.push({
-              id: modelInfo.id,
-              object: "model",
-              type: "model",
-              created: 0,
-              created_at: new Date(0).toISOString(),
-              owned_by: provider.name,
-              display_name: modelInfo.id,
-              context_length: modelInfo.context_length ?? null,
-              max_completion_tokens: modelInfo.max_completion_tokens ?? null,
-            })
-          }
-        }
-      }
-
-      // Add exact model patterns from providers that don't support /v1/models
-      for (const provider of state.providers) {
-        if (provider.enabled !== 1) continue
-        // Skip providers that support /v1/models (already handled above)
-        if (provider.supports_models_endpoint === 1) continue
-
-        for (const pattern of provider.patterns) {
-          // Only include exact patterns (no wildcards)
-          if (pattern.isExact && !seenModelIds.has(pattern.raw)) {
-            seenModelIds.add(pattern.raw)
-            models.push({
-              id: pattern.raw,
-              object: "model",
-              type: "model",
-              created: 0,
-              created_at: new Date(0).toISOString(),
-              owned_by: provider.name,
-              display_name: pattern.raw,
-              context_length: null,
-              max_completion_tokens: null,
-            })
-          }
-        }
-      }
-    }
-
-    const latencyMs = Math.round(performance.now() - startTime)
-
-    logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "request_end", requestId,
-      msg: `200 models ${latencyMs}ms`,
-      data: {
-        path: "/v1/models", format: "openai", model: "models", latencyMs,
-        ttftMs: null, processingMs: null,
-        stream: false, status: "success", statusCode: 200,
-        modelCount: models?.length ?? 0, accountName, apiKeyId,
-        sessionId, clientName, clientVersion,
-      },
-    })
-
-    return c.json({
-      object: "list",
-      data: models,
-      has_more: false,
-    })
+    return c.json({ object: "list", data: models, has_more: false })
   } catch (error) {
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
-
+    const { errorDetail, statusCode, upstreamStatus } = extractErrorDetails(error)
     logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
-      msg: `${statusCode} models ${latencyMs}ms`,
-      data: {
-        path: "/v1/models", format: "openai", model: "models", latencyMs,
-        stream: false, status: "error", statusCode,
-        upstreamStatus, error: errorDetail, accountName, apiKeyId,
-        sessionId, clientName, clientVersion,
-      },
+      ts: Date.now(), level: "error", type: "request_end", requestId: ctx.requestId,
+      msg: `${statusCode} models`, data: { ...data, status: "error", statusCode, upstreamStatus, error: errorDetail, latencyMs: Math.round(performance.now() - ctx.startTime) },
     })
-
-    return await forwardError(c, error)
+    return forwardError(c, error)
   }
 })

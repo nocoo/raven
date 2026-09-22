@@ -1,14 +1,17 @@
 // G.1 — chat-completions custom-upstream passthrough streaming branch
 // (custom-openai). Pin SSE bytes + request_end for G.8.
-import { describe, test, beforeEach, afterEach, vi } from "vitest"
+import { describe, test, beforeEach, afterEach, expect, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
 import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
 import { handleCompletion } from "../../src/routes/chat-completions/handler"
-import type { ProviderRecord } from "../../src/db/providers"
-import { compileProvider } from "../../src/db/providers"
+import { createProvider } from "../../src/db/providers"
+import { updateRoutingRule } from "../../src/db/routing-rules"
+import { COPILOT_RULE_ID } from "../../src/core/routing-types"
+import { NOW, routingFixture, ruleInput } from "../db/routing-fixture"
+import { installTestRouting } from "../helpers/routing"
 import {
   captureOrDiff,
   scrubEndLog,
@@ -30,31 +33,29 @@ function mockFetchStream(chunks: string[]): Response {
   })
 }
 
-const customOpenAIProvider: ProviderRecord = {
-  id: "p1", name: "OpenAIProvider",
-  base_url: "https://openai.example.com",
-  format: "openai", api_key: "openai-key",
-  model_patterns: '["gpt-custom-*"]',
-  enabled: 1, created_at: 1, updated_at: 1,
-  supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
-}
-
-const savedProviders = state.providers
-const savedToken = state.copilotToken
+let fixture: ReturnType<typeof routingFixture>
+let savedState: typeof state
 let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
-  state.providers = [compileProvider(customOpenAIProvider)!]
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(NOW)
+  fixture = routingFixture()
+  savedState = { ...state }
+  vi.spyOn(crypto, "randomUUID").mockReturnValueOnce("11111111-1111-4111-8111-111111111111")
+  const upstream = createProvider(fixture.db, { name: "OpenAIProvider", base_url: "https://openai.example.com", format: "chat_completions", api_key: "fixture-only" })
+  updateRoutingRule(fixture.db, COPILOT_RULE_ID, ruleInput({ allow_conversion: false, default_chain: [{ upstream_id: upstream.id, model: "gpt-custom-7" }] }))
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
 })
 
 afterEach(() => {
-  state.providers = savedProviders
-  state.copilotToken = savedToken
-  fetchSpy.mockRestore()
+  fixture.close()
+  Object.assign(state, savedState)
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe("characterisation/chat-completions stream custom-upstream", () => {
@@ -81,6 +82,7 @@ describe("characterisation/chat-completions stream custom-upstream", () => {
       body: requestBody,
     }
     const app = new Hono()
+    installTestRouting(app, fixture.db)
     app.post("/v1/chat/completions", handleCompletion)
     const res = await app.request(
       new Request("http://localhost/v1/chat/completions", {
@@ -90,6 +92,7 @@ describe("characterisation/chat-completions stream custom-upstream", () => {
       }),
     )
     const responseBody = await res.text()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
     await new Promise((r) => setTimeout(r, 10))
     logEmitter.off("log", listener)
 

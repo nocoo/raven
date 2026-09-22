@@ -33,7 +33,6 @@ interface Socks5GetResponse {
     id: string;
     name: string;
     use_socks5: number | null;
-    supports_models_endpoint: boolean | null;
   }>;
 }
 
@@ -62,23 +61,18 @@ interface Socks5TestBody {
 function getProviderPolicies(db: Database): Socks5GetResponse["providerPolicies"] {
   const rows = db
     .query(
-      "SELECT id, name, use_socks5, supports_models_endpoint FROM providers ORDER BY created_at ASC",
+      "SELECT id, name, use_socks5 FROM providers WHERE kind = 'custom' ORDER BY created_at ASC, id",
     )
     .all() as Array<{
     id: string;
     name: string;
     use_socks5: number | null;
-    supports_models_endpoint: number | null;
   }>;
 
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     use_socks5: r.use_socks5,
-    supports_models_endpoint:
-      r.supports_models_endpoint === null
-        ? null
-        : r.supports_models_endpoint === 1,
   }));
 }
 

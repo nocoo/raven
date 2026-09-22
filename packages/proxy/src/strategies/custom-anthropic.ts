@@ -15,7 +15,7 @@ import type { SSEMessage } from "hono/streaming"
 import type { Strategy } from "../core/strategy"
 import { isInlineStreamError } from "./support/inline-stream-error"
 import type { ServerSentEvent } from "../util/sse"
-import type { CompiledProvider } from "../db/providers"
+import type { UpstreamRecord } from "../core/routing-types"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
@@ -28,7 +28,7 @@ export interface CustomAnthropicDeps {
 }
 
 export interface CustomAnthropicUpReq {
-  provider: CompiledProvider
+  provider: UpstreamRecord
   payload: AnthropicMessagesPayload
 }
 

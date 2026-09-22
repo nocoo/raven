@@ -3,6 +3,8 @@
 
 
 
+import { routingRequest } from "@/lib/routing-client";
+import { COPILOT_UPSTREAM_ID } from "@/lib/routing-model";
 import type { CopilotModel } from "@/lib/types";
 import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -68,8 +70,8 @@ function groupAndSort(data: CopilotModel[]): VendorGroup[] {
   const groups: VendorGroup[] = [];
   for (const [vendor, models] of map) {
     models.sort((a, b) => {
-      const ap = a.capabilities.limits?.max_context_window_tokens ?? 0;
-      const bp = b.capabilities.limits?.max_context_window_tokens ?? 0;
+      const ap = a.capabilities?.limits?.max_context_window_tokens ?? 0;
+      const bp = b.capabilities?.limits?.max_context_window_tokens ?? 0;
       return bp - ap;
     });
     groups.push({ vendor, models });
@@ -93,7 +95,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
 
   const summary = useMemo(() => {
     const maxContext = data.reduce((max, m) => {
-      const c = m.capabilities.limits?.max_context_window_tokens ?? 0;
+      const c = m.capabilities?.limits?.max_context_window_tokens ?? 0;
       return c > max ? c : max;
     }, 0);
     const pickerCount = data.filter((m) => m.model_picker_enabled).length;
@@ -105,7 +107,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
     setIsRefreshing(true);
     setRefreshError(null);
     try {
-      await fetch("/api/copilot/models?refresh=true");
+      await routingRequest(`/api/upstreams/${encodeURIComponent(COPILOT_UPSTREAM_ID)}/models/refresh`, { method: "POST" });
       startTransition(() => router.refresh());
     } catch (err) {
       setRefreshError(err instanceof Error ? err.message : "Refresh failed");
@@ -194,26 +196,26 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                         <CopyButton text={model.id} />
                       </span>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell font-medium truncate">{model.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell font-medium truncate">{model.name ?? "—"}</TableCell>
                     <TableCell className="hidden xl:table-cell text-basalt-muted-foreground truncate">
-                      {model.version}
+                      {model.version ?? "—"}
                     </TableCell>
-                    <TableCell className="hidden xl:table-cell truncate">{model.capabilities.family}</TableCell>
+                    <TableCell className="hidden xl:table-cell truncate">{model.capabilities?.family ?? "—"}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       <Badge variant="secondary">
-                        {model.capabilities.type}
+                        {model.capabilities?.type ?? "Unknown"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
-                      {model.capabilities.limits?.max_context_window_tokens?.toLocaleString() ??
-                        "-"}
+                      {model.capabilities?.limits?.max_context_window_tokens?.toLocaleString() ??
+                        "—"}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-right font-mono text-xs">
-                      {model.capabilities.limits?.max_output_tokens?.toLocaleString() ??
-                        "-"}
+                      {model.capabilities?.limits?.max_output_tokens?.toLocaleString() ??
+                        "—"}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {model.model_picker_enabled ? (
+                      {model.model_picker_enabled === undefined ? <span className="text-basalt-muted-foreground">Unknown</span> : model.model_picker_enabled ? (
                         <Badge variant="success">Yes</Badge>
                       ) : (
                         <Badge variant="secondary">No</Badge>

@@ -2,6 +2,8 @@ import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import net from "node:net";
+import { once } from "node:events";
+import { SocksClient } from "socks";
 
 import { state } from "../../src/lib/state";
 import { initSettings, setSetting, getSetting } from "../../src/db/settings";
@@ -35,11 +37,26 @@ vi.mock("node:net", async (importOriginal) => {
 // ---------------------------------------------------------------------------
 
 let db: Database;
+let outboundFetch: ReturnType<typeof vi.spyOn>;
 
 function createApp() {
   const app = new Hono();
   app.route("/api", createSocks5SettingsRoute(db));
   return app;
+}
+
+function sendTunnelRequest(proxy: string, request: string): Promise<string> {
+  const endpoint = new URL(proxy);
+  if (endpoint.hostname !== "127.0.0.1") throw new Error("Fixture bridge must be local");
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: endpoint.hostname, port: Number(endpoint.port) });
+    const chunks: Buffer[] = [];
+    socket.setTimeout(1000, () => socket.destroy(new Error("Fixture bridge timed out")));
+    socket.once("connect", () => socket.write(request));
+    socket.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    socket.once("error", reject);
+    socket.once("close", () => resolve(Buffer.concat(chunks).toString()));
+  });
 }
 
 function insertProvider(
@@ -49,8 +66,8 @@ function insertProvider(
 ) {
   const now = Date.now();
   db.query(
-    `INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, supports_models_endpoint, use_socks5, created_at, updated_at)
-     VALUES ($id, $name, 'https://api.example.com', 'openai', 'sk-test', '["*"]', 1, 0, 1, $use_socks5, $now, $now)`,
+    `INSERT INTO providers (id, name, kind, base_url, format, api_key, enabled, supports_reasoning, manual_models, use_socks5, created_at, updated_at)
+     VALUES ($id, $name, 'custom', 'https://api.example.com', 'chat_completions', 'sk-test', 1, 0, '[]', $use_socks5, $now, $now)`,
   ).run({ $id: id, $name: name, $use_socks5: useSocks5, $now: now });
 }
 
@@ -61,6 +78,7 @@ beforeEach(() => {
   db = new Database(":memory:");
   initSettings(db);
   initProviders(db);
+  outboundFetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected outbound HTTP request"));
 
   // Reset SOCKS5 state
   state.socks5Enabled = false;
@@ -77,6 +95,7 @@ afterEach(async () => {
   db.close();
   // Restore state
   Object.assign(state, savedState);
+  vi.restoreAllMocks();
 });
 
 // ===========================================================================
@@ -106,7 +125,7 @@ describe("GET /api/settings/socks5", () => {
     expect(JSON.stringify(body)).not.toContain("secret");
   });
 
-  test("includes provider policies with supports_models_endpoint", async () => {
+  test("includes custom upstream policies without legacy discovery flags", async () => {
     insertProvider("p1", "OpenRouter", null);
     insertProvider("p2", "Ollama", 0);
     const res = await createApp().request("/api/settings/socks5");
@@ -114,7 +133,7 @@ describe("GET /api/settings/socks5", () => {
     expect(body.providerPolicies).toHaveLength(2);
     expect(body.providerPolicies[0].name).toBe("OpenRouter");
     expect(body.providerPolicies[0].use_socks5).toBeNull();
-    expect(body.providerPolicies[0].supports_models_endpoint).toBe(true);
+    expect(body.providerPolicies[0]).not.toHaveProperty("supports_models_endpoint");
     expect(body.providerPolicies[1].name).toBe("Ollama");
     expect(body.providerPolicies[1].use_socks5).toBe(0);
   });
@@ -498,64 +517,76 @@ describe("POST /api/settings/socks5/test", () => {
     expect(body.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
-  test("exercises temp bridge handler with real SOCKS5 proxy", async () => {
-    // Create a SOCKS5 server that relays connections
-    const socksServer = net.createServer((client) => {
-      client.once("data", () => {
-        client.write(Buffer.from([0x05, 0x00]));
-        client.once("data", (rawReq) => {
-          const req = Buffer.from(rawReq);
-          const atyp = req[3]!;
-          let targetHost: string;
-          let offset: number;
-          if (atyp === 0x03) {
-            const domainLen = req[4]!;
-            targetHost = req.subarray(5, 5 + domainLen).toString();
-            offset = 5 + domainLen;
-          } else if (atyp === 0x01) {
-            targetHost = `${req[4]}.${req[5]}.${req[6]}.${req[7]}`;
-            offset = 8;
-          } else {
-            client.destroy();
-            return;
-          }
-          const targetPort = (req[offset]! << 8) | req[offset + 1]!;
-
-          const upstream = net.createConnection({ host: targetHost, port: targetPort }, () => {
-            const reply = Buffer.from([0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0, 0]);
-            client.write(reply);
-            upstream.pipe(client);
-            client.pipe(upstream);
-          });
-          upstream.on("error", () => {
-            const reply = Buffer.from([0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0]);
-            client.write(reply);
-            client.destroy();
-          });
-        });
-      });
+  test("the temporary CONNECT bridge carries a local fixture response and closes its tunnel", async () => {
+    const echo = net.createServer((socket) => socket.end('{"ip":"203.0.113.42"}'));
+    const echoPort = await new Promise<number>((resolve) => {
+      echo.listen(0, "127.0.0.1", () => resolve((echo.address() as net.AddressInfo).port));
     });
-    const socksPort = await new Promise<number>((resolve) => {
-      socksServer.listen(0, "127.0.0.1", () => {
-        resolve((socksServer.address() as net.AddressInfo).port);
-      });
+    const connect = vi.spyOn(SocksClient, "createConnection").mockImplementationOnce(async () => {
+      const socket = net.createConnection({ host: "127.0.0.1", port: echoPort });
+      await once(socket, "connect");
+      return { socket };
+    });
+    outboundFetch.mockImplementationOnce(async (_url: string | URL | Request, init?: RequestInit) => {
+      const wire = await sendTunnelRequest((init as RequestInit & { proxy: string }).proxy, "CONNECT fixture.invalid:443 HTTP/1.1\r\n\r\n");
+      expect(wire).toBe('HTTP/1.1 200 Connection Established\r\n\r\n{"ip":"203.0.113.42"}');
+      return new Response(wire.split("\r\n\r\n")[1], { headers: { "Content-Type": "application/json" } });
     });
 
     try {
       const res = await createApp().request("/api/settings/socks5/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          host: "127.0.0.1",
-          port: socksPort,
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: "127.0.0.1", port: 1080, username: "fixture-user", password: "fixture-password" }),
       });
-      const body = await res.json();
-      expect(body.latencyMs).toBeGreaterThanOrEqual(0);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ success: true, ip: "203.0.113.42" });
+      expect(outboundFetch).toHaveBeenCalledTimes(1);
+      expect(connect).toHaveBeenCalledWith({
+        proxy: { host: "127.0.0.1", port: 1080, type: 5, userId: "fixture-user", password: "fixture-password" },
+        command: "connect", destination: { host: "fixture.invalid", port: 443 }, timeout: 10000,
+      });
+      expect(getBridgePort()).toBeNull();
     } finally {
-      socksServer.close();
+      await new Promise<void>((resolve, reject) => echo.close((error) => error ? reject(error) : resolve()));
     }
-  }, 30000);
+  });
+
+  test("malformed CONNECT requests receive 400 and close without opening a SOCKS connection", async () => {
+    const connect = vi.spyOn(SocksClient, "createConnection").mockRejectedValue(new Error("Unexpected SOCKS connection"));
+    const replies: string[] = [];
+    outboundFetch.mockImplementation(async (_url: string | URL | Request, init?: RequestInit) => {
+      replies.push(await sendTunnelRequest((init as RequestInit & { proxy: string }).proxy, "GET / HTTP/1.1\r\nHost: fixture.invalid\r\n\r\n"));
+      throw new Error("Tunnel rejected the request");
+    });
+
+    const res = await createApp().request("/api/settings/socks5/test", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: 1080 }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ success: false, error: expect.stringContaining("could not verify egress IP") });
+    expect(replies).toEqual(["HTTP/1.1 400 Bad Request\r\n\r\n", "HTTP/1.1 400 Bad Request\r\n\r\n"]);
+    expect(connect).not.toHaveBeenCalled();
+    expect(getBridgePort()).toBeNull();
+  });
+
+  test("a failed SOCKS connection sends 502 and closes the temporary tunnel", async () => {
+    const connect = vi.spyOn(SocksClient, "createConnection").mockRejectedValue(new Error("Fixture connection refused"));
+    const replies: string[] = [];
+    outboundFetch.mockImplementation(async (_url: string | URL | Request, init?: RequestInit) => {
+      replies.push(await sendTunnelRequest((init as RequestInit & { proxy: string }).proxy, "CONNECT fixture.invalid:443 HTTP/1.1\r\n\r\n"));
+      throw new Error("Tunnel connection failed");
+    });
+
+    const res = await createApp().request("/api/settings/socks5/test", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ host: "127.0.0.1", port: 1080 }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ success: false });
+    expect(replies).toEqual(["HTTP/1.1 502 Bad Gateway\r\n\r\n", "HTTP/1.1 502 Bad Gateway\r\n\r\n"]);
+    expect(connect).toHaveBeenCalledTimes(2);
+  });
 
   test("returns IP echo failure when fetch is mocked to fail", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {

@@ -31,6 +31,7 @@ function headerTrail(pathname: string) {
     return { crumbs: [] as { href?: string; label: string }[], title: "Overview" };
   }
   const crumbs: { href?: string; label: string }[] = [{ href: "/", label: "Home" }];
+  if (pathname.startsWith("/routing/")) crumbs.push({ label: "Routing" });
   if (pathname.startsWith("/copilot/")) crumbs.push({ label: "Copilot" });
   if (pathname.startsWith("/settings/")) crumbs.push({ href: "/settings", label: "Settings" });
   return {
@@ -62,7 +63,7 @@ export function AppShell({ children }: AppShellProps) {
   if (pathname === "/login") return children;
 
   return (
-    <Shell>
+    <Shell className="relative">
       <AppSkipLink>Skip to main content</AppSkipLink>
       {!isMobile ? (
         <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
@@ -96,12 +97,12 @@ export function AppShell({ children }: AppShellProps) {
               </Button>
             ) : null
           }
-          breadcrumbs={crumbs}
+          breadcrumbs={isMobile ? [] : crumbs}
           title={title}
           actions={<HeaderActions />}
         />
         <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
-          <ContentIsland>
+          <ContentIsland className="relative">
             <SetupWizard />
             {children}
           </ContentIsland>

@@ -13,6 +13,7 @@ import { state } from "../lib/state"
 import { refreshNow, noteLlm401 } from "../lib/token-sentinel"
 import { tokenSignal, isTokenExpiredBody } from "../lib/token-signal"
 import type { UpstreamClient, UpstreamResult } from "./interface"
+import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http"
 
 export interface EmbeddingRequest {
   input: string | Array<string>
@@ -35,7 +36,7 @@ export interface EmbeddingResponse {
   }
 }
 
-export interface CopilotEmbeddingsConfig {
+export interface CopilotEmbeddingsConfig extends ModelHttpConfig {
   getToken(): string
   getBaseUrl(): string
   getHeaders(): Record<string, string>
@@ -48,7 +49,11 @@ export class CopilotEmbeddingsClient
 {
   constructor(private readonly config: CopilotEmbeddingsConfig) {}
 
-  async send(payload: EmbeddingRequest): Promise<UpstreamResult<EmbeddingResponse>> {
+  async send(
+    payload: EmbeddingRequest,
+    signal?: AbortSignal,
+  ): Promise<UpstreamResult<EmbeddingResponse>> {
+    signal?.throwIfAborted()
     this.config.getToken()
 
     const url = `${this.config.getBaseUrl()}/embeddings`
@@ -56,9 +61,11 @@ export class CopilotEmbeddingsClient
     const body = JSON.stringify(payload)
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
+      signal?.throwIfAborted()
       const { token, headers } = this.config.snapshotAuth()
-      const response = await fetch(url, {
+      const response = await modelFetch(this.config)(url, {
         method: "POST",
+        signal,
         headers,
         body,
         ...(proxyUrl ? { proxy: proxyUrl } : {}),
@@ -69,8 +76,9 @@ export class CopilotEmbeddingsClient
     const first = await callOnce()
     let response = first.response
 
-    if (response.status === 401) {
+    if (response.status === 401 && replayAllowed(this.config)) {
       const respBody = await response.text().catch(() => "")
+      signal?.throwIfAborted()
       const tokenExpired = isTokenExpiredBody(401, respBody)
       tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401")
       noteLlm401(tokenExpired ? "token-expired" : "other-401")
@@ -80,6 +88,7 @@ export class CopilotEmbeddingsClient
       }
 
       const result = await refreshNow("llm-401", first.usedToken)
+      signal?.throwIfAborted()
       if (!result.ok || !result.tokenWasUpdated) {
         throw new HTTPError("Failed to create embeddings", 401, respBody)
       }

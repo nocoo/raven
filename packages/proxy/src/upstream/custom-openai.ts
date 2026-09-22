@@ -2,24 +2,27 @@
  * Custom OpenAI-compatible upstream client.
  */
 
-import type { CompiledProvider } from "../db/providers"
+import type { UpstreamRecord } from "../core/routing-types"
 import type {
   ChatCompletionsPayload,
   ChatCompletionResponse,
 } from "./copilot-openai"
 import { events, type ServerSentEvent } from "../util/sse"
 import { HTTPError } from "../lib/error"
+import { buildProviderAuthHeaders } from "../lib/auth-headers"
 import { getProxyUrl } from "../lib/socks5-bridge"
 import { state } from "../lib/state"
 import type { UpstreamClient, UpstreamResult } from "./interface"
+import { joinCustomApiUrl } from "./api-url"
+import { modelFetch, type ModelHttpConfig } from "./model-http"
 
 export interface CustomOpenAIRequest {
-  provider: CompiledProvider
+  provider: UpstreamRecord
   payload: ChatCompletionsPayload
 }
 
-export interface CustomOpenAIConfig {
-  getProxyUrl(provider: CompiledProvider): string | undefined
+export interface CustomOpenAIConfig extends ModelHttpConfig {
+  getProxyUrl(provider: UpstreamRecord): string | undefined
 }
 
 export class CustomOpenAIClient
@@ -33,16 +36,19 @@ export class CustomOpenAIClient
   ): Promise<UpstreamResult<ChatCompletionResponse>> {
     signal?.throwIfAborted()
     const { provider, payload } = req
-    const url = `${provider.base_url.replace(/\/+$/, "")}/v1/chat/completions`
+    const url = joinCustomApiUrl(provider.base_url, "chat/completions")
     const proxyUrl = this.config.getProxyUrl(provider)
-    const response = await fetch(url, {
+    const response = await modelFetch(this.config)(url, {
       method: "POST",
       signal,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${provider.api_key}`,
-      },
-      body: JSON.stringify(payload),
+      headers: buildProviderAuthHeaders({
+        format: provider.format ?? "chat_completions",
+        api_key: provider.api_key,
+        auth_style: provider.auth_style,
+      }),
+      body: JSON.stringify(payload.stream
+        ? { ...payload, stream_options: { ...payload.stream_options, include_usage: true } }
+        : payload),
       ...(proxyUrl ? { proxy: proxyUrl } : {}),
     } as RequestInit)
 

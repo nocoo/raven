@@ -7,7 +7,7 @@ import {
   type CustomAnthropicStreamState,
 } from "../../src/strategies/custom-anthropic"
 import type { RequestContext } from "../../src/core/context"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
@@ -35,14 +35,14 @@ function makeCtx(): RequestContext {
   }
 }
 
-function provider(name = "anth-co", format = "anthropic"): CompiledProvider {
+function provider(name = "anth-co", format = "anthropic"): UpstreamRecord {
   return {
     id: "p1", name, base_url: "https://example.invalid",
     format, api_key: "k", enabled: 1,
     supports_reasoning: 0, supports_models_endpoint: 0,
     use_socks5: null, created_at: 0, updated_at: 0,
     patterns: [{ raw: "*", isExact: false }],
-  } as unknown as CompiledProvider
+  } as unknown as UpstreamRecord
 }
 
 function fakeClient(

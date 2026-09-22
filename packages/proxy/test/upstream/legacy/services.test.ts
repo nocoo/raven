@@ -26,7 +26,7 @@ beforeEach(() => {
   state.githubToken = "test-github-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected outbound HTTP request"))
 })
 
 afterEach(() => {
@@ -35,6 +35,7 @@ afterEach(() => {
   if (savedGithubToken !== undefined) state.githubToken = savedGithubToken
   else state.githubToken = null
   fetchSpy.mockRestore()
+  vi.useRealTimers()
 })
 
 // ===========================================================================
@@ -74,6 +75,26 @@ describe("getVSCodeVersion", () => {
 
     const version = await getVSCodeVersion()
     expect(version).toBe("1.117.0")
+  })
+
+  test("aborts a stalled version lookup at five seconds and clears its timer", async () => {
+    vi.useFakeTimers()
+    let signal: AbortSignal | null | undefined
+    fetchSpy.mockImplementationOnce((_input: string | URL | Request, init?: RequestInit) => {
+      signal = init?.signal
+      return new Promise<Response>((_resolve, reject) => {
+        signal!.addEventListener("abort", () => reject(signal!.reason), { once: true })
+      })
+    })
+
+    const lookup = getVSCodeVersion()
+    await vi.advanceTimersByTimeAsync(4999)
+    expect(signal?.aborted).toBe(false)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(signal?.aborted).toBe(true)
+    expect(await lookup).toBe("1.117.0")
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
 

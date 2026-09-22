@@ -59,6 +59,7 @@ export function startRequestSink(db: Database): () => void {
 			cache_read_tokens: (d.cacheReadTokens as number) ?? null,
 			cache_write_tokens: (d.cacheWriteTokens as number) ?? null,
 			server_tools_used: d.serverToolsUsed ? 1 : 0,
+			routing_details: d.routing ? JSON.stringify(d.routing) : null,
 		};
 
     try {

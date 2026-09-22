@@ -8,8 +8,8 @@ import {
   Socks5BridgeUnavailableError,
 } from "../../src/lib/socks5-bridge";
 import type { State } from "../../src/lib/state";
-import type { ProviderRecord, CompiledProvider } from "../../src/db/providers";
-import { compileProvider } from "../../src/db/providers";
+import type { UpstreamRecord } from "../../src/core/routing-types";
+import { upstreamRecord } from "../helpers/routing";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,7 +33,6 @@ function makeState(overrides: Partial<State> = {}): State {
     optToolCallDebug: false,
     stWebSearchEnabled: false,
     stWebSearchApiKey: null,
-    providers: [],
     ipWhitelistEnabled: false,
     ipWhitelistRanges: [],
     ipWhitelistTrustProxy: false,
@@ -50,25 +49,8 @@ function makeState(overrides: Partial<State> = {}): State {
   };
 }
 
-function makeProvider(overrides: Partial<ProviderRecord> = {}): CompiledProvider {
-  const record: ProviderRecord = {
-    id: "test-provider-id",
-    name: "Test Provider",
-    base_url: "https://api.example.com",
-    format: "openai",
-    api_key: "sk-test",
-    model_patterns: '["*"]',
-    enabled: 1,
-    supports_reasoning: 0,
-    supports_models_endpoint: 1,
-    use_socks5: null,
-    created_at: Date.now(),
-    updated_at: Date.now(),
-    ...overrides,
-  };
-  const compiled = compileProvider(record);
-  if (!compiled) throw new Error("Failed to compile provider");
-  return compiled;
+function makeProvider(overrides: Partial<UpstreamRecord> = {}): UpstreamRecord {
+  return upstreamRecord(overrides);
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +135,7 @@ describe("socks5-bridge", () => {
 
       it("returns undefined for provider", () => {
         const state = makeState({ socks5Enabled: false });
-        const provider = makeProvider({ use_socks5: 1 });
+        const provider = makeProvider({ use_socks5: true });
         expect(getProxyUrl(provider, state)).toBeUndefined();
       });
     });
@@ -210,7 +192,7 @@ describe("socks5-bridge", () => {
       it("returns proxy URL for provider with use_socks5=1 (force on)", async () => {
         const port = await startBridge({ host: "127.0.0.1", port: 19999 });
         const state = makeState({ socks5Enabled: true });
-        const provider = makeProvider({ use_socks5: 1 });
+        const provider = makeProvider({ use_socks5: true });
         expect(getProxyUrl(provider, state)).toBe(
           `http://127.0.0.1:${port}`,
         );
@@ -219,7 +201,7 @@ describe("socks5-bridge", () => {
       it("returns undefined for provider with use_socks5=0 (force off)", async () => {
         await startBridge({ host: "127.0.0.1", port: 19999 });
         const state = makeState({ socks5Enabled: true });
-        const provider = makeProvider({ use_socks5: 0 });
+        const provider = makeProvider({ use_socks5: false });
         expect(getProxyUrl(provider, state)).toBeUndefined();
       });
     });
@@ -271,7 +253,7 @@ describe("socks5-bridge", () => {
 
       it("throws for provider with use_socks5=1", () => {
         const state = makeState({ socks5Enabled: true });
-        const provider = makeProvider({ use_socks5: 1 });
+        const provider = makeProvider({ use_socks5: true });
         expect(() => getProxyUrl(provider, state)).toThrow(
           Socks5BridgeUnavailableError,
         );
@@ -279,7 +261,7 @@ describe("socks5-bridge", () => {
 
       it("returns undefined for provider with use_socks5=0 (no proxy needed)", () => {
         const state = makeState({ socks5Enabled: true });
-        const provider = makeProvider({ use_socks5: 0 });
+        const provider = makeProvider({ use_socks5: false });
         expect(getProxyUrl(provider, state)).toBeUndefined();
       });
     });

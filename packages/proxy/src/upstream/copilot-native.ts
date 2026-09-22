@@ -21,6 +21,7 @@ import type {
   AnthropicResponse,
 } from "../protocols/anthropic/types"
 import type { UpstreamClient, UpstreamResult } from "./interface"
+import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http"
 
 const INTERLEAVED_THINKING_BETA = "interleaved-thinking-2025-05-14"
 const EFFORT_PRIORITY = ["max", "xhigh", "high", "medium", "low"] as const
@@ -38,7 +39,7 @@ export interface CopilotNativeSnapshotOptions {
   isAgentCall: boolean
 }
 
-export interface CopilotNativeConfig {
+export interface CopilotNativeConfig extends ModelHttpConfig {
   getToken(): string
   getBaseUrl(): string
   getHeaders(): Record<string, string>
@@ -57,7 +58,11 @@ export interface CopilotNativeRequest {
 export class CopilotNativeClient
   implements UpstreamClient<CopilotNativeRequest, AnthropicResponse>
 {
-  constructor(private readonly config: CopilotNativeConfig) {}
+  readonly allowReplay: boolean
+
+  constructor(private readonly config: CopilotNativeConfig) {
+    this.allowReplay = replayAllowed(config)
+  }
 
   async send(req: CopilotNativeRequest, signal?: AbortSignal): Promise<UpstreamResult<AnthropicResponse>> {
     signal?.throwIfAborted()
@@ -95,7 +100,7 @@ export class CopilotNativeClient
         visionRequest,
         isAgentCall,
       })
-      const response = await fetch(url, {
+      const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,
         headers,
@@ -108,7 +113,7 @@ export class CopilotNativeClient
     const first = await callOnce()
     let response = first.response
 
-    if (response.status === 401) {
+    if (response.status === 401 && this.allowReplay) {
       const respBody = await response.text().catch(() => "")
       signal?.throwIfAborted()
       const tokenExpired = isTokenExpiredBody(401, respBody)
@@ -226,12 +231,10 @@ function normalizeNativeThinkingPayload(
   return {
     ...payload,
     thinking: { type: "adaptive" },
-    output_config: supportedEffort
-      ? {
-          ...sanitizedOutputConfig,
-          effort: supportedEffort,
-        }
-      : sanitizedOutputConfig,
+    output_config: {
+      ...sanitizedOutputConfig,
+      effort: supportedEffort,
+    },
   }
 }
 
@@ -270,9 +273,9 @@ function stripToolDefinitions(
 // blocks and system is forwarded — stripping it disabled prompt caching
 // entirely (cache_read_input_tokens stayed 0 across every request).
 function stripToolDefinition<T extends object>(tool: T): T {
-  const { defer_loading: _dl, strict: _st, ...rest } = tool as Record<string, unknown>
-  void _dl
-  void _st
+  const rest = { ...(tool as Record<string, unknown>) }
+  delete rest.defer_loading
+  delete rest.strict
   return rest as T
 }
 
@@ -286,7 +289,7 @@ function mapThinkingBudgetToEffort(budgetTokens: number | null | undefined): Eff
 function pickClosestSupportedEffort(
   requested: Effort,
   supported: string[] | undefined,
-): Effort | null {
+): Effort {
   if (!supported?.length) return requested
 
   const normalizedSupported = supported.filter(isEffort)

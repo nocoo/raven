@@ -13,7 +13,7 @@
 
 import { logger } from "../util/logger"
 import { getCopilotToken } from "../services/github/get-copilot-token"
-import { cacheModels } from "./utils"
+import { getModels } from "../services/copilot/get-models"
 import { HTTPError } from "./error"
 import { state } from "./state"
 import { tokenSignal } from "./token-signal"
@@ -468,7 +468,7 @@ async function sentinelTick(s: SentinelState, timers: TimerFactory): Promise<voi
     // ── 闭环 / 探活：cooldown 期间彻底跳过 ──
     if (!inCooldown) {
       try {
-        await cacheModels()
+        await getModels()
         if (s !== sentinelState || timers !== activeTimers) return
       } catch (e) {
         if (s !== sentinelState || timers !== activeTimers) return

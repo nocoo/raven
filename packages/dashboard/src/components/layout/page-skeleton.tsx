@@ -110,3 +110,7 @@ export function ConnectLoading() {
 export function LoginLoading() {
   return <div className="flex min-h-screen items-center justify-center p-4"><div className="w-full max-w-sm"><LoadingPage title="Sign in"><Skeleton className="h-12 w-full" /></LoadingPage></div></div>;
 }
+
+export function RoutingRulesLoading() {
+  return <LoadingPage title="Routing Rules"><FormSkeleton /><FormSkeleton /></LoadingPage>;
+}

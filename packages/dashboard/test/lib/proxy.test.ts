@@ -176,6 +176,13 @@ describe("proxyFetch", () => {
     }
   });
 
+  it("preserves the structured conflict body so BFFs can identify references", async () => {
+    const { proxyFetch } = await importProxy();
+    const detail = { message: "Rule is in use", type: "reference_conflict", references: [{ id: "key:fixture", name: "Work laptop", rule_id: "rule:work" }] };
+    fetchSpy.mockResolvedValueOnce(Response.json({ error: detail }, { status: 409 }));
+    await expect(proxyFetch("/api/routing-rules/rule%3Awork", { method: "DELETE" })).rejects.toMatchObject({ name: "ProxyError", message: detail.message, statusCode: 409, detail });
+  });
+
   it("throws ProxyError with statusText in message", async () => {
     const { proxyFetch, ProxyError: PE } = await importProxy();
     fetchSpy.mockResolvedValueOnce(

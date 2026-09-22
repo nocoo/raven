@@ -32,6 +32,12 @@ import {
 
 export interface CopilotNativeDeps {
   client: CopilotNativeClient
+  /**
+   * When false, a 400 reasoning-effort mismatch is returned as-is.
+   * Direct `client.send` never repairs. Omitted keeps the repair.
+   * Credential replay stays on the client `allowReplay` flag.
+   */
+  allowEffortRepair?: boolean
 }
 
 export interface CopilotNativeUpReq {
@@ -72,7 +78,13 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
     prepare: (req) => req,
 
     dispatch: async (up, ctx) => {
-      const response = await sendWithEffortFallback(deps.client, up, ctx.requestId, ctx.signal)
+      const response = await sendWithEffortFallback(
+        deps.client,
+        up,
+        ctx.requestId,
+        ctx.signal,
+        deps.allowEffortRepair !== false,
+      )
       if (isAsyncGenerator(response)) {
         return { kind: "stream", chunks: response }
       }
@@ -176,14 +188,15 @@ async function sendWithEffortFallback(
   client: CopilotNativeClient,
   req: CopilotNativeUpReq,
   requestId: string,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  allowEffortRepair: boolean,
 ): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
   try {
     return await client.send({ payload: req.payload, options: req.options }, signal)
   } catch (error) {
     signal?.throwIfAborted()
     if (!(error instanceof HTTPError)) throw error
-    if (error.status !== 400) throw error
+    if (error.status !== 400 || !allowEffortRepair || client.allowReplay === false) throw error
     let errorBody: unknown
     try {
       errorBody = JSON.parse(error.responseBody)

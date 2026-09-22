@@ -1,10 +1,12 @@
 import type { Database } from "bun:sqlite";
+import type { RequestRoutingDetails } from "../core/routing-log";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export interface RequestRecord {
+	routing_details?: string | null;
 	id: string;
 	timestamp: number;
 	path: string;
@@ -43,6 +45,7 @@ export type ProtocolMode = "native" | "translated" | "unknown";
 
 /** RequestRecord plus query-derived fields returned by /api/requests. */
 export interface RequestRow extends RequestRecord {
+	routing?: RequestRoutingDetails;
 	key_id: string;
 	protocol_mode: ProtocolMode;
 }
@@ -202,6 +205,8 @@ export const KEY_ID_EXPR = `COALESCE(NULLIF(api_key_id, ''), 'legacy:' || accoun
  */
 export const PROTOCOL_MODE_EXPR = `CASE
   WHEN strategy IN ('copilot-translated', 'copilot-chat-via-responses') THEN 'translated'
+  WHEN strategy = 'protocol-converted' AND client_format = upstream_format THEN 'native'
+  WHEN strategy = 'protocol-converted' AND client_format != upstream_format THEN 'translated'
   WHEN strategy IN ('copilot-native', 'copilot-openai-direct', 'copilot-responses', 'custom-anthropic') THEN 'native'
   WHEN strategy = 'custom-openai' AND client_format = 'anthropic' AND translated_model != '' THEN 'translated'
   WHEN strategy = 'custom-openai' AND client_format = 'openai' AND translated_model = '' THEN 'native'
@@ -274,6 +279,7 @@ export function initDatabase(db: Database): void {
 	safeAddColumn("ALTER TABLE requests ADD COLUMN cache_write_tokens INTEGER");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN api_key_id TEXT NOT NULL DEFAULT ''");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN server_tools_used INTEGER NOT NULL DEFAULT 0");
+	safeAddColumn("ALTER TABLE requests ADD COLUMN routing_details TEXT");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_strategy ON requests(strategy)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_account ON requests(account_name)");
@@ -295,7 +301,7 @@ INSERT INTO requests (
   session_id, client_name, client_version,
   processing_ms, strategy, upstream, upstream_format,
   translated_model, copilot_model, routing_path, stop_reason, tool_call_count,
-  cache_read_tokens, cache_write_tokens, server_tools_used
+  cache_read_tokens, cache_write_tokens, server_tools_used, routing_details
 ) VALUES (
   $id, $timestamp, $path, $client_format, $model, $resolved_model,
   $stream, $input_tokens, $output_tokens, $latency_ms, $ttft_ms,
@@ -303,7 +309,7 @@ INSERT INTO requests (
   $session_id, $client_name, $client_version,
   $processing_ms, $strategy, $upstream, $upstream_format,
   $translated_model, $copilot_model, $routing_path, $stop_reason, $tool_call_count,
-  $cache_read_tokens, $cache_write_tokens, $server_tools_used
+  $cache_read_tokens, $cache_write_tokens, $server_tools_used, $routing_details
 )`;
 
 export function insertRequest(db: Database, record: RequestRecord): void {
@@ -340,6 +346,7 @@ export function insertRequest(db: Database, record: RequestRecord): void {
 		$cache_read_tokens: record.cache_read_tokens,
 		$cache_write_tokens: record.cache_write_tokens,
 		$server_tools_used: record.server_tools_used,
+		$routing_details: record.routing_details ?? null,
 	});
 }
 
@@ -1112,7 +1119,11 @@ export function queryRequests(
   const rows = db.query(query).all(allBindings) as RequestRow[];
 
   const hasMore = rows.length > limit;
-  const data = hasMore ? rows.slice(0, limit) : rows;
+  const data = (hasMore ? rows.slice(0, limit) : rows).map(({ routing_details, ...row }) => {
+    if (!routing_details) return row;
+    try { return { ...row, routing: JSON.parse(routing_details) as RequestRoutingDetails }; }
+    catch { return row; }
+  });
 
   const result: QueryResult = {
     data,

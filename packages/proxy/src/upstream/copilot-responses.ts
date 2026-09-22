@@ -17,6 +17,7 @@ import { state } from "../lib/state"
 import { refreshNow, noteLlm401 } from "../lib/token-sentinel"
 import { tokenSignal, isTokenExpiredBody } from "../lib/token-signal"
 import type { UpstreamClient, UpstreamResult } from "./interface"
+import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http"
 
 export interface ResponsesPayload {
   model: string
@@ -30,7 +31,7 @@ export interface CopilotResponsesSnapshotOptions {
   isAgentCall: boolean
 }
 
-export interface CopilotResponsesConfig {
+export interface CopilotResponsesConfig extends ModelHttpConfig {
   getToken(): string
   getBaseUrl(): string
   getHeaders(vision: boolean): Record<string, string>
@@ -60,7 +61,7 @@ export class CopilotResponsesClient
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
       signal?.throwIfAborted()
       const { token, headers } = this.config.snapshotAuth({ enableVision, isAgentCall })
-      const response = await fetch(url, {
+      const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,
         headers,
@@ -73,7 +74,7 @@ export class CopilotResponsesClient
     const first = await callOnce()
     let response = first.response
 
-    if (response.status === 401) {
+    if (response.status === 401 && replayAllowed(this.config)) {
       const respBody = await response.text().catch(() => "")
       signal?.throwIfAborted()
       const tokenExpired = isTokenExpiredBody(401, respBody)

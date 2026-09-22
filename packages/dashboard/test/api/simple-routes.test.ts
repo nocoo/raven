@@ -354,8 +354,8 @@ describe("DELETE /api/settings/[key]", () => {
 describe("GET /api/upstreams", () => {
   it("success → returns JSON with 200", async () => {
     const data = [
-      { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic" as const,
-        api_key_preview: "sk-test...****", model_patterns: ["test"], is_enabled: true,
+      { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic_messages" as const,
+        api_key_preview: "sk-test...****", manual_models: ["test"], is_enabled: true,
         created_at: 1234567890, updated_at: 1234567890 },
     ];
     mockProxyFetch.mockResolvedValueOnce(data);
@@ -384,7 +384,7 @@ describe("GET /api/upstreams", () => {
     const res = await GET();
 
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toBe("network down");
+    expect((await res.json()).error.message).toBe("network down");
   });
 });
 
@@ -394,8 +394,8 @@ describe("GET /api/upstreams", () => {
 
 describe("POST /api/upstreams", () => {
   it("success → returns JSON with 201", async () => {
-    const body = { name: "NewProvider", base_url: "https://example.com", format: "openai" as const,
-      api_key: "sk-test", model_patterns: ["gpt-*"] };
+    const body = { name: "NewProvider", base_url: "https://example.com", format: "chat_completions" as const,
+      api_key: "sk-test", manual_models: ["gpt-example"] };
     const data = { id: "p1", ...body, api_key_preview: "sk-test...****", is_enabled: true,
       created_at: 1234567890, updated_at: 1234567890 };
     mockProxyFetch.mockResolvedValueOnce(data);
@@ -439,8 +439,8 @@ describe("GET /api/upstreams/[id]", () => {
   }
 
   it("success → returns JSON with 200", async () => {
-    const data = { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic" as const,
-      api_key_preview: "sk-test...****", model_patterns: ["test"], is_enabled: true,
+    const data = { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic_messages" as const,
+      api_key_preview: "sk-test...****", manual_models: ["test"], is_enabled: true,
       created_at: 1234567890, updated_at: 1234567890 };
     mockProxyFetch.mockResolvedValueOnce(data);
 
@@ -475,8 +475,8 @@ describe("PUT /api/upstreams/[id]", () => {
 
   it("success → returns JSON with 200", async () => {
     const body = { name: "UpdatedProvider" };
-    const data = { id: "p1", name: "UpdatedProvider", base_url: "https://example.com", format: "anthropic" as const,
-      api_key_preview: "sk-test...****", model_patterns: ["test"], is_enabled: true,
+    const data = { id: "p1", name: "UpdatedProvider", base_url: "https://example.com", format: "anthropic_messages" as const,
+      api_key_preview: "sk-test...****", manual_models: ["test"], is_enabled: true,
       created_at: 1234567890, updated_at: 1234567891 };
     mockProxyFetch.mockResolvedValueOnce(data);
 
@@ -549,70 +549,7 @@ describe("DELETE /api/upstreams/[id]", () => {
     const res = await DELETE(req, makeParams("p1"));
 
     expect(res.status).toBe(502);
-    expect((await res.json()).error).toBe("timeout");
-  });
-});
-
-// ===========================================================================
-// GET /api/upstreams/[id]/models
-// ===========================================================================
-
-describe("GET /api/upstreams/[id]/models", () => {
-  function makeParams(id: string) {
-    return { params: Promise.resolve({ id }) };
-  }
-
-  it("success → returns healthy response with models", async () => {
-    const data = {
-      healthy: true,
-      total: 3,
-      models: { omlx: ["model-a", "model-b", "model-c"] },
-    };
-    mockProxyFetch.mockResolvedValueOnce(data);
-
-    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
-    const req = new Request("http://localhost/api/upstreams/p1/models");
-    const res = await GET(req, makeParams("p1"));
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(data);
-    expect(mockProxyFetch).toHaveBeenCalledWith("/api/upstreams/p1/models");
-  });
-
-  it("ProxyError with 502 → returns unhealthy response", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Upstream returned 500", 502));
-
-    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
-    const req = new Request("http://localhost/api/upstreams/p1/models");
-    const res = await GET(req, makeParams("p1"));
-
-    expect(res.status).toBe(502);
-    const body = await res.json();
-    expect(body.healthy).toBe(false);
-    expect(body.error).toBeDefined();
-  });
-
-  it("generic Error → returns 502 with unhealthy status", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new Error("network down"));
-
-    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
-    const req = new Request("http://localhost/api/upstreams/p1/models");
-    const res = await GET(req, makeParams("p1"));
-
-    expect(res.status).toBe(502);
-    const body = await res.json();
-    expect(body.healthy).toBe(false);
-    expect(body.error.message).toBe("network down");
-  });
-
-  it("provider not found → returns 404 via ProxyError", async () => {
-    mockProxyFetch.mockRejectedValueOnce(new ProxyError("Provider not found", 404));
-
-    const { GET } = await import("@/app/api/upstreams/[id]/models/route");
-    const req = new Request("http://localhost/api/upstreams/nonexistent/models");
-    const res = await GET(req, makeParams("nonexistent"));
-
-    expect(res.status).toBe(404);
+    expect((await res.json()).error.message).toBe("timeout");
   });
 });
 

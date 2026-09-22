@@ -1,277 +1,98 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
-import { Hono } from "hono"
-import { handleCompletion } from "../../src/routes/chat-completions/handler"
+import { beforeEach, afterEach, expect, test, vi } from "vitest"
 import { state } from "../../src/lib/state"
-import type { ChatCompletionsPayload } from "../../src/upstream/copilot-openai"
-import type { ProviderRecord } from "../../src/db/providers"
-import { compileProvider } from "../../src/db/providers"
-import { logEmitter } from "../../src/util/log-emitter"
-import type { LogEvent } from "../../src/util/log-event"
+import { getQuotaStatus } from "../../src/db/quota"
+import { updateProvider } from "../../src/db/providers"
+import { startRequestSink } from "../../src/db/request-sink"
+import { queryRequests } from "../../src/db/requests"
+import { quotaPolicy, NOW, HOUR } from "../db/routing-fixture"
+import { chatResponse, jsonResponse, routingHarness } from "../helpers/routing"
 
-// ===========================================================================
-// Helpers
-// ===========================================================================
-
-function makeApp(): Hono {
-  const app = new Hono()
-  app.post("/v1/chat/completions", handleCompletion)
-  return app
-}
-
-function req(body: ChatCompletionsPayload): Request {
-  return new Request("http://localhost/v1/chat/completions", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  })
-}
-
-function mockFetchJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  })
-}
-
-function mockFetchStream(chunks: string[]): Response {
-  const encoder = new TextEncoder()
-  const stream = new ReadableStream({
-    start(controller) {
-      for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk))
-      }
-      controller.close()
-    },
-  })
-  return new Response(stream, {
-    status: 200,
-    headers: { "content-type": "text/event-stream" },
-  })
-}
-
-function makeOpenAIResponse(overrides: Record<string, unknown> = {}) {
-  return {
-    id: "chatcmpl-1",
-    object: "chat.completion",
-    created: 1234567890,
-    model: "gpt-4",
-    choices: [
-      {
-        index: 0,
-        message: { role: "assistant", content: "Hello!", tool_calls: null },
-        logprobs: null,
-        finish_reason: "stop",
-      },
-    ],
-    system_fingerprint: null,
-    usage: {
-      prompt_tokens: 10,
-      completion_tokens: 5,
-      total_tokens: 15,
-      prompt_tokens_details: { cached_tokens: 0 },
-    },
-    ...overrides,
-  }
-}
-
-// ===========================================================================
-// Setup / teardown
-// ===========================================================================
-
-const mockProviderRecords: ProviderRecord[] = [
-  {
-    id: "p1",
-    name: "OpenAIProvider",
-    base_url: "https://openai.example.com",
-    format: "openai",
-    api_key: "openai-key",
-    model_patterns: '["gpt-*"]',
-    enabled: 1,
-    created_at: 1,
-    updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
-  },
-  {
-    id: "p2",
-    name: "AnthropicProvider",
-    base_url: "https://anthropic.example.com",
-    format: "anthropic",
-    api_key: "anthropic-key",
-    model_patterns: '["claude-*"]',
-    enabled: 1,
-    created_at: 2,
-    updated_at: 2,
-          supports_reasoning: 0, supports_models_endpoint: 0, use_socks5: null,
-  },
-]
-
-const mockProviders = mockProviderRecords
-  .map(compileProvider)
-  .filter((p): p is NonNullable<typeof p> => p !== null)
-
-const savedProviders = state.providers
-const savedModels = state.models
-const savedToken = state.copilotToken
-const savedVsCodeVersion = state.vsCodeVersion
-const savedAccountType = state.accountType
-let fetchSpy: ReturnType<typeof vi.spyOn>
-
+let h: ReturnType<typeof routingHarness>
+let network: ReturnType<typeof vi.spyOn>
+let clock: ReturnType<typeof vi.spyOn>
+let saved: typeof state
+const body = { model: "auto", messages: [{ role: "user", content: "ping" }] }
 beforeEach(() => {
-  state.providers = mockProviders
-  state.models = { object: "list" as const, data: [] }
-  state.copilotToken = "test-token"
-  state.vsCodeVersion = "1.90.0"
-  state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  clock = vi.spyOn(Date, "now").mockReturnValue(NOW)
+  h = routingHarness(); saved = { ...state }; state.rateLimitSeconds = null
+  network = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected network call"))
+})
+afterEach(() => { h.close(); Object.assign(state, saved); vi.restoreAllMocks() })
+
+test("only quota exhaustion moves to the next target and the first recovers after reset", async () => {
+  const first = h.upstream({ name: "First", base_url: "https://first.invalid/v1", quota: quotaPolicy({ limit_tokens: 10 }) })
+  const fallback = h.upstream({ name: "Terminal", base_url: "https://terminal.invalid/v1" })
+  h.bind(first.id, "first-model", { default_chain: [{ upstream_id: first.id, model: "first-model" }, { upstream_id: fallback.id, model: "terminal-model" }] })
+  network.mockImplementation(async (_url: unknown, init: RequestInit) => jsonResponse(chatResponse(JSON.parse(init.body as string).model)))
+  const stop = startRequestSink(h.db)
+  try {
+    expect((await h.request("/v1/chat/completions", body)).status).toBe(200)
+    expect((await h.request("/v1/chat/completions", { ...body, model: "XYZ.Raw" })).status).toBe(200)
+    expect(network.mock.calls[1]?.[0]).toContain("terminal.invalid")
+    expect(JSON.parse(network.mock.calls[1]![1].body).model).toBe("XYZ.Raw")
+    const requests = queryRequests(h.db).data
+    expect(requests.some((row) => row.routing?.skipped.some((skip) => skip.upstream_id === first.id))).toBe(true)
+    clock.mockReturnValue(NOW + HOUR)
+    expect((await h.request("/v1/chat/completions", body)).status).toBe(200)
+    expect(network.mock.calls[2]?.[0]).toContain("first.invalid")
+    expect(getQuotaStatus(h.db, first.id, NOW + HOUR).used_tokens).toBe(12)
+  } finally { stop() }
 })
 
-afterEach(() => {
-  state.providers = savedProviders
-  state.models = savedModels
-  state.copilotToken = savedToken
-  state.vsCodeVersion = savedVsCodeVersion
-  state.accountType = savedAccountType
-  fetchSpy.mockRestore()
+test.each([400, 401, 404, 429, 500, 503])("HTTP %s on an eligible upstream is final", async (status) => {
+  const first = h.upstream()
+  const next = h.upstream({ base_url: "https://must-not-call.invalid/v1" })
+  h.bind(first.id, "first", { default_chain: [{ upstream_id: first.id, model: "first" }, { upstream_id: next.id, model: "last" }] })
+  network.mockResolvedValueOnce(jsonResponse({ error: "fixture failure" }, status))
+  expect((await h.request("/v1/chat/completions", body)).status).toBe(status)
+  expect(network).toHaveBeenCalledTimes(1)
 })
 
-// ===========================================================================
-// Tests
-// ===========================================================================
+test("disabled and mismatched eligible targets do not fall through", async () => {
+  const first = h.upstream({ is_enabled: false })
+  const last = h.upstream()
+  h.bind(first.id, "first", { default_chain: [{ upstream_id: first.id, model: "first" }, { upstream_id: last.id, model: "last" }], allow_conversion: false })
+  expect((await h.request("/v1/chat/completions", body)).status).toBe(503)
+  updateProvider(h.db, first.id, { is_enabled: true, format: "anthropic_messages" })
+  expect((await h.request("/v1/chat/completions", body)).status).toBe(400)
+  expect(network).not.toHaveBeenCalled()
+})
 
-describe("chat-completions handler with provider routing", () => {
-  const mockOpenAIPayload: ChatCompletionsPayload = {
-    model: "gpt-4",
-    messages: [{ role: "user", content: "Hello" }],
-    stream: false,
-  }
+test("a reached accounting failure blocks selection without altering a completed generation", async () => {
+  const first = h.upstream({ quota: quotaPolicy() })
+  const last = h.upstream()
+  h.bind(first.id, "first", { default_chain: [{ upstream_id: first.id, model: "first" }, { upstream_id: last.id, model: "last" }] })
+  h.db.exec("CREATE TRIGGER fixture_accounting_failure BEFORE INSERT ON quota_settlements BEGIN SELECT RAISE(ABORT, 'fixture ledger unavailable'); END")
+  network.mockImplementation(async () => jsonResponse(chatResponse("first")))
+  const stop = startRequestSink(h.db)
+  try {
+    expect((await h.request("/v1/chat/completions", body)).status).toBe(200)
+    expect(queryRequests(h.db).data[0]?.routing).toMatchObject({ accounting_healthy: false })
+    expect((await h.request("/v1/chat/completions", body)).status).toBe(503)
+    expect(network).toHaveBeenCalledTimes(1)
+    updateProvider(h.db, first.id, { quota: null })
+    expect((await h.request("/v1/chat/completions", body)).status).toBe(200)
+    expect(network).toHaveBeenCalledTimes(2)
+    h.db.exec("DROP TRIGGER fixture_accounting_failure")
+    expect((await h.request("/v1/chat/completions", body)).status).toBe(200)
+    expect(h.db.query("SELECT COUNT(*) AS n FROM quota_settlements").get()).toEqual({ n: 3 })
+  } finally { stop() }
+})
 
-  describe("OpenAI provider passthrough", () => {
-    test("routes to OpenAI upstream when model matches pattern", async () => {
-      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
-
-      const app = makeApp()
-      const res = await app.request(req(mockOpenAIPayload))
-
-      expect(res.status).toBe(200)
-
-      const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
-      expect(url).toBe("https://openai.example.com/v1/chat/completions")
-
-      const json = await res.json()
-      expect(json.choices[0].message.content).toBe("Hello!")
-    })
-
-    test("normalizes max_tokens to max_completion_tokens before OpenAI passthrough", async () => {
-      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()))
-
-      const app = makeApp()
-      await app.request(req({
-        ...mockOpenAIPayload,
-        max_tokens: 1024,
-      }))
-
-      const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
-      const body = JSON.parse(init.body as string) as {
-        max_tokens?: number
-        max_completion_tokens?: number
-      }
-
-      expect(body.max_completion_tokens).toBe(1024)
-      expect(body.max_tokens).toBeUndefined()
-    })
-
-    test("streams SSE events from OpenAI upstream", async () => {
-      fetchSpy.mockResolvedValueOnce(
-        mockFetchStream([
-          'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
-          "data: [DONE]\n\n",
-        ]),
-      )
-
-      const app = makeApp()
-      const res = await app.request(req({ ...mockOpenAIPayload, stream: true }))
-
-      expect(res.status).toBe(200)
-      expect(res.headers.get("content-type")).toContain("text/event-stream")
-
-      const text = await res.text()
-      expect(text).toContain('data: {"choices"')
-      expect(text).toContain("data: [DONE]")
-    })
-
-    test("forwards upstream error status", async () => {
-      fetchSpy.mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429 }),
-      )
-
-      const app = makeApp()
-      const res = await app.request(req(mockOpenAIPayload))
-
-      expect(res.status).toBe(429)
-      const json = await res.json() as { error: { message: string } }
-      expect(json.error.message).toContain("Rate limit exceeded")
-    })
-  })
-
-  describe("Anthropic upstream not supported", () => {
-    test("returns 400 when OpenAI client tries to reach Anthropic upstream", async () => {
-      const anthropicModelPayload: ChatCompletionsPayload = {
-        model: "claude-3-5-sonnet-20241022",
-        messages: [{ role: "user", content: "Hello" }],
-        stream: false,
-      }
-
-      const app = makeApp()
-      const res = await app.request(req(anthropicModelPayload))
-
-      expect(res.status).toBe(400)
-
-      const json = await res.json() as { error: { type: string; message: string } }
-      expect(json.error.type).toBe("invalid_request_error")
-      expect(json.error.message).toContain("Anthropic-format upstreams")
-    })
-  })
-
-  describe("fallback to Copilot", () => {
-    test("routes to Copilot when no provider matches", async () => {
-      const unknownPayload: ChatCompletionsPayload = {
-        model: "unknown-model",
-        messages: [{ role: "user", content: "Hello" }],
-        stream: false,
-      }
-      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({ model: "unknown-model" })))
-
-      const app = makeApp()
-      const res = await app.request(req(unknownPayload))
-
-      expect(res.status).toBe(200)
-
-      const json = await res.json()
-      expect(json.choices[0].message.content).toBe("Hello!")
-    })
-
-    test("Copilot dispatch failure: request_end retains model + reflects stream flag", async () => {
-      const captured: LogEvent[] = []
-      const handler = (e: LogEvent) => { captured.push(e) }
-      logEmitter.on("log", handler)
-      try {
-        fetchSpy.mockRejectedValueOnce(new Error("network down"))
-        const app = makeApp()
-        await app.request(req({
-          model: "gpt-5-codex",
-          messages: [{ role: "user", content: "Hello" }],
-          stream: true,
-        }))
-        const end = captured.find((e) => e.type === "request_end")
-        expect(end).toBeDefined()
-        expect(end!.data).toMatchObject({
-          status: "error",
-          stream: true,
-          model: "gpt-5-codex",
-        })
-      } finally {
-        logEmitter.off("log", handler)
-      }
-    })
-  })
+test("time, window, multiplier and target stay locked during an SSE generation", async () => {
+  const up = h.upstream({ quota: quotaPolicy({ mode: "daily", multipliers: [{ id: "peak", start_minute: 0, end_minute: 60, multiplier: 2 }] }) })
+  const next = h.upstream({ base_url: "https://later.invalid/v1" })
+  h.bind(up.id, "admitted-model", { mode: "daily", periods: [{ id: "first-hour", start_minute: 0, end_minute: 60, targets: [{ upstream_id: up.id, model: "admitted-model" }] }], default_chain: [{ upstream_id: next.id, model: "later-model" }] })
+  const window = getQuotaStatus(h.db, up.id, NOW).window_id
+  let stream!: ReadableStreamDefaultController<Uint8Array>
+  network.mockResolvedValueOnce(new Response(new ReadableStream<Uint8Array>({ start(controller) { stream = controller } }), { headers: { "Content-Type": "text/event-stream" } }))
+  const response = await h.request("/v1/chat/completions", { ...body, stream: true })
+  clock.mockReturnValue(NOW + 2 * HOUR)
+  expect(getQuotaStatus(h.db, up.id, NOW + 2 * HOUR).window_id).not.toBe(window)
+  const chunk = { id: "chat-fixture", model: "admitted-model", choices: [{ index: 0, delta: { content: "pong" }, finish_reason: "stop" }], usage: chatResponse().usage }
+  stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`)); stream.close()
+  expect(await response.text()).toContain("admitted-model")
+  expect(getQuotaStatus(h.db, up.id, NOW + 2 * HOUR).used_tokens).toBe(0)
+  expect(h.db.query("SELECT charged FROM quota_windows WHERE id = ?").get(window)).toEqual({ charged: 24 })
+  expect(network).toHaveBeenCalledTimes(1)
 })

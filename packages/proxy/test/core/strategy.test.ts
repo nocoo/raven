@@ -12,8 +12,9 @@ describe("core/strategy", () => {
       "copilot-translated",
       "custom-anthropic",
       "custom-openai",
+      "protocol-converted",
     ])
-    expect(STRATEGY_NAMES.length).toBe(7)
+    expect(STRATEGY_NAMES.length).toBe(8)
   })
 
   test("isStrategyName accepts known + rejects unknown", () => {

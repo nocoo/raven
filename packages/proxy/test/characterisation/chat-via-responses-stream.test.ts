@@ -6,6 +6,10 @@ import { state } from "../../src/lib/state"
 import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
 import { handleCompletion } from "../../src/routes/chat-completions/handler"
+import { COPILOT_UPSTREAM_ID } from "../../src/core/routing-types"
+import { replaceCatalog } from "../../src/db/catalog"
+import { NOW, routingFixture } from "../db/routing-fixture"
+import { installTestRouting } from "../helpers/routing"
 import {
   captureOrDiff,
   scrubEndLog,
@@ -27,54 +31,57 @@ function mockFetchStream(chunks: string[]): Response {
   })
 }
 
-const savedModels = state.models
-const savedToken = state.copilotToken
+let fixture: ReturnType<typeof routingFixture>
+let savedState: typeof state
 let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(NOW)
+  fixture = routingFixture()
+  savedState = { ...state }
+  state.models = null
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  state.models = {
-    object: "list",
-    data: [
-      {
-        id: "grok-4.5",
-        name: "Grok 4.5",
-        object: "model",
-        vendor: "xai",
-        version: "1",
-        preview: false,
-        policy: null,
-        model_picker_enabled: true,
-        supported_endpoints: ["/responses"],
-        capabilities: {
-          family: "grok",
-          object: "model_capabilities",
-          type: "chat",
-          tokenizer: "o200k_base",
-          limits: {
-            max_context_window_tokens: 128000,
-            max_output_tokens: 16384,
-            max_prompt_tokens: 64000,
-            max_inputs: null,
-          },
-          supports: {
-            tool_calls: true,
-            parallel_tool_calls: true,
-            dimensions: null,
-          },
+  replaceCatalog(fixture.db, COPILOT_UPSTREAM_ID, [
+    {
+      id: "grok-4.5",
+      name: "Grok 4.5",
+      object: "model",
+      vendor: "xai",
+      version: "1",
+      preview: false,
+      policy: null,
+      model_picker_enabled: true,
+      supported_endpoints: ["/responses"],
+      capabilities: {
+        family: "grok",
+        object: "model_capabilities",
+        type: "chat",
+        tokenizer: "o200k_base",
+        limits: {
+          max_context_window_tokens: 128000,
+          max_output_tokens: 16384,
+          max_prompt_tokens: 64000,
+          max_inputs: null,
+        },
+        supports: {
+          tool_calls: true,
+          parallel_tool_calls: true,
+          dimensions: null,
         },
       },
-    ],
-  }
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+    },
+  ])
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
 })
 
 afterEach(() => {
-  state.models = savedModels
-  state.copilotToken = savedToken
-  fetchSpy.mockRestore()
+  fixture.close()
+  Object.assign(state, savedState)
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe("characterisation/chat-via-responses stream", () => {
@@ -114,6 +121,7 @@ describe("characterisation/chat-via-responses stream", () => {
     }
 
     const app = new Hono()
+    installTestRouting(app, fixture.db)
     app.post("/v1/chat/completions", handleCompletion)
     const res = await app.request(
       new Request("http://localhost/v1/chat/completions", {
@@ -130,6 +138,7 @@ describe("characterisation/chat-via-responses stream", () => {
     if (!endLog?.data) throw new Error("missing request_end")
 
     // Prove upstream hit /responses
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
 
     await captureOrDiff({
@@ -230,6 +239,7 @@ describe("characterisation/chat-via-responses stream", () => {
     }
 
     const app = new Hono()
+    installTestRouting(app, fixture.db)
     app.post("/v1/chat/completions", handleCompletion)
     const res = await app.request(
       new Request("http://localhost/v1/chat/completions", {
@@ -253,6 +263,7 @@ describe("characterisation/chat-via-responses stream", () => {
     const endLog = events.find((e) => e.type === "request_end")
     if (!endLog?.data) throw new Error("missing request_end")
 
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
 
     await captureOrDiff({

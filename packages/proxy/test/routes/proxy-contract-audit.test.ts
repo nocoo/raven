@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { afterEach, beforeEach, describe, expect, test, vi, type MockInstance } from "vitest"
-import { compileProvider } from "../../src/db/providers"
+import { installTestRouting, routingHarness, responsesResponse } from "../helpers/routing"
 import { state } from "../../src/lib/state"
 import { handleCompletion as handleChat } from "../../src/routes/chat-completions/handler"
 import { createMessageRoutes } from "../../src/routes/messages/route"
@@ -24,13 +24,9 @@ function model(id: string, endpoints?: string[]) {
   }
 }
 
-function provider(format: "anthropic" | "openai", pattern = "audit-*") {
-  return compileProvider({
-    id: "audit", name: "audit", format, base_url: "https://upstream.invalid",
-    api_key: "fixture-only", model_patterns: JSON.stringify([pattern]),
-    enabled: 1, created_at: 1, updated_at: 1, supports_reasoning: 0,
-    supports_models_endpoint: 0, use_socks5: 0,
-  })!
+function selectProvider(format: "anthropic" | "openai", allowConversion = true) {
+  const selected = harness.upstream({ format: format === "anthropic" ? "anthropic_messages" : "chat_completions", base_url: "https://upstream.invalid" })
+  harness.bind(selected.id, "chosen-model", { allow_conversion: allowConversion })
 }
 
 function chatResponse() {
@@ -67,6 +63,8 @@ function responseJson(value: unknown) {
 
 function app() {
   const instance = new Hono()
+  if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+  installTestRouting(instance, harness.db)
   instance.route("/v1/messages", createMessageRoutes())
   instance.post("/v1/chat/completions", handleChat)
   instance.post("/v1/responses", handleResponses)
@@ -84,13 +82,15 @@ function messages(modelName: string, stream = false) {
   return { model: modelName, max_tokens: 1234, stream, messages: [{ role: "user", content: "hi" }] }
 }
 
+let harness: ReturnType<typeof routingHarness>
 let saved: typeof state
 let fetchSpy: MockInstance<typeof globalThis.fetch>
 
 beforeEach(() => {
   saved = { ...state }
+  harness = routingHarness()
   Object.assign(state, {
-    copilotToken: "fixture-only", providers: [], models: null,
+    copilotToken: "fixture-only", models: null,
     vsCodeVersion: "1.90.0", accountType: "individual", rateLimitSeconds: null,
     stWebSearchEnabled: false, socks5Enabled: false,
   })
@@ -100,6 +100,7 @@ beforeEach(() => {
 afterEach(() => {
   Object.assign(state, saved)
   vi.restoreAllMocks()
+  harness.close()
 })
 
 describe("Proxy route contracts at the HTTP boundary", () => {
@@ -144,7 +145,7 @@ describe("Proxy route contracts at the HTTP boundary", () => {
   })
 
   test.each(["copilot", "custom"])("Anthropic → %s Chat → Anthropic preserves text, model and usage", async (upstream) => {
-    if (upstream === "custom") state.providers = [provider("openai")]
+    if (upstream === "custom") selectProvider("openai")
     fetchSpy.mockResolvedValueOnce(responseJson(chatResponse()))
     const response = await request("/v1/messages", messages("audit-chat"))
     expect(response.status).toBe(200)
@@ -165,7 +166,7 @@ describe("Proxy route contracts at the HTTP boundary", () => {
 
   test.each(["copilot", "custom"])("%s native JSON preserves unknown fields, signatures and citations", async (upstream) => {
     const modelName = upstream === "copilot" ? "claude-sonnet-4" : "audit-native"
-    if (upstream === "custom") state.providers = [provider("anthropic")]
+    if (upstream === "custom") selectProvider("anthropic")
     else state.models = { object: "list", data: [model(modelName, ["/v1/messages"])] }
     const original = anthropicResponse()
     fetchSpy.mockResolvedValueOnce(responseJson(original))
@@ -177,7 +178,7 @@ describe("Proxy route contracts at the HTTP boundary", () => {
 
   test.each(["copilot", "custom"])("%s native SSE preserves opaque content and unknown event types", async (upstream) => {
     const modelName = upstream === "copilot" ? "claude-sonnet-4" : "audit-native"
-    if (upstream === "custom") state.providers = [provider("anthropic")]
+    if (upstream === "custom") selectProvider("anthropic")
     else state.models = { object: "list", data: [model(modelName, ["/v1/messages"])] }
     const wire = [
       'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"opaque"}}\n\n',
@@ -259,16 +260,16 @@ describe("Proxy route contracts at the HTTP boundary", () => {
     )
   })
 
-  test("OpenAI → Anthropic is explicitly rejected before any upstream call", async () => {
-    state.providers = [provider("anthropic")]
+  test("OpenAI → Anthropic requires enabled conversion", async () => {
+    selectProvider("anthropic", false)
     const response = await request("/v1/chat/completions", messages("audit-native"))
     expect(response.status).toBe(400)
-    expect((await response.json()).error.message).toContain("cannot be routed to Anthropic-format")
+    expect((await response.json()).error.type).toBe("protocol_mismatch")
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
-  test("Responses → custom provider is explicitly rejected before any upstream call", async () => {
-    state.providers = [provider("openai")]
+  test("Responses → custom Chat requires enabled conversion", async () => {
+    selectProvider("openai", false)
     const response = await request("/v1/responses", { model: "audit-chat", input: "hi" })
     expect(response.status).toBe(400)
     expect(fetchSpy).not.toHaveBeenCalled()
@@ -307,10 +308,12 @@ describe("Proxy route contracts at the HTTP boundary", () => {
     ])
   })
 
-  test("Messages → Responses-only remains an unimplemented route, as documented in design 25", async () => {
+  test("Messages → Responses-only uses the implemented conversion", async () => {
     state.models = { object: "list", data: [model("audit-responses", ["/responses"])] }
-    fetchSpy.mockResolvedValueOnce(responseJson(chatResponse()))
-    await request("/v1/messages", messages("audit-responses"))
-    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("https://api.githubcopilot.com/chat/completions")
+    fetchSpy.mockResolvedValueOnce(responseJson(responsesResponse("audit-responses")))
+    const response = await request("/v1/messages", messages("audit-responses"))
+    expect(response.status).toBe(200)
+    expect((await response.json()).content).toEqual([{ type: "text", text: "pong" }])
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("https://api.githubcopilot.com/responses")
   })
 })

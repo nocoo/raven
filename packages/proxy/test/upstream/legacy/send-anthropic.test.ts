@@ -7,37 +7,36 @@ import {
   CustomOpenAIClient,
   defaultCustomOpenAIConfig,
 } from "./../../../src/upstream/custom-openai"
-import type { ProviderRecord } from "./../../../src/db/providers"
-import type { CompiledProvider } from "./../../../src/db/providers"
-import { compileProvider } from "./../../../src/db/providers"
+import type { UpstreamRecord } from "./../../../src/core/routing-types"
 import type { AnthropicMessagesPayload } from "./../../../src/protocols/anthropic/types"
 import type { ChatCompletionsPayload } from "./../../../src/upstream/copilot-openai"
 
-const sendAnthropicDirect = (provider: CompiledProvider, payload: AnthropicMessagesPayload) =>
+const sendAnthropicDirect = (provider: UpstreamRecord, payload: AnthropicMessagesPayload) =>
   new CustomAnthropicClient(defaultCustomAnthropicConfig()).send({ provider, payload })
-const sendOpenAIDirect = (provider: CompiledProvider, payload: ChatCompletionsPayload) =>
+const sendOpenAIDirect = (provider: UpstreamRecord, payload: ChatCompletionsPayload) =>
   new CustomOpenAIClient(defaultCustomOpenAIConfig()).send({ provider, payload })
 
-function makeProvider(
-  overrides: Partial<ProviderRecord> = {},
-): CompiledProvider {
-  const record: ProviderRecord = {
+function makeProvider(overrides: Partial<UpstreamRecord> = {}): UpstreamRecord {
+  return {
     id: "p1",
     name: "TestProvider",
+    kind: "custom",
+    format: "anthropic_messages",
     base_url: "https://api.example.com",
-    format: "anthropic",
     api_key: "test-key",
-    model_patterns: '["model-a"]',
-    enabled: 1,
+    is_enabled: true,
+    supports_reasoning: false,
+    auth_style: null,
+    use_socks5: null,
+    manual_models: [],
+    models: [],
+    last_refreshed_at: null,
+    last_refresh_error: null,
+    quota: null,
     created_at: 1,
     updated_at: 1,
-          supports_reasoning: 0, supports_models_endpoint: 0, auth_style: null,
- use_socks5: null,
     ...overrides,
   }
-  const compiled = compileProvider(record)
-  if (!compiled) throw new Error("Failed to compile provider")
-  return compiled
 }
 
 function makeMockStream(chunks: string[]): Response {
@@ -244,7 +243,7 @@ describe("sendAnthropicDirect", () => {
 // ===========================================================================
 
 describe("sendOpenAIDirect", () => {
-  const provider = makeProvider({ format: "openai" as const })
+  const provider = makeProvider({ format: "chat_completions" })
   const payload: ChatCompletionsPayload = {
     model: "model-a",
     messages: [{ role: "user", content: "Hello" }],

@@ -9,13 +9,14 @@ import { runMigrations } from "./lib/migration"
 import { DIR_MODE } from "./lib/app-dirs"
 import { state } from "./lib/state"
 import { setupGitHubToken, setupCopilotToken } from "./lib/token"
-import { cacheModels, cacheVersions, cacheOptimizations, cacheProviders, cacheServerTools, cacheIPWhitelist, cacheCorsSettings, cacheSocks5Settings } from "./lib/utils"
+import { cacheVersions, cacheOptimizations, cacheServerTools, cacheIPWhitelist, cacheCorsSettings, cacheSocks5Settings } from "./lib/utils"
 import { startBridge, stopBridge } from "./lib/socks5-bridge"
 import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
-import { initApiKeys, validateApiKey } from "./db/keys"
+import { validateApiKey } from "./db/keys"
 import { initSettings } from "./db/settings"
-import { initProviders } from "./db/providers"
+import { initRouting } from "./db/routing-migration"
+import { restoreCopilotCatalog, startCopilotCatalogRefresh } from "./composition/catalog"
 import { timingSafeEqual } from "./middleware"
 import { checkIPWhitelist, getClientIPFromRequest } from "./middleware"
 import { wsHandler, type WsData } from "./ws/logs"
@@ -41,9 +42,8 @@ mkdirSync(dbDir || "data", { recursive: true, mode: DIR_MODE })
 const db = new Database(config.dbPath)
 logger.info(`Database opened: ${config.dbPath}`)
 initDatabase(db)
-initApiKeys(db)
+initRouting(db)
 initSettings(db)
-initProviders(db)
 startRequestSink(db)
 logger.info("Database ready (WAL mode)")
 
@@ -53,8 +53,8 @@ await cacheVersions(db)
 // 3b. Load optimization flags from DB
 cacheOptimizations(db)
 
-// 3c. Load enabled providers from DB
-cacheProviders(db)
+// Restore the durable catalog before admitting any request.
+restoreCopilotCatalog(db)
 
 // 3d. Load server tool settings from DB
 cacheServerTools(db)
@@ -100,16 +100,7 @@ logger.info("GitHub token loaded")
 await setupCopilotToken()
 logger.info("Copilot JWT acquired, auto-refresh started")
 
-// 6. Cache models
-try {
-  await cacheModels()
-  const modelCount = state.models?.data?.length ?? 0
-  logger.info(`Cached ${modelCount} models from Copilot API`)
-} catch (err) {
-  logger.warn("Failed to cache models, will retry on first request", {
-    error: err instanceof Error ? err.message : String(err),
-  })
-}
+const stopCatalogRefresh = startCopilotCatalogRefresh(db)
 
 // 7. Build app with all dependencies wired
 const app = createApp({
@@ -195,10 +186,12 @@ export { app, config }
 // ---------------------------------------------------------------------------
 
 process.on("SIGINT", async () => {
+  stopCatalogRefresh()
   await stopBridge()
   process.exit(0)
 })
 process.on("SIGTERM", async () => {
+  stopCatalogRefresh()
   await stopBridge()
   process.exit(0)
 })

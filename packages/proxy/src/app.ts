@@ -16,6 +16,7 @@ import { createKeysRoute } from "./routes/keys"
 import { createConnectionInfoRoute } from "./routes/connection-info"
 import { createSettingsRoute } from "./routes/settings"
 import { createUpstreamsRoute } from "./routes/upstreams"
+import { createRoutingRulesRoute } from "./routes/routing-rules"
 import { createSocks5SettingsRoute } from "./routes/settings-socks5"
 import { createLiveRoute } from "./routes/live"
 import { createSentinelStatusRoute } from "./routes/sentinel-status"
@@ -90,9 +91,10 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createRequestsRoute(db))
   app.route("/api", createCopilotInfoRoute({ githubToken }))
   app.route("/api", createKeysRoute(db))
-  app.route("/api", createConnectionInfoRoute({ port: port ?? 7024, baseUrl: baseUrl ?? null }))
+  app.route("/api", createConnectionInfoRoute({ db, port: port ?? 7024, baseUrl: baseUrl ?? null }))
   app.route("/api", createSettingsRoute(db))
   app.route("/api", createUpstreamsRoute(db))
+  app.route("/api", createRoutingRulesRoute(db))
   app.route("/api", createSocks5SettingsRoute(db))
   app.route("/api", createLiveRoute(db))
   app.route("/api", createSentinelStatusRoute())

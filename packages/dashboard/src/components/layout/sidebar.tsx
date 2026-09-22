@@ -31,6 +31,7 @@ import {
   Settings,
   Shield,
   Wrench,
+  Route,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
@@ -73,11 +74,18 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Routing",
+    defaultOpen: true,
+    items: [
+      { href: "/routing/upstreams", label: "Upstreams", icon: Globe },
+      { href: "/routing/rules", label: "Routing Rules", icon: Route },
+    ],
+  },
+  {
     label: "Tools",
     defaultOpen: true,
     items: [
       { href: "/settings/server-tools", label: "Server Tools", icon: Wrench },
-      { href: "/settings/upstreams", label: "Upstreams", icon: Globe },
     ],
   },
   {

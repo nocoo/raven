@@ -1,374 +1,74 @@
 import { describe, expect, test } from "vitest"
-import fixturesJson from "./router.fixtures.json"
-import { pickStrategy, type RouterInput, type StrategyDecision } from "../../src/core/router"
-import type { CompiledProvider, CompiledPattern } from "../../src/db/providers"
+import { declaredProtocols, pickStrategy, type ClientProtocol } from "../../src/core/router"
+import type { UpstreamFormat } from "../../src/core/routing-types"
+import { upstreamRecord } from "../helpers/routing"
 
-interface RawProvider {
-  id: string
-  name: string
-  format: "openai" | "anthropic"
-  enabled: boolean
-  supports_reasoning: boolean
-  patterns: string[]
-}
+const protocols: ClientProtocol[] = ["anthropic", "openai", "responses"]
+const formats: UpstreamFormat[] = ["anthropic_messages", "chat_completions", "responses"]
+const expected = [
+  ["custom-anthropic", "custom-openai", "protocol-converted"],
+  ["protocol-converted", "custom-openai", "protocol-converted"],
+  ["protocol-converted", "protocol-converted", "protocol-converted"],
+]
 
-interface FixtureInput {
-  protocol: "anthropic" | "openai" | "responses"
-  model: string
-  anthropicBeta: string | null
-  providers: RawProvider[]
-  modelsCatalogIds: string[]
-  modelsCatalog?: Array<{ id: string; supported_endpoints?: string[] }>
-}
+describe("endpoint selection after key-bound upstream selection", () => {
+  test.each(protocols.flatMap((protocol, source) => formats.map((format, target) => ({ protocol, format, source, target }))))(
+    "$protocol to $format uses its native endpoint or explicit adapter", ({ protocol, format, source, target }) => {
+      const provider = upstreamRecord({ format })
+      const input = { protocol, model: "raw-model", requestedModel: "raw-model", provider, allowConversion: true }
+      expect(pickStrategy(input)).toMatchObject({ kind: "ok", name: expected[source]![target], model: "raw-model", providerId: provider.id })
+      const off = pickStrategy({ ...input, allowConversion: false })
+      expect(off).toMatchObject(source === target ? { kind: "ok" } : { kind: "reject", status: 400, errorType: "protocol_mismatch" })
+    },
+  )
 
-interface Fixture {
-  name: string
-  input: FixtureInput
-  expected: StrategyDecision
-}
-
-const fixtures = (fixturesJson as { fixtures: Fixture[] }).fixtures
-
-function compilePattern(p: string): CompiledPattern {
-  if (!p.includes("*")) return { raw: p, isExact: true }
-  if (p.endsWith("*") && !p.slice(0, -1).includes("*")) {
-    return { raw: p, isExact: false, prefix: p.slice(0, -1) }
-  }
-  return { raw: p, isExact: false }
-}
-
-function compileProvider(p: RawProvider): CompiledProvider {
-  return {
-    id: p.id,
-    name: p.name,
-    base_url: "https://example.invalid",
-    format: p.format,
-    api_key: "sk-test",
-    enabled: p.enabled ? 1 : 0,
-    supports_reasoning: p.supports_reasoning ? 1 : 0,
-    supports_models_endpoint: 0,
-    use_socks5: null,
-    created_at: 0,
-    updated_at: 0,
-    patterns: p.patterns.map(compilePattern),
-  }
-}
-
-function buildInput(f: FixtureInput): RouterInput {
-  return {
-    protocol: f.protocol,
-    model: f.model,
-    anthropicBeta: f.anthropicBeta,
-    providers: f.providers.map(compileProvider),
-    modelsCatalogIds: f.modelsCatalogIds,
-    ...(f.modelsCatalog ? { modelsCatalog: f.modelsCatalog } : {}),
-  }
-}
-
-describe("pickStrategy — fixture-driven", () => {
-  for (const f of fixtures) {
-    test(f.name, () => {
-      const decision = pickStrategy(buildInput(f.input))
-      expect(decision).toEqual(f.expected)
-    })
-  }
-})
-
-describe("pickStrategy — branch coverage assertions", () => {
-  test("anthropic with anthropicBeta=context-1m-* selects 1m model alias", () => {
-    const decision = pickStrategy({
-      protocol: "anthropic",
-      model: "claude-opus-4-6",
-      anthropicBeta: "context-1m-2025-08-07",
-      providers: [],
-      modelsCatalogIds: ["claude-opus-4.6-1m"],
-      modelsCatalog: [{ id: "claude-opus-4.6-1m", supported_endpoints: ["/v1/messages"] }],
-    })
-    expect(decision).toEqual({ kind: "ok", name: "copilot-native" })
+  test.each(protocols)("Copilot prefers native %s even when all endpoints are advertised", (protocol) => {
+    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: "known", supported_endpoints: ["/responses", "/v1/messages", "/chat/completions"] }] })
+    expect(pickStrategy({ protocol, model: "known", requestedModel: "auto", provider, allowConversion: false })).toMatchObject({ kind: "ok", upstreamProtocol: protocol })
   })
 
-  test("anthropic with context-1m beta uses catalog internal alias for native routing", () => {
-    const decision = pickStrategy({
-      protocol: "anthropic",
-      model: "claude-opus-4-7",
-      anthropicBeta: "context-1m-2025-08-07",
-      providers: [],
-      modelsCatalogIds: ["claude-opus-4.7", "claude-opus-4.7-1m-internal"],
-      modelsCatalog: [
-        { id: "claude-opus-4.7", supported_endpoints: ["/v1/messages"] },
-        { id: "claude-opus-4.7-1m-internal", supported_endpoints: ["/v1/messages"] },
-      ],
-    })
-    expect(decision).toEqual({ kind: "ok", name: "copilot-native" })
+  test.each([
+    ["anthropic", ["/responses"], "protocol-converted", "responses"],
+    ["openai", ["/responses"], "copilot-chat-via-responses", "responses"],
+    ["responses", ["/chat/completions", "/messages"], "protocol-converted", "openai"],
+    ["openai", ["/messages"], "protocol-converted", "anthropic"],
+    ["anthropic", ["/responses", "/chat/completions"], "copilot-translated", "openai"],
+  ] as const)("Copilot %s chooses the declared priority and honors conversion OFF", (protocol, endpoints, name, upstreamProtocol) => {
+    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: "known", supported_endpoints: [...endpoints] }] })
+    const input = { protocol, model: "known", requestedModel: "auto", provider, allowConversion: true }
+    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name, upstreamProtocol })
+    expect(pickStrategy({ ...input, allowConversion: false })).toMatchObject({ kind: "reject", status: 400 })
   })
 
-  test("anthropic exact-on-raw beats glob-on-normalised within candidate order", () => {
-    // raw matches an exact pattern; normalised would only hit a glob.
-    // Per resolveProviderForModels, exact pass beats glob pass globally.
-    const decision = pickStrategy({
-      protocol: "anthropic",
-      model: "claude-opus-4-6-20250820",
-      anthropicBeta: null,
-      providers: [
-        compileProvider({
-          id: "exact-raw",
-          name: "exact-raw",
-          format: "anthropic",
-          enabled: true,
-          supports_reasoning: false,
-          patterns: ["claude-opus-4-6-20250820"],
-        }),
-        compileProvider({
-          id: "glob-norm",
-          name: "glob-norm",
-          format: "anthropic",
-          enabled: true,
-          supports_reasoning: false,
-          patterns: ["claude-opus-*"],
-        }),
-      ],
-      modelsCatalogIds: ["claude-opus-4.6"],
-    })
-    expect(decision).toEqual({
-      kind: "ok",
-      name: "custom-anthropic",
-      providerId: "exact-raw",
-    })
+  test.each([[], [{ id: "different" }], [{ id: "known" }], [{ id: "known", supported_endpoints: ["/unknown"] }]])(
+    "unusable Copilot capabilities never guess an endpoint for auto", (...models) => {
+      const provider = upstreamRecord({ kind: "copilot", format: null, models: models as never })
+      for (const protocol of protocols) {
+        expect(pickStrategy({ protocol, model: "known", requestedModel: "auto", provider, allowConversion: true })).toMatchObject({ kind: "reject", status: 503 })
+      }
+    },
+  )
+
+  test.each(protocols)("explicit %s preserves legacy Copilot dispatch with no model membership gate", (protocol) => {
+    const provider = upstreamRecord({ kind: "copilot", format: null })
+    expect(pickStrategy({ protocol, model: "uncached", requestedModel: "uncached", provider, allowConversion: false })).toMatchObject({ kind: "ok", upstreamProtocol: protocol, model: "uncached" })
+    expect(pickStrategy({ protocol, model: "uncached", requestedModel: "uncached", provider, allowConversion: true })).toMatchObject({ kind: "ok", upstreamProtocol: protocol === "anthropic" ? "openai" : protocol })
   })
 
-  test("anthropic non-claude model with no provider falls through to translated", () => {
-    const decision = pickStrategy({
-      protocol: "anthropic",
-      model: "gpt-4.1",
-      anthropicBeta: null,
-      providers: [],
-      modelsCatalogIds: [], // not in catalog at all
-    })
-    expect(decision).toEqual({ kind: "ok", name: "copilot-translated" })
+  test("aliases resolve only inside Copilot, and custom model IDs remain exact", () => {
+    const model = "claude-sonnet-4-20250514"
+    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: "claude-sonnet-4", supported_endpoints: ["/v1/messages"] }] })
+    expect(pickStrategy({ protocol: "anthropic", model, requestedModel: model, provider, allowConversion: true })).toMatchObject({ kind: "ok", name: "copilot-native", model: "claude-sonnet-4" })
+    expect(pickStrategy({ protocol: "anthropic", model, requestedModel: model, provider: upstreamRecord({ format: "anthropic_messages" }), allowConversion: false })).toMatchObject({ kind: "ok", model })
   })
 
-  test("anthropic catalogued claude without modelsCatalog is translated", () => {
-    expect(
-      pickStrategy({
-        protocol: "anthropic",
-        model: "claude-sonnet-4",
-        providers: [],
-        modelsCatalogIds: ["claude-sonnet-4"],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-translated" })
+  test("missing custom format fails without falling back", () => {
+    expect(pickStrategy({ protocol: "openai", model: "raw", requestedModel: "raw", provider: upstreamRecord({ format: null }), allowConversion: true })).toMatchObject({ kind: "reject", status: 503 })
   })
 
-  test("anthropic catalogued claude with explicit /v1/messages is native", () => {
-    expect(
-      pickStrategy({
-        protocol: "anthropic",
-        model: "claude-sonnet-4",
-        providers: [],
-        modelsCatalogIds: ["claude-sonnet-4"],
-        modelsCatalog: [{ id: "claude-sonnet-4", supported_endpoints: ["/v1/messages"] }],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-native" })
-  })
-
-  test("anthropic catalogued claude with only /chat/completions is translated", () => {
-    expect(
-      pickStrategy({
-        protocol: "anthropic",
-        model: "claude-sonnet-4",
-        providers: [],
-        modelsCatalogIds: ["claude-sonnet-4"],
-        modelsCatalog: [{ id: "claude-sonnet-4", supported_endpoints: ["/chat/completions"] }],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-translated" })
-  })
-
-  test("anthropic catalogued claude with omitted endpoints is translated", () => {
-    expect(
-      pickStrategy({
-        protocol: "anthropic",
-        model: "claude-sonnet-4",
-        providers: [],
-        modelsCatalogIds: ["claude-sonnet-4"],
-        modelsCatalog: [{ id: "claude-sonnet-4" }],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-translated" })
-  })
-
-  test("anthropic catalogued claude with empty endpoints is translated", () => {
-    expect(
-      pickStrategy({
-        protocol: "anthropic",
-        model: "claude-sonnet-4",
-        providers: [],
-        modelsCatalogIds: ["claude-sonnet-4"],
-        modelsCatalog: [{ id: "claude-sonnet-4", supported_endpoints: [] }],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-translated" })
-  })
-
-  test("openai with no provider always picks copilot-openai-direct", () => {
-    expect(
-      pickStrategy({
-        protocol: "openai",
-        model: "anything-goes",
-        providers: [],
-        modelsCatalogIds: [],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
-  })
-
-  test("openai responses-only catalog entry picks copilot-chat-via-responses", () => {
-    expect(
-      pickStrategy({
-        protocol: "openai",
-        model: "grok-4.5",
-        providers: [],
-        modelsCatalogIds: ["grok-4.5"],
-        modelsCatalog: [
-          { id: "grok-4.5", supported_endpoints: ["/responses"] },
-        ],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-chat-via-responses" })
-  })
-
-  test("openai responses+ws only picks shim", () => {
-    expect(
-      pickStrategy({
-        protocol: "openai",
-        model: "gpt-5.3-codex",
-        providers: [],
-        modelsCatalogIds: ["gpt-5.3-codex"],
-        modelsCatalog: [
-          {
-            id: "gpt-5.3-codex",
-            supported_endpoints: ["/responses", "ws:/responses"],
-          },
-        ],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-chat-via-responses" })
-  })
-
-  test("openai amphibious stays on copilot-openai-direct", () => {
-    expect(
-      pickStrategy({
-        protocol: "openai",
-        model: "gpt-5.4",
-        providers: [],
-        modelsCatalogIds: ["gpt-5.4"],
-        modelsCatalog: [
-          {
-            id: "gpt-5.4",
-            supported_endpoints: ["/responses", "/chat/completions"],
-          },
-        ],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
-  })
-
-  test("openai empty endpoints stays on copilot-openai-direct", () => {
-    expect(
-      pickStrategy({
-        protocol: "openai",
-        model: "gpt-4o",
-        providers: [],
-        modelsCatalogIds: ["gpt-4o"],
-        modelsCatalog: [{ id: "gpt-4o", supported_endpoints: [] }],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
-  })
-
-  test("live catalog swap flips openai routing without restart", () => {
-    const base = {
-      protocol: "openai" as const,
-      model: "grok-4.5",
-      providers: [],
-      modelsCatalogIds: ["grok-4.5"],
-    }
-    expect(
-      pickStrategy({
-        ...base,
-        modelsCatalog: [{ id: "grok-4.5" }],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
-
-    expect(
-      pickStrategy({
-        ...base,
-        modelsCatalog: [
-          { id: "grok-4.5", supported_endpoints: ["/responses"] },
-        ],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-chat-via-responses" })
-
-    expect(
-      pickStrategy({
-        ...base,
-        modelsCatalog: [
-          {
-            id: "grok-4.5",
-            supported_endpoints: ["/responses", "/chat/completions"],
-          },
-        ],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-openai-direct" })
-  })
-
-  test("responses with no provider always picks copilot-responses", () => {
-    expect(
-      pickStrategy({
-        protocol: "responses",
-        model: "gpt-5.2",
-        providers: [],
-        modelsCatalogIds: [],
-      }),
-    ).toEqual({ kind: "ok", name: "copilot-responses" })
-  })
-
-  test("openai client × Anthropic-format provider rejects with 400 invalid_request_error", () => {
-    const decision = pickStrategy({
-      protocol: "openai",
-      model: "claude-opus-4.6",
-      providers: [
-        compileProvider({
-          id: "anthropic-up",
-          name: "anthropic-up",
-          format: "anthropic",
-          enabled: true,
-          supports_reasoning: false,
-          patterns: ["claude-opus-4.6"],
-        }),
-      ],
-      modelsCatalogIds: [],
-    })
-    expect(decision.kind).toBe("reject")
-    if (decision.kind === "reject") {
-      expect(decision.status).toBe(400)
-      expect(decision.errorType).toBe("invalid_request_error")
-      expect(decision.message).toContain("Anthropic-format upstreams")
-    }
-  })
-
-  test("responses client × custom provider rejects with 400 invalid_request_error", () => {
-    const decision = pickStrategy({
-      protocol: "responses",
-      model: "gpt-5.2",
-      providers: [
-        compileProvider({
-          id: "custom-1",
-          name: "custom-1",
-          format: "openai",
-          enabled: true,
-          supports_reasoning: false,
-          patterns: ["gpt-5.2"],
-        }),
-      ],
-      modelsCatalogIds: [],
-    })
-    expect(decision.kind).toBe("reject")
-    if (decision.kind === "reject") {
-      expect(decision.status).toBe(400)
-      expect(decision.errorType).toBe("invalid_request_error")
-      expect(decision.message).toContain("custom upstreams")
-    }
+  test("endpoint declarations accept both API path spellings and ignore non-arrays", () => {
+    expect(declaredProtocols({ id: "x", supported_endpoints: ["/v1/chat/completions", "/v1/responses", "/messages"] })).toEqual(["openai", "responses", "anthropic"])
+    expect(declaredProtocols({ id: "x", supported_endpoints: "invalid" as never })).toEqual([])
+    expect(declaredProtocols(undefined)).toEqual([])
   })
 })

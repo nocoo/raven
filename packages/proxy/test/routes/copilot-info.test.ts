@@ -59,112 +59,20 @@ afterEach(() => {
 // ===========================================================================
 
 describe("GET /copilot/models", () => {
-  test("returns cached models when available", async () => {
+  test("returns the current snapshot without network activity even with refresh=true", async () => {
     const app = new Hono()
-    app.route("/", createCopilotInfoRoute({ githubToken: "tok" }))
-
-    const res = await app.request("/copilot/models")
-    expect(res.status).toBe(200)
-
-    const json = (await res.json()) as { object: string; data: Array<{ id: string }> }
-    expect(json.object).toBe("list")
-    expect(json.data[0]!.id).toBe("gpt-4o")
+    app.route("/", createCopilotInfoRoute({ githubToken: "fixture" }))
+    expect(await (await app.request("/copilot/models?refresh=true")).json()).toEqual(state.models)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
-
-  test("fetches models when state.models is empty", async () => {
+  test("an empty cache remains empty until the independent refresh", async () => {
     state.models = null
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          object: "list",
-          data: [
-            {
-              id: "gpt-4",
-              name: "GPT-4",
-              object: "model",
-              vendor: "openai",
-              version: "2024",
-              preview: false,
-              policy: null,
-        model_picker_enabled: true,
-              capabilities: {
-                family: "gpt-4",
-                object: "model_capabilities",
-                type: "chat",
-                tokenizer: "cl100k_base",
-                limits: {},
-                supports: {},
-              },
-            },
-          ],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
-    )
-
     const app = new Hono()
-    app.route("/", createCopilotInfoRoute({ githubToken: "tok" }))
-
-    const res = await app.request("/copilot/models")
-    expect(res.status).toBe(200)
-  })
-
-  test("refresh=true re-fetches models", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          object: "list",
-          data: [
-            {
-              id: "gpt-4o-mini",
-              name: "GPT-4o Mini",
-              object: "model",
-              vendor: "openai",
-              version: "2024",
-              preview: false,
-              policy: null,
-        model_picker_enabled: true,
-              capabilities: {
-                family: "gpt-4o-mini",
-                object: "model_capabilities",
-                type: "chat",
-                tokenizer: "o200k_base",
-                limits: {},
-                supports: {},
-              },
-            },
-          ],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
-    )
-
-    const app = new Hono()
-    app.route("/", createCopilotInfoRoute({ githubToken: "tok" }))
-
-    const res = await app.request("/copilot/models?refresh=true")
-    expect(res.status).toBe(200)
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-  })
-
-  test("cacheModels fails and state.models still null → 502", async () => {
-    state.models = null
-    fetchSpy.mockRejectedValueOnce(new Error("network error"))
-
-    const app = new Hono()
-    app.route("/", createCopilotInfoRoute({ githubToken: "tok" }))
-
-    const res = await app.request("/copilot/models")
-    expect(res.status).toBe(502)
-
-    const json = (await res.json()) as { error: string }
-    expect(json.error).toContain("network error")
+    app.route("/", createCopilotInfoRoute({ githubToken: "fixture" }))
+    expect(await (await app.request("/copilot/models")).json()).toEqual({ object: "list", data: [] })
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
-
-// ===========================================================================
-// /copilot/user
-// ===========================================================================
 
 describe("GET /copilot/user", () => {
   test("returns user data from getCopilotUsage", async () => {

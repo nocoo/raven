@@ -7,6 +7,10 @@
 
 
 
+import type { RoutingRule } from "@/lib/routing-types";
+import { COPILOT_RULE_ID } from "@/lib/routing-model";
+import { RoutingSelect } from "@/components/routing/routing-ui";
+import { KeyRuleBinding } from "./key-rule-binding";
 import { CopyButton } from "@/components/copy-button";
 import { CodeBlock } from "@/components/code-block";
 import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/lib/types";
@@ -21,36 +25,42 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 interface ConnectContentProps {
   keys: ApiKeyPublic[];
   connectionInfo: ConnectionInfo;
+  rules: RoutingRule[];
 }
 
-export function ConnectContent({ keys, connectionInfo }: ConnectContentProps) {
+export function ConnectContent({ keys, connectionInfo, rules }: ConnectContentProps) {
   // Use model_list if available, otherwise fall back to models array
   const models: ModelInfo[] = connectionInfo.model_list ??
     connectionInfo.models.map((id) => ({ id, owned_by: "unknown" }));
 
   return (
     <Tabs defaultValue="keys" className="w-full">
-      <TabsList className="mb-6">
+      <TabsList className="mb-4">
         <TabsTrigger value="keys" className="gap-1.5">
           <Key className="h-4 w-4" strokeWidth={1.5} />
-          <span className="hidden sm:inline">Keys</span>
+          <span className="inline">Keys</span>
         </TabsTrigger>
         <TabsTrigger value="code" className="gap-1.5">
           <Code2 className="h-4 w-4" strokeWidth={1.5} />
-          <span className="hidden sm:inline">Code</span>
+          <span className="inline">Code</span>
         </TabsTrigger>
         <TabsTrigger value="models" className="gap-1.5">
           <Cpu className="h-4 w-4" strokeWidth={1.5} />
-          <span className="hidden sm:inline">Models</span>
+          <span className="inline">Models</span>
         </TabsTrigger>
       </TabsList>
 
       <TabsContent value="keys">
-        <ApiKeysSection keys={keys} />
+        <ApiKeysSection keys={keys} rules={rules} />
       </TabsContent>
 
       <TabsContent value="code">
-        <div className="space-y-8">
+        <div className="space-y-5">
+          <LayerCard className="space-y-2 text-sm">
+            <p><code className="font-semibold">auto</code> uses the authenticated key’s rule, current period and quota order, then the selected target’s configured model.</p>
+            <p className="text-basalt-muted-foreground">An explicit model ID follows the same upstream selection and is sent unchanged. Catalog membership is not required. Errors stop on that upstream; Raven does not try another provider.</p>
+            <p className="text-xs text-basalt-muted-foreground">Use the upstream’s native protocol unless the bound rule enables conversion. Embeddings currently require a selected Copilot upstream; explicit embedding IDs work without a catalog, while auto needs a configured model with cached embedding capability.</p>
+          </LayerCard>
           <EndpointsSection info={connectionInfo} />
           <CodeExamplesSection info={connectionInfo} />
           <SetupGuidesSection baseUrl={connectionInfo.base_url} />
@@ -58,6 +68,7 @@ export function ConnectContent({ keys, connectionInfo }: ConnectContentProps) {
       </TabsContent>
 
       <TabsContent value="models">
+        <p className="mb-3 text-sm text-basalt-muted-foreground">A global, cached catalog: auto plus exact IDs from every upstream. It is not filtered by your key’s rule or current period and does not guarantee availability on the selected upstream.</p>
         <ModelsSection models={models} />
       </TabsContent>
     </Tabs>
@@ -70,6 +81,7 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
   const endpoints = [
     { label: "Base URL", value: info.base_url },
     { label: "Chat Completions", value: `${info.base_url}${info.endpoints.chat_completions}` },
+    { label: "OpenAI Responses", value: `${info.base_url}${info.endpoints.responses}` },
     { label: "Anthropic Messages", value: `${info.base_url}${info.endpoints.messages}` },
     { label: "Models", value: `${info.base_url}${info.endpoints.models}` },
     { label: "Embeddings", value: `${info.base_url}${info.endpoints.embeddings}` },
@@ -102,6 +114,9 @@ type CodeTab = "curl" | "python" | "typescript";
 
 function CodeExamplesSection({ info }: { info: ConnectionInfo }) {
   const [activeTab, setActiveTab] = useState<CodeTab>("curl");
+  const [selection, setSelection] = useState("auto");
+  const [explicitModel, setExplicitModel] = useState("gpt-5.6-sol");
+  const exampleModel = JSON.stringify(selection === "auto" ? "auto" : explicitModel);
 
   const tabs: { id: CodeTab; label: string; icon: React.ElementType }[] = [
     { id: "curl", label: "curl", icon: Terminal },
@@ -114,7 +129,7 @@ function CodeExamplesSection({ info }: { info: ConnectionInfo }) {
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer rk-..." \\
   -d '{
-    "model": "claude-sonnet-4",
+    "model": ${exampleModel.replace(/'/g, "'\\''")},
     "stream": true,
     "messages": [{"role": "user", "content": "Hello!"}]
   }'`,
@@ -126,19 +141,19 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="claude-sonnet-4",
+    model=${exampleModel},
     messages=[{"role": "user", "content": "Hello!"}],
 )
 print(response.choices[0].message.content)`,
     typescript: `import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic({
-  baseURL: "${info.base_url}/v1",
+  baseURL: "${info.base_url}",
   apiKey: "rk-...",
 });
 
 const message = await client.messages.create({
-  model: "claude-sonnet-4",
+  model: ${exampleModel},
   max_tokens: 1024,
   messages: [{ role: "user", content: "Hello!" }],
 });
@@ -147,6 +162,10 @@ console.log(message.content);`,
 
   return (
     <SectionRule title="Code Examples">
+      <div className="mb-3 grid max-w-xl gap-3 sm:grid-cols-2">
+        <RoutingSelect label="Model selection" value={selection} onChange={setSelection} options={[{ value: "auto", label: "auto · configured target model" }, { value: "explicit", label: "Explicit · preserve model ID" }]} />
+        {selection === "explicit" && <div className="space-y-1.5"><Label htmlFor="example-model">Explicit model ID</Label><Input id="example-model" size="sm" value={explicitModel} onChange={event => setExplicitModel(event.target.value)} /></div>}
+      </div>
       <LayerCard padding="none" className="overflow-hidden">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as CodeTab)}>
           <TabsList>
@@ -211,11 +230,11 @@ function ClaudeCodeGuide({ baseUrl }: { baseUrl: string }) {
   const envConfig = `{
   "ANTHROPIC_AUTH_TOKEN": "rk-...",
   "ANTHROPIC_BASE_URL": "${baseUrl}",
-  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-opus-4.6",
-  "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4.6",
-  "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-opus-4.6",
-  "ANTHROPIC_MODEL": "claude-opus-4.6",
-  "ANTHROPIC_REASONING_MODEL": "claude-opus-4.6"
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL": "auto",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL": "auto",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL": "auto",
+  "ANTHROPIC_MODEL": "auto",
+  "ANTHROPIC_REASONING_MODEL": "auto"
 }`;
 
   return (
@@ -428,7 +447,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
 
 // ── API Keys Section ──
 
-function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
+function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; rules: RoutingRule[] }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogInstance, setDialogInstance] = useState(0);
@@ -485,7 +504,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
               Create Key
             </Button>
           </DialogTrigger>
-          <CreateKeyDialog key={dialogInstance} onCreated={handleCreated} />
+          <CreateKeyDialog key={dialogInstance} onCreated={handleCreated} rules={rules} />
         </Dialog>
       }
     >
@@ -516,6 +535,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Key</TableHead>
+                <TableHead>Routing rule</TableHead>
                 <TableHead className="hidden sm:table-cell">Created</TableHead>
                 <TableHead className="hidden md:table-cell">Last Used</TableHead>
                 <TableHead>Status</TableHead>
@@ -531,6 +551,7 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
                       {key.key_prefix}...
                     </code>
                   </TableCell>
+                  <TableCell><KeyRuleBinding apiKey={key} rules={rules} /></TableCell>
                   <TableCell className="hidden sm:table-cell text-xs text-basalt-muted-foreground">
                     {new Date(key.created_at).toLocaleDateString()}
                   </TableCell>
@@ -602,14 +623,15 @@ function ApiKeysSection({ keys: initialKeys }: { keys: ApiKeyPublic[] }) {
 
 // ── Create Key Dialog ──
 
-function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
+function CreateKeyDialog({ onCreated, rules }: { onCreated: () => void; rules: RoutingRule[] }) {
   const [name, setName] = useState("");
+  const [ruleId, setRuleId] = useState(COPILOT_RULE_ID);
   const [loading, setLoading] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !rules.some(rule => rule.id === ruleId) || loading) return;
     setLoading(true);
     setError(null);
 
@@ -617,7 +639,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: name.trim(), rule_id: ruleId }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -673,7 +695,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
       <DialogHeader>
         <DialogTitle>Create API Key</DialogTitle>
         <DialogDescription>
-          Give your key a name to identify it later.
+          Give your key a name and bind it to exactly one routing rule.
         </DialogDescription>
       </DialogHeader>
       <div className="space-y-2">
@@ -682,17 +704,20 @@ function CreateKeyDialog({ onCreated }: { onCreated: () => void }) {
           id="key-name"
           placeholder="e.g. cursor-mbp, claude-code"
           value={name}
+          disabled={loading}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           maxLength={64}
         />
-        {error && <p className="text-xs text-basalt-destructive">{error}</p>}
+        <RoutingSelect label="Routing rule" value={ruleId} onChange={setRuleId} disabled={loading} options={rules.map(rule => ({ value: rule.id, label: rule.name }))} />
+        <p className="text-xs text-basalt-muted-foreground">The environment client key always uses the protected Copilot rule.</p>
+        {error && <p role="alert" className="text-xs text-basalt-destructive">{error}</p>}
       </div>
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="outline">Cancel</Button>
         </DialogClose>
-        <Button onClick={handleCreate} disabled={loading || !name.trim()}>
+        <Button onClick={handleCreate} disabled={loading || !name.trim() || !rules.some(rule => rule.id === ruleId)}>
           {loading ? "Creating..." : "Create"}
         </Button>
       </DialogFooter>

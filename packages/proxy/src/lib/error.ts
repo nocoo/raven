@@ -1,5 +1,6 @@
 import type { Context } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
+import { RoutingError } from "../core/routing-types"
 import { Socks5BridgeUnavailableError } from "./socks5-bridge"
 
 /** Protocol-layer failures from shim translators (name-matched; no lib→protocols import). */
@@ -58,11 +59,11 @@ export function extractErrorDetails(error: unknown): {
   upstreamStatus: number | null
   statusCode: number
 } {
-  if (error instanceof ClientInputError) {
+  if (error instanceof ClientInputError || error instanceof RoutingError) {
     return {
       errorDetail: error.message,
       upstreamStatus: null,
-      statusCode: 400,
+      statusCode: error.status,
     }
   }
   if (isUpstreamProtocolError(error)) {
@@ -89,15 +90,13 @@ export async function forwardError(c: Context, error: unknown) {
   // Error details are already logged by the handler's request_end event.
   // This function only builds the HTTP response for the client.
 
-  if (error instanceof ClientInputError) {
+  if (error instanceof ClientInputError || error instanceof RoutingError) {
     return c.json(
       {
-        error: {
-          message: error.message,
-          type: "invalid_request_error",
-        },
+        ...(c.req.path.includes("/messages") ? { type: "error" } : {}),
+        error: { message: error.message, type: error.type },
       },
-      400,
+      error.status,
     )
   }
 

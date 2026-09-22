@@ -4,11 +4,8 @@ import { Database } from "bun:sqlite"
 import { state } from "../../src/lib/state"
 import {
   cacheVersions,
-  cacheModels,
-  refreshModelsIfStale,
   cacheServerTools,
   cacheOptimizations,
-  cacheProviders,
   cacheIPWhitelist,
   cacheCorsSettings,
   cacheSocks5Settings,
@@ -16,8 +13,7 @@ import {
   sleep,
 } from "../../src/lib/utils"
 import { initSettings } from "../../src/db/settings"
-import { initProviders, createProvider } from "../../src/db/providers"
-import { logger } from "../../src/util/logger"
+import * as localVersions from "../../src/services/detect-local-versions"
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -36,7 +32,9 @@ beforeEach(() => {
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected outbound HTTP request"))
+  vi.spyOn(localVersions, "detectLocalVSCodeVersion").mockResolvedValue(null)
+  vi.spyOn(localVersions, "detectLocalCopilotVersion").mockResolvedValue(null)
   db = new Database(":memory:")
   initSettings(db)
 })
@@ -48,7 +46,7 @@ afterEach(() => {
   state.copilotChatVersionSource = savedCopilotChatVersionSource
   state.models = savedModels
   state.copilotToken = savedToken
-  fetchSpy.mockRestore()
+  vi.restoreAllMocks()
   db.close()
 })
 
@@ -58,7 +56,6 @@ afterEach(() => {
 
 describe("cacheVersions", () => {
   test("resolves VS Code version via AUR fallback chain and Copilot Chat to fallback", async () => {
-    // AUR fetch returns a version for VS Code
     fetchSpy.mockResolvedValueOnce(
       new Response("pkgname=visual-studio-code-bin\npkgver=1.99.0\npkgrel=1", {
         status: 200,
@@ -66,12 +63,23 @@ describe("cacheVersions", () => {
     )
 
     await cacheVersions(db)
-    // VS Code: local detection may or may not succeed depending on host,
-    // but AUR mock should provide 1.99.0 if local detection fails
-    expect(state.vsCodeVersion).toBeDefined()
-    // Copilot Chat: no local extension in test env, should fallback
-    expect(state.copilotChatVersion).toBeDefined()
-    expect(state.copilotChatVersionSource).toBeDefined()
+    expect(state.vsCodeVersion).toBe("1.99.0")
+    expect(state.vsCodeVersionSource).toBe("aur")
+    expect(state.copilotChatVersion).toBe("0.45.1")
+    expect(state.copilotChatVersionSource).toBe("fallback")
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  test("prefers installed versions over remote discovery", async () => {
+    vi.mocked(localVersions.detectLocalVSCodeVersion).mockResolvedValueOnce("1.99.3")
+    vi.mocked(localVersions.detectLocalCopilotVersion).mockResolvedValueOnce("0.47.2")
+
+    await cacheVersions(db)
+    expect(state.vsCodeVersion).toBe("1.99.3")
+    expect(state.vsCodeVersionSource).toBe("local")
+    expect(state.copilotChatVersion).toBe("0.47.2")
+    expect(state.copilotChatVersionSource).toBe("local")
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   test("uses DB override when set", async () => {
@@ -89,127 +97,24 @@ describe("cacheVersions", () => {
     expect(state.vsCodeVersionSource).toBe("override")
     expect(state.copilotChatVersion).toBe("9.99.9")
     expect(state.copilotChatVersionSource).toBe("override")
+    expect(localVersions.detectLocalVSCodeVersion).not.toHaveBeenCalled()
+    expect(localVersions.detectLocalCopilotVersion).not.toHaveBeenCalled()
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   test("stores fallback on fetch failure when no local or DB override", async () => {
     fetchSpy.mockRejectedValueOnce(new Error("network error"))
 
     await cacheVersions(db)
-    // If local detection fails too, should end up at AUR fallback (which is "1.117.0")
-    // or local detection succeeded — either way vsCodeVersion should be set
-    expect(state.vsCodeVersion).toBeDefined()
-    expect(state.copilotChatVersion).toBeDefined()
+    expect(state.vsCodeVersion).toBe("1.117.0")
+    expect(state.vsCodeVersionSource).toBe("fallback")
+    expect(state.copilotChatVersion).toBe("0.45.1")
+    expect(state.copilotChatVersionSource).toBe("fallback")
   })
 })
 
 // ===========================================================================
 // cacheModels
-// ===========================================================================
-
-describe("cacheModels", () => {
-  test("fetches models and stores in state", async () => {
-    state.models = null
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          object: "list",
-          data: [
-            {
-              id: "gpt-4",
-              name: "GPT-4",
-              object: "model",
-              vendor: "openai",
-              version: "2024",
-              preview: false,
-              model_picker_enabled: true,
-              capabilities: {
-                family: "gpt-4",
-                object: "model_capabilities",
-                type: "chat",
-                tokenizer: "cl100k_base",
-                limits: {},
-                supports: {},
-              },
-            },
-          ],
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      ),
-    )
-
-    await cacheModels()
-    expect(state.models).toBeDefined()
-    expect(state.models!.data[0]!.id).toBe("gpt-4")
-  })
-})
-
-// ===========================================================================
-// refreshModelsIfStale
-// ===========================================================================
-
-describe("refreshModelsIfStale", () => {
-  const ttl = 60 * 60 * 1000
-  const cachedModels = { object: "list", data: [] }
-  const refreshedModels = { object: "list", data: [{ id: "refreshed-model" }] }
-  let nowSpy: ReturnType<typeof vi.spyOn>
-
-  const settleRefresh = () => new Promise<void>((resolve) => setImmediate(resolve))
-
-  beforeEach(async () => {
-    nowSpy = vi.spyOn(Date, "now").mockReturnValue(0)
-    fetchSpy.mockImplementation(async () => Response.json(cachedModels))
-    await cacheModels()
-    fetchSpy.mockClear()
-  })
-
-  afterEach(async () => {
-    await settleRefresh()
-    nowSpy.mockRestore()
-  })
-
-  test("keeps fresh models and shares one refresh when the cache expires", async () => {
-    nowSpy.mockReturnValue(ttl - 1)
-    refreshModelsIfStale()
-    expect(fetchSpy).not.toHaveBeenCalled()
-
-    const refresh = Promise.withResolvers<Response>()
-    fetchSpy.mockImplementationOnce(() => refresh.promise)
-    nowSpy.mockReturnValue(ttl)
-
-    try {
-      refreshModelsIfStale()
-      refreshModelsIfStale()
-      expect(fetchSpy).toHaveBeenCalledTimes(1)
-      expect(state.models).toEqual(cachedModels)
-    } finally {
-      refresh.resolve(Response.json(refreshedModels))
-      await settleRefresh()
-    }
-
-    expect(state.models).toEqual(refreshedModels)
-    refreshModelsIfStale()
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-  })
-
-  test("preserves cached models after a failed refresh and retries on the next call", async () => {
-    nowSpy.mockReturnValue(ttl)
-    fetchSpy.mockRejectedValueOnce(new Error("model service unavailable"))
-
-    refreshModelsIfStale()
-    await settleRefresh()
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(state.models).toEqual(cachedModels)
-
-    fetchSpy.mockResolvedValueOnce(Response.json(refreshedModels))
-    refreshModelsIfStale()
-    await settleRefresh()
-    expect(fetchSpy).toHaveBeenCalledTimes(2)
-    expect(state.models).toEqual(refreshedModels)
-  })
-})
-
-// ===========================================================================
-// isNullish
 // ===========================================================================
 
 describe("isNullish", () => {
@@ -380,65 +285,6 @@ describe("cacheOptimizations", () => {
 // cacheProviders
 // ===========================================================================
 
-describe("cacheProviders", () => {
-  const savedProviders = state.providers
-
-  beforeEach(() => {
-    initProviders(db)
-  })
-
-  afterEach(() => {
-    state.providers = savedProviders
-  })
-
-  test("loads empty array when no providers exist", () => {
-    cacheProviders(db)
-    expect(state.providers).toEqual([])
-  })
-
-  test("loads enabled providers", () => {
-    createProvider(db, {
-      name: "TestProvider",
-      base_url: "https://api.test.com",
-      format: "openai",
-      api_key: "sk-test-key-123456789",
-      model_patterns: ["gpt-*"],
-      is_enabled: true,
-    })
-
-    cacheProviders(db)
-    expect(state.providers.length).toBe(1)
-    expect(state.providers[0]!.name).toBe("TestProvider")
-  })
-
-  test("excludes disabled providers", () => {
-    createProvider(db, {
-      name: "EnabledProvider",
-      base_url: "https://api.enabled.com",
-      format: "openai",
-      api_key: "sk-enabled-key",
-      model_patterns: ["*"],
-      is_enabled: true,
-    })
-    createProvider(db, {
-      name: "DisabledProvider",
-      base_url: "https://api.disabled.com",
-      format: "anthropic",
-      api_key: "sk-disabled-key",
-      model_patterns: ["claude-*"],
-      is_enabled: false,
-    })
-
-    cacheProviders(db)
-    expect(state.providers.length).toBe(1)
-    expect(state.providers[0]!.name).toBe("EnabledProvider")
-  })
-})
-
-// ===========================================================================
-// cacheIPWhitelist
-// ===========================================================================
-
 describe("cacheIPWhitelist", () => {
   const savedIPWhitelistEnabled = state.ipWhitelistEnabled
   const savedIPWhitelistTrustProxy = state.ipWhitelistTrustProxy
@@ -530,107 +376,6 @@ describe("cacheIPWhitelist", () => {
 
 // ===========================================================================
 // cacheProviders - invalid model_patterns handling
-// ===========================================================================
-
-describe("cacheProviders with invalid model_patterns", () => {
-  beforeEach(() => {
-    state.providers = []
-  })
-
-  test("logs warning when provider has invalid model_patterns JSON", () => {
-    initProviders(db)
-
-    // Insert provider with invalid JSON directly
-    db.query(
-      "INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, created_at, updated_at) VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $supports_reasoning, $created_at, $updated_at)",
-    ).run({
-      $id: "invalid-provider",
-      $name: "Invalid Provider",
-      $base_url: "https://example.com",
-      $format: "openai",
-      $api_key: "key",
-      $model_patterns: "not-valid-json{{{",
-      $enabled: 1,
-      $supports_reasoning: 0,
-      $created_at: Date.now(),
-      $updated_at: Date.now(),
-    })
-
-    // Spy on logger.warn
-    const loggerSpy = vi.spyOn(logger, "warn")
-
-    cacheProviders(db)
-
-    // Should log warning about skipped provider
-    expect(loggerSpy).toHaveBeenCalled()
-    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped: invalid model_patterns JSON"))
-    expect(warnCalls.length).toBe(1)
-
-    // Provider should be skipped from state.providers
-    expect(state.providers).toHaveLength(0)
-
-    loggerSpy.mockRestore()
-  })
-
-  test("logs warning count when multiple providers have invalid JSON", () => {
-    initProviders(db)
-
-    // Insert multiple providers with invalid JSON
-    for (let i = 0; i < 3; i++) {
-      db.query(
-        "INSERT INTO providers (id, name, base_url, format, api_key, model_patterns, enabled, supports_reasoning, created_at, updated_at) VALUES ($id, $name, $base_url, $format, $api_key, $model_patterns, $enabled, $supports_reasoning, $created_at, $updated_at)",
-      ).run({
-        $id: `invalid-${i}`,
-        $name: `Invalid ${i}`,
-        $base_url: "https://example.com",
-        $format: "openai",
-        $api_key: "key",
-        $model_patterns: "bad-json",
-        $enabled: 1,
-        $supports_reasoning: 0,
-        $created_at: Date.now(),
-        $updated_at: Date.now(),
-      })
-    }
-
-    const loggerSpy = vi.spyOn(logger, "warn")
-
-    cacheProviders(db)
-
-    // Should log warning about 3 skipped providers
-    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("3 provider(s) skipped in total"))
-    expect(warnCalls.length).toBe(1)
-
-    loggerSpy.mockRestore()
-  })
-
-  test("does not log warning when all providers have valid model_patterns", () => {
-    initProviders(db)
-    createProvider(db, {
-      name: "Valid Provider",
-      base_url: "https://example.com",
-      format: "openai",
-      api_key: "key",
-      model_patterns: ["gpt-4"],
-    })
-
-    const loggerSpy = vi.spyOn(logger, "warn")
-
-    cacheProviders(db)
-
-    // Should not log any warnings
-    const warnCalls = loggerSpy.mock.calls.filter((call) => typeof call[0] === "string" && call[0].includes("skipped: invalid model_patterns JSON"))
-    expect(warnCalls.length).toBe(0)
-
-    // Provider should be in state.providers
-    expect(state.providers).toHaveLength(1)
-
-    loggerSpy.mockRestore()
-  })
-})
-
-// ===========================================================================
-// cacheCorsSettings
 // ===========================================================================
 
 describe("cacheCorsSettings", () => {

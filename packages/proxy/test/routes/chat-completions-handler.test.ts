@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
+import { installTestRouting, routingHarness } from "../helpers/routing"
 
 import { state } from "../../src/lib/state"
 import { logEmitter } from "../../src/util/log-emitter"
@@ -12,6 +13,8 @@ import { handleCompletion } from "../../src/routes/chat-completions/handler"
 
 function makeApp(): Hono {
   const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
   app.post("/v1/chat/completions", handleCompletion)
   return app
 }
@@ -77,8 +80,10 @@ function makeNonStreamResponse(overrides: Record<string, unknown> = {}) {
 const savedModels = state.models
 const savedToken = state.copilotToken
 let fetchSpy: ReturnType<typeof vi.spyOn>
+let harness: ReturnType<typeof routingHarness>
 
 beforeEach(() => {
+  harness = routingHarness()
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
@@ -119,6 +124,7 @@ afterEach(() => {
   if (savedToken !== undefined) state.copilotToken = savedToken
   else state.copilotToken = null
   fetchSpy.mockRestore()
+  harness.close()
 })
 
 // ===========================================================================

@@ -114,6 +114,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
           { role: "assistant", content: "ok" },
         ],
         stream: true,
+        stream_options: { include_usage: true },
       },
     },
   },
@@ -325,7 +326,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
         "anthropic-version": "2023-06-01",
       },
       body: {
-        model: "claude-sonnet-4",
+        model: "Claude-Sonnet-4",
         messages: [{ role: "user", content: "ping" }],
         max_tokens: 100,
       },

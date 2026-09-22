@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { authStyleAttempts, buildAuthHeaders } from "../../src/lib/auth-headers"
+import { buildProviderAuthHeaders, buildAuthHeaders } from "../../src/lib/auth-headers"
 
 describe("buildAuthHeaders", () => {
   test("bearer style emits Authorization", () => {
@@ -19,20 +19,13 @@ describe("buildAuthHeaders", () => {
   })
 })
 
-describe("authStyleAttempts", () => {
-  test("openai providers only use bearer", () => {
-    expect(authStyleAttempts("openai", null)).toEqual(["bearer"])
-    expect(authStyleAttempts("openai", "bearer")).toEqual(["bearer"])
-    expect(authStyleAttempts("openai", "x-api-key")).toEqual(["bearer"])
+describe("saved provider authentication", () => {
+  test("Anthropic with no saved style emits both headers in one request", () => {
+    expect(buildProviderAuthHeaders({ api_key: "fixture", format: "anthropic_messages", auth_style: null })).toMatchObject({ Authorization: "Bearer fixture", "x-api-key": "fixture", "anthropic-version": "2023-06-01" })
   })
-
-  test("anthropic providers honor stored auth_style when set", () => {
-    expect(authStyleAttempts("anthropic", "bearer")).toEqual(["bearer"])
-    expect(authStyleAttempts("anthropic", "x-api-key")).toEqual(["x-api-key"])
-  })
-
-  test("anthropic providers with unknown style try x-api-key first then bearer", () => {
-    expect(authStyleAttempts("anthropic", null)).toEqual(["x-api-key", "bearer"])
-    expect(authStyleAttempts("anthropic", undefined)).toEqual(["x-api-key", "bearer"])
+  test("saved styles and single-format defaults are deterministic", () => {
+    expect(buildProviderAuthHeaders({ api_key: "fixture", format: "responses", auth_style: null })).toEqual(buildAuthHeaders("fixture", "bearer"))
+    expect(buildProviderAuthHeaders({ api_key: "fixture", format: "anthropic_messages", auth_style: "bearer" })).toEqual(buildAuthHeaders("fixture", "bearer"))
+    expect(buildProviderAuthHeaders({ api_key: "fixture", format: "chat_completions", auth_style: "x-api-key" })).toEqual(buildAuthHeaders("fixture", "x-api-key"))
   })
 })

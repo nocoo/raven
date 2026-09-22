@@ -21,6 +21,7 @@ import {
   isTokenExpiredBody,
 } from "../lib/token-signal"
 import type { UpstreamClient, UpstreamResult } from "./interface"
+import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http"
 
 // ---------------------------------------------------------------------------
 // Re-exported wire types (canonical home moves here in E.10).
@@ -31,7 +32,7 @@ export interface CopilotOpenAISnapshotOptions {
   isAgentCall: boolean
 }
 
-export interface CopilotOpenAIConfig {
+export interface CopilotOpenAIConfig extends ModelHttpConfig {
   /** Throws if the token is missing — callers guard against null at the boundary. */
   getToken(): string
   getBaseUrl(): string
@@ -229,7 +230,9 @@ export class CopilotOpenAIClient
 
     const url = `${this.config.getBaseUrl()}/chat/completions`
     const proxyUrl = this.config.getProxyUrl()
-    const body = JSON.stringify(payload)
+    const body = JSON.stringify(payload.stream
+      ? { ...payload, stream_options: { ...payload.stream_options, include_usage: true } }
+      : payload)
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
       signal?.throwIfAborted()
@@ -237,7 +240,7 @@ export class CopilotOpenAIClient
         enableVision,
         isAgentCall,
       })
-      const response = await fetch(url, {
+      const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,
         headers,
@@ -250,7 +253,7 @@ export class CopilotOpenAIClient
     const first = await callOnce()
     let response = first.response
 
-    if (response.status === 401) {
+    if (response.status === 401 && replayAllowed(this.config)) {
       const respBody = await response.text().catch(() => "")
       signal?.throwIfAborted()
       const tokenExpired = isTokenExpiredBody(401, respBody)

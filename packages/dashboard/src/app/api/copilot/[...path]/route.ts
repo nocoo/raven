@@ -12,6 +12,7 @@ export async function GET(
 
   // Forward query params
   const url = new URL(_request.url);
+  if (subPath === "models") url.searchParams.delete("refresh");
   const queryString = url.searchParams.toString();
   const fullPath = `/api/copilot/${subPath}${queryString ? `?${queryString}` : ""}`;
 

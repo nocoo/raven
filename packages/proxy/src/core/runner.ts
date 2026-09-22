@@ -20,6 +20,8 @@ import type { DispatchResult, Strategy } from "./strategy"
 import { computeStreamTimings } from "./stream-runner"
 import { extractErrorDetails } from "../lib/error"
 import { logEmitter } from "../util/log-emitter"
+import { routingLog } from "./routing-log"
+import { logRequestError } from "./request-log"
 
 export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   c: Context,
@@ -32,7 +34,13 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
     ...ctx,
     signal: AbortSignal.any([controller.signal, c.req.raw.signal, ...(ctx.signal ? [ctx.signal] : [])]),
   }
-  const upstreamReq = strategy.prepare(payload, ctx)
+  let upstreamReq: UpReq
+  try {
+    upstreamReq = strategy.prepare(payload, ctx)
+  } catch (error) {
+    logRequestError(ctx, error, { strategy: strategy.name })
+    throw error
+  }
 
   let dispatched: DispatchResult<UpResp, Ch>
   try {
@@ -177,6 +185,7 @@ function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>
       clientName: ctx.clientName,
       clientVersion: ctx.clientVersion,
       ...extras,
+      ...routingLog(ctx),
     },
   })
 }
@@ -225,6 +234,7 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
       clientName: ctx.clientName,
       clientVersion: ctx.clientVersion,
       ...extras,
+      ...routingLog(ctx),
       ...(errorDetail !== null && { error: errorDetail }),
     },
   })
@@ -264,6 +274,7 @@ function emitErrorEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
       clientName: ctx.clientName,
       clientVersion: ctx.clientVersion,
       ...extras,
+      ...routingLog(ctx),
     },
   })
 }

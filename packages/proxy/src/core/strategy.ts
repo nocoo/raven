@@ -17,6 +17,7 @@ export type StrategyName =
   | "copilot-chat-via-responses"
   | "custom-openai"
   | "custom-anthropic"
+  | "protocol-converted"
 
 /**
  * Enumerated runtime list of every legal `StrategyName`. Mirrors the
@@ -32,6 +33,7 @@ export const STRATEGY_NAMES = [
   "copilot-chat-via-responses",
   "custom-openai",
   "custom-anthropic",
+  "protocol-converted",
 ] as const satisfies readonly StrategyName[]
 
 export function isStrategyName(value: string): value is StrategyName {

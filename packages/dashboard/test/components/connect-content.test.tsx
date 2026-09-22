@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 // ---------------------------------------------------------------------------
@@ -28,6 +28,8 @@ Object.defineProperty(navigator, "clipboard", {
 // ---------------------------------------------------------------------------
 
 import { ConnectContent } from "@/app/connect/connect-content";
+import { fixtureRules } from "../helpers/routing-fixtures";
+import { selectOption } from "../helpers/routing-interactions";
 import type { ApiKeyPublic, ConnectionInfo } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -39,6 +41,7 @@ function makeConnectionInfo(): ConnectionInfo {
     base_url: "http://localhost:7024",
     endpoints: {
       chat_completions: "/v1/chat/completions",
+      responses: "/v1/responses",
       messages: "/v1/messages",
       models: "/v1/models",
       embeddings: "/v1/embeddings",
@@ -55,6 +58,7 @@ function makeKey(overrides: Partial<ApiKeyPublic> = {}): ApiKeyPublic {
     id: "key-1",
     name: "test-key",
     key_prefix: "rk-abc",
+    rule_id: "builtin:copilot",
     created_at: 1704067200000,
     last_used_at: null,
     revoked_at: null,
@@ -66,7 +70,7 @@ let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockRefresh.mockClear();
-  fetchSpy = vi.spyOn(globalThis, "fetch");
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
 });
 
 afterEach(() => {
@@ -84,6 +88,7 @@ describe("ApiKeysSection", () => {
 
       render(
         <ConnectContent
+          rules={fixtureRules}
           keys={[makeKey({ id: "key-abc" })]}
           connectionInfo={makeConnectionInfo()}
           
@@ -104,6 +109,7 @@ describe("ApiKeysSection", () => {
 
       render(
         <ConnectContent
+          rules={fixtureRules}
           keys={[makeKey()]}
           connectionInfo={makeConnectionInfo()}
           
@@ -124,6 +130,7 @@ describe("ApiKeysSection", () => {
 
       render(
         <ConnectContent
+          rules={fixtureRules}
           keys={[makeKey()]}
           connectionInfo={makeConnectionInfo()}
           
@@ -147,6 +154,7 @@ describe("ApiKeysSection", () => {
 
       render(
         <ConnectContent
+          rules={fixtureRules}
           keys={[makeKey({ id: "key-xyz", revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
           
@@ -167,6 +175,7 @@ describe("ApiKeysSection", () => {
 
       render(
         <ConnectContent
+          rules={fixtureRules}
           keys={[makeKey({ revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
           
@@ -187,6 +196,7 @@ describe("ApiKeysSection", () => {
 
       render(
         <ConnectContent
+          rules={fixtureRules}
           keys={[makeKey({ revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
           
@@ -210,9 +220,32 @@ describe("ApiKeysSection", () => {
 // ---------------------------------------------------------------------------
 
 describe("CreateKeyDialog", () => {
+  it("shows each key binding and creates a key with the chosen non-default rule", async () => {
+    render(<ConnectContent rules={fixtureRules} keys={[makeKey()]} connectionInfo={makeConnectionInfo()} />);
+    expect(screen.getByRole("button", { name: "Change rule for test-key" })).toHaveTextContent("GitHub Copilot");
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Create Key" }));
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Research laptop");
+    await selectOption("Routing rule", "Working hours");
+    fetchSpy.mockResolvedValueOnce(Response.json({ id: "new:key", key: "rk-fixture-once" }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    expect(fetchSpy).toHaveBeenCalledExactlyOnceWith("/api/keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Research laptop", rule_id: "rule:working-hours" }) });
+    expect(screen.getByText("rk-fixture-once")).toBeVisible();
+  });
+
+  it("does not allow an unbound key when no rules are available", async () => {
+    render(<ConnectContent rules={[]} keys={[]} connectionInfo={makeConnectionInfo()} />);
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Create Key" }));
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Unbound{Enter}");
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   function renderWithDialog() {
     return render(
       <ConnectContent
+          rules={fixtureRules}
         keys={[]}
         connectionInfo={makeConnectionInfo()}
         
@@ -248,7 +281,7 @@ describe("CreateKeyDialog", () => {
       expect(fetchSpy).toHaveBeenCalledWith("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "my-key" }),
+        body: JSON.stringify({ name: "my-key", rule_id: "builtin:copilot" }),
       });
     });
   });
@@ -348,5 +381,30 @@ describe("CreateKeyDialog", () => {
     input = await screen.findByPlaceholderText(/cursor-mbp/i);
     expect((input as HTMLInputElement).value).toBe("");
     expect(screen.queryByText("rk-first-key")).toBeNull();
+  });
+});
+
+describe("routing-aware connection examples", () => {
+  it("explains the selected upstream, conversion and embeddings boundaries and switches raw model examples", async () => {
+    render(<ConnectContent rules={fixtureRules} keys={[]} connectionInfo={makeConnectionInfo()} />);
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("tab", { name: "Code" }));
+    expect(screen.getByText(/same upstream selection/)).toHaveTextContent("Errors stop on that upstream");
+    expect(screen.getByText(/Embeddings currently require/)).toHaveTextContent("cached embedding capability");
+    expect(screen.getByText("http://localhost:7024/v1/responses")).toBeVisible();
+    const curl = () => within(screen.getByRole("tabpanel", { name: "curl" })).getByRole("code");
+    expect(curl()).toHaveTextContent('"model": "auto"');
+    await selectOption("Model selection", "Explicit · preserve model ID");
+    fireEvent.change(screen.getByRole("textbox", { name: "Explicit model ID" }), { target: { value: "vendor/it's-model" } });
+    expect(curl()).toHaveTextContent('"model": "vendor/it\'\\\'\'s-model"');
+    await user.click(screen.getByRole("tab", { name: "Python" }));
+    expect(screen.getByRole("tabpanel", { name: "Python" })).toHaveTextContent('model="vendor/it\'s-model"');
+    await user.click(screen.getByRole("tab", { name: "TypeScript" }));
+    expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent('model: "vendor/it\'s-model"');
+    expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent('baseURL: "http://localhost:7024"');
+    await selectOption("Model selection", "auto · configured target model");
+    expect(screen.queryByRole("textbox", { name: "Explicit model ID" })).toBeNull();
+    expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent('model: "auto"');
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

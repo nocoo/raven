@@ -48,6 +48,34 @@
     "cacheReadTokens": 0,
     "cacheWriteTokens": 0,
     "upstream": "AnthropicProvider",
-    "upstreamFormat": "anthropic"
+    "upstreamFormat": "anthropic",
+    "requestedModel": "claude-3-5-sonnet-20241022",
+    "ruleId": "builtin:copilot",
+    "periodId": null,
+    "upstreamId": "11111111-1111-4111-8111-111111111111",
+    "quotaWindowId": null,
+    "quotaMultiplier": 1,
+    "quotaWeightedTokens": 9,
+    "quotaUsageComplete": false,
+    "quotaAccountingHealthy": true,
+    "quotaSkipped": [],
+    "admittedAt": 1789948800000,
+    "diagnostic": false,
+    "routing": {
+      "requested_model": "claude-3-5-sonnet-20241022",
+      "resolved_model": "claude-3-5-sonnet-20241022",
+      "rule_id": "builtin:copilot",
+      "period_id": null,
+      "upstream_id": "11111111-1111-4111-8111-111111111111",
+      "upstream_name": "AnthropicProvider",
+      "quota_window_id": null,
+      "multiplier": 1,
+      "weighted_tokens": 9,
+      "usage_complete": false,
+      "accounting_healthy": true,
+      "admitted_at": 1789948800000,
+      "skipped": [],
+      "diagnostic": false
+    }
   }
 }

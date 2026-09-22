@@ -221,6 +221,28 @@ describe("copilot-native normalizeNativeThinkingPayload", () => {
     expect(captured[0]!.body.output_config).toEqual({ effort: "low" })
   })
 
+  test("non-array message content does not count as vision or a tool result", async () => {
+    state.models = modelsWith({})
+    await send(makePayload({
+      messages: [
+        { role: "user", content: null as never },
+        { role: "assistant", content: null as never },
+      ],
+    }))
+    expect(captured[0]!.url).toContain("/v1/messages")
+  })
+
+  test("equal distance updates the choice when the later effort is lower priority", async () => {
+    state.models = modelsWith({ reasoning_effort: ["high", "low"] })
+    await send(
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 4096 },
+        output_config: { effort: "medium" },
+      } as Partial<AnthropicMessagesPayload>),
+    )
+    expect(captured[0]!.body.output_config).toEqual({ effort: "low" })
+  })
+
   test("supported list empty filtered → returns requested", async () => {
     state.models = modelsWith({ reasoning_effort: ["unknown-effort"] })
     await send(

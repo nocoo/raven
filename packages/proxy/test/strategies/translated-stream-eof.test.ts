@@ -5,7 +5,7 @@ import { execute } from "../../src/core/runner"
 import type { RequestContext } from "../../src/core/context"
 import { makeCopilotTranslated } from "../../src/strategies/copilot-translated"
 import { makeCustomOpenAI } from "../../src/strategies/custom-openai"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import type { CopilotOpenAIClient } from "../../src/upstream/copilot-openai"
 import type { CustomOpenAIClient } from "../../src/upstream/custom-openai"
 import type { ServerSentEvent } from "../../src/util/sse"
@@ -84,12 +84,24 @@ function parseSse(body: string): Array<{ event: string | null; data: string }> {
   return events
 }
 
-const provider: CompiledProvider = {
-  id: "p1", name: "myco", base_url: "https://example.invalid",
-  format: "openai", api_key: "k", enabled: 1,
-  supports_reasoning: 0, supports_models_endpoint: 0,
-  use_socks5: null, created_at: 0, updated_at: 0,
-  patterns: [{ raw: "*", isExact: false }],
+const provider: UpstreamRecord = {
+  id: "p1",
+  name: "myco",
+  kind: "custom",
+  format: "chat_completions",
+  base_url: "https://example.invalid",
+  api_key: "k",
+  is_enabled: true,
+  supports_reasoning: false,
+  auth_style: null,
+  use_socks5: null,
+  manual_models: [],
+  models: [],
+  last_refreshed_at: null,
+  last_refresh_error: null,
+  quota: null,
+  created_at: 0,
+  updated_at: 0,
 }
 
 const strategies = [

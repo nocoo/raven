@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { Hono, type Context } from "hono"
 import { execute } from "../../src/core/runner"
 import type { RequestContext } from "../../src/core/context"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import { CopilotNativeClient } from "../../src/upstream/copilot-native"
 import { CopilotOpenAIClient } from "../../src/upstream/copilot-openai"
@@ -26,10 +26,24 @@ const config = {
   getProxyUrl: () => undefined,
   snapshotAuth: () => ({ token: "synthetic-token", headers: {} }),
 }
-const provider: CompiledProvider = {
-  id: "p1", name: "test", base_url: "https://upstream.invalid", format: "openai",
-  api_key: "synthetic-key", enabled: 1, supports_reasoning: 0, supports_models_endpoint: 0,
-  use_socks5: null, created_at: 0, updated_at: 0, patterns: [],
+const provider: UpstreamRecord = {
+  id: "p1",
+  name: "test",
+  kind: "custom",
+  format: "chat_completions",
+  base_url: "https://upstream.invalid",
+  api_key: "synthetic-key",
+  is_enabled: true,
+  supports_reasoning: false,
+  auth_style: null,
+  use_socks5: null,
+  manual_models: [],
+  models: [],
+  last_refreshed_at: null,
+  last_refresh_error: null,
+  quota: null,
+  created_at: 0,
+  updated_at: 0,
 }
 const chat = { model: "gpt-4o", messages: [], stream: true }
 const messages: AnthropicMessagesPayload = {
@@ -87,7 +101,7 @@ const paths = [
   {
     name: "custom-anthropic", frame: messagesFrame,
     run: (c: Context) => execute(c, context(), makeCustomAnthropic({ client: new CustomAnthropicClient(config) }), {
-      provider: { ...provider, format: "anthropic" }, payload: messages,
+      provider: { ...provider, format: "anthropic_messages" }, payload: messages,
     }),
   },
   {

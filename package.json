@@ -17,7 +17,7 @@
     "test": "bun run --filter '@raven/proxy' test",
     "test:all": "bun run --filter '*' test",
     "test:l2": "bun run --filter @raven/proxy test:l2",
-    "test:root": "bunx --bun vitest run",
+    "test:root": "bun run test:all && bunx --bun vitest run --project scripts",
     "lint": "bun run --filter '*' lint && bunx biome check --no-errors-on-unmatched --error-on-warnings --max-diagnostics=500 scripts",
     "typecheck": "bun run --filter '*' typecheck",
     "test:e2e": "bun run scripts/run-e2e.ts",

@@ -35,7 +35,6 @@ function makeState(overrides: Partial<State> = {}): State {
     optToolCallDebug: false,
     stWebSearchEnabled: false,
     stWebSearchApiKey: null,
-    providers: [],
     ipWhitelistEnabled: false,
     ipWhitelistRanges: [],
     ipWhitelistTrustProxy: false,

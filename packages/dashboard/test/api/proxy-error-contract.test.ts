@@ -11,7 +11,7 @@ vi.mock("@/lib/proxy", () => {
 const { ProxyError } = await import("@/lib/proxy");
 const upstreams = await import("@/app/api/upstreams/route");
 const upstream = await import("@/app/api/upstreams/[id]/route");
-const upstreamModels = await import("@/app/api/upstreams/[id]/models/route");
+const refreshModels = await import("@/app/api/upstreams/[id]/models/refresh/route");
 const keys = await import("@/app/api/keys/route");
 const key = await import("@/app/api/keys/[id]/route");
 const revoke = await import("@/app/api/keys/[id]/revoke/route");
@@ -30,7 +30,7 @@ const routes: [string, () => Promise<Response>][] = [
   ["read provider", () => upstream.GET(request(), context())],
   ["update provider", () => upstream.PUT(request(), context())],
   ["delete provider", () => upstream.DELETE(request(), context())],
-  ["provider models", () => upstreamModels.GET(request(), context())],
+  ["refresh provider models", () => refreshModels.POST(request(), context())],
   ["list keys", () => keys.GET()],
   ["create key", () => keys.POST(request())],
   ["delete key", () => key.DELETE(request(), context())],

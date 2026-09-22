@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockRefresh.mockClear();
-  fetchSpy = vi.spyOn(globalThis, "fetch");
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
 });
 
 afterEach(() => {
@@ -118,7 +118,16 @@ describe("AccountContent.handleRefresh", () => {
 // ---------------------------------------------------------------------------
 
 describe("CopilotModelsContent.handleRefresh", () => {
-  it("calls GET /api/copilot/models?refresh=true", async () => {
+  it("renders sparse cached metadata without fabricating capability, limit or picker readiness", () => {
+    render(<CopilotModelsContent data={[{ id: "sparse-a", vendor: "fixture", supported_endpoints: ["/responses"] }, { id: "sparse-b", vendor: "fixture", capabilities: { type: "chat" } }]} />);
+    const first = within(screen.getByRole("row", { name: /sparse-a/ }));
+    expect(first.getAllByText("Unknown")).toHaveLength(2);
+    expect(first.getAllByText("—")).toHaveLength(5);
+    expect(screen.getByText("sparse-b")).toBeVisible();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("explicitly refreshes the persistent Copilot catalog", async () => {
     fetchSpy.mockResolvedValueOnce(new Response("", { status: 200 }));
 
     render(<CopilotModelsContent data={[makeModel()]} />);
@@ -128,7 +137,7 @@ describe("CopilotModelsContent.handleRefresh", () => {
     await user.click(refreshButton);
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith("/api/copilot/models?refresh=true");
+      expect(fetchSpy).toHaveBeenCalledWith("/api/upstreams/builtin%3Acopilot/models/refresh", { method: "POST" });
     });
   });
 

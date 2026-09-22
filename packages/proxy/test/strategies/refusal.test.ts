@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { afterEach, describe, expect, test, vi } from "vitest"
 import { execute } from "../../src/core/runner"
 import type { RequestContext } from "../../src/core/context"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import type { AnthropicResponse, AnthropicStreamEventData } from "../../src/protocols/anthropic/types"
 import { consumeStreamToResponse } from "../../src/protocols/translate/consume-stream"
 import { translateToAnthropic } from "../../src/protocols/translate/non-stream-translation"
@@ -20,10 +20,24 @@ const config = {
   getHeaders: () => ({}), getProxyUrl: () => undefined,
   snapshotAuth: () => ({ token: "synthetic", headers: {} }),
 }
-const provider: CompiledProvider = {
-  id: "p", name: "test", base_url: "https://upstream.invalid", format: "openai",
-  api_key: "synthetic", enabled: 1, supports_reasoning: 0, supports_models_endpoint: 0,
-  use_socks5: null, created_at: 0, updated_at: 0, patterns: [],
+const provider: UpstreamRecord = {
+  id: "p",
+  name: "test",
+  kind: "custom",
+  format: "chat_completions",
+  base_url: "https://upstream.invalid",
+  api_key: "synthetic",
+  is_enabled: true,
+  supports_reasoning: false,
+  auth_style: null,
+  use_socks5: null,
+  manual_models: [],
+  models: [],
+  last_refreshed_at: null,
+  last_refresh_error: null,
+  quota: null,
+  created_at: 0,
+  updated_at: 0,
 }
 const usage = {
   prompt_tokens: 31, completion_tokens: 7, total_tokens: 38,

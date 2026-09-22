@@ -1,13 +1,15 @@
 // G.1 — messages handler default Copilot translated streaming branch
 // (copilot-translated). Pin Anthropic-shaped SSE bytes + request_end
 // for G.9.
-import { describe, test, beforeEach, afterEach, vi } from "vitest"
+import { describe, test, beforeEach, afterEach, expect, vi } from "vitest"
 import { Hono } from "hono"
 
 import { state } from "../../src/lib/state"
 import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
 import { handleCompletion } from "../../src/routes/messages/handler"
+import { NOW, routingFixture } from "../db/routing-fixture"
+import { installTestRouting } from "../helpers/routing"
 import {
   captureOrDiff,
   scrubEndLog,
@@ -29,25 +31,27 @@ function mockFetchStream(chunks: string[]): Response {
   })
 }
 
-const savedProviders = state.providers
-const savedModels = state.models
-const savedToken = state.copilotToken
+let fixture: ReturnType<typeof routingFixture>
+let savedState: typeof state
 let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
-  state.providers = []
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(NOW)
+  fixture = routingFixture()
+  savedState = { ...state }
   state.models = null
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
 })
 
 afterEach(() => {
-  state.providers = savedProviders
-  state.models = savedModels
-  state.copilotToken = savedToken
-  fetchSpy.mockRestore()
+  fixture.close()
+  Object.assign(state, savedState)
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe("characterisation/messages stream default translated", () => {
@@ -75,6 +79,7 @@ describe("characterisation/messages stream default translated", () => {
       body: requestBody,
     }
     const app = new Hono()
+    installTestRouting(app, fixture.db)
     app.post("/v1/messages", handleCompletion)
     const res = await app.request(
       new Request("http://localhost/v1/messages", {
@@ -84,6 +89,7 @@ describe("characterisation/messages stream default translated", () => {
       }),
     )
     const responseBody = await res.text()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
     await new Promise((r) => setTimeout(r, 10))
     logEmitter.off("log", listener)
 

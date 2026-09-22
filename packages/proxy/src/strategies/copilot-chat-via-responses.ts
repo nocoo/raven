@@ -34,7 +34,7 @@ import type {
 import { extractNonStreamingMeta, nonCachedInputTokens } from "../protocols/responses/stream-state"
 
 export interface CopilotChatViaResponsesDeps {
-  client: CopilotResponsesClient
+  client: Pick<CopilotResponsesClient, "send">
   toolCallDebug: boolean
 }
 

@@ -18,7 +18,7 @@ import { isInlineStreamError } from "./support/inline-stream-error"
 import type { ServerSentEvent } from "../util/sse"
 import { logEmitter } from "../util/log-emitter"
 import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
-import type { CompiledProvider } from "../db/providers"
+import type { UpstreamRecord } from "../core/routing-types"
 import type {
   ChatCompletionChunk,
   ChatCompletionResponse,
@@ -43,7 +43,7 @@ export interface CustomOpenAIDeps {
 }
 
 export interface CustomOpenAIUpReq {
-  provider: CompiledProvider
+  provider: UpstreamRecord
   /** Already-translated OpenAI payload sent upstream. */
   payload: ChatCompletionsPayload
   /**
@@ -112,7 +112,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
       outputTokens: 0,
       cacheReadTokens: 0,
       upstream: req.provider.name,
-      upstreamFormat: req.provider.format,
+      upstreamFormat: req.provider.format ?? "chat_completions",
       originalModel: req.originalModel,
     }),
 

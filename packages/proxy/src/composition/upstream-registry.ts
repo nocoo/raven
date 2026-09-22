@@ -37,6 +37,8 @@ import {
   type CustomAnthropicConfig,
 } from "../upstream/custom-anthropic"
 
+import { CustomResponsesClient, defaultCustomResponsesConfig, type CustomResponsesConfig } from "../upstream/custom-responses"
+
 export type UpstreamKind =
   | "copilot-openai"
   | "copilot-native"
@@ -44,8 +46,12 @@ export type UpstreamKind =
   | "copilot-embeddings"
   | "custom-openai"
   | "custom-anthropic"
+  | "custom-responses"
 
 export interface UpstreamRegistryDeps {
+  fetch?: typeof globalThis.fetch
+  allowReplay?: boolean
+  customResponses?: CustomResponsesConfig
   copilotOpenAI?: CopilotOpenAIConfig
   copilotNative?: CopilotNativeConfig
   copilotResponses?: CopilotResponsesConfig
@@ -61,37 +67,44 @@ export type UpstreamClientByKind = {
   "copilot-embeddings": CopilotEmbeddingsClient
   "custom-openai": CustomOpenAIClient
   "custom-anthropic": CustomAnthropicClient
+  "custom-responses": CustomResponsesClient
 }
 
 export function buildUpstreamClient<K extends UpstreamKind>(
   kind: K,
   deps: UpstreamRegistryDeps = {},
 ): UpstreamClientByKind[K] {
+  const overrides = {
+    ...(deps.fetch ? { fetch: deps.fetch } : {}),
+    ...(deps.allowReplay === undefined ? {} : { allowReplay: deps.allowReplay }),
+  }
   switch (kind) {
     case "copilot-openai":
       return new CopilotOpenAIClient(
-        deps.copilotOpenAI ?? defaultCopilotOpenAIConfig(),
+        { ...(deps.copilotOpenAI ?? defaultCopilotOpenAIConfig()), ...overrides },
       ) as UpstreamClientByKind[K]
     case "copilot-native":
       return new CopilotNativeClient(
-        deps.copilotNative ?? defaultCopilotNativeConfig(),
+        { ...(deps.copilotNative ?? defaultCopilotNativeConfig()), ...overrides },
       ) as UpstreamClientByKind[K]
     case "copilot-responses":
       return new CopilotResponsesClient(
-        deps.copilotResponses ?? defaultCopilotResponsesConfig(),
+        { ...(deps.copilotResponses ?? defaultCopilotResponsesConfig()), ...overrides },
       ) as UpstreamClientByKind[K]
     case "copilot-embeddings":
       return new CopilotEmbeddingsClient(
-        deps.copilotEmbeddings ?? defaultCopilotEmbeddingsConfig(),
+        { ...(deps.copilotEmbeddings ?? defaultCopilotEmbeddingsConfig()), ...overrides },
       ) as UpstreamClientByKind[K]
     case "custom-openai":
       return new CustomOpenAIClient(
-        deps.customOpenAI ?? defaultCustomOpenAIConfig(),
+        { ...(deps.customOpenAI ?? defaultCustomOpenAIConfig()), ...overrides },
       ) as UpstreamClientByKind[K]
     case "custom-anthropic":
       return new CustomAnthropicClient(
-        deps.customAnthropic ?? defaultCustomAnthropicConfig(),
+        { ...(deps.customAnthropic ?? defaultCustomAnthropicConfig()), ...overrides },
       ) as UpstreamClientByKind[K]
+    case "custom-responses":
+      return new CustomResponsesClient({ ...(deps.customResponses ?? defaultCustomResponsesConfig()), ...overrides }) as UpstreamClientByKind[K]
     default: {
       const exhaustive: never = kind
       throw new Error(`Unknown upstream kind: ${String(exhaustive)}`)

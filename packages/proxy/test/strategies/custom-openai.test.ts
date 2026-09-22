@@ -7,7 +7,7 @@ import {
   type CustomOpenAIStreamState,
 } from "../../src/strategies/custom-openai"
 import type { RequestContext } from "../../src/core/context"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import type {
   ChatCompletionResponse,
   ChatCompletionsPayload,
@@ -38,14 +38,14 @@ function makeCtx(): RequestContext {
   }
 }
 
-function provider(name = "myco", format = "openai"): CompiledProvider {
+function provider(name = "myco", format = "openai"): UpstreamRecord {
   return {
     id: "p1", name, base_url: "https://example.invalid",
     format, api_key: "k", enabled: 1,
     supports_reasoning: 0, supports_models_endpoint: 0,
     use_socks5: null, created_at: 0, updated_at: 0,
     patterns: [{ raw: "*", isExact: false }],
-  } as unknown as CompiledProvider
+  } as unknown as UpstreamRecord
 }
 
 function fakeClient(

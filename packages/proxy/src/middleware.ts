@@ -3,13 +3,16 @@ import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import { validateApiKey } from "./db/keys.ts";
 import { state } from "./lib/state.ts";
-import { refreshModelsIfStale } from "./lib/utils.ts";
+import { COPILOT_RULE_ID } from "./core/routing-types.ts";
 import { extractIPv4, parseIPv4, isIPInRanges } from "./lib/ip-whitelist.ts";
 
 declare module "hono" {
   interface ContextVariableMap {
     keyName: string;
     keyId: string;
+    ruleId: string;
+    admittedAt: number;
+    routingDb: Database;
   }
 }
 
@@ -32,17 +35,6 @@ export function timingSafeEqual(a: string, b: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Key count cache invalidation — retained as no-op export for keys.ts
-// compatibility. dashboardAuth dev mode no longer depends on key count
-// (it only checks env keys), but routes still call this on create/revoke/delete.
-// ---------------------------------------------------------------------------
-
-/** @deprecated No-op — dashboardAuth dev mode no longer depends on key count */
-export function invalidateKeyCountCache(): void {
-  // intentionally empty
-}
-
-// ---------------------------------------------------------------------------
 // Shared 401 response helper
 // ---------------------------------------------------------------------------
 
@@ -62,7 +54,7 @@ function validateRequestToken(
   db: Database,
   envApiKey: string | null,
   internalKey: string | null,
-): { valid: true; keyName: string; keyId: string } | { valid: false; response: Response } {
+): { valid: true; keyName: string; keyId: string; ruleId?: string } | { valid: false; response: Response } {
   // Accept token from Authorization: Bearer <token> or x-api-key: <token>
   // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
   const authHeader = c.req.header("Authorization");
@@ -85,12 +77,12 @@ function validateRequestToken(
     if (!keyRecord) {
       return { valid: false, response: unauthorized(c, "Invalid API key") };
     }
-    return { valid: true, keyName: keyRecord.name, keyId: keyRecord.id };
+    return { valid: true, keyName: keyRecord.name, keyId: keyRecord.id, ruleId: keyRecord.rule_id };
   }
 
   // env key timing-safe compare
   if (envApiKey && timingSafeEqual(token, envApiKey)) {
-    return { valid: true, keyName: "env:default", keyId: "env:default" };
+    return { valid: true, keyName: "env:default", keyId: "env:default", ruleId: COPILOT_RULE_ID };
   }
 
   // internal key timing-safe compare (dashboardAuth only, caller controls whether to pass this)
@@ -133,7 +125,9 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
     if (!result.valid) return result.response;
     c.set("keyName", result.keyName);
     c.set("keyId", result.keyId);
-    refreshModelsIfStale();
+    c.set("ruleId", result.ruleId!);
+    c.set("admittedAt", Date.now());
+    c.set("routingDb", db);
     await next();
   });
 }
@@ -181,13 +175,6 @@ export function dashboardAuth(opts: DashboardAuthOpts) {
     await next();
   });
 }
-
-// ---------------------------------------------------------------------------
-// Legacy alias — kept for backward compatibility during migration
-// ---------------------------------------------------------------------------
-
-/** @deprecated Use apiKeyAuth or dashboardAuth instead */
-export const multiKeyAuth = apiKeyAuth;
 
 // ---------------------------------------------------------------------------
 // IP whitelist middleware — silently drop requests from non-whitelisted IPs

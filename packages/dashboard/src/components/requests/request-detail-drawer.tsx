@@ -47,7 +47,7 @@ function DetailRow({ label, value, mono }: { label: string; value: React.ReactNo
   return (
     <div className="flex justify-between items-start gap-4 py-1.5 border-b border-basalt-border/30 last:border-0">
       <span className="text-xs text-basalt-muted-foreground shrink-0">{label}</span>
-      <span className={`text-xs text-right ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className={`min-w-0 break-words text-xs text-right ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }
@@ -79,6 +79,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
             <Badge variant={request.status === "success" ? "success" : "destructive"}>
               {request.status}
             </Badge>
+            {" "}
             <span className="truncate font-mono text-sm">{request.model}</span>
           </SheetTitle>
           <SheetDescription>
@@ -92,6 +93,22 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
             <p className="mt-2 text-sm font-medium">{requestProtocolRoute(request)}</p>
             <p className="mt-1 text-xs leading-relaxed text-basalt-muted-foreground">{PROTOCOL_META[request.protocol_mode].description}</p>
           </section>
+          {request.routing && <section aria-label="Routing details" className="rounded-widget border border-basalt-border p-3">
+            <div className="mb-2 flex items-center gap-2"><h4 className="text-sm font-medium">Routing</h4>{request.routing.diagnostic && <Badge variant="info" className="text-xs">Diagnostic · quota accounted</Badge>}</div>
+            <DetailRow label="Chosen target" value={request.routing.upstream_name} />
+            <DetailRow label="Upstream ID" value={request.routing.upstream_id} mono />
+            <DetailRow label="Rule ID" value={request.routing.rule_id} mono />
+            <DetailRow label="Period" value={request.routing.period_id ?? "Default chain"} mono />
+            <DetailRow label="Requested model" value={request.routing.requested_model} mono />
+            <DetailRow label="Resolved model" value={request.routing.resolved_model} mono />
+            <DetailRow label="Quota window" value={request.routing.quota_window_id ?? "No quota"} mono />
+            <DetailRow label="Multiplier" value={`${request.routing.multiplier}×`} mono />
+            <DetailRow label="Weighted usage" value={`${request.routing.weighted_tokens.toLocaleString(undefined, { maximumFractionDigits: 6 })} tokens`} mono />
+            <DetailRow label="Usage completeness" value={request.routing.usage_complete ? "Complete" : "Incomplete"} />
+            <DetailRow label="Accounting" value={request.routing.accounting_healthy ? "Healthy" : "Blocked"} />
+            <DetailRow label="Admitted at" value={`${formatMonitorTime(request.routing.admitted_at, "millisecond")} UTC`} mono />
+            <DetailRow label="Skipped candidates" value={request.routing.skipped.map(skip => `${skip.upstream_id} · ${skip.reason}`).join("; ")} mono />
+          </section>}
           {/* Request ID */}
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-basalt-muted-foreground truncate flex-1">
@@ -149,7 +166,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
             <h4 className="text-xs font-medium text-basalt-foreground mb-2">Request</h4>
             <DetailRow label="Path" value={request.path} mono />
             <DetailRow label="Model" value={<Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("model", request.model, filters)}>Analyze {request.model}</Link>} mono />
-            <DetailRow label="Resolved Model" value={request.resolved_model} mono />
+            <DetailRow label="Resolved Model" value={request.routing?.resolved_model ?? request.resolved_model} mono />
             <DetailRow label="Translated Model" value={request.translated_model || null} mono />
             <DetailRow label="Format" value={request.client_format} />
             <DetailRow label="Stream" value={request.stream ? "Yes" : "No"} />

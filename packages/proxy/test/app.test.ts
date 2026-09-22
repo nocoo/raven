@@ -1,21 +1,13 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
-import { Database } from "bun:sqlite"
+import type { Database } from "bun:sqlite"
 import { createApp } from "../src/app.ts"
 import { initDatabase } from "../src/db/requests.ts"
-import { initApiKeys, createApiKey } from "../src/db/keys.ts"
-import { invalidateKeyCountCache } from "../src/middleware.ts"
+import { createApiKey } from "../src/db/keys.ts"
+import { COPILOT_RULE_ID, COPILOT_UPSTREAM_ID } from "../src/core/routing-types.ts"
+import { replaceCatalog } from "../src/db/catalog.ts"
+import { getProvider } from "../src/db/providers.ts"
 import { state } from "../src/lib/state.ts"
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function createTestDb(): Database {
-  const db = new Database(":memory:")
-  initDatabase(db)
-  initApiKeys(db)
-  return db
-}
+import { NOW, routingFixture, ruleInput } from "./db/routing-fixture.ts"
 
 // ===========================================================================
 // createApp factory wiring
@@ -23,23 +15,26 @@ function createTestDb(): Database {
 
 describe("createApp", () => {
   let db: Database
+  let fixture: ReturnType<typeof routingFixture>
   let fetchSpy: ReturnType<typeof vi.spyOn>
-  const savedModels = state.models
+  let saved: typeof state
 
   beforeEach(() => {
-    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
-      Response.json({ object: "list", data: [] }),
-    )
-    db = createTestDb()
-    invalidateKeyCountCache()
+    saved = { ...state }
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("App wiring and cache reads must not call upstreams"))
+    fixture = routingFixture()
+    db = fixture.db
+    initDatabase(db)
     state.corsEnabled = false
     state.corsAllowedOrigins = []
+    state.ipWhitelistEnabled = false
+    state.models = null
   })
 
   afterEach(() => {
     fetchSpy.mockRestore()
-    state.models = savedModels
-    db.close()
+    Object.assign(state, saved)
+    fixture.close()
   })
 
   test("returns a Hono app", () => {
@@ -83,8 +78,9 @@ describe("createApp", () => {
     const res = await app.request("/v1/models", {
       headers: { Authorization: "Bearer secret" },
     })
-    // May get non-401 (could be 200 or 502 depending on state)
-    expect(res.status).not.toBe(401)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ object: "list", has_more: false, data: [{ id: "auto", object: "model", owned_by: "raven" }] })
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   test("/v1/* rejects RAVEN_INTERNAL_KEY", async () => {
@@ -105,15 +101,16 @@ describe("createApp", () => {
     expect(res.status).toBe(401)
   })
 
-  test("/chat/completions with valid DB key → non-401", { timeout: 15_000 }, async () => {
-    const created = createApiKey(db, "test-key")
-    invalidateKeyCountCache()
+  test("/chat/completions authenticates a bound key before rejecting invalid JSON", async () => {
+    const created = createApiKey(db, "test-key", COPILOT_RULE_ID)
     const app = createApp({ db, apiKey: null, internalKey: null, githubToken: "gh-test", port: null, baseUrl: null })
     const res = await app.request("/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${created.key}` },
     })
-    expect(res.status).not.toBe(401)
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: { message: "Invalid JSON" } })
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   test("/embeddings without key → 401", async () => {
@@ -155,8 +152,7 @@ describe("createApp", () => {
   })
 
   test("/api/* dev mode persists with DB keys (no env keys)", async () => {
-    const key = createApiKey(db, "test-key")
-    invalidateKeyCountCache()
+    const key = createApiKey(db, "test-key", COPILOT_RULE_ID)
     const app = createApp({ db, apiKey: null, internalKey: null, githubToken: "gh-test", port: null, baseUrl: null })
 
     // Without auth → 200 (dev mode: no env keys configured)
@@ -193,6 +189,49 @@ describe("createApp", () => {
     expect(body.endpoints).toBeDefined()
     expect(body.endpoints.chat_completions).toBe("/v1/chat/completions")
     expect(body.endpoints.messages).toBe("/v1/messages")
+    expect(body.models).toEqual(["auto"])
+    expect(body.model_list).toEqual([{ id: "auto", owned_by: "raven" }])
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  test("model and Connect routes project the same stale persisted catalog without discovery", async () => {
+    const snapshot = [{ id: "raw/fixture-model", vendor: "fixture-vendor", supported_endpoints: ["/responses"] }]
+    replaceCatalog(db, COPILOT_UPSTREAM_ID, snapshot, NOW - 7200000)
+    const app = createApp({ db, apiKey: "client", internalKey: "internal", githubToken: "gh-test" })
+    const models = await app.request("/v1/models", { headers: { Authorization: "Bearer client" } })
+    const connect = await app.request("/api/connection-info", { headers: { Authorization: "Bearer internal" } })
+    expect(models.status).toBe(200)
+    expect(connect.status).toBe(200)
+    expect(await models.json()).toEqual({ object: "list", has_more: false, data: [
+      { id: "auto", object: "model", owned_by: "raven" },
+      { ...snapshot[0], object: "model", owned_by: "fixture-vendor" },
+    ] })
+    expect(await connect.json()).toMatchObject({ models: ["auto", "raw/fixture-model"], model_list: [
+      { id: "auto", owned_by: "raven" }, { id: "raw/fixture-model", owned_by: "fixture-vendor" },
+    ] })
+    expect(getProvider(db, COPILOT_UPSTREAM_ID)?.models).toEqual(snapshot)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  test("mounts rule creation and mandatory key binding with authenticated rebinding", async () => {
+    const app = createApp({ db, apiKey: "client", internalKey: "internal", githubToken: "gh-test" })
+    const headers = { Authorization: "Bearer internal", "content-type": "application/json" }
+    const ruleResponse = await app.request("/api/routing-rules", { method: "POST", headers, body: JSON.stringify(ruleInput()) })
+    expect(ruleResponse.status).toBe(201)
+    const rule = await ruleResponse.json()
+    expect(rule.allow_conversion).toBe(false)
+    const missingBinding = await app.request("/api/keys", { method: "POST", headers, body: JSON.stringify({ name: "Editor" }) })
+    expect(missingBinding.status).toBe(400)
+    const createdResponse = await app.request("/api/keys", { method: "POST", headers, body: JSON.stringify({ name: "Editor", rule_id: rule.id }) })
+    expect(createdResponse.status).toBe(201)
+    const key = await createdResponse.json()
+    expect(key.rule_id).toBe(rule.id)
+    const rebound = await app.request(`/api/keys/${key.id}`, { method: "PATCH", headers, body: JSON.stringify({ rule_id: COPILOT_RULE_ID }) })
+    expect(rebound.status).toBe(200)
+    expect(await rebound.json()).toMatchObject({ id: key.id, rule_id: COPILOT_RULE_ID })
+    expect((await app.request("/v1/models", { headers: { "x-api-key": key.key } })).status).toBe(200)
+    expect((await app.request(`/api/routing-rules/${rule.id}`, { method: "DELETE", headers })).status).toBe(200)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 
   // -----------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import net from "node:net";
 import { SocksClient } from "socks";
-import type { CompiledProvider } from "../db/providers";
+import type { UpstreamRecord } from "../core/routing-types";
 import type { State } from "./state";
 
 // ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ export async function stopBridge(): Promise<void> {
  * Throws Socks5BridgeUnavailableError if the upstream requires proxy but bridge is down.
  */
 export function getProxyUrl(
-  upstream: "copilot" | "github" | CompiledProvider,
+  upstream: "copilot" | "github" | UpstreamRecord,
   state: State,
 ): string | undefined {
   if (!state.socks5Enabled) return undefined;
@@ -168,7 +168,7 @@ export function getProxyUrl(
 
   // ProviderRecord
   const provider = upstream;
-  if (provider.use_socks5 === 0) return undefined;
+  if (provider.use_socks5 === false) return undefined;
   if (provider.use_socks5 === null || provider.use_socks5 === undefined) {
     return undefined; // custom provider default = no proxy
   }

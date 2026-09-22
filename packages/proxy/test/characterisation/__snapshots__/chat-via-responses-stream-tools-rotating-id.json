@@ -69,6 +69,36 @@
     "outputTokens": 4,
     "cacheReadTokens": 0,
     "routingPath": "chat-via-responses",
-    "stopReason": "tool_calls"
+    "stopReason": "tool_calls",
+    "requestedModel": "grok-4.5",
+    "upstream": "GitHub Copilot",
+    "upstreamFormat": "responses",
+    "ruleId": "builtin:copilot",
+    "periodId": null,
+    "upstreamId": "builtin:copilot",
+    "quotaWindowId": null,
+    "quotaMultiplier": 1,
+    "quotaWeightedTokens": 12,
+    "quotaUsageComplete": true,
+    "quotaAccountingHealthy": true,
+    "quotaSkipped": [],
+    "admittedAt": 1789948800000,
+    "diagnostic": false,
+    "routing": {
+      "requested_model": "grok-4.5",
+      "resolved_model": "grok-4.5",
+      "rule_id": "builtin:copilot",
+      "period_id": null,
+      "upstream_id": "builtin:copilot",
+      "upstream_name": "GitHub Copilot",
+      "quota_window_id": null,
+      "multiplier": 1,
+      "weighted_tokens": 12,
+      "usage_complete": true,
+      "accounting_healthy": true,
+      "admitted_at": 1789948800000,
+      "skipped": [],
+      "diagnostic": false
+    }
   }
 }

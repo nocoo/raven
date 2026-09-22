@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 import { SettingNote, SettingsCard, SettingsSection } from "./settings-ui";
@@ -16,7 +16,6 @@ interface ProviderPolicy {
   id: string;
   name: string;
   use_socks5: number | null;
-  supports_models_endpoint: boolean | null;
 }
 
 export interface Socks5Data {
@@ -354,7 +353,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm">GitHub Copilot</span>
             <Select value={copilotPolicy} onValueChange={(v) => setCopilotPolicy(v as "default" | "on" | "off")}>
-              <SelectTrigger className="w-[160px] h-8 text-xs">
+              <SelectTrigger aria-label="GitHub Copilot proxy policy" className="w-[160px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -370,21 +369,12 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             <div className="border-t border-basalt-border/30 pt-2 space-y-2">
               {providerPolicies.map((p) => (
                 <div key={p.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{p.name}</span>
-                    {p.use_socks5 === 1 &&
-                      p.supports_models_endpoint === false && (
-                        <span className="text-xs text-basalt-warning flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Re-probe needed
-                        </span>
-                      )}
-                  </div>
+                  <span className="text-sm">{p.name}</span>
                   <Select
                     value={String(p.use_socks5 ?? "null")}
                     onValueChange={(v) => handleProviderPolicyChange(p.id, v)}
                   >
-                    <SelectTrigger className="w-[160px] h-8 text-xs">
+                    <SelectTrigger aria-label={`${p.name} proxy policy`} className="w-[160px] h-8 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

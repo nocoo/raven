@@ -10,6 +10,7 @@ import type { CopilotResponsesClient } from "../../src/upstream/copilot-response
 import { logEmitter } from "../../src/util/log-emitter"
 import type { LogEvent } from "../../src/util/log-event"
 import type { ServerSentEvent } from "../../src/util/sse"
+import { installTestRouting, routingHarness } from "../helpers/routing"
 
 const ctx: RequestContext = {
   requestId: "req_test",
@@ -258,93 +259,47 @@ describe("strategy error and end-log arms", () => {
 
 describe("integrated non-stream request_end tokens", () => {
   test("handler request_end carries Responses input/output tokens", async () => {
-    const savedModels = state.models
     const savedToken = state.copilotToken
     state.copilotToken = "test-token"
     state.vsCodeVersion = "1.90.0"
     state.accountType = "individual"
-    state.models = {
-      object: "list",
-      data: [
-        {
-          id: "grok-4.5",
-          name: "Grok",
-          object: "model",
-          vendor: "xai",
-          version: "1",
-          preview: false,
-          policy: null,
-          model_picker_enabled: true,
-          supported_endpoints: ["/responses"],
-          capabilities: {
-            family: "grok",
-            object: "model_capabilities",
-            type: "chat",
-            tokenizer: "o200k_base",
-            limits: {
-              max_context_window_tokens: 128000,
-              max_output_tokens: 16384,
-              max_prompt_tokens: 64000,
-              max_inputs: null,
-            },
-            supports: {
-              tool_calls: true,
-              parallel_tool_calls: true,
-              dimensions: null,
-            },
-          },
-        },
-      ],
-    }
-
+    const harness = routingHarness()
+    harness.copilot([{ id: "grok-4.5", supported_endpoints: ["/responses"] }])
+    harness.bind("builtin:copilot", "grok-4.5")
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          id: "resp_int",
-          status: "completed",
-          error: null,
-          model: "grok-4.5",
-          created_at: 100,
-          output: [
-            {
-              type: "message",
-              content: [{ type: "output_text", text: "ok" }],
-            },
-          ],
-          usage: { input_tokens: 42, output_tokens: 7 },
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      ),
+      new Response(JSON.stringify({
+        id: "resp_int",
+        status: "completed",
+        error: null,
+        model: "grok-4.5",
+        created_at: 100,
+        output: [{ type: "message", content: [{ type: "output_text", text: "ok" }] }],
+        usage: { input_tokens: 42, output_tokens: 7 },
+      }), { status: 200, headers: { "content-type": "application/json" } }),
     )
-
     const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
+    const listener = (event: LogEvent) => events.push(event)
     logEmitter.on("log", listener)
-
     try {
       const app = new Hono()
+      installTestRouting(app, harness.db)
       app.post("/v1/chat/completions", handleCompletion)
-      const res = await app.request(
-        new Request("http://localhost/v1/chat/completions", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            model: "grok-4.5",
-            stream: false,
-            messages: [{ role: "user", content: "hi" }],
-          }),
+      const res = await app.request(new Request("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: "grok-4.5",
+          stream: false,
+          messages: [{ role: "user", content: "hi" }],
         }),
-      )
+      }))
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.choices[0].message.content).toBe("ok")
-      // upstream must be /responses
       expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
-
-      await new Promise((r) => setTimeout(r, 15))
-      const end = events.find((e) => e.type === "request_end")
-      expect(end).toBeTruthy()
-      expect(end!.data).toMatchObject({
+      await new Promise((resolve) => setTimeout(resolve, 15))
+      const end = events.find((event) => event.type === "request_end")
+      expect(end?.data).toMatchObject({
         status: "success",
         strategy: "copilot-chat-via-responses",
         routingPath: "chat-via-responses",
@@ -354,7 +309,7 @@ describe("integrated non-stream request_end tokens", () => {
     } finally {
       logEmitter.off("log", listener)
       fetchSpy.mockRestore()
-      state.models = savedModels
+      harness.close()
       state.copilotToken = savedToken
     }
   })

@@ -1,5 +1,10 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
+import { installTestRouting, routingHarness } from "../helpers/routing"
+
+let harness: ReturnType<typeof routingHarness>
+beforeEach(() => { harness = routingHarness() })
+afterEach(() => { harness.close() })
 import { state } from "../../src/lib/state"
 import { handleCompletion } from "../../src/routes/messages/handler"
 import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/protocols/anthropic/types"
@@ -156,6 +161,8 @@ describe("handleCopilotNative integration", () => {
 
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const req = new Request("http://localhost/v1/messages", {
@@ -177,6 +184,8 @@ describe("handleCopilotNative integration", () => {
 
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const req = new Request("http://localhost/v1/messages", {
@@ -206,6 +215,8 @@ describe("handleCopilotNative integration", () => {
 
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const req = new Request("http://localhost/v1/messages", {
@@ -277,6 +288,8 @@ describe("handleCopilotNative integration", () => {
 
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const req = new Request("http://localhost/v1/messages", {
@@ -310,6 +323,8 @@ describe("handleCopilotNative integration", () => {
 
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const payloadWithEffort = {
@@ -464,6 +479,8 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
     )
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const res = await app.request(new Request("http://localhost/v1/messages", {
@@ -497,6 +514,8 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
     )
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const res = await app.request(new Request("http://localhost/v1/messages", {
@@ -530,6 +549,8 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
     )
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const res = await app.request(new Request("http://localhost/v1/messages", {
@@ -566,6 +587,8 @@ describe("handleCopilotNativeServerTools (server-tools branch)", () => {
     )
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.post("/v1/messages", handleCompletion)
 
     const payload = { ...payloadWithWebSearch(false), output_config: { effort: "max" } }

@@ -1,165 +1,73 @@
-// Router: pure function answering
-//   "given this request, which strategy runs?"
-//
-// Per docs/20-architecture-refactor.md §3.2: pickStrategy takes the
-// client protocol, model, providers list, and models catalog and
-// returns a StrategyDecision. It never constructs a strategy and
-// never reads global state — both are concretion concerns owned by
-// the composition root (§3.8).
-
-import type { CompiledProvider } from "../db/providers"
 import { resolveAgainstCatalog, translateModelName } from "../protocols/anthropic/preprocess"
-import { isResponsesOnly } from "../protocols/chat-responses/endpoints"
+import type { StrategyName } from "./strategy"
+import type { CatalogModel, UpstreamFormat, UpstreamRecord } from "./routing-types"
 
-export type StrategyName =
-  | "copilot-native"
-  | "copilot-translated"
-  | "copilot-openai-direct"
-  | "copilot-responses"
-  | "copilot-chat-via-responses"
-  | "custom-openai"
-  | "custom-anthropic"
-
-export interface CatalogModel {
-  id: string
-  supported_endpoints?: string[]
-}
-
+export type { StrategyName }
 export type ClientProtocol = "anthropic" | "openai" | "responses"
 
 export type StrategyDecision =
-  | { kind: "ok"; name: StrategyName; providerId?: string }
-  | {
-      kind: "reject"
-      status: number
-      message: string
-      errorType: string
-    }
+  | { kind: "ok"; name: StrategyName; providerId: string; upstreamProtocol: ClientProtocol; clientProtocol: ClientProtocol; model: string }
+  | { kind: "reject"; status: number; message: string; errorType: string }
 
 export interface RouterInput {
   protocol: ClientProtocol
-  /** Raw model id from the client. */
   model: string
-  /** Anthropic-only: the `anthropic-beta` request header (controls model alias). */
+  requestedModel: string
+  provider: UpstreamRecord
+  allowConversion: boolean
   anthropicBeta?: string | null
-  /** Enabled, compiled providers (state.providers in production). */
-  providers: CompiledProvider[]
-  /** Catalog of Copilot models exposed today (state.models?.data ids). */
-  modelsCatalogIds: string[]
-  /**
-   * Full catalog entries for endpoint-aware routing.
-   * Anthropic native requires `/v1/messages` in `supported_endpoints`.
-   * When omitted, openai never selects chat-via-responses.
-   */
-  modelsCatalog?: CatalogModel[]
 }
 
-const REJECT_OPENAI_TO_ANTHROPIC: StrategyDecision = {
-  kind: "reject",
-  status: 400,
-  errorType: "invalid_request_error",
-  message:
-    "OpenAI client requests cannot be routed to Anthropic-format upstreams. Use the Anthropic Messages API instead.",
+export function formatProtocol(format: UpstreamFormat): ClientProtocol {
+  return format === "anthropic_messages" ? "anthropic" : format === "chat_completions" ? "openai" : "responses"
 }
 
-const REJECT_RESPONSES_TO_CUSTOM: StrategyDecision = {
-  kind: "reject",
-  status: 400,
-  errorType: "invalid_request_error",
-  message: "OpenAI Responses API cannot be routed to custom upstreams.",
-}
-
-interface ProviderMatch {
-  provider: CompiledProvider
-  matchedPattern: string
-}
-
-/**
- * Two-pass match across provided model candidates against the given
- * provider list (mirrors lib/upstream-router.ts but is pure — no
- * state read). Earlier candidate beats later; exact beats glob across
- * the whole search space.
- */
-function matchProvider(
-  candidates: string[],
-  providers: CompiledProvider[],
-): ProviderMatch | null {
-  for (const model of candidates) {
-    for (const provider of providers) {
-      for (const pattern of provider.patterns) {
-        if (pattern.isExact && model === pattern.raw) {
-          return { provider, matchedPattern: pattern.raw }
-        }
-      }
-    }
-  }
-  for (const model of candidates) {
-    for (const provider of providers) {
-      for (const pattern of provider.patterns) {
-        if (pattern.prefix !== undefined && model.startsWith(pattern.prefix)) {
-          return { provider, matchedPattern: pattern.raw }
-        }
-      }
-    }
-  }
-  return null
-}
-
-function nativeSupported(
-  model: string,
-  modelsCatalogIds: string[],
-  modelsCatalog?: CatalogModel[],
-): boolean {
-  if (!modelsCatalogIds.includes(model) || !model.startsWith("claude-")) return false
-  return (
-    modelsCatalog
-      ?.find((entry) => entry.id === model)
-      ?.supported_endpoints?.includes("/v1/messages") === true
-  )
+export function declaredProtocols(model: CatalogModel | undefined): ClientProtocol[] {
+  const endpoints = model?.supported_endpoints
+  if (!Array.isArray(endpoints)) return []
+  const result: ClientProtocol[] = []
+  if (endpoints.includes("/chat/completions") || endpoints.includes("/v1/chat/completions")) result.push("openai")
+  if (endpoints.includes("/responses") || endpoints.includes("/v1/responses")) result.push("responses")
+  if (endpoints.includes("/v1/messages") || endpoints.includes("/messages")) result.push("anthropic")
+  return result
 }
 
 export function pickStrategy(input: RouterInput): StrategyDecision {
-  const { protocol, model, anthropicBeta, providers, modelsCatalogIds, modelsCatalog } =
-    input
-
-  if (protocol === "anthropic") {
-    const normalisedModel = translateModelName(model, anthropicBeta ?? null)
-    const catalogModel = resolveAgainstCatalog(normalisedModel, modelsCatalogIds)
-    const candidates =
-      normalisedModel !== model ? [model, normalisedModel] : [model]
-    const matched = matchProvider(candidates, providers)
-    if (matched) {
-      const name: StrategyName =
-        matched.provider.format === "anthropic"
-          ? "custom-anthropic"
-          : "custom-openai"
-      return { kind: "ok", name, providerId: matched.provider.id }
-    }
-    if (nativeSupported(catalogModel, modelsCatalogIds, modelsCatalog)) {
-      return { kind: "ok", name: "copilot-native" }
-    }
-    return { kind: "ok", name: "copilot-translated" }
-  }
-
-  if (protocol === "openai") {
-    const matched = matchProvider([model], providers)
-    if (matched) {
-      if (matched.provider.format === "anthropic") {
-        return REJECT_OPENAI_TO_ANTHROPIC
+  const { provider, protocol, allowConversion } = input
+  const copilot = provider.kind === "copilot"
+  const model = copilot && protocol === "anthropic"
+    ? resolveAgainstCatalog(translateModelName(input.model, input.anthropicBeta ?? null), provider.models.map((entry) => entry.id))
+    : input.model
+  let target: ClientProtocol
+  if (copilot) {
+    const declared = declaredProtocols(provider.models.find((entry) => entry.id === model))
+    if (declared.length) {
+      target = declared.includes(protocol) ? protocol : declared[0]!
+    } else {
+      if (input.requestedModel === "auto") {
+        return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "Copilot model capabilities are unavailable. Refresh its model catalog in Upstreams." }
       }
-      return { kind: "ok", name: "custom-openai", providerId: matched.provider.id }
+      target = allowConversion && protocol === "anthropic" ? "openai" : protocol
     }
-    const entry = modelsCatalog?.find((m) => m.id === model)
-    if (isResponsesOnly(entry?.supported_endpoints)) {
-      return { kind: "ok", name: "copilot-chat-via-responses" }
+  } else {
+    if (!provider.format) {
+      return { kind: "reject", status: 503, errorType: "routing_configuration_error", message: "The selected upstream has no protocol format" }
     }
-    return { kind: "ok", name: "copilot-openai-direct" }
+    target = formatProtocol(provider.format)
   }
-
-  // protocol === "responses"
-  const matched = matchProvider([model], providers)
-  if (matched) {
-    return REJECT_RESPONSES_TO_CUSTOM
+  if (!allowConversion && protocol !== target) {
+    return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: `The selected upstream uses ${target}; this rule does not allow conversion from ${protocol}.` }
   }
-  return { kind: "ok", name: "copilot-responses" }
+  let name: StrategyName = "protocol-converted"
+  if (copilot) {
+    if (protocol === "anthropic" && target === "anthropic") name = "copilot-native"
+    else if (protocol === "anthropic" && target === "openai") name = "copilot-translated"
+    else if (protocol === "openai" && target === "openai") name = "copilot-openai-direct"
+    else if (protocol === "responses" && target === "responses") name = "copilot-responses"
+    else if (protocol === "openai" && target === "responses") name = "copilot-chat-via-responses"
+  } else {
+    if (protocol === "anthropic" && target === "anthropic") name = "custom-anthropic"
+    else if ((protocol === "openai" || protocol === "anthropic") && target === "openai") name = "custom-openai"
+  }
+  return { kind: "ok", name, providerId: provider.id, upstreamProtocol: target, clientProtocol: protocol, model }
 }

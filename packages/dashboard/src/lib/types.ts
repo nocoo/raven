@@ -148,7 +148,10 @@ export interface Percentiles {
 // Extended RequestRecord (with new fields from analytics enhancement)
 // ---------------------------------------------------------------------------
 
+export type RequestRouting = import("../../../proxy/src/core/routing-log").RequestRoutingDetails;
+
 export interface ExtendedRequestRecord extends RequestRecord {
+  routing?: RequestRouting;
   api_key_id: string;
   key_id: string;
   protocol_mode: ProtocolMode;
@@ -169,13 +172,13 @@ export interface ExtendedRequestRecord extends RequestRecord {
 // ---------------------------------------------------------------------------
 
 export interface CopilotModelCapabilities {
-  family: string;
-  type: string;
-  tokenizer: string;
+  family?: string;
+  type?: string;
+  tokenizer?: string;
   limits?: {
-    max_context_window_tokens?: number;
-    max_prompt_tokens?: number;
-    max_output_tokens?: number;
+    max_context_window_tokens?: number | null;
+    max_prompt_tokens?: number | null;
+    max_output_tokens?: number | null;
   };
 }
 
@@ -186,12 +189,13 @@ export interface CopilotModelPolicy {
 
 export interface CopilotModel {
   id: string;
-  name: string;
-  version: string;
+  name?: string;
+  version?: string;
   is_custom_model?: boolean;
-  model_picker_enabled: boolean;
+  model_picker_enabled?: boolean;
   preview_state?: string;
-  capabilities: CopilotModelCapabilities;
+  supported_endpoints?: string[];
+  capabilities?: CopilotModelCapabilities;
   policy?: CopilotModelPolicy;
   vendor?: string;
 }
@@ -258,6 +262,7 @@ export interface ApiKeyPublic {
   id: string;
   name: string;
   key_prefix: string;
+  rule_id: string;
   created_at: number;
   last_used_at: number | null;
   revoked_at: number | null;
@@ -280,6 +285,7 @@ export interface ConnectionInfo {
   base_url: string;
   endpoints: {
     chat_completions: string;
+    responses: string;
     messages: string;
     models: string;
     embeddings: string;
@@ -333,58 +339,7 @@ export interface SettingsData {
 // Provider types
 // ---------------------------------------------------------------------------
 
-export type ProviderFormat = "openai" | "anthropic";
-
-export interface ProviderPublic {
-  id: string;
-  name: string;
-  base_url: string;
-  format: ProviderFormat;
-  api_key_preview: string;
-  model_patterns: string[];
-  is_enabled: boolean;
-  supports_reasoning: boolean;
-  supports_models_endpoint: boolean | null;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface CreateProviderInput {
-  name: string;
-  base_url: string;
-  format: ProviderFormat;
-  api_key: string;
-  model_patterns: string[];
-  is_enabled?: boolean;
-  supports_reasoning?: boolean;
-}
-
-export interface UpdateProviderInput {
-  name?: string;
-  base_url?: string;
-  format?: ProviderFormat;
-  api_key?: string;
-  model_patterns?: string[];
-  is_enabled?: boolean;
-  supports_reasoning?: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Upstream health check / models
-// ---------------------------------------------------------------------------
-
-export interface UpstreamModelsResponse {
-  healthy: boolean;
-  total?: number;
-  models?: Record<string, string[]>;
-  supports_models_endpoint?: boolean;
-  error?: {
-    message: string;
-    type: string;
-  };
-}
-
-
+export type { ProviderPublic, CreateProviderInput, UpdateProviderInput } from "./routing-types";
 
 // ---------------------------------------------------------------------------
 // SentinelStatus — token-refresh observability (see docs/23-token-sentinel.md)

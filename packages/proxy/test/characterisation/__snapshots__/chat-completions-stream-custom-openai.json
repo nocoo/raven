@@ -47,6 +47,34 @@
     "upstream": "OpenAIProvider",
     "upstreamFormat": "openai",
     "stopReason": "end_turn",
-    "toolCallCount": 0
+    "toolCallCount": 0,
+    "requestedModel": "gpt-custom-7",
+    "ruleId": "builtin:copilot",
+    "periodId": null,
+    "upstreamId": "11111111-1111-4111-8111-111111111111",
+    "quotaWindowId": null,
+    "quotaMultiplier": 1,
+    "quotaWeightedTokens": 15,
+    "quotaUsageComplete": true,
+    "quotaAccountingHealthy": true,
+    "quotaSkipped": [],
+    "admittedAt": 1789948800000,
+    "diagnostic": false,
+    "routing": {
+      "requested_model": "gpt-custom-7",
+      "resolved_model": "gpt-custom-7",
+      "rule_id": "builtin:copilot",
+      "period_id": null,
+      "upstream_id": "11111111-1111-4111-8111-111111111111",
+      "upstream_name": "OpenAIProvider",
+      "quota_window_id": null,
+      "multiplier": 1,
+      "weighted_tokens": 15,
+      "usage_complete": true,
+      "accounting_healthy": true,
+      "admitted_at": 1789948800000,
+      "skipped": [],
+      "diagnostic": false
+    }
   }
 }

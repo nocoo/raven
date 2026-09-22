@@ -1,13 +1,11 @@
 import type { Database } from "bun:sqlite"
 import { logger } from "./../util/logger"
-import { getModels } from "./../services/copilot/get-models"
 import { getVSCodeVersion } from "./../services/get-vscode-version"
 import {
   detectLocalVSCodeVersion,
   detectLocalCopilotVersion,
 } from "./../services/detect-local-versions"
 import { getSetting } from "./../db/settings"
-import { getEnabledProviders, compileProvider, type CompiledProvider } from "./../db/providers"
 import { parseIPRanges } from "./ip-whitelist"
 
 import { state } from "./state"
@@ -16,26 +14,6 @@ export const sleep = (ms: number) => Bun.sleep(ms)
 
 export const isNullish = (value: unknown): value is null | undefined =>
   value === null || value === undefined
-
-const MODEL_CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
-let modelsCachedAt = 0
-let modelsRefreshing: Promise<void> | null = null
-
-export async function cacheModels(): Promise<void> {
-  const models = await getModels()
-  state.models = models
-  modelsCachedAt = Date.now()
-}
-
-export function refreshModelsIfStale(): void {
-  if (Date.now() - modelsCachedAt < MODEL_CACHE_TTL_MS) return
-  if (modelsRefreshing) return
-  modelsRefreshing = cacheModels()
-    .catch(() => {
-      // swallow — refresh is fire-and-forget, next tick will retry
-    })
-    .finally(() => { modelsRefreshing = null })
-}
 
 const VSCODE_VERSION_FALLBACK = "1.117.0"
 const COPILOT_CHAT_VERSION_FALLBACK = "0.45.1"
@@ -101,46 +79,6 @@ export function cacheOptimizations(db: Database): void {
   state.optReorderToolResults =
     getSetting(db, "opt_reorder_tool_results") === "true"
   state.optToolCallDebug = getSetting(db, "tool_call_debug") === "true"
-}
-
-/**
- * Load enabled providers from DB into runtime state.
- * Compiles patterns for efficient runtime matching.
- * Skips providers with invalid model_patterns JSON (with warning).
- * Called at startup and after any provider CRUD operation.
- */
-export function cacheProviders(db: Database): void {
-  const records = getEnabledProviders(db)
-
-  // Track skipped providers for detailed logging
-  const skipped: Array<{ id: string; name: string; model_patterns: string }> = []
-  const compiled = records
-    .map((record) => {
-      const result = compileProvider(record)
-      if (!result) {
-        skipped.push({
-          id: record.id,
-          name: record.name,
-          model_patterns: record.model_patterns,
-        })
-      }
-      return result
-    })
-    .filter((p): p is CompiledProvider => p !== null)
-
-  // Log warnings for skipped providers
-  for (const provider of skipped) {
-    logger.warn(
-      `Provider "${provider.name}" (id: ${provider.id}) skipped: invalid model_patterns JSON: ${provider.model_patterns}`,
-    )
-  }
-  if (skipped.length > 0) {
-    logger.warn(
-      `${skipped.length} provider(s) skipped in total. These providers will not route any requests.`,
-    )
-  }
-
-  state.providers = compiled
 }
 
 /**

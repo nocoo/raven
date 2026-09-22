@@ -1,8 +1,10 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Hono } from "hono"
+import { installTestRouting, routingHarness } from "../helpers/routing"
 
 import { state } from "../../src/lib/state"
 import { completionRoutes } from "../../src/routes/chat-completions/route"
+import * as completionHandler from "../../src/routes/chat-completions/handler"
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
@@ -10,8 +12,10 @@ import { completionRoutes } from "../../src/routes/chat-completions/route"
 
 const savedToken = state.copilotToken
 let fetchSpy: ReturnType<typeof vi.spyOn>
+let harness: ReturnType<typeof routingHarness>
 
 beforeEach(() => {
+  harness = routingHarness()
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
@@ -29,13 +33,14 @@ beforeEach(() => {
       },
     }],
   }
-  fetchSpy = vi.spyOn(globalThis, "fetch")
+  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
 })
 
 afterEach(() => {
   if (savedToken !== undefined) state.copilotToken = savedToken
   else state.copilotToken = null
   fetchSpy.mockRestore()
+  harness.close()
 })
 
 // ===========================================================================
@@ -56,6 +61,8 @@ describe("POST /v1/chat/completions (route wrapper)", () => {
     )
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.route("/v1/chat/completions", completionRoutes)
     const res = await app.request("/v1/chat/completions", { method: "POST", headers, body })
 
@@ -66,11 +73,31 @@ describe("POST /v1/chat/completions (route wrapper)", () => {
     fetchSpy.mockRejectedValueOnce(new Error("upstream boom"))
 
     const app = new Hono()
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
+    installTestRouting(app, harness.db)
     app.route("/v1/chat/completions", completionRoutes)
     const res = await app.request("/v1/chat/completions", { method: "POST", headers, body })
 
     expect(res.status).toBe(500)
     const json = (await res.json()) as { error: { message: string } }
     expect(json.error).toBeDefined()
+  })
+
+  test("the actual route catches a rejection escaping the completion handler", async () => {
+    const handler = vi.spyOn(completionHandler, "handleCompletion").mockRejectedValueOnce(new Error("completion boundary failed"))
+    try {
+      const app = new Hono()
+      installTestRouting(app, harness.db)
+      app.route("/v1/chat/completions", completionRoutes)
+      const res = await app.request("/v1/chat/completions", { method: "POST", headers, body })
+
+      expect(res.status).toBe(500)
+      expect(res.headers.get("content-type")).toContain("application/json")
+      expect(await res.json()).toEqual({ error: { message: "completion boundary failed", type: "error" } })
+      expect(handler).toHaveBeenCalledTimes(1)
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      handler.mockRestore()
+    }
   })
 })

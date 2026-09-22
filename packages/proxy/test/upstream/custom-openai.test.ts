@@ -7,7 +7,7 @@ import {
   CustomOpenAIClient,
   createDefaultCustomOpenAIClient,
 } from "../../src/upstream/custom-openai"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import type { ChatCompletionsPayload } from "../../src/upstream/copilot-openai"
 import { upstreamCharacterisations } from "./__characterisation__/upstream-fixtures"
 
@@ -71,8 +71,8 @@ afterEach(() => {
   spy.mockRestore()
 })
 
-function makeProvider(input: Record<string, unknown>): CompiledProvider {
-  return input as unknown as CompiledProvider
+function makeProvider(input: Record<string, unknown>): UpstreamRecord {
+  return input as unknown as UpstreamRecord
 }
 
 describe("CustomOpenAIClient (E.7)", () => {

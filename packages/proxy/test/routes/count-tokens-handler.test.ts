@@ -1,9 +1,12 @@
-import { describe, expect, test, beforeEach, afterEach } from "vitest"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 
 import { Hono } from "hono"
 import { handleCountTokens } from "../../src/routes/messages/count-tokens-handler"
 import { state } from "../../src/lib/state"
 import type { Model, ModelsResponse } from "../../src/services/copilot/get-models"
+import { installTestRouting, routingHarness } from "../helpers/routing"
+import { logEmitter } from "../../src/util/log-emitter"
+import type { LogEvent } from "../../src/util/log-event"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -11,7 +14,7 @@ import type { Model, ModelsResponse } from "../../src/services/copilot/get-model
 
 function makeModel(overrides: Partial<Model> = {}): Model {
   return {
-    id: "claude-sonnet-4-20250514",
+    id: "claude-sonnet-4",
     name: "Claude Sonnet 4",
     object: "model",
     vendor: "anthropic",
@@ -42,6 +45,7 @@ function makeModel(overrides: Partial<Model> = {}): Model {
 
 function makeApp(): Hono {
   const app = new Hono()
+  installTestRouting(app, harness.db)
   app.post("/count_tokens", handleCountTokens)
   return app
 }
@@ -62,8 +66,17 @@ function req(body: Record<string, unknown>, headers?: Record<string, string>): R
 // ---------------------------------------------------------------------------
 
 const savedModels = state.models
+let harness: ReturnType<typeof routingHarness>
+const fetcher = vi.fn<typeof fetch>()
+let events: LogEvent[]
+const listen = (event: LogEvent) => events.push(event)
 
 beforeEach(() => {
+  harness = routingHarness()
+  events = []
+  logEmitter.on("log", listen)
+  fetcher.mockReset().mockRejectedValue(new Error("No network during token estimation"))
+  vi.stubGlobal("fetch", fetcher)
   state.models = {
     object: "list",
     data: [
@@ -80,11 +93,16 @@ beforeEach(() => {
       }),
     ],
   } as ModelsResponse
+  harness.copilot(state.models.data.map((entry) => ({ ...entry })))
 })
 
 afterEach(() => {
   if (savedModels !== undefined) state.models = savedModels
   else state.models = null
+  expect(fetcher).not.toHaveBeenCalled()
+  logEmitter.off("log", listen)
+  vi.unstubAllGlobals()
+  harness.close()
 })
 
 // ===========================================================================
@@ -245,7 +263,7 @@ describe("handleCountTokens", () => {
     expect(json.input_tokens).toBeGreaterThan(0)
   })
 
-  test("tokenizer error → returns fallback count of 1", async () => {
+  test("malformed JSON is a client error, not a successful estimate", async () => {
     const app = makeApp()
     // Send invalid JSON to trigger error
     const res = await app.request(
@@ -256,8 +274,7 @@ describe("handleCountTokens", () => {
       }),
     )
 
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { input_tokens: number }
-    expect(json.input_tokens).toBe(1)
+    expect(res.status).toBe(400)
+    expect((await res.json()).error.type).toBe("invalid_request_error")
   })
 })

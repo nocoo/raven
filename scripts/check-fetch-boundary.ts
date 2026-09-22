@@ -36,11 +36,7 @@ const ALLOWED_NON_UPSTREAM_FETCH = new Set<string>([
   "services/copilot/get-models.ts",
   // Tavily web-search server-tool.
   "lib/server-tools/tavily.ts",
-  // Admin / management routes (provider probes, models list, connection
-  // info, SOCKS5 settings UI).
-  "routes/connection-info.ts",
-  "routes/models/route.ts",
-  "routes/upstreams.ts",
+  // SOCKS5 connectivity diagnostic.
   "routes/settings-socks5.ts",
 ])
 

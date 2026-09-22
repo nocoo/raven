@@ -45,6 +45,36 @@
     "outputTokens": 10,
     "cacheReadTokens": 0,
     "stopReason": "stop",
-    "toolCallCount": 0
+    "toolCallCount": 0,
+    "requestedModel": "gpt-4o",
+    "upstream": "GitHub Copilot",
+    "upstreamFormat": "openai",
+    "ruleId": "builtin:copilot",
+    "periodId": null,
+    "upstreamId": "builtin:copilot",
+    "quotaWindowId": null,
+    "quotaMultiplier": 1,
+    "quotaWeightedTokens": 60,
+    "quotaUsageComplete": true,
+    "quotaAccountingHealthy": true,
+    "quotaSkipped": [],
+    "admittedAt": 1789948800000,
+    "diagnostic": false,
+    "routing": {
+      "requested_model": "gpt-4o",
+      "resolved_model": "gpt-4o",
+      "rule_id": "builtin:copilot",
+      "period_id": null,
+      "upstream_id": "builtin:copilot",
+      "upstream_name": "GitHub Copilot",
+      "quota_window_id": null,
+      "multiplier": 1,
+      "weighted_tokens": 60,
+      "usage_complete": true,
+      "accounting_healthy": true,
+      "admitted_at": 1789948800000,
+      "skipped": [],
+      "diagnostic": false
+    }
   }
 }

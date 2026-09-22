@@ -7,7 +7,7 @@ import {
   CustomAnthropicClient,
   createDefaultCustomAnthropicClient,
 } from "../../src/upstream/custom-anthropic"
-import type { CompiledProvider } from "../../src/db/providers"
+import type { UpstreamRecord } from "../../src/core/routing-types"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
 import { upstreamCharacterisations } from "./__characterisation__/upstream-fixtures"
 
@@ -71,8 +71,8 @@ afterEach(() => {
   spy.mockRestore()
 })
 
-function makeProvider(input: Record<string, unknown>): CompiledProvider {
-  return input as unknown as CompiledProvider
+function makeProvider(input: Record<string, unknown>): UpstreamRecord {
+  return input as unknown as UpstreamRecord
 }
 
 describe("CustomAnthropicClient (E.8)", () => {
@@ -201,7 +201,7 @@ describe("CustomAnthropicClient (E.8)", () => {
     expect(body.output_config).toEqual({ effort: "high" })
   })
 
-  test("converts model name to lowercase", async () => {
+  test("preserves the caller model id", async () => {
     const provider = makeProvider({
       id: "p", name: "anth", base_url: "https://x.com", api_key: "sk",
     })
@@ -215,7 +215,7 @@ describe("CustomAnthropicClient (E.8)", () => {
       } as unknown as AnthropicMessagesPayload,
     })
     const body = captured[0]!.body as Record<string, unknown>
-    expect(body.model).toBe("mimo-v2.5-pro")
+    expect(body.model).toBe("MiMo-V2.5-Pro")
   })
 
   test("auth_style=bearer sends only Authorization header", async () => {

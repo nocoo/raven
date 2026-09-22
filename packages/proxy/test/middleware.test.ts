@@ -1,23 +1,20 @@
-import { describe, expect, test, beforeEach, afterEach } from "vitest";
-import { Database } from "bun:sqlite";
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+import type { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import {
   apiKeyAuth,
   dashboardAuth,
-  invalidateKeyCountCache,
   ipWhitelistMiddleware,
   checkIPWhitelist,
   getClientIPFromRequest,
 } from "../src/middleware.ts";
-import { initApiKeys, createApiKey } from "../src/db/keys.ts";
+import { createApiKey, updateApiKeyRule } from "../src/db/keys.ts";
+import { COPILOT_RULE_ID, COPILOT_UPSTREAM_ID } from "../src/core/routing-types.ts";
+import { getCatalog, replaceCatalog } from "../src/db/catalog.ts";
+import { createRoutingRule } from "../src/db/routing-rules.ts";
 import { state } from "../src/lib/state.ts";
 import { parseIPRange } from "../src/lib/ip-whitelist.ts";
-
-function createTestDb(): Database {
-  const db = new Database(":memory:");
-  initApiKeys(db);
-  return db;
-}
+import { NOW, routingFixture, ruleInput } from "./db/routing-fixture.ts";
 
 /** App with apiKeyAuth on /v1/* for AI route tests */
 function createAiApp(db: Database, envApiKey: string | null = null) {
@@ -27,7 +24,7 @@ function createAiApp(db: Database, envApiKey: string | null = null) {
   app.get("/v1/models", (c) => {
     const keyName = c.get("keyName");
     const keyId = c.get("keyId");
-    return c.json({ keyName, keyId });
+    return c.json({ keyName, keyId, ruleId: c.get("ruleId"), admittedAt: c.get("admittedAt"), usesRoutingDb: c.get("routingDb") === db });
   });
   app.post("/v1/chat/completions", (c) => c.json({ ok: true }));
   return app;
@@ -47,14 +44,20 @@ function createDashboardApp(db: Database, envApiKey: string | null = null, inter
 }
 
 let db: Database;
+let fixture: ReturnType<typeof routingFixture>;
 
 beforeEach(() => {
-  db = createTestDb();
-  invalidateKeyCountCache();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+  fixture = routingFixture();
+  db = fixture.db;
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Authentication must not call upstreams"));
 });
 
 afterEach(() => {
-  db.close();
+  fixture.close();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 // ===========================================================================
@@ -110,13 +113,15 @@ describe("apiKeyAuth middleware", () => {
       const body = await res.json();
       expect(body.keyName).toBe("env:default");
       expect(body.keyId).toBe("env:default");
+      expect(body).toMatchObject({ ruleId: COPILOT_RULE_ID, admittedAt: NOW, usesRoutingDb: true });
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
 
   describe("DB key path (rk- prefix)", () => {
     test("accepts valid DB key, keyName = key name, keyId = api_keys.id", async () => {
-      const created = createApiKey(db, "test-key");
-      invalidateKeyCountCache();
+      const rule = createRoutingRule(db, ruleInput());
+      const created = createApiKey(db, "test-key", rule.id);
       const app = createAiApp(db);
       const res = await app.request("/v1/models", {
         headers: { Authorization: `Bearer ${created.key}` },
@@ -125,6 +130,8 @@ describe("apiKeyAuth middleware", () => {
       const body = await res.json();
       expect(body.keyName).toBe("test-key");
       expect(body.keyId).toBe(created.id);
+      expect(body).toMatchObject({ ruleId: rule.id, admittedAt: NOW, usesRoutingDb: true });
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
     test("rejects invalid rk- key (no fallback to env)", async () => {
@@ -137,9 +144,8 @@ describe("apiKeyAuth middleware", () => {
 
     test("rejects revoked DB key", async () => {
       const { revokeApiKey } = await import("../src/db/keys.ts");
-      const created = createApiKey(db, "revoke-me");
+      const created = createApiKey(db, "revoke-me", COPILOT_RULE_ID);
       revokeApiKey(db, created.id);
-      invalidateKeyCountCache();
       const app = createAiApp(db);
       const res = await app.request("/v1/models", {
         headers: { Authorization: `Bearer ${created.key}` },
@@ -148,8 +154,7 @@ describe("apiKeyAuth middleware", () => {
     });
 
     test("DB key + env key: each works independently", async () => {
-      const created = createApiKey(db, "db-key");
-      invalidateKeyCountCache();
+      const created = createApiKey(db, "db-key", COPILOT_RULE_ID);
       const app = createAiApp(db, "sk-raven-secret");
 
       // rk- token → DB path
@@ -168,6 +173,44 @@ describe("apiKeyAuth middleware", () => {
       const body2 = await res2.json();
       expect(body2.keyName).toBe("env:default");
     });
+  });
+
+  test("captures admission once and applies a key rebind only to its later requests", async () => {
+    const key = createApiKey(db, "shared-rule", COPILOT_RULE_ID);
+    const other = createApiKey(db, "same-rule", COPILOT_RULE_ID);
+    const replacement = createRoutingRule(db, ruleInput());
+    let entered!: () => void;
+    let release!: () => void;
+    const admitted = new Promise<void>((resolve) => { entered = resolve; });
+    const completion = new Promise<void>((resolve) => { release = resolve; });
+    const pendingApp = new Hono();
+    pendingApp.use("*", apiKeyAuth({ db, envApiKey: null }));
+    pendingApp.get("/pending", async (c) => {
+      entered();
+      await completion;
+      return c.json({ ruleId: c.get("ruleId"), admittedAt: c.get("admittedAt"), usesRoutingDb: c.get("routingDb") === db });
+    });
+    const pending = pendingApp.request("/pending", { headers: { "x-api-key": key.key } });
+    await admitted;
+    updateApiKeyRule(db, key.id, replacement.id);
+    vi.setSystemTime(NOW + 60000);
+    const app = createAiApp(db);
+    const later = await app.request("/v1/models", { headers: { "x-api-key": key.key } });
+    const unchanged = await app.request("/v1/models", { headers: { "x-api-key": other.key } });
+    release();
+    expect(await (await pending).json()).toEqual({ ruleId: COPILOT_RULE_ID, admittedAt: NOW, usesRoutingDb: true });
+    expect(await later.json()).toMatchObject({ keyId: key.id, ruleId: replacement.id, admittedAt: NOW + 60000, usesRoutingDb: true });
+    expect(await unchanged.json()).toMatchObject({ keyId: other.id, ruleId: COPILOT_RULE_ID });
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  test.each([{ models: [] }, { models: [{ id: "stale-model", supported_endpoints: ["/responses"] }] }])("authentication never refreshes catalog $models", async ({ models }) => {
+    replaceCatalog(db, COPILOT_UPSTREAM_ID, models, NOW - 7200000);
+    const key = createApiKey(db, "cached", COPILOT_RULE_ID);
+    const app = createAiApp(db);
+    expect((await app.request("/v1/models", { headers: { "x-api-key": key.key } })).status).toBe(200);
+    expect(getCatalog(db, COPILOT_UPSTREAM_ID)).toEqual(models);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   describe("RAVEN_INTERNAL_KEY rejection", () => {
@@ -198,8 +241,7 @@ describe("dashboardAuth middleware", () => {
     });
 
     test("dev mode persists even when active DB keys exist", async () => {
-      createApiKey(db, "some-key");
-      invalidateKeyCountCache();
+      createApiKey(db, "some-key", COPILOT_RULE_ID);
       const app = createDashboardApp(db); // no env keys
       const res = await app.request("/api/stats/overview");
       expect(res.status).toBe(200);
@@ -208,8 +250,7 @@ describe("dashboardAuth middleware", () => {
     });
 
     test("dev mode with DB key: DB key also accepted as Bearer", async () => {
-      const created = createApiKey(db, "some-key");
-      invalidateKeyCountCache();
+      const created = createApiKey(db, "some-key", COPILOT_RULE_ID);
       const app = createDashboardApp(db); // no env keys → dev mode
       const res = await app.request("/api/stats/overview", {
         headers: { Authorization: `Bearer ${created.key}` },
@@ -272,8 +313,7 @@ describe("x-api-key header authentication", () => {
     });
 
     test("accepts DB key (rk- prefix) via x-api-key header", async () => {
-      const created = createApiKey(db, "x-api-key-test");
-      invalidateKeyCountCache();
+      const created = createApiKey(db, "x-api-key-test", COPILOT_RULE_ID);
       const app = createAiApp(db);
       const res = await app.request("/v1/models", {
         headers: { "x-api-key": created.key },

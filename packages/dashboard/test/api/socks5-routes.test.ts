@@ -28,7 +28,14 @@ beforeEach(() => {
 
 describe("GET /api/settings/socks5", () => {
   it("success → returns JSON with 200", async () => {
-    const data = { enabled: false, host: null, port: null };
+    const data = {
+      enabled: false, host: null, port: null, copilotPolicy: "default",
+      providerPolicies: [
+        { id: "custom:inherited", name: "Inherited gateway", use_socks5: null },
+        { id: "custom:proxied", name: "Proxied gateway", use_socks5: 1 },
+        { id: "custom:direct", name: "Direct gateway", use_socks5: 0 },
+      ],
+    };
     mockProxyFetch.mockResolvedValueOnce(data);
 
     const { GET } = await import("@/app/api/settings/socks5/route");

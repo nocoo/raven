@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 // ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ import {
   ALL_COLUMNS,
   getDefaultVisibleColumns,
 } from "@/components/requests/column-config";
-import type { ExtendedRequestRecord } from "@/lib/types";
+import type { ExtendedRequestRecord, RequestRouting } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -107,6 +107,44 @@ function makeExtendedRecord(overrides: Partial<ExtendedRequestRecord> = {}): Ext
 // ===========================================================================
 
 describe("RequestDetailDrawer", () => {
+  const routing: RequestRouting = {
+    requested_model: "auto", resolved_model: "gpt-5.6-sol", rule_id: "rule:work", period_id: "period:morning",
+    upstream_id: "builtin:copilot", upstream_name: "GitHub Copilot", quota_window_id: "window:fixture",
+    multiplier: 0.5, weighted_tokens: 12.75, usage_complete: true, accounting_healthy: true,
+    admitted_at: 1710600000000, diagnostic: false,
+    skipped: [{ upstream_id: "custom:research", reason: "quota_exhausted" }, { upstream_id: "custom:research", reason: "quota_exhausted" }],
+  };
+
+  it("shows the captured routing choice while preserving the incoming model in the title and analytics link", () => {
+    render(<RequestDetailDrawer request={makeExtendedRecord({ model: "auto", routing })} open onOpenChange={vi.fn()} />);
+    const section = within(screen.getByRole("region", { name: "Routing details" }));
+    expect(section.getByText("GitHub Copilot")).toBeVisible();
+    expect(section.getByText("gpt-5.6-sol")).toBeVisible();
+    expect(section.getByText("rule:work")).toBeVisible();
+    expect(section.getByText("period:morning")).toBeVisible();
+    expect(section.getByText("window:fixture")).toBeVisible();
+    expect(section.getByText("0.5×")).toBeVisible();
+    expect(section.getByText("12.75 tokens")).toBeVisible();
+    expect(section.getByText("Complete")).toBeVisible();
+    expect(section.getByText("Healthy")).toBeVisible();
+    expect(section.getByText("custom:research · quota_exhausted; custom:research · quota_exhausted")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "success auto" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Analyze auto" })).toHaveAttribute("href", expect.stringContaining("model=auto"));
+    expect(screen.queryByText("Diagnostic · quota accounted")).toBeNull();
+  });
+
+  it("labels a diagnostic with default-chain, quota-free and incomplete accounting states without inventing usage", () => {
+    render(<RequestDetailDrawer request={makeExtendedRecord({ routing: { ...routing, diagnostic: true, period_id: null, quota_window_id: null, weighted_tokens: 0, usage_complete: false, accounting_healthy: false, skipped: [] } })} open onOpenChange={vi.fn()} />);
+    const section = within(screen.getByRole("region", { name: "Routing details" }));
+    expect(section.getByText("Diagnostic · quota accounted")).toBeVisible();
+    expect(section.getByText("Default chain")).toBeVisible();
+    expect(section.getByText("No quota")).toBeVisible();
+    expect(section.getByText("0 tokens")).toBeVisible();
+    expect(section.getByText("Incomplete")).toBeVisible();
+    expect(section.getByText("Blocked")).toBeVisible();
+    expect(section.queryByText("Skipped candidates")).toBeNull();
+  });
+
   it.each(["native", "unknown"] as const)("exposes %s routing, stable key identity and server-tool execution", (mode) => {
     render(<RequestDetailDrawer request={makeExtendedRecord({ protocol_mode: mode, server_tools_used: 1, key_id: "legacy:Editor", account_name: "" })} open onOpenChange={() => {}} filters={{ range: "7d", protocol_mode: mode }} />);
     expect(screen.getByText(mode === "native" ? "Native" : "Unknown")).toBeDefined();
@@ -130,6 +168,7 @@ describe("RequestDetailDrawer", () => {
     expect(screen.queryByText("Strategy")).toBeNull();
     expect(screen.queryByText("Tool Calls")).toBeNull();
     expect(screen.getAllByText("0ms").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("region", { name: "Routing details" })).toBeNull();
   });
 
   it.each([null, {}])("leaves the drawer usable when clipboard support is %j", (clipboard) => {

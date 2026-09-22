@@ -5,6 +5,7 @@ import { state } from "../../../src/lib/state"
 import { logEmitter } from "../../../src/util/log-emitter"
 import type { LogEvent } from "../../../src/util/log-event"
 import { handleResponses } from "../../../src/routes/responses/handler"
+import { installTestRouting, routingHarness } from "../../helpers/routing"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -12,6 +13,7 @@ import { handleResponses } from "../../../src/routes/responses/handler"
 
 function makeApp(): Hono {
   const app = new Hono()
+  installTestRouting(app, harness.db)
   app.post("/v1/responses", handleResponses)
   return app
 }
@@ -84,8 +86,10 @@ function makeResponsesResponse(overrides: Record<string, unknown> = {}) {
 
 const savedToken = state.copilotToken
 let fetchSpy: ReturnType<typeof vi.spyOn>
+let harness: ReturnType<typeof routingHarness>
 
 beforeEach(() => {
+  harness = routingHarness()
   state.copilotToken = "test-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
@@ -96,6 +100,7 @@ afterEach(() => {
   if (savedToken !== undefined) state.copilotToken = savedToken
   else state.copilotToken = null
   fetchSpy.mockRestore()
+  harness.close()
 })
 
 // ===========================================================================
@@ -265,36 +270,11 @@ describe("handleResponses (errors)", () => {
 
   test("returns 400 when model maps to a custom provider (router reject)", async () => {
     // §3.2: Responses API cannot be routed to custom upstreams.
-    const savedProviders = state.providers
-    state.providers = [
-      {
-        id: "custom-1",
-        name: "custom-1",
-        base_url: "https://example.invalid",
-        format: "openai",
-        api_key: "sk-test",
-        enabled: 1,
-        supports_reasoning: 0,
-        supports_models_endpoint: 0,
-        auth_style: null,
-        use_socks5: null,
-        created_at: 0,
-        updated_at: 0,
-        patterns: [{ raw: "gpt-5.2", isExact: true }],
-      },
-    ]
-    try {
-      const app = makeApp()
-      const res = await app.request(req({ model: "gpt-5.2", input: "hello" }))
-
-      expect(res.status).toBe(400)
-      const json = await res.json()
-      expect(json.error.type).toBe("invalid_request_error")
-      expect(json.error.message).toContain("custom upstreams")
-      expect(fetchSpy).not.toHaveBeenCalled()
-    } finally {
-      state.providers = savedProviders
-    }
+    harness.bind(harness.upstream().id, "chosen-model", { allow_conversion: false })
+    const response = await makeApp().request(req({ model: "gpt-5.2", input: "hello" }))
+    expect(response.status).toBe(400)
+    expect((await response.json()).error.type).toBe("protocol_mismatch")
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
 
