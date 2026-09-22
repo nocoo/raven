@@ -89,6 +89,12 @@
   @apply text-sm font-medium tabular-nums;
 }
 
+@utility settings-grid {
+  @apply grid items-start gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr));
+  & > * { min-width: 0; }
+}
+
 @utility stagger-1 { animation-delay: 0ms; }
 @utility stagger-2 { animation-delay: 60ms; }
 @utility stagger-3 { animation-delay: 120ms; }

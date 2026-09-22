@@ -70,6 +70,19 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("AccountContent.handleRefresh", () => {
+  it("groups account metadata behind one disclosure without repeating capabilities", async () => {
+    render(<AccountContent data={makeUser({ chat_enabled: true, analytics_tracking_id: "fixture-tracking", endpoints: { api: "https://fixture.invalid/api" }, fixture_property: "fixture-extra" })} />);
+    expect(screen.getByRole("heading", { name: "Account" })).toBeVisible();
+    expect(screen.getAllByText("Chat")).toHaveLength(1);
+    expect(screen.queryByText("fixture-tracking")).toBeNull();
+    expect(screen.queryByText("fixture-extra")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Endpoints and properties" }));
+    expect(screen.getByText("fixture-tracking")).toBeVisible();
+    expect(screen.getByText("fixture-extra")).toBeVisible();
+    expect(screen.getByText("https://fixture.invalid/api")).toBeVisible();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("calls GET /api/copilot/user?refresh=true", async () => {
     fetchSpy.mockResolvedValueOnce(new Response("", { status: 200 }));
 

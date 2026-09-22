@@ -83,6 +83,9 @@ const nativeFetch = globalThis.fetch
 const allowed = new Set([receiverUrl, proxy.url.origin])
 globalThis.fetch = Object.assign(async (input: string | URL | Request, init?: RequestInit) => {
   const url = new URL(input instanceof Request ? input.url : String(input))
+  if (url.origin === "https://api.github.com" && url.pathname === "/copilot_internal/user") {
+    return Response.json({ login: "fixture-user", copilot_plan: "individual", chat_enabled: true, is_mcp_enabled: true, assigned_date: "2026-09-21T20:30:00Z", analytics_tracking_id: "fixture-tracking", endpoints: { api: "https://fixture.invalid/api" }, quota_snapshots: { premium_interactions: { entitlement: 300, remaining: 240, percent_remaining: 80, unlimited: false, overage_count: 0 } } })
+  }
   if (!allowed.has(url.origin)) {
     blocked.push(`${url.origin}${url.pathname}`)
     throw new Error(`Isolated verification blocked external fetch: ${url.origin}`)

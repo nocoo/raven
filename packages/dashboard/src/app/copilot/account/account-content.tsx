@@ -7,8 +7,9 @@ import { LocalTime } from "@/components/local-time";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  RefreshCw, User, Building2, CreditCard, MessageSquare, Globe, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, } from "lucide-react";
-import { Badge, Button, LayerCard } from "@nocoo/basalt";
+  RefreshCw, User, Building2, CreditCard, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, } from "lucide-react";
+import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard } from "@nocoo/basalt";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 
 interface AccountContentProps {
@@ -75,7 +76,7 @@ function InfoRow({
 
 function ToggleRow({ label, value }: { label: string; value: boolean }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2.5">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5">
       <span className="text-sm">{label}</span>
       <BoolBadge value={value} />
     </div>
@@ -226,8 +227,7 @@ export function AccountContent({ data }: AccountContentProps) {
 
   return (
     <>
-      {/* Refresh */}
-      <div className="flex items-center justify-end">
+      <PageHeader title="Account" description="GitHub Copilot subscription and quota." actions={
         <Button
           variant="outline"
           size="sm"
@@ -237,7 +237,7 @@ export function AccountContent({ data }: AccountContentProps) {
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
-      </div>
+      } />
 
       {refreshError && (
         <p className="text-xs text-basalt-destructive">{refreshError}</p>
@@ -285,19 +285,6 @@ export function AccountContent({ data }: AccountContentProps) {
           </InfoRow>
         )}
 
-        {data.chat_enabled != null && (
-          <InfoRow icon={MessageSquare} label="Chat">
-            <BoolBadge value={data.chat_enabled} />
-          </InfoRow>
-        )}
-
-        {data.analytics_tracking_id != null && (
-          <InfoRow icon={Globe} label="Tracking ID">
-            <p className="text-xs font-mono text-basalt-muted-foreground break-all">
-              {data.analytics_tracking_id}
-            </p>
-          </InfoRow>
-        )}
       </div>
 
       {/* Quota snapshots */}
@@ -314,8 +301,9 @@ export function AccountContent({ data }: AccountContentProps) {
         </SectionRule>
       )}
 
-      {/* Feature toggles */}
-      <SectionRule title="Feature Toggles">
+      <div className="settings-grid">
+      {[data.chat_enabled, data.copilotignore_enabled, data.is_mcp_enabled, data.restricted_telemetry, data.can_signup_for_limited].some(value => value != null) &&
+      <SectionRule title="Capabilities">
         <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
           {data.chat_enabled != null && (
             <ToggleRow label="Chat" value={data.chat_enabled} />
@@ -333,47 +321,53 @@ export function AccountContent({ data }: AccountContentProps) {
             <ToggleRow label="Can Signup for Limited" value={data.can_signup_for_limited} />
           )}
         </LayerCard>
-      </SectionRule>
+      </SectionRule>}
 
-      {/* Endpoints */}
+      {(data.analytics_tracking_id != null || (data.endpoints && Object.keys(data.endpoints).length > 0) || extraEntries.length > 0) &&
+      <SectionRule title="Technical details">
+        <LayerCard>
+          <Collapsible>
+            <CollapsibleTrigger className="w-full justify-between text-sm">Endpoints and properties</CollapsibleTrigger>
+            <CollapsibleContent unstyled><div className="space-y-4 pt-4">
+              {data.analytics_tracking_id != null && <div className="space-y-1"><p className="text-xs text-basalt-muted-foreground">Tracking ID</p><p className="break-all font-mono text-xs">{data.analytics_tracking_id}</p></div>}
       {data.endpoints && Object.keys(data.endpoints).length > 0 && (
-        <SectionRule title="Endpoints">
-          <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
+        <section aria-label="Endpoints" className="divide-y divide-basalt-border/50">
             {Object.entries(data.endpoints).map(([name, url]) => (
               <div
                 key={name}
-                className="flex items-center justify-between px-4 py-2.5 text-sm gap-4"
+                className="space-y-1 py-2 text-sm"
               >
-                <span className="font-mono text-xs text-basalt-muted-foreground shrink-0">
+                <span className="block font-mono text-xs text-basalt-muted-foreground">
                   {name}
                 </span>
-                <span className="font-mono text-xs truncate text-right">
+                <span className="block break-all font-mono text-xs">
                   {url}
                 </span>
               </div>
             ))}
-          </LayerCard>
-        </SectionRule>
+        </section>
       )}
 
-      {/* Unknown extra fields */}
       {extraEntries.length > 0 && (
-        <SectionRule title="Other Properties">
-          <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
+        <section aria-label="Other properties" className="divide-y divide-basalt-border/50">
             {extraEntries.map(([key, value]) => (
               <div
                 key={key}
-                className="flex items-start justify-between px-4 py-2.5 text-sm gap-4"
+                className="space-y-1 py-2 text-sm"
               >
-                <span className="font-mono text-xs text-basalt-muted-foreground shrink-0 pt-0.5">
+                <span className="block break-all font-mono text-xs text-basalt-muted-foreground">
                   {key}
                 </span>
-                <div className="text-right">{renderValue(value)}</div>
+                <div>{renderValue(value)}</div>
               </div>
             ))}
-          </LayerCard>
-        </SectionRule>
+        </section>
       )}
+            </div></CollapsibleContent>
+          </Collapsible>
+        </LayerCard>
+      </SectionRule>}
+      </div>
     </>
   );
 }

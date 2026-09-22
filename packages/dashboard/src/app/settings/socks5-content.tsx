@@ -3,9 +3,9 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import { Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
-import { SettingNote, SettingsCard, SettingsSection } from "./settings-ui";
+import { SettingNote, SettingsSection } from "./settings-ui";
 
 
 
@@ -187,14 +187,11 @@ export function Socks5Content({ data }: Socks5ContentProps) {
   ]);
 
   return (
-    <SettingsSection
-      title="SOCKS5 Proxy"
-      hint="Route upstream requests through a SOCKS5 proxy to hide the server's exit IP."
-    >
-      <SettingsCard
-        title="Enable"
-        action={
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
+            <Label htmlFor="socks5-enabled">Use SOCKS5 proxy</Label>
+            <Switch id="socks5-enabled" checked={enabled} onCheckedChange={setEnabled} disabled={saving} />
             {data.enabled ? (
               <span
                 className={`text-xs ${data.bridgeStatus === "running" ? "text-basalt-chart-5" : "text-basalt-destructive"}`}
@@ -202,11 +199,8 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                 Bridge: {data.bridgeStatus}
               </span>
             ) : null}
-            <Switch checked={enabled} onCheckedChange={setEnabled} disabled={saving} />
           </div>
-        }
-        footer={
-          <>
+          <div className="flex flex-wrap items-center gap-3">
             {saveSuccess ? (
               <span className="flex items-center gap-1 text-xs text-basalt-chart-5">
                 <CheckCircle className="h-3 w-3" />
@@ -214,7 +208,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               </span>
             ) : null}
             {error ? (
-              <span className="flex items-center gap-1 text-xs text-basalt-destructive">
+              <span role="alert" className="flex items-center gap-1 text-xs text-basalt-destructive">
                 <XCircle className="h-3 w-3" />
                 {error}
               </span>
@@ -223,16 +217,17 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               {saving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
               Save
             </Button>
-          </>
-        }
-      >
-        <LayerCard.Well className="space-y-3">
-          <p className="text-xs font-medium text-basalt-muted-foreground">Connection</p>
+          </div>
+      </div>
+      <div className="settings-grid">
+        <SettingsSection title="Connection">
+        <LayerCard className="space-y-3">
 
           <div className="grid grid-cols-[1fr_100px] gap-2">
             <div>
-              <Label className="text-xs">Host</Label>
+              <Label htmlFor="socks5-host" className="text-xs">Host</Label>
               <Input
+                id="socks5-host"
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
                 placeholder="proxy.example.com"
@@ -241,8 +236,9 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               />
             </div>
             <div>
-              <Label className="text-xs">Port</Label>
+              <Label htmlFor="socks5-port" className="text-xs">Port</Label>
               <Input
+                id="socks5-port"
                 value={port}
                 onChange={(e) => setPort(e.target.value)}
                 placeholder="1080"
@@ -253,13 +249,16 @@ export function Socks5Content({ data }: Socks5ContentProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <Collapsible defaultOpen={Boolean(data.username || data.hasPassword)}>
+            <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Authentication (optional)</CollapsibleTrigger>
+            <CollapsibleContent unstyled><div className="grid gap-2 pt-3 sm:grid-cols-2">
             <div>
-              <Label className="text-xs">
+              <Label htmlFor="socks5-username" className="text-xs">
                 Username{" "}
                 <span className="text-basalt-muted-foreground">(optional)</span>
               </Label>
               <Input
+                id="socks5-username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="username"
@@ -268,12 +267,13 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               />
             </div>
             <div>
-              <Label className="text-xs">
+              <Label htmlFor="socks5-password" className="text-xs">
                 Password{" "}
                 <span className="text-basalt-muted-foreground">(optional)</span>
               </Label>
               <div className="flex gap-1">
                 <Input
+                  id="socks5-password"
                   type="password"
                   value={password}
                   onChange={handlePasswordChange}
@@ -294,6 +294,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                       variant="ghost"
                       className="h-8 px-2 text-xs text-basalt-muted-foreground hover:text-basalt-destructive"
                       onClick={handleClearPassword}
+                      aria-label="Clear proxy password"
                       disabled={saving}
                     >
                       <XCircle className="h-3 w-3" />
@@ -306,10 +307,11 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                 </p>
               )}
             </div>
-          </div>
+            </div></CollapsibleContent>
+          </Collapsible>
 
           {/* Test button */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -340,17 +342,18 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               </span>
             )}
           </div>
-        </LayerCard.Well>
+        </LayerCard>
+        </SettingsSection>
 
-        {/* Upstream routing */}
-        <LayerCard.Well className="space-y-3">
-          <p className="text-xs font-medium text-basalt-muted-foreground">Upstream Routing</p>
+        <SettingsSection title="Upstream routing">
+        <LayerCard className="space-y-3">
           <SettingNote>
-            Default: Copilot &amp; GitHub = proxied, Custom providers = direct.
+            Copilot and GitHub use the proxy. Custom providers connect directly by default.
           </SettingNote>
-
-          {/* Copilot policy */}
-          <div className="flex items-center justify-between">
+          <Collapsible defaultOpen={data.enabled || data.copilotPolicy !== "default" || data.providerPolicies.some(policy => policy.use_socks5 !== null)}>
+            <CollapsibleTrigger className="w-full justify-between text-xs">Upstream policies</CollapsibleTrigger>
+            <CollapsibleContent unstyled><div className="space-y-3 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm">GitHub Copilot</span>
             <Select value={copilotPolicy} onValueChange={(v) => setCopilotPolicy(v as "default" | "on" | "off")}>
               <SelectTrigger aria-label="GitHub Copilot proxy policy" className="w-[160px] h-8 text-xs">
@@ -368,8 +371,8 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           {providerPolicies.length > 0 && (
             <div className="border-t border-basalt-border/30 pt-2 space-y-2">
               {providerPolicies.map((p) => (
-                <div key={p.id} className="flex items-center justify-between">
-                  <span className="text-sm">{p.name}</span>
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0 break-words text-sm">{p.name}</span>
                   <Select
                     value={String(p.use_socks5 ?? "null")}
                     onValueChange={(v) => handleProviderPolicyChange(p.id, v)}
@@ -387,8 +390,11 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               ))}
             </div>
           )}
-        </LayerCard.Well>
-      </SettingsCard>
-    </SettingsSection>
+            </div></CollapsibleContent>
+          </Collapsible>
+        </LayerCard>
+        </SettingsSection>
+      </div>
+    </div>
   );
 }

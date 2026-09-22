@@ -10,6 +10,20 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 afterEach(() => vi.restoreAllMocks());
 
 describe("SOCKS5 provider policies", () => {
+  it("keeps the initial connection editable and reveals optional authentication and policies without writes", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+    render(<Socks5Content data={{ enabled: false, host: null, port: null, username: null, hasPassword: false, copilotPolicy: "default", bridgeStatus: "stopped", bridgePort: null, providerPolicies: [] }} />);
+    expect(screen.getByRole("textbox", { name: "Host" })).toBeVisible();
+    expect(screen.getByRole("switch", { name: "Use SOCKS5 proxy" })).not.toBeChecked();
+    expect(screen.queryByLabelText(/Username/)).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "GitHub Copilot proxy policy" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Authentication (optional)" }));
+    expect(screen.getByLabelText(/Username/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Upstream policies" }));
+    expect(screen.getByRole("combobox", { name: "GitHub Copilot proxy policy" })).toBeVisible();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("edits custom policies independently of Copilot without model discovery metadata", async () => {
     const data: Socks5Data = {
       enabled: true, host: "proxy.fixture.invalid", port: 1080,

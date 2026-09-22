@@ -55,7 +55,7 @@ export default async function RequestsPage({ searchParams }: PageProps) {
 
   if (!requestsResult.ok) {
     return (
-      <div className="space-y-4 md:space-y-6">
+      <div className="space-y-4">
         <PageHeader title="Requests" description="Inspect every proxied request, with filters, sorting and pagination." />
         <FetchError title="Failed to load requests" message={requestsResult.error} />
       </div>
@@ -69,7 +69,7 @@ export default async function RequestsPage({ searchParams }: PageProps) {
   const summary = summaryResult.ok ? summaryResult.data : null;
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Requests"
         description="Trace a model, key or time window to individual calls. Open a request for its protocol route, timing and logs."

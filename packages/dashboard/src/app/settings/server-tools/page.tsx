@@ -12,7 +12,7 @@ export default async function ServerToolsPage() {
 
   if (!result.ok) {
     return (
-      <div className="space-y-4 md:space-y-6">
+      <div className="space-y-4">
         <PageHeader title="Server Tools" description="Built-in MCP/server tools and request debug toggles." />
         <FetchError title="Failed to load settings" message={result.error} />
       </div>
@@ -20,10 +20,12 @@ export default async function ServerToolsPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4">
       <PageHeader title="Server Tools" description="Built-in MCP/server tools and request debug toggles." />
-      <ServerToolsContent data={result.data.server_tools as typeof result.data.server_tools} />
-      <DebugContent data={result.data.debug} />
+      <div className="settings-grid">
+        <ServerToolsContent data={result.data.server_tools} />
+        <DebugContent data={result.data.debug} />
+      </div>
     </div>
   );
 }

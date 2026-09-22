@@ -32,7 +32,7 @@ function UpstreamsWorkbench({ upstreams, migration, clock }: { upstreams: Provid
   const remove = async () => {
     if (await confirm({ title: "Delete upstream?", description: `Delete ${state.active?.name}? Referenced upstreams must first be removed from all routing-rule chains.`, confirmLabel: "Delete upstream", variant: "destructive" })) await state.remove();
   };
-  return <div className="mx-auto w-full max-w-7xl space-y-4">
+  return <div className="space-y-4">
     <PageHeader title="Upstreams" description="Provider connections, models and quotas." actions={<Button size="sm" onClick={() => void choose(null)} disabled={state.busy !== null || !state.active}><Plus className="size-4" />New upstream</Button>} />
     <div className="routing-workbench">
       <div className="routing-directory space-y-3">

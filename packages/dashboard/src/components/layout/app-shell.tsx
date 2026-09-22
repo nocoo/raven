@@ -20,24 +20,10 @@ import { LogsDock } from "@/components/logs/logs-dock";
 import { SetupWizard } from "@/components/setup-wizard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { HeaderActions } from "./header-actions";
-import { ALL_NAV_ITEMS, AppSidebar } from "./sidebar";
+import { NAV_GROUPS, AppSidebar } from "./sidebar";
 
 interface AppShellProps {
   children: React.ReactNode;
-}
-
-function headerTrail(pathname: string) {
-  if (pathname === "/") {
-    return { crumbs: [] as { href?: string; label: string }[], title: "Overview" };
-  }
-  const crumbs: { href?: string; label: string }[] = [{ href: "/", label: "Home" }];
-  if (pathname.startsWith("/routing/")) crumbs.push({ label: "Routing" });
-  if (pathname.startsWith("/copilot/")) crumbs.push({ label: "Copilot" });
-  if (pathname.startsWith("/settings/")) crumbs.push({ href: "/settings", label: "Settings" });
-  return {
-    crumbs,
-    title: pathname === "/settings" ? "Settings" : ALL_NAV_ITEMS.find(item => item.href === pathname)?.label ?? "Raven",
-  };
 }
 
 export function AppShell({ children }: AppShellProps) {
@@ -45,7 +31,9 @@ export function AppShell({ children }: AppShellProps) {
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const { crumbs, title } = headerTrail(pathname);
+  const group = NAV_GROUPS.find(group => group.items.some(item => item.href === pathname));
+  const item = group?.items.find(item => item.href === pathname);
+  const crumbs = group ? [{ label: group.label }] : [];
 
   // Close mobile sidebar on route change.
   // biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger; setMobileOpen is stable
@@ -98,13 +86,15 @@ export function AppShell({ children }: AppShellProps) {
             ) : null
           }
           breadcrumbs={isMobile ? [] : crumbs}
-          title={title}
+          title={item?.label ?? "Raven"}
           actions={<HeaderActions />}
         />
         <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
           <ContentIsland className="relative">
             <SetupWizard />
-            {children}
+            <div className={`dashboard-page mx-auto min-w-0 w-full ${item?.layout === "standard" ? "max-w-7xl" : ""}`} data-page-layout={item?.layout ?? "wide"}>
+              {children}
+            </div>
           </ContentIsland>
         </div>
         <LogsDock />

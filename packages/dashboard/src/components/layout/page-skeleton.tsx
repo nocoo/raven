@@ -7,8 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const ROWS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"];
 
-function LoadingPage({ title, filters = false, children, className = "" }: { title: string; filters?: boolean; children: ReactNode; className?: string }) {
-  return <section role="status" aria-label={`Loading ${title}`} aria-busy="true" className={`space-y-4 ${className}`}>
+function LoadingPage({ title, filters = false, children }: { title: string; filters?: boolean; children: ReactNode }) {
+  return <section role="status" aria-label={`Loading ${title}`} aria-busy="true" className="space-y-4">
     <div aria-hidden="true" className="space-y-4">
       <div className="space-y-2"><PageHeader title={title} /><Skeleton className="h-4 w-full max-w-lg" /></div>
       {filters && <div className="flex flex-wrap gap-2">{["time", "protocol", "key", "model", "status", "mode"].map(key => <Skeleton key={key} className="h-8 w-32" />)}</div>}
@@ -82,23 +82,23 @@ export function RequestsLoading() {
 }
 
 export function CopilotModelsLoading() {
-  return <LoadingPage title="Copilot Models"><SummarySkeleton /><Skeleton className="h-9 w-full max-w-md" /><TableSkeleton /></LoadingPage>;
+  return <LoadingPage title="Models"><SummarySkeleton /><Skeleton className="h-9 w-full max-w-md" /><TableSkeleton /></LoadingPage>;
 }
 
 export function CopilotAccountLoading() {
-  return <LoadingPage title="Copilot Account"><LayerCard className="flex items-center gap-4"><Skeleton className="size-14 shrink-0 rounded-full" /><div className="space-y-2"><Skeleton className="h-5 w-40" /><Skeleton className="h-3 w-28" /></div></LayerCard><SummarySkeleton /><div className="grid gap-3 md:grid-cols-2"><ChartSkeleton /><ChartSkeleton /></div></LoadingPage>;
+  return <LoadingPage title="Account"><SummarySkeleton /><div className="settings-grid"><PanelSkeleton><RowsSkeleton /></PanelSkeleton><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton></div></LoadingPage>;
 }
 
 export function SettingsLoading() {
-  return <LoadingPage title="Settings" className="mx-auto w-full max-w-7xl"><div className="grid items-start gap-4 xl:grid-cols-2"><FormSkeleton /><FormSkeleton /><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton></div></LoadingPage>;
+  return <LoadingPage title="General"><div className="settings-grid"><FormSkeleton /><FormSkeleton /><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton></div></LoadingPage>;
 }
 
 export function ProxyLoading() {
-  return <LoadingPage title="Proxy"><FormSkeleton /></LoadingPage>;
+  return <LoadingPage title="Proxy"><Skeleton className="h-8 w-full" /><div className="settings-grid"><FormSkeleton /><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton></div></LoadingPage>;
 }
 
 export function ServerToolsLoading() {
-  return <LoadingPage title="Server Tools"><FormSkeleton /><PanelSkeleton><RowsSkeleton count={2} /></PanelSkeleton></LoadingPage>;
+  return <LoadingPage title="Server Tools"><div className="settings-grid"><FormSkeleton /><PanelSkeleton><RowsSkeleton count={2} /></PanelSkeleton></div></LoadingPage>;
 }
 
 export function UpstreamsLoading() {
@@ -118,5 +118,5 @@ export function RoutingRulesLoading() {
 }
 
 function RoutingLoading({ title }: { title: string }) {
-  return <LoadingPage title={title} className="mx-auto w-full max-w-7xl"><div className="routing-workbench"><LayerCard><RowsSkeleton count={2} /></LayerCard><div className="space-y-4"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-64" /><FormSkeleton /></div></div></LoadingPage>;
+  return <LoadingPage title={title}><div className="routing-workbench"><LayerCard><RowsSkeleton count={2} /></LayerCard><div className="space-y-4"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-64" /><FormSkeleton /></div></div></LoadingPage>;
 }

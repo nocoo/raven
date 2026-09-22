@@ -1,6 +1,6 @@
 "use client"
 
-import { Button, Input, LayerCard, Switch } from "@nocoo/basalt"
+import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Input, Switch } from "@nocoo/basalt"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -15,7 +15,7 @@ const SERVER_TOOL_ITEMS = [
     id: "web_search",
     label: "Web Search",
     description:
-      "Replace Anthropic's built-in web_search with Tavily API. Required when routing through GitHub Copilot upstream.",
+      "Run web search through Tavily for Copilot requests.",
     key: "st_web_search_enabled",
     apiKeyKey: "st_web_search_api_key",
   },
@@ -26,6 +26,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
   const webSearch = data.web_search
 
   const [enabled, setEnabled] = useState(webSearch?.enabled ?? false)
+  const [expanded, setExpanded] = useState(Boolean(webSearch?.enabled || webSearch?.has_api_key))
   const [apiKey, setApiKey] = useState("")
   const [saving, setSaving] = useState(false)
   const [savingKey, setSavingKey] = useState(false)
@@ -49,6 +50,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
         throw new Error(err.error || "Failed to update setting")
       }
 
+      if (checked) setExpanded(true)
       router.refresh()
     } catch (err) {
       setEnabled(!checked)
@@ -90,8 +92,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
 
   return (
     <SettingsSection
-      title="Server Tools"
-      hint="Replace Anthropic server-side tools with third-party APIs. Required when routing through GitHub Copilot."
+      title="Search integration"
     >
       {SERVER_TOOL_ITEMS.map((item) => {
         const itemEnabled = item.id === "web_search" ? enabled : false
@@ -106,6 +107,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                 {saving ? <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" /> : null}
                 <Switch
                   id={`st-${item.id}`}
+                  aria-label={item.label}
                   checked={itemEnabled}
                   onCheckedChange={handleToggle}
                   disabled={saving}
@@ -114,22 +116,15 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
             }
           >
             <SettingNote>{item.description}</SettingNote>
-            {error ? <p className="text-xs text-basalt-destructive">{error}</p> : null}
-
-            {itemEnabled ? (
-              <LayerCard.Well className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">API Key</span>
-                  {hasKey && !apiKey ? (
-                    <span className="flex items-center gap-1 text-xs text-basalt-chart-5">
-                      <span className="size-1.5 rounded-full bg-basalt-chart-5" />
-                      Configured
-                    </span>
-                  ) : null}
-                </div>
+            {error ? <p role="alert" className="text-xs text-basalt-destructive">{error}</p> : null}
+            {!hasKey && itemEnabled ? <p className="text-xs text-basalt-warning">API key required for search functionality</p> : null}
+            <Collapsible open={expanded} onOpenChange={setExpanded}>
+              <CollapsibleTrigger className="w-full justify-between text-xs">API key · {hasKey ? "Configured" : "Not configured"}</CollapsibleTrigger>
+              <CollapsibleContent unstyled><div className="space-y-3 pt-3">
                 <div className="flex gap-2">
                   <Input
                     type="password"
+                    aria-label="Tavily API key"
                     placeholder={hasKey ? "Update API key..." : "Enter Tavily API key..."}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
@@ -146,10 +141,6 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                     {savingKey ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                   </Button>
                 </div>
-                {keyError ? <p className="text-xs text-basalt-destructive">{keyError}</p> : null}
-                {!hasKey && itemEnabled ? (
-                  <p className="text-xs text-basalt-warning">API key required for search functionality</p>
-                ) : null}
                 <SettingNote>
                   Get your API key at{" "}
                   <a
@@ -161,8 +152,9 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
                     tavily.com
                   </a>
                 </SettingNote>
-              </LayerCard.Well>
-            ) : null}
+              </div></CollapsibleContent>
+            </Collapsible>
+            {keyError ? <p role="alert" className="text-xs text-basalt-destructive">{keyError}</p> : null}
           </SettingsCard>
         )
       })}

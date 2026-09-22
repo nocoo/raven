@@ -4,6 +4,7 @@ import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CorsContent } from "@/app/settings/cors-content";
 import { IPWhitelistContent } from "@/app/settings/ip-whitelist-content";
+import { ServerToolsContent } from "@/app/settings/server-tools-content";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 afterEach(() => vi.restoreAllMocks());
@@ -54,5 +55,27 @@ describe.each(cases)("$name disclosure", fixture => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Fixture save failed");
     expect(screen.getByRole("switch", { name: fixture.toggle })).not.toBeChecked();
     expect(screen.queryByPlaceholderText(fixture.placeholder)).toBeNull();
+  });
+});
+
+describe("server tool configuration disclosure", () => {
+  it("lets users configure a key before enabling search without an automatic request", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+    render(<ServerToolsContent data={{ web_search: { enabled: false, has_api_key: false } }} />);
+    expect(screen.queryByLabelText("Tavily API key")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "API key · Not configured" }));
+    expect(screen.getByLabelText("Tavily API key")).toBeVisible();
+    expect(screen.getByRole("switch", { name: "Web Search" })).not.toBeChecked();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("reveals key configuration after enabling search and keeps the warning visible when collapsed", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({}));
+    render(<ServerToolsContent data={{ web_search: { enabled: false, has_api_key: false } }} />);
+    await userEvent.click(screen.getByRole("switch", { name: "Web Search" }));
+    expect(await screen.findByLabelText("Tavily API key")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "API key · Not configured" }));
+    expect(screen.getByText("API key required for search functionality")).toBeVisible();
+    expect(screen.queryByLabelText("Tavily API key")).toBeNull();
   });
 });

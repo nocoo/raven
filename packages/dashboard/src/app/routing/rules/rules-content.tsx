@@ -30,7 +30,7 @@ function RulesWorkbench({ rules, upstreams, clock }: { rules: RoutingRule[]; ups
   const remove = async () => {
     if (await confirm({ title: "Delete routing rule?", description: `Delete ${state.active?.name}? A rule bound to client keys cannot be deleted. Rebind those keys in Connect first.`, confirmLabel: "Delete rule", variant: "destructive" })) await state.remove();
   };
-  return <div className="mx-auto w-full max-w-7xl space-y-4">
+  return <div className="space-y-4">
     <PageHeader title="Routing Rules" description="Upstreams and models for your client keys." actions={<Button size="sm" onClick={() => void choose(null)} disabled={state.busy || !state.active}><Plus className="size-4" />New rule</Button>} />
     <div className="routing-workbench">
       <LayerCard padding="sm" className="routing-directory space-y-1">

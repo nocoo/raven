@@ -11,8 +11,8 @@ export default async function CopilotModelsPage() {
 
   if (!result.ok) {
     return (
-      <div className="space-y-4 md:space-y-6">
-        <PageHeader title="Copilot Models" description="All Copilot models exposed through the proxy with capabilities and limits." />
+      <div className="space-y-4">
+        <PageHeader title="Models" description="Copilot models, capabilities and limits." />
         <FetchError
           title="Failed to load Copilot models"
           message={result.error}
@@ -22,8 +22,8 @@ export default async function CopilotModelsPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <PageHeader title="Copilot Models" description="All Copilot models exposed through the proxy with capabilities and limits." />
+    <div className="space-y-4">
+      <PageHeader title="Models" description="Copilot models, capabilities and limits." />
       <CopilotModelsContent data={result.data.data} />
     </div>
   );

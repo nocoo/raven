@@ -56,8 +56,8 @@ export function ConnectContent({ keys, connectionInfo, rules }: ConnectContentPr
       </TabsContent>
 
       <TabsContent value="code">
-        <div className="mx-auto max-w-7xl space-y-4">
-          <div className="grid items-start gap-4 xl:grid-cols-2">
+        <div className="space-y-4">
+          <div className="settings-grid">
             <EndpointsSection info={connectionInfo} />
             <CodeExamplesSection info={connectionInfo} />
           </div>

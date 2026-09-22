@@ -18,7 +18,7 @@ const DEBUG_ITEMS = [
     id: "tool_call_debug",
     label: "Tool Call Debug",
     description:
-      "Emit debug-level events for tool call processing (definitions, invocations, stop reasons). View in Logs page with debug filter enabled.",
+      "Include tool-call details in live logs.",
   },
 ]
 

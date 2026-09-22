@@ -2,6 +2,19 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-09-23: A local layout fix did not establish site-wide consistency
+
+The first hierarchy pass capped Routing, General and only the Code tab in
+Connect. Comparable Proxy, Server Tools and Account pages retained full-width
+forms, and the Settings title disagreed with the sidebar's General label. User
+review exposed that the page family had not been treated as one system.
+
+The shell now derives navigation from sidebar groups and owns each page's width,
+including loading/error states and every tab. Configuration sections share one
+responsive grid. Verification covers every sidebar destination, not only the
+originally named pages. New shell tests initially omitted the existing log-dock
+provider; restoring the real provider composition fixed the test setup.
+
 ## 2026-09-23: Dashboard hierarchy verification caught a client-boundary error
 
 Matching loading skeletons to the new analytics cards introduced compound Basalt
