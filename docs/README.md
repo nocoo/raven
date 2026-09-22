@@ -11,7 +11,7 @@
 | 08 | [Local Auth Mode](./08-dev-auth-mode.md) | Dashboard local 模式：无 Google OAuth 时跳过认证 |
 | 09 | [Unified Auth](./09-unified-auth.md) | 统一认证架构：分离 AI API 认证与 Dashboard 管理认证 |
 | 10 | [Request Optimizations](./10-request-optimizations.md) | 可配置的请求优化项：协议兼容性修复，Settings 页面逐一开关 |
-| 11 | [Custom Upstream Routing](./11-custom-upstream-routing.md) | AI Providers：多 provider 模型路由 + Copilot 查重 + Dashboard 管理 |
+| 11 | [Custom Upstream Routing](./11-custom-upstream-routing.md) | Current pattern-based routing; replaced by 28 only after that design is implemented |
 | 12 | [Quality System Upgrade](./12-quality-system-upgrade.md) | 质量体系升级：A- → S 级，D1 隔离 + 文档同步 |
 | 13 | [Server-Side Tools](./13-server-tools.md) | Server-side tool 拦截替换：web_search → Tavily，pure/mixed 双模式 |
 | 14 | [VPS Deployment](./14-vps-deployment.md) | 远程部署：Bun + systemd + Nginx + HTTPS + 安全须知 |

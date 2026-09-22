@@ -2,7 +2,7 @@
 
 Status: **Design — independent review in progress; not implemented**.
 
-Design revision: **R1**. Decisions confirmed with the owner on **2026-09-22**.
+Design revision: **R2**. Decisions confirmed with the owner on **2026-09-22**.
 
 Scope: Dashboard navigation and configuration, Proxy routing, model catalogs,
 local SQLite persistence, migration and isolated verification.
@@ -22,9 +22,10 @@ migrations or tests already exist.
 | Existing keys | Bind every existing database key to the built-in GitHub Copilot rule without rotating secrets or changing key IDs. That rule enables protocol conversion and initially selects `gpt-5.6-sol` for `auto`. |
 | Custom upstreams | Configure one format per upstream: Anthropic Messages, OpenAI Chat Completions or OpenAI Responses. Remove model patterns and model-name conflict checks. |
 | Copilot | Show one protected, non-deletable built-in upstream using the existing GitHub OAuth/Copilot JWT integration. It has no implicit fallback privilege. |
-| Rules | Support an all-day policy, a repeating daily timetable, or a weekday-specific timetable. Time boundaries have half-hour resolution. Support overnight periods and copying one day's settings to other days. |
+| Rules | Support an all-day policy, a repeating daily timetable, or a weekday-specific timetable. The local editing grid has half-hour steps; UTC offsets need not be multiples of 30 minutes. Support overnight periods and copying one day's settings to other days. |
 | Time | Persist and evaluate schedules in UTC. Convert browser-local editing/display values in the frontend, including day-of-week rollover. |
 | Candidates | Each period has an ordered list of quota candidates followed by one terminal fallback target. Every target names an upstream and an explicit model ID, selected from its catalog or typed manually. |
+| Schedule gaps | Time outside configured periods uses the rule's visible default chain. Every chain has zero or more quota candidates and one required terminal target; an empty chain is invalid. |
 | `auto` | Resolve the rule and period from the authenticated key, select an upstream by candidate order and quota, then use that candidate's configured model. |
 | Explicit models | Select the same upstream by rule, time and quota, but use the incoming model instead of the candidate's configured model. Catalog membership is not an admission requirement. |
 | Conversion | New rules default to conversion disabled. A rule can explicitly enable it; the UI recommends native protocols. The migrated Copilot rule enables it to preserve existing Copilot client paths. |
@@ -47,6 +48,7 @@ selected by a particular key and period implements every listed model.
 | [`core/router.ts`](../packages/proxy/src/core/router.ts) and [`lib/upstream-router.ts`](../packages/proxy/src/lib/upstream-router.ts) both match model patterns; handlers resolve providers again. | Replace provider selection with one rule decision in composition. Do not retain parallel old/new routers. |
 | [`db/providers.ts`](../packages/proxy/src/db/providers.ts) stores patterns and only `openai`/`anthropic` formats. Copilot is outside this collection. | Store explicit upstream type/format and catalogs; make Copilot addressable by stable upstream ID. |
 | Provider create/update probes models; `/v1/models` and `/api/connection-info` fetch custom catalogs; authenticated requests can refresh Copilot's one-hour cache. | Remove discovery side effects from ordinary reads, auth and custom-upstream saves. Use explicit custom refresh and an independent Copilot timer. |
+| Copilot's cache is in memory; startup and an empty `/v1/models` read fetch it. Failed opportunistic refresh leaves the old timestamp, allowing the next authenticated request to retry immediately. | Persist the last successful snapshot, restore it without blocking server listen, and wait for the next timer interval after a failed background refresh. |
 | Chat input to custom Anthropic is rejected; Responses input to any custom upstream is rejected. | The conversion switch and custom Responses support require real adapter work, not just a UI flag. |
 | [25](25-messages-responses-shim.md) is a design, not an implemented Messages-to-Responses adapter. | `auto = gpt-5.6-sol` must be tested with a Responses-only Copilot fixture, including Messages clients; enabling conversion alone does not implement that path. |
 | [`db/request-sink.ts`](../packages/proxy/src/db/request-sink.ts) stores request-end analytics, with upstream names rather than stable provider IDs. | Add stable routing/usage attribution and authoritative quota settlement separate from best-effort analytics writes. |
@@ -64,16 +66,24 @@ new provider SDK, distributed quota service or generic rule language is needed.
 | --- | --- |
 | Upstream | Stable ID, display name, kind (`copilot` or `custom`), enabled state; custom endpoint, credential, single protocol format and existing proxy/auth options. Optional quota policy. |
 | Upstream catalog | Last successful fetched snapshot with model metadata, manually entered IDs, last successful refresh time and sanitized last refresh error. Owned by upstream ID and durable across restart. |
-| Routing rule | Stable ID, name, `allow_conversion`, default target chain, mode (`all_day`, `daily`, `weekly`) and UTC intervals with target chains. |
+| Routing rule | Stable ID, name, `allow_conversion`, default target chain, mode (`all_day`, `daily`, `weekly`) and UTC intervals with stable period IDs and target chains. |
 | Target | Upstream ID plus configured model ID; its order determines priority. Quota configuration belongs to the upstream, never to a duplicated rule-local allowance. |
 | Client key | Existing key identity/hash/prefix plus non-null `rule_id`. Key creation and update validate that the rule exists. |
 | Quota window | Stable window ID, upstream ID, UTC start/end, charged weighted tokens. A request retains its captured window ID until settlement. |
-| Usage settlement | An idempotent request/upstream-call identity, window ID, observed token categories, multiplier and weighted debit. Persist the debit and aggregate update atomically. |
+| Usage settlement | Unique `(request_id, attempt_ordinal)`, window ID, usage-presence/completeness state, observed token categories, multiplier and weighted debit. Persist the debit and aggregate update atomically. |
 
 Persist rule/period target chains and multiplier schedules as validated JSON
 unless normalized tables demonstrably simplify integrity checks. Validate all
 upstream references during the same SQLite transaction that saves a rule or
 deletes an upstream. Enforce key-to-rule references in SQLite with foreign keys.
+Enable and verify `PRAGMA foreign_keys = ON` on every application database
+connection before starting transactions. The migrated key table must enforce
+both `NOT NULL` and the rule foreign key; application validation alone is not
+sufficient. Run `foreign_key_check` before accepting a migrated database.
+
+The exact ID `auto` is reserved for Raven's virtual model. Reject it as a
+configured target model; target IDs must be non-empty. An upstream catalog's
+own `auto` entry cannot override the virtual entry in the global projection.
 
 The protected Copilot upstream is a built-in driver, not a custom bearer-key
 entry. It chooses an actual endpoint using its cached model capabilities. The
@@ -89,7 +99,10 @@ the API requires an explicit valid `rule_id`; null is never stored.
 `RAVEN_API_KEY` keeps its existing secret and `env:default` identity and explicitly
 resolves to the built-in Copilot rule. `RAVEN_INTERNAL_KEY` remains a management
 credential and is not accepted on inference endpoints. This work does not change
-the existing management authentication policy.
+the existing management authentication policy: `dashboardAuth` currently accepts
+valid client keys as well as the internal key, and retains its existing local
+mode when neither environment key is configured. Rule binding controls routing;
+it does not introduce a management authorization boundary or new RBAC system.
 
 Deleting a referenced rule or upstream returns a conflict with references for
 the user to resolve. Never silently rebind keys or rewrite target chains. The
@@ -111,9 +124,13 @@ overnight intervals. Reject zero-length ranges; all-day mode represents 24 hours
 
 Daily schedules repeat every UTC day. Weekly schedules use an explicitly defined
 Monday-based UTC week. Expand an overnight range into non-overlapping pieces
-across the day/week boundary. The UI may join those pieces for editing. Copying
-a local weekday copies its displayed wall-clock intervals and target chains,
-then converts and validates the entire resulting UTC week atomically.
+across the day/week boundary. Every fragment retains its logical period ID;
+the UI rejoins by ID, never by adjacency or equal target chains. A displayed
+period belongs to the local day on which it starts, including its overnight
+tail. Copy-day clones those periods and target chains under new IDs on the
+selected local weekdays, then converts and validates the entire resulting UTC
+week atomically. An overlap rejects the entire save. The management API accepts
+validated UTC fragments, not timezone/DST conversion instructions.
 
 For example, Monday 00:00–02:00 at UTC+08:00 is Sunday 16:00–18:00 UTC. It must
 not be stored as Monday UTC. The UI shows the timezone and offset during editing
@@ -142,23 +159,29 @@ flowchart TD
     A[Authenticate client key] --> B[Load its bound rule]
     B --> C[Snapshot UTC time and applicable target chain]
     C --> D[Check candidates in configured order]
+    D -->|Invalid config or accounting unavailable| K[Return local configuration or accounting error]
     D -->|Quota exhausted| D
     D -->|Eligible| E[Select upstream and resolve model]
     D -->|No eligible target| Q[Return quota error]
+    E -->|Disabled| K
     E --> F[Choose compatible endpoint or permitted adapter]
     F -->|Unsupported| X[Return protocol error]
     F -->|Supported| G[Execute on selected upstream]
-    G --> H[Settle observed usage in captured window]
-    G -->|Error| X
+    G -->|Success, error or cancellation| H[Settle observed usage in captured window]
+    H --> I[Finish logging and return the original outcome]
 ```
 
 1. Reject invalid/revoked keys before any upstream I/O or rule execution.
 2. Load the authenticated key's rule. A missing/corrupt binding is a configuration
    error, never permission to use the default Copilot driver.
-3. Select the period or default chain using the captured UTC time.
-4. Consider quota candidates in order. A candidate without an enabled quota is
-   immediately eligible; otherwise compare its shared charged usage with its
-   configured allowance. Only quota exhaustion skips a candidate.
+3. Select the period or default chain using the captured UTC time. An empty or
+   invalid chain is a configuration error, not an implicit Copilot route.
+4. Consider targets in order. A missing upstream or unreadable/unhealthy quota
+   ledger returns a local configuration/accounting error, without skipping or
+   dispatching. A candidate without an enabled quota is immediately eligible;
+   otherwise compare shared charged usage with its allowance. Only known quota
+   exhaustion skips a candidate. The first eligible target is selected; if it is
+   disabled, return a local configuration error with no next-target attempt.
 5. The terminal fallback can use any upstream/model. It still obeys that
    upstream's shared quota if configured. If it is also exhausted, return a
    protocol-shaped 429 `quota_exhausted`. There is no implicit next target.
@@ -169,8 +192,11 @@ flowchart TD
    inside that driver to preserve current clients; custom model IDs stay raw.
 7. Check protocol compatibility and the rule's conversion flag. Failure is a
    local protocol-shaped 400, without trying another target.
-8. Dispatch once to the selected upstream. A timeout, 401, 404, 429, 5xx, inline
-   SSE error or malformed reply does not select a new upstream or model.
+8. Dispatch to the selected upstream. No transport failure, unsuccessful HTTP
+   status, interrupted/error SSE stream or malformed reply ever selects a new
+   upstream or model. This includes DNS/TLS errors, timeouts and all 4xx/5xx;
+   status examples are not an exhaustive list. The final outcome after the
+   existing same-provider handling below ends the request on that target.
 9. Settle usage once, including observed usage on an errored/cancelled request,
    then finish existing request logging. Never turn a failed stream into success.
 
@@ -206,12 +232,18 @@ JSON and SSE, tool call/result correlation, usage and error shapes are required.
 Avoid a universal intermediate representation unless an existing translator
 already supplies the needed shape; explicit small adapters are sufficient.
 
-Lossy translation is not silently accepted. Cross-protocol requests using opaque
-provider state such as `previous_response_id`, encrypted reasoning, unsupported
-multimodal blocks or provider-specific tools return an explicit unsupported
-feature error when they cannot be represented. Native requests keep existing
-capabilities. This project does not add server-side conversation replay or
-promise that stateful IDs survive a scheduled upstream switch.
+Preserve the existing Copilot preprocessing and sanitization behavior described
+in [15](15-message-sanitization-pipeline.md), including removal of
+`redacted_thinking` and the currently filtered provider-specific blocks/metadata.
+Keep its regression fixtures. Rule migration must not turn those previously
+accepted requests into errors, and must not add a second legacy converter.
+
+For newly supported conversion directions, reject semantic content that the
+adapter cannot represent instead of silently dropping it. Examples include
+opaque provider state such as `previous_response_id`, encrypted reasoning,
+unsupported multimodal blocks and provider-specific tools. Existing native
+capabilities remain intact. This project does not add server-side conversation
+replay or promise that stateful IDs survive a scheduled upstream switch.
 
 The built-in GHC rule initially enables conversion. It preserves existing
 native/translated Copilot paths and must support its configured `auto` model in
@@ -235,11 +267,20 @@ Long requests settle into their captured window even after a reset. Concurrent
 requests admitted before exhaustion may finish over the allowance; no token
 reservation, stream truncation or distributed lock is required.
 
-Limit and multiplier edits affect later admission/charging without erasing
-already charged usage. Editing the next reset changes the end of the active
-window without clearing its balance; a new duration governs subsequent windows.
-If the new reset is already in the past, advance to its current cycle on save.
-Show the next reset and effective remaining allowance in the editor preview.
+Save allowance, duration and next reset atomically. Limit and multiplier edits
+do not erase charged usage. A future next reset changes only the active window's
+end, retaining its ID and balance; a new duration governs subsequent windows.
+For a newly enabled quota with a future reset, the initial window starts at
+enable time. Its first duration may differ from the later repeating duration.
+
+When advancing past a reset anchor `r`, for captured time `t >= r` and duration
+`d`, compute `n = floor((t - r) / d)` and use `[r + n*d, r + (n+1)*d)`.
+This applies to ordinary lazy advance and an edited reset that is already past.
+Retire the previous window from admission and create the current one with zero
+usage; do not manufacture skipped windows or overwrite old balances. Reject a
+stored window with `end <= start`. Retain old rows and settle by captured ID,
+including after recalibration; never locate a late debit by today's time range.
+Show the effective next reset and remaining allowance in the editor preview.
 Do not add a control for adjusting consumed usage or querying a provider's
 private billing system.
 
@@ -253,12 +294,28 @@ weighted_debit = T × multiplier_at_request_start
 remaining = max(0, allowance - sum(weighted_debits_in_window))
 ```
 
-OpenAI prompt counts usually already include cache reads: subtract that subset
-before adding the explicit cache category. Anthropic reports cache categories
-separately. Reasoning tokens already included in output are not added twice.
-Use finite positive multipliers and retain fractional weighted totals consistently.
+Normalize at the actual upstream response parser, before analytics defaults can
+erase information about missing usage:
+
+| Protocol | Uncached input | Cache input | Output |
+| --- | --- | --- | --- |
+| Chat Completions | `prompt_tokens - prompt_tokens_details.cached_tokens` | The reported cached subset | `completion_tokens` |
+| Responses | `input_tokens - input_tokens_details.cached_tokens` | The reported cached subset | `output_tokens` |
+| Anthropic Messages | Reported `input_tokens` | Separate `cache_read_input_tokens` and `cache_creation_input_tokens` | `output_tokens` |
+
+Both OpenAI input totals already include cached input. For example, Responses
+input 1,000 including 800 cached tokens and output 100 totals 1,100 at 1×, not
+1,900. Reasoning tokens included in output are not added twice. Missing cache
+breakdowns do not invalidate a reported inclusive input total or add an invented
+cache amount; missing totals remain unknown. Only observed, non-negative finite
+values enter normalized buckets.
+
+Use finite positive multipliers. Store weighted debits and window totals as
+SQLite `REAL` and retain their fractions during increments and admission checks;
+round only the UI presentation. Soft limits do not need a new fixed-point unit.
 For example, 100,000 tokens at 2× consume 200,000 of the configured 1× allowance;
-at 0.5× they consume 50,000. Cache categories use the same time multiplier.
+at 0.5× they consume 50,000. One token at 0.5× debits 0.5, never truncated to zero.
+Cache categories use the same time multiplier.
 
 Keep the analytics `input_tokens` and `total_tokens` meanings unchanged. Quota
 debits are additional accounting, not a relabeling of existing Monitor metrics.
@@ -266,23 +323,42 @@ Changing a multiplier does not recompute historical debits.
 
 Capture usage in the actual upstream execution path for JSON, SSE and server-tool
 subcalls. Request streaming usage from providers that support it. Debit each
-upstream call once; do not repeatedly sum cumulative stream usage frames or add
-both a tool-loop aggregate and its component calls. All subcalls of a single
-incoming request retain its selected target/window/multiplier. Observed usage
-counts even when the request later errors or the client disconnects.
+actual model API HTTP attempt once with a unique `(request_id, attempt_ordinal)`;
+server-tool rounds and existing same-provider credential/parameter replays get
+new ordinals. Do not repeatedly sum cumulative stream usage frames or add both
+a tool-loop aggregate and its component calls. All attempts in a single incoming
+request retain its selected target/window/multiplier. Observed usage counts even
+when the request later errors or the client disconnects.
 
-When usage is absent, record it as unknown rather than pretending it is zero or
-precisely estimated. Charge the observed categories, if any, and expose incomplete
-accounting in quota status. This is a known soft-limit accuracy boundary; no
-provider-specific billing estimator or strict budget guarantee is part of scope.
+Track whether the raw usage object and each required category were present.
+Explicit zero values are real zeros; omitted values remain unknown even if
+analytics later writes `?? 0`. Charge observed categories, if any, and expose
+incomplete accounting in quota status. Wholly absent usage creates an incomplete
+settlement with no observed debit, not a claim of accurate zero consumption.
+Never source debits from default-filled analytics fields. This is a known
+soft-limit accuracy boundary; no provider-specific billing estimator or strict
+budget guarantee is part of scope.
 
-Use an atomic, idempotent settlement in SQLite. An aggregate update and its debit
-record either both commit or neither does. The existing best-effort log sink must
-not be the only route to quota persistence. On a settlement storage failure,
-surface an operational error and mark that upstream's quota accounting unhealthy;
-do not silently keep admitting quota-controlled requests as if its balance were
-accurate. A process crash can lose the final unreported usage of in-flight calls;
-the accepted soft-limit model does not promise reconstruction of that usage.
+Use an atomic, idempotent settlement in SQLite. Insert the unique debit and,
+only if newly inserted, increment the window with `charged = charged + debit`
+in the same transaction. Never use an unlocked read/replace of the aggregate.
+The existing best-effort log sink is not the quota persistence path.
+
+On a settlement storage failure, preserve the original generation/stream outcome
+and emit an operational accounting error. Retain the failed debit and latch that
+upstream's accounting unhealthy in process. Before a later quota admission,
+composition attempts those retained idempotent local writes once; clear the latch
+only after all pending debits commit, not after an unrelated successful write.
+An unreadable ledger or unresolved latch returns 503 `quota_accounting_unavailable`
+and stops selection, without dispatch or skipping to another candidate. Targets
+with quota disabled ignore this admission latch; pending known debits remain
+eligible for settlement. No upstream replay, new background worker or manual
+consumed-token adjustment is involved.
+
+A storage failure cannot guarantee persistence of a health flag in that same
+unavailable database. A process crash can lose pending/unreported usage; this is
+the stated soft-limit boundary. Already committed usage survives restart, and a
+still-unreadable database prevents quota admission after restart as well.
 
 ## 8. Catalogs, refresh and manual testing
 
@@ -301,9 +377,10 @@ requests or an automatic auth-style retry loop.
 
 Restore Copilot's last good catalog at startup. Use a single non-overlapping
 background refresh with the existing one-hour cadence, including an initial
-refresh scheduled independently of model-list reads. On failure retain the cache
-and wait for the next normal interval; no tight retry loop. The Copilot JWT
-sentinel remains independent and continues renewing credentials normally.
+refresh scheduled independently of model-list reads and without blocking server
+listen. On failure retain the cache and wait for the next normal interval; no
+tight retry loop. The Copilot JWT sentinel remains independent and continues
+renewing credentials normally.
 
 `GET /v1/models` and Connect's model view use one shared catalog projection:
 `auto` once, then all known IDs from all current upstreams. Deduplicate without
@@ -316,9 +393,13 @@ Catalog data is descriptive, not routing input for choosing a provider.
 The management generation test names an upstream and raw model explicitly and
 bypasses key-rule selection. It uses the selected upstream's native protocol,
 one bounded non-streaming request asking for exactly `pong`, and no retry or
-fallback. Respect and charge that upstream's quota. Report generation success,
+fallback. This action must also disable existing generation replays for expired
+Copilot credentials and parameter repair; its first upstream error is final.
+Normal inference retains the existing same-provider behavior described in §5.
+Respect and charge that upstream's quota. Report generation success,
 latency and the actual bounded response separately from catalog refresh status;
-an unexpected answer is not a network/auth failure. Never run this diagnostic
+an unexpected answer is not a network/auth failure. Mark the request as a
+diagnostic in telemetry and the Requests drawer. Never run this diagnostic
 on page load, save, CI or routine automated verification.
 
 ## 9. Dashboard and API surfaces
@@ -331,8 +412,8 @@ changing framework API usage.
 
 | Surface | Responsibilities |
 | --- | --- |
-| `/routing/upstreams` | Protected Copilot entry; custom CRUD and single format; manual/fetched models; explicit Refresh Models and Test controls; last refresh/error; shared quota policy, use, multiplier and next reset. |
-| `/routing/rules` | Rule CRUD; default chain; daily/weekly editor and copy-day action; ordered targets with model select/free text; terminal fallback; conversion toggle and protocol compatibility preview. |
+| `/routing/upstreams` | Protected Copilot entry; custom CRUD and single format; manual/fetched models; explicit Refresh Models and Test controls; last refresh/error; shared quota policy, weighted use, 1× allowance, remaining, multiplier, next reset and accounting health/completeness. Use the same units as admission. |
+| `/routing/rules` | Rule CRUD; default chain; daily/weekly editor and copy-day action; ordered targets with model select/free text; terminal fallback; conversion toggle and protocol compatibility preview. Warn that a candidate with quota disabled makes later targets unreachable. |
 | `/connect` | Create/edit key bindings; show rule names; preserve revoke/delete and one-time raw-key display; update examples to explain `auto` and explicit models. |
 | `/api/upstreams` and `/api/upstreams/:id` | Read/write config and cached status only. Save does not probe upstreams. |
 | `POST /api/upstreams/:id/models/refresh` | Explicit discovery and atomic snapshot replacement. |
@@ -364,37 +445,59 @@ weighted usage and skip reasons to structured routing telemetry. The Requests
 drawer should make the selected rule, target and quota decision inspectable.
 Preserve request correlation, stream errors and the shared log-stream contract.
 
-Inference scope covers Messages, Chat Completions and Responses, including
-existing aliases. `/v1/messages/count_tokens` must resolve `auto` using the same
-decision without debiting quota or calling a provider, then use the local
-estimator. Model listing remains global. Embeddings retain their existing Copilot
-path and are not assigned chat models by this rule engine; document this explicit
-scope boundary in client-facing setup material.
+The generation protocol matrix covers Messages, Chat Completions and Responses,
+including existing aliases. `/v1/messages/count_tokens` resolves `auto` using the
+same decision without debiting quota or calling a provider, then uses the local
+estimator. Preserve its current `input_tokens: 1` fallback when a resolved model
+has no estimator metadata, and label it as unavailable estimation in telemetry;
+it is not real usage and must never feed quota accounting. Model listing remains
+global.
+
+Embeddings also authenticate, resolve the bound rule/time/target and participate
+in that upstream's shared quota. They must not be a direct-to-Copilot bypass.
+When the selected upstream is Copilot, reuse its existing native embeddings
+client and normalize its prompt-token usage into the same quota pool. Preserve
+explicit embedding model IDs. An `auto` request resolves the configured target
+model under the same rule; a known chat-only model is incompatible with the
+embeddings endpoint and must fail without selecting another target. Custom
+embedding transports and embedding protocol conversion are outside this change:
+a selected custom upstream returns an unsupported-endpoint error with zero
+upstream calls, never an implicit Copilot request. Document this capability
+boundary in Connect examples.
 
 ## 11. One-time migration and usable delivery steps
 
 The owner explicitly authorized migrating existing keys. This is a one-time
 data/schema change, not a retained compatibility router.
 
-1. In one versioned SQLite transaction, create the stable built-in Copilot
-   upstream/rule, map existing custom formats, add and backfill key rule bindings,
+1. Use fixed constants for the built-in upstream/rule IDs and a new
+   `PRAGMA user_version` checkpoint. In one versioned SQLite transaction, create
+   the built-in Copilot upstream/rule, map custom formats, backfill key bindings,
    and enforce non-null references. Preserve key IDs, hashes, revocation state,
    request history, upstream IDs/credentials, proxy options and auth settings.
+   Commit the version checkpoint in that transaction. Startup at the current
+   version performs no seeding/backfill and never resets user edits or bindings.
 2. Copy only exact existing model patterns into manual catalog IDs. Discard
    wildcards and then remove the pattern column/compiler/conflict code. No
    synthesized legacy routing rules: all existing keys bind to GHC as requested.
    Existing callers that depended on custom pattern routing must bind a new rule.
+   In the same transaction, save a small migration summary in the existing
+   settings table: retained exact IDs, discarded wildcard patterns and rebound
+   key IDs/names. Make it inspectable in Upstreams; include no secrets/hashes.
 3. Introduce the shared persistent catalog and independent Copilot refresh.
    An empty custom catalog stays empty until manual entry/refresh. Do not probe
    credentials during migration. Preserve the platform-directory migration
    semantics documented in AGENTS.md; those are unrelated to removing patterns.
-4. Ship a working all-day key-bound route and the Upstreams/Rules/Connect controls,
-   then layer daily/weekly schedules and shared quota selection/settlement on it.
-   Internal stages must preserve a working default Copilot route; the release is
-   not complete until the entire contract and conversion target are implemented.
-5. Complete missing native/custom Responses and conversion adapters, all affected
-   token-count/logging paths, and the isolated acceptance suite. Remove replaced
-   routes and duplicate selection code as their callers move.
+4. Complete the missing Messages-to-Responses adapter and verify the default
+   Responses-only `gpt-5.6-sol` fixture through all three generation entry points
+   before exposing `auto` in the first usable all-day route. Ship that route with
+   the Upstreams/Rules/Connect controls, then layer daily/weekly schedules and
+   shared quota selection/settlement on it. Each stage must keep the default
+   Copilot route usable.
+5. Complete remaining native/custom Responses and conversion directions, all
+   affected token-count/embeddings/logging paths, and the isolated acceptance
+   suite. Remove replaced routes and duplicate selection code as their callers
+   move. The release is not complete until the entire contract is implemented.
 
 Migration is transactional and idempotent across restart, checked on temporary
 legacy databases. Do not reset the user's daily database for development or tests.
@@ -406,21 +509,25 @@ add a new secret store, certificate operation or Keychain access.
 | Case | Required result |
 | --- | --- |
 | Existing-key migration | Raw keys still authenticate with unchanged identity/revocation; all bind GHC with conversion enabled and `auto = gpt-5.6-sol`; repeat startup does not overwrite edited rules or bindings. |
+| Database integrity | On a temporary legacy database, null/dangling key rule IDs fail at the SQLite layer; `foreign_key_check` is clean; a forced mid-migration failure rolls back the whole change; constraints remain active after reopening every connection. |
 | Authentication | Invalid/revoked/internal-management credentials never dispatch inference. Environment client credentials use their explicit GHC rule binding. |
 | Key relationship | Two keys share one rule; rebinding one affects only its later requests; deleting an in-use rule/upstream is rejected. |
 | Explicit versus auto | At the same time and quota state, both choose the same upstream; only `auto` substitutes the configured model. Unknown hardcoded IDs are sent without a catalog lookup. |
-| Time boundaries | Daily/weekly, half-hour boundaries, overnight spans, Sunday/Monday rollover, gaps, copied weekdays, UTC+08 and UTC+05:45 round trips; overlaps are rejected. |
+| Time boundaries | Daily/weekly, local half-hour steps, overnight spans, Sunday/Monday rollover, gaps, copied weekdays, UTC+08 and UTC+05:45 round trips; stable period IDs keep same-chain adjacent fragments separate; overlap rejects the whole copied week. |
 | Concurrent edits | Running requests keep their captured route, model, multiplier and window; later requests see the saved configuration. |
 | Shared quota | Multiple keys, rules and models share one upstream debit total; candidate order resumes after reset; restart retains usage; skipped cycles advance directly. |
-| Weighted quota | Cache-inclusive normalization without double counting; 0.5×/1×/2×; incomplete usage; limit edits preserve charges; in-flight overrun and late settlement stay in the original window. |
-| Settlement | Duplicate completion does not double debit; transactional storage failure cannot silently admit unlimited quota traffic; subcalls count once without aggregate duplication. |
+| Weighted quota | All three protocol normalization cases, including Responses input 1,000/cache 800/output 100 = 1,100; fractional single-token debits; absent versus explicit-zero usage; limit edits preserve charges; past/future reset edits retain late settlement by ID. |
+| Settlement | Distinct tool/retry attempts count once; concurrent increments are atomic; duplicate completion does not double debit; storage failure preserves the generation outcome, blocks quota admission without skipping, and clears only after pending local debits commit. |
 | Terminal fallback | Any configured upstream/model works; its own quota still applies; all exhausted returns 429; no implicit Copilot path. |
 | No failure switching | 400/401/404/429/5xx, timeout, protocol mismatch and SSE errors never dispatch the next candidate. |
-| Protocols | Native 3×3 diagonal with conversion off; permitted cross-protocol JSON/SSE and two-turn tool exchanges with conversion on; unsupported stateful/lossy features reject explicitly. |
+| Configuration failures | Empty chains, missing/disabled upstreams and unhealthy quota ledgers fail locally without selecting the next candidate; transport failures including DNS/TLS/408/422 likewise never change the selected target. |
+| Protocols | Native 3×3 diagonal with conversion off; all six non-diagonal cases reject with zero upstream calls; new API/UI rules default off when omitted; migrated GHC defaults on. With conversion on, test permitted JSON/SSE and two-turn tool exchanges; unsupported features in new directions reject explicitly. |
+| Copilot behavior | Existing sanitization, model-alias handling, server-tool interception and same-provider credential/parameter handling still pass their regression cases after key migration; no new provider/model fallback. |
 | Default model | Responses-only `gpt-5.6-sol` fixture works through the migrated rule for Messages, Chat Completions and Responses without endpoint-probing retries. |
+| Embeddings | Explicit models obey key/rule/time/quota; chat and embeddings consume the same Copilot allowance; incompatible `auto` models/custom targets fail without another upstream call; no implicit Copilot bypass. |
 | Cache-only reads | Model/Connect/Copilot page/API reads make zero discovery calls, including empty/stale caches; exactly one `auto`, deterministic exact-ID dedup, no UUID prefixes. |
 | Refresh | Only explicit custom refresh replaces fetched data; manual IDs and last good data survive failures/restart; only Copilot has a non-overlapping background refresh timer. |
-| Manual test | One click makes at most one native generation call, charges observed usage, and cannot trigger a refresh/retry/fallback. Automated cases use fixtures only. |
+| Manual test | One click makes at most one native generation call, including simulated expired-token 401 and repairable 400; charges observed usage; no refresh/replay/fallback. Automated cases use fixtures only. |
 | UI | Basalt controls, compact accessible layout, current timezone labels, week/day copying, rule binding without secret exposure, referenced-delete conflicts and error feedback. |
 
 Use real isolated SQLite state and a fake clock where time matters. Unit and
@@ -443,9 +550,21 @@ This section records review of the design, not implementation acceptance.
 
 | Reviewer | Revision | Result |
 | --- | --- | --- |
-| Author | R1 | Draft prepared against confirmed requirements and current source. |
-| Independent Codex | R1 | Pending. |
-| Independent Grok | R1 | Pending. |
+| Author | R2 | Revised against independent R1 findings and source evidence. |
+| Independent Codex | R1 → R2 | R1 withheld: one P1 and four P2 findings; R2 verification pending. |
+| Independent Grok | R1 → R2 | R1 withheld: eight P1, ten P2 and four P3 findings; R2 verification pending. |
+
+R2 clarifies accounting normalization and attempt identity, failure recovery,
+UTC fragment identity, database migration/constraints, cache-only startup,
+diagnostics and negative-path acceptance. It preserves existing Copilot
+sanitization and brings embeddings under key-bound routing and shared quotas.
+
+Three review proposals use simpler alternatives consistent with the contract:
+fractional SQLite `REAL` totals instead of a fixed-point unit; an in-process
+failed-debit latch with local replay instead of promising a durable health flag
+while SQLite is unavailable; and a usable default-route stage before completing
+the full conversion matrix, rather than dropping the remaining conversion target.
+These dispositions also require both reviewers' agreement before design sign-off.
 
 The document is ready for implementation planning only after actionable findings
 are resolved and both independent reviewers explicitly sign off the same revision.
