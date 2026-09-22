@@ -39,23 +39,42 @@ describe("explicit catalog refresh transport boundaries", () => {
     expect(headers.has(style === "bearer" ? "x-api-key" : "authorization")).toBe(false)
   })
 
-  test.each(["opaque rejection", null])("sanitizes a non-Error transport failure %j", async (failure) => {
+  test.each(["opaque rejection", null, "Bearer synthetic-key"])("retains sanitized non-Error transport evidence %j", async (failure) => {
     const provider = createProvider(fixture.db, { name: "fixture", base_url: "https://provider.fixture.invalid", format: "chat_completions", api_key: "synthetic-key" })
     fetcher.mockRejectedValueOnce(failure)
     const response = await refresh(provider.id)
     expect(response.status).toBe(503)
-    expect(await response.json()).toMatchObject({ error: { type: "catalog_refresh_failed", message: "Model refresh failed. Check the saved endpoint and credentials." } })
+    const body = await response.json()
+    expect(body).toMatchObject({ error: { type: "catalog_refresh_failed", message: `Model discovery failed: ${failure === "Bearer synthetic-key" ? "[REDACTED]" : String(failure)}`, details: { operation: "model_discovery", method: "GET", url: "https://provider.fixture.invalid/v1/models" } } })
+    expect(JSON.stringify(body)).not.toContain("synthetic-key")
+    expect(body.error.details).not.toHaveProperty("upstream_status")
     expect(fetcher).toHaveBeenCalledOnce()
   })
 
-  test("does not read an error body that could contain credentials", async () => {
+  test("retains HTTP evidence when reading the error body fails, without retrying", async () => {
     const provider = createProvider(fixture.db, { name: "fixture", base_url: "https://provider.fixture.invalid", format: "chat_completions", api_key: "synthetic-key" })
     const upstream = new Response("synthetic-key", { status: 503 })
     const read = vi.spyOn(upstream, "text").mockRejectedValue(new Error("body read failed"))
     fetcher.mockResolvedValueOnce(upstream)
     const response = await refresh(provider.id)
     expect(response.status).toBe(503)
-    expect(await response.json()).toMatchObject({ error: { type: "catalog_refresh_failed", message: "Model discovery returned HTTP 503" } })
-    expect(read).not.toHaveBeenCalled()
+    const body = await response.json()
+    expect(body).toMatchObject({ error: { type: "catalog_refresh_failed", message: "Model discovery failed: body read failed", details: { upstream_status: 503, url: "https://provider.fixture.invalid/v1/models" } } })
+    expect(body.error.details).not.toHaveProperty("response_body")
+    expect(JSON.stringify(body)).not.toContain("synthetic-key")
+    expect(read).toHaveBeenCalledTimes(1)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  test("includes a provider's error body only after removing the saved credential", async () => {
+    const provider = createProvider(fixture.db, { name: "fixture", base_url: "https://provider.fixture.invalid", format: "chat_completions", api_key: "synthetic-key" })
+    fetcher.mockResolvedValueOnce(Response.json({ error: "Unknown account synthetic-key", api_key: "synthetic-key" }, { status: 401 }))
+    const response = await refresh(provider.id)
+    expect(response.status).toBe(503)
+    const body = await response.json()
+    expect(body).toMatchObject({ error: { message: "Model discovery returned HTTP 401", details: { upstream_status: 401 } } })
+    expect(JSON.parse(body.error.details.response_body)).toEqual({ error: "Unknown account [REDACTED]", api_key: "[REDACTED]" })
+    expect(JSON.stringify(body)).not.toContain("synthetic-key")
+    expect(fetcher).toHaveBeenCalledTimes(1)
   })
 })

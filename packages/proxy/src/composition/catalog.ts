@@ -3,8 +3,8 @@ import { COPILOT_UPSTREAM_ID, RoutingError } from "../core/routing-types"
 import { getProviderRecord } from "../db/providers"
 import { recordCatalogError, replaceCatalog } from "../db/catalog"
 import { state } from "../lib/state"
-import { getModels, type Model } from "../services/copilot/get-models"
-import { discoverCustomModels } from "../upstream/catalog"
+import type { Model } from "../services/copilot/get-models"
+import { discoverModels } from "../upstream/catalog"
 
 const activeRefreshes = new WeakMap<Database, Map<string, Promise<void>>>()
 
@@ -27,15 +27,15 @@ export function refreshCatalog(db: Database, id: string, now = Date.now()): Prom
   if (!provider) return Promise.reject(new RoutingError("Upstream not found", "not_found", 404))
   const task = (async () => {
     try {
-      const models = provider.kind === "copilot" ? (await getModels()).data.map((model) => ({ ...model })) : await discoverCustomModels(provider)
+      const models = await discoverModels(provider)
       replaceCatalog(db, id, models, now)
       if (provider.kind === "copilot") restoreCopilotCatalog(db)
     } catch (error) {
-      const message = error instanceof Error && /^Model discovery (returned HTTP \d+|did not return a data array|returned an invalid model ID)$/.test(error.message)
+      const message = error instanceof RoutingError && error.type === "catalog_refresh_failed"
         ? error.message
         : "Model refresh failed. Check the saved endpoint and credentials."
       recordCatalogError(db, id, message)
-      throw new RoutingError(message, "catalog_refresh_failed", 503)
+      throw new RoutingError(message, "catalog_refresh_failed", 503, [], error instanceof RoutingError ? error.details : undefined)
     } finally {
       active?.delete(id)
     }

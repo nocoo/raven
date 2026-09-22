@@ -1,6 +1,6 @@
 import type { Context } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import { RoutingError } from "../core/routing-types"
+import { RoutingError, type UpstreamOperationDetails } from "../core/routing-types"
 import { Socks5BridgeUnavailableError } from "./socks5-bridge"
 
 /** Protocol-layer failures from shim translators (name-matched; no lib→protocols import). */
@@ -20,7 +20,7 @@ export class HTTPError extends Error {
   status: number
   responseBody: string
 
-  constructor(message: string, status: number, responseBody = "") {
+  constructor(message: string, status: number, responseBody = "", public readonly details?: UpstreamOperationDetails) {
     super(message)
     this.status = status
     this.responseBody = responseBody

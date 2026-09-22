@@ -1,16 +1,18 @@
 import type { Database } from "bun:sqlite"
 import { Hono } from "hono"
+import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { RoutingError } from "../core/routing-types"
 import { createProvider, deleteProvider, getProvider, listProviders, updateProvider } from "../db/providers"
 import { getRoutingMigrationSummary } from "../db/routing-migration"
 import { refreshCatalog } from "../composition/catalog"
 import { runUpstreamDiagnostic } from "../composition/diagnostic"
-import { forwardError } from "../lib/error"
+import { forwardError, HTTPError } from "../lib/error"
 
 export function createUpstreamsRoute(db: Database): Hono {
   const route = new Hono()
   route.onError((error, c) => {
-    if (error instanceof RoutingError) return c.json({ error: { type: error.type, message: error.message, references: error.references } }, error.status)
+    if (error instanceof RoutingError) return c.json({ error: { type: error.type, message: error.message, references: error.references, details: error.details } }, error.status)
+    if (error instanceof HTTPError && error.details) return c.json({ error: { type: "diagnostic_failed", message: error.message, details: error.details } }, error.status as ContentfulStatusCode)
     if (error instanceof SyntaxError) return c.json({ error: { type: "validation_error", message: "Invalid JSON body" } }, 400)
     return forwardError(c, error)
   })

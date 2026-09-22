@@ -2,29 +2,37 @@ import type { Database } from "bun:sqlite"
 import type { Context } from "hono"
 import { buildContext } from "../core/context"
 import { declaredProtocols, formatProtocol, pickStrategy, type ClientProtocol } from "../core/router"
-import { RoutingError, type RoutingRule } from "../core/routing-types"
+import { RoutingError, type RoutingRule, type UpstreamDiagnostic, type UpstreamOperationDetails } from "../core/routing-types"
 import { selectRoutingTarget } from "../core/routing-selector"
 import { logRequestError, logRequestStart, requestIdentity } from "../core/request-log"
 import { routingLog } from "../core/routing-log"
 import { getProviderRecord } from "../db/providers"
 import { getQuotaStatus, recoverQuotaSettlements } from "../db/quota"
 import { logEmitter } from "../util/log-emitter"
+import { ClientInputError, HTTPError } from "../lib/error"
+import { Socks5BridgeUnavailableError } from "../lib/socks5-bridge"
+import { captureOperationFetch, redactUpstreamText } from "../lib/upstream-operation"
 import { buildStrategy } from "./strategy-registry"
 import { accountedFetch } from "./routing"
 
-function answerText(value: unknown, protocol: ClientProtocol): string {
-  const body = value as {
-    content?: { type: string; text?: string }[]
-    choices?: { message?: { content?: string } }[]
-    output_text?: string
-    output?: { content?: { type: string; text?: string }[] }[]
-  }
-  if (protocol === "anthropic") return body.content?.filter((b) => b.type === "text").map((b) => b.text ?? "").join("") ?? ""
-  if (protocol === "openai") return body.choices?.[0]?.message?.content ?? ""
-  return body.output_text ?? body.output?.flatMap((item) => item.content ?? []).filter((b) => b.type === "output_text").map((b) => b.text ?? "").join("") ?? ""
+function textBlocks(value: unknown, type: string): string {
+  if (!Array.isArray(value)) return ""
+  return value.map((block: unknown) => block && typeof block === "object" && "type" in block && block.type === type && "text" in block && typeof block.text === "string" ? block.text : "").join("")
 }
 
-export async function runUpstreamDiagnostic(c: Context, db: Database, id: string, model: string) {
+function answerText(value: unknown, protocol: ClientProtocol): string {
+  if (!value || typeof value !== "object") return ""
+  const body = value as Record<string, unknown>
+  if (protocol === "anthropic") return textBlocks(body.content, "text")
+  if (protocol === "openai") {
+    const content = (Array.isArray(body.choices) ? body.choices[0]?.message?.content : null) as unknown
+    return typeof content === "string" ? content : textBlocks(content, "text")
+  }
+  if (typeof body.output_text === "string") return body.output_text
+  return Array.isArray(body.output) ? body.output.map((item: unknown) => item && typeof item === "object" && "content" in item ? textBlocks(item.content, "output_text") : "").join("") : ""
+}
+
+export async function runUpstreamDiagnostic(c: Context, db: Database, id: string, model: string): Promise<UpstreamDiagnostic> {
   if (!model.trim() || model === "auto") throw new RoutingError("Choose an explicit model for the test")
   const now = Date.now()
   const upstream = getProviderRecord(db, id)
@@ -36,6 +44,8 @@ export async function runUpstreamDiagnostic(c: Context, db: Database, id: string
   ctx.admittedAt = now
   ctx.diagnostic = true
   ctx.signal = AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(15000)])
+  const details: UpstreamOperationDetails = { operation: "generation_test", request_id: ctx.requestId }
+  const secrets = [upstream.api_key]
   c.set("routingDb", db)
   logRequestStart(ctx, model)
   try {
@@ -57,7 +67,7 @@ export async function runUpstreamDiagnostic(c: Context, db: Database, id: string
     ctx.upstreamProtocol = decision.upstreamProtocol
     const strategy = buildStrategy(decision, {
       provider: upstream, toolCallDebug: false, allowEffortRepair: false,
-      transport: { fetch: accountedFetch(c, ctx, protocol), allowReplay: false },
+      transport: { fetch: captureOperationFetch(details, secrets, accountedFetch(c, ctx, protocol)), allowReplay: false },
     })
     const messages = [{ role: "user", content: "ping. Reply with exactly pong." }]
     const body = protocol === "responses"
@@ -76,7 +86,9 @@ export async function runUpstreamDiagnostic(c: Context, db: Database, id: string
       await result.chunks[Symbol.asyncIterator]().return?.()
       throw new Error("The diagnostic returned an unexpected stream")
     }
-    const answer = answerText(strategy.adaptJson(result.body, wire, ctx), protocol).slice(0, 1024)
+    const rawAnswer = answerText(strategy.adaptJson(result.body, wire, ctx), protocol)
+    const safeAnswer = redactUpstreamText(rawAnswer, secrets)
+    const answer = safeAnswer.slice(0, 1024)
     const latency_ms = Math.round(performance.now() - ctx.startTime)
     logEmitter.emitLog({
       ts: Date.now(), level: "info", type: "request_end", requestId: ctx.requestId,
@@ -87,9 +99,14 @@ export async function runUpstreamDiagnostic(c: Context, db: Database, id: string
         latencyMs: latency_ms, status: "success", statusCode: 200, upstreamStatus: 200,
       },
     })
-    return { success: true, latency_ms, model: decision.model, protocol, answer, expected_pong: answer.trim().toLowerCase() === "pong" }
+    return { success: true, latency_ms, model: decision.model, protocol, answer, expected_pong: rawAnswer.trim().toLowerCase() === "pong", answer_truncated: safeAnswer.length > 1024, details }
   } catch (error) {
-    logRequestError(ctx, error, { model, diagnostic: true })
-    throw error
+    const message = error instanceof SyntaxError ? "The upstream diagnostic did not return valid JSON" : redactUpstreamText(error instanceof Error ? error.message : String(error), secrets).slice(0, 512)
+    const status = error instanceof HTTPError || error instanceof ClientInputError ? error.status : error instanceof SyntaxError || error instanceof Socks5BridgeUnavailableError ? 502 : 500
+    const failure = error instanceof RoutingError
+      ? new RoutingError(message, error.type, error.status, error.references, details)
+      : new HTTPError(message, status, error instanceof HTTPError ? details.response_body : "", details)
+    logRequestError(ctx, failure, { model, diagnostic: true })
+    throw failure
   }
 }

@@ -3,6 +3,8 @@ import { COPILOT_UPSTREAM_ID } from "../../src/core/routing-types"
 import { refreshCatalog, restoreCopilotCatalog, startCopilotCatalogRefresh } from "../../src/composition/catalog"
 import { getProviderRecord } from "../../src/db/providers"
 import { replaceCatalog } from "../../src/db/catalog"
+import * as catalogStore from "../../src/db/catalog"
+import * as bridge from "../../src/lib/socks5-bridge"
 import { state } from "../../src/lib/state"
 import { routingHarness, jsonResponse } from "../helpers/routing"
 
@@ -72,11 +74,11 @@ test("network failures retain catalogs and a later explicit refresh can recover"
 test("the independent Copilot timer does not block startup or retry after a failure", async () => {
   vi.useFakeTimers()
   network.mockRejectedValue(new Error("fixture outage"))
-  const stop = startCopilotCatalogRefresh(h.db, 1000)
+  const stop = startCopilotCatalogRefresh(h.db)
   expect(network).not.toHaveBeenCalled()
   await vi.advanceTimersByTimeAsync(0)
   expect(network).toHaveBeenCalledTimes(1)
-  await vi.advanceTimersByTimeAsync(999)
+  await vi.advanceTimersByTimeAsync(60 * 60 * 1000 - 1)
   expect(network).toHaveBeenCalledTimes(1)
   network.mockResolvedValue(jsonResponse({ data: [] }))
   await vi.advanceTimersByTimeAsync(1)
@@ -84,6 +86,28 @@ test("the independent Copilot timer does not block startup or retry after a fail
   stop()
   await vi.advanceTimersByTimeAsync(1000)
   expect(network).toHaveBeenCalledTimes(2)
+})
+
+test("a catalog persistence failure retains cached state without exposing database internals", async () => {
+  const up = h.upstream()
+  replaceCatalog(h.db, up.id, [{ id: "previous" }], 10)
+  vi.spyOn(catalogStore, "replaceCatalog").mockImplementationOnce(() => { throw new Error("fixture database connection detail") })
+  network.mockResolvedValueOnce(jsonResponse({ data: [{ id: "new" }] }))
+  await expect(refreshCatalog(h.db, up.id)).rejects.toMatchObject({
+    type: "catalog_refresh_failed", message: "Model refresh failed. Check the saved endpoint and credentials.",
+  })
+  expect(getProviderRecord(h.db, up.id)).toMatchObject({ models: [{ id: "previous" }], last_refreshed_at: 10, last_refresh_error: "Model catalog refresh failed" })
+})
+
+test("discovery preserves proxy transport policy and sanitizes non-Error network failures", async () => {
+  const up = h.upstream()
+  vi.spyOn(bridge, "getProxyUrl").mockReturnValueOnce("http://127.0.0.1:65432")
+  network.mockRejectedValueOnce(`fixture network rejection ${up.api_key}`)
+  await expect(refreshCatalog(h.db, up.id)).rejects.toMatchObject({
+    message: "Model discovery failed: fixture network rejection [REDACTED]",
+    details: { operation: "model_discovery", method: "GET", url: "https://upstream.invalid/v1/models" },
+  })
+  expect(network).toHaveBeenCalledWith("https://upstream.invalid/v1/models", expect.objectContaining({ proxy: "http://127.0.0.1:65432" }))
 })
 
 test("an in-progress Copilot timer refresh is never overlapped", async () => {

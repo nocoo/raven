@@ -96,6 +96,30 @@ export interface ProviderPublic extends Omit<UpstreamRecord, "api_key"> {
   quota_status: QuotaStatus
 }
 
+export interface UpstreamOperationDetails {
+  operation: "model_discovery" | "generation_test"
+  method?: string
+  url?: string
+  upstream_status?: number
+  content_type?: string
+  request_id?: string
+  response_body?: string
+  response_body_truncated?: boolean
+  finish_reason?: string
+  response_status?: string
+}
+
+export interface UpstreamDiagnostic {
+  success: true
+  latency_ms: number
+  model: string
+  protocol: string
+  answer: string
+  expected_pong: boolean
+  answer_truncated: boolean
+  details: UpstreamOperationDetails
+}
+
 export interface CreateProviderInput {
   name: string
   base_url: string
@@ -183,6 +207,7 @@ export class RoutingError extends Error {
     public readonly type: string = "validation_error",
     public readonly status: 400 | 404 | 409 | 429 | 503 = 400,
     public readonly references: RoutingReference[] = [],
+    public readonly details?: UpstreamOperationDetails,
   ) {
     super(message)
     this.name = "RoutingError"
