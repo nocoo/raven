@@ -142,6 +142,37 @@ function parseField(line: string): { field: string; value: string } | null {
   return { field, value };
 }
 
+interface LineScanState {
+  fragments: string[];
+  skipLF: boolean;
+}
+
+function takeLines(
+  chunk: string,
+  state: LineScanState,
+): string[] {
+  const lines: string[] = [];
+  let start = 0;
+  for (let i = 0; i < chunk.length; i++) {
+    const c = chunk.charCodeAt(i);
+    if (state.skipLF) {
+      state.skipLF = false;
+      if (c === 10) {
+        start = i + 1;
+        continue;
+      }
+    }
+    if (c !== 10 && c !== 13) continue;
+    state.fragments.push(chunk.slice(start, i));
+    lines.push(state.fragments.join(""));
+    state.fragments.length = 0;
+    state.skipLF = c === 13;
+    start = i + 1;
+  }
+  if (start < chunk.length) state.fragments.push(chunk.slice(start));
+  return lines;
+}
+
 /**
  * Convert a fetch `Response` body into an async generator of SSE event objects.
  *
@@ -164,7 +195,7 @@ export async function* events(
 
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
-  let buffer = "";
+  const scan: LineScanState = { fragments: [], skipLF: false };
 
   // Accumulated fields for current event
   let data: string[] = [];
@@ -229,29 +260,26 @@ export async function* events(
       const { done, value } = await reader.read();
 
       if (done) {
-        // Process remaining buffer
-        if (buffer) {
-          const lines = buffer.split(/\r\n|\r|\n/);
-          for (const line of lines) {
+        const tail = decoder.decode();
+        if (tail) {
+          for (const line of takeLines(tail, scan)) {
             const event = processLine(line);
             if (event) yield event;
           }
         }
-        // Dispatch any pending event (fields accumulated but no trailing blank line)
+        if (scan.fragments.length > 0) {
+          const line = scan.fragments.join("");
+          scan.fragments.length = 0;
+          const event = processLine(line);
+          if (event) yield event;
+        }
         const event = buildEvent();
         if (event) yield event;
         break;
       }
 
-      buffer += decoder.decode(value, { stream: true });
-
-      // Split on newlines (CR, LF, or CRLF)
-      const lines = buffer.split(/\r\n|\r|\n/);
-
-      // Last element may be incomplete — keep it in buffer
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
+      const text = decoder.decode(value, { stream: true });
+      for (const line of takeLines(text, scan)) {
         const event = processLine(line);
         if (event) yield event;
       }
