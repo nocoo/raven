@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.8.1
+
+### Changed
+- Organize API Keys and Models into a 1:3 distribution and detail layout, with stable identities, cross-dimension breakdowns and protocol usage.
+- Move key and model selection to page-level tabs above all statistics, with unified loading skeletons and read-only distribution rings.
+- Add a dashed cache hit rate curve on a secondary percentage axis to every Token composition chart, preserving gaps for unobserved usage.
+
+### Fixed
+- Restore fixed positioning for request details and setup overlays so their content remains visible above the backdrop.
+- Preserve full distribution totals, historical key groups and cross-filters while switching identities; hide stale drill-down links during loading.
+
 ## v2.8.0
 
 ### Added
