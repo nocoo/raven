@@ -248,6 +248,7 @@ export type AnthropicStreamEventData =
 
 // State for streaming translation
 export interface AnthropicStreamState {
+  refusalSeen: boolean
   messageStartSent: boolean
   contentBlockIndex: number
   contentBlockOpen: boolean

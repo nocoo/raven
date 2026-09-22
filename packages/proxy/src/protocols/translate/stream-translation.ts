@@ -8,6 +8,7 @@ import { mapOpenAIStopReasonToAnthropic } from "./stop-reason"
 
 export function createAnthropicStreamState(): AnthropicStreamState {
   return {
+    refusalSeen: false,
     messageStartSent: false,
     contentBlockIndex: 0,
     contentBlockOpen: false,
@@ -160,7 +161,9 @@ export function translateChunkToAnthropicEvents(
     state.messageStartSent = true
   }
 
-  if (delta.content) {
+  if (typeof delta.refusal === "string" && delta.refusal.length > 0) state.refusalSeen = true
+  for (const text of [delta.content, delta.refusal]) {
+    if (typeof text !== "string" || text.length === 0) continue
     if (!state.contentBlockOpen) {
       events.push({
         type: "content_block_start",
@@ -178,7 +181,7 @@ export function translateChunkToAnthropicEvents(
       index: state.contentBlockIndex,
       delta: {
         type: "text_delta",
-        text: delta.content,
+        text,
       },
     })
   }
@@ -198,7 +201,7 @@ export function translateChunkToAnthropicEvents(
       })
       state.contentBlockOpen = false
     }
-    state.stopReason = mapOpenAIStopReasonToAnthropic(choice.finish_reason)
+    state.stopReason = state.refusalSeen ? "refusal" : mapOpenAIStopReasonToAnthropic(choice.finish_reason)
   }
 
   return events

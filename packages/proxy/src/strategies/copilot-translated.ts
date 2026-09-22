@@ -143,7 +143,7 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
           inputTokens: result.state.inputTokens,
           outputTokens: result.state.outputTokens,
           cacheReadTokens: result.state.cacheReadTokens,
-          stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
+          stopReason: result.state.stopReason,
           toolCallCount,
           ...debugExtras,
         }

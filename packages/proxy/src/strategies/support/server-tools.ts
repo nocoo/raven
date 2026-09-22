@@ -219,8 +219,8 @@ async function handlePureServerSideTools(
     type: "message",
     role: "assistant",
     model: synthesisResp.model,
-    stop_reason: "end_turn",
-    stop_sequence: null,
+    stop_reason: synthesisResp.stop_reason,
+    stop_sequence: synthesisResp.stop_sequence,
     content: [
       {
         type: "server_tool_use",
@@ -564,6 +564,7 @@ export async function decorate(input: DecorateInput): Promise<Response> {
         clientName: log.clientName,
         clientVersion: log.clientVersion,
         ...(log.extras ?? {}),
+        stopReason: response.stop_reason,
       },
     })
 

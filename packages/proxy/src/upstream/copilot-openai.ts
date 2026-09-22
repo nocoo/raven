@@ -76,6 +76,7 @@ export interface ChatCompletionChunk {
 }
 
 interface Delta {
+  refusal?: string | null
   content: string | null
   role: "user" | "assistant" | "system" | "tool" | null
   tool_calls: Array<{

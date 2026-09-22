@@ -188,6 +188,7 @@ function makeComplexResponse(): ChatCompletionResponse {
 
 function makeState(): AnthropicStreamState {
   return {
+    refusalSeen: false,
     messageStartSent: false,
     contentBlockIndex: 0,
     contentBlockOpen: false,

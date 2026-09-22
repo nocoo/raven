@@ -317,7 +317,7 @@ describe("Anthropic ↔ Chat semantic contracts", () => {
     expect(textFrom(translated)).toBe("hello world")
   })
 
-  test.fails("BUG R08: an explicit OpenAI refusal must not become an empty successful turn", () => {
+  test("BUG R08: an explicit OpenAI refusal must not become an empty successful turn", () => {
     const translated = translateToAnthropic({
       id: "chat-refusal", object: "chat.completion", created: 1, model: "audit-model", system_fingerprint: null,
       choices: [{

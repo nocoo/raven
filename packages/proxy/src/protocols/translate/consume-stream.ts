@@ -22,6 +22,7 @@ export async function consumeStreamToResponse(
   let model = ""
   let created = 0
   let content = ""
+  let refusal = ""
   let finishReason: "stop" | "length" | "tool_calls" | "content_filter" = "stop"
 
   const toolCallMap = new Map<number, { id: string; name: string; arguments: string }>()
@@ -54,6 +55,8 @@ export async function consumeStreamToResponse(
     if (choice.delta?.content) {
       content += choice.delta.content
     }
+
+    if (typeof choice.delta?.refusal === "string") refusal += choice.delta.refusal
 
     if (choice.delta?.tool_calls) {
       for (const tc of choice.delta.tool_calls) {
@@ -98,6 +101,7 @@ export async function consumeStreamToResponse(
         message: {
           role: "assistant",
           content: content || null,
+          ...(refusal ? { refusal } : {}),
           tool_calls: toolCalls.length > 0 ? toolCalls : null,
         },
         logprobs: null,

@@ -83,7 +83,7 @@ describe("strategies/custom-openai", () => {
     expect(st.outputTokens).toBe(0)
     const response = { ...makeJsonResp(), usage: undefined } as unknown as ChatCompletionResponse
     expect(s.describeEndLog({ kind: "json", req, resp: response }, makeCtx())).toMatchObject({ inputTokens: 0, outputTokens: 0 })
-    expect(s.describeEndLog({ kind: "stream", req, state: st }, makeCtx())).toMatchObject({ stopReason: "end_turn", toolCallCount: 0 })
+    expect(s.describeEndLog({ kind: "stream", req, state: st }, makeCtx())).toMatchObject({ stopReason: originalModel ? null : "end_turn", toolCallCount: 0 })
   })
 
   let captured: LogEvent[]
@@ -184,6 +184,7 @@ describe("strategies/custom-openai", () => {
   test("passthrough describeEndLog stream arm uses state", () => {
     const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st: CustomOpenAIStreamState = {
+      refusalSeen: false,
       messageStartSent: false, contentBlockIndex: 0, contentBlockOpen: false, toolCalls: {},
       stopReason: null, messageStopSent: false, lastUsage: null,
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
@@ -295,8 +296,9 @@ describe("strategies/custom-openai", () => {
   test("translated describeEndLog stream arm uses state.originalModel", () => {
     const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st: CustomOpenAIStreamState = {
+      refusalSeen: false,
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
-      stopReason: null, messageStopSent: false, lastUsage: null,
+      stopReason: "end_turn", messageStopSent: false, lastUsage: null,
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
       inputTokens: 22, outputTokens: 13, cacheReadTokens: 6,
       upstream: "myco", upstreamFormat: "openai",

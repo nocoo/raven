@@ -225,7 +225,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
             cacheReadTokens: result.state.cacheReadTokens,
             upstream: result.state.upstream,
             upstreamFormat: result.state.upstreamFormat,
-            stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
+            stopReason: result.state.stopReason,
             toolCallCount,
             ...debugExtras,
           }

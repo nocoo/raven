@@ -628,6 +628,7 @@ export function translateToAnthropic(
 ): AnthropicResponse {
   const choices = response.choices
   const allTextBlocks: Array<AnthropicTextBlock> = []
+  let refusalSeen = false
   const allToolUseBlocks: Array<AnthropicToolUseBlock> = []
   let stopReason: "stop" | "length" | "tool_calls" | "content_filter" | null =
     choices[0]?.finish_reason ?? null
@@ -636,6 +637,10 @@ export function translateToAnthropic(
   for (let i = 0; i < choices.length; i++) {
     const choice = choices[i]!
     appendAnthropicTextBlocks(choice.message.content, allTextBlocks)
+    if (typeof choice.message.refusal === "string" && choice.message.refusal.length > 0) {
+      allTextBlocks.push({ type: "text", text: choice.message.refusal })
+      refusalSeen = true
+    }
     appendAnthropicToolUseBlocks(choice.message.tool_calls, allToolUseBlocks)
 
     // Use the finish_reason from the first choice, or prioritize tool_calls
@@ -668,7 +673,7 @@ export function translateToAnthropic(
     role: "assistant",
     model: originalModel ?? response.model,
     content,
-    stop_reason: mapOpenAIStopReasonToAnthropic(stopReason),
+    stop_reason: refusalSeen ? "refusal" : mapOpenAIStopReasonToAnthropic(stopReason),
     stop_sequence: null,
     usage: {
       input_tokens: promptTokens - cachedTokens,

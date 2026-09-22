@@ -185,8 +185,9 @@ describe("strategies/copilot-translated", () => {
   test("describeEndLog stream arm uses state", () => {
     const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), toolCallDebug: false })
     const st: CopilotTranslatedStreamState = {
+      refusalSeen: false,
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
-      stopReason: null, messageStopSent: false, lastUsage: null,
+      stopReason: "end_turn", messageStopSent: false, lastUsage: null,
       resolvedModel: "gpt-4o-r",
       inputTokens: 22, outputTokens: 13, cacheReadTokens: 8,
       originalModel: "claude-3-5",
