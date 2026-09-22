@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { ThemeProvider, TooltipProvider } from "@nocoo/basalt";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RulesContent } from "@/app/routing/rules/rules-content";
 import { AppShell } from "@/components/layout/app-shell";
@@ -22,9 +23,10 @@ const workbench = () => <ThemeProvider defaultTheme="dark" persist={false} apply
 </LogDockProvider></TooltipProvider></ThemeProvider>;
 
 describe("responsive routing shell", () => {
-  it("keeps the mobile page title and actions without competing breadcrumbs, preserving drafts across resize", () => {
+  it("keeps the mobile page title and actions without competing breadcrumbs, preserving drafts across resize", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
     const { rerender } = render(workbench());
+    await userEvent.setup({ delay: null }).click(screen.getByRole("tab", { name: /^Schedule/ }));
     const header = within(screen.getByRole("main").querySelector("header")!);
     expect(header.getByRole("heading", { name: "Routing Rules" })).toBeVisible();
     expect(header.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();

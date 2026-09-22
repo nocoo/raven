@@ -27,11 +27,6 @@ export function minuteLabel(minute: number): string {
   return `${Math.floor(value / 60).toString().padStart(2, "0")}:${(value % 60).toString().padStart(2, "0")}`;
 }
 
-export function offsetLabel(offset: number): string {
-  const absolute = Math.abs(offset);
-  return `UTC${offset <= 0 ? "+" : "−"}${Math.floor(absolute / 60).toString().padStart(2, "0")}:${(absolute % 60).toString().padStart(2, "0")}`;
-}
-
 export function cycleMinutes(mode: ScheduleMode): number {
   return mode === "weekly" ? WEEK : DAY;
 }
@@ -132,11 +127,6 @@ export function utcDateTime(local: string, offset: number): number {
   const wallTime = Date.parse(`${local}:00Z`);
   if (!Number.isFinite(wallTime) || new Date(wallTime).toISOString().slice(0, 16) !== local) return Number.NaN;
   return wallTime + offset * 60_000;
-}
-
-export function utcWindowLabel(window: UtcWindow<unknown>, mode: ScheduleMode): string {
-  const day = mode === "weekly" ? `${DAYS[Math.floor(window.start_minute / DAY)]!.slice(0, 3)} ` : "";
-  return `${day}${minuteLabel(window.start_minute % DAY)}–${minuteLabel(window.end_minute % DAY || DAY)} UTC`;
 }
 
 export function availableWindow<T>(windows: LocalWindow<T>[], day: number, mode: ScheduleMode): { start: number; end: number } | null {

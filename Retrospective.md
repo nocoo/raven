@@ -46,6 +46,14 @@ The package suites passed, but `test:root` forced every Vitest project through B
 
 A subsequent normal pre-commit rejected a rule-deletion test that exceeded its existing five-second timeout under load. The test rendered a weekly timetable unrelated to deletion. It now uses a small all-day fixture while preserving cancel, reference-conflict, successful-delete and exact-request assertions; asynchronous UI assertions wait for completion. One focused check was mistakenly invoked through the full-scope coverage command: its 11 tests passed, but coverage correctly failed and was not counted as a passing gate. The unchanged complete commit gates remain the acceptance check.
 
+## 2026-09-23: An internal status request reached the user
+
+While coordinating browser verification, the coordinator sent a worker-status question through the user-input tool. The user was asked to supply information that belonged in the agent mailbox. No application state changed. The coordinator clarified that no response was needed and continued verification. Internal coordination must use the worker mailbox; user-input tools are reserved for missing user decisions or information.
+
+## 2026-09-23: Local dates disagreed during hydration
+
+The Routing acceptance runner now forces its isolated Next server to UTC while Chrome uses Asia/Shanghai. Its interactions passed, but a fresh Connect load reported React hydration error 418 because key dates were rendered directly in both environments and fell on different calendar days. Requests and Analytics already deferred local formatting until hydration; Connect and the account assignment date now use the same component. A regression checks server placeholders, a browser day rollover, the valid zero timestamp and zero recovery errors. The browser run must pass its error assertion as well as its interaction checks.
+
 ## Undated entries migrated from the previous handbook
 
 

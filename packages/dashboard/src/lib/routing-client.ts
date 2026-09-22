@@ -1,4 +1,27 @@
-export interface ApiErrorDetail { message: string; type?: string; references?: unknown }
+import type { UpstreamDiagnostic, UpstreamOperationDetails } from "./routing-types";
+
+export interface ApiErrorDetail { message: string; type?: string; references?: unknown; details?: UpstreamOperationDetails }
+
+export interface FailedRequest {
+  method: string;
+  path: string;
+  status?: number;
+  content_type?: string;
+  response_body?: string;
+  response_body_truncated?: boolean;
+}
+
+export class RoutingRequestError extends Error {
+  constructor(message: string, public readonly request: FailedRequest, public readonly detail?: ApiErrorDetail) {
+    super(message);
+    this.name = "RoutingRequestError";
+  }
+}
+
+export type RoutingFeedback =
+  | { kind: "success"; message: string }
+  | { kind: "error"; title: string; cause: unknown }
+  | { kind: "diagnostic"; result: UpstreamDiagnostic };
 
 export function apiErrorDetail(body: unknown): ApiErrorDetail | undefined {
   if (!body || typeof body !== "object" || !("error" in body)) return undefined;
@@ -13,8 +36,17 @@ export function errorMessage(error: unknown): string {
 }
 
 export async function routingRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
-  const body: unknown = await response.json().catch(() => null);
+  const request: FailedRequest = { method: init?.method ?? "GET", path };
+  let response: Response;
+  let raw: string;
+  try {
+    response = await fetch(path, init);
+    raw = await response.text();
+  } catch (cause) {
+    throw new RoutingRequestError(errorMessage(cause), request);
+  }
+  let body: unknown = null;
+  try { body = JSON.parse(raw); } catch { /* An HTML or empty error response is still useful diagnostic evidence. */ }
   if (!response.ok) {
     const detail = apiErrorDetail(body);
     let message = detail?.message ?? `Request failed (${response.status}).`;
@@ -29,7 +61,10 @@ export async function routingRequest<T>(path: string, init?: RequestInit): Promi
       });
       message += ` Referenced by: ${names.join(", ")}.`;
     }
-    throw new Error(message);
+    throw new RoutingRequestError(message, {
+      ...request, status: response.status, content_type: response.headers.get("content-type") ?? "Unknown",
+      ...(!detail ? { response_body: raw.slice(0, 8192), response_body_truncated: raw.length > 8192 } : {}),
+    }, detail);
   }
   return body as T;
 }

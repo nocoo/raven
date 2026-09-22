@@ -20,13 +20,16 @@ function ChainHarness({ initial = [custom, copilot], onChange = vi.fn() }: { ini
 }
 
 describe("ordered target controls", () => {
-  it("exposes terminal semantics and native/blocked protocol preview", () => {
+  it("exposes terminal semantics and keeps the native/blocked protocol preview available on demand", async () => {
     render(<ChainHarness />);
     const rows = within(screen.getByRole("list", { name: "Test chain targets" })).getAllByRole("listitem");
     expect(within(rows[0]!).getByText("Quota candidate")).toBeVisible();
     expect(within(rows[1]!).getByText("Terminal fallback")).toBeVisible();
-    expect(within(rows[0]!).getByText("Chat:", { exact: false })).toHaveTextContent("Native");
-    expect(within(rows[0]!).getByText("Responses:", { exact: false })).toHaveTextContent("Blocked");
+    expect(screen.queryByRole("region", { name: "Target 1 protocol preview" })).toBeNull();
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: "Protocol preview" }));
+    const preview = within(screen.getByRole("region", { name: "Target 1 protocol preview" }));
+    expect(preview.getByText("Chat:", { exact: false })).toHaveTextContent("Native");
+    expect(preview.getByText("Responses:", { exact: false })).toHaveTextContent("Blocked");
     expect(screen.getByRole("button", { name: "Move target 1 up" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Move target 2 down" })).toBeDisabled();
   });
@@ -40,6 +43,7 @@ describe("ordered target controls", () => {
     const user = userEvent.setup({ delay: null });
     await user.clear(model); await user.type(model, "vendor/raw-model"); await user.tab();
     expect(changes.mock.lastCall?.[0][0]).toEqual({ upstream_id: "builtin:copilot", model: "vendor/raw-model" });
+    await user.click(screen.getByRole("button", { name: "Protocol preview" }));
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
     expect(screen.getByText(/unreachable/)).toBeVisible();
   });
@@ -52,7 +56,7 @@ describe("ordered target controls", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Remove target 1" }));
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByText("Terminal fallback")).toBeVisible();
+    expect(screen.getByText("Target", { exact: true })).toBeVisible();
   });
 
   it("supports drag/drop, cancels stale drags, and preserves the model/upstream pair", () => {
@@ -155,7 +159,7 @@ describe("visual schedule workbench", () => {
     expect(changes).toHaveBeenLastCalledWith("weekly", [{ ...morning, start: 1410, end: 1500 }]);
   });
 
-  it("adds daily half-hour periods, edits overnight ranges, and shows UTC fragments", async () => {
+  it("edits local overnight ranges without exposing storage fragments", async () => {
     const changes = vi.fn();
     render(<ScheduleHarness onChange={changes} />);
     const user = userEvent.setup({ delay: null });
@@ -165,8 +169,8 @@ describe("visual schedule workbench", () => {
     await selectOption("Start time", "23:00");
     await selectOption("End time", "01:00");
     expect(screen.getByText("Ends next day")).toBeVisible();
-    expect(screen.getByText("23:00–24:00 UTC")).toBeVisible();
-    expect(screen.getByText("00:00–01:00 UTC")).toBeVisible();
+    expect(screen.getByRole("button", { name: "23:00–01:00" })).toBeVisible();
+    expect(screen.queryByText(/UTC/)).toBeNull();
     expect(changes.mock.lastCall?.[1][0]).toMatchObject({ day: 0, start: 1380, end: 1500 });
     fireEvent.change(screen.getByRole("textbox", { name: "Period value" }), { target: { value: "0.5" } });
     expect(changes.mock.lastCall?.[1][0].value).toBe(0.5);
@@ -254,7 +258,8 @@ describe("visual schedule workbench", () => {
     const initial = [{ ...morning, start: 555, end: 615 }];
     render(<ScheduleEditor mode="daily" windows={initial} offset={-345} onChange={changes} newValue={() => 1} summarize={value => `${value}×`} renderValue={() => null} emptyLabel="Default" />);
     expect(screen.getByRole("combobox", { name: "Start time" })).toHaveTextContent("09:15");
-    expect(screen.getByText("03:30–04:30 UTC")).toBeVisible();
+    expect(screen.getByRole("button", { name: "09:15–10:15" })).toBeVisible();
+    expect(screen.queryByText(/UTC/)).toBeNull();
     await selectOption("Start time", "09:30");
     expect(changes).toHaveBeenCalledWith("daily", [{ ...initial[0], start: 570 }]);
   });

@@ -1,8 +1,12 @@
 import { COPILOT_RULE_ID, COPILOT_UPSTREAM_ID } from "../../src/lib/routing-model";
-import type { MigrationSummary, ProviderPublic, QuotaPolicy, RoutingRule } from "../../src/lib/routing-types";
+import type { MigrationSummary, ProviderPublic, QuotaPolicy, RoutingRule, UpstreamDiagnostic } from "../../src/lib/routing-types";
 import type { RequestRouting } from "../../src/lib/types";
 
 export const FIXTURE_NOW = Date.UTC(2026, 8, 22, 8);
+export function makeDiagnostic(overrides: Partial<UpstreamDiagnostic> = {}): UpstreamDiagnostic {
+  return { success: true, model: "research-large", protocol: "openai", latency_ms: 12, answer: "pong", expected_pong: true, answer_truncated: false,
+    details: { operation: "generation_test", method: "POST", url: "https://fixture.invalid/v1/chat/completions", upstream_status: 200, content_type: "application/json", request_id: "fixture-request", finish_reason: "stop", response_body: '{"choices":[{"message":{"content":"pong"},"finish_reason":"stop"}]}' }, ...overrides };
+}
 export const fixtureQuota: QuotaPolicy = { limit_tokens: 100_000, window_minutes: 300, next_reset_at: FIXTURE_NOW + 3_600_000, mode: "all_day", multipliers: [] };
 
 export function makeUpstream(overrides: Partial<ProviderPublic> = {}): ProviderPublic {

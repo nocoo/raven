@@ -11,8 +11,8 @@ import { startRequestSink } from "../packages/proxy/src/db/request-sink"
 import { COPILOT_UPSTREAM_ID } from "../packages/proxy/src/core/routing-types"
 import { restoreCopilotCatalog } from "../packages/proxy/src/composition/catalog"
 import { state } from "../packages/proxy/src/lib/state"
-import { chatResponse } from "../packages/proxy/test/helpers/routing"
-import { runRoutingBrowser } from "../packages/dashboard/e2e/routing-isolated"
+import { chatResponse, responsesResponse } from "../packages/proxy/test/helpers/routing"
+import { runRoutingBrowser, type CatalogFixtureFailure } from "../packages/dashboard/e2e/routing-isolated"
 
 const root = resolve(import.meta.dir, "..")
 const artifacts = mkdtempSync(join(tmpdir(), "raven-routing-ui-"))
@@ -32,21 +32,42 @@ const stopSink = startRequestSink(db)
 const hits: { path: string; model?: string; stream?: boolean }[] = []
 const blocked: string[] = []
 const fixtureErrors: string[] = []
+let catalogFailure: CatalogFixtureFailure | null = null
 const receiver = Bun.serve({
   hostname: "127.0.0.1", port: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname
-    if (path !== "/v1/models" && path !== "/v1/chat/completions") return new Response("Fixture route not found", { status: 404 })
+    if (!["/v1/models", "/v1/chat/completions", "/v1/responses"].includes(path)) return new Response("Fixture route not found", { status: 404 })
     assert.equal(request.headers.get("authorization"), "Bearer fixture-provider")
     if (path === "/v1/models" && request.method === "GET") {
       hits.push({ path })
+      const failure = catalogFailure
+      catalogFailure = null
+      if (failure === "wrong-shape") return Response.json({ models: [], api_key: "fixture-provider" }, { headers: { "x-request-id": "fixture-catalog-shape" } })
+      if (failure === "non-json") return new Response("<html><body>Fixture gateway unavailable; api_key=fixture-provider</body></html>", { status: 502, headers: { "content-type": "text/html", "x-request-id": "fixture-catalog-gateway" } })
       return Response.json({ data: [{ id: "fixture-fast" }, { id: "fixture-smart" }] })
     }
     if (path === "/v1/chat/completions" && request.method === "POST") {
-      const body = await request.json() as { model: string; stream?: boolean }
+      const body = await request.json() as { model: string; stream?: boolean; max_completion_tokens?: number; messages?: { content: string }[] }
       hits.push({ path, model: body.model, stream: body.stream ?? false })
-      if (body.model === "fixture-fail") return Response.json({ error: { message: "Fixture quota refusal" }, usage: { prompt_tokens: 2, completion_tokens: 0 } }, { status: 429 })
-      return Response.json(chatResponse(body.model))
+      if (body.messages?.[0]?.content === "ping. Reply with exactly pong.") {
+        assert.equal(body.stream, false)
+        assert.equal(body.max_completion_tokens, 32)
+      }
+      if (body.model === "fixture-fail") return Response.json({ error: { message: "Fixture quota refusal", api_key: "fixture-provider" }, usage: { prompt_tokens: 2, completion_tokens: 0 } }, { status: 429, headers: { "x-request-id": "fixture-generation-refusal" } })
+      return Response.json(chatResponse(body.model, body.model === "fixture-unexpected" ? "Fixture reply: hello from the provider." : "pong"), { headers: { "x-request-id": "fixture-generation-chat" } })
+    }
+    if (path === "/v1/responses" && request.method === "POST") {
+      const body = await request.json() as { model: string; stream?: boolean; input: string; max_output_tokens: number }
+      hits.push({ path, model: body.model, stream: body.stream ?? false })
+      assert.equal(body.model, "fixture-reasoning-only")
+      assert.equal(body.input, "ping. Reply with exactly pong.")
+      assert.equal(body.stream, false)
+      assert.equal(body.max_output_tokens, 32)
+      return Response.json({
+        ...responsesResponse(body.model), status: "incomplete", incomplete_details: { reason: "max_output_tokens" },
+        output: [{ id: "reasoning-fixture", type: "reasoning", summary: [{ type: "summary_text", text: "Fixture reasoning without a visible answer." }] }],
+      }, { headers: { "x-request-id": "fixture-generation-reasoning" } })
     }
     return new Response("Fixture route not found", { status: 404 })
   },
@@ -79,7 +100,7 @@ const next = Bun.spawn(["node", "node_modules/next/dist/bin/next", "start", "--h
   cwd: join(root, "packages/dashboard"),
   env: {
     PATH: process.env.PATH,
-    NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1",
+    NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1", TZ: "UTC",
     GOOGLE_CLIENT_ID: "", GOOGLE_CLIENT_SECRET: "", NEXTAUTH_SECRET: "", NEXTAUTH_URL: dashboardUrl,
     RAVEN_PROXY_URL: proxy.url.origin, RAVEN_INTERNAL_KEY: "fixture-internal", RAVEN_API_KEY: "fixture-client",
     RAVEN_CONFIG_DIR: stateDir, RAVEN_DATA_DIR: stateDir, RAVEN_TOKEN_PATH: join(stateDir, "token"), RAVEN_DB_PATH: dbPath,
@@ -109,7 +130,9 @@ try {
   result = await runRoutingBrowser({
     dashboardUrl, receiverUrl, proxyUrl: proxy.url.origin, artifacts,
     inspect: () => ({ catalogCalls: hits.filter(hit => hit.path === "/v1/models").length, generationCalls: hits.filter(hit => hit.model).length }),
+    nextCatalogResponse: kind => { assert.equal(catalogFailure, null); catalogFailure = kind },
   })
+  assert.equal(catalogFailure, null, "Every configured fixture failure must be consumed")
   assert.deepEqual(blocked, [])
   assert.deepEqual(fixtureErrors, [])
 } catch (error) {

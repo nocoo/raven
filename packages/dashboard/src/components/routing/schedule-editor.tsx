@@ -3,7 +3,7 @@
 import { Badge, Button, Checkbox, ConfirmDialog, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, LayerCard, SegmentControl, useConfirm } from "@nocoo/basalt";
 import { Clock3, Copy, Moon, Plus, Trash2 } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
-import { availableWindow, changeScheduleMode, copyDay, DAY, DAYS, daySegments, minuteLabel, setWindowEnd, toUtcWindows, utcWindowLabel, type LocalWindow } from "@/lib/routing-schedule";
+import { availableWindow, changeScheduleMode, copyDay, DAY, DAYS, daySegments, minuteLabel, setWindowEnd, toUtcWindows, type LocalWindow } from "@/lib/routing-schedule";
 import type { ScheduleMode } from "@/lib/routing-types";
 import { errorMessage } from "@/lib/routing-client";
 import { Feedback, RoutingSelect } from "./routing-ui";
@@ -29,8 +29,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
   const { confirm, dialogProps } = useConfirm();
   const selected = windows.find(window => window.id === selectedId && window.day === day) ?? windows.find(window => window.day === day);
   let validation: string | null = null;
-  let utc = [] as ReturnType<typeof toUtcWindows<T>>;
-  try { utc = toUtcWindows(windows, mode, offset); } catch (cause) { validation = errorMessage(cause); }
+  try { toUtcWindows(windows, mode, offset); } catch (cause) { validation = errorMessage(cause); }
   const update = (next: LocalWindow<T>) => { onChange(mode, windows.map(window => window.id === next.id ? next : window)); setError(null); };
   const setMode = async (next: ScheduleMode) => {
     if (mode === next) return;
@@ -100,7 +99,6 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
           <RoutingSelect label="End time" value={String(selected.end === DAY ? DAY : selected.end % DAY)} options={timeOptions(selected.end === DAY ? DAY : selected.end % DAY, true)} onChange={value => update({ ...selected, end: setWindowEnd(selected.start, Number(value)) })} />
         </div>
         <p className="text-xs text-basalt-muted-foreground">An end before the start continues overnight and belongs to the day it starts. Equal times are invalid.</p>
-        <section className="flex flex-wrap gap-1.5" aria-label="Saved UTC preview">{utc.filter(window => window.id === selected.id).map(window => <Badge key={window.start_minute} variant="outline" className="font-mono text-xs font-normal">{utcWindowLabel(window, mode)}</Badge>)}</section>
         {renderValue(selected.value, value => update({ ...selected, value }))}
       </LayerCard.Well> : <LayerCard.Well className="flex flex-wrap items-center justify-between gap-2 py-3"><p className="text-sm text-basalt-muted-foreground">No periods start {mode === "weekly" ? `on ${DAYS[day]}` : "today"}. The default covers gaps.</p><Button size="sm" variant="ghost" onClick={add}>Add a period</Button></LayerCard.Well>}
     </>}

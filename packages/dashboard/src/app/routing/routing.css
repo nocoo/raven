@@ -5,7 +5,10 @@
   min-width: 0;
 }
 .routing-workbench > * { min-width: 0; }
-.routing-savebar { border-top: 1px solid hsl(var(--basalt-border)); padding-top: .75rem; }
+.routing-directory-list { display: flex; gap: .25rem; overflow-x: auto; }
+.routing-directory-item { height: auto; min-width: 11rem; max-width: 15rem; flex-shrink: 0; justify-content: flex-start; gap: .5rem; padding: .625rem .75rem; text-align: left; }
+.routing-config-name { border-color: transparent; background: transparent; box-shadow: none; }
+.routing-config-name:hover { border-color: hsl(var(--basalt-border)); }
 .routing-target { transition: opacity 150ms ease, transform 150ms ease; }
 .routing-target[data-dragging="true"] { opacity: .4; transform: scale(.99); }
 .routing-target[data-over="true"] { outline: 2px solid hsl(var(--basalt-ring)); border-radius: var(--basalt-radius-widget); transform: translateY(3px); }
@@ -20,6 +23,8 @@
 @media (min-width: 1100px) {
   .routing-workbench { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); }
   .routing-directory { position: sticky; top: 0; }
+  .routing-directory-list { flex-direction: column; }
+  .routing-directory-item { width: 100%; min-width: 0; max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .routing-target, .routing-period { transition: none; }

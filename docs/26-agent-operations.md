@@ -112,10 +112,22 @@ The runner creates a private per-run directory, real SQLite, synthetic keys, a
 local HTTP fixture upstream, an isolated Proxy and a production Next server on
 random loopback ports. It exercises real BFF/HTTP requests, schedule edits,
 drag/keyboard reordering, Connect bindings, catalog/test actions, conflict
-feedback and responsive layouts. External model/browser requests are blocked.
+feedback and responsive layouts. Its 16 checkpoints also cover initial/switched
+tab indicators, configuration-header alignment, draft navigation, unexpected or
+empty diagnostic replies, and redacted JSON/HTML discovery errors. The Next
+server runs in UTC while Chrome uses Asia/Shanghai to expose hydration mismatches.
+External model/browser requests are blocked.
 Runtime state and owned processes are removed; screenshots, logs and `report.json`
 remain in the printed temporary artifact directory. This verifies the Routing
 workflows, not every application endpoint or the repository-wide L2/L3/D1 target.
+
+Configuration drafts appear in the page directory before their first save.
+Save/Discard apply to the whole configuration card, success uses a transient
+toast, and diagnostic/error banners retain copyable response evidence. Timetables,
+quota reset previews, request timestamps and analytics labels display browser-local
+time; stored timestamps and routing calculations remain UTC. Server-rendered
+timestamps, including Connect key dates and account assignment dates, wait for
+hydration before displaying local time.
 
 ## Data Directory Structure
 

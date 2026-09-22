@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiErrorDetail, errorMessage, jsonRequest, routingRequest } from "@/lib/routing-client";
+import { apiErrorDetail, errorMessage, jsonRequest, routingRequest, RoutingRequestError } from "@/lib/routing-client";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -32,4 +32,25 @@ describe("routing transport feedback", () => {
     expect(errorMessage(new Error("failed"))).toBe("failed");
     expect(errorMessage({ private: "do not echo" })).toBe("The request could not be completed.");
   });
+  it("retains provider evidence and the failed BFF request without retaining request credentials", async () => {
+    const detail = { message: "Model discovery did not return a data array", type: "catalog_refresh_failed", details: { operation: "model_discovery", method: "GET", url: "https://fixture.invalid/v1/models", upstream_status: 200, content_type: "application/json", response_body: '{"models":[]}', request_id: "fixture-request" } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ error: detail }, { status: 503 }));
+    const error = await routingRequest("/api/upstreams/fixture/models/refresh", { method: "POST", headers: { Authorization: "Bearer fixture-secret" }, body: '{"api_key":"fixture-secret"}' }).catch(error => error);
+    expect(error).toBeInstanceOf(RoutingRequestError);
+    expect(error).toMatchObject({ detail, request: { method: "POST", path: "/api/upstreams/fixture/models/refresh", status: 503, content_type: "application/json" } });
+    expect(JSON.stringify(error)).not.toContain("fixture-secret");
+  });
+  it("keeps a bounded non-JSON error page and network failure context", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("x".repeat(10_000), { status: 502, headers: { "content-type": "text/html" } })).mockRejectedValueOnce(new Error("Connection refused"));
+    const pageError = await routingRequest("/api/upstreams").catch(error => error);
+    assert(pageError instanceof RoutingRequestError);
+    expect(pageError.request).toMatchObject({ method: "GET", status: 502, content_type: "text/html", response_body_truncated: true });
+    expect(pageError.request.response_body).toHaveLength(8192);
+    const networkError = await routingRequest("/api/upstreams", { method: "POST" }).catch(error => error);
+    assert(networkError instanceof RoutingRequestError);
+    expect(networkError).toMatchObject({ message: "Connection refused", request: { method: "POST", path: "/api/upstreams" } });
+    expect(networkError.request).not.toHaveProperty("status");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });
+import assert from "node:assert/strict";

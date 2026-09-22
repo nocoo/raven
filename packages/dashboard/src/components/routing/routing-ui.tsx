@@ -1,10 +1,10 @@
 "use client";
 
-import { Badge, Button, Field } from "@nocoo/basalt";
+import { Button, Field, Input, LayerCard } from "@nocoo/basalt";
+import { Banner } from "@nocoo/basalt/components/banner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
-import { AlertCircle, Check, Save, Undo2 } from "lucide-react";
+import { AlertCircle, Check, PencilLine, Save, Undo2 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { offsetLabel } from "@/lib/routing-schedule";
 
 export interface EditorClock { offset: number; zone: string; now: number }
 export function useEditorClock(): EditorClock | null {
@@ -25,10 +25,7 @@ export function useUnsavedChanges(dirty: boolean) {
 }
 
 export function TimezoneNote({ clock }: { clock: EditorClock }) {
-  return <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-basalt-muted-foreground">
-    <Badge variant="outline" className="text-xs font-normal">{clock.zone} · {offsetLabel(clock.offset)}</Badge>
-    <span>Fixed UTC recurrence. Local times shift when your timezone or daylight saving changes.</span>
-  </div>;
+  return <p className="text-xs text-basalt-muted-foreground">Local time · {clock.zone}</p>;
 }
 
 export function RoutingSelect({ label, value, options, onChange, disabled = false, className = "" }: {
@@ -44,20 +41,30 @@ export function RoutingSelect({ label, value, options, onChange, disabled = fals
 }
 
 export function Feedback({ error, message }: { error?: string | null; message?: string | null }) {
-  if (error) return <div role="alert" className="flex items-start gap-2 rounded-widget bg-basalt-destructive/10 p-3 text-sm text-basalt-destructive"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{error}</span></div>;
-  if (message) return <div role="status" className="flex items-center gap-2 text-sm text-basalt-success"><Check className="size-4 shrink-0" />{message}</div>;
+  if (error) return <Banner role="alert" variant="error" size="sm" icon={<AlertCircle />} description={error} />;
+  if (message) return <Banner role="status" variant="secondary" size="sm" icon={<Check className="text-basalt-success" />} description={message} />;
   return null;
 }
 
-export function SaveBar({ dirty, saving, onSave, onDiscard, children }: {
-  dirty: boolean; saving: boolean; onSave: () => void; onDiscard: () => void; children?: React.ReactNode;
+export function ConfigurationHeader({ name, label, placeholder, onNameChange, isNew, dirty, busy, saving, onSave, onDiscard, children }: {
+  name: string; label: string; placeholder: string; onNameChange: ((value: string) => void) | undefined;
+  isNew: boolean; dirty: boolean; busy: boolean; saving: boolean;
+  onSave: () => void; onDiscard: () => void; children?: React.ReactNode;
 }) {
-  return <div className="routing-savebar flex flex-wrap items-center gap-2">
-    <span className="mr-auto flex items-center gap-2 text-xs text-basalt-muted-foreground" role="status">
-      <span className={`size-1.5 rounded-full ${dirty ? "bg-basalt-warning" : "bg-basalt-success"}`} />{dirty ? "Unsaved changes" : "All changes saved"}
-    </span>
-    {children}
-    <Button size="sm" variant="ghost" onClick={onDiscard} disabled={!dirty || saving}><Undo2 className="size-3.5" />Discard</Button>
-    <Button size="sm" onClick={onSave} disabled={!dirty} loading={saving}><Save className="size-3.5" />Save changes</Button>
-  </div>;
+  return <LayerCard.Header className="flex-wrap items-start gap-x-4 gap-y-3 border-b border-basalt-border">
+    <div className="min-w-0 flex-1 basis-52">
+      {onNameChange ? <div className="group relative">
+        <Input aria-label={label} value={name} onChange={event => onNameChange(event.target.value)} placeholder={placeholder} maxLength={100} size="sm" className="routing-config-name pr-8 text-base font-semibold" />
+        <PencilLine className="pointer-events-none absolute right-2.5 top-2.5 size-3.5 text-basalt-muted-foreground" aria-hidden="true" />
+      </div> : <h2 className="flex h-8 items-center text-base font-semibold text-basalt-foreground">{name}</h2>}
+      {(dirty || isNew) && <p className="mt-1 flex items-center gap-1.5 text-xs text-basalt-muted-foreground" role="status">
+        <span className="size-1.5 rounded-full bg-basalt-warning" aria-hidden="true" />{isNew ? "New draft · not saved" : "Unsaved changes"}
+      </p>}
+    </div>
+    <div className="flex shrink-0 items-center gap-1.5 max-sm:w-full max-sm:justify-end">
+      {children}
+      <Button size="sm" variant="ghost" onClick={onDiscard} disabled={(!dirty && !isNew) || busy}><Undo2 className="size-3.5" />Discard</Button>
+      <Button size="sm" onClick={onSave} disabled={(!dirty && !isNew) || busy} loading={saving}><Save className="size-3.5" />Save changes</Button>
+    </div>
+  </LayerCard.Header>;
 }

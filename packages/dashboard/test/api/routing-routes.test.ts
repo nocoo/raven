@@ -60,6 +60,17 @@ describe.each(cases)("Routing BFF: %s", (_name, invoke, path, method, status, bo
 });
 
 describe("BFF trust boundaries", () => {
+  it("preserves diagnostic response evidence and catalog HTTP/body details", async () => {
+    const details = { operation: "model_discovery" as const, upstream_status: 200, url: "https://fixture.invalid/v1/models", content_type: "application/json", response_body: '{"models":[]}', response_body_truncated: false };
+    const detail = { message: "Model discovery did not return a data array", type: "catalog_refresh_failed", details };
+    proxyFetch.mockRejectedValueOnce(new ProxyError(detail.message, 503, detail));
+    const failure = await refresh.POST(request(), ctx());
+    expect(failure.status).toBe(503);
+    expect(await failure.json()).toEqual({ error: detail });
+    const result = { success: true, answer: "", expected_pong: false, answer_truncated: false, details: { ...details, operation: "generation_test", response_status: "incomplete", finish_reason: "max_output_tokens" } };
+    proxyFetch.mockResolvedValueOnce(result);
+    expect(await (await diagnostic.POST(request(), ctx())).json()).toEqual(result);
+  });
   it.each([
     () => rules.POST(request("bad")), () => rule.PUT(request("bad"), ctx()),
     () => upstreams.POST(request("bad")), () => upstream.PUT(request("bad"), ctx()),

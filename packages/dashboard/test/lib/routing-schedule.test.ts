@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availableWindow, changeScheduleMode, copyDay, DAY, daySegments, localDateTime, minuteLabel, offsetLabel, setWindowEnd, toLocalWindows, toUtcWindows, utcDateTime, utcWindowLabel, WEEK, wrap, type LocalWindow } from "@/lib/routing-schedule";
+import { availableWindow, changeScheduleMode, copyDay, DAY, daySegments, localDateTime, minuteLabel, setWindowEnd, toLocalWindows, toUtcWindows, utcDateTime, WEEK, wrap, type LocalWindow } from "@/lib/routing-schedule";
 
 const window = (overrides: Partial<LocalWindow<string[]>> = {}): LocalWindow<string[]> => ({ id: "focus", day: 0, start: 540, end: 1020, value: ["primary", "terminal"], ...overrides });
 
@@ -138,18 +138,13 @@ describe("visual schedule and date helpers", () => {
     expect(availableWindow([window({ start: 0, end: DAY })], 0, "daily")).toBeNull();
   });
 
-  it("formats offsets and local/UTC previews, including midnight", () => {
-    expect(offsetLabel(-345)).toBe("UTC+05:45");
-    expect(offsetLabel(210)).toBe("UTC−03:30");
-    expect(offsetLabel(0)).toBe("UTC+00:00");
+  it("formats local hours, including midnight and overnight ranges", () => {
     expect(minuteLabel(DAY)).toBe("24:00");
     expect(minuteLabel(1530)).toBe("01:30");
     expect(wrap(-30, DAY)).toBe(1410);
     expect(setWindowEnd(1380, 60)).toBe(1500);
     expect(setWindowEnd(540, 600)).toBe(600);
     expect(setWindowEnd(540, 540)).toBe(540);
-    expect(utcWindowLabel({ id: "x", start_minute: 6 * DAY + 1380, end_minute: WEEK, value: [] }, "weekly")).toBe("Sun 23:00–24:00 UTC");
-    expect(utcWindowLabel({ id: "x", start_minute: 15, end_minute: 45, value: [] }, "daily")).toBe("00:15–00:45 UTC");
   });
 
   it("round trips datetime-local reset anchors without consulting machine timezone", () => {

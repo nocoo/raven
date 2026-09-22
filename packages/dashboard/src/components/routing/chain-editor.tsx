@@ -1,7 +1,8 @@
 "use client";
 
-import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard } from "@nocoo/basalt";
 import { Autocomplete } from "@nocoo/basalt/components/autocomplete";
+import { Banner } from "@nocoo/basalt/components/banner";
 import { ArrowDown, ArrowUp, CornerDownRight, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { compatibility, dragState, FORMATS, IDLE_DRAG, modelIds, moveItem, previewChain } from "@/lib/routing-model";
@@ -64,7 +65,7 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
                   if (event.key === "Escape") setDrag(IDLE_DRAG);
                 }}><GripVertical className="size-4" /></Button>
               <span className="text-xs font-medium tabular-nums text-basalt-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
-              <Badge variant={terminal ? "purple" : "secondary"} className="text-xs">{terminal ? "Terminal fallback" : "Quota candidate"}</Badge>
+              <Badge variant={terminal && value.length > 1 ? "purple" : "secondary"} className="text-xs">{value.length === 1 ? "Target" : terminal ? "Terminal fallback" : "Quota candidate"}</Badge>
               <span className="order-last basis-full text-xs text-basalt-muted-foreground sm:order-none sm:ml-auto sm:basis-auto">{preview.labels[index]}</span>
               <div className="ml-auto flex items-center gap-0.5 sm:ml-0">
                 <Button size="icon" variant="ghost" className="size-7" aria-label={`Move target ${index + 1} up`} disabled={index === 0} onClick={() => reorder(index, index - 1)}><ArrowUp className="size-3.5" /></Button>
@@ -79,12 +80,6 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
                 <Autocomplete id={`${id}-model-${index}`} aria-label={`Model ${index + 1}`} size="sm" value={target.model} placeholder="Select or type an exact model ID" items={modelIds(upstream).map(model => ({ value: model, label: model }))} onValueChange={model => update(index, { ...target, model })} className="w-full font-mono text-xs" />
               </div>
             </div>
-            <section className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-label={`Target ${index + 1} protocol preview`}>
-              {FORMATS.map(format => {
-                const state = compatibility(upstream, target.model, format.value, conversion);
-                return <span key={format.value} className={state === "Blocked" || state === "Unavailable" ? "text-basalt-warning" : "text-basalt-muted-foreground"}>{format.short}: <span className="font-medium">{state}</span></span>;
-              })}
-            </section>
           </LayerCard.Well>
         </li>;
       })}
@@ -96,8 +91,20 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
       }}><Plus className="size-3.5" />Add quota candidate</Button>
       <span className="flex items-center gap-1.5 text-xs text-basalt-muted-foreground"><CornerDownRight className="size-3.5" />Only exhausted quotas advance the chain.</span>
     </div>
-    {preview.warnings.map(warning => <p key={warning} className="rounded-widget bg-basalt-warning/10 px-3 py-2 text-xs text-basalt-warning">{warning}</p>)}
-    <p className="text-xs text-basalt-muted-foreground">Preview uses cached capabilities for <code>auto</code>. Unavailable means Copilot needs a usable catalog. Errors stop on the selected target; catalogs never restrict explicit model IDs.</p>
+    {preview.warnings.map(warning => <Banner key={warning} variant="alert" size="sm" description={warning} />)}
+    <Collapsible>
+      <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Protocol preview</CollapsibleTrigger>
+      <CollapsibleContent unstyled><div className="space-y-3 pt-2">
+        {value.map((target, index) => <section key={targetKey(target)} className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-label={`Target ${index + 1} protocol preview`}>
+          <span className="font-medium">Target {index + 1}</span>
+          {FORMATS.map(format => {
+            const state = compatibility(upstreams.find(item => item.id === target.upstream_id), target.model, format.value, conversion);
+            return <span key={format.value} className={state === "Blocked" || state === "Unavailable" ? "text-basalt-warning" : "text-basalt-muted-foreground"}>{format.short}: <span className="font-medium">{state}</span></span>;
+          })}
+        </section>)}
+        <p className="text-xs text-basalt-muted-foreground">Preview uses cached capabilities for <code>auto</code>. Unavailable means Copilot needs a usable catalog. Errors stop on the selected target; catalogs never restrict explicit model IDs.</p>
+      </div></CollapsibleContent>
+    </Collapsible>
     <span role="status" className="sr-only">{announcement}</span>
   </section>;
 }

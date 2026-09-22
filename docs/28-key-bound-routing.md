@@ -136,12 +136,13 @@ week atomically. An overlap rejects the entire save. The management API accepts
 validated UTC fragments, not timezone/DST conversion instructions.
 
 For example, Monday 00:00–02:00 at UTC+08:00 is Sunday 16:00–18:00 UTC. It must
-not be stored as Monday UTC. The UI shows the timezone and offset during editing
-and preview, and saves all affected UTC days together.
+not be stored as Monday UTC. The UI displays and edits browser-local times,
+identifies the local timezone, and saves all affected UTC days together. Storage
+fragments and UTC conversions are not shown as a second user-facing timetable.
 
 The stored recurrence is fixed UTC. A timezone or daylight-saving change alters
 the displayed local time; it does not silently reschedule the server. The editor
-uses the browser's current offset when saving and shows the resulting UTC times.
+uses the browser's current offset when saving. Reset previews use local time too.
 Do not build a civil-time/DST recurrence engine. Half-hour editing steps remain
 half-hour steps even in a zone with a 45-minute UTC offset: UTC minute offsets
 need not themselves be multiples of 30.
@@ -438,6 +439,23 @@ an unexpected answer is not a network/auth failure. Mark the request as a
 diagnostic in telemetry and the Requests drawer. Never run this diagnostic
 on page load, save, CI or routine automated verification.
 
+The test result includes the visible `answer` (up to 1,024 characters),
+`answer_truncated`, and a `details` object shared with discovery errors. Details
+identify the operation, method, sanitized URL, upstream HTTP status, content type,
+request ID, response status and finish reason when available. `response_body`
+contains at most 8,192 characters of the native response, with a separate
+truncation flag. Redact credentials, sensitive fields and URL query/user information
+before truncating. Evidence capture consumes a JSON body only when its existing
+client reads it. Unexpected SSE is canceled immediately, without reading or
+replaying it. A failed refresh retains the previous catalog.
+
+The Dashboard presents errors and diagnostic replies below the configuration
+header. Unexpected or empty answers open the response details automatically;
+errors retain expandable, copyable evidence. Distinguish the management HTTP
+status from the provider status: a provider can return HTTP 200 with an invalid
+catalog. An empty reasoning-only result remains a successful generation with
+no visible answer, accompanied by its finish reason and response body.
+
 ## 9. Dashboard and API surfaces
 
 Use the existing Next.js BFF and Basalt components. Keep view-model hooks or pure
@@ -705,10 +723,20 @@ Dashboard consume the same pure routing DTOs. The corresponding source areas are
    without changing test selection, coverage scope or thresholds.
 
 The Dashboard provides native drag handles, move buttons, Alt+Arrow keyboard
-reordering, an editable weekly overview, overnight/copy-day controls, UTC previews,
+reordering, an editable weekly overview, local overnight/copy-day controls,
 unsaved-change confirmations and reduced-motion styling. The server rejects
 referenced deletion with the names needed to resolve the conflict. Ordinary
 read/save operations remain cache-only.
+
+Each rule or upstream has one configuration card with its editable name and
+whole-card Save/Discard actions in the header. Upstreams start with Connection,
+followed by Models and optional Quota; rules start with Targets, followed by
+optional Schedule and Protocol settings. New drafts appear in the directory
+immediately, track the edited name, and disappear on discard. Discarding a new
+draft returns to the prior saved selection. Clean cards have no persistent saved
+label; successful operations use the shared transient toast. Basalt owns tab
+indicator motion; the tab list must not clip its underline with an overflow
+override.
 
 ### Reproduction and evidence boundary
 
