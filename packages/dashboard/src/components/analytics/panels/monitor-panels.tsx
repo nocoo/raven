@@ -57,19 +57,25 @@ export function MonitorSummary({ summary, percentiles, filters }: { summary: Sum
 
 export function ProtocolPanel({ data, summary, filters }: { data: BreakdownEntry[]; summary: SummaryStats; filters: AnalyticsFilters }) {
   return <MonitorPanel title="Protocol paths" description="Prefer the model’s supported native endpoint.">
+    <ProtocolDistribution data={data} summary={summary} filters={filters} />
+  </MonitorPanel>;
+}
+
+export function ProtocolDistribution({ data, summary, filters }: { data: BreakdownEntry[]; summary: SummaryStats; filters: AnalyticsFilters }) {
+  return <>
     <ProtocolBar counts={summary} />
     <div className="mt-2 divide-y divide-basalt-border/50">
       {PROTOCOL_MODES.map(mode => {
         const row = data.find(entry => entry.key === mode);
         const count = summary[`${mode}_count`];
         return <Link prefetch={false} key={mode} href={monitorHref("/requests", filters, { protocol_mode: mode })} title={PROTOCOL_META[mode].description} className="group flex items-center justify-between gap-3 rounded-md py-3 hover:bg-basalt-accent/50">
-          <div className="min-w-0"><div className="flex items-center gap-2 text-sm font-medium"><span className="size-2 rounded-full" style={{ background: CHART_COLORS[PROTOCOL_META[mode].color] }} />{PROTOCOL_META[mode].label}<ArrowRight className="size-3 text-basalt-muted-foreground" /></div><p className="mt-1 text-xs text-basalt-muted-foreground">{row ? `${formatCompact(row.error_count)} errors · P95 ${formatLatency(row.p95_latency_ms)}` : "No requests"}</p></div>
+          <div className="min-w-0"><div className="flex items-center gap-2 text-sm font-medium"><span className="size-2 rounded-full" style={{ background: CHART_COLORS[PROTOCOL_META[mode].color] }} />{PROTOCOL_META[mode].label}<ArrowRight className="size-3 text-basalt-muted-foreground" /></div><p className="mt-1 text-xs text-basalt-muted-foreground">{row ? `${formatCompact(row.error_count)} errors · P95 ${formatLatency(row.p95_latency_ms)}` : count > 0 ? "Details unavailable" : "No requests"}</p></div>
           <div className="text-right tabular-nums"><p className="text-sm font-semibold">{formatCompact(count)}</p><p className="mt-1 text-xs text-basalt-muted-foreground">{summary.total_requests ? formatPercent(count / summary.total_requests) : "—"}</p></div>
         </Link>;
       })}
     </div>
     <p className="border-t border-basalt-border/50 pt-2 text-xs leading-relaxed text-basalt-muted-foreground">Native means the same API protocol, with possible normalization. Chat → Responses counts as translation. Unknown records stay in the denominator.</p>
-  </MonitorPanel>;
+  </>;
 }
 
 export function RankPanel({ title, description, data, dimension, filters, limit = 5, selected, action }: { title: string; description: string; data: BreakdownEntry[]; dimension: MonitorDimension; filters: AnalyticsFilters; limit?: number; selected?: string | undefined; action?: ReactNode }) {

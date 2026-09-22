@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { monitorData } from "../helpers/monitor-fixtures";
+import { monitorData, summary } from "../helpers/monitor-fixtures";
 
 const fetchResult = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/proxy", () => ({ safeFetch: (path: string) => fetchResult(path) }));
@@ -26,6 +26,7 @@ describe("monitor data scope", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     expect(result.data.summary).toBe(fixture.summary);
+    expect(result.data.distributionTotal).toBe(10);
     expect(result.data.percentiles).toBe(fixture.percentiles);
     expect(result.data.intervalMs).toBe(3_600_000);
     expect(result.data.warnings).toEqual([]);
@@ -46,14 +47,15 @@ describe("monitor data scope", () => {
     const urls = fetchResult.mock.calls.map(([path]) => new URL(path as string, "https://raven.test"));
     for (const url of urls) {
       expect(url.searchParams.get("key_id")).toBe("key-1");
-      if (url.pathname.endsWith("breakdown") && url.searchParams.get("by") === "model") expect(url.searchParams.has("model")).toBe(false);
+      if ((url.pathname.endsWith("breakdown") && url.searchParams.get("by") === "model") || (url.pathname.endsWith("summary") && !url.searchParams.has("model"))) expect(url.searchParams.has("model")).toBe(false);
       else expect(url.searchParams.get("model")).toBe("selected");
     }
+    expect(urls.filter(url => url.pathname.endsWith("summary")).map(url => url.searchParams.get("model"))).toEqual(["selected", null]);
     expect(urls.find(url => url.pathname.endsWith("timeseries-group"))?.searchParams.get("by")).toBe("model");
     expect(urls.find(url => url.pathname.endsWith("timeseries"))?.searchParams.get("interval")).toBe("minute");
   });
 
-  it("removes both identity filters only for the key selector; other panels stay on the key", async () => {
+  it("removes both identity filters for the key selector and its total; detail panels stay on the key", async () => {
     const result = await loadMonitorData({ range: "custom", from: 0, to: 1000, key_id: "K2", account: "Editor", model: "M" }, "key_id");
     expect(result.ok && result.data.window).toEqual({ from: 0, to: 1000 });
     const urls = fetchResult.mock.calls.map(([path]) => new URL(path as string, "https://raven.test"));
@@ -61,8 +63,46 @@ describe("monitor data scope", () => {
     expect(selector.searchParams.has("key_id")).toBe(false);
     expect(selector.searchParams.has("account")).toBe(false);
     expect(selector.searchParams.get("model")).toBe("M");
+    const total = urls.find(url => url.pathname.endsWith("summary") && !url.searchParams.has("key_id"))!;
+    expect(total.searchParams.has("account")).toBe(false);
+    expect(total.searchParams.get("model")).toBe("M");
     const activity = urls.find(url => url.pathname.endsWith("timeseries-group"))!;
     expect(activity.searchParams.get("key_id")).toBe("K2");
+  });
+
+  it("keeps the ring total across keys while the detail summary follows the selected key", async () => {
+    fetchResult.mockImplementation(async (path: string) => {
+      const url = new URL(path, "https://raven.test");
+      if (url.pathname.endsWith("summary")) return { ok: true, data: summary({ total_requests: url.searchParams.has("key_id") ? 2 : 80 }) };
+      return { ok: true, data: [] };
+    });
+    const result = await loadMonitorData({ range: "7d", key_id: "K2", protocol_mode: "native" }, "key_id");
+    if (!result.ok) throw new Error(result.error);
+    expect(result.data.summary.total_requests).toBe(2);
+    expect(result.data.distributionTotal).toBe(80);
+    const urls = fetchResult.mock.calls.map(([path]) => new URL(path as string, "https://raven.test"));
+    expect(urls).toHaveLength(10);
+    expect(new Set(urls.map(url => url.searchParams.get("from"))).size).toBe(1);
+    expect(urls.every(url => url.searchParams.get("protocol_mode") === "native")).toBe(true);
+  });
+
+  it("widens a historical account filter for the ring even without a stable key selection", async () => {
+    await loadMonitorData({ range: "24h", account: "Editor" }, "key_id");
+    const summaries = fetchResult.mock.calls.map(([path]) => new URL(path as string, "https://raven.test")).filter(url => url.pathname.endsWith("summary"));
+    expect(summaries.map(url => url.searchParams.get("account"))).toEqual(["Editor", null]);
+  });
+
+  it("marks a missing ring total as unavailable while preserving valid selected details", async () => {
+    fetchResult.mockImplementation(async (path: string) => {
+      const url = new URL(path, "https://raven.test");
+      if (url.pathname.endsWith("summary")) return url.searchParams.has("model") ? { ok: true, data: fixture.summary } : { ok: false, error: "Unavailable" };
+      return { ok: true, data: [] };
+    });
+    const result = await loadMonitorData({ range: "24h", model: "M" }, "model");
+    if (!result.ok) throw new Error(result.error);
+    expect(result.data.summary).toBe(fixture.summary);
+    expect(result.data.distributionTotal).toBeNull();
+    expect(result.data.warnings).toEqual(["Distribution total: Unavailable"]);
   });
 
   it("reports partial panel failures instead of presenting their empty state as zero activity", async () => {

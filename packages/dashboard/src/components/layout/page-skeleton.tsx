@@ -53,8 +53,14 @@ export function OverviewLoading() {
   return <LoadingPage title="Overview" filters><SummarySkeleton /><div className="grid gap-3 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]"><ChartSkeleton /><PanelSkeleton><RowsSkeleton count={3} /></PanelSkeleton></div><div className="grid gap-3 lg:grid-cols-2"><PanelSkeleton><RowsSkeleton /></PanelSkeleton><PanelSkeleton><RowsSkeleton /></PanelSkeleton></div></LoadingPage>;
 }
 
+export function UsageDetailSkeleton() {
+  return <div role="status" aria-label="Loading usage details" className="space-y-4">
+    <div className="space-y-4" aria-hidden="true"><div className="flex justify-between gap-3"><Skeleton className="h-4 w-36" /><Skeleton className="h-4 w-48" /></div><Skeleton className="h-3 w-2/3" /><div className="grid gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]"><RowsSkeleton /><RowsSkeleton count={3} /></div></div>
+  </div>;
+}
+
 function UsageLoading({ title }: { title: string }) {
-  return <LoadingPage title={title} filters><SummarySkeleton /><ChartSkeleton /><div className="grid gap-3 xl:grid-cols-2"><PanelSkeleton><RowsSkeleton count={5} /></PanelSkeleton><PanelSkeleton><RowsSkeleton /></PanelSkeleton></div></LoadingPage>;
+  return <LoadingPage title={title} filters><SummarySkeleton /><div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]"><PanelSkeleton><Skeleton className="mx-auto size-44 rounded-full" /><div className="space-y-3">{ROWS.slice(0, 5).map(key => <Skeleton key={key} className="h-5 w-full" />)}</div></PanelSkeleton><PanelSkeleton><div className="flex gap-3">{ROWS.slice(0, 3).map(key => <Skeleton key={key} className="h-8 w-28" />)}</div><UsageDetailSkeleton /></PanelSkeleton></div><ChartSkeleton /></LoadingPage>;
 }
 
 export function ModelsLoading() { return <UsageLoading title="Models" />; }

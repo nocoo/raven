@@ -8,6 +8,7 @@ export interface MonitorData {
   window: { from: number; to: number };
   intervalMs: number;
   summary: SummaryStats;
+  distributionTotal: number | null;
   timeseries: ExtendedTimeseriesBucket[];
   percentiles: Percentiles | null;
   models: BreakdownEntry[];
@@ -30,7 +31,7 @@ export async function loadMonitorData(filters: AnalyticsFilters, dimension?: Usa
     return `/api/stats/${endpoint}?${query}`;
   };
   const breakdown = (by: string, omit?: string) => safeFetch<BreakdownEntry[]>(path("breakdown", { by, limit: "50", sort: "count", order: "desc" }, omit));
-  const [summary, timeseries, percentiles, models, keys, protocols, clients, upstreams, activity] = await Promise.all([
+  const [summary, timeseries, percentiles, models, keys, protocols, clients, upstreams, activity, distribution] = await Promise.all([
     safeFetch<SummaryStats>(path("summary")),
     safeFetch<ExtendedTimeseriesBucket[]>(path("timeseries", { interval })),
     safeFetch<Percentiles>(path("percentiles", { metric: "latency_ms" })),
@@ -42,6 +43,9 @@ export async function loadMonitorData(filters: AnalyticsFilters, dimension?: Usa
     dimension
       ? safeFetch<GroupedTimeseries>(path("timeseries-group", { by: dimension, interval, limit: "6" }))
       : Promise.resolve({ ok: true as const, data: { keys: [], points: [] } }),
+    dimension && (filters[dimension] || (dimension === "key_id" && filters.account))
+      ? safeFetch<SummaryStats>(path("summary", {}, dimension))
+      : Promise.resolve(null),
   ]);
   if (!summary.ok) return summary;
   const warnings: string[] = [];
@@ -55,6 +59,7 @@ export async function loadMonitorData(filters: AnalyticsFilters, dimension?: Usa
     window: { from: Number(params.get("from") ?? 0), to: Number(params.get("to") ?? Date.now()) },
     intervalMs: intervalMilliseconds(interval),
     summary: summary.data,
+    distributionTotal: distribution ? value<SummaryStats | null>(distribution, null, "Distribution total")?.total_requests ?? null : summary.data.total_requests,
     timeseries: value(timeseries, [], "Traffic"),
     percentiles: value<Percentiles | null>(percentiles, null, "Latency percentiles"),
     models: value(models, [], "Models"),
