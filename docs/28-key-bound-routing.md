@@ -2,7 +2,7 @@
 
 Status: **Design — independent review in progress; not implemented**.
 
-Design revision: **R2**. Decisions confirmed with the owner on **2026-09-22**.
+Design revision: **R3**. Decisions confirmed with the owner on **2026-09-22**.
 
 Scope: Dashboard navigation and configuration, Proxy routing, model catalogs,
 local SQLite persistence, migration and isolated verification.
@@ -159,7 +159,7 @@ flowchart TD
     A[Authenticate client key] --> B[Load its bound rule]
     B --> C[Snapshot UTC time and applicable target chain]
     C --> D[Check candidates in configured order]
-    D -->|Invalid config or accounting unavailable| K[Return local configuration or accounting error]
+    D -->|Invalid config or required accounting unavailable| K[Return local configuration or accounting error]
     D -->|Quota exhausted| D
     D -->|Eligible| E[Select upstream and resolve model]
     D -->|No eligible target| Q[Return quota error]
@@ -176,12 +176,14 @@ flowchart TD
    error, never permission to use the default Copilot driver.
 3. Select the period or default chain using the captured UTC time. An empty or
    invalid chain is a configuration error, not an implicit Copilot route.
-4. Consider targets in order. A missing upstream or unreadable/unhealthy quota
-   ledger returns a local configuration/accounting error, without skipping or
-   dispatching. A candidate without an enabled quota is immediately eligible;
-   otherwise compare shared charged usage with its allowance. Only known quota
-   exhaustion skips a candidate. The first eligible target is selected; if it is
-   disabled, return a local configuration error with no next-target attempt.
+4. Consider targets in order. A missing upstream is a local configuration error.
+   Attempt that upstream's pending local settlements once as described in §7.2.
+   If quota is disabled, ignore accounting health for admission and select this
+   target. If quota is enabled, require a readable ledger and a cleared latch
+   before comparing shared charged usage with the allowance; an accounting error
+   stops selection with no dispatch. Only known quota exhaustion skips a target.
+   The first eligible target is selected; if it is disabled, return a local
+   configuration error with no next-target attempt.
 5. The terminal fallback can use any upstream/model. It still obeys that
    upstream's shared quota if configured. If it is also exhausted, return a
    protocol-shaped 429 `quota_exhausted`. There is no implicit next target.
@@ -212,9 +214,29 @@ The existing custom OpenAI setting maps to `chat_completions`; Anthropic maps
 to `anthropic_messages`. Select a protocol before sending, never by probing one
 generation endpoint and retrying another after an error.
 
-With conversion disabled, only a matching protocol is accepted. Copilot uses
-cached `supported_endpoints` to determine native eligibility. A missing/ambiguous
-capability declaration must not silently authorize a cross-protocol request.
+With conversion disabled, custom upstreams accept only their configured protocol.
+Copilot is the built-in multi-endpoint driver. A usable cached endpoint declaration
+for the resolved model, even from a stale snapshot, takes precedence: prefer the
+incoming protocol when advertised; otherwise, when conversion is enabled, choose
+the first supported target in Chat Completions, Responses, Messages order. A
+known mismatch with conversion disabled is a local protocol-shaped 400.
+
+Copilot capability reads are local and never trigger discovery. No snapshot,
+an ID absent from an otherwise usable snapshot, and missing/ambiguous endpoint
+metadata all use the following explicit policy:
+
+| Request model | Behavior without a usable endpoint declaration |
+| --- | --- |
+| `auto` | Return protocol-shaped 503 `copilot_capabilities_unavailable`, with zero upstream calls. Do not guess an endpoint for the configured target. |
+| Explicit ID, conversion off | Dispatch to the incoming protocol's native endpoint, retaining the model choice. Lack of catalog membership is not a rejection. |
+| Explicit ID, conversion on | Preserve current Copilot dispatch: Messages converts to Chat Completions; Chat Completions uses Chat Completions; Responses uses Responses. Keep existing driver-local alias/preprocessing behavior. |
+
+This applies both before the initial refresh and after a failed refresh. A usable
+stale declaration continues to work. The dashboard and cache-only model reads
+remain available while `auto` awaits usable capabilities; the user can explicitly
+refresh Copilot in Upstreams. No request-triggered refresh, endpoint probe, model
+substitution or provider fallback is added. Custom upstreams need no model
+catalog entry to select their one configured protocol, including for `auto`.
 
 With conversion enabled, the target behavior for stateless text/chat and ordinary
 function-tool turns is:
@@ -235,15 +257,22 @@ already supplies the needed shape; explicit small adapters are sufficient.
 Preserve the existing Copilot preprocessing and sanitization behavior described
 in [15](15-message-sanitization-pipeline.md), including removal of
 `redacted_thinking` and the currently filtered provider-specific blocks/metadata.
-Keep its regression fixtures. Rule migration must not turn those previously
-accepted requests into errors, and must not add a second legacy converter.
+For every Copilot-bound Messages conversion, including Messages-to-Responses,
+apply these existing translation sanitizers before unsupported-feature validation
+and adaptation. Reuse their pure helpers/filter definitions; do not copy them
+into a second converter. Keep native paths' existing preprocessing unchanged;
+do not apply the translated-path filter to native Messages forwarding. Keep the
+regression fixtures, including previously filtered blocks entering the migrated
+GHC `auto` route through the new Messages-to-Responses adapter.
 
-For newly supported conversion directions, reject semantic content that the
-adapter cannot represent instead of silently dropping it. Examples include
-opaque provider state such as `previous_response_id`, encrypted reasoning,
-unsupported multimodal blocks and provider-specific tools. Existing native
-capabilities remain intact. This project does not add server-side conversation
-replay or promise that stateful IDs survive a scheduled upstream switch.
+For newly supported conversion directions, reject semantic content still present
+after the applicable established preprocessing that the adapter cannot represent.
+Previously stripped Copilot blocks must not become validation errors. Non-Copilot
+conversions do not inherit a new Copilot-only cleanup step. Examples of remaining
+unsupported content include opaque provider state such as `previous_response_id`,
+encrypted reasoning, unsupported multimodal blocks and provider-specific tools.
+Existing native capabilities remain intact. This project does not add server-side
+conversation replay or promise that stateful IDs survive a scheduled upstream switch.
 
 The built-in GHC rule initially enables conversion. It preserves existing
 native/translated Copilot paths and must support its configured `auto` model in
@@ -346,14 +375,15 @@ The existing best-effort log sink is not the quota persistence path.
 
 On a settlement storage failure, preserve the original generation/stream outcome
 and emit an operational accounting error. Retain the failed debit and latch that
-upstream's accounting unhealthy in process. Before a later quota admission,
-composition attempts those retained idempotent local writes once; clear the latch
-only after all pending debits commit, not after an unrelated successful write.
-An unreadable ledger or unresolved latch returns 503 `quota_accounting_unavailable`
-and stops selection, without dispatch or skipping to another candidate. Targets
-with quota disabled ignore this admission latch; pending known debits remain
-eligible for settlement. No upstream replay, new background worker or manual
-consumed-token adjustment is involved.
+upstream's accounting unhealthy in process. When later selection reaches this
+upstream, composition attempts its retained idempotent local writes once, even
+if its quota policy has since been disabled. Clear the latch only after all
+pending debits commit, not after an unrelated successful write. With quota
+enabled, an unreadable ledger or unresolved latch returns 503
+`quota_accounting_unavailable` and stops selection without dispatch or skipping.
+With quota disabled, neither the latch nor a failed recovery write blocks
+admission; pending debits are retained for another opportunity. No upstream
+replay, new background worker or manual consumed-token adjustment is involved.
 
 A storage failure cannot guarantee persistence of a health flag in that same
 unavailable database. A process crash can lose pending/unreported usage; this is
@@ -393,8 +423,11 @@ Catalog data is descriptive, not routing input for choosing a provider.
 The management generation test names an upstream and raw model explicitly and
 bypasses key-rule selection. It uses the selected upstream's native protocol,
 one bounded non-streaming request asking for exactly `pong`, and no retry or
-fallback. This action must also disable existing generation replays for expired
-Copilot credentials and parameter repair; its first upstream error is final.
+fallback. For Copilot, choose a declared generation endpoint in the same priority
+order as §6; if no declaration is usable, return the local capabilities error
+without issuing a diagnostic. This action must also disable existing generation
+replays for expired Copilot credentials and parameter repair; its first upstream
+error is final.
 Normal inference retains the existing same-provider behavior described in §5.
 Respect and charge that upstream's quota. Report generation success,
 latency and the actual bounded response separately from catalog refresh status;
@@ -458,9 +491,12 @@ in that upstream's shared quota. They must not be a direct-to-Copilot bypass.
 When the selected upstream is Copilot, reuse its existing native embeddings
 client and normalize its prompt-token usage into the same quota pool. Preserve
 explicit embedding model IDs. An `auto` request resolves the configured target
-model under the same rule; a known chat-only model is incompatible with the
-embeddings endpoint and must fail without selecting another target. Custom
-embedding transports and embedding protocol conversion are outside this change:
+model under the same rule and requires positive cached embeddings capability:
+known generation-only models, including Responses-only `gpt-5.6-sol`, fail locally
+with 400; absent/ambiguous capabilities return the 503 readiness error. Both make
+zero upstream calls. Explicit embedding IDs retain native dispatch without
+catalog membership gating, even with an empty cache. Custom embedding transports
+and embedding protocol conversion are outside this change:
 a selected custom upstream returns an unsupported-endpoint error with zero
 upstream calls, never an implicit Copilot request. Document this capability
 boundary in Connect examples.
@@ -469,6 +505,8 @@ boundary in Connect examples.
 
 The owner explicitly authorized migrating existing keys. This is a one-time
 data/schema change, not a retained compatibility router.
+Steps 1–4 form the first usable delivery: do not activate the migration or remove
+the old schema in a runnable version before its replacement routes are ready.
 
 1. Use fixed constants for the built-in upstream/rule IDs and a new
    `PRAGMA user_version` checkpoint. In one versioned SQLite transaction, create
@@ -491,13 +529,16 @@ data/schema change, not a retained compatibility router.
 4. Complete the missing Messages-to-Responses adapter and verify the default
    Responses-only `gpt-5.6-sol` fixture through all three generation entry points
    before exposing `auto` in the first usable all-day route. Ship that route with
-   the Upstreams/Rules/Connect controls, then layer daily/weekly schedules and
-   shared quota selection/settlement on it. Each stage must keep the default
-   Copilot route usable.
+   the Upstreams/Rules/Connect controls. In that same stage, wire all generation
+   aliases, token-count and embeddings entry points to key-bound selection and
+   routing telemetry; embeddings may not retain a direct Copilot bypass. When
+   adding quota admission/settlement, cover generation and embeddings together.
+   Layer daily/weekly schedules and shared quota selection on this usable base.
+   Each stage must keep the default Copilot route usable.
 5. Complete remaining native/custom Responses and conversion directions, all
-   affected token-count/embeddings/logging paths, and the isolated acceptance
-   suite. Remove replaced routes and duplicate selection code as their callers
-   move. The release is not complete until the entire contract is implemented.
+   associated usage/logging details, and the isolated acceptance suite. Remove
+   replaced routes and duplicate selection code as their callers move. The
+   release is not complete until the entire contract is implemented.
 
 Migration is transactional and idempotent across restart, checked on temporary
 legacy databases. Do not reset the user's daily database for development or tests.
@@ -512,22 +553,23 @@ add a new secret store, certificate operation or Keychain access.
 | Database integrity | On a temporary legacy database, null/dangling key rule IDs fail at the SQLite layer; `foreign_key_check` is clean; a forced mid-migration failure rolls back the whole change; constraints remain active after reopening every connection. |
 | Authentication | Invalid/revoked/internal-management credentials never dispatch inference. Environment client credentials use their explicit GHC rule binding. |
 | Key relationship | Two keys share one rule; rebinding one affects only its later requests; deleting an in-use rule/upstream is rejected. |
-| Explicit versus auto | At the same time and quota state, both choose the same upstream; only `auto` substitutes the configured model. Unknown hardcoded IDs are sent without a catalog lookup. |
+| Explicit versus auto | At the same time and quota state, both choose the same upstream; only `auto` substitutes the configured model. Explicit IDs are sent without catalog membership gating or discovery; local capability reads still choose the endpoint. |
 | Time boundaries | Daily/weekly, local half-hour steps, overnight spans, Sunday/Monday rollover, gaps, copied weekdays, UTC+08 and UTC+05:45 round trips; stable period IDs keep same-chain adjacent fragments separate; overlap rejects the whole copied week. |
 | Concurrent edits | Running requests keep their captured route, model, multiplier and window; later requests see the saved configuration. |
 | Shared quota | Multiple keys, rules and models share one upstream debit total; candidate order resumes after reset; restart retains usage; skipped cycles advance directly. |
 | Weighted quota | All three protocol normalization cases, including Responses input 1,000/cache 800/output 100 = 1,100; fractional single-token debits; absent versus explicit-zero usage; limit edits preserve charges; past/future reset edits retain late settlement by ID. |
-| Settlement | Distinct tool/retry attempts count once; concurrent increments are atomic; duplicate completion does not double debit; storage failure preserves the generation outcome, blocks quota admission without skipping, and clears only after pending local debits commit. |
+| Settlement | Distinct tool/retry attempts count once; concurrent increments are atomic; duplicate completion does not double debit; storage failure preserves the generation outcome, blocks enabled-quota admission without skipping, and clears only after pending local debits commit. Disabling quota allows admission while still attempting retained settlements. |
 | Terminal fallback | Any configured upstream/model works; its own quota still applies; all exhausted returns 429; no implicit Copilot path. |
 | No failure switching | 400/401/404/429/5xx, timeout, protocol mismatch and SSE errors never dispatch the next candidate. |
 | Configuration failures | Empty chains, missing/disabled upstreams and unhealthy quota ledgers fail locally without selecting the next candidate; transport failures including DNS/TLS/408/422 likewise never change the selected target. |
 | Protocols | Native 3×3 diagonal with conversion off; all six non-diagonal cases reject with zero upstream calls; new API/UI rules default off when omitted; migrated GHC defaults on. With conversion on, test permitted JSON/SSE and two-turn tool exchanges; unsupported features in new directions reject explicitly. |
-| Copilot behavior | Existing sanitization, model-alias handling, server-tool interception and same-provider credential/parameter handling still pass their regression cases after key migration; no new provider/model fallback. |
+| Copilot behavior | Existing sanitization, model-alias handling, server-tool interception and same-provider credential/parameter handling still pass after migration; Messages-to-Responses runs shared sanitizers before validation, previously filtered blocks remain accepted, and native Messages is not newly filtered. No new provider/model fallback. |
 | Default model | Responses-only `gpt-5.6-sol` fixture works through the migrated rule for Messages, Chat Completions and Responses without endpoint-probing retries. |
-| Embeddings | Explicit models obey key/rule/time/quota; chat and embeddings consume the same Copilot allowance; incompatible `auto` models/custom targets fail without another upstream call; no implicit Copilot bypass. |
+| Copilot readiness | Across all three generation inputs, first startup/failed initial refresh with no cache, an absent model ID and missing endpoint metadata produce the §6 auto error or explicit dispatch; stale usable declarations still work. Assert the chosen endpoint/model, no discovery, and no failover. |
+| Embeddings | Explicit IDs obey key/rule/time/quota without cache membership gating; chat and embeddings share the Copilot allowance. Generation-only/Responses-only default `auto`, unknown `auto` capabilities and custom targets fail locally with zero calls; no bypass even in the first usable all-day stage. |
 | Cache-only reads | Model/Connect/Copilot page/API reads make zero discovery calls, including empty/stale caches; exactly one `auto`, deterministic exact-ID dedup, no UUID prefixes. |
 | Refresh | Only explicit custom refresh replaces fetched data; manual IDs and last good data survive failures/restart; only Copilot has a non-overlapping background refresh timer. |
-| Manual test | One click makes at most one native generation call, including simulated expired-token 401 and repairable 400; charges observed usage; no refresh/replay/fallback. Automated cases use fixtures only. |
+| Manual test | One click makes at most one native generation call, including simulated expired-token 401 and repairable 400; charges observed usage; no refresh/replay/fallback. Unknown Copilot capabilities fail locally. Automated cases use fixtures only. |
 | UI | Basalt controls, compact accessible layout, current timezone labels, week/day copying, rule binding without secret exposure, referenced-delete conflicts and error feedback. |
 
 Use real isolated SQLite state and a fake clock where time matters. Unit and
@@ -550,9 +592,9 @@ This section records review of the design, not implementation acceptance.
 
 | Reviewer | Revision | Result |
 | --- | --- | --- |
-| Author | R2 | Revised against independent R1 findings and source evidence. |
-| Independent Codex | R1 → R2 | R1 withheld: one P1 and four P2 findings; R2 verification pending. |
-| Independent Grok | R1 → R2 | R1 withheld: eight P1, ten P2 and four P3 findings; R2 verification pending. |
+| Author | R3 | Revised against independent R1/R2 findings and source evidence. |
+| Independent Codex | R2 → R3 | R1 findings closed; R2 withheld for one P2 capability-readiness gap; R3 verification pending. |
+| Independent Grok | R2 → R3 | R1 findings closed; R2 withheld for one P1 and three P2 interactions; R3 verification pending. |
 
 R2 clarifies accounting normalization and attempt identity, failure recovery,
 UTC fragment identity, database migration/constraints, cache-only startup,
@@ -564,7 +606,13 @@ fractional SQLite `REAL` totals instead of a fixed-point unit; an in-process
 failed-debit latch with local replay instead of promising a durable health flag
 while SQLite is unavailable; and a usable default-route stage before completing
 the full conversion matrix, rather than dropping the remaining conversion target.
-These dispositions also require both reviewers' agreement before design sign-off.
+Both independent reviewers accepted these three alternatives in their R2 reviews.
+
+R3 resolves the remaining interactions: Copilot Messages sanitization precedes
+new adapter validation; disabled quotas do not block on accounting health;
+the embeddings endpoint requires positive capabilities for `auto` while preserving
+explicit IDs, and joins the first usable stage. Copilot cold/unknown capability
+states now have deterministic `auto` and explicit-model dispatch policies.
 
 The document is ready for implementation planning only after actionable findings
 are resolved and both independent reviewers explicitly sign off the same revision.
