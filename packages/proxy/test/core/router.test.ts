@@ -18,6 +18,7 @@ interface FixtureInput {
   anthropicBeta: string | null
   providers: RawProvider[]
   modelsCatalogIds: string[]
+  modelsCatalog?: Array<{ id: string; supported_endpoints?: string[] }>
 }
 
 interface Fixture {
@@ -60,6 +61,7 @@ function buildInput(f: FixtureInput): RouterInput {
     anthropicBeta: f.anthropicBeta,
     providers: f.providers.map(compileProvider),
     modelsCatalogIds: f.modelsCatalogIds,
+    ...(f.modelsCatalog ? { modelsCatalog: f.modelsCatalog } : {}),
   }
 }
 
@@ -80,6 +82,7 @@ describe("pickStrategy — branch coverage assertions", () => {
       anthropicBeta: "context-1m-2025-08-07",
       providers: [],
       modelsCatalogIds: ["claude-opus-4.6-1m"],
+      modelsCatalog: [{ id: "claude-opus-4.6-1m", supported_endpoints: ["/v1/messages"] }],
     })
     expect(decision).toEqual({ kind: "ok", name: "copilot-native" })
   })
@@ -91,6 +94,10 @@ describe("pickStrategy — branch coverage assertions", () => {
       anthropicBeta: "context-1m-2025-08-07",
       providers: [],
       modelsCatalogIds: ["claude-opus-4.7", "claude-opus-4.7-1m-internal"],
+      modelsCatalog: [
+        { id: "claude-opus-4.7", supported_endpoints: ["/v1/messages"] },
+        { id: "claude-opus-4.7-1m-internal", supported_endpoints: ["/v1/messages"] },
+      ],
     })
     expect(decision).toEqual({ kind: "ok", name: "copilot-native" })
   })
@@ -138,6 +145,65 @@ describe("pickStrategy — branch coverage assertions", () => {
       modelsCatalogIds: [], // not in catalog at all
     })
     expect(decision).toEqual({ kind: "ok", name: "copilot-translated" })
+  })
+
+  test("anthropic catalogued claude without modelsCatalog is translated", () => {
+    expect(
+      pickStrategy({
+        protocol: "anthropic",
+        model: "claude-sonnet-4",
+        providers: [],
+        modelsCatalogIds: ["claude-sonnet-4"],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-translated" })
+  })
+
+  test("anthropic catalogued claude with explicit /v1/messages is native", () => {
+    expect(
+      pickStrategy({
+        protocol: "anthropic",
+        model: "claude-sonnet-4",
+        providers: [],
+        modelsCatalogIds: ["claude-sonnet-4"],
+        modelsCatalog: [{ id: "claude-sonnet-4", supported_endpoints: ["/v1/messages"] }],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-native" })
+  })
+
+  test("anthropic catalogued claude with only /chat/completions is translated", () => {
+    expect(
+      pickStrategy({
+        protocol: "anthropic",
+        model: "claude-sonnet-4",
+        providers: [],
+        modelsCatalogIds: ["claude-sonnet-4"],
+        modelsCatalog: [{ id: "claude-sonnet-4", supported_endpoints: ["/chat/completions"] }],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-translated" })
+  })
+
+  test("anthropic catalogued claude with omitted endpoints is translated", () => {
+    expect(
+      pickStrategy({
+        protocol: "anthropic",
+        model: "claude-sonnet-4",
+        providers: [],
+        modelsCatalogIds: ["claude-sonnet-4"],
+        modelsCatalog: [{ id: "claude-sonnet-4" }],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-translated" })
+  })
+
+  test("anthropic catalogued claude with empty endpoints is translated", () => {
+    expect(
+      pickStrategy({
+        protocol: "anthropic",
+        model: "claude-sonnet-4",
+        providers: [],
+        modelsCatalogIds: ["claude-sonnet-4"],
+        modelsCatalog: [{ id: "claude-sonnet-4", supported_endpoints: [] }],
+      }),
+    ).toEqual({ kind: "ok", name: "copilot-translated" })
   })
 
   test("openai with no provider always picks copilot-openai-direct", () => {

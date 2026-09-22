@@ -1,6 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "vitest"
 import {
-  supportsNativeMessages,
   getModelCapabilities,
 } from "../../src/strategies/support/model-capabilities"
 import { state } from "../../src/lib/state"
@@ -13,7 +12,6 @@ interface TestModel {
   id: string
   name: string
   version: string
-  supported_endpoints?: string[]
   capabilities?: {
     supports?: {
       reasoning_effort?: string[]
@@ -44,83 +42,6 @@ function setModels(models: TestModel[]): void {
     object: "list",
   }
 }
-
-// ---------------------------------------------------------------------------
-// supportsNativeMessages
-// ---------------------------------------------------------------------------
-
-describe("supportsNativeMessages", () => {
-  test("returns false when state.models is null", () => {
-    state.models = null
-    expect(supportsNativeMessages("claude-sonnet-4")).toBe(false)
-  })
-
-  test("returns false when state.models.data is undefined", () => {
-    state.models = {} as typeof state.models
-    expect(supportsNativeMessages("claude-sonnet-4")).toBe(false)
-  })
-
-  test("returns false when model is not found", () => {
-    setModels([
-      { id: "gpt-4o", name: "GPT-4o", version: "2024-08-06" },
-    ])
-    expect(supportsNativeMessages("claude-sonnet-4")).toBe(false)
-  })
-
-  test("returns false when model has no supported_endpoints", () => {
-    setModels([
-      { id: "claude-sonnet-4", name: "Claude Sonnet 4", version: "2025-04-14" },
-    ])
-    expect(supportsNativeMessages("claude-sonnet-4")).toBe(false)
-  })
-
-  test("returns false when supported_endpoints does not include /v1/messages", () => {
-    setModels([
-      {
-        id: "claude-sonnet-4",
-        name: "Claude Sonnet 4",
-        version: "2025-04-14",
-        supported_endpoints: ["/chat/completions"],
-      },
-    ])
-    expect(supportsNativeMessages("claude-sonnet-4")).toBe(false)
-  })
-
-  test("returns true when supported_endpoints includes /v1/messages", () => {
-    setModels([
-      {
-        id: "claude-sonnet-4",
-        name: "Claude Sonnet 4",
-        version: "2025-04-14",
-        supported_endpoints: ["/chat/completions", "/v1/messages"],
-      },
-    ])
-    expect(supportsNativeMessages("claude-sonnet-4")).toBe(true)
-  })
-
-  test("matches model by exact id", () => {
-    setModels([
-      {
-        id: "claude-opus-4.6",
-        name: "Claude Opus 4.6",
-        version: "2025-08-20",
-        supported_endpoints: ["/v1/messages"],
-      },
-      {
-        id: "claude-sonnet-4",
-        name: "Claude Sonnet 4",
-        version: "2025-04-14",
-        supported_endpoints: ["/chat/completions"],
-      },
-    ])
-    expect(supportsNativeMessages("claude-opus-4.6")).toBe(true)
-    expect(supportsNativeMessages("claude-sonnet-4")).toBe(false)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// getModelCapabilities
-// ---------------------------------------------------------------------------
 
 describe("getModelCapabilities", () => {
   test("returns null when state.models is null", () => {

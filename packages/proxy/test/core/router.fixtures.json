@@ -6,7 +6,8 @@
       "model": "string (raw client-supplied model id)",
       "anthropicBeta": "string | null (anthropic-beta header; only meaningful when protocol = anthropic)",
       "providers": "CompiledProvider[]; only id/name/format/enabled/patterns/supports_reasoning are used by router",
-      "modelsCatalogIds": "string[] (state.models?.data ids)"
+      "modelsCatalogIds": "string[] (state.models?.data ids)",
+      "modelsCatalog": "optional CatalogModel[]; native anthropic requires supported_endpoints to include /v1/messages"
     },
     "expected": "StrategyDecision (§3.2): { kind: 'ok', name, providerId? } | { kind: 'reject', status, errorType, message }"
   },
@@ -18,7 +19,12 @@
         "model": "claude-opus-4.6",
         "anthropicBeta": null,
         "providers": [],
-        "modelsCatalogIds": ["claude-opus-4.6", "claude-sonnet-4.6", "gpt-5.2"]
+        "modelsCatalogIds": ["claude-opus-4.6", "claude-sonnet-4.6", "gpt-5.2"],
+        "modelsCatalog": [
+          { "id": "claude-opus-4.6", "supported_endpoints": ["/v1/messages"] },
+          { "id": "claude-sonnet-4.6", "supported_endpoints": ["/v1/messages"] },
+          { "id": "gpt-5.2" }
+        ]
       },
       "expected": { "kind": "ok", "name": "copilot-native" }
     },
@@ -29,7 +35,11 @@
         "model": "claude-opus-4-6-20250820",
         "anthropicBeta": null,
         "providers": [],
-        "modelsCatalogIds": ["claude-opus-4.6", "claude-sonnet-4.6"]
+        "modelsCatalogIds": ["claude-opus-4.6", "claude-sonnet-4.6"],
+        "modelsCatalog": [
+          { "id": "claude-opus-4.6", "supported_endpoints": ["/v1/messages"] },
+          { "id": "claude-sonnet-4.6", "supported_endpoints": ["/v1/messages"] }
+        ]
       },
       "expected": { "kind": "ok", "name": "copilot-native" }
     },
@@ -40,7 +50,8 @@
         "model": "claude-sonnet-4.6",
         "anthropicBeta": null,
         "providers": [],
-        "modelsCatalogIds": ["claude-sonnet-4.6"]
+        "modelsCatalogIds": ["claude-sonnet-4.6"],
+        "modelsCatalog": [{ "id": "claude-sonnet-4.6", "supported_endpoints": ["/v1/messages"] }]
       },
       "expected": { "kind": "ok", "name": "copilot-native" }
     },

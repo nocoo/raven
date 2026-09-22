@@ -6,11 +6,11 @@ import { handleCompletion as handleChat } from "../../src/routes/chat-completion
 import { createMessageRoutes } from "../../src/routes/messages/route"
 import { handleResponses } from "../../src/routes/responses/handler"
 
-function model(id: string, endpoints: string[]) {
+function model(id: string, endpoints?: string[]) {
   return {
     id, name: id, object: "model", vendor: "audit", version: "1",
     preview: false, policy: null, model_picker_enabled: true,
-    supported_endpoints: endpoints,
+    ...(endpoints === undefined ? {} : { supported_endpoints: endpoints }),
     capabilities: {
       family: id, object: "model_capabilities", type: "chat", tokenizer: "o200k_base",
       supports: { tool_calls: true, parallel_tool_calls: true, dimensions: null },
@@ -165,13 +165,56 @@ describe("Proxy route contracts at the HTTP boundary", () => {
     expect(outgoing.messages).toEqual(payload.messages)
   })
 
-  test.fails("BUG R01: a catalogued Claude without native support must use the translated strategy", async () => {
-    state.models = { object: "list", data: [model("claude-sonnet-4", ["/chat/completions"])] }
-    fetchSpy.mockResolvedValueOnce(responseJson(chatResponse()))
+  test.each([
+    { label: "chat-only endpoints", endpoints: ["/chat/completions"] as string[] | undefined, path: "translated" },
+    { label: "empty endpoints", endpoints: [], path: "translated" },
+    { label: "omitted endpoints", endpoints: undefined, path: "translated" },
+    { label: "explicit /v1/messages", endpoints: ["/v1/messages"], path: "native" },
+  ])("JSON: catalogued Claude with $label uses the $path path", async ({ endpoints, path }) => {
+    state.models = { object: "list", data: [model("claude-sonnet-4", endpoints)] }
+    fetchSpy.mockResolvedValueOnce(responseJson(path === "native" ? anthropicResponse() : chatResponse()))
     const response = await request("/v1/messages", messages("claude-sonnet-4"))
-    const body = await response.json()
-    expect({ status: response.status, body }).toMatchObject({ status: 200, body: { type: "message" } })
-    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("https://api.githubcopilot.com/chat/completions")
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ type: "message" })
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      path === "native"
+        ? "https://api.githubcopilot.com/v1/messages"
+        : "https://api.githubcopilot.com/chat/completions",
+    )
+  })
+
+  test.each([
+    { label: "chat-only endpoints", endpoints: ["/chat/completions"] as string[] | undefined, path: "translated" },
+    { label: "empty endpoints", endpoints: [], path: "translated" },
+    { label: "omitted endpoints", endpoints: undefined, path: "translated" },
+    { label: "explicit /v1/messages", endpoints: ["/v1/messages"], path: "native" },
+  ])("SSE: catalogued Claude with $label uses the $path path", async ({ endpoints, path }) => {
+    state.models = { object: "list", data: [model("claude-sonnet-4", endpoints)] }
+    const wire = path === "native"
+      ? [
+          'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}\n\n',
+          'event: message_stop\ndata: {"type":"message_stop"}\n\n',
+        ].join("")
+      : [
+          'data: {"id":"c1","choices":[{"delta":{"role":"assistant"},"index":0}]}\n\n',
+          'data: {"id":"c1","choices":[{"delta":{"content":"hi"},"index":0}]}\n\n',
+          'data: {"id":"c1","choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n',
+          "data: [DONE]\n\n",
+        ].join("")
+    fetchSpy.mockResolvedValueOnce(new Response(wire, { headers: { "content-type": "text/event-stream" } }))
+    const response = await request("/v1/messages", messages("claude-sonnet-4", true))
+    expect(response.status).toBe(200)
+    const body = await response.text()
+    expect(body).toContain("event: content_block_delta")
+    expect(body).toContain('"text":"hi"')
+    expect(body).toContain("event: message_stop")
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      path === "native"
+        ? "https://api.githubcopilot.com/v1/messages"
+        : "https://api.githubcopilot.com/chat/completions",
+    )
   })
 
   test("OpenAI → Anthropic is explicitly rejected before any upstream call", async () => {

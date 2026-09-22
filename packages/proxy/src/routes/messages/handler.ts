@@ -28,7 +28,6 @@ import {
 } from "../../protocols/translate/non-stream-translation"
 import { consumeStreamToResponse } from "../../protocols/translate/consume-stream"
 import { preprocessPayload, translateModelName } from "./../../protocols/anthropic/preprocess"
-import { supportsNativeMessages } from "../../strategies/support/model-capabilities"
 import { decorate as decorateServerTools } from "../../strategies/support/server-tools"
 import type { NativeMessagesOptions } from "../../upstream/copilot-native"
 import {
@@ -88,12 +87,15 @@ export async function handleCompletion(c: Context) {
   const normalisedModel = translateModelName(model, anthropicBeta)
   const candidates = normalisedModel !== model ? [model, normalisedModel] : [model]
 
+  const modelsCatalog = state.models?.data ?? []
+  const modelsCatalogIds = modelsCatalog.map((m) => m.id)
   const decision = pickStrategy({
     protocol: "anthropic",
     model,
     anthropicBeta,
     providers: state.providers,
-    modelsCatalogIds: state.models?.data?.map((m) => m.id) ?? [],
+    modelsCatalogIds,
+    modelsCatalog,
   })
 
   // Defensive guard: pickStrategy currently never rejects for the
@@ -128,7 +130,7 @@ export async function handleCompletion(c: Context) {
           stream,
           anthropicBeta,
           providers: state.providers,
-          models: state.models?.data ?? [],
+          models: modelsCatalog,
           buildDeps: { toolCallDebug: state.optToolCallDebug },
         })
       } catch (error) {
@@ -175,7 +177,7 @@ export async function handleCompletion(c: Context) {
         stream,
         anthropicBeta,
         providers: state.providers,
-        models: state.models?.data ?? [],
+        models: modelsCatalog,
         buildDeps: {
           toolCallDebug: state.optToolCallDebug,
           filterWhitespaceChunks: state.optFilterWhitespaceChunks,
@@ -187,19 +189,10 @@ export async function handleCompletion(c: Context) {
   }
 
   // --- Preprocessing: normalize model name, filter beta, detect server tools ---
-  const preprocessed = preprocessPayload(anthropicPayload, anthropicBeta, state.models?.data?.map((m) => m.id) ?? [])
+  const preprocessed = preprocessPayload(anthropicPayload, anthropicBeta, modelsCatalogIds)
   const { payload: cleanedPayload, copilotModel, anthropicBeta: filteredBeta, serverToolContext } = preprocessed
 
-  // --- Native Messages Routing ---
-  // Router (pickStrategy) checks catalog membership + `claude-*` prefix.
-  // Runtime gate (supportsNativeMessages) additionally verifies the
-  // model declares /v1/messages in `supported_endpoints` — see
-  // core/router.ts comment on `nativeSupported`. Both must agree to
-  // dispatch native; otherwise fall through to the translated path.
-  if (
-    decision.name === "copilot-native" &&
-    supportsNativeMessages(copilotModel)
-  ) {
+  if (decision.name === "copilot-native") {
     logEmitter.emitLog({
       ts: Date.now(),
       level: "debug",
@@ -266,7 +259,7 @@ export async function handleCompletion(c: Context) {
         stream,
         anthropicBeta,
         providers: state.providers,
-        models: state.models?.data ?? [],
+        models: modelsCatalog,
         buildDeps: { toolCallDebug: state.optToolCallDebug },
       })
     } catch (error) {
@@ -372,7 +365,7 @@ export async function handleCompletion(c: Context) {
       stream,
       anthropicBeta,
       providers: state.providers,
-      models: state.models?.data ?? [],
+      models: modelsCatalog,
       buildDeps: {
         toolCallDebug: state.optToolCallDebug,
         filterWhitespaceChunks: state.optFilterWhitespaceChunks,

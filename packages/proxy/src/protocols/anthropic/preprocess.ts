@@ -257,7 +257,7 @@ export function detectServerTools(payload: AnthropicMessagesPayload): ServerTool
  * 5. Detects server-side tools
  *
  * The rawModel is used for resolveProvider() matching.
- * The copilotModel is used for supportsNativeMessages() and actual Copilot requests.
+ * The copilotModel is used for actual Copilot requests.
  */
 export function preprocessPayload(
   rawPayload: AnthropicMessagesPayload,

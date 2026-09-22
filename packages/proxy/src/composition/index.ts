@@ -39,7 +39,8 @@ export interface DispatchInput {
   /** Live router inputs. Composition reads `state` and threads them in. */
   providers: CompiledProvider[]
   /**
-   * Catalog models. `id` required; `supported_endpoints` drives chat-via-responses.
+   * Catalog models. `id` required; `supported_endpoints` drives native Messages
+   * eligibility and chat-via-responses.
    */
   models: Array<{ id: string; supported_endpoints?: string[] }>
   /** Strategy-construction deps. */

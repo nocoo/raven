@@ -47,8 +47,9 @@ export interface RouterInput {
   /** Catalog of Copilot models exposed today (state.models?.data ids). */
   modelsCatalogIds: string[]
   /**
-   * Full catalog entries for endpoint-aware openai routing.
-   * When omitted, openai path never selects chat-via-responses (legacy-safe).
+   * Full catalog entries for endpoint-aware routing.
+   * Anthropic native requires `/v1/messages` in `supported_endpoints`.
+   * When omitted, openai never selects chat-via-responses.
    */
   modelsCatalog?: CatalogModel[]
 }
@@ -104,14 +105,17 @@ function matchProvider(
   return null
 }
 
-function nativeSupported(model: string, modelsCatalogIds: string[]): boolean {
-  // Router only checks catalog membership; the runtime check
-  // (`supports_endpoints` includes /v1/messages) is delegated to the
-  // strategies/support helper at dispatch time. For pickStrategy a
-  // model present in the Copilot catalog with the Anthropic family
-  // shape (`claude-*`) is treated as native-eligible.
-  if (!modelsCatalogIds.includes(model)) return false
-  return model.startsWith("claude-")
+function nativeSupported(
+  model: string,
+  modelsCatalogIds: string[],
+  modelsCatalog?: CatalogModel[],
+): boolean {
+  if (!modelsCatalogIds.includes(model) || !model.startsWith("claude-")) return false
+  return (
+    modelsCatalog
+      ?.find((entry) => entry.id === model)
+      ?.supported_endpoints?.includes("/v1/messages") === true
+  )
 }
 
 export function pickStrategy(input: RouterInput): StrategyDecision {
@@ -131,7 +135,7 @@ export function pickStrategy(input: RouterInput): StrategyDecision {
           : "custom-openai"
       return { kind: "ok", name, providerId: matched.provider.id }
     }
-    if (nativeSupported(catalogModel, modelsCatalogIds)) {
+    if (nativeSupported(catalogModel, modelsCatalogIds, modelsCatalog)) {
       return { kind: "ok", name: "copilot-native" }
     }
     return { kind: "ok", name: "copilot-translated" }
