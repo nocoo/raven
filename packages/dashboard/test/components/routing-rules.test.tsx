@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { RulesContent } from "@/app/routing/rules/rules-content";
@@ -148,27 +148,30 @@ describe("Routing Rules workbench", () => {
   });
 
   it("shows reference conflicts on delete, then supports an explicit successful delete", async () => {
-    render(<RulesContent rules={[fixtureRules[1]!, fixtureRules[0]!]} upstreams={fixtureUpstreams} />);
+    const removable = makeRule({ id: "rule:working-hours", name: "Working hours", is_builtin: false });
+    render(<RulesContent rules={[removable, fixtureRules[0]!]} upstreams={fixtureUpstreams} />);
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Cancel" }));
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockResolvedValueOnce(Response.json({ error: { message: "Rule is in use.", references: [{ id: "key", name: "Laptop" }] } }, { status: 409 }));
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Delete rule" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Laptop");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Laptop");
     expect(nameInput()).toHaveValue("Working hours");
     fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Delete rule" }));
-    await waitFor(() => expect(screen.getByText("Rule deleted.")).toBeVisible());
+    expect(await screen.findByText("Rule deleted.")).toBeVisible();
     expect(nameInput()).toHaveValue("GitHub Copilot");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy).toHaveBeenLastCalledWith("/api/routing-rules/rule%3Aworking-hours", { method: "DELETE" });
   });
 
   it("returns to a creation form after deleting the only custom rule", async () => {
-    render(<RulesContent rules={[fixtureRules[1]!]} upstreams={fixtureUpstreams} />);
+    render(<RulesContent rules={[makeRule({ id: "rule:custom", is_builtin: false })]} upstreams={fixtureUpstreams} />);
     fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Delete rule" }));
-    expect(screen.getByRole("heading", { name: "New routing rule" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "New routing rule" })).toBeVisible();
   });
 });
