@@ -2,6 +2,13 @@
 
 Daily commands, test targets and 6DQ status live in the root [AGENTS.md](../AGENTS.md). Legacy E2E tests against the daily database do not qualify as isolated 6DQ evidence; live upstream diagnostics require explicit task authorization.
 
+The reusable [live Proxy acceptance matrix](29-live-proxy-acceptance.md) covers
+default-rule Chat/Messages/Responses calls for Gemini, Grok, GPT and `auto`.
+`bun run test:live` only lists cases; `--preflight` checks the existing key, rule
+and model cache; `--execute` requires live-test authorization and sends each case
+once with private persisted evidence. The runner stops on failure and supports
+explicit case selection for separately authorized reruns.
+
 ## 分层与本机数据
 
 
