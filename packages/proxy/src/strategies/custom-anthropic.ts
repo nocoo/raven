@@ -13,6 +13,7 @@
 import type { SSEMessage } from "hono/streaming"
 
 import type { Strategy } from "../core/strategy"
+import { isInlineStreamError } from "./support/inline-stream-error"
 import type { ServerSentEvent } from "../util/sse"
 import type { CompiledProvider } from "../db/providers"
 import type {
@@ -32,6 +33,7 @@ export interface CustomAnthropicUpReq {
 }
 
 export interface CustomAnthropicStreamState {
+  inlineFailed?: boolean
   inputTokens: number
   outputTokens: number
   cacheReadTokens: number
@@ -75,6 +77,7 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
     }),
 
     adaptChunk: (sseEvent, st) => {
+      st.inlineFailed ||= isInlineStreamError(sseEvent.event)
       try {
         type Usage = {
           input_tokens?: number | null
@@ -87,6 +90,7 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
           message?: { usage?: Usage }
           usage?: Usage
         }
+        st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed)
         // message_start carries input + cache counters; message_delta carries
         // output totals and usually omits input_tokens — keep the prior value
         // rather than zeroing it.
@@ -108,6 +112,8 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
       }
       return [{ data: sseEvent.data }]
     },
+
+    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
 
     adaptStreamError: () => {
       const errorEvent = translateErrorToAnthropicErrorEvent()

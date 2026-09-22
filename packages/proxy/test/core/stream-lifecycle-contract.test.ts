@@ -60,7 +60,7 @@ describe("Runner stream lifecycle contracts", () => {
     expect(consumed).toBeLessThanOrEqual(1)
   })
 
-  test.fails("BUG R07: an upstream Anthropic error event must not be logged as success", async () => {
+  test("BUG R07: an upstream Anthropic error event must not be logged as success", async () => {
     const recorded: LogEvent[] = []
     const onLog = (entry: LogEvent) => recorded.push(entry)
     logEmitter.on("log", onLog)
@@ -73,6 +73,8 @@ describe("Runner stream lifecycle contracts", () => {
         }
       })())
       const strategy = makeCustomAnthropic({ client })
+      const finalize = vi.fn(() => [{ data: "success footer" }])
+      strategy.finalizeStream = finalize
       const app = new Hono()
       app.post("/v1/messages", (c) => execute(c, {
         ...context, startTime: performance.now(),
@@ -82,7 +84,9 @@ describe("Runner stream lifecycle contracts", () => {
       } as CustomAnthropicUpReq))
       const response = await app.request("/v1/messages", { method: "POST" })
       const body = await response.text()
-      expect(body).toContain('"type":"overloaded_error"')
+      expect(finalize).not.toHaveBeenCalled()
+      expect(body).not.toContain("success footer")
+      expect(body).toBe('event: error\ndata: {"type":"error","error":{"type":"overloaded_error","message":"busy"}}\n\n')
       const ends = recorded.filter((entry) => entry.type === "request_end")
       expect(ends).toHaveLength(1)
       expect(ends[0]?.data?.status).toBe("error")

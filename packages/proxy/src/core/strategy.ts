@@ -112,4 +112,7 @@ export interface Strategy<
    * Runner calls this only after the for-await loop completes without error.
    */
   finalizeStream?(state: StreamState, ctx: RequestContext): EventOut[]
+
+  /** Sticky outcome of forwarded inline events; an error has already reached the client. */
+  streamOutcome?(state: StreamState): "success" | "error"
 }

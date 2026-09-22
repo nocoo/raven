@@ -6,6 +6,7 @@
 import type { SSEMessage } from "hono/streaming"
 
 import type { Strategy } from "../core/strategy"
+import { isInlineStreamError } from "./support/inline-stream-error"
 import type { ServerSentEvent } from "../util/sse"
 import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
 import type {
@@ -15,8 +16,6 @@ import type {
 import { sanitizeCopilotResponsesSampling } from "../protocols/responses/sampling"
 import {
   extractNonStreamingMeta,
-  extractResolvedModel,
-  extractUsage,
   isTerminalResponseEvent,
   nonCachedInputTokens,
 } from "../protocols/responses/stream-state"
@@ -26,6 +25,7 @@ export interface CopilotResponsesDeps {
 }
 
 export interface CopilotResponsesStreamState {
+  inlineFailed?: boolean
   resolvedModel: string
   inputTokens: number
   outputTokens: number
@@ -239,20 +239,6 @@ function rewriteNamespacedFunctionCalls(
   return changed ? next : value
 }
 
-function restoreNamespacedFunctionCallData(
-  data: string,
-  mapping: NamespaceToolMapping | undefined,
-): string {
-  if (!mapping || mapping.size === 0) return data
-  try {
-    const parsed = JSON.parse(data) as unknown
-    const rewritten = restoreNamespacedFunctionCalls(parsed, mapping)
-    return rewritten === parsed ? data : JSON.stringify(rewritten)
-  } catch {
-    return data
-  }
-}
-
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
   return Boolean(value) && typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function"
 }
@@ -298,27 +284,36 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
     adaptChunk: (chunk, st, ctx) => {
       emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
 
-      if (chunk.event === "response.created") {
-        const m = extractResolvedModel(chunk.data)
-        if (m) st.resolvedModel = m
-      }
-
-      if (isTerminalResponseEvent(chunk.event)) {
-        const usage = extractUsage(chunk.data)
-        if (usage) {
-          st.inputTokens = usage.inputTokens
-          st.outputTokens = usage.outputTokens
-          st.cacheReadTokens = usage.cachedInputTokens
+      st.inlineFailed ||= isInlineStreamError(chunk.event)
+      let data = chunk.data
+      try {
+        const parsed = JSON.parse(chunk.data) as { type?: string; response?: { usage?: unknown } } | null
+        st.inlineFailed ||= isInlineStreamError(chunk.event, parsed)
+        const event = chunk.event ?? parsed?.type
+        if (event === "response.created") {
+          const meta = extractNonStreamingMeta(parsed?.response, st.resolvedModel)
+          if (meta.resolvedModel) st.resolvedModel = meta.resolvedModel
         }
+        if (isTerminalResponseEvent(event) && parsed?.response?.usage) {
+          const meta = extractNonStreamingMeta(parsed.response, st.resolvedModel)
+          st.inputTokens = meta.inputTokens
+          st.outputTokens = meta.outputTokens
+          st.cacheReadTokens = meta.cachedInputTokens
+        }
+        const restored = restoreNamespacedFunctionCalls(parsed, st.namespaceToolMapping)
+        if (restored !== parsed) data = JSON.stringify(restored)
+      } catch {
+        // Malformed passthrough frames retain their original bytes.
       }
 
-      const data = restoreNamespacedFunctionCallData(chunk.data, st.namespaceToolMapping)
       const sseMsg: SSEMessage = { data }
       if (chunk.event) sseMsg.event = chunk.event
       if (chunk.id) sseMsg.id = chunk.id
       if (chunk.retry !== null) sseMsg.retry = chunk.retry
       return [sseMsg]
     },
+
+    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
 
     adaptStreamError: () => [{
       event: "error",

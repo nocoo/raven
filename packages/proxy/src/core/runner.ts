@@ -95,7 +95,9 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
         }
       }
       throwIfAborted(signal)
-      const terminal = strategy.finalizeStream?.(state, ctx) ?? []
+      const terminal = strategy.streamOutcome?.(state) === "error"
+        ? []
+        : strategy.finalizeStream?.(state, ctx) ?? []
       for (const ev of terminal) {
         throwIfAborted(signal)
         await sseStream.writeSSE(sanitizeSSEMessage(ev))
@@ -103,7 +105,7 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
       }
     } catch (err) {
       streamError = signal.aborted ? abortError(signal) : err
-      if (signal.aborted) return
+      if (signal.aborted || strategy.streamOutcome?.(state) === "error") return
       const terminal = strategy.adaptStreamError(err, state, ctx)
       for (const ev of terminal) {
         try {
@@ -192,7 +194,9 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
     firstChunkTime,
   )
   const extras = strategy.describeEndLog({ kind: "stream", req, state }, ctx)
-  const errorDetail = err
+  const inlineFailed = strategy.streamOutcome?.(state) === "error"
+  const failed = inlineFailed || !!err
+  const errorDetail = inlineFailed ? "upstream stream error event" : err
     ? err instanceof Error
       ? `stream error: ${err.message}`
       : "stream error"
@@ -200,17 +204,17 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
 
   logEmitter.emitLog({
     ts: Date.now(),
-    level: err ? "error" : "info",
+    level: failed ? "error" : "info",
     type: "request_end",
     requestId: ctx.requestId,
-    msg: `${err ? "error" : "200"} ${ctx.format} ${latencyMs}ms`,
+    msg: `${failed ? "error" : "200"} ${ctx.format} ${latencyMs}ms`,
     data: {
       path: ctx.path,
       format: ctx.format,
       stream: true,
-      status: err ? "error" : "success",
-      statusCode: err ? 502 : 200,
-      upstreamStatus: err ? null : 200,
+      status: failed ? "error" : "success",
+      statusCode: inlineFailed ? 200 : err ? 502 : 200,
+      upstreamStatus: inlineFailed ? 200 : err ? null : 200,
       latencyMs,
       ttftMs,
       processingMs,

@@ -11,6 +11,7 @@
 import type { SSEMessage } from "hono/streaming"
 
 import type { Strategy } from "../core/strategy"
+import { isInlineStreamError } from "./support/inline-stream-error"
 import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
 import type { ServerSentEvent } from "../util/sse"
 import { HTTPError } from "../lib/error"
@@ -28,7 +29,6 @@ import {
   adjustEffortInPayload,
   logEffortFallback,
 } from "./support/effort-fallback"
-import { translateErrorToAnthropicErrorEvent } from "../protocols/translate/stream-translation"
 
 export interface CopilotNativeDeps {
   client: CopilotNativeClient
@@ -42,6 +42,7 @@ export interface CopilotNativeUpReq {
 }
 
 export interface CopilotNativeStreamState {
+  inlineFailed?: boolean
   resolvedModel: string
   inputTokens: number
   outputTokens: number
@@ -91,11 +92,13 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
     }),
 
     adaptChunk: (sseEvent, st, ctx) => {
+      st.inlineFailed ||= isInlineStreamError(sseEvent.event)
       emitUpstreamRawSse(ctx.requestId, { event: sseEvent.event, data: sseEvent.data })
 
       if (sseEvent.data) {
         try {
           const parsed = JSON.parse(sseEvent.data)
+          st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed)
           if (parsed.type === "message_start" && parsed.message?.model) {
             st.resolvedModel = parsed.message.model
           }
@@ -116,6 +119,8 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
       if (sseEvent.event) out.event = sseEvent.event
       return [out]
     },
+
+    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
 
     adaptStreamError: () => {
       // Native handler emits a synthesised generic error event (not the
@@ -196,8 +201,3 @@ async function sendWithEffortFallback(
     return await client.send({ payload: adjustedPayload, options: req.options }, signal)
   }
 }
-
-// Keep the import referenced — translate helper is still useful if a future
-// caller wants Anthropic-shaped error events; for now adaptStreamError emits
-// the legacy native shape directly.
-void translateErrorToAnthropicErrorEvent

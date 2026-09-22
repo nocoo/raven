@@ -14,6 +14,7 @@
 import type { SSEMessage } from "hono/streaming"
 
 import type { Strategy } from "../core/strategy"
+import { isInlineStreamError } from "./support/inline-stream-error"
 import type { ServerSentEvent } from "../util/sse"
 import { logEmitter } from "../util/log-emitter"
 import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
@@ -53,6 +54,7 @@ export interface CustomOpenAIUpReq {
 }
 
 export interface CustomOpenAIStreamState extends AnthropicStreamState {
+  inlineFailed?: boolean
   /** Mirrors `req.payload.model` so error logs survive without `req`. */
   model: string
   resolvedModel: string
@@ -115,6 +117,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
     }),
 
     adaptChunk: (rawEvent, st, ctx) => {
+      if (!st.originalModel) st.inlineFailed ||= isInlineStreamError(rawEvent.event)
       emitUpstreamRawSse(ctx.requestId, { event: rawEvent.event, data: rawEvent.data })
 
       if (rawEvent.data === "[DONE]") {
@@ -133,6 +136,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
       } else {
         try {
           chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
+          st.inlineFailed ||= isInlineStreamError(rawEvent.event, chunk)
         } catch {
           return [rawEvent as SSEMessage]
         }
@@ -159,6 +163,8 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
     finalizeStream: (st, ctx) => st.originalModel
       ? emitTranslated(finalizeAnthropicStream(st), ctx, deps.toolCallDebug)
       : [],
+
+    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
 
     adaptStreamError: (_err, st) => {
       if (st.originalModel) {

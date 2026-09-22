@@ -12,6 +12,7 @@
 import type { SSEMessage } from "hono/streaming"
 
 import type { Strategy } from "../core/strategy"
+import { isInlineStreamError } from "./support/inline-stream-error"
 import type { ServerSentEvent } from "../util/sse"
 import { logEmitter } from "../util/log-emitter"
 import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
@@ -29,6 +30,7 @@ export interface CopilotOpenAIDirectDeps {
 }
 
 export interface CopilotDirectStreamState {
+  inlineFailed?: boolean
   model: string
   resolvedModel: string
   inputTokens: number
@@ -75,11 +77,13 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
     }),
 
     adaptChunk: (chunk, st, ctx) => {
+      st.inlineFailed ||= isInlineStreamError(chunk.event)
       emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
 
       if (chunk.data && chunk.data !== "[DONE]") {
         try {
           const parsed = JSON.parse(chunk.data)
+          st.inlineFailed ||= isInlineStreamError(chunk.event, parsed)
           if (parsed.model) st.resolvedModel = parsed.model
           if (parsed.usage) {
             const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
@@ -114,6 +118,8 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
 
       return [chunk as SSEMessage]
     },
+
+    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
 
     adaptStreamError: () => [
       {
