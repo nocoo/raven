@@ -49,7 +49,7 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
           event.preventDefault();
           if (drag.source !== null) reorder(drag.source, index);
         }} className="routing-target" data-dragging={drag.source === index} data-over={drag.over === index && drag.source !== index}>
-          <LayerCard.Well outlined className="space-y-2 p-3">
+          <LayerCard padding="sm" className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Button size="icon" variant="ghost" className="size-7 cursor-grab touch-none active:cursor-grabbing" draggable
                 aria-label={`Move target ${index + 1}`} aria-describedby={`${id}-drag-help`}
@@ -80,7 +80,7 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
                 <Autocomplete id={`${id}-model-${index}`} aria-label={`Model ${index + 1}`} size="sm" value={target.model} placeholder="Select or type an exact model ID" items={modelIds(upstream).map(model => ({ value: model, label: model }))} onValueChange={model => update(index, { ...target, model })} className="w-full font-mono text-xs" />
               </div>
             </div>
-          </LayerCard.Well>
+          </LayerCard>
         </li>;
       })}
     </ol>
@@ -89,7 +89,7 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
         const upstream = upstreams[0];
         onChange([...value.slice(0, -1), { upstream_id: upstream?.id ?? "", model: modelIds(upstream)[0] ?? "" }, ...value.slice(-1)]);
       }}><Plus className="size-3.5" />Add quota candidate</Button>
-      <span className="flex items-center gap-1.5 text-xs text-basalt-muted-foreground"><CornerDownRight className="size-3.5" />Only exhausted quotas advance the chain.</span>
+      {value.length > 1 && <span className="flex items-center gap-1.5 text-xs text-basalt-muted-foreground"><CornerDownRight className="size-3.5" />Only exhausted quotas advance the chain.</span>}
     </div>
     {preview.warnings.map(warning => <Banner key={warning} variant="alert" size="sm" description={warning} />)}
     <Collapsible>
@@ -102,7 +102,7 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
             return <span key={format.value} className={state === "Blocked" || state === "Unavailable" ? "text-basalt-warning" : "text-basalt-muted-foreground"}>{format.short}: <span className="font-medium">{state}</span></span>;
           })}
         </section>)}
-        <p className="text-xs text-basalt-muted-foreground">Preview uses cached capabilities for <code>auto</code>. Unavailable means Copilot needs a usable catalog. Errors stop on the selected target; catalogs never restrict explicit model IDs.</p>
+        <p className="text-xs text-basalt-muted-foreground"><code>auto</code> uses the chosen model and cached capabilities. Explicit model IDs pass through unchanged. Errors stop on the selected upstream.</p>
       </div></CollapsibleContent>
     </Collapsible>
     <span role="status" className="sr-only">{announcement}</span>

@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { LayerCard } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
@@ -5,8 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const ROWS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"];
 
-function LoadingPage({ title, filters = false, children }: { title: string; filters?: boolean; children: ReactNode }) {
-  return <section role="status" aria-label={`Loading ${title}`} aria-busy="true" className="space-y-4">
+function LoadingPage({ title, filters = false, children, className = "" }: { title: string; filters?: boolean; children: ReactNode; className?: string }) {
+  return <section role="status" aria-label={`Loading ${title}`} aria-busy="true" className={`space-y-4 ${className}`}>
     <div aria-hidden="true" className="space-y-4">
       <div className="space-y-2"><PageHeader title={title} /><Skeleton className="h-4 w-full max-w-lg" /></div>
       {filters && <div className="flex flex-wrap gap-2">{["time", "protocol", "key", "model", "status", "mode"].map(key => <Skeleton key={key} className="h-8 w-32" />)}</div>}
@@ -25,7 +27,7 @@ function SummarySkeleton() {
 }
 
 function PanelSkeleton({ children }: { children: ReactNode }) {
-  return <LayerCard padding="none" className="min-w-0 space-y-4 p-4"><div className="space-y-2"><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-3/4" /></div>{children}</LayerCard>;
+  return <LayerCard padding="none" className="min-w-0"><LayerCard.Header><div className="w-full space-y-2"><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-3/4" /></div></LayerCard.Header><LayerCard.Well className="space-y-4 py-3">{children}</LayerCard.Well></LayerCard>;
 }
 
 function RowsSkeleton({ count = 4 }: { count?: number }) {
@@ -88,7 +90,7 @@ export function CopilotAccountLoading() {
 }
 
 export function SettingsLoading() {
-  return <LoadingPage title="Settings"><FormSkeleton /><FormSkeleton /></LoadingPage>;
+  return <LoadingPage title="Settings" className="mx-auto w-full max-w-7xl"><div className="grid items-start gap-4 xl:grid-cols-2"><FormSkeleton /><FormSkeleton /><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton></div></LoadingPage>;
 }
 
 export function ProxyLoading() {
@@ -100,7 +102,7 @@ export function ServerToolsLoading() {
 }
 
 export function UpstreamsLoading() {
-  return <LoadingPage title="Upstreams"><Skeleton className="h-8 w-32" /><TableSkeleton /></LoadingPage>;
+  return <RoutingLoading title="Upstreams" />;
 }
 
 export function ConnectLoading() {
@@ -112,5 +114,9 @@ export function LoginLoading() {
 }
 
 export function RoutingRulesLoading() {
-  return <LoadingPage title="Routing Rules"><FormSkeleton /><FormSkeleton /></LoadingPage>;
+  return <RoutingLoading title="Routing Rules" />;
+}
+
+function RoutingLoading({ title }: { title: string }) {
+  return <LoadingPage title={title} className="mx-auto w-full max-w-7xl"><div className="routing-workbench"><LayerCard><RowsSkeleton count={2} /></LayerCard><div className="space-y-4"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-64" /><FormSkeleton /></div></div></LoadingPage>;
 }

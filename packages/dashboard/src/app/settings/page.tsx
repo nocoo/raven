@@ -14,7 +14,7 @@ export default async function SettingsPage() {
 
   if (!settingsResult.ok) {
     return (
-      <div className="space-y-4 md:space-y-6">
+      <div className="mx-auto w-full max-w-7xl space-y-4">
         <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
         <FetchError title="Failed to load settings" message={settingsResult.error} />
       </div>
@@ -24,13 +24,15 @@ export default async function SettingsPage() {
   const data = settingsResult.data;
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-4">
       <PageHeader title="Settings" description="Server status, IP whitelist, CORS and request optimizations." />
 
-      <SettingsContent data={data} />
-      <IPWhitelistContent data={data.ip_whitelist} />
-      <CorsContent data={data.cors} />
-      <OptimizationsContent data={data.optimizations} />
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <SettingsContent data={data} />
+        <OptimizationsContent data={data.optimizations} />
+        <IPWhitelistContent data={data.ip_whitelist} />
+        <CorsContent data={data.cors} />
+      </div>
     </div>
   );
 }

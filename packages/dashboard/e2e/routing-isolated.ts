@@ -81,7 +81,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     layouts.push({ kind: "configuration-header", name, input, action });
   };
   const feedbackPlacement = async (feedback: Locator) => {
-    const card = feedback.locator("xpath=ancestor::*[@role='region'][1]");
+    const card = page.getByRole("region", { name: /^(Upstream|Rule) configuration$/ });
     const title = await card.locator("[aria-label$=' name'], h2").first().boundingBox();
     const banner = await feedback.boundingBox();
     const tabs = await card.getByRole("tablist").boundingBox();
@@ -97,7 +97,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
         viewport: { width: innerWidth, height: innerHeight },
         document: { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight },
         bodyHeight: document.body.scrollHeight,
-        island: { clientHeight: island.clientHeight, scrollHeight: island.scrollHeight, position: getComputedStyle(island).position },
+        island: { clientHeight: island.clientHeight, scrollHeight: island.scrollHeight, clientWidth: island.clientWidth, scrollWidth: island.scrollWidth, position: getComputedStyle(island).position },
         screenReaderLabels: [...island.querySelectorAll<HTMLElement>(".sr-only")].map(element => ({
           text: element.textContent?.slice(0, 80),
           offsetParent: element.offsetParent?.tagName ?? null,
@@ -109,6 +109,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(geometry.document.width).toBeLessThanOrEqual(geometry.viewport.width);
     expect(geometry.document.height).toBeLessThanOrEqual(geometry.viewport.height);
     expect(geometry.bodyHeight).toBeLessThanOrEqual(geometry.viewport.height);
+    expect(geometry.island.scrollWidth).toBeLessThanOrEqual(geometry.island.clientWidth);
     expect(geometry.screenReaderLabels.every(label => label.contained)).toBe(true);
   };
   try {
@@ -386,7 +387,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await page.getByRole("region", { name: "Local schedule visualization" }).scrollIntoViewIfNeeded();
     await shot("routing-timetable-dark");
     await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
-    expect(await page.locator(".routing-enter").evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+    expect(await page.locator(".routing-enter").evaluateAll(elements => elements.every(element => getComputedStyle(element).animationName === "none"))).toBe(true);
     await page.setViewportSize({ width: 390, height: 844 });
     for (const path of ["routing/rules", "routing/upstreams", "connect"]) {
       await page.goto(`${dashboardUrl}/${path}`);
@@ -423,9 +424,34 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       }
     }
     checkpoint("desktop/mobile, dark theme and reduced-motion layouts");
+    for (const theme of ["light", "dark"] as const) {
+      await page.evaluate(value => localStorage.setItem("theme", value), theme);
+      await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
+      for (const width of [1920, 390]) {
+        await page.setViewportSize({ width, height: width === 390 ? 844 : 1080 });
+        for (const path of ["", "models", "keys", "routing/rules", "routing/upstreams", "settings", "connect"]) {
+          await page.goto(`${dashboardUrl}/${path}`);
+          await expect(page.getByRole("heading", { level: 1 }).last()).toBeVisible();
+          if (path === "connect") await page.getByRole("tab", { name: "Code", exact: true }).click();
+          if (path === "settings") {
+            const disclosure = page.getByRole("button", { name: "Allowed IPs · 0" });
+            await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+            await expect(page.getByPlaceholder("e.g., 192.168.1.0/24")).toBeHidden();
+            await shot(`settings-collapsed-${width}-${theme}`);
+            await disclosure.focus();
+            await page.keyboard.press("Enter");
+            await expect(page.getByPlaceholder("e.g., 192.168.1.0/24")).toBeVisible();
+            await expect(page.getByRole("switch", { name: "Restrict client IPs" })).not.toBeChecked();
+          }
+          await layout(`${path || "overview"}/${width}/${theme}`);
+          await shot(`${path.replaceAll("/", "-") || "overview"}-${width}-${theme}`);
+        }
+      }
+    }
+    checkpoint("dashboard hierarchy and keyboard disclosure in both themes at wide/mobile widths");
     expect(errors).toEqual([]);
     expect(blocked).toEqual([]);
-    return { checks, errors, blocked, layouts, viewport: [1440, 1100, 390, 844], timezone: "Asia/Shanghai" };
+    return { checks, errors, blocked, layouts, viewport: [1920, 1080, 1440, 1100, 390, 844], timezone: "Asia/Shanghai" };
   } catch (error) {
     await shot("failure");
     throw error;

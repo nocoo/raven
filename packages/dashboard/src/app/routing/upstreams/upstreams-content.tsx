@@ -32,8 +32,8 @@ function UpstreamsWorkbench({ upstreams, migration, clock }: { upstreams: Provid
   const remove = async () => {
     if (await confirm({ title: "Delete upstream?", description: `Delete ${state.active?.name}? Referenced upstreams must first be removed from all routing-rule chains.`, confirmLabel: "Delete upstream", variant: "destructive" })) await state.remove();
   };
-  return <div className="space-y-4">
-    <PageHeader title="Upstreams" description="Connect a provider, choose its models, then use it in a routing rule." actions={<Button size="sm" onClick={() => void choose(null)} disabled={state.busy !== null || !state.active}><Plus className="size-4" />New upstream</Button>} />
+  return <div className="mx-auto w-full max-w-7xl space-y-4">
+    <PageHeader title="Upstreams" description="Provider connections, models and quotas." actions={<Button size="sm" onClick={() => void choose(null)} disabled={state.busy !== null || !state.active}><Plus className="size-4" />New upstream</Button>} />
     <div className="routing-workbench">
       <div className="routing-directory space-y-3">
         <LayerCard padding="sm" className="space-y-1">
@@ -51,11 +51,11 @@ function UpstreamsWorkbench({ upstreams, migration, clock }: { upstreams: Provid
         {migration && <Collapsible><CollapsibleTrigger className="gap-2 px-3 py-2 text-xs text-basalt-muted-foreground"><span className="flex items-center gap-2"><History className="size-3.5" />Migration summary</span></CollapsibleTrigger><CollapsibleContent><div className="space-y-3 text-xs text-basalt-muted-foreground"><p>{new Date(migration.migrated_at).toLocaleString()}</p><p>{migration.keys.length} existing keys bound to the Copilot rule. Secrets and IDs were preserved.</p>{migration.upstreams.map(upstream => <div key={upstream.id} className="space-y-1"><p className="font-medium text-basalt-foreground">{upstream.name}</p><p className="break-all">Retained IDs: {upstream.retained_models.join(", ") || "None"}</p><p className="break-all">Discarded patterns: {upstream.discarded_patterns.join(", ") || "None"}</p></div>)}<ul className="space-y-1">{migration.keys.map(key => <li key={key.id} className="break-all">{key.name} · {key.rule_id}</li>)}</ul></div></CollapsibleContent></Collapsible>}
       </div>
       <fieldset className="min-w-0 routing-enter" key={state.active?.id ?? "new"} disabled={state.busy !== null}><legend className="sr-only">Upstream editor</legend>
-        <LayerCard role="region" aria-label="Upstream configuration">
+        <section aria-label="Upstream configuration" className="min-w-0">
           <ConfigurationHeader name={state.draft.name} label="Upstream name" placeholder="Name this upstream" onNameChange={state.active?.kind === "copilot" ? undefined : name => state.change({ ...state.draft, name })} isNew={!state.active} dirty={state.dirty} busy={state.busy !== null} saving={state.busy === "save"} onSave={() => void state.save()} onDiscard={state.discard}>
             {state.active?.kind === "custom" && <Button variant="ghost" size="icon" aria-label="Delete" title="Delete upstream" onClick={remove} disabled={state.busy !== null} className="size-8 text-basalt-muted-foreground hover:text-basalt-destructive"><Trash2 className="size-3.5" /></Button>}
           </ConfigurationHeader>
-          <LayerCard.Body className="space-y-4">
+          <div className="space-y-3">
             <OperationFeedback feedback={state.feedback} />
             {!state.feedback && tab === "models" && state.active?.last_refresh_error && <Feedback error={`Last model refresh failed: ${state.active.last_refresh_error}. Cached models were retained. Refresh again to capture current response details.`} />}
             <Tabs value={tab} onValueChange={setTab} className="min-w-0">
@@ -67,8 +67,8 @@ function UpstreamsWorkbench({ upstreams, migration, clock }: { upstreams: Provid
                 {state.active && (state.active.quota || !state.active.quota_status.healthy) && <section className="space-y-2" aria-label="Saved quota status"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">Current usage</h3><Button variant="ghost" size="sm" disabled={state.dirty || state.busy !== null} onClick={() => void state.reload()} loading={state.busy === "status"}><RefreshCw className="size-3.5" />Reload status</Button></div><QuotaStatusView upstream={state.active} /></section>}
               </TabsContent>
             </Tabs>
-          </LayerCard.Body>
-        </LayerCard>
+          </div>
+        </section>
       </fieldset>
     </div>
     <ConfirmDialog {...dialogProps} />

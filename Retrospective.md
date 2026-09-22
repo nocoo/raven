@@ -2,6 +2,23 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-09-23: Dashboard hierarchy verification caught a client-boundary error
+
+Matching loading skeletons to the new analytics cards introduced compound Basalt
+components into a server-rendered module. Type checking passed, but production
+prerendering failed with an undefined element. The skeleton module now declares
+its client boundary, like the interactive panels it mirrors. Compound exports
+must be checked in a production render, not only through their TypeScript types.
+
+The first full Dashboard test run overlapped the production build and reported
+36 failures, predominantly five-second timeouts across changed and unchanged
+components. A two-worker rerun still timed out under heavy host load. The two
+affected files passed alone, followed by all 808 tests and all four coverage
+thresholds with one worker. Verification separates builds from coverage and
+limits workers when the host is busy. Test timeouts, assertions, coverage
+thresholds and commit hooks remain unchanged; failed runs are not passing
+evidence.
+
 ## 2026-09-22: Audit commands used the development checkout
 
 Several delegated audit commands used the default development directory instead of the dedicated baseline worktree. One coverage run regenerated ignored reports and observed the coordinator's unfinished contract tests; those results were discarded as baseline evidence. All reported baseline checks were rerun at the pinned revision with an explicit working directory. No tracked production files were changed by the auditor.

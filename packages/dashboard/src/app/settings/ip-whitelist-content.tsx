@@ -8,7 +8,7 @@ import type { IPWhitelistInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { Switch, LayerCard } from "@nocoo/basalt";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch, LayerCard } from "@nocoo/basalt";
 import {
   SettingAddRow,
   SettingListItem,
@@ -25,6 +25,7 @@ interface IPWhitelistContentProps {
 export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(data.enabled);
+  const [expanded, setExpanded] = useState(data.enabled || data.ranges.length > 0);
   const [trustProxy, setTrustProxy] = useState(data.trust_proxy);
   const [ranges, setRanges] = useState<string[]>(data.ranges);
   const [newRange, setNewRange] = useState("");
@@ -46,6 +47,7 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
         });
         if (res.ok) {
           setEnabled(checked);
+          if (checked) setExpanded(true);
           router.refresh();
         } else {
           const body = await res.json().catch(() => null);
@@ -143,10 +145,18 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
       hint="Restrict access to the proxy by client IP. Non-whitelisted IPs receive a silent 403."
     >
       <SettingsCard
-        title="Enable"
-        action={<Switch checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
+        title="Restrict client IPs"
+        action={<Switch aria-label="Restrict client IPs" checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
       >
-        <LayerCard.Well className="space-y-2">
+        <Collapsible open={expanded} onOpenChange={setExpanded}>
+          <CollapsibleTrigger className="w-full justify-between text-xs">Allowed IPs · {ranges.length}</CollapsibleTrigger>
+          <CollapsibleContent unstyled><div className="space-y-3 pt-3">
+        <div className="space-y-2">
+          <SettingNote>Single IP, CIDR, or IP range.</SettingNote>
+          {ranges.length > 0 && <div className="space-y-1.5">{ranges.map((range, index) => <SettingListItem key={range} value={range} onRemove={() => handleRemoveRange(index)} disabled={saving} />)}</div>}
+          <SettingAddRow value={newRange} onChange={setNewRange} onAdd={handleAddRange} placeholder="e.g., 192.168.1.0/24" disabled={saving} saving={saving} />
+        </div>
+        <LayerCard.Well className="space-y-2 rounded-widget p-3">
           <SettingToggleRow
             id="ip-trust-proxy"
             label="Trust proxy headers"
@@ -165,42 +175,12 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
           )}
         </LayerCard.Well>
 
-        <div className="space-y-2">
-          <SettingNote>
-            Formats: single IP (192.168.1.1), CIDR (192.168.1.0/24), or range
-            (192.168.1.1-192.168.1.100)
-          </SettingNote>
-          {ranges.length > 0 && (
-            <div className="space-y-1.5">
-              {ranges.map((range, index) => (
-                <SettingListItem
-                  key={range}
-                  value={range}
-                  onRemove={() => handleRemoveRange(index)}
-                  disabled={saving}
-                />
-              ))}
-            </div>
-          )}
-          <SettingAddRow
-            value={newRange}
-            onChange={setNewRange}
-            onAdd={handleAddRange}
-            placeholder="e.g., 192.168.1.0/24"
-            disabled={saving}
-            saving={saving}
-          />
-        </div>
-
-        {error ? <p className="text-xs text-basalt-destructive">{error}</p> : null}
-
         <SettingNote>
-          <p className="mb-1 font-medium">Anti-lockout:</p>
-          <ul className="ml-1 list-inside list-disc space-y-0.5">
-            <li>If no ranges are configured, all IPs are allowed</li>
-            <li>If client IP cannot be determined, access is allowed</li>
-          </ul>
+          Empty list or unknown client IP allows access.
         </SettingNote>
+          </div></CollapsibleContent>
+        </Collapsible>
+        {error ? <p role="alert" className="text-xs text-basalt-destructive">{error}</p> : null}
       </SettingsCard>
     </SettingsSection>
   );

@@ -15,7 +15,7 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <SectionRule title={title} hint={hint}>
+    <SectionRule title={title} hint={hint} className="min-w-0">
       {children}
     </SectionRule>
   );
@@ -41,7 +41,7 @@ export function SettingsCard({
           {action}
         </LayerCard.Header>
       ) : null}
-      <LayerCard.Body className="space-y-4">{children}</LayerCard.Body>
+      <LayerCard.Body className="space-y-3 divide-y divide-basalt-border/50 [&>div+div]:pt-3">{children}</LayerCard.Body>
       {footer ? <LayerCard.Footer>{footer}</LayerCard.Footer> : null}
     </LayerCard>
   );

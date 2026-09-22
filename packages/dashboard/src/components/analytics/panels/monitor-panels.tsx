@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, Activity, Clock3, KeyRound, Route, Zap } from "lucide-react";
-import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard } from "@nocoo/basalt";
 import type { ReactNode } from "react";
 import type { AnalyticsFilters } from "@/lib/analytics-filters";
 import { cacheHitRate, CHART_COLORS, formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
@@ -13,14 +13,14 @@ import type { BreakdownEntry, Percentiles, ProtocolCounts, SummaryStats } from "
 export function MonitorPanel({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <LayerCard padding="none" className={`min-w-0 ${className}`}>
-      <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3">
+      <LayerCard.Header className="gap-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{title}</h2>
-          {description && <p className="mt-1 text-xs text-basalt-muted-foreground">{description}</p>}
+          <h2 className="text-sm font-semibold text-basalt-foreground">{title}</h2>
+          {description && <p className="mt-1 max-w-prose text-xs text-basalt-muted-foreground">{description}</p>}
         </div>
         {action}
-      </div>
-      <div className="px-4 pb-4">{children}</div>
+      </LayerCard.Header>
+      <LayerCard.Well className="flex-1 py-3">{children}</LayerCard.Well>
     </LayerCard>
   );
 }
@@ -75,7 +75,10 @@ export function ProtocolDistribution({ data, summary, filters }: { data: Breakdo
         </Link>;
       })}
     </div>
-    <p className="border-t border-basalt-border/50 pt-2 text-xs leading-relaxed text-basalt-muted-foreground">Native means the same API protocol, with possible normalization. Chat → Responses counts as translation. Unknown records stay in the denominator.</p>
+    <Collapsible className="border-t border-basalt-border/50 pt-2">
+      <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">How paths are classified</CollapsibleTrigger>
+      <CollapsibleContent unstyled><p className="max-w-prose pt-2 text-xs leading-relaxed text-basalt-muted-foreground">Native keeps the API protocol. Chat → Responses is translation. Unknown records remain in the total.</p></CollapsibleContent>
+    </Collapsible>
   </>;
 }
 

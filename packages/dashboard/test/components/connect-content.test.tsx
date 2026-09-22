@@ -413,6 +413,8 @@ describe("routing-aware connection examples", () => {
     render(<ConnectContent rules={fixtureRules} keys={[]} connectionInfo={makeConnectionInfo()} />);
     const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("tab", { name: "Code" }));
+    expect(screen.queryByText(/Embeddings currently require/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Routing and protocol details" }));
     expect(screen.getByText(/same upstream selection/)).toHaveTextContent("Errors stop on that upstream");
     expect(screen.getByText(/Embeddings currently require/)).toHaveTextContent("cached embedding capability");
     expect(screen.getByText("http://localhost:7024/v1/responses")).toBeVisible();

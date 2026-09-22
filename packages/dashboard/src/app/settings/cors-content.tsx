@@ -6,7 +6,7 @@
 import type { CorsInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Switch } from "@nocoo/basalt";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch } from "@nocoo/basalt";
 import {
   SettingAddRow,
   SettingListItem,
@@ -22,6 +22,7 @@ interface CorsContentProps {
 export function CorsContent({ data }: CorsContentProps) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(data.enabled);
+  const [expanded, setExpanded] = useState(data.enabled || data.allowed_origins.length > 0);
   const [origins, setOrigins] = useState<string[]>(data.allowed_origins);
   const [newOrigin, setNewOrigin] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,6 +43,7 @@ export function CorsContent({ data }: CorsContentProps) {
         });
         if (res.ok) {
           setEnabled(checked);
+          if (checked) setExpanded(true);
           router.refresh();
         } else {
           const body = await res.json().catch(() => null);
@@ -122,12 +124,15 @@ export function CorsContent({ data }: CorsContentProps) {
       hint="Control which origins can make cross-origin requests to the proxy."
     >
       <SettingsCard
-        title="Enable"
-        action={<Switch checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
+        title="Restrict browser origins"
+        action={<Switch aria-label="Restrict browser origins" checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
       >
+        <Collapsible open={expanded} onOpenChange={setExpanded}>
+          <CollapsibleTrigger className="w-full justify-between text-xs">Allowed origins · {origins.length}</CollapsibleTrigger>
+          <CollapsibleContent unstyled><div className="space-y-3 pt-3">
         <div className="space-y-2">
           <SettingNote>
-            Add allowed origins (e.g., http://localhost:3000, https://app.example.com)
+            Add an http:// or https:// origin.
           </SettingNote>
           {origins.length > 0 && (
             <div className="space-y-1.5">
@@ -150,12 +155,12 @@ export function CorsContent({ data }: CorsContentProps) {
             saving={saving}
           />
         </div>
-
-        {error ? <p className="text-xs text-basalt-destructive">{error}</p> : null}
-
         <SettingNote>
           When disabled or the allowed origins list is empty, all origins are allowed.
         </SettingNote>
+          </div></CollapsibleContent>
+        </Collapsible>
+        {error ? <p role="alert" className="text-xs text-basalt-destructive">{error}</p> : null}
       </SettingsCard>
     </SettingsSection>
   );

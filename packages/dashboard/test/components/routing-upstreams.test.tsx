@@ -96,7 +96,7 @@ describe("Upstreams workbench", () => {
     await tab("Connection");
     expect(screen.getByLabelText("Replace API key")).toHaveValue("");
     change("Upstream name", "Renamed research");
-    await click("Advanced connection settings");
+    expect(screen.getByRole("button", { name: "Advanced connection settings" })).toHaveAttribute("aria-expanded", "true");
     await selectOption("Authentication header", "Protocol default");
     await selectOption("SOCKS5 proxy", "Direct connection");
     await selectOption("SOCKS5 proxy", "Use Raven setting");
@@ -210,7 +210,7 @@ describe("Upstreams workbench", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("valid next reset");
     expect(fetchSpy).not.toHaveBeenCalled();
     await user().click(screen.getByRole("switch", { name: "Enable shared token quota" }));
-    expect(screen.getByText(/No token limit is applied/)).toBeVisible();
+    expect(screen.queryByLabelText("1× token allowance")).toBeNull();
     fetchSpy.mockResolvedValueOnce(Response.json(makeUpstream({ quota: null })));
     await click("Save changes");
     expect(payload().quota).toBeNull();

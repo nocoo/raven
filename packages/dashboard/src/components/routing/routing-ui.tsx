@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Field, Input, LayerCard } from "@nocoo/basalt";
+import { Button, Field, Input } from "@nocoo/basalt";
 import { Banner } from "@nocoo/basalt/components/banner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 import { AlertCircle, Check, PencilLine, Save, Undo2 } from "lucide-react";
@@ -51,7 +51,7 @@ export function ConfigurationHeader({ name, label, placeholder, onNameChange, is
   isNew: boolean; dirty: boolean; busy: boolean; saving: boolean;
   onSave: () => void; onDiscard: () => void; children?: React.ReactNode;
 }) {
-  return <LayerCard.Header className="flex-wrap items-start gap-x-4 gap-y-3 border-b border-basalt-border">
+  return <header className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-3 pb-3">
     <div className="min-w-0 flex-1 basis-52">
       {onNameChange ? <div className="group relative">
         <Input aria-label={label} value={name} onChange={event => onNameChange(event.target.value)} placeholder={placeholder} maxLength={100} size="sm" className="routing-config-name pr-8 text-base font-semibold" />
@@ -66,5 +66,5 @@ export function ConfigurationHeader({ name, label, placeholder, onNameChange, is
       <Button size="sm" variant="ghost" onClick={onDiscard} disabled={(!dirty && !isNew) || busy}><Undo2 className="size-3.5" />Discard</Button>
       <Button size="sm" onClick={onSave} disabled={(!dirty && !isNew) || busy} loading={saving}><Save className="size-3.5" />Save changes</Button>
     </div>
-  </LayerCard.Header>;
+  </header>;
 }

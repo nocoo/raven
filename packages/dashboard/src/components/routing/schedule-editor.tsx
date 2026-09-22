@@ -89,7 +89,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
           {minuteLabel(window.start)}–{minuteLabel(window.end === DAY ? DAY : window.end % DAY)}{window.end > DAY && <Moon className="size-3" />}
         </Button>)}
       </section>
-      {selected ? <LayerCard.Well outlined className="space-y-3 p-3 md:p-4">
+      {selected ? <LayerCard className="routing-enter space-y-3 p-3 md:p-4">
         <div className="flex items-center gap-2"><h3 className="text-sm font-semibold">Period override</h3><Badge variant="purple" className="text-xs">{mode === "weekly" ? DAYS[selected.day] : "Every day"}</Badge>{selected.end > DAY && <Badge variant="outline" className="text-xs">Ends next day</Badge>}
           <Button size="icon" variant="ghost" className="ml-auto size-7" aria-label="Remove period" onClick={() => { onChange(mode, windows.filter(window => window.id !== selected.id)); setSelectedId(null); setError(null); }}><Trash2 className="size-3.5" /></Button>
         </div>
@@ -100,7 +100,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
         </div>
         <p className="text-xs text-basalt-muted-foreground">An end before the start continues overnight and belongs to the day it starts. Equal times are invalid.</p>
         {renderValue(selected.value, value => update({ ...selected, value }))}
-      </LayerCard.Well> : <LayerCard.Well className="flex flex-wrap items-center justify-between gap-2 py-3"><p className="text-sm text-basalt-muted-foreground">No periods start {mode === "weekly" ? `on ${DAYS[day]}` : "today"}. The default covers gaps.</p><Button size="sm" variant="ghost" onClick={add}>Add a period</Button></LayerCard.Well>}
+      </LayerCard> : <LayerCard className="flex flex-wrap items-center justify-between gap-2 py-3"><p className="text-sm text-basalt-muted-foreground">No periods start {mode === "weekly" ? `on ${DAYS[day]}` : "today"}. The default covers gaps.</p><Button size="sm" variant="ghost" onClick={add}>Add a period</Button></LayerCard>}
     </>}
     <ConfirmDialog {...dialogProps} />
     <Dialog open={copyOpen} onOpenChange={setCopyOpen}><DialogContent>

@@ -7,6 +7,8 @@
 .routing-workbench > * { min-width: 0; }
 .routing-directory-list { display: flex; gap: .25rem; overflow-x: auto; }
 .routing-directory-item { height: auto; min-width: 11rem; max-width: 15rem; flex-shrink: 0; justify-content: flex-start; gap: .5rem; padding: .625rem .75rem; text-align: left; }
+.routing-directory-item[aria-current="true"] { background-color: hsl(var(--basalt-accent)); color: hsl(var(--basalt-foreground)); font-weight: 600; }
+.routing-directory-item[aria-current="true"] > svg { color: inherit; }
 .routing-config-name { border-color: transparent; background: transparent; box-shadow: none; }
 .routing-config-name:hover { border-color: hsl(var(--basalt-border)); }
 .routing-target { transition: opacity 150ms ease, transform 150ms ease; }

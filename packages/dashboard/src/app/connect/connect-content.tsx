@@ -19,7 +19,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, } from "lucide-react";
-import { Badge, Button, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
@@ -56,15 +56,20 @@ export function ConnectContent({ keys, connectionInfo, rules }: ConnectContentPr
       </TabsContent>
 
       <TabsContent value="code">
-        <div className="space-y-5">
-          <LayerCard className="space-y-2 text-sm">
-            <p><code className="font-semibold">auto</code> uses the authenticated key’s rule, current period and quota order, then the selected target’s configured model.</p>
-            <p className="text-basalt-muted-foreground">An explicit model ID follows the same upstream selection and is sent unchanged. Catalog membership is not required. Errors stop on that upstream; Raven does not try another provider.</p>
-            <p className="text-xs text-basalt-muted-foreground">Use the upstream’s native protocol unless the bound rule enables conversion. Embeddings currently require a selected Copilot upstream; explicit embedding IDs work without a catalog, while auto needs a configured model with cached embedding capability.</p>
-          </LayerCard>
-          <EndpointsSection info={connectionInfo} />
-          <CodeExamplesSection info={connectionInfo} />
+        <div className="mx-auto max-w-7xl space-y-4">
+          <div className="grid items-start gap-4 xl:grid-cols-2">
+            <EndpointsSection info={connectionInfo} />
+            <CodeExamplesSection info={connectionInfo} />
+          </div>
           <SetupGuidesSection baseUrl={connectionInfo.base_url} />
+          <Collapsible>
+            <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Routing and protocol details</CollapsibleTrigger>
+            <CollapsibleContent unstyled><div className="max-w-prose space-y-2 pt-3 text-xs text-basalt-muted-foreground">
+              <p><code>auto</code> uses the key’s rule, current schedule and quota order. Explicit model IDs use the same upstream selection and pass through unchanged. Errors stop on that upstream.</p>
+              <p>Use the upstream’s native API format unless the rule enables conversion.</p>
+              <p>Embeddings currently require Copilot. Explicit IDs need no catalog; auto needs cached embedding capability.</p>
+            </div></CollapsibleContent>
+          </Collapsible>
         </div>
       </TabsContent>
 
@@ -89,17 +94,17 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
   ];
 
   return (
-    <SectionRule title="Endpoints">
+    <SectionRule title="Endpoints" className="min-w-0">
       <div className="grid gap-2">
         {endpoints.map((ep) => (
           <LayerCard
             key={ep.label}
             padding="sm"
-            className="flex items-center justify-between"
+            className="flex items-center justify-between gap-2"
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="text-xs text-basalt-muted-foreground shrink-0 w-36">{ep.label}</span>
-              <code className="text-xs font-mono text-basalt-foreground truncate">{ep.value}</code>
+            <div className="min-w-0 space-y-1">
+              <span className="block text-xs text-basalt-muted-foreground">{ep.label}</span>
+              <code className="block truncate font-mono text-xs text-basalt-foreground" title={ep.value}>{ep.value}</code>
             </div>
             <CopyButton value={ep.value} />
           </LayerCard>
@@ -162,7 +167,7 @@ console.log(message.content);`,
   };
 
   return (
-    <SectionRule title="Code Examples">
+    <SectionRule title="Code Examples" className="min-w-0">
       <div className="mb-3 grid max-w-xl gap-3 sm:grid-cols-2">
         <RoutingSelect label="Model selection" value={selection} onChange={setSelection} options={[{ value: "auto", label: "auto · configured target model" }, { value: "explicit", label: "Explicit · preserve model ID" }]} />
         {selection === "explicit" && <div className="space-y-1.5"><Label htmlFor="example-model">Explicit model ID</Label><Input id="example-model" size="sm" value={explicitModel} onChange={event => setExplicitModel(event.target.value)} /></div>}
