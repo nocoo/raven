@@ -77,6 +77,10 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
           await sseStream.writeSSE(sanitizeSSEMessage(ev))
         }
       }
+      const terminal = strategy.finalizeStream?.(state, ctx) ?? []
+      for (const ev of terminal) {
+        await sseStream.writeSSE(sanitizeSSEMessage(ev))
+      }
     } catch (err) {
       streamError = err
       const terminal = strategy.adaptStreamError(err, state, ctx)

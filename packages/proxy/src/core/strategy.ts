@@ -106,4 +106,10 @@ export interface Strategy<
 
   /** Factory for per-request stream state (resolvedModel, usage, accumulators). */
   initStreamState(req: UpstreamReq, ctx: RequestContext): StreamState
+
+  /**
+   * Optional: emit terminal events after a normal upstream stream ends.
+   * Runner calls this only after the for-await loop completes without error.
+   */
+  finalizeStream?(state: StreamState, ctx: RequestContext): EventOut[]
 }

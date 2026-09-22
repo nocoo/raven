@@ -3,6 +3,8 @@ import {
   translateToOpenAI as translateToOpenAIRaw,
 } from "../../src/protocols/translate/non-stream-translation"
 import {
+  createAnthropicStreamState,
+  finalizeAnthropicStream,
   translateChunkToAnthropicEvents as translateChunkToAnthropicEventsRaw,
 } from "../../src/protocols/translate/stream-translation"
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
@@ -60,12 +62,7 @@ function makeRequest(
 }
 
 function makeStreamState(): AnthropicStreamState {
-  return {
-    messageStartSent: false,
-    contentBlockIndex: 0,
-    contentBlockOpen: false,
-    toolCalls: {},
-  }
+  return createAnthropicStreamState()
 }
 
 function makeChunk(
@@ -678,12 +675,9 @@ describe("OPT-3: filter whitespace-only streaming chunks", () => {
       makeChunk({ delta: { content: " " }, finish_reason: "stop" }),
       streamState,
     )
-    // Should have content_block_delta + content_block_stop + message_delta + message_stop
     expect(events.length).toBeGreaterThanOrEqual(1)
-    const hasStop = events.some(
-      (e: AnthropicStreamEventData) => e.type === "message_stop",
-    )
-    expect(hasStop).toBe(true)
+    const terminal = finalizeAnthropicStream(streamState)
+    expect(terminal.some((e: AnthropicStreamEventData) => e.type === "message_stop")).toBe(true)
   })
 
   test("enabled: empty string is already filtered by truthy check", () => {

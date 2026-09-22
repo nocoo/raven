@@ -185,6 +185,7 @@ describe("strategies/custom-openai", () => {
     const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
     const st: CustomOpenAIStreamState = {
       messageStartSent: false, contentBlockIndex: 0, contentBlockOpen: false, toolCalls: {},
+      stopReason: null, messageStopSent: false, lastUsage: null,
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
       inputTokens: 9, outputTokens: 4, cacheReadTokens: 2,
       upstream: "myco", upstreamFormat: "openai",
@@ -295,6 +296,7 @@ describe("strategies/custom-openai", () => {
     const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
     const st: CustomOpenAIStreamState = {
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
+      stopReason: null, messageStopSent: false, lastUsage: null,
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
       inputTokens: 22, outputTokens: 13, cacheReadTokens: 6,
       upstream: "myco", upstreamFormat: "openai",

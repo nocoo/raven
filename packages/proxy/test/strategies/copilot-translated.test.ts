@@ -186,6 +186,7 @@ describe("strategies/copilot-translated", () => {
     const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
     const st: CopilotTranslatedStreamState = {
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
+      stopReason: null, messageStopSent: false, lastUsage: null,
       resolvedModel: "gpt-4o-r",
       inputTokens: 22, outputTokens: 13, cacheReadTokens: 8,
       originalModel: "claude-3-5",

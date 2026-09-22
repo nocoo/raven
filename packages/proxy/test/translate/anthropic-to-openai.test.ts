@@ -735,6 +735,26 @@ describe("other request fields", () => {
     expect(result.stream).toBe(true)
   })
 
+  test("custom OpenAI streaming requests include_usage", () => {
+    const result = translateToOpenAI(makeRequest({ stream: true }), { targetFormat: "openai" })
+    expect(result.stream_options).toEqual({ include_usage: true })
+  })
+
+  test("custom OpenAI reasoning streaming requests include_usage", () => {
+    const result = translateToOpenAI(makeRequest({ stream: true }), { targetFormat: "openai-reasoning" })
+    expect(result.stream_options).toEqual({ include_usage: true })
+  })
+
+  test("custom OpenAI non-stream does not set include_usage", () => {
+    const result = translateToOpenAI(makeRequest({ stream: false }), { targetFormat: "openai" })
+    expect(result.stream_options).toBeUndefined()
+  })
+
+  test("Copilot streaming does not set include_usage", () => {
+    const result = translateToOpenAI(makeRequest({ stream: true }), { targetFormat: "copilot" })
+    expect(result.stream_options).toBeUndefined()
+  })
+
   test("stop_sequences → stop", () => {
     const result = translateToOpenAI(
       makeRequest({ stop_sequences: ["END", "STOP"] }),

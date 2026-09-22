@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest"
 import type {
-  AnthropicMessagesPayload, AnthropicStreamEventData, AnthropicStreamState,
+  AnthropicMessagesPayload, AnthropicStreamEventData,
 } from "../../../src/protocols/anthropic/types"
 import { translateToAnthropic, translateToOpenAI } from "../../../src/protocols/translate/non-stream-translation"
-import { translateChunkToAnthropicEvents } from "../../../src/protocols/translate/stream-translation"
+import { createAnthropicStreamState, finalizeAnthropicStream, translateChunkToAnthropicEvents } from "../../../src/protocols/translate/stream-translation"
 import type { ChatCompletionChunk, ChatCompletionResponse } from "../../../src/upstream/copilot-openai"
 
 function payload(overrides: Partial<AnthropicMessagesPayload> = {}): AnthropicMessagesPayload {
@@ -33,10 +33,10 @@ const usage: NonNullable<ChatCompletionChunk["usage"]> = {
 }
 
 function translate(chunks: ChatCompletionChunk[], filterWhitespaceChunks = false) {
-  const streamState: AnthropicStreamState = {
-    messageStartSent: false, contentBlockIndex: 0, contentBlockOpen: false, toolCalls: {},
-  }
-  return chunks.flatMap((item) => translateChunkToAnthropicEvents(item, streamState, "audit-model", { filterWhitespaceChunks }))
+  const streamState = createAnthropicStreamState()
+  const events = chunks.flatMap((item) => translateChunkToAnthropicEvents(item, streamState, "audit-model", { filterWhitespaceChunks }))
+  events.push(...finalizeAnthropicStream(streamState))
+  return events
 }
 
 function assertLifecycle(events: AnthropicStreamEventData[]) {
@@ -209,16 +209,17 @@ describe("Anthropic ↔ Chat semantic contracts", () => {
   })
 
   test("duplicate finish_reason does not replay tool blocks", () => {
-    const streamState: AnthropicStreamState = {
-      messageStartSent: false, contentBlockIndex: 0, contentBlockOpen: false, toolCalls: {},
-    }
+    const streamState = createAnthropicStreamState()
     const events = [
       chunk({ tool_calls: [tool(0, "call-a", "a", '{"a":1}'), tool(1, "call-b", "b", '{"b":2}')] }),
       chunk({}, "tool_calls", usage),
       chunk({}, "tool_calls", usage),
     ].flatMap((item) => translateChunkToAnthropicEvents(item, streamState, "audit-model"))
+    events.push(...finalizeAnthropicStream(streamState))
+    events.push(...finalizeAnthropicStream(streamState))
     const tools = reconstructedTools(events)
     expect(tools.map((tool) => tool.id)).toEqual(["call-a", "call-b"])
+    expect(events.filter((event) => event.type === "message_stop")).toHaveLength(1)
     expect(tools).toEqual([
       { id: "call-a", name: "a", input: { a: 1 } },
       { id: "call-b", name: "b", input: { b: 2 } },
@@ -232,7 +233,7 @@ describe("Anthropic ↔ Chat semantic contracts", () => {
     ])).toThrow("Incomplete tool_use metadata for OpenAI tool index 0")
   })
 
-  test.fails("BUG R03: standard OpenAI usage-only trailers must reach the Anthropic client", () => {
+  test("BUG R03: standard OpenAI usage-only trailers must reach the Anthropic client", () => {
     const trailer = { ...chunk({}, null, usage), choices: [] }
     const translated = translate([
       chunk({ content: "hello" }), chunk({}, "stop"), trailer,
@@ -241,6 +242,65 @@ describe("Anthropic ↔ Chat semantic contracts", () => {
     expect(translated.findLast((event) => event.type === "message_delta")).toMatchObject({
       usage: { input_tokens: 20, output_tokens: 7, cache_read_input_tokens: 11 },
     })
+  })
+
+  test("same-chunk usage is kept until explicit finalize", () => {
+    const streamState = createAnthropicStreamState()
+    const beforeStop = [
+      chunk({ content: "hello" }),
+      chunk({}, "stop", usage),
+    ].flatMap((item) => translateChunkToAnthropicEvents(item, streamState, "audit-model"))
+    expect(beforeStop.some((event) => event.type === "message_stop")).toBe(false)
+    const translated = [...beforeStop, ...finalizeAnthropicStream(streamState)]
+    assertLifecycle(translated)
+    expect(translated.findLast((event) => event.type === "message_delta")).toMatchObject({
+      usage: { input_tokens: 20, output_tokens: 7, cache_read_input_tokens: 11 },
+    })
+  })
+
+  test("chunks after message_stop produce no further events", () => {
+    const streamState = createAnthropicStreamState()
+    translateChunkToAnthropicEvents(chunk({ content: "hello" }), streamState, "audit-model")
+    translateChunkToAnthropicEvents(chunk({}, "stop", usage), streamState, "audit-model")
+    expect(finalizeAnthropicStream(streamState).at(-1)?.type).toBe("message_stop")
+    expect(translateChunkToAnthropicEvents(chunk({ content: "late" }), streamState, "audit-model")).toEqual([])
+    expect(finalizeAnthropicStream(streamState)).toEqual([])
+  })
+
+  test("post-finish content and repeated finish are ignored until finalize", () => {
+    const streamState = createAnthropicStreamState()
+    const started = translateChunkToAnthropicEvents(chunk({ content: "hello" }), streamState, "audit-model")
+    translateChunkToAnthropicEvents(chunk({}, "stop"), streamState, "audit-model")
+    expect(translateChunkToAnthropicEvents(chunk({ content: "late" }), streamState, "audit-model")).toEqual([])
+    expect(translateChunkToAnthropicEvents(chunk({}, "stop"), streamState, "audit-model")).toEqual([])
+    const terminal = finalizeAnthropicStream(streamState)
+    expect(textFrom(started)).toBe("hello")
+    expect(terminal.some((event) => event.type === "content_block_delta")).toBe(false)
+    expect(terminal.filter((event) => event.type === "message_stop")).toHaveLength(1)
+  })
+
+  test("late usage after finalize does not change stored usage", () => {
+    const streamState = createAnthropicStreamState()
+    translateChunkToAnthropicEvents(chunk({ content: "hello" }), streamState, "audit-model")
+    translateChunkToAnthropicEvents(chunk({}, "stop", usage), streamState, "audit-model")
+    const frozen = { ...streamState.lastUsage! }
+    finalizeAnthropicStream(streamState)
+    translateChunkToAnthropicEvents(
+      { ...chunk({}, null, { ...usage, prompt_tokens: 99, completion_tokens: 99 }), choices: [] },
+      streamState,
+      "audit-model",
+    )
+    expect(streamState.lastUsage).toEqual(frozen)
+    expect(finalizeAnthropicStream(streamState)).toEqual([])
+  })
+
+  test("truncated text, tools, or empty stream fail without stop_reason null success", () => {
+    expect(() => finalizeAnthropicStream(createAnthropicStreamState()))
+      .toThrow("Truncated stream: finish_reason was not received")
+    expect(() => translate([chunk({ content: "hello" })]))
+      .toThrow("Truncated stream: finish_reason was not received")
+    expect(() => translate([chunk({ tool_calls: [tool(0, "call-a", "a", '{"a":1}')] })]))
+      .toThrow("Truncated stream: finish_reason was not received")
   })
 
   test("default streaming preserves spaces, newlines and Unicode exactly", () => {

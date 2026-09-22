@@ -24,6 +24,8 @@ import type {
 import type { AnthropicStreamState } from "../protocols/anthropic/types"
 import { translateToAnthropic } from "../protocols/translate/non-stream-translation"
 import {
+  createAnthropicStreamState,
+  finalizeAnthropicStream,
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
 } from "../protocols/translate/stream-translation"
@@ -80,10 +82,7 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
     adaptJson: (resp, req) => translateToAnthropic(resp, req.originalModel),
 
     initStreamState: (req) => ({
-      messageStartSent: false,
-      contentBlockIndex: 0,
-      contentBlockOpen: false,
-      toolCalls: {},
+      ...createAnthropicStreamState(),
       resolvedModel: req.originalModel,
       inputTokens: 0,
       outputTokens: 0,
@@ -106,31 +105,15 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
         st.cacheReadTokens = cached
       }
 
-      const events = translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
-        filterWhitespaceChunks: deps.filterWhitespaceChunks,
-      })
-
-      if (deps.toolCallDebug) {
-        for (const event of events) {
-          if (event.type !== "content_block_start" || event.content_block.type !== "tool_use") continue
-          logEmitter.emitLog({
-            ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
-            msg: `tool_use started: ${event.content_block.name}`,
-            data: {
-              eventType: "tool_use_start",
-              toolName: event.content_block.name,
-              toolId: event.content_block.id,
-              blockIndex: event.index,
-            },
-          })
-        }
-      }
-
-      return events.map((event) => ({
-        event: event.type,
-        data: JSON.stringify(event),
-      }))
+      return emitTranslated(
+        translateChunkToAnthropicEvents(chunk, st, st.originalModel, {
+          filterWhitespaceChunks: deps.filterWhitespaceChunks,
+        }),
+        ctx, deps.toolCallDebug,
+      )
     },
+
+    finalizeStream: (st, ctx) => emitTranslated(finalizeAnthropicStream(st), ctx, deps.toolCallDebug),
 
     adaptStreamError: () => {
       const errorEvent = translateErrorToAnthropicErrorEvent()
@@ -179,4 +162,30 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
       return {}
     },
   }
+}
+
+function emitTranslated(
+  events: ReturnType<typeof translateChunkToAnthropicEvents>,
+  ctx: { requestId: string },
+  toolCallDebug: boolean,
+): SSEMessage[] {
+  if (toolCallDebug) {
+    for (const event of events) {
+      if (event.type !== "content_block_start" || event.content_block.type !== "tool_use") continue
+      logEmitter.emitLog({
+        ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
+        msg: `tool_use started: ${event.content_block.name}`,
+        data: {
+          eventType: "tool_use_start",
+          toolName: event.content_block.name,
+          toolId: event.content_block.id,
+          blockIndex: event.index,
+        },
+      })
+    }
+  }
+  return events.map((event) => ({
+    event: event.type,
+    data: JSON.stringify(event),
+  }))
 }

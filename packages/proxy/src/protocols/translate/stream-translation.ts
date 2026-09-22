@@ -11,6 +11,40 @@ export interface StreamTranslateOptions {
   filterWhitespaceChunks?: boolean
 }
 
+export function createAnthropicStreamState(): AnthropicStreamState {
+  return {
+    messageStartSent: false,
+    contentBlockIndex: 0,
+    contentBlockOpen: false,
+    toolCalls: {},
+    stopReason: null,
+    messageStopSent: false,
+    lastUsage: null,
+  }
+}
+
+function rememberUsage(
+  state: AnthropicStreamState,
+  usage: ChatCompletionChunk["usage"],
+): void {
+  if (!usage) return
+  state.lastUsage = {
+    prompt_tokens: usage.prompt_tokens,
+    completion_tokens: usage.completion_tokens,
+    cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? null,
+  }
+}
+
+function usageFromState(state: AnthropicStreamState) {
+  const cached = state.lastUsage?.cached_tokens ?? null
+  return {
+    input_tokens: (state.lastUsage?.prompt_tokens ?? 0) - (cached ?? 0),
+    output_tokens: state.lastUsage?.completion_tokens ?? 0,
+    cache_creation_input_tokens: null,
+    cache_read_input_tokens: cached,
+  }
+}
+
 function recordToolFragment(
   state: AnthropicStreamState,
   toolCall: {
@@ -94,6 +128,8 @@ export function translateChunkToAnthropicEvents(
   options?: StreamTranslateOptions,
 ): Array<AnthropicStreamEventData> {
   const events: Array<AnthropicStreamEventData> = []
+  if (state.messageStopSent) return events
+  rememberUsage(state, chunk.usage)
 
   if (chunk.choices.length === 0) {
     return events
@@ -101,6 +137,7 @@ export function translateChunkToAnthropicEvents(
 
   const choice = chunk.choices[0]
   if (!choice) return events
+  if (state.stopReason !== null) return events
   const { delta } = choice
   if (!delta) return events
 
@@ -176,30 +213,29 @@ export function translateChunkToAnthropicEvents(
       })
       state.contentBlockOpen = false
     }
-
-    const usage = chunk.usage
-    const cached = usage?.prompt_tokens_details?.cached_tokens ?? null
-    events.push(
-      {
-        type: "message_delta",
-        delta: {
-          stop_reason: mapOpenAIStopReasonToAnthropic(choice.finish_reason),
-          stop_sequence: null,
-        },
-        usage: {
-          input_tokens: (usage?.prompt_tokens ?? 0) - (cached ?? 0),
-          output_tokens: usage?.completion_tokens ?? 0,
-          cache_creation_input_tokens: null,
-          cache_read_input_tokens: cached,
-        },
-      },
-      {
-        type: "message_stop",
-      },
-    )
+    state.stopReason = mapOpenAIStopReasonToAnthropic(choice.finish_reason)
   }
 
   return events
+}
+
+export function finalizeAnthropicStream(state: AnthropicStreamState): Array<AnthropicStreamEventData> {
+  if (state.messageStopSent) return []
+  if (state.stopReason === null) {
+    throw new Error("Truncated stream: finish_reason was not received")
+  }
+  state.messageStopSent = true
+  return [
+    {
+      type: "message_delta",
+      delta: {
+        stop_reason: state.stopReason,
+        stop_sequence: null,
+      },
+      usage: usageFromState(state),
+    },
+    { type: "message_stop" },
+  ]
 }
 
 export function translateErrorToAnthropicErrorEvent(): AnthropicStreamEventData {

@@ -192,6 +192,9 @@ function makeState(): AnthropicStreamState {
     contentBlockIndex: 0,
     contentBlockOpen: false,
     toolCalls: {},
+    stopReason: null,
+    messageStopSent: false,
+    lastUsage: null,
   };
 }
 

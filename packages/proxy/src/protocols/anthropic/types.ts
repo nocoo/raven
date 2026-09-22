@@ -259,4 +259,11 @@ export interface AnthropicStreamState {
       fragments: string[]
     }
   }
+  stopReason: AnthropicResponse["stop_reason"] | null
+  messageStopSent: boolean
+  lastUsage: {
+    prompt_tokens: number
+    completion_tokens: number
+    cached_tokens: number | null
+  } | null
 }

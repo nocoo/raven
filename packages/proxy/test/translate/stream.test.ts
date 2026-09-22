@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest"
 import {
+  createAnthropicStreamState,
+  finalizeAnthropicStream,
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
 } from "../../src/protocols/translate/stream-translation"
@@ -15,12 +17,7 @@ type Delta = ChatCompletionChunk["choices"][0]["delta"]
 // Helper: create a fresh stream state
 // ---------------------------------------------------------------------------
 function makeState(): AnthropicStreamState {
-  return {
-    messageStartSent: false,
-    contentBlockIndex: 0,
-    contentBlockOpen: false,
-    toolCalls: {},
-  }
+  return createAnthropicStreamState()
 }
 
 // ---------------------------------------------------------------------------
@@ -407,12 +404,12 @@ describe("finish events", () => {
       state,
     )
 
-    const types = events.map((e) => e.type)
-    expect(types).toContain("content_block_stop")
-    expect(types).toContain("message_delta")
-    expect(types).toContain("message_stop")
+    expect(events.map((e) => e.type)).toContain("content_block_stop")
+    expect(events.some((e) => e.type === "message_stop")).toBe(false)
+    const terminal = finalizeAnthropicStream(state)
+    expect(terminal.map((e) => e.type)).toEqual(["message_delta", "message_stop"])
 
-    const msgDelta = events.find((e) => e.type === "message_delta") as Extract<
+    const msgDelta = terminal.find((e) => e.type === "message_delta") as Extract<
       AnthropicStreamEventData,
       { type: "message_delta" }
     >
@@ -442,12 +439,11 @@ describe("finish events", () => {
       state,
     )
 
-    const events = translateChunkToAnthropicEvents(
+    translateChunkToAnthropicEvents(
       makeChunk({ delta: {}, finish_reason: "tool_calls" }),
       state,
     )
-
-    const msgDelta = events.find((e) => e.type === "message_delta") as Extract<
+    const msgDelta = finalizeAnthropicStream(state).find((e) => e.type === "message_delta") as Extract<
       AnthropicStreamEventData,
       { type: "message_delta" }
     >
@@ -464,13 +460,11 @@ describe("finish events", () => {
       makeChunk({ delta: { content: "partial..." } }),
       state,
     )
-
-    const events = translateChunkToAnthropicEvents(
+    translateChunkToAnthropicEvents(
       makeChunk({ delta: {}, finish_reason: "length" }),
       state,
     )
-
-    const msgDelta = events.find((e) => e.type === "message_delta") as Extract<
+    const msgDelta = finalizeAnthropicStream(state).find((e) => e.type === "message_delta") as Extract<
       AnthropicStreamEventData,
       { type: "message_delta" }
     >
@@ -533,12 +527,11 @@ describe("E3: missing usage in finish", () => {
       state,
     )
 
-    const events = translateChunkToAnthropicEvents(
+    translateChunkToAnthropicEvents(
       makeChunk({ delta: {}, finish_reason: "stop" }),
       state,
     )
-
-    const msgDelta = events.find((e) => e.type === "message_delta") as Extract<
+    const msgDelta = finalizeAnthropicStream(state).find((e) => e.type === "message_delta") as Extract<
       AnthropicStreamEventData,
       { type: "message_delta" }
     >
@@ -691,18 +684,19 @@ describe("finish while tool block open", () => {
       state,
     )
 
-    const types = events.map((e) => e.type)
-    expect(types).toEqual([
+    expect(events.map((e) => e.type)).toEqual([
       "content_block_start",
       "content_block_delta",
       "content_block_stop",
-      "message_delta",
-      "message_stop",
     ])
     expect(events[0]).toMatchObject({
       index: 0,
       content_block: { type: "tool_use", id: "c1" },
     })
+    expect(finalizeAnthropicStream(state).map((e) => e.type)).toEqual([
+      "message_delta",
+      "message_stop",
+    ])
   })
 })
 

@@ -215,6 +215,49 @@ describe("core/runner — JSON path", () => {
     expect(end!.data!.processingMs).not.toBeNull()
   })
 
+  test("finalizeStream runs after a normal stream and is skipped on error", async () => {
+    const calls: string[] = []
+    const s = makeStrategy({
+      dispatch: async () => ({
+        kind: "stream",
+        chunks: (async function* () {
+          yield { kind: "delta", text: "ok" } as FakeChunk
+        })(),
+      }),
+      finalizeStream: (state) => {
+        calls.push("finalize")
+        return [{ data: JSON.stringify({ done: true, tokens: state.outputTokens }) }]
+      },
+    })
+    const app = new Hono()
+    app.post("/x", async (c) => execute(c, makeCtx(), s, { hello: "x" }))
+    const body = await (await app.request("http://localhost/x", { method: "POST" })).text()
+    expect(body).toContain('{"delta":"ok"}')
+    expect(body).toContain('{"done":true')
+    expect(calls).toEqual(["finalize"])
+
+    calls.length = 0
+    const failing = makeStrategy({
+      dispatch: async () => ({
+        kind: "stream",
+        chunks: (async function* () {
+          yield { kind: "delta", text: "ok" } as FakeChunk
+          throw new Error("boom")
+        })(),
+      }),
+      finalizeStream: () => {
+        calls.push("finalize")
+        return [{ data: JSON.stringify({ done: true }) }]
+      },
+    })
+    const failApp = new Hono()
+    failApp.post("/x", async (c) => execute(c, makeCtx(), failing, { hello: "x" }))
+    const failBody = await (await failApp.request("http://localhost/x", { method: "POST" })).text()
+    expect(failBody).toContain("stream broke")
+    expect(failBody).not.toContain('{"done":true')
+    expect(calls).toEqual([])
+  })
+
   test("stream mid-flight error: writes adaptStreamError events + logs error end with status: error", async () => {
     const s = makeStrategy({
       dispatch: async () => ({
