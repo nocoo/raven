@@ -256,6 +256,7 @@ export interface AnthropicStreamState {
       id: string
       name: string
       anthropicBlockIndex: number
+      fragments: string[]
     }
   }
 }

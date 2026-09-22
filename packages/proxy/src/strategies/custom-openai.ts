@@ -63,8 +63,6 @@ export interface CustomOpenAIStreamState extends AnthropicStreamState {
   upstreamFormat: string
   /** Set ⇔ translated mode. */
   originalModel: string | undefined
-  /** Translated mode only. */
-  lastToolCallCount: number
 }
 
 const isOpenAINonStreaming = (
@@ -117,7 +115,6 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
       upstream: req.provider.name,
       upstreamFormat: req.provider.format,
       originalModel: req.originalModel,
-      lastToolCallCount: 0,
     }),
 
     adaptChunk: (rawEvent, st, ctx) => {
@@ -157,26 +154,19 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
           filterWhitespaceChunks: deps.filterWhitespaceChunks,
         })
         if (deps.toolCallDebug) {
-          const currentToolCallCount = Object.keys(st.toolCalls).length
-          if (currentToolCallCount > st.lastToolCallCount) {
-            const newToolCall = Object.values(st.toolCalls).reduce((newest, tc) =>
-              tc.anthropicBlockIndex > newest.anthropicBlockIndex ? tc : newest,
-              { id: "", name: "", anthropicBlockIndex: -1 },
-            )
-            if (newToolCall.id) {
-              logEmitter.emitLog({
-                ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
-                msg: `tool_use started: ${newToolCall.name}`,
-                data: {
-                  eventType: "tool_use_start",
-                  toolName: newToolCall.name,
-                  toolId: newToolCall.id,
-                  blockIndex: newToolCall.anthropicBlockIndex,
-                },
-              })
-            }
+          for (const event of events) {
+            if (event.type !== "content_block_start" || event.content_block.type !== "tool_use") continue
+            logEmitter.emitLog({
+              ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
+              msg: `tool_use started: ${event.content_block.name}`,
+              data: {
+                eventType: "tool_use_start",
+                toolName: event.content_block.name,
+                toolId: event.content_block.id,
+                blockIndex: event.index,
+              },
+            })
           }
-          st.lastToolCallCount = currentToolCallCount
         }
         return events.map((event) => ({
           event: event.type,

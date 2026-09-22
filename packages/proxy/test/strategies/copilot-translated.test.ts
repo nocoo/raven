@@ -188,7 +188,7 @@ describe("strategies/copilot-translated", () => {
       messageStartSent: true, contentBlockIndex: 1, contentBlockOpen: false, toolCalls: {},
       resolvedModel: "gpt-4o-r",
       inputTokens: 22, outputTokens: 13, cacheReadTokens: 8,
-      lastToolCallCount: 0, originalModel: "claude-3-5",
+      originalModel: "claude-3-5",
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
     expect(out).toEqual({
@@ -210,31 +210,87 @@ describe("strategies/copilot-translated", () => {
     })
   })
 
-  test("toolCallDebug=true emits tool_use_start log + describeEndLog adds debug extras", () => {
+  test("adaptChunk serializes interleaved tool arguments at finish", () => {
+    const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: false })
+    const st = s.initStreamState(makeReq(), makeCtx())
+    const feed = (delta: Record<string, unknown>, finish_reason: string | null = null) =>
+      s.adaptChunk({
+        event: null,
+        data: JSON.stringify({ id: "x", choices: [{ index: 0, delta, finish_reason }] }),
+        id: null, retry: null,
+      }, st, makeCtx())
+    feed({ tool_calls: [
+      { index: 0, id: "call-a", type: "function", function: { name: "a", arguments: "{" } },
+      { index: 1, id: "call-b", type: "function", function: { name: "b", arguments: "{" } },
+    ] })
+    feed({ tool_calls: [
+      { index: 0, id: null, type: null, function: { name: null, arguments: '"a":1}' } },
+      { index: 1, id: null, type: null, function: { name: null, arguments: '"b":2}' } },
+    ] })
+    const out = feed({}, "tool_calls")
+    const fragments: Record<string, string> = {}
+    let current: string | null = null
+    for (const item of out) {
+      const event = JSON.parse(String(item.data)) as {
+        type: string
+        content_block?: { type: string; id: string }
+        delta?: { type: string; partial_json?: string }
+      }
+      if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+        current = event.content_block.id
+        fragments[current] = ""
+      } else if (event.type === "content_block_delta" && event.delta?.type === "input_json_delta" && current) {
+        fragments[current] += event.delta.partial_json ?? ""
+      }
+    }
+    expect(JSON.parse(fragments["call-a"]!)).toEqual({ a: 1 })
+    expect(JSON.parse(fragments["call-b"]!)).toEqual({ b: 2 })
+  })
+
+  test("toolCallDebug=true logs each emitted tool_use start after finish", () => {
     const s = makeCopilotTranslated({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: true })
     const st = s.initStreamState(makeReq(), makeCtx())
-    // First feed message_start
     s.adaptChunk({
       event: null,
       data: JSON.stringify({ id: "x", choices: [{ index: 0, delta: { role: "assistant", content: "hi" }, finish_reason: null }] }),
       id: null, retry: null,
     }, st, makeCtx())
-    // Then tool_call
     s.adaptChunk({
       event: null,
       data: JSON.stringify({
         id: "x",
         choices: [{
           index: 0,
-          delta: { tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "lookup", arguments: "" } }] },
+          delta: { tool_calls: [
+            { index: 0, id: "call_1", type: "function", function: { name: "lookup", arguments: '{"q":"a"}' } },
+            { index: 1, id: "call_2", type: "function", function: { name: "search", arguments: '{"q":"b"}' } },
+          ] },
           finish_reason: null,
         }],
       }),
       id: null, retry: null,
     }, st, makeCtx())
+    expect(captured.filter((e) => e.type === "sse_chunk" && e.msg?.includes("tool_use started"))).toHaveLength(0)
+    const out = s.adaptChunk({
+      event: null,
+      data: JSON.stringify({ id: "x", choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] }),
+      id: null, retry: null,
+    }, st, makeCtx())
     const debugLogs = captured.filter((e) => e.type === "sse_chunk" && e.msg?.includes("tool_use started"))
-    expect(debugLogs.length).toBeGreaterThanOrEqual(1)
-    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
-    expect((out as { stopReason?: string }).stopReason).toBe("tool_use")
+    expect(debugLogs.map((e) => e.data)).toEqual([
+      { eventType: "tool_use_start", toolName: "lookup", toolId: "call_1", blockIndex: 1 },
+      { eventType: "tool_use_start", toolName: "search", toolId: "call_2", blockIndex: 2 },
+    ])
+    const starts = out
+      .filter((e) => e.event === "content_block_start")
+      .map((e) => JSON.parse(String(e.data)))
+    expect(starts.map((event) => event.content_block)).toEqual([
+      { type: "tool_use", id: "call_1", name: "lookup", input: {} },
+      { type: "tool_use", id: "call_2", name: "search", input: {} },
+    ])
+    expect(s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())).toMatchObject({
+      stopReason: "tool_use",
+      toolCallCount: 2,
+    })
   })
 })

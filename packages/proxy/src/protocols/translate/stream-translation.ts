@@ -11,18 +11,80 @@ export interface StreamTranslateOptions {
   filterWhitespaceChunks?: boolean
 }
 
-function isToolBlockOpen(state: AnthropicStreamState): boolean {
-  if (!state.contentBlockOpen) {
-    return false
+function recordToolFragment(
+  state: AnthropicStreamState,
+  toolCall: {
+    index: number
+    id: string | null
+    function: { name: string | null; arguments: string | null } | null
+  },
+): void {
+  let entry = state.toolCalls[toolCall.index]
+  if (!entry) {
+    entry = { id: "", name: "", anthropicBlockIndex: -1, fragments: [] }
+    state.toolCalls[toolCall.index] = entry
   }
-  // Check if the current block index corresponds to any known tool call
-  // Optimized: iterate without creating intermediate array
-  for (const key in state.toolCalls) {
-    if (state.toolCalls[key]!.anthropicBlockIndex === state.contentBlockIndex) {
-      return true
+  if (toolCall.id && !entry.id) entry.id = toolCall.id
+  if (toolCall.function?.name && !entry.name) entry.name = toolCall.function.name
+  if (typeof toolCall.function?.arguments === "string") {
+    entry.fragments.push(toolCall.function.arguments)
+  }
+}
+
+function flushBufferedTools(
+  state: AnthropicStreamState,
+  events: AnthropicStreamEventData[],
+): void {
+  const indices = Object.keys(state.toolCalls)
+    .map(Number)
+    .sort((a, b) => a - b)
+  const pending = indices.filter((openaiIndex) => state.toolCalls[openaiIndex]!.anthropicBlockIndex < 0)
+  for (const openaiIndex of pending) {
+    const tool = state.toolCalls[openaiIndex]!
+    if (!tool.id || !tool.name) {
+      throw new Error(`Incomplete tool_use metadata for OpenAI tool index ${openaiIndex}`)
     }
   }
-  return false
+  for (const openaiIndex of pending) {
+    const tool = state.toolCalls[openaiIndex]!
+    if (state.contentBlockOpen) {
+      events.push({
+        type: "content_block_stop",
+        index: state.contentBlockIndex,
+      })
+      state.contentBlockIndex++
+      state.contentBlockOpen = false
+    }
+    tool.anthropicBlockIndex = state.contentBlockIndex
+    events.push({
+      type: "content_block_start",
+      index: tool.anthropicBlockIndex,
+      content_block: {
+        type: "tool_use",
+        id: tool.id,
+        name: tool.name,
+        input: {},
+      },
+    })
+    state.contentBlockOpen = true
+    for (const fragment of tool.fragments) {
+      events.push({
+        type: "content_block_delta",
+        index: tool.anthropicBlockIndex,
+        delta: {
+          type: "input_json_delta",
+          partial_json: fragment,
+        },
+      })
+    }
+    events.push({
+      type: "content_block_stop",
+      index: tool.anthropicBlockIndex,
+    })
+    state.contentBlockIndex++
+    state.contentBlockOpen = false
+    tool.fragments = []
+  }
 }
 
 export function translateChunkToAnthropicEvents(
@@ -76,16 +138,6 @@ export function translateChunkToAnthropicEvents(
       && !choice.finish_reason
 
     if (!skipWhitespace) {
-      if (isToolBlockOpen(state)) {
-        // A tool block was open, so close it before starting a text block.
-        events.push({
-          type: "content_block_stop",
-          index: state.contentBlockIndex,
-        })
-        state.contentBlockIndex++
-        state.contentBlockOpen = false
-      }
-
       if (!state.contentBlockOpen) {
         events.push({
           type: "content_block_start",
@@ -110,59 +162,13 @@ export function translateChunkToAnthropicEvents(
   }
 
   if (delta.tool_calls) {
-    const toolCalls = delta.tool_calls
-    for (let tci = 0; tci < toolCalls.length; tci++) {
-      const toolCall = toolCalls[tci]!
-      if (toolCall?.id && toolCall.function?.name) {
-        // New tool call starting.
-        if (state.contentBlockOpen) {
-          // Close any previously open block.
-          events.push({
-            type: "content_block_stop",
-            index: state.contentBlockIndex,
-          })
-          state.contentBlockIndex++
-          state.contentBlockOpen = false
-        }
-
-        const anthropicBlockIndex = state.contentBlockIndex
-        state.toolCalls[toolCall.index] = {
-          id: toolCall.id,
-          name: toolCall.function.name,
-          anthropicBlockIndex,
-        }
-
-        events.push({
-          type: "content_block_start",
-          index: anthropicBlockIndex,
-          content_block: {
-            type: "tool_use",
-            id: toolCall.id,
-            name: toolCall.function.name,
-            input: {},
-          },
-        })
-        state.contentBlockOpen = true
-      }
-
-      if (toolCall?.function?.arguments) {
-        const toolCallInfo = state.toolCalls[toolCall.index]
-        // Tool call can still be empty
-        if (toolCallInfo) {
-          events.push({
-            type: "content_block_delta",
-            index: toolCallInfo.anthropicBlockIndex,
-            delta: {
-              type: "input_json_delta",
-              partial_json: toolCall.function.arguments,
-            },
-          })
-        }
-      }
+    for (const toolCall of delta.tool_calls) {
+      if (toolCall) recordToolFragment(state, toolCall)
     }
   }
 
   if (choice.finish_reason) {
+    flushBufferedTools(state, events)
     if (state.contentBlockOpen) {
       events.push({
         type: "content_block_stop",

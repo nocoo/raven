@@ -41,22 +41,47 @@ function translate(chunks: ChatCompletionChunk[], filterWhitespaceChunks = false
 
 function assertLifecycle(events: AnthropicStreamEventData[]) {
   const open = new Set<number>()
+  let nextIndex = 0
   expect(events[0]?.type).toBe("message_start")
   expect(events.at(-1)?.type).toBe("message_stop")
   expect(events.filter((event) => event.type === "message_start")).toHaveLength(1)
   expect(events.filter((event) => event.type === "message_stop")).toHaveLength(1)
   for (const event of events) {
     if (event.type === "content_block_start") {
-      expect(open.has(event.index), `duplicate block ${event.index}`).toBe(false)
+      expect(open.size, "serialized: only one block may be open").toBe(0)
+      expect(event.index, "block index must be monotonic").toBe(nextIndex)
+      nextIndex += 1
       open.add(event.index)
     } else if (event.type === "content_block_delta") {
+      expect(open.size, "delta with no open block").toBe(1)
       expect(open.has(event.index), `delta for closed block ${event.index}`).toBe(true)
     } else if (event.type === "content_block_stop") {
+      expect(open.size, "stop with no open block").toBe(1)
       expect(open.delete(event.index), `stop for closed block ${event.index}`).toBe(true)
     } else if (event.type === "message_stop") {
       expect(open.size).toBe(0)
     }
   }
+}
+
+function reconstructedTools(events: AnthropicStreamEventData[]) {
+  const tools: Array<{ id: string; name: string; fragments: string[] }> = []
+  let current: { id: string; name: string; fragments: string[] } | null = null
+  for (const event of events) {
+    if (event.type === "content_block_start" && event.content_block.type === "tool_use") {
+      current = { id: event.content_block.id, name: event.content_block.name, fragments: [] }
+    } else if (event.type === "content_block_delta" && event.delta.type === "input_json_delta" && current) {
+      current.fragments.push(event.delta.partial_json)
+    } else if (event.type === "content_block_stop" && current) {
+      tools.push(current)
+      current = null
+    }
+  }
+  return tools.map((tool) => ({
+    id: tool.id,
+    name: tool.name,
+    input: JSON.parse(tool.fragments.join("")) as unknown,
+  }))
 }
 
 function tool(index: number, id: string | null, name: string | null, args: string) {
@@ -121,14 +146,90 @@ describe("Anthropic ↔ Chat semantic contracts", () => {
       { content_block: { type: "tool_use", id: "call-a" } },
       { content_block: { type: "tool_use", id: "call-b" } },
     ])
+    expect(reconstructedTools(translated)).toEqual([
+      { id: "call-a", name: "a", input: { a: 1 } },
+      { id: "call-b", name: "b", input: { b: 2 } },
+    ])
   })
 
-  test.fails("BUG R02: interleaved parallel tool arguments must never arrive after block stop", () => {
-    assertLifecycle(translate([
+  test("BUG R02: interleaved parallel tool arguments must never arrive after block stop", () => {
+    const translated = translate([
       chunk({ tool_calls: [tool(0, "call-a", "a", "{"), tool(1, "call-b", "b", "{")] }),
       chunk({ tool_calls: [tool(0, null, null, '"a":1}'), tool(1, null, null, '"b":2}')] }),
       chunk({}, "tool_calls", usage),
-    ]))
+    ])
+    assertLifecycle(translated)
+    expect(reconstructedTools(translated)).toEqual([
+      { id: "call-a", name: "a", input: { a: 1 } },
+      { id: "call-b", name: "b", input: { b: 2 } },
+    ])
+  })
+
+  test("one-tool control reconstructs arguments from buffered fragments", () => {
+    const translated = translate([
+      chunk({ tool_calls: [tool(0, "call-1", "lookup", '{"q":')] }),
+      chunk({ tool_calls: [tool(0, null, null, '"raven"}')] }),
+      chunk({}, "tool_calls", usage),
+    ])
+    assertLifecycle(translated)
+    expect(reconstructedTools(translated)).toEqual([
+      { id: "call-1", name: "lookup", input: { q: "raven" } },
+    ])
+  })
+
+  test("escaped strings, repeated metadata and early fragments reconstruct", () => {
+    const argumentsObject = { query: '你好 "raven"\nnext', count: 0 }
+    const [head, tail] = (() => {
+      const encoded = JSON.stringify(argumentsObject)
+      return [encoded.slice(0, 8), encoded.slice(8)] as const
+    })()
+    const translated = translate([
+      chunk({ tool_calls: [tool(0, null, null, head)] }),
+      chunk({ tool_calls: [tool(0, "call-42", "lookup", tail)] }),
+      chunk({ tool_calls: [tool(0, "call-42", "lookup", "")] }),
+      chunk({}, "tool_calls", usage),
+    ])
+    assertLifecycle(translated)
+    expect(reconstructedTools(translated)).toEqual([
+      { id: "call-42", name: "lookup", input: argumentsObject },
+    ])
+  })
+
+  test("mixed text then tools keeps text streaming and serializes tools at finish", () => {
+    const translated = translate([
+      chunk({ content: "hello" }),
+      chunk({ tool_calls: [tool(0, "call-a", "a", '{"a":1}')] }),
+      chunk({}, "tool_calls", usage),
+    ])
+    assertLifecycle(translated)
+    expect(textFrom(translated)).toBe("hello")
+    expect(reconstructedTools(translated)).toEqual([
+      { id: "call-a", name: "a", input: { a: 1 } },
+    ])
+  })
+
+  test("duplicate finish_reason does not replay tool blocks", () => {
+    const streamState: AnthropicStreamState = {
+      messageStartSent: false, contentBlockIndex: 0, contentBlockOpen: false, toolCalls: {},
+    }
+    const events = [
+      chunk({ tool_calls: [tool(0, "call-a", "a", '{"a":1}'), tool(1, "call-b", "b", '{"b":2}')] }),
+      chunk({}, "tool_calls", usage),
+      chunk({}, "tool_calls", usage),
+    ].flatMap((item) => translateChunkToAnthropicEvents(item, streamState, "audit-model"))
+    const tools = reconstructedTools(events)
+    expect(tools.map((tool) => tool.id)).toEqual(["call-a", "call-b"])
+    expect(tools).toEqual([
+      { id: "call-a", name: "a", input: { a: 1 } },
+      { id: "call-b", name: "b", input: { b: 2 } },
+    ])
+  })
+
+  test("finish with fragment-only tool metadata throws instead of emitting empty id", () => {
+    expect(() => translate([
+      chunk({ tool_calls: [tool(0, null, null, '{"a":1}')] }),
+      chunk({}, "tool_calls", usage),
+    ])).toThrow("Incomplete tool_use metadata for OpenAI tool index 0")
   })
 
   test.fails("BUG R03: standard OpenAI usage-only trailers must reach the Anthropic client", () => {

@@ -188,7 +188,7 @@ describe("strategies/custom-openai", () => {
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
       inputTokens: 9, outputTokens: 4, cacheReadTokens: 2,
       upstream: "myco", upstreamFormat: "openai",
-      originalModel: undefined, lastToolCallCount: 0,
+      originalModel: undefined,
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
     expect(out).toEqual({
@@ -298,7 +298,7 @@ describe("strategies/custom-openai", () => {
       model: "gpt-4o", resolvedModel: "gpt-4o-r",
       inputTokens: 22, outputTokens: 13, cacheReadTokens: 6,
       upstream: "myco", upstreamFormat: "openai",
-      originalModel: "claude-3-5", lastToolCallCount: 0,
+      originalModel: "claude-3-5",
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq({ originalModel: "claude-3-5" }), state: st }, makeCtx())
     expect(out).toEqual({
@@ -325,29 +325,45 @@ describe("strategies/custom-openai", () => {
     })
   })
 
-  test("translated adaptChunk emits tool_use_start debug log when toolCallDebug is true", () => {
+  test("translated adaptChunk emits tool_use_start debug log for each tool after finish", () => {
     const s = makeCustomOpenAI({ client: fakeClient(() => makeJsonResp()), filterWhitespaceChunks: false, toolCallDebug: true })
     const st = s.initStreamState(makeReq({ originalModel: "claude-3-5" }), makeCtx())
-    // First feed a message_start chunk
     s.adaptChunk({
       event: null,
       data: JSON.stringify({ id: "x", choices: [{ index: 0, delta: { role: "assistant", content: "hi" }, finish_reason: null }] }),
       id: null, retry: null,
     }, st, makeCtx())
-    // Then a tool_call chunk
     s.adaptChunk({
       event: null,
       data: JSON.stringify({
         id: "x",
         choices: [{
           index: 0,
-          delta: { tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "lookup", arguments: "" } }] },
+          delta: { tool_calls: [
+            { index: 0, id: "call_1", type: "function", function: { name: "lookup", arguments: '{"q":"a"}' } },
+            { index: 1, id: "call_2", type: "function", function: { name: "search", arguments: '{"q":"b"}' } },
+          ] },
           finish_reason: null,
         }],
       }),
       id: null, retry: null,
     }, st, makeCtx())
-    const debugLogs = captured.filter((e) => e.type === "sse_chunk" && e.msg?.includes("tool_use started"))
-    expect(debugLogs.length).toBeGreaterThanOrEqual(1)
+    expect(captured.filter((e) => e.type === "sse_chunk" && e.msg?.includes("tool_use started"))).toHaveLength(0)
+    const out = s.adaptChunk({
+      event: null,
+      data: JSON.stringify({ id: "x", choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] }),
+      id: null, retry: null,
+    }, st, makeCtx())
+    expect(captured.filter((e) => e.type === "sse_chunk" && e.msg?.includes("tool_use started")).map((e) => e.data)).toEqual([
+      { eventType: "tool_use_start", toolName: "lookup", toolId: "call_1", blockIndex: 1 },
+      { eventType: "tool_use_start", toolName: "search", toolId: "call_2", blockIndex: 2 },
+    ])
+    const reconstructed = out.flatMap((e) => {
+      if (e.event !== "content_block_delta") return []
+      const parsed = JSON.parse(String(e.data)) as { delta?: { type?: string; partial_json?: string } }
+      return parsed.delta?.type === "input_json_delta" ? [parsed.delta.partial_json] : []
+    })
+    expect(reconstructed.join("")).toContain('"q":"a"')
+    expect(reconstructed.join("")).toContain('"q":"b"')
   })
 })

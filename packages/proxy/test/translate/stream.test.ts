@@ -211,14 +211,13 @@ describe("text content streaming", () => {
 // ===========================================================================
 
 describe("tool call streaming", () => {
-  test("new tool_call → content_block_start(tool_use) + content_block_delta(input_json_delta)", () => {
+  test("tool fragments buffer until finish, then emit one serialized block", () => {
     const state = makeState()
     translateChunkToAnthropicEvents(
       makeChunk({ delta: { role: "assistant" } }),
       state,
     )
-
-    const events = translateChunkToAnthropicEvents(
+    const buffered = translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
           tool_calls: [
@@ -233,9 +232,13 @@ describe("tool call streaming", () => {
       }),
       state,
     )
+    expect(buffered.filter((e) => e.type !== "message_start")).toHaveLength(0)
 
-    const blockStart = events.find((e) => e.type === "content_block_start")
-    expect(blockStart).toMatchObject({
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ delta: {}, finish_reason: "tool_calls" }),
+      state,
+    )
+    expect(events.find((e) => e.type === "content_block_start")).toMatchObject({
       type: "content_block_start",
       index: 0,
       content_block: {
@@ -245,22 +248,19 @@ describe("tool call streaming", () => {
         input: {},
       },
     })
-
-    const blockDelta = events.find((e) => e.type === "content_block_delta")
-    expect(blockDelta).toMatchObject({
+    expect(events.find((e) => e.type === "content_block_delta")).toMatchObject({
       type: "content_block_delta",
       index: 0,
       delta: { type: "input_json_delta", partial_json: '{"ci' },
     })
   })
 
-  test("E1: continuation tool_call → only content_block_delta", () => {
+  test("E1: continuation fragments stay buffered until finish", () => {
     const state = makeState()
     translateChunkToAnthropicEvents(
       makeChunk({ delta: { role: "assistant" } }),
       state,
     )
-    // First part of tool call
     translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
@@ -276,9 +276,7 @@ describe("tool call streaming", () => {
       }),
       state,
     )
-
-    // Continuation
-    const events = translateChunkToAnthropicEvents(
+    const continuation = translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
           tool_calls: [
@@ -293,15 +291,17 @@ describe("tool call streaming", () => {
       }),
       state,
     )
+    expect(continuation).toHaveLength(0)
 
-    const starts = events.filter((e) => e.type === "content_block_start")
-    expect(starts).toHaveLength(0)
-
-    const delta = events.find((e) => e.type === "content_block_delta")
-    expect(delta).toMatchObject({
-      type: "content_block_delta",
-      delta: { type: "input_json_delta", partial_json: 'ty":"SF"}' },
-    })
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ delta: {}, finish_reason: "tool_calls" }),
+      state,
+    )
+    const deltas = events.filter((e) => e.type === "content_block_delta")
+    expect(deltas).toMatchObject([
+      { delta: { type: "input_json_delta", partial_json: '{"ci' } },
+      { delta: { type: "input_json_delta", partial_json: 'ty":"SF"}' } },
+    ])
   })
 })
 
@@ -310,21 +310,11 @@ describe("tool call streaming", () => {
 // ===========================================================================
 
 describe("E8: text + tool_call interleaved", () => {
-  test("text then tool_call → close text block, open tool block", () => {
+  test("text then tool_call → text stays open until finish, then tool block", () => {
     const state = makeState()
-    translateChunkToAnthropicEvents(
+    const events = processChunks(state, [
       makeChunk({ delta: { role: "assistant" } }),
-      state,
-    )
-
-    // Text content
-    translateChunkToAnthropicEvents(
       makeChunk({ delta: { content: "Let me check." } }),
-      state,
-    )
-
-    // Tool call — should close text block first
-    const events = translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
           tool_calls: [
@@ -337,33 +327,20 @@ describe("E8: text + tool_call interleaved", () => {
           ],
         },
       }),
-      state,
-    )
+      makeChunk({ delta: {}, finish_reason: "tool_calls" }),
+    ])
 
-    const blockStop = events.find((e) => e.type === "content_block_stop")
-    expect(blockStop).toBeDefined()
-    expect(blockStop).toMatchObject({
-      type: "content_block_stop",
-      index: 0,
-    })
-
-    const blockStart = events.find((e) => e.type === "content_block_start")
-    expect(blockStart).toMatchObject({
-      type: "content_block_start",
-      index: 1,
-      content_block: { type: "tool_use", id: "call_1", name: "search" },
-    })
+    const starts = events.filter((e) => e.type === "content_block_start")
+    expect(starts).toMatchObject([
+      { index: 0, content_block: { type: "text" } },
+      { index: 1, content_block: { type: "tool_use", id: "call_1", name: "search" } },
+    ])
   })
 
-  test("multiple tool calls → incrementing block indices", () => {
+  test("multiple tool calls → incrementing block indices at finish", () => {
     const state = makeState()
-    translateChunkToAnthropicEvents(
+    const events = processChunks(state, [
       makeChunk({ delta: { role: "assistant" } }),
-      state,
-    )
-
-    // First tool
-    translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
           tool_calls: [
@@ -376,11 +353,6 @@ describe("E8: text + tool_call interleaved", () => {
           ],
         },
       }),
-      state,
-    )
-
-    // Second tool
-    const events = translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
           tool_calls: [
@@ -393,21 +365,14 @@ describe("E8: text + tool_call interleaved", () => {
           ],
         },
       }),
-      state,
-    )
+      makeChunk({ delta: {}, finish_reason: "tool_calls" }),
+    ])
 
-    // Should close previous tool block and open new one
-    const blockStop = events.find((e) => e.type === "content_block_stop")
-    expect(blockStop).toMatchObject({
-      type: "content_block_stop",
-      index: 0,
-    })
-
-    const blockStart = events.find((e) => e.type === "content_block_start")
-    expect(blockStart).toMatchObject({
-      type: "content_block_start",
-      index: 1,
-    })
+    const starts = events.filter((e) => e.type === "content_block_start")
+    expect(starts).toMatchObject([
+      { index: 0, content_block: { type: "tool_use", id: "call_a" } },
+      { index: 1, content_block: { type: "tool_use", id: "call_b" } },
+    ])
   })
 })
 
@@ -627,14 +592,12 @@ describe("translateErrorToAnthropicErrorEvent", () => {
 // ===========================================================================
 
 describe("tool → text interleaving", () => {
-  test("tool block open, then delta.content → close tool + open text", () => {
+  test("text after buffered tools still streams promptly", () => {
     const state = makeState()
-    // message_start
     translateChunkToAnthropicEvents(
       makeChunk({ delta: { role: "assistant" } }),
       state,
     )
-    // Open a tool block
     translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
@@ -649,37 +612,21 @@ describe("tool → text interleaving", () => {
       state,
     )
 
-    // Now send text content — should close tool block, open text block
     const events = translateChunkToAnthropicEvents(
       makeChunk({ delta: { content: "Here are the results" } }),
       state,
     )
-
-    const types = events.map((e) => e.type)
-    expect(types).toEqual([
-      "content_block_stop",   // close tool block at index 0
-      "content_block_start",  // open text block at index 1
-      "content_block_delta",  // text delta at index 1
+    expect(events.map((e) => e.type)).toEqual([
+      "content_block_start",
+      "content_block_delta",
     ])
-
-    // Verify indices
-    const stop = events[0] as { index: number }
-    expect(stop.index).toBe(0)
-    const start = events[1] as { index: number }
-    expect(start.index).toBe(1)
-    const delta = events[2] as { index: number }
-    expect(delta.index).toBe(1)
+    expect(events[0]).toMatchObject({ index: 0, content_block: { type: "text" } })
   })
 
-  test("multiple tool→text→tool transitions in sequence", () => {
+  test("multiple tool→text→tool transitions serialize at finish", () => {
     const state = makeState()
-    translateChunkToAnthropicEvents(
+    const events = processChunks(state, [
       makeChunk({ delta: { role: "assistant" } }),
-      state,
-    )
-
-    // Tool call
-    translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
           tool_calls: [{
@@ -688,17 +635,7 @@ describe("tool → text interleaving", () => {
           }],
         },
       }),
-      state,
-    )
-
-    // Text after tool
-    translateChunkToAnthropicEvents(
       makeChunk({ delta: { content: "result: " } }),
-      state,
-    )
-
-    // Another tool call after text
-    const events = translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
           tool_calls: [{
@@ -707,20 +644,15 @@ describe("tool → text interleaving", () => {
           }],
         },
       }),
-      state,
-    )
+      makeChunk({ delta: {}, finish_reason: "tool_calls" }),
+    ])
 
-    // Should close text block (index 1) and open tool block (index 2)
-    const types = events.map((e) => e.type)
-    expect(types).toContain("content_block_stop")
-    expect(types).toContain("content_block_start")
-
-    const start = events.find((e) => e.type === "content_block_start") as {
-      index: number
-      content_block: { type: string }
-    }
-    expect(start.index).toBe(2)
-    expect(start.content_block.type).toBe("tool_use")
+    const starts = events.filter((e) => e.type === "content_block_start")
+    expect(starts).toMatchObject([
+      { index: 0, content_block: { type: "text" } },
+      { index: 1, content_block: { type: "tool_use", id: "c1" } },
+      { index: 2, content_block: { type: "tool_use", id: "c2" } },
+    ])
   })
 })
 
@@ -761,13 +693,16 @@ describe("finish while tool block open", () => {
 
     const types = events.map((e) => e.type)
     expect(types).toEqual([
+      "content_block_start",
+      "content_block_delta",
       "content_block_stop",
       "message_delta",
       "message_stop",
     ])
-
-    // content_block_stop should close the tool block
-    expect((events[0] as { index: number }).index).toBe(0)
+    expect(events[0]).toMatchObject({
+      index: 0,
+      content_block: { type: "tool_use", id: "c1" },
+    })
   })
 })
 
