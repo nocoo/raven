@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { monitorData, entry, summary } from "../helpers/monitor-fixtures";
 
@@ -13,6 +13,7 @@ beforeEach(() => push.mockReset());
 import { AnalyticsCharts } from "@/app/analytics-charts";
 import { MonitorSummary } from "@/components/analytics/panels/monitor-panels";
 import { UsageExplorer } from "@/components/analytics/panels/usage-explorer";
+import { UsageDistribution } from "@/components/analytics/panels/usage-distribution";
 
 describe("monitor investigation links", () => {
   it("carries time, key and native selection into model and error investigation", () => {
@@ -39,6 +40,8 @@ describe("monitor investigation links", () => {
     const data = monitorData({ filters: { range: "7d", key_id: "key-2", account: "Editor", protocol_mode: "native", model: "claude.opus-4.6" }, keys: [entry("key-1", { account_name: "Editor" }), entry("key-2", { account_name: "Editor" })] });
     render(<UsageExplorer data={data} dimension="key_id" />);
     expect(screen.getByRole("tab", { name: "Editor key-2" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("tab", { name: "Editor key-2" }));
+    expect(push).not.toHaveBeenCalled();
     const model = screen.getByRole("link", { name: /claude.opus-4.6/ });
     expect(new URL(model.getAttribute("href")!, "https://raven.test").searchParams.get("key_id")).toBe("key-2");
     await userEvent.click(screen.getByRole("tab", { name: "Editor key-1" }));
@@ -61,16 +64,15 @@ describe("monitor investigation links", () => {
     expect(push).toHaveBeenLastCalledWith("/keys", { scroll: false });
   });
 
-  it("selects an identity from the ring legend and does not navigate when it is already selected", async () => {
-    const data = monitorData({ filters: { range: "24h", key_id: "key-1" }, distributionTotal: 40 });
-    const { rerender } = render(<UsageExplorer dimension="key_id" data={data} />);
-    const legend = screen.getByRole("button", { name: "Select Editor · key-1: 10 requests (25.0%)" });
-    await userEvent.click(legend);
-    expect(push).not.toHaveBeenCalled();
-    rerender(<UsageExplorer dimension="key_id" data={{ ...data, filters: { range: "24h" } }} />);
-    await userEvent.click(legend);
-    expect(push).toHaveBeenLastCalledWith("/keys?key_id=key-1", { scroll: false });
+  it("keeps the overall ring read-only while showing the selected identity's share", async () => {
+    render(<UsageDistribution dimension="key_id" entries={[entry("key-1", { account_name: "Editor" })]} total={40} selected="key-1" />);
+    expect(screen.getByRole("img", { name: "40 requests across keys" })).toBeDefined();
+    expect(screen.getByText("25.0%")).toBeDefined();
     expect(screen.getByText("Others")).toBeDefined();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    await userEvent.click(screen.getByText("Editor"));
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("labels ambiguous historical key groups without presenting them as a specific current key", () => {
@@ -86,15 +88,31 @@ describe("monitor investigation links", () => {
     expect(push).toHaveBeenLastCalledWith("/keys?range=7d&model=M", { scroll: false });
   });
 
-  it("disables request investigation until the new selection finishes loading", async () => {
+  it.each(["key_id", "model"] as const)("switches the entire %s statistics view without leaving stale drill-downs active", async dimension => {
     let finishNavigation!: () => void;
     push.mockReturnValue(new Promise<void>(resolve => { finishNavigation = resolve; }));
-    render(<UsageExplorer dimension="key_id" data={monitorData({ keys: [entry("key-1", { account_name: "Editor" }), entry("key-2", { account_name: "Editor" })], filters: { range: "24h", key_id: "key-1" } })} />);
-    await userEvent.click(screen.getByRole("tab", { name: "Editor key-2" }));
-    expect(screen.getByRole("status", { name: "Loading usage details" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Inspect requests" })).toBeDisabled();
-    expect(screen.queryByRole("link", { name: "Inspect requests" })).toBeNull();
-    await act(async () => finishNavigation());
+    const data = monitorData({ keys: [entry("first", { account_name: "Editor" }), entry("second", { account_name: "Editor" })], models: [entry("first"), entry("second")], filters: { range: "24h", [dimension]: "first" } });
+    const { rerender } = render(<UsageExplorer dimension={dimension} data={data} />);
+    const first = dimension === "key_id" ? "Editor first" : "first";
+    const second = dimension === "key_id" ? "Editor second" : "second";
+    const statistics = within(screen.getByRole("tabpanel", { name: first }));
+    expect(statistics.getByText("Traffic", { exact: true })).toBeDefined();
+    expect(statistics.getByRole("heading", { name: "Token composition" })).toBeDefined();
+    await userEvent.click(screen.getByRole("tab", { name: second }));
+    const pending = screen.getByRole("tabpanel", { name: second });
+    expect(pending).toHaveAttribute("aria-busy", "true");
+    expect(within(pending).getByRole("status", { name: "Loading usage statistics" })).toBeDefined();
+    expect(within(pending).queryAllByRole("link")).toHaveLength(0);
+    expect(screen.queryByText("Traffic", { exact: true })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Token composition" })).toBeNull();
+    await act(async () => {
+      rerender(<UsageExplorer dimension={dimension} data={{ ...data, filters: { range: "24h", [dimension]: "second" }, summary: summary({ total_requests: 4 }) }} />);
+      finishNavigation();
+    });
+    expect(screen.getByRole("tabpanel", { name: second })).toHaveAttribute("aria-busy", "false");
+    expect(screen.queryByRole("status", { name: "Loading usage statistics" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Inspect requests" })).toHaveAttribute("href", `/requests?${dimension}=second`);
+    expect(screen.getAllByText("4")).toHaveLength(2);
   });
 
   it("does not turn an unattributed model into a link that silently clears the model filter", () => {

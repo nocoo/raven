@@ -1,18 +1,18 @@
 "use client";
 
-import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
+import { Badge, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { UsageDetailSkeleton } from "@/components/layout/page-skeleton";
+import { UsageStatsSkeleton } from "@/components/layout/page-skeleton";
 import type { AnalyticsFilters } from "@/lib/analytics-filters";
 import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
 import { dimensionHref, formatMonitorTime, keyIdentity, keyLabel, monitorHref, nativeShare, type UsageDimension } from "@/lib/monitor";
 import type { MonitorData } from "@/lib/monitor-data";
 import type { BreakdownEntry } from "@/lib/types";
 import { ActivityChart, TokenChart, TrafficChart } from "./monitor-charts";
-import { InvestigationPanel, MonitorLink, MonitorPanel, ProtocolBar, ProtocolDistribution } from "./monitor-panels";
+import { EmptyMonitor, InvestigationPanel, MonitorLink, MonitorPanel, MonitorSummary, ProtocolBar, ProtocolDistribution } from "./monitor-panels";
 import { UsageDistribution } from "./usage-distribution";
 
 function UsageBreakdown({ entries, dimension, filters, total }: { entries: BreakdownEntry[]; dimension: UsageDimension; filters: AnalyticsFilters; total: number }) {
@@ -58,36 +58,36 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
     startTransition(() => router.push(href, { scroll: false }));
   }
 
-  return <>
-    <div className="grid grid-cols-1 items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
-      <UsageDistribution entries={entries} total={data.distributionTotal} dimension={dimension} selected={selected} pending={pending} onSelect={key => select(`entry:${key}`)} />
-      <MonitorPanel title={isKey ? "Key details" : "Model details"} description="Switch the selection to compare protocol paths and usage. Trends below follow this selection." action={pending ? <Button variant="ghost" size="sm" disabled className="shrink-0 gap-1 text-xs">Inspect requests<ArrowRight className="size-3.5" /></Button> : <MonitorLink href={monitorHref("/requests", data.filters)}>Inspect requests</MonitorLink>}>
-        <Tabs value={tab} onValueChange={select} activationMode="manual">
-          <TabsList aria-label={isKey ? "Select API key" : "Select model"} className="flex-nowrap overflow-x-auto pb-0.5" showIndicator={false}>
-            <TabsTrigger value="all" disabled={pending} className="shrink-0 rounded-t-md text-xs data-[state=active]:bg-basalt-accent">All {isKey ? "keys" : "models"}</TabsTrigger>
-            {nameGroup && <TabsTrigger value={`account:${nameGroup}`} disabled={pending} className="shrink-0 rounded-t-md text-xs data-[state=active]:bg-basalt-accent">Name group: {nameGroup}</TabsTrigger>}
-            {available.map(entry => <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} title={isKey ? `${keyLabel(entry)} · ${keyIdentity(entry.key)}` : entry.key} className="shrink-0 gap-2 rounded-t-md text-xs data-[state=active]:bg-basalt-accent"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span>{isKey && <span className="font-mono text-basalt-muted-foreground">{entry.key.startsWith("legacy:") ? "historical" : entry.key.slice(-8)}</span>}</TabsTrigger>)}
-            {selected && !current && <TabsTrigger value={`entry:${selected}`} disabled={pending} className="shrink-0 rounded-t-md text-xs data-[state=active]:bg-basalt-accent">{selected}</TabsTrigger>}
-          </TabsList>
-          <TabsContent value={tab} className="data-[state=active]:animate-none" aria-busy={pending}>
-            {pending ? <UsageDetailSkeleton /> : <>
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-basalt-border/50 pb-3">
-                <div className="min-w-0"><h3 className="break-all text-sm font-semibold">{label}</h3>{isKey && selected && <p className="mt-1 break-all font-mono text-xs text-basalt-muted-foreground">{keyIdentity(selected)}</p>}{isKey && (nameGroup || selected?.startsWith("legacy:")) && <Badge variant="warning" className="mt-1 text-xs">Historical name group · may contain multiple keys</Badge>}</div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-basalt-muted-foreground"><span><strong className="text-basalt-foreground">{formatCompact(data.summary.total_requests)}</strong> requests</span><span>{formatCompact(data.summary.total_tokens)} tokens</span><span>P95 {data.percentiles ? formatLatency(data.percentiles.p95) : "—"}</span></div>
-                {current && <p className="basis-full text-xs text-basalt-muted-foreground">First in range {formatMonitorTime(current.first_seen)} · Last {formatMonitorTime(current.last_seen)} UTC</p>}
-              </div>
-              <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                <UsageBreakdown entries={isKey ? data.models : data.keys} dimension={isKey ? "model" : "key_id"} filters={data.filters} total={data.summary.total_requests} />
-                <section className="min-w-0" aria-label="Protocol paths"><h3 className="mb-3 text-xs font-semibold">Protocol paths</h3><ProtocolDistribution data={data.protocols} summary={data.summary} filters={data.filters} /></section>
-              </div>
-            </>}
-          </TabsContent>
-        </Tabs>
-        {entries.length >= 50 && <p className="mt-2 text-xs text-basalt-muted-foreground">Top 50 identities by requests · current selection remains available</p>}
-      </MonitorPanel>
-    </div>
-    <ActivityChart data={data} dimension={dimension} />
-    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2"><TokenChart data={data} /><InvestigationPanel summary={data.summary} filters={data.filters} clients={data.clients} upstreams={data.upstreams} /></div>
-    {selected && <TrafficChart data={data} />}
-  </>;
+  return <Tabs value={tab} onValueChange={select} activationMode="manual" className="min-w-0">
+    <TabsList aria-label={isKey ? "Select API key" : "Select model"} className="flex-nowrap overflow-x-auto pb-0.5" showIndicator={false}>
+      <TabsTrigger value="all" disabled={pending} className="shrink-0 rounded-t-md data-[state=active]:bg-basalt-accent">All {isKey ? "keys" : "models"}</TabsTrigger>
+      {nameGroup && <TabsTrigger value={`account:${nameGroup}`} disabled={pending} className="shrink-0 rounded-t-md data-[state=active]:bg-basalt-accent">Name group: {nameGroup}</TabsTrigger>}
+      {available.map(entry => <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} title={isKey ? `${keyLabel(entry)} · ${keyIdentity(entry.key)}` : entry.key} className="shrink-0 gap-2 rounded-t-md data-[state=active]:bg-basalt-accent"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span>{isKey && <span className="font-mono text-xs text-basalt-muted-foreground">{entry.key.startsWith("legacy:") ? "historical" : entry.key.slice(-8)}</span>}</TabsTrigger>)}
+      {selected && !current && <TabsTrigger value={`entry:${selected}`} disabled={pending} className="shrink-0 rounded-t-md data-[state=active]:bg-basalt-accent">{selected}</TabsTrigger>}
+    </TabsList>
+    {entries.length >= 50 && <p className="mt-2 text-xs text-basalt-muted-foreground">Top 50 identities by requests · current selection remains available</p>}
+    <TabsContent value={tab} className="space-y-4 data-[state=active]:animate-none" aria-busy={pending}>
+      {pending ? <UsageStatsSkeleton selected={pendingTab !== "all"} /> : <>
+        <MonitorSummary summary={data.summary} percentiles={data.percentiles} filters={data.filters} />
+        {data.summary.total_requests === 0 && <EmptyMonitor />}
+        <div className="grid grid-cols-1 items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
+          <UsageDistribution entries={entries} total={data.distributionTotal} dimension={dimension} selected={selected} />
+          <MonitorPanel title={isKey ? "Key details" : "Model details"} description="Protocol paths and usage for the selected scope." action={<MonitorLink href={monitorHref("/requests", data.filters)}>Inspect requests</MonitorLink>}>
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-basalt-border/50 pb-3">
+              <div className="min-w-0"><h3 className="break-all text-sm font-semibold">{label}</h3>{isKey && selected && <p className="mt-1 break-all font-mono text-xs text-basalt-muted-foreground">{keyIdentity(selected)}</p>}{isKey && (nameGroup || selected?.startsWith("legacy:")) && <Badge variant="warning" className="mt-1 text-xs">Historical name group · may contain multiple keys</Badge>}</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-basalt-muted-foreground"><span><strong className="text-basalt-foreground">{formatCompact(data.summary.total_requests)}</strong> requests</span><span>{formatCompact(data.summary.total_tokens)} tokens</span><span>P95 {data.percentiles ? formatLatency(data.percentiles.p95) : "—"}</span></div>
+              {current && <p className="basis-full text-xs text-basalt-muted-foreground">First in range {formatMonitorTime(current.first_seen)} · Last {formatMonitorTime(current.last_seen)} UTC</p>}
+            </div>
+            <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+              <UsageBreakdown entries={isKey ? data.models : data.keys} dimension={isKey ? "model" : "key_id"} filters={data.filters} total={data.summary.total_requests} />
+              <section className="min-w-0" aria-label="Protocol paths"><h3 className="mb-3 text-xs font-semibold">Protocol paths</h3><ProtocolDistribution data={data.protocols} summary={data.summary} filters={data.filters} /></section>
+            </div>
+          </MonitorPanel>
+        </div>
+        <ActivityChart data={data} dimension={dimension} />
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2"><TokenChart data={data} /><InvestigationPanel summary={data.summary} filters={data.filters} clients={data.clients} upstreams={data.upstreams} /></div>
+        {selected && <TrafficChart data={data} />}
+      </>}
+    </TabsContent>
+  </Tabs>;
 }

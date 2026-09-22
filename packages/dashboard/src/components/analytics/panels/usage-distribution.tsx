@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@nocoo/basalt";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { ChartTooltip, ChartTooltipRow } from "@/components/dashboard/chart-primitives";
 import { ANIMATION_PROPS, CHART_COLORS, formatCompact, formatPercent, getChartColor, RESPONSIVE_CONTAINER_PROPS } from "@/lib/chart-config";
@@ -9,13 +8,11 @@ import type { BreakdownEntry } from "@/lib/types";
 import { usageDistribution } from "@/lib/usage-distribution";
 import { MonitorPanel } from "./monitor-panels";
 
-export function UsageDistribution({ entries, total, dimension, selected, pending, onSelect }: {
+export function UsageDistribution({ entries, total, dimension, selected }: {
   entries: BreakdownEntry[];
   total: number | null;
   dimension: UsageDimension;
   selected: string | undefined;
-  pending: boolean;
-  onSelect: (key: string) => void;
 }) {
   const isKey = dimension === "key_id";
   const distribution = usageDistribution(entries, total);
@@ -41,7 +38,7 @@ export function UsageDistribution({ entries, total, dimension, selected, pending
       <div className="min-w-0 space-y-1">
         {slices.map(slice => {
           const content = <><span className="size-2 shrink-0 rounded-full" style={{ background: slice.color }} /><span className="min-w-0 flex-1 text-left"><span className="block truncate">{slice.label}</span>{isKey && slice.key && <span className="block truncate font-mono text-xs text-basalt-muted-foreground">{slice.key.startsWith("legacy:") ? "historical" : slice.key.slice(-8)}</span>}</span><span className="shrink-0 tabular-nums">{formatCompact(slice.count)}</span><span className="w-12 shrink-0 text-right tabular-nums text-basalt-muted-foreground">{distribution.total ? formatPercent(slice.count / distribution.total) : "—"}</span></>;
-          return slice.key ? <Button key={`entry:${slice.key}`} variant="ghost" size="sm" disabled={pending} onClick={() => onSelect(slice.key!)} aria-label={`Select ${slice.label}${isKey ? ` · ${keyIdentity(slice.key)}` : ""}: ${formatCompact(slice.count)} requests (${distribution.total ? formatPercent(slice.count / distribution.total) : "—"})`} aria-pressed={selected === slice.key} title={isKey ? `${slice.label} · ${keyIdentity(slice.key)}` : slice.label} className={`h-auto min-h-8 w-full gap-2 px-1 py-1.5 text-xs ${selected === slice.key ? "bg-basalt-accent" : ""}`}>{content}</Button> : <div key={slice.key === null ? "others" : "unattributed"} className="flex h-8 items-center gap-2 px-1 text-xs">{content}</div>;
+          return <div key={slice.key === null ? "others" : `entry:${slice.key}`} title={isKey && slice.key ? `${slice.label} · ${keyIdentity(slice.key)}` : slice.label} className={`flex min-h-8 items-center gap-2 rounded-md px-1 py-1.5 text-xs ${selected === slice.key ? "bg-basalt-accent" : ""}`}>{content}</div>;
         })}
         {entries.length === 0 && <p className="text-xs text-basalt-muted-foreground">No distribution available</p>}
       </div>
