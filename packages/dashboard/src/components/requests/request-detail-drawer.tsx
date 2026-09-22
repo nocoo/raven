@@ -67,7 +67,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="relative w-full overflow-y-auto sm:max-w-lg">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
         <SheetClose
           aria-label="Close"
           className="absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-basalt-muted-foreground hover:bg-basalt-accent hover:text-basalt-foreground"

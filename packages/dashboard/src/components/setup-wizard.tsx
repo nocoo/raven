@@ -340,7 +340,7 @@ export function SetupWizard() {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent size="xl" className="relative">
+      <DialogContent size="xl">
         <DialogClose
           aria-label="Close"
           className="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-basalt-muted-foreground hover:bg-basalt-accent hover:text-basalt-foreground"

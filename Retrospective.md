@@ -22,7 +22,14 @@ The final protocol-repair verification harness reused its synthetic build creden
 
 The harness now removes authentication keys from the Dashboard unit-test environment, while retaining isolated state paths and an unreachable proxy URL. Build commands keep their synthetic credentials. Production code, test assertions, coverage thresholds and timeout settings were unchanged. Verification environments must distinguish build inputs from variables that individual tests control, including missing-variable cases.
 
+## 2026-09-22: Overlay contents rendered outside the viewport
+
+The request drawer and setup dialog passed `relative` to Basalt content components, overriding their default `fixed` positioning through Tailwind class merging. The backdrop remained visible while the request drawer started below the viewport. Existing component tests found the error text in the DOM but could not detect its off-screen geometry. Removing the positioning overrides restores the library's viewport anchoring; fixed positioning also anchors the absolute close controls. Browser verification must check viewport bounds, scrolling and dismissal for overlays, not only text presence.
+
+The first focused verification command combined a root-relative Vitest config with `--root`, resolving the package directory twice. It failed before running tests. Running the package's Node-based Vitest command from the package directory passed; no failed startup result was counted as test evidence.
+
 ## Undated entries migrated from the previous handbook
+
 
 - `eea1083` mixed model list fix (proxy feature) with e2e test model update (test) in one commit. Should have been two: one for `models.ts`, one for `proxy.e2e.test.ts`. Always split source changes and test changes into separate commits when they serve different purposes.
 - `6ea7485` wrongly switched `copilot_internal/user` from GitHub OAuth token to Copilot JWT, causing 401. Root cause: assumed all copilot_internal endpoints use the same auth — they don't. Both `/copilot_internal/v2/token` and `/copilot_internal/user` on `api.github.com` require `token ${githubOAuth}`, not `Bearer ${copilotJwt}`. Always verify auth by curl-testing the real endpoint before committing auth changes.
