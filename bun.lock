@@ -22,7 +22,7 @@
     },
     "packages/dashboard": {
       "name": "dashboard",
-      "version": "2.7.0",
+      "version": "2.8.0",
       "dependencies": {
         "@nocoo/basalt": "2.1.8",
         "clsx": "^2.1.1",

@@ -44,8 +44,8 @@ native-share denominator; an empty selection has no percentage.
 The Dashboard describes implemented routes. Anthropic requests can use an
 OpenAI upstream with responses translated back; an OpenAI client to an
 Anthropic-only upstream remains unsupported. Messages to Responses remains a
-design, not an implemented route. This refactor does not fix or reclassify the
-protocol defects recorded in the architecture audit.
+design, not an implemented route. The separate protocol repair series and its
+verification limits are recorded in the [architecture audit](proxy-architecture.html).
 
 ## Key identity
 
@@ -118,6 +118,6 @@ composition chart. These counters are not a billing estimate.
   **https://raven.dev.hexly.ai**, through the existing Caddy mapping to port 7023.
 
 The declared coverage scope and stronger proxy baseline remain unchanged;
-removed page paths are removed from the obsolete coverage exclusions. Existing
-expected-failure protocol regressions remain evidence of known defects, not
-proof that every translation path is correct.
+removed page paths are removed from the obsolete coverage exclusions. The eight
+reported protocol defects now have passing ordinary regressions; the architecture
+audit records each repair commit and the remaining limits of that evidence.

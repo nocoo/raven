@@ -1,5 +1,42 @@
 # Changelog
 
+## v2.8.0
+
+### Added
+- Rebuild Monitor into Overview, Models, API Keys and Requests pages, with linked time, model, key and protocol filters.
+- Show native, translated and unknown traffic alongside request volume, token usage, errors, latency and time to first token; drill down to individual requests.
+- Track stable API key identities and indexed activity histories without merging distinct keys that share a name.
+- Add a Chinese interactive architecture report with reproducible protocol defects, reviewed repair commits and measured test coverage.
+- Add Hexly navigation links and refine the Raven logo framing.
+
+### Changed
+- Preserve the application shell and log connection during navigation, with page-specific loading skeletons.
+- Enforce four-metric coverage for Proxy, Dashboard and scripts while preserving the stronger Proxy baseline checks.
+- Consolidate project instructions in root AGENTS.md and document Caddy-based local previews.
+- Update the dependency stack, including Next.js 16.3.5, React 19.3.0, Hono 4.13.8, Zod 4.6.5, Basalt 2.1.8 and Vitest 5.0.1.
+
+### Fixed
+- Select native Messages only when the captured model catalog advertises the endpoint, keeping request preparation and dispatch consistent.
+- Serialize interleaved translated tool calls into valid Anthropic content-block lifecycles without losing argument fragments.
+- Preserve streaming usage trailers and emit one final translated message sequence on normal EOF; reject truncated streams without a finish reason.
+- Preserve spaces, line breaks and other whitespace in generated text and tool arguments.
+- Keep SSE event names and data together when CRLF boundaries span network reads, without repeatedly scanning unfinished long lines.
+- Propagate downstream cancellation through generation clients, strategies and server tools, stopping further adaptation, retries and success finalization.
+- Record native in-band stream errors as logical failures while preserving their original frames and actual HTTP status.
+- Preserve explicit refusal text and stop reasons across JSON, SSE, stream reconstruction and server-tool synthesis.
+- Keep Monitor actions within a client component boundary and avoid whole-shell flashes on page changes.
+- Preserve the verified shared CI integration and make model-cache tests independent of live upstreams.
+
+### Removed
+- Remove the lossy whitespace-filter setting from Proxy configuration and Dashboard controls.
+- Remove standalone Clients, Sessions and Providers monitor tables; their investigation filters remain available in Requests.
+- Remove unused key-count queries, chart helpers and the redundant live analytics badge.
+
+### Upgrade notes
+- Request database initialization adds `api_key_id`, `server_tools_used` and a key-identity/time index. Historical rows retain explicit legacy identities; no key secrets are stored.
+- Native means same-protocol forwarding, with request normalization and reconstructed SSE. Messages-to-Responses and OpenAI-to-Anthropic routing remain unsupported.
+- The release uses the explicitly requested minor increment. The removed whitespace setting now rejects writes; translated tool arguments are buffered until the upstream finish reason.
+
 ## v2.7.0
 
 ### Added

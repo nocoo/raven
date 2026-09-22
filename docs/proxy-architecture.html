@@ -147,12 +147,12 @@
 <body>
 <main class="shell">
   <div class="topline">
-    <div class="brand"><svg width="25" height="25" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m3 20 4-11 6-6 6 2 3 5-7-2 3 5-8 2-7 5Z"/></svg> RAVEN <span class="pill">2.7.0</span></div>
+    <div class="brand"><svg width="25" height="25" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m3 20 4-11 6-6 6 2 3 5-7-2 3 5-8 2-7 5Z"/></svg> RAVEN <span class="pill">v2.8.0</span></div>
     <span class="mono">初审 b6e0f71 → 修复 0bd9a77 · 2026-09-22</span>
   </div>
   <header class="heading">
-    <div><p class="eyebrow">从请求到响应，理解模型代理的完整链路</p><h1>用测试审视架构与协议正确性</h1><p class="lede">探索七种路由策略，查看 8 类协议缺陷的复现、修复、独立 review 与本地提交记录。</p></div>
-    <span class="pill good">8 / 8 已修复 · 本地 main</span>
+    <div><p class="eyebrow">从请求到响应，理解模型代理的完整链路</p><h1>用测试审视架构与协议正确性</h1><p class="lede">探索七种路由策略，查看 8 类协议缺陷的复现、修复、独立 review 与修复提交记录。</p></div>
+    <span class="pill good">8 / 8 已修复 · main</span>
   </header>
   <div class="stats" aria-label="审查概览">
     <div class="stat"><div><strong>3 <span style="display:inline;font-size:14px">→ 7</span></strong><span>协议数量 → 策略数量</span></div><i class="stat-marker"></i></div>
@@ -236,7 +236,7 @@
         <div><h3>构建与静态检查通过</h3><p class="small muted">Dashboard 生产构建、Proxy / Dashboard 全新类型检查（<code>--incremental false</code>）、全量 Biome 与架构门禁通过。每个修复 commit 的九项正常提交门禁均通过；未跳过门禁或降低阈值。</p></div>
         <div><h3>原始缺陷全部转为普通回归</h3><p class="small muted">四个初审契约文件现有 55 项普通测试全部通过，已计入 Proxy 总数。测试目录与脚本内未发现 <code>only / skip / todo / fails</code> 标记。覆盖率仍使用项目原有范围与基线。</p></div>
       </div>
-      <p class="footnote">Proxy 执行正式 <code>bun run gate:coverage</code>，包括脚本覆盖率、四项 95% 阈值、97.5% 行下限、目录基线、回退限制和未测试文件检查。工具链：Bun 1.4.2 / Node v26.9.0 / Vitest 5.0.1；这是本地验证，未执行 CI 或部署。</p>
+      <p class="footnote">Proxy 执行正式 <code>bun run gate:coverage</code>，包括脚本覆盖率、四项 95% 阈值、97.5% 行下限、目录基线、回退限制和未测试文件检查。工具链：Bun 1.4.2 / Node v26.9.0 / Vitest 5.0.1；此处记录本地验证，不作为 CI 或部署证据。</p>
       <p class="footnote">报告页面已通过本机 Chrome 离线交互检查：12 个架构节点、36 种路由组合、8 条修复记录、筛选与事件回放、复制命令及键盘切换；390 / 768 / 1500 像素宽度无整页横向溢出，页面错误与自动网络请求均为 0。</p>
       <details style="margin-top:var(--s2)"><summary>查看隔离条件、执行命令与验证过程</summary>
         <p class="footnote">在固定 revision 的独立工作区复用已安装依赖，未复制 .env 或真实 token。配置、数据库和令牌路径均指向本次临时目录；上游调用由 UT mock，构建指向不可达的本地代理。未改动日常 Dashboard 的 .next、实际数据库或服务进程。</p>
@@ -283,7 +283,7 @@ VITEST_MAX_WORKERS=2 bun ../../node_modules/vitest/vitest.mjs run semantic-contr
       </aside>
     </div>
   </section>
-  <footer><span>离线页面 · 无外部依赖、自动网络请求或生产凭据</span><span>修复提交仅在本地 main，尚未推送 · 正式 L1 记录保存在 nmem</span></footer>
+  <footer><span>离线页面 · 无外部依赖、自动网络请求或生产凭据</span><span>修复提交可通过 git show 查阅 · 正式 L1 记录保存在 nmem</span></footer>
 </main>
 <script>
 (() => {
@@ -452,7 +452,7 @@ VITEST_MAX_WORKERS=2 bun ../../node_modules/vitest/vitest.mjs run semantic-contr
   document.querySelectorAll(".copy-fix").forEach(button => button.addEventListener("click", async () => {
     const command = `git show ${button.dataset.commit}`;
     const status = document.getElementById(`copy-${button.dataset.id}`);
-    try { await navigator.clipboard.writeText(command); status.textContent = "命令已复制；该提交尚未推送。"; }
+    try { await navigator.clipboard.writeText(command); status.textContent = "命令已复制。"; }
     catch { status.textContent = command; }
   }));
   document.querySelectorAll("[data-filter]").forEach(button => button.addEventListener("click", () => {
