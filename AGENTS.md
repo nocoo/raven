@@ -59,22 +59,22 @@ bun run gate:security
 
 ## Verification
 
-6DQ = L1/L2/L3 + G1/G2 + D1. Status: `enforced`, `planned`, `manual`, `N/A`. No focused/skipped tests; all four L1 metrics ≥95%, preserving stricter baseline floors.
+6DQ retains its name; former G1 merged into unified L1 on 2026-09-21. Scope: L1/L2/L3, G2 and D1. Follow the maintained `system0-6dq-l1` skill for the pre-commit contract. Status: `enforced`, `planned`, `manual`, `N/A`. No focused/skipped tests; all four L1 metrics ≥95%, preserving stricter baseline floors.
 
 | Piece | Requirement and current reality | Status | Evidence |
 | --- | --- | --- | --- |
-| L1 Proxy | Four metrics ≥95%, plus baseline line floor ≥97.5%, ≤0.1pp regression and no untested files | enforced | `gate:coverage` retains the stronger line/directory baseline, regression and untested-file rules; Vitest enforces all four 95% thresholds |
-| L1 Dashboard | Four metrics ≥95% | enforced | Dashboard tests and CI enforce all four 95% thresholds on the declared scope |
-| L1 scripts | Four metrics ≥95% | enforced | The baseline gate explicitly runs the dedicated Bun/Istanbul config for the declared `scripts/lib` scope; reports are isolated in `coverage/scripts` |
+| L1 coverage: Proxy | Four metrics ≥95%, plus baseline line floor ≥97.5%, ≤0.1pp regression and no untested files | enforced | `gate:coverage` retains the stronger line/directory baseline, regression and untested-file rules; Vitest enforces all four 95% thresholds |
+| L1 coverage: Dashboard | Four metrics ≥95% | enforced | Dashboard tests and CI enforce all four 95% thresholds on the declared scope |
+| L1 coverage: scripts | Four metrics ≥95% | enforced | The baseline gate explicitly runs the dedicated Bun/Istanbul config for the declared `scripts/lib` scope; reports are isolated in `coverage/scripts` |
 | L2 | Every API endpoint/method through real isolated HTTP/SQLite | planned | CI `test:l2` is in-process route/handler tests with mocked upstream; legacy live E2E uses real state |
 | L3 | Real isolated dashboard/auth/provider workflows | planned | Playwright manual runner uses real auth and fixed test DB |
-| G1 | Strict types, zero-warning/error Biome and architecture boundaries | planned | Checks enforced; pre-commit lint-staged mutation/worktree concurrency violates check-only target |
+| L1 complete contract | Coverage above plus strict types, zero-warning/error check-only Biome, architecture boundaries and installed index-snapshot rejection | planned | Configured coverage/static subchecks run in hooks; lint-staged commands are check-only. Hooks still inspect working files; complete index isolation, failure-rejection evidence and <30s timing remain unverified |
 | G2 | Required OSV and gitleaks, fail when absent | enforced | `gate:security`, pre-push and CI |
 | D1 | Per-run test DB/config/token paths and local fixture upstream | planned | Legacy HTTP E2E reuses real database; browser fixed test DB still uses real credentials |
 | Build | Next production bundle | manual | Root `build`; mandatory for runtime/bundler changes |
 | Docs | Protocol and gate-baseline evidence kept current | manual | Numbered guide review |
 
-Pre-commit runs `gate:coverage`, Dashboard/script tests, lint-staged/types/micro-gates and staged secrets in parallel. Pre-push runs the same baseline gate, architecture, full lint and G2 on working files. Never replace baseline entry with bare Vitest. Target: check-only index L1/G1 <30s, stdin pushed-ref local L2/G2 <3min; no hook bypass or soft-security mode.
+Pre-commit runs `gate:coverage`, Dashboard/script tests, lint-staged/types/micro-gates and staged secrets in parallel. Pre-push runs the same baseline gate, architecture, full lint and G2 on working files. Never replace baseline entry with bare Vitest. Target: check-only index unified L1 <30s, stdin pushed-ref local L2/G2 <3min; no hook bypass or soft-security mode.
 
 ## Resources / Isolation
 
