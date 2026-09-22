@@ -73,11 +73,26 @@ the rule, upstream, quota and skipped exhausted candidates. The existing flat
 `resolvedModel` continues to describe the upstream's echoed model; `model` keeps
 the incoming client value. These fields can legitimately differ.
 
+## Runtime baseline
+
+Use the Node.js 26 release pinned in [.node-version](../.node-version) and Bun
+1.3.11 or newer. The pinned reusable CI action reads this file for all three jobs.
+Proxy and scripts run on Bun; Dashboard and its jsdom/V8 tests run on Node.
+
+As of 2026-09-22, the [official schedule](https://github.com/nodejs/Release/blob/main/schedule.json)
+places Node 24 in Active LTS and schedules Node 26 LTS for 2026-10-28. Node 26
+remains in the Current phase. Raven's CI already defaulted to 26.8.1; the explicit
+pin aligns it with the fully verified local 26.9.0 runtime. Installed Next 16.3.5, Vitest
+5.0.1, jsdom 30.1.0 and Vite 8.3.0 all support Node 26. Full package suites,
+coverage gates, production builds and isolated browser acceptance passed on this
+baseline. The [release index](https://nodejs.org/dist/index.json) lists 26.10.0
+as the latest Current release; this project pins the version actually verified.
+
 ## Isolated Routing browser acceptance
 
-Use Node 24 LTS and Bun 1.3.11 or newer. Install Chromium using the repository's
-existing Playwright dependency, then run from the root after building the
-production Dashboard:
+Use the runtime baseline above. Install Chromium using the repository's existing
+Playwright dependency, then run from the root after building the production
+Dashboard:
 
 ```sh
 GOOGLE_CLIENT_ID='' GOOGLE_CLIENT_SECRET='' NEXTAUTH_SECRET='' NEXT_TELEMETRY_DISABLED=1 \

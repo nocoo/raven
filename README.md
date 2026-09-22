@@ -41,7 +41,7 @@ Raven 是用于个人研究和开发的模型 API 代理。Bun / Hono 服务接�
 
 ### 安装与配置
 
-需要 Bun 1.3.11 或更新版本、Node.js 24 LTS，以及能访问 Copilot 的 GitHub 账号。仓库使用 Bun workspaces。
+需要 Bun 1.3.11 或更新版本、Node.js 26（精确版本见 [.node-version](.node-version)），以及能访问 Copilot 的 GitHub 账号。仓库使用 Bun workspaces。
 
 ```bash
 git clone https://github.com/nocoo/raven.git

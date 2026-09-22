@@ -39,7 +39,7 @@ Maintain project instructions only in this root `AGENTS.md`. Do not create neste
 
 ## Commands
 
-Run from root with Bun 1.3.11+ and Node 24 LTS; use the pinned versions in CI for reproduction.
+Run from root with Bun 1.3.11+ and the Node.js 26 release pinned in [.node-version](.node-version). CI reads the same Node version file; use its pinned Bun version for CI reproduction.
 
 ```sh
 bun install --frozen-lockfile

@@ -41,7 +41,7 @@ Custom catalogs refresh only on explicit user action; Copilot refreshes independ
 
 ### Install and configure
 
-Use Bun 1.3.11 or later, Node.js 24 LTS, and a GitHub account with Copilot access. This repository uses Bun workspaces.
+Use Bun 1.3.11 or later, the Node.js 26 release pinned in [.node-version](../.node-version), and a GitHub account with Copilot access. This repository uses Bun workspaces.
 
 ```bash
 git clone https://github.com/nocoo/raven.git
