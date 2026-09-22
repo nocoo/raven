@@ -16,7 +16,8 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
 import { Filter, RefreshCw, RotateCcw } from "lucide-react";
 import { Button, Input } from "@nocoo/basalt";
-import { formatMonitorTime, PROTOCOL_META, PROTOCOL_MODES } from "@/lib/monitor";
+import { PROTOCOL_META, PROTOCOL_MODES } from "@/lib/monitor";
+import { LocalTime } from "@/components/local-time";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 const STATUS_OPTIONS = ["success", "error"];
@@ -275,7 +276,7 @@ export function FilterBar({
         )}
       </div>
 
-      {filters.range === "custom" && filters.from !== undefined && filters.to !== undefined && <p className="text-xs text-basalt-muted-foreground">Selected interval: {formatMonitorTime(filters.from)} – {formatMonitorTime(filters.to)} UTC</p>}
+      {filters.range === "custom" && filters.from !== undefined && filters.to !== undefined && <p className="text-xs text-basalt-muted-foreground">Selected interval: <LocalTime timestamp={filters.from} /> – <LocalTime timestamp={filters.to} /></p>}
 
       {investigation && <details className="text-xs text-basalt-muted-foreground"><summary className="cursor-pointer py-1">Client & session filters</summary><form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={event => {
         event.preventDefault();

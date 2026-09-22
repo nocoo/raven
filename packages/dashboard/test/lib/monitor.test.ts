@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cacheHitRate } from "@/lib/chart-config";
 import { bucketHref, chartActivity, dimensionHref, fillActivity, formatAxisTime, formatMonitorTime, intervalMilliseconds, keyIdentity, keyLabel, monitorHref, monitorInterval, nativeShare, protocolLabel, requestProtocolRoute, tokenSeries, trafficSeries } from "@/lib/monitor";
 import { countActiveFilters, filterLabel, filtersToApiQuery, filtersToSearchParams, searchParamsToFilters } from "@/lib/analytics-filters";
 import { bucket, request } from "../helpers/monitor-fixtures";
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("monitor drilldown contract", () => {
   const filters = { range: "custom" as const, from: 65_000, to: 170_000, model: "model.with.dots", key_id: "key&/2", protocol_mode: "translated" as const, status: "error" };
@@ -121,6 +123,7 @@ describe("monitor timelines", () => {
   });
 
   it("chooses a useful resolution for custom bucket drilldowns", () => {
+    vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(0);
     expect(monitorInterval({ range: "24h" })).toBe("hour");
     expect(monitorInterval({ range: "custom" })).toBe("hour");
     for (const [to, expected] of [[60_000, "minute"], [7_200_000, "5min"], [86_400_000, "hour"], [2_592_000_000, "day"]] as const) expect(monitorInterval({ range: "custom", from: 0, to })).toBe(expected);
@@ -136,5 +139,17 @@ describe("monitor timelines", () => {
     expect(formatAxisTime(0, 60_000)).toBe("00:00");
     expect(formatAxisTime(0, 86_400_000)).toBe("00:00");
     expect(formatAxisTime(0, 7 * 86_400_000)).toBe("01-01");
+  });
+
+  it.each([
+    [-480, "2026-09-23 05:15"],
+    [-345, "2026-09-23 03:00"],
+    [240, "2026-09-22 17:15"],
+  ])("formats local timestamps and chart axes at browser offset %i", (offset, expected) => {
+    vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(offset);
+    const timestamp = Date.UTC(2026, 8, 22, 21, 15);
+    expect(formatMonitorTime(timestamp)).toBe(expected);
+    expect(formatAxisTime(timestamp, 3_600_000)).toBe(expected.slice(11));
+    expect(formatAxisTime(timestamp, 7 * 86_400_000)).toBe(expected.slice(5, 10));
   });
 });

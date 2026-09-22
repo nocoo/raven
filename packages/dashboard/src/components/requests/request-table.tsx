@@ -6,7 +6,8 @@
 import { formatLatency } from "@/lib/chart-config";
 import { cn } from "@/lib/utils";
 import type { ExtendedRequestRecord } from "@/lib/types";
-import { formatMonitorTime, keyIdentity, protocolLabel } from "@/lib/monitor";
+import { keyIdentity, protocolLabel } from "@/lib/monitor";
+import { LocalTime } from "@/components/local-time";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
@@ -158,7 +159,7 @@ export function RequestTable({
               <TableRow className="border-basalt-border hover:bg-transparent">
                 {isVisible("timestamp") && (
                   <TableHead aria-sort={getAriaSort("timestamp")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="timestamp">Time (UTC)</SortButton>
+                    <SortButton column="timestamp">Time</SortButton>
                   </TableHead>
                 )}
                 {isVisible("model") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Model</TableHead>}
@@ -222,7 +223,7 @@ export function RequestTable({
                   >
                     {isVisible("timestamp") && (
                       <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground tabular-nums whitespace-nowrap">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" aria-label={`Inspect request ${req.id}`}>{formatMonitorTime(req.timestamp, "second")}</Button>
+                        <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" aria-label={`Inspect request ${req.id}`}><LocalTime timestamp={req.timestamp} precision="second" /></Button>
                       </TableCell>
                     )}
                     {isVisible("model") && (

@@ -79,13 +79,11 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("formatTimestamp", () => {
-  it("keeps request times in UTC when the browser default time zone differs", () => {
-    const formatter = vi.spyOn(Date.prototype, "toLocaleString").mockImplementation(function (this: Date, locale, options) {
-      return new Intl.DateTimeFormat(locale, { timeZone: "America/New_York", ...options }).format(this);
-    });
+  it("shows request times in the browser timezone", () => {
+    const formatter = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(240);
     try {
       render(<RequestTable data={[makeRecord({ timestamp: Date.UTC(2026, 8, 22, 12, 34, 56) })]} hasMore={false} />);
-      expect(screen.getByRole("button", { name: "Inspect request req-1" })).toHaveTextContent("2026-09-22 12:34:56");
+      expect(screen.getByRole("button", { name: "Inspect request req-1" })).toHaveTextContent("2026-09-22 08:34:56");
     } finally {
       formatter.mockRestore();
     }

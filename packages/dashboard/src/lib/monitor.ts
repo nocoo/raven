@@ -54,7 +54,7 @@ export function formatMonitorTime(timestamp: number, precision: "minute" | "seco
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return "—";
   const length = precision === "millisecond" ? 23 : precision === "second" ? 19 : 16;
-  return date.toISOString().slice(0, length).replace("T", " ");
+  return new Date(timestamp - date.getTimezoneOffset() * 60_000).toISOString().slice(0, length).replace("T", " ");
 }
 
 export function formatAxisTime(timestamp: number, spanMs: number): string {

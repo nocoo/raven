@@ -8,7 +8,8 @@ import { useState, useTransition } from "react";
 import { UsageStatsSkeleton } from "@/components/layout/page-skeleton";
 import type { AnalyticsFilters } from "@/lib/analytics-filters";
 import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
-import { dimensionHref, formatMonitorTime, keyIdentity, keyLabel, monitorHref, nativeShare, type UsageDimension } from "@/lib/monitor";
+import { dimensionHref, keyIdentity, keyLabel, monitorHref, nativeShare, type UsageDimension } from "@/lib/monitor";
+import { LocalTime } from "@/components/local-time";
 import type { MonitorData } from "@/lib/monitor-data";
 import type { BreakdownEntry } from "@/lib/types";
 import { ActivityChart, TokenChart, TrafficChart } from "./monitor-charts";
@@ -76,7 +77,7 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
             <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-basalt-border/50 pb-3">
               <div className="min-w-0"><h3 className="break-all text-sm font-semibold">{label}</h3>{isKey && selected && <p className="mt-1 break-all font-mono text-xs text-basalt-muted-foreground">{keyIdentity(selected)}</p>}{isKey && (nameGroup || selected?.startsWith("legacy:")) && <Badge variant="warning" className="mt-1 text-xs">Historical name group · may contain multiple keys</Badge>}</div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-basalt-muted-foreground"><span><strong className="text-basalt-foreground">{formatCompact(data.summary.total_requests)}</strong> requests</span><span>{formatCompact(data.summary.total_tokens)} tokens</span><span>P95 {data.percentiles ? formatLatency(data.percentiles.p95) : "—"}</span></div>
-              {current && <p className="basis-full text-xs text-basalt-muted-foreground">First in range {formatMonitorTime(current.first_seen)} · Last {formatMonitorTime(current.last_seen)} UTC</p>}
+              {current && <p className="basis-full text-xs text-basalt-muted-foreground">First in range <LocalTime timestamp={current.first_seen} /> · Last <LocalTime timestamp={current.last_seen} /></p>}
             </div>
             <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <UsageBreakdown entries={isKey ? data.models : data.keys} dimension={isKey ? "model" : "key_id"} filters={data.filters} total={data.summary.total_requests} />

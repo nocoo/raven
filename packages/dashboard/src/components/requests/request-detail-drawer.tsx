@@ -20,7 +20,8 @@ import {
 import { useLogDock } from "@/components/logs/log-dock-context";
 import Link from "next/link";
 import { DEFAULT_FILTERS, type AnalyticsFilters } from "@/lib/analytics-filters";
-import { dimensionHref, formatMonitorTime, keyIdentity, monitorHref, PROTOCOL_META, protocolLabel, requestProtocolRoute } from "@/lib/monitor";
+import { dimensionHref, keyIdentity, monitorHref, PROTOCOL_META, protocolLabel, requestProtocolRoute } from "@/lib/monitor";
+import { LocalTime } from "@/components/local-time";
 
 interface RequestDetailDrawerProps {
   request: ExtendedRequestRecord | null;
@@ -83,7 +84,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
             <span className="truncate font-mono text-sm">{request.model}</span>
           </SheetTitle>
           <SheetDescription>
-            {formatMonitorTime(request.timestamp, "millisecond")} UTC
+            <LocalTime timestamp={request.timestamp} precision="millisecond" />
           </SheetDescription>
         </SheetHeader>
 
@@ -106,7 +107,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
             <DetailRow label="Weighted usage" value={`${request.routing.weighted_tokens.toLocaleString(undefined, { maximumFractionDigits: 6 })} tokens`} mono />
             <DetailRow label="Usage completeness" value={request.routing.usage_complete ? "Complete" : "Incomplete"} />
             <DetailRow label="Accounting" value={request.routing.accounting_healthy ? "Healthy" : "Blocked"} />
-            <DetailRow label="Admitted at" value={`${formatMonitorTime(request.routing.admitted_at, "millisecond")} UTC`} mono />
+            <DetailRow label="Admitted at" value={<LocalTime timestamp={request.routing.admitted_at} precision="millisecond" />} mono />
             <DetailRow label="Skipped candidates" value={request.routing.skipped.map(skip => `${skip.upstream_id} · ${skip.reason}`).join("; ")} mono />
           </section>}
           {/* Request ID */}

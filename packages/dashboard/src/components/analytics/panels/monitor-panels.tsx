@@ -6,7 +6,8 @@ import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import type { ReactNode } from "react";
 import type { AnalyticsFilters } from "@/lib/analytics-filters";
 import { cacheHitRate, CHART_COLORS, formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
-import { dimensionHref, formatMonitorTime, keyIdentity, keyLabel, monitorHref, nativeShare, PROTOCOL_META, PROTOCOL_MODES, type MonitorDimension } from "@/lib/monitor";
+import { dimensionHref, keyIdentity, keyLabel, monitorHref, nativeShare, PROTOCOL_META, PROTOCOL_MODES, type MonitorDimension } from "@/lib/monitor";
+import { LocalTime } from "@/components/local-time";
 import type { BreakdownEntry, Percentiles, ProtocolCounts, SummaryStats } from "@/lib/types";
 
 export function MonitorPanel({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {
@@ -90,7 +91,7 @@ export function RankPanel({ title, description, data, dimension, filters, limit 
           {dimension === "key_id" && <p className="mt-0.5 truncate font-mono text-xs text-basalt-muted-foreground" title={keyIdentity(entry.key)}>{keyIdentity(entry.key)}</p>}
           <div className="my-2 h-1 rounded-full bg-basalt-muted"><div className="h-full rounded-full bg-basalt-primary/65" style={{ width: `${entry.count / peak * 100}%` }} /></div>
           <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-basalt-muted-foreground tabular-nums"><span>{formatCompact(entry.total_tokens)} tokens</span><span>P95 {formatLatency(entry.p95_latency_ms)}</span><span className={entry.error_count > 0 ? "text-basalt-destructive" : ""}>{formatPercent(entry.error_rate)} errors</span><span>{share == null ? "—" : formatPercent(share)} native</span></div>
-          {dimension === "key_id" && <p className="mt-1 text-xs text-basalt-muted-foreground">Last in range {formatMonitorTime(entry.last_seen)} UTC</p>}
+          {dimension === "key_id" && <p className="mt-1 text-xs text-basalt-muted-foreground">Last in range <LocalTime timestamp={entry.last_seen} /></p>}
         </>;
         const className = `block rounded-lg border px-3 py-2.5 ${selected === entry.key ? "border-basalt-primary/40 bg-basalt-primary/5" : "border-transparent"}`;
         return entry.key

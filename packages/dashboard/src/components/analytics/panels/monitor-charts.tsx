@@ -7,6 +7,7 @@ import { ANIMATION_PROPS, AXIS_CONFIG, CHART_COLORS, formatCompact, formatLatenc
 import { bucketHref, chartActivity, fillActivity, formatAxisTime, formatMonitorTime, keyLabel, monitorHref, tokenSeries, trafficSeries, type UsageDimension } from "@/lib/monitor";
 import type { MonitorData } from "@/lib/monitor-data";
 import { MonitorLink, MonitorPanel } from "./monitor-panels";
+import { LocalTime } from "@/components/local-time";
 
 interface TooltipPayload { name?: string | undefined; value?: number | string | (string | number)[] | undefined; color?: string | undefined; dataKey?: string | number | undefined }
 
@@ -22,7 +23,7 @@ function formatTimelineValue(dataKey: string | number | undefined, value: Toolti
 
 function TimelineTooltip({ active, payload, label }: { active?: boolean | undefined; payload?: readonly TooltipPayload[] | undefined; label?: string | number | undefined }) {
   if (!active || !payload?.length) return null;
-  return <ChartTooltip title={`${formatMonitorTime(Number(label))} UTC`}>{payload.map(item => <ChartTooltipRow key={String(item.dataKey)} {...(item.color ? { color: item.color } : {})} label={item.name} value={formatTimelineValue(item.dataKey, item.value)} />)}</ChartTooltip>;
+  return <ChartTooltip title={formatMonitorTime(Number(label))}>{payload.map(item => <ChartTooltipRow key={String(item.dataKey)} {...(item.color ? { color: item.color } : {})} label={item.name} value={formatTimelineValue(item.dataKey, item.value)} />)}</ChartTooltip>;
 }
 
 function ChartLegend({ items }: { items: { label: string; color: string; dashed?: boolean }[] }) {
@@ -49,7 +50,7 @@ export function TrafficChart({ data }: { data: MonitorData }) {
         </ComposedChart>
       </ResponsiveContainer>
     </div>
-    <p className="mt-2 text-xs text-basalt-muted-foreground">Click a time bucket to inspect its requests · UTC · empty intervals have no latency sample</p>
+    <p className="mt-2 text-xs text-basalt-muted-foreground">Click a time bucket to inspect its requests · empty intervals have no latency sample</p>
   </MonitorPanel>;
 }
 
@@ -92,6 +93,6 @@ export function ActivityChart({ data, dimension }: { data: MonitorData; dimensio
       <DashboardCartesianGrid /><XAxis dataKey="bucket" {...AXIS_CONFIG} minTickGap={38} tickFormatter={value => formatAxisTime(Number(value), data.window.to - data.window.from)} /><YAxis {...AXIS_CONFIG} allowDecimals={false} tickFormatter={formatCompact} /><Tooltip content={<TimelineTooltip />} />
       {grouped.series.map((item, index) => <Area {...ANIMATION_PROPS} key={item.id} dataKey={item.id} name={item.label} type="stepAfter" stroke={getChartColor(index)} fill={getChartColor(index)} fillOpacity={0.35} stackId="requests" />)}
     </AreaChart></ResponsiveContainer></div>
-    <p className="mt-2 text-xs text-basalt-muted-foreground">{formatMonitorTime(data.window.from)} – {formatMonitorTime(data.window.to)} UTC · top series and Others</p>
+    <p className="mt-2 text-xs text-basalt-muted-foreground"><LocalTime timestamp={data.window.from} /> – <LocalTime timestamp={data.window.to} /> · top series and Others</p>
   </MonitorPanel>;
 }
