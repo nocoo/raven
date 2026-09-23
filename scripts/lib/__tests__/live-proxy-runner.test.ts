@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite"
+import { execFileSync } from "node:child_process"
 import { chmodSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
@@ -7,7 +8,7 @@ import { initDatabase } from "../../../packages/proxy/src/db/requests"
 import { replaceCatalog } from "../../../packages/proxy/src/db/catalog"
 import { routingFixture } from "../../../packages/proxy/test/db/routing-fixture"
 import { liveCases, type LiveCase } from "../live-proxy-cases"
-import { assertLiveTelemetry, livePreflight, liveProxyUrl, readLiveKey, readLiveTelemetry, runLiveCases, type LiveResult } from "../live-proxy-runner"
+import { assertLiveTelemetry, liveNativeEvidence, livePreflight, liveProxyUrl, parseLiveKey, readLiveKey, readLiveTelemetry, runLiveCases, type LiveResult } from "../live-proxy-runner"
 import { fixtureJson, fixtureSse, seedTelemetry } from "./live-proxy-fixtures"
 
 const root = resolve(import.meta.dirname, "../../..")
@@ -61,6 +62,7 @@ describe("live preflight boundaries", () => {
   test.each(["", "short", "fixture-key-with whitespace", "x".repeat(4097)])("rejects invalid key file contents (%#)", (contents) => {
     writeFileSync(privateKeyPath, contents)
     expect(() => readLiveKey(privateKeyPath)).toThrow()
+    expect(() => parseLiveKey(contents)).toThrow()
   })
 
   test("rejects a directory or absent key path", () => {
@@ -94,6 +96,35 @@ describe("live preflight boundaries", () => {
 })
 
 describe("persisted route and attempt assertions", () => {
+  test("accepts honestly missing translated streaming usage but not an enabled quota or false completeness", () => {
+    const entry = liveCases.find(value => value.stream && value.upstreamFormat === "openai" && value.protocol !== "chat")!
+    seedTelemetry(fixture.db, entry, identity.id, "absent-usage")
+    const telemetry = readLiveTelemetry(reader, "absent-usage")!
+    Object.assign(telemetry.attempts[0]!, { input_tokens: null, output_tokens: null, cache_read_tokens: null, cache_write_tokens: null, usage_present: 0, usage_complete: 0, weighted_debit: 0 })
+    Object.assign(telemetry.routing!, { usage_complete: false, weighted_tokens: 0 })
+    expect(() => assertLiveTelemetry(entry, telemetry, identity.id)).not.toThrow()
+    telemetry.routing!.usage_complete = true
+    expect(() => assertLiveTelemetry(entry, telemetry, identity.id)).toThrow("incomplete")
+    telemetry.routing!.quota_window_id = "quota-enabled"
+    expect(() => assertLiveTelemetry(entry, telemetry, identity.id)).toThrow("usage")
+  })
+
+  test("exports only successful single-attempt native text evidence", () => {
+    seedTelemetry(fixture.db, first, identity.id, "native")
+    const result: LiveResult = { case_id: first.id, status: "passed", started_at: "2026-09-23T00:00:00Z", telemetry: readLiveTelemetry(reader, "native"), errors: [] }
+    const revision = "a".repeat(40)
+    const evidence = liveNativeEvidence(liveCases, [result], revision)
+    expect(evidence).toEqual([{ upstream: "copilot", model: first.model, protocol: first.upstreamFormat, stream: false, tested_at: result.started_at, revision, case_id: first.id }])
+    expect(JSON.stringify(evidence)).not.toContain(identity.id)
+    for (const entry of liveCases.filter(value => value.kind !== "text" || value.clientFormat !== value.upstreamFormat || value.model === "auto")) {
+      expect(liveNativeEvidence(liveCases, [{ ...result, case_id: entry.id }], revision)).toEqual([])
+    }
+    expect(liveNativeEvidence(liveCases, [{ ...result, status: "failed" }, { ...result, case_id: "unknown" }], revision)).toEqual([])
+    expect(() => liveNativeEvidence(liveCases, [{ ...result, telemetry: null }], revision)).toThrow("single-attempt")
+    expect(() => liveNativeEvidence(liveCases, [result], "invalid")).toThrow()
+    result.telemetry!.request.upstream_format = "responses"
+    expect(() => liveNativeEvidence(liveCases, [result], revision)).toThrow()
+  })
   test("reads only its correlation ID and keeps upstream echo separate from the admitted model", () => {
     expect(readLiveTelemetry(reader, "not-found")).toBeNull()
     seedTelemetry(fixture.db, first, identity.id, "case-one")
@@ -291,13 +322,21 @@ describe("CLI isolation and private artifacts", () => {
     expect(await child.exited).toBe(0)
     expect(await new Response(child.stdout).text()).toContain("仅计划")
     expect(await new Response(child.stderr).text()).toBe("")
+    const sidecar = Bun.spawn([process.execPath, "run", "scripts/live-proxy-sidecar.ts"], { cwd: root, stdout: "pipe", stderr: "pipe", env: { ...process.env, RAVEN_DB_PATH: "/absent/fixture.db", RAVEN_TOKEN_PATH: "/absent/token" } })
+    expect(await sidecar.exited).toBe(0)
+    expect(await new Response(sidecar.stdout).text()).toContain("仅计划")
+    expect(await new Response(sidecar.stderr).text()).toBe("")
+    const invalid = Bun.spawn([process.execPath, "run", "scripts/live-proxy-sidecar.ts", "--execute"], { cwd: root, stdout: "pipe", stderr: "pipe", env: { ...process.env, RAVEN_API_KEY: "", RAVEN_INTERNAL_KEY: "" } })
+    expect(await invalid.exited).toBe(1)
+    expect(await new Response(invalid.stderr).text()).toContain("未重试")
   })
 
   test("preflights and executes against synthetic local HTTP only, retaining a private report without secrets", async () => {
     let generated = 0
+    let guarded = "1"
     const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch(request) {
       expect(request.headers.get("authorization")).toBe(`Bearer ${identity.key}`)
-      if (new URL(request.url).pathname === "/v1/models") return Response.json({ data: [{ id: "auto" }, { id: first.model }] })
+      if (new URL(request.url).pathname === "/v1/models") return Response.json({ data: [{ id: "auto" }, { id: first.model }] }, { headers: { "x-raven-live-no-replay": guarded, "x-raven-live-revision": execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim() } })
       generated++
       seedTelemetry(fixture.db, first, identity.id, request.headers.get("user-agent")!)
       return Response.json(fixtureJson(first))
@@ -306,8 +345,8 @@ describe("CLI isolation and private artifacts", () => {
     mkdirSync(data, { mode: 0o700 })
     try {
       for (const mode of ["--preflight", "--execute"]) {
-        const child = Bun.spawn([process.execPath, "run", "scripts/verify-live-proxy.ts", mode, "--case", first.id, "--url", server.url.origin, "--db", fixture.path, "--key-file", privateKeyPath], {
-          cwd: root, stdout: "pipe", stderr: "pipe", env: { ...process.env, RAVEN_DATA_DIR: data },
+        const child = Bun.spawn([process.execPath, "run", "scripts/verify-live-proxy.ts", mode, "--case", first.id, "--url", server.url.origin, "--db", fixture.path, ...(mode === "--execute" ? ["--key-stdin"] : ["--key-file", privateKeyPath])], {
+          cwd: root, stdin: new TextEncoder().encode(`${identity.key}\n`), stdout: "pipe", stderr: "pipe", env: { ...process.env, RAVEN_DATA_DIR: data },
         })
         const code = await child.exited
         const stdout = await new Response(child.stdout).text()
@@ -329,6 +368,19 @@ describe("CLI isolation and private artifacts", () => {
           expect(report.git_commit).toMatch(/^[a-f0-9]{40}$/)
         }
       }
+      guarded = "0"
+      const unsafe = Bun.spawn([process.execPath, "run", "scripts/verify-live-proxy.ts", "--execute", "--case", first.id, "--url", server.url.origin, "--db", fixture.path, "--key-file", privateKeyPath], { cwd: root, stdout: "pipe", stderr: "pipe" })
+      expect(await unsafe.exited).toBe(1)
+      expect(await new Response(unsafe.stderr).text()).toContain("guarded sidecar")
+      expect(generated).toBe(1)
     } finally { server.stop(true) }
+  })
+
+  test.each([{ args: [] }, { args: ["--key-file", "/absent/key"] }])("rejects invalid stdin credentials or ambiguous key sources before HTTP (%#)", async ({ args }) => {
+    const child = Bun.spawn([process.execPath, "run", "scripts/verify-live-proxy.ts", "--preflight", "--key-stdin", ...args], { cwd: root, stdin: new TextEncoder().encode("fixture secret with whitespace"), stdout: "pipe", stderr: "pipe" })
+    expect(await child.exited).toBe(1)
+    const stderr = await new Response(child.stderr).text()
+    expect(stderr).toContain(args.length ? "Choose either" : "Supply one raw")
+    expect(stderr).not.toContain("fixture secret")
   })
 })

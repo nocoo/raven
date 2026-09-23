@@ -109,6 +109,18 @@ workers to two passed the complete unchanged gate. Inspect fixture/query cost an
 runner concurrency before repeating expensive checks; do not raise timeouts or
 reduce assertions to obtain a commit.
 
+## 2026-09-23: Live acceptance needed a send guard and safe bootstrap
+
+Inspecting telemetry after generation can detect an internal replay, but cannot
+prevent the second network send. The bounded live runner now requires a temporary
+sidecar that allows one upstream send per case and closes on the first HTTP or
+transport failure. Production replay policy remains unchanged. Bootstrap reuses
+the daily Proxy's effective version headers rather than performing fresh version
+discovery; credentials enter the runner through private files or non-echoing stdin.
+Two new stdin validation tests initially supplied array rows to a parameterized
+test as a single array argument, which the runner expanded. Object rows fixed
+the fixture; those failed runs were not counted as passing evidence.
+
 ## Undated entries migrated from the previous handbook
 
 

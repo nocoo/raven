@@ -36,14 +36,14 @@ function tool(value: Wire, protocol: LiveProtocol): LiveTool {
   }
 }
 
-export function inspectJson(protocol: LiveProtocol, raw: unknown): LiveReply {
+export function inspectJson(protocol: LiveProtocol, raw: unknown, nativeChat = false): LiveReply {
   const value = wireObject(raw)
   assert.ok(!value.error, "Response contains an error")
   assert.ok(string(value.id).length > 0, "Missing response ID")
   const model = string(value.model)
   const usage = wireObject(value.usage)
   if (protocol === "chat") {
-    assert.equal(value.object, "chat.completion")
+    if (!nativeChat || value.object !== undefined) assert.equal(value.object, "chat.completion")
     const choices = list(value.choices)
     assert.equal(choices.length, 1, "Expected one Chat choice")
     const choice = choices[0]!
@@ -232,8 +232,10 @@ export function inspectFrames(protocol: LiveProtocol, frames: readonly LiveFrame
 export function assertLiveReply(item: LiveCase, reply: LiveReply): void {
   const input = reply.usage[item.protocol === "chat" ? "prompt_tokens" : "input_tokens"]
   const output = reply.usage[item.protocol === "chat" ? "completion_tokens" : "output_tokens"]
-  assert.ok(typeof input === "number" && Number.isFinite(input) && input >= 0, "Missing/invalid input usage")
-  assert.ok(typeof output === "number" && Number.isFinite(output) && output >= 0, "Missing/invalid output usage")
+  if (requiresLiveUsage(item) || Object.keys(reply.usage).length) {
+    assert.ok(typeof input === "number" && Number.isFinite(input) && input >= 0, "Missing/invalid input usage")
+    assert.ok(typeof output === "number" && Number.isFinite(output) && output >= 0, "Missing/invalid output usage")
+  }
   const terminal = item.protocol === "responses" ? "completed" : item.protocol === "messages"
     ? item.kind === "tool" ? "tool_use" : "end_turn"
     : item.kind === "tool" ? "tool_calls" : "stop"
@@ -248,4 +250,8 @@ export function assertLiveReply(item: LiveCase, reply: LiveReply): void {
     assert.equal(reply.tools.length, 0, "Unexpected tool call")
     assert.ok(reply.text.includes(item.marker), "Reply did not preserve the requested marker")
   }
+}
+
+export function requiresLiveUsage(item: LiveCase): boolean {
+  return !item.stream || item.upstreamFormat !== "openai" || item.protocol === "chat"
 }

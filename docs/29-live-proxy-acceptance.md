@@ -64,7 +64,9 @@ platform config directory when the override is absent. It must contain one raw
 API key and have no group/other permissions (`0600` on this machine). Its parent
 should be `0700`. Keep it outside the repository. Never put a raw key in a shell
 argument, source, fixture or committed report. Do not use a management key or a
-GitHub/Copilot token as the client API key.
+GitHub/Copilot token as the client API key. Alternatively, pass `--key-stdin`
+and supply the key through a non-echoing input pipe; no credential file is needed.
+Do not combine it with `--key-file`.
 
 The database path follows `RAVEN_DB_PATH` and Raven's platform defaults. An
 explicit `--db` must identify the database used by the running Proxy. A unique
@@ -88,11 +90,28 @@ authenticated cache-only `/v1/models` response without generating tokens:
 bun run test:live --preflight
 ```
 
-After explicit live-test authorization, execute the matrix:
+After explicit live-test authorization and a clean committed checkout, start a
+temporary guarded Proxy in a separate terminal. It reads the existing configuration,
+keys and default rule, uses the same SQLite for normal request/quota accounting,
+and obtains one Copilot credential. It does not migrate data, refresh the catalog,
+start periodic authentication, or modify the daily server. The credential exchange
+and cache-only preflight also count against the stated request budget. One local
+management read obtains the daily Proxy's effective editor/plugin versions,
+preserving its request headers without an external version lookup. That read also
+counts against the budget, and requires the daily Proxy to be running.
 
 ```sh
-bun run test:live --execute
+bun --env-file packages/proxy/.env.local run scripts/live-proxy-sidecar.ts --execute --limit 66
+bun run test:live --execute --url 'http://127.0.0.1:PORT_PRINTED_ABOVE'
 ```
+
+Stop the sidecar with Ctrl-C after the run. The live runner refuses generation
+against a server without the guard header or with a different source revision.
+The sidecar bounds actual sends per incoming request and per run, refuses token
+refresh/discovery/other-upstream calls during generation, and closes its outbound
+guard at the first HTTP or transport error. Normal authentication, default-rule
+selection, protocol processing and accounting still execute. Replay behavior is
+deliberately excluded from live acceptance and remains covered offline.
 
 Alternative local paths and ports can be supplied without exposing the secret:
 
@@ -112,11 +131,9 @@ Dashboard preview.
 Each invocation sends at most one Proxy generation request per selected case,
 sequentially, and stops on the first HTTP, stream, output or telemetry failure.
 Later cases remain `not_run`. There is no harness retry, broad legacy-suite
-invocation or automatic golden replacement. Normal Proxy behavior, including
-existing same-provider credential replay, is exercised unchanged; every observed
-upstream attempt is recorded in the result.
-The runner stops after observing more than one upstream attempt even when the
-Proxy's final response succeeds. It never sends the next case after a replay.
+invocation or automatic golden replacement. The sidecar blocks a second upstream
+send before it reaches the network. The runner additionally rejects multiple
+accounted attempts and never sends the next case after a failure.
 
 Preserve the initial report. Inspect the failed response and correlated request,
 add an offline regression for a production defect, and fix its shared cause.
@@ -151,6 +168,8 @@ Each successful case checks:
   terminal reason. Chat requires `[DONE]` after a finish reason; Messages requires
   ordered message/block lifecycle events; Responses requires creation and a
   successful completed response matching the accumulated text/tool deltas.
+  Native Chat JSON may omit `object`, matching the v2.6.0 passthrough contract;
+  incorrect discriminators and missing converted discriminators still fail.
 - Tool-call IDs, function names and complete JSON arguments after chunk assembly.
   Continuation request histories preserve the matching call/result ID.
 - Exactly one persisted Proxy request with the case's unique User-Agent, expected
@@ -162,6 +181,14 @@ Each successful case checks:
   attempt debits and the request's routing total. Missing usage buckets remain
   nullable; incomplete usage is reported honestly rather than silently coerced
   to zero or rejected merely for being partial.
+  Converted streaming Chat without a usage request and without a quota window
+  may have no observed usage; its settlement must explicitly remain incomplete.
+
+Reports include a sanitized `native_evidence` list only for successful native
+text cases with one accounted attempt. Converted successes, `auto`, tools and
+failed/unrun cases cannot certify native protocol support. Review that list before
+updating `packages/proxy/src/core/protocol-evidence.ts`; preserve the raw private
+report. JSON evidence never certifies SSE and text evidence never certifies tools.
 
 The runner's own offline suite uses per-test temporary SQLite, synthetic keys and
 mocked or loopback fixture HTTP. It exercises protocol errors, truncated streams,

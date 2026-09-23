@@ -51,6 +51,22 @@ describe("finite live manifest", () => {
 })
 
 describe("client wire acceptance", () => {
+  test("permits only the established missing native Chat JSON discriminator", () => {
+    const value: any = fixtureJson(item("chat"))
+    delete value.object
+    expect(inspectJson("chat", value, true).text).toBe(item("chat").marker)
+    expect(() => inspectJson("chat", value)).toThrow()
+    value.object = "wrong"
+    expect(() => inspectJson("chat", value, true)).toThrow()
+  })
+
+  test("permits absent streaming usage only when translated Chat did not request it", () => {
+    const entry = liveCases.find(value => value.stream && value.upstreamFormat === "openai" && value.protocol !== "chat" && value.kind === "text")!
+    const reply = inspectFrames(entry.protocol, fixtureFrames(entry))
+    reply.usage = {}
+    expect(() => assertLiveReply(entry, reply)).not.toThrow()
+    expect(() => assertLiveReply(item("chat"), reply)).toThrow("usage")
+  })
   test.each(liveCases.map((entry) => [entry.id, entry] as const))("accepts %s with a different upstream echo model", (_id, entry) => {
     const reply = entry.stream ? inspectFrames(entry.protocol, fixtureFrames(entry)) : inspectJson(entry.protocol, fixtureJson(entry))
     expect(reply.model).toBe("upstream-echo-model")

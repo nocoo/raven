@@ -6,7 +6,7 @@ import { join } from "node:path"
 import { parseArgs } from "node:util"
 import { getConfigDir, getDataDir, getDefaultDbPath } from "../packages/proxy/src/lib/app-dirs"
 import { selectLiveCases } from "./lib/live-proxy-cases"
-import { livePreflight, liveProxyUrl, readLiveKey, runLiveCases, type LiveResult } from "./lib/live-proxy-runner"
+import { liveNativeEvidence, livePreflight, liveProxyUrl, parseLiveKey, readLiveKey, runLiveCases, type LiveResult } from "./lib/live-proxy-runner"
 
 const { values } = parseArgs({
   args: process.argv.slice(2), strict: true, allowPositionals: false,
@@ -16,7 +16,8 @@ const { values } = parseArgs({
     case: { type: "string", multiple: true, default: [] },
     url: { type: "string", default: "http://127.0.0.1:7024" },
     db: { type: "string", default: getDefaultDbPath() },
-    "key-file": { type: "string", default: join(getConfigDir(), "live-tests", "key") },
+    "key-file": { type: "string" },
+    "key-stdin": { type: "boolean", default: false },
   },
 })
 
@@ -27,7 +28,8 @@ try {
   console.log(`真实 Proxy 验收：${cases.length} 个用例，${values.execute ? "执行" : values.preflight ? "仅预检" : "仅计划"}`)
   console.table(cases.map((item) => ({ case: item.id, path: item.path, strategy: item.strategy, model: item.resolvedModel })))
   if (values.execute || values.preflight) {
-    const key = readLiveKey(values["key-file"])
+    assert.ok(!(values["key-stdin"] && values["key-file"]), "Choose either --key-stdin or --key-file")
+    const key = values["key-stdin"] ? parseLiveKey(await Bun.stdin.text()) : readLiveKey(values["key-file"] ?? join(getConfigDir(), "live-tests", "key"))
     liveKey = key
     const db = new Database(values.db, { readonly: true, strict: true })
     try {
@@ -42,6 +44,9 @@ try {
       for (const model of new Set(["auto", ...cases.map((item) => item.resolvedModel)])) assert.ok(ids.includes(model), `Served model cache lacks ${model}`)
       console.log(`预检通过：key=${preflight.key.name}，rule=${preflight.rule.name}；未刷新模型目录。`)
       if (values.execute) {
+        const revision = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim()
+        assert.equal(response.headers.get("x-raven-live-no-replay"), "1", "Live execution requires the guarded sidecar; the daily Proxy may replay requests")
+        assert.equal(response.headers.get("x-raven-live-revision"), revision, "Live runtime revision differs from the checkout")
         const root = join(getDataDir(), "live-tests", "runs")
         mkdirSync(root, { recursive: true, mode: 0o700 })
         const artifacts = mkdtempSync(join(root, `${new Date().toISOString().replaceAll(/[:.]/g, "-")}-`))
@@ -50,7 +55,7 @@ try {
         const runId = crypto.randomUUID()
         const report = {
           version: 1, run_id: runId, started_at: new Date().toISOString(), finished_at: null as string | null, proxy_url: url,
-          git_commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+          git_commit: revision, no_replay_guard: true,
           working_tree_dirty: execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim().length > 0,
           runtime: { bun: Bun.version, node: process.version },
           preflight, cases,
@@ -60,12 +65,14 @@ try {
             "No custom upstream; no quota exhaustion, schedule switching, server tools, image/audio or load cases",
           ],
           results: [] as readonly LiveResult[],
+          native_evidence: [] as ReturnType<typeof liveNativeEvidence>,
         }
         let lastPrinted = ""
         const results = await runLiveCases({
           cases, url, key, keyId: preflight.key.id, db, runId,
           checkpoint(results) {
             report.results = results
+            report.native_evidence = liveNativeEvidence(cases, results, revision)
             if (results.some((item) => item.status === "failed") || results.every((item) => item.status === "passed")) report.finished_at = new Date().toISOString()
             writeFileSync(`${reportPath}.tmp`, `${JSON.stringify(report, null, 2).replaceAll(key, "[REDACTED]")}\n`, { mode: 0o600 })
             renameSync(`${reportPath}.tmp`, reportPath)

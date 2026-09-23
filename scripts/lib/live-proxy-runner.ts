@@ -5,10 +5,11 @@ import { readFileSync, statSync } from "node:fs"
 import { setTimeout as delay } from "node:timers/promises"
 import type { RequestRoutingDetails } from "../../packages/proxy/src/core/routing-log"
 import { COPILOT_RULE_ID, COPILOT_UPSTREAM_ID } from "../../packages/proxy/src/core/routing-types"
+import type { NativeProtocolEvidence } from "../../packages/proxy/src/core/protocol-evidence"
 import { getRoutingRule } from "../../packages/proxy/src/db/routing-rules"
 import { events } from "../../packages/proxy/src/util/sse"
 import type { LiveCase } from "./live-proxy-cases"
-import { assertLiveReply, inspectFrames, inspectJson, wireObject, type LiveFrame, type LiveReply } from "./live-proxy-wire"
+import { assertLiveReply, inspectFrames, inspectJson, requiresLiveUsage, wireObject, type LiveFrame, type LiveReply } from "./live-proxy-wire"
 
 export function liveProxyUrl(value: string): string {
   const url = new URL(value)
@@ -21,8 +22,12 @@ export function readLiveKey(path: string): string {
   const stat = statSync(path)
   assert.ok(stat.isFile() && stat.size <= 4096, "Key path must be a small plain-text file")
   assert.equal(stat.mode & 0o077, 0, "Key file must be private (chmod 600)")
-  const key = readFileSync(path, "utf8").trim()
-  assert.ok(key.length >= 12 && !/\s/.test(key), "Key file must contain one raw API key")
+  return parseLiveKey(readFileSync(path, "utf8"))
+}
+
+export function parseLiveKey(value: string): string {
+  const key = value.trim()
+  assert.ok(Buffer.byteLength(value) <= 4096 && key.length >= 12 && !/\s/.test(key), "Supply one raw API key (at most 4096 bytes)")
   return key
 }
 
@@ -128,7 +133,7 @@ export function assertLiveTelemetry(item: LiveCase, telemetry: LiveTelemetry, ke
   assert.equal(routing.accounting_healthy, true)
   assert.deepEqual(routing.skipped, [])
   assert.ok(attempts.length > 0, "No actual upstream attempt was accounted for")
-  assert.ok(attempts.some((attempt) => attempt.usage_present === 1), "No upstream usage was observed")
+  if (requiresLiveUsage(item) || routing.quota_window_id !== null) assert.ok(attempts.some((attempt) => attempt.usage_present === 1), "No upstream usage was observed")
   let debit = 0
   for (const [index, attempt] of attempts.entries()) {
     assert.equal(attempt.attempt_ordinal, index, "Attempt ordinals are not consecutive")
@@ -143,7 +148,8 @@ export function assertLiveTelemetry(item: LiveCase, telemetry: LiveTelemetry, ke
     debit += attempt.weighted_debit
   }
   assert.ok(Math.abs(routing.weighted_tokens - debit) < 0.000001, "Routing debit does not match the attempt ledger")
-  assert.ok(debit > 0, "No tokens were accounted for a successful generation")
+  if (attempts.some(attempt => attempt.usage_present === 1)) assert.ok(debit > 0, "No tokens were accounted for a successful generation")
+  else assert.equal(routing.usage_complete, false, "Absent usage must be marked incomplete")
   assert.equal(routing.usage_complete, attempts.every((attempt) => attempt.usage_complete === 1))
 }
 
@@ -210,7 +216,7 @@ export async function runLiveCases(input: {
         result.reply = inspectFrames(item.protocol, result.frames)
       } else {
         assert.ok(/\bapplication\/(?:json|[^;]+\+json)\b/i.test(result.content_type), "Expected a JSON content type")
-        result.reply = inspectJson(item.protocol, JSON.parse(result.body!))
+        result.reply = inspectJson(item.protocol, JSON.parse(result.body!), item.protocol === "chat" && item.clientFormat === item.upstreamFormat)
       }
       assertLiveReply(item, result.reply)
     } catch (error) {
@@ -236,4 +242,16 @@ export async function runLiveCases(input: {
     if (result.status === "failed") break
   }
   return results
+}
+
+export function liveNativeEvidence(cases: readonly LiveCase[], results: readonly LiveResult[], revision: string): NativeProtocolEvidence[] {
+  return results.flatMap(result => {
+    const item = cases.find(entry => entry.id === result.case_id)
+    if (!item || result.status !== "passed" || item.kind !== "text" || item.model === "auto" || item.clientFormat !== item.upstreamFormat) return []
+    assert.ok(result.started_at && result.telemetry?.attempts.length === 1, "Native evidence needs a dated, single-attempt result")
+    assert.equal(result.telemetry.request.client_format, item.clientFormat)
+    assert.equal(result.telemetry.request.upstream_format, item.clientFormat)
+    assert.match(revision, /^[a-f0-9]{40}$/)
+    return [{ upstream: "copilot", model: item.resolvedModel, protocol: item.upstreamFormat, stream: item.stream, tested_at: result.started_at, revision, case_id: item.id }]
+  })
 }
