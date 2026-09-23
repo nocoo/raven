@@ -208,6 +208,18 @@ describe("SSE ordering and completion", () => {
     expect(() => assertLiveReply(entry, inspectFrames("messages", frames))).not.toThrow()
   })
 
+  test("permits one terminal native Messages DONE only after message_stop", () => {
+    const entry = item("messages")
+    const frames = [...fixtureFrames(entry), frame("messages", "[DONE]")]
+    expect(() => assertLiveReply(entry, inspectFrames("messages", frames, true))).not.toThrow()
+    expect(() => inspectFrames("messages", frames)).toThrow()
+    expect(() => inspectFrames("messages", frames.slice(-1), true)).toThrow("must follow message_stop")
+    expect(() => inspectFrames("messages", [...frames, frames.at(-1)!], true)).toThrow("end the stream")
+    expect(() => inspectFrames("messages", [...frames, frames[0]!], true)).toThrow("end the stream")
+    frames.at(-1)!.event = "error"
+    expect(() => inspectFrames("messages", frames, true)).toThrow()
+  })
+
   test.each([
     ["data after complete", (frames: LiveFrame[]) => { frames.push(frames[0]!) }],
     ["error", (frames: LiveFrame[]) => { frames.unshift(frame("responses", { type: "error" })) }],

@@ -146,6 +146,14 @@ values, missing converted discriminators, errors and incomplete streams. The
 original failed report remains unchanged; saved captures can be reviewed offline
 without spending another model request or normalizing production output.
 
+The next batch passed seven cases before Claude's native Messages SSE hit a
+related assumption: the harness tried to JSON-parse Copilot's final `[DONE]`
+after a valid `message_stop`. The v2.6.0 native strategy also preserved this
+sentinel. Native Messages validation now permits exactly one final eventless
+sentinel only after semantic completion; translated streams, early or repeated
+sentinels and data after completion remain rejected. The batch stopped after
+eight actual sends and its original report is preserved for offline review.
+
 ## Undated entries migrated from the previous handbook
 
 

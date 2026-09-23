@@ -205,6 +205,15 @@ function options(selected: readonly LiveCase[] = cases) {
 }
 
 describe("one request per case and fail-fast execution", () => {
+  test.each([false, true])("accepts a trailing Messages DONE only on native routes (native=%s)", async (native) => {
+    const entry = liveCases.find(item => item.protocol === "messages" && item.stream && item.kind === "text" && (item.clientFormat === item.upstreamFormat) === native)!
+    const results = await runLiveCases({ ...options([entry]), fetchImpl: async (_url, init) => {
+      seedTelemetry(fixture.db, entry, identity.id, new Headers(init.headers).get("user-agent")!)
+      return new Response(`${fixtureSse(entry)}data: [DONE]\r\n\r\n`, { headers: { "content-type": "text/event-stream" } })
+    } })
+    expect(results[0]!.status).toBe(native ? "passed" : "failed")
+  })
+
   test.each([false, true])("accepts missing Chat SSE discriminators only on native routes (native=%s)", async (native) => {
     const entry = liveCases.find(item => item.protocol === "chat" && item.stream && item.kind === "text" && (item.clientFormat === item.upstreamFormat) === native)!
     const results = await runLiveCases({ ...options([entry]), fetchImpl: async (_url, init) => {

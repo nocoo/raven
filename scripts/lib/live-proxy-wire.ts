@@ -118,7 +118,7 @@ function inspectChatFrames(frames: readonly LiveFrame[], nativeChat: boolean): L
   return { model, text, terminal, usage, tools: [...calls.values()] }
 }
 
-function inspectMessagesFrames(frames: readonly LiveFrame[]): LiveReply {
+function inspectMessagesFrames(frames: readonly LiveFrame[], native: boolean): LiveReply {
   let started = false
   let stopped = false
   let text = ""
@@ -126,7 +126,11 @@ function inspectMessagesFrames(frames: readonly LiveFrame[]): LiveReply {
   let terminal = ""
   let usage: Wire = {}
   const blocks = new Map<number, { open: boolean; type: unknown; call?: LiveTool; partial: string }>()
-  for (const frame of frames) {
+  for (const [index, frame] of frames.entries()) {
+    if (native && frame.data === "[DONE]") {
+      assert.ok(stopped && index === frames.length - 1 && frame.event === null, "Native Messages [DONE] must follow message_stop and end the stream")
+      continue
+    }
     const value = wireObject(JSON.parse(frame.data))
     assert.ok(!stopped, "Messages data after message_stop")
     assert.ok(value.type !== "error" && !value.error, "Messages stream error")
@@ -224,9 +228,9 @@ function inspectResponsesFrames(frames: readonly LiveFrame[]): LiveReply {
   return result
 }
 
-export function inspectFrames(protocol: LiveProtocol, frames: readonly LiveFrame[], nativeChat = false): LiveReply {
+export function inspectFrames(protocol: LiveProtocol, frames: readonly LiveFrame[], native = false): LiveReply {
   assert.ok(frames.length > 0, "Empty SSE response")
-  return protocol === "chat" ? inspectChatFrames(frames, nativeChat) : protocol === "messages" ? inspectMessagesFrames(frames) : inspectResponsesFrames(frames)
+  return protocol === "chat" ? inspectChatFrames(frames, native) : protocol === "messages" ? inspectMessagesFrames(frames, native) : inspectResponsesFrames(frames)
 }
 
 export function assertLiveReply(item: LiveCase, reply: LiveReply): void {

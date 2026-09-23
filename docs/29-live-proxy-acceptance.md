@@ -178,6 +178,9 @@ Each successful case checks:
   successful completed response matching the accumulated text/tool deltas.
   Native Chat JSON and SSE may omit `object`, matching the v2.6.0 passthrough contract;
   incorrect discriminators and missing converted discriminators still fail.
+  Native Messages may end with one eventless `[DONE]` after `message_stop`, as
+  Copilot's native stream does. It cannot replace message completion, appear
+  early, repeat, hide an error event or allow subsequent data.
 - Tool-call IDs, function names and complete JSON arguments after chunk assembly.
   Continuation request histories preserve the matching call/result ID.
 - Exactly one persisted Proxy request with the case's unique User-Agent, expected
