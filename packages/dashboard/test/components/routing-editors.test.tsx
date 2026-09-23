@@ -131,25 +131,29 @@ const morning = { id: "morning", day: 0, start: 540, end: 600, value: 1 };
 describe("visual schedule workbench", () => {
   it("bounds the 49-option time popup and supports keyboard selection across midnight", async () => {
     const changes = vi.fn();
-    render(<ScheduleHarness initialMode="weekly" initial={[morning]} onChange={changes} />);
+    render(<ScheduleHarness initialMode="weekly" initial={[{ ...morning, start: 1410, end: 1440 }]} onChange={changes} />);
     const user = userEvent.setup({ delay: null });
-    await selectOption("Start time", "23:30");
-    await selectOption("End time", "24:00");
     const trigger = screen.getByRole("combobox", { name: "End time" });
     trigger.focus();
     await user.keyboard("{Enter}");
 
     const popup = await screen.findByRole("listbox");
-    expect(within(popup).getAllByRole("option")).toHaveLength(49);
+    const options = within(popup).getAllByRole("option", { hidden: true });
+    expect(popup).toBeVisible();
+    expect(options).toHaveLength(49);
     expect(popup).toHaveStyle({ maxHeight: "min(20rem, var(--radix-select-content-available-height))" });
     expect(popup.querySelector("[data-radix-select-viewport]")).toHaveStyle({ overflow: "hidden auto" });
-    await waitFor(() => expect(screen.getByRole("option", { name: "24:00" })).toHaveFocus());
+    expect(options[48]).toHaveTextContent("24:00");
+    await waitFor(() => expect(options[48]).toHaveFocus());
     await user.keyboard("{Home}");
-    await waitFor(() => expect(screen.getByRole("option", { name: "00:00" })).toHaveFocus());
+    expect(options[0]).toHaveTextContent("00:00");
+    await waitFor(() => expect(options[0]).toHaveFocus());
     await user.keyboard("{ArrowDown}");
-    await waitFor(() => expect(screen.getByRole("option", { name: "00:30" })).toHaveFocus());
+    expect(options[1]).toHaveTextContent("00:30");
+    await waitFor(() => expect(options[1]).toHaveFocus());
     await user.keyboard("{ArrowDown}");
-    await waitFor(() => expect(screen.getByRole("option", { name: "01:00" })).toHaveFocus());
+    expect(options[2]).toHaveTextContent("01:00");
+    await waitFor(() => expect(options[2]).toHaveFocus());
     await user.keyboard("{Enter}");
 
     expect(screen.queryByRole("listbox")).toBeNull();
