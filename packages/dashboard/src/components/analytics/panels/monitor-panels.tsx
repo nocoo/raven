@@ -69,7 +69,7 @@ export function ProtocolDistribution({ data, summary, filters }: { data: Breakdo
       {PROTOCOL_MODES.map(mode => {
         const row = data.find(entry => entry.key === mode);
         const count = summary[`${mode}_count`];
-        return <Link prefetch={false} key={mode} href={monitorHref("/requests", filters, { protocol_mode: mode })} title={PROTOCOL_META[mode].description} className="group flex items-center justify-between gap-3 rounded-md py-3 hover:bg-basalt-accent/50">
+        return <Link prefetch={false} key={mode} href={monitorHref("/requests", filters, { protocol_mode: mode })} title={PROTOCOL_META[mode].description} className="group flex items-center justify-between gap-3 rounded-md px-3 py-3 hover:bg-basalt-accent/50">
           <div className="min-w-0"><div className="flex items-center gap-2 text-sm font-medium"><span className="size-2 rounded-full" style={{ background: CHART_COLORS[PROTOCOL_META[mode].color] }} />{PROTOCOL_META[mode].label}<ArrowRight className="size-3 text-basalt-muted-foreground" /></div><p className="mt-1 text-xs text-basalt-muted-foreground">{row ? `${formatCompact(row.error_count)} errors · P95 ${formatLatency(row.p95_latency_ms)}` : count > 0 ? "Details unavailable" : "No requests"}</p></div>
           <div className="text-right tabular-nums"><p className="text-sm font-semibold">{formatCompact(count)}</p><p className="mt-1 text-xs text-basalt-muted-foreground">{summary.total_requests ? formatPercent(count / summary.total_requests) : "—"}</p></div>
         </Link>;

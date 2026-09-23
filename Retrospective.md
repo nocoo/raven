@@ -285,6 +285,17 @@ at different points in the shared entry animation. Read both rectangles in one
 browser evaluation, preserving the original 1px alignment tolerance. Do not
 weaken geometry assertions or add fixed sleeps to hide cross-frame sampling.
 
+## 2026-09-23 — Logs acceptance needs the real local stream
+
+The new Native/Translated browser assertion failed because the isolated runner
+served only Hono HTTP routes. Logs uses Bun WebSocket upgrades, bridged by the
+Dashboard BFF to SSE; the panel had always remained disconnected in that runner.
+Inspection of the failure snapshot and both transport handlers separated the
+missing fixture capability from a production regression. Wire the existing
+WebSocket handler into the isolated server with synthetic internal-key validation,
+then assert rendered badges from real fixture request events. An empty panel can
+prove shell geometry, but not populated card surfaces or live-log behavior.
+
 ## Undated entries migrated from the previous handbook
 
 

@@ -110,11 +110,14 @@ bun run scripts/verify-routing-ui.ts
 
 The runner creates a private per-run directory, real SQLite, synthetic keys, a
 local HTTP fixture upstream, an isolated Proxy and a production Next server on
-random loopback ports. It exercises real BFF/HTTP requests, schedule edits,
+random loopback ports. The isolated Proxy also serves the shared Logs WebSocket
+handler with a synthetic internal key, exercising the real BFF SSE bridge.
+It exercises real BFF/HTTP requests, schedule edits,
 drag/keyboard reordering, Connect bindings, catalog/test actions, conflict
-feedback and responsive layouts. Its 16 checkpoints also cover initial/switched
+feedback and responsive layouts. Checkpoints also cover initial/switched
 tab indicators, configuration-header alignment, draft navigation, unexpected or
-empty diagnostic replies, and redacted JSON/HTML discovery errors. The Next
+empty diagnostic replies, redacted JSON/HTML discovery errors, retention choices,
+and live-log protocol badges and card surfaces. The Next
 server runs in UTC while Chrome uses Asia/Shanghai to expose hydration mismatches.
 External model/browser requests are blocked.
 Runtime state and owned processes are removed; screenshots, logs and `report.json`

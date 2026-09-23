@@ -11,6 +11,8 @@ import { startRequestSink } from "../packages/proxy/src/db/request-sink"
 import { COPILOT_UPSTREAM_ID } from "../packages/proxy/src/core/routing-types"
 import { restoreCopilotCatalog } from "../packages/proxy/src/composition/catalog"
 import { state } from "../packages/proxy/src/lib/state"
+import { wsHandler, type WsData } from "../packages/proxy/src/ws/logs"
+import { LEVEL_ORDER, type LogLevel } from "../packages/proxy/src/util/log-event"
 import { chatResponse, responsesResponse } from "../packages/proxy/test/helpers/routing"
 import { runRoutingBrowser, type CatalogFixtureFailure } from "../packages/dashboard/e2e/routing-isolated"
 
@@ -78,7 +80,21 @@ const receiver = Bun.serve({
 })
 const receiverUrl = receiver.url.origin
 const app = createApp({ db, githubToken: "fixture-github", apiKey: "fixture-client", internalKey: "fixture-internal" })
-const proxy = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: app.fetch })
+const proxy = Bun.serve<WsData>({
+  hostname: "127.0.0.1", port: 0,
+  fetch(request, server) {
+    const url = new URL(request.url)
+    if (url.pathname === "/ws/logs") {
+      if (url.searchParams.get("token") !== "fixture-internal") return new Response("Unauthorized", { status: 401 })
+      const level = url.searchParams.get("level") ?? "info"
+      const minLevel: LogLevel = Object.hasOwn(LEVEL_ORDER, level) ? level as LogLevel : "info"
+      if (server.upgrade(request, { data: { minLevel, filterRequestId: url.searchParams.get("requestId") } })) return
+      return new Response("WebSocket upgrade failed", { status: 400 })
+    }
+    return app.fetch(request, server)
+  },
+  websocket: wsHandler,
+})
 const nativeFetch = globalThis.fetch
 const allowed = new Set([receiverUrl, proxy.url.origin])
 globalThis.fetch = Object.assign(async (input: string | URL | Request, init?: RequestInit) => {

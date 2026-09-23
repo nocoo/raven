@@ -5,6 +5,7 @@
 
 
 import { cn } from "@/lib/utils";
+import { logProtocol } from "@/lib/log-protocol";
 import {
   useLogStream,
   type LogEvent,
@@ -61,42 +62,6 @@ function formatTokens(n: number): string {
 }
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple" | "teal";
-
-const STRATEGY_PILL: Record<
-  string,
-  { variant: BadgeVariant; label: string; title: string }
-> = {
-  "copilot-native": {
-    variant: "success",
-    label: "native",
-    title: "Copilot native Anthropic (/v1/messages → Copilot /v1/messages, no translation)",
-  },
-  "copilot-translated": {
-    variant: "destructive",
-    label: "translated",
-    title: "Anthropic client → Copilot /chat/completions (A↔O translation)",
-  },
-  "copilot-openai-direct": {
-    variant: "info",
-    label: "openai-direct",
-    title: "OpenAI client → Copilot /chat/completions (passthrough)",
-  },
-  "copilot-responses": {
-    variant: "teal",
-    label: "responses",
-    title: "Responses client → Copilot /responses (passthrough)",
-  },
-  "custom-openai": {
-    variant: "purple",
-    label: "custom-openai",
-    title: "Custom OpenAI-compatible upstream",
-  },
-  "custom-anthropic": {
-    variant: "warning",
-    label: "custom-anthropic",
-    title: "Custom Anthropic-compatible upstream",
-  },
-};
 
 // Model family → pill color. Identifies the underlying model regardless of
 // alias form (date-suffixed ids, resolved ids, vendor prefixes). Translated
@@ -361,7 +326,7 @@ function RequestCard({
   const accountName = (startData.accountName ?? endData.accountName) as string | undefined;
   const messageCount = startData.messageCount as number | undefined;
   const toolCount = startData.toolCount as number | undefined;
-  const strategy = endData.strategy as string | undefined;
+  const protocol = logProtocol({ ...startData, ...endData }, !!endEvent);
 
   // End-only fields
   const latencyMs = endData.latencyMs as number | undefined;
@@ -401,15 +366,13 @@ function RequestCard({
             </div>
             {/* Tags row */}
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {strategy && STRATEGY_PILL[strategy] && (
-                <Badge
-                  variant={STRATEGY_PILL[strategy]!.variant}
-                  className="px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide"
-                  title={STRATEGY_PILL[strategy]!.title}
-                >
-                  {STRATEGY_PILL[strategy]!.label}
-                </Badge>
-              )}
+              <Badge
+                variant={protocol.variant}
+                className="px-1.5 py-0 text-[11px] font-semibold"
+                title={protocol.title}
+              >
+                {protocol.label}
+              </Badge>
               {model && (
                 <Badge
                   variant={getModelFamily(model)}
@@ -531,12 +494,12 @@ function RequestCard({
               {/* Metrics above line */}
               <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
                 {latencyMs !== undefined && (
-                  <span className="rounded bg-basalt-background px-1 text-[10px] font-medium tabular-nums text-basalt-foreground">
+                  <span className="rounded bg-basalt-secondary px-1 text-[11px] font-medium tabular-nums text-basalt-foreground">
                     {formatLatency(latencyMs)}
                   </span>
                 )}
                 {isInProgress && (
-                  <span className="rounded bg-basalt-background px-1 text-[10px] text-basalt-muted-foreground">
+                  <span className="rounded bg-basalt-secondary px-1 text-[11px] text-basalt-muted-foreground">
                     waiting...
                   </span>
                 )}
@@ -544,7 +507,7 @@ function RequestCard({
               {/* Metrics below line */}
               {inputTokens !== undefined && outputTokens !== undefined && (
                 <div className="absolute inset-x-0 top-3 flex items-center justify-center">
-                  <span className="rounded bg-basalt-background px-1 text-[10px] tabular-nums text-basalt-muted-foreground">
+                  <span className="rounded bg-basalt-secondary px-1 text-[11px] tabular-nums text-basalt-muted-foreground">
                     input {formatTokens(inputTokens)} &middot; output {formatTokens(outputTokens)} &middot; total {formatTokens(inputTokens + outputTokens)}
                   </span>
                 </div>

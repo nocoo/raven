@@ -28,6 +28,9 @@ describe("LogsDock", () => {
     fireEvent.click(launcher);
     const dock = screen.getByRole("complementary", { name: "Live logs dock" });
     expect(dock).not.toHaveAttribute("inert");
+    const surface = dock.querySelector(".logs-dock-surface");
+    expect(surface).toHaveAttribute("data-basalt-surface-root");
+    expect(surface).toHaveClass("overflow-hidden");
     expect(screen.queryByRole("button", { name: "Close live logs dock" })).toBeNull();
     expect(launcher).toHaveAttribute("inert");
     const close = screen.getByRole("button", { name: "Close logs dock" });

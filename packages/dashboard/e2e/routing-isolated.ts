@@ -492,6 +492,11 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           expect(Math.abs(bounds!.width - edges.available)).toBeLessThan(1);
           if (width >= 1920) expect(bounds!.width).toBeGreaterThan(1280);
           if (path === "keys" || path === "models") {
+            const detailRows = frame.locator('a[title][href*="protocol_mode="]');
+            expect(await detailRows.evaluateAll(rows => rows.length > 0 && rows.every(row => {
+              const style = getComputedStyle(row);
+              return Number.parseFloat(style.paddingLeft) >= 12 && Number.parseFloat(style.paddingRight) >= 12;
+            }))).toBe(true);
             const tabs = page.getByRole("tablist");
             const top = (await tabs.boundingBox())!.y;
             const first = page.getByRole("tab").nth(1);
@@ -580,10 +585,20 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             const dockBounds = (await dock.boundingBox())!;
             expect(dockBounds.x + dockBounds.width).toBeLessThanOrEqual(width);
             if (width > 390) {
-              const island = (await page.locator("main [data-basalt-surface-root]").boundingBox())!;
+              const island = (await page.locator("main [data-basalt-surface-root]").first().boundingBox())!;
               expect(island.x + island.width).toBeLessThanOrEqual(dockBounds.x + 1);
               await expect(page.getByRole("button", { name: "Collapse sidebar", exact: true })).toBeVisible();
             }
+            const surface = dock.locator(".logs-dock-surface");
+            await expect(surface).toHaveAttribute("data-basalt-surface-root", "");
+            expect(await surface.evaluate(element => {
+              const style = getComputedStyle(element);
+              const card = element.querySelector("[data-basalt-surface]");
+              return Number.parseFloat(style.borderTopLeftRadius) > 0 && Number.parseFloat(style.borderTopRightRadius) > 0
+                && card !== null && getComputedStyle(card).backgroundColor !== style.backgroundColor;
+            })).toBe(true);
+            await expect(dock.getByText("Native", { exact: true }).first()).toBeVisible();
+            await expect(dock.getByText("Translated", { exact: true }).first()).toBeVisible();
             if (width === 1920) {
               const events = (await dock.getByRole("region", { name: "Log events" }).boundingBox())!;
               const stats = (await dock.getByRole("region", { name: "Log statistics" }).boundingBox())!;

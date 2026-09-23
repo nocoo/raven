@@ -30,7 +30,7 @@ function UsageBreakdown({ entries, dimension, filters, total }: { entries: Break
           <div className="my-1.5"><ProtocolBar counts={entry} /></div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums text-basalt-muted-foreground"><span>{formatCompact(entry.total_tokens)} tokens</span><span>P95 {formatLatency(entry.p95_latency_ms)}</span><span className={entry.error_count ? "text-basalt-destructive" : ""}>{formatPercent(entry.error_rate)} errors</span><span>{native === null ? "—" : formatPercent(native)} native</span><ArrowRight className="ml-auto size-3" /></div>
         </>;
-        return entry.key ? <Link prefetch={false} key={entry.key} href={dimensionHref(dimension, entry.key, filters)} className="block rounded-md px-1 py-2.5 hover:bg-basalt-accent/50">{content}</Link> : <div key={entry.key} className="px-1 py-2.5">{content}</div>;
+        return entry.key ? <Link prefetch={false} key={entry.key} href={dimensionHref(dimension, entry.key, filters)} className="block rounded-md px-3 py-2.5 hover:bg-basalt-accent/50">{content}</Link> : <div key={entry.key} className="px-3 py-2.5">{content}</div>;
       })}
       {entries.length === 0 && <p className="py-4 text-xs text-basalt-muted-foreground">No recorded distribution in this selection</p>}
     </div>
