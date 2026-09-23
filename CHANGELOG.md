@@ -1,5 +1,28 @@
 # Changelog
 
+## v3.0.0
+
+### Added
+- Bind API keys to routing rules with daily/weekly schedules, shared upstream token quotas and explicit default chains.
+- Add Routing workspaces for upstreams and rules, with retained diagnostic evidence and per-request routing/accounting details.
+- Record verified native model/protocol/JSON/SSE observations and show conversion warnings with native-format recommendations.
+- Add isolated routing/browser acceptance and a bounded, no-replay live model acceptance matrix.
+
+### Changed
+- Unify Dashboard pages around full-width task cards, compact related information, progressive disclosure and colored Lucide accents.
+- Align General settings, sidebar navigation and breadcrumbs; reduce repeated guidance and show browser-local dates consistently.
+- Prefer native protocols while retaining declared, not-yet-verified native capabilities and original model IDs.
+
+### Fixed
+- Respect explicit streaming usage preferences; request omitted usage only when the selected upstream has an enabled quota.
+- Complete converted Responses SSE text/tool lifecycles, correlation indices and finalization without losing late usage or hiding incomplete streams.
+- Preserve established native JSON/SSE envelopes and terminal sentinels in live acceptance instead of normalizing production passthrough.
+
+### Upgrade notes
+- Routing initialization adds rule, schedule and quota state; existing keys bind to the protected Copilot default rule with conversion enabled. Back up the local database before upgrading.
+- Native client parameters remain unchanged. Copilot currently rejects forced Claude tool choice; Raven does not conceal this with fallback or parameter rewriting.
+- Authorized live acceptance completed with 65 successful scenarios and one documented upstream forced-tool rejection, using 84 of 100 budgeted requests. Claude automatic Chat JSON was not replayed; see `docs/29-live-proxy-acceptance.md` for scope and evidence.
+
 ## v2.8.1
 
 ### Changed

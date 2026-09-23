@@ -171,6 +171,23 @@ tool metadata, truncation, late errors and single finalization. Responses usage
 can remain null when the selected non-quota conversion did not request usage;
 the acceptance policy still requires usage where that case promised it.
 
+## 2026-09-23: Release installation hit missing mirror artifacts
+
+The 3.0.0 release entry updated version metadata, then stopped before committing
+or publishing because the Microsoft package mirror returned 404 for three locked
+packages. A successful generic registry probe had not established availability
+of those exact artifacts. Bun 1.4.2 also wrote mirror tarball URLs into the lock
+despite using a temporary registry environment variable.
+
+The recovery compared the entire lock with HEAD, confirmed dependency versions
+and integrity values were unchanged, and removed only the generated mirror URLs.
+The existing Tencent-scoped local cache then completed
+`bun install --offline --frozen-lockfile` successfully, without network downloads
+or hook bypass. Publication continued from the interrupted metadata stage with
+normal checks. Future release preparation should check exact cached artifacts
+and inspect the complete lock diff; a temporary registry is not proof that Bun
+will leave resolution URLs unchanged. No application workaround was needed.
+
 ## Undated entries migrated from the previous handbook
 
 
