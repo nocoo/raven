@@ -219,3 +219,28 @@ VITEST_MAX_WORKERS=2 bunx --bun vitest run --project scripts \
 
 Keep the normal coverage, type, lint and commit gates unchanged. Neither a plan
 nor a preflight is evidence of a successful real generation request.
+
+## Native evidence captured on 2026-09-23
+
+The shipped mapping contains ten native text observations: JSON and SSE for
+Gemini Chat, Grok Responses, GPT Responses, and Claude Chat and Messages. It does
+not certify translated paths or tool calls. Adding these observations preserves
+the selected routes for the captured catalog in both streaming modes.
+
+Private source reports under the runs directory are preserved unchanged:
+
+- `2026-09-23T01-55-57-825Z-31zYE3/report.json`, SHA-256
+  `0481f5b0a3b9693f91da2d90c94a77dd9bdc2abfb0913c99f78b871590ef16b3`.
+  Gemini JSON passed originally. Gemini SSE passed an offline capture review
+  with validator `0fa3077b7bf2d0518777cfd715198ae42bbf2e5c` after correcting the
+  missing native discriminator assumption.
+- `2026-09-23T02-02-25-381Z-q6btXX/report.json`, SHA-256
+  `c14bcf4f1986b3fcb9fcf84a262cfeff673e03746d552dd258e6063f6abaf07b`.
+  Seven cases passed originally. Claude Messages SSE passed an offline capture
+  review with validator `187944196203f0a0b7417e3dec528da7368a147c` after accepting
+  its established native terminal sentinel.
+
+Each report's adjacent `offline-review.json` records the review separately from
+the original result. Both reviews checked complete output, termination, routing,
+usage/accounting and exactly one actual attempt. No review made a new HTTP call;
+mapping revisions and timestamps identify the actual generation, not the review.

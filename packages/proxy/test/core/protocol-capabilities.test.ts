@@ -51,4 +51,22 @@ describe("empirical native capabilities", () => {
       expect(Object.keys(entry).sort()).toEqual(["upstream", "model", "protocol", "stream", "tested_at", "revision", "case_id"].sort())
     }
   })
+
+  test.each([
+    ["gemini-3.8-flash", ["/chat/completions"]],
+    ["grok-4.5", ["/responses"]],
+    ["gpt-5.6-sol", ["/responses"]],
+    ["claude-opus-5.5", ["/chat/completions", "/v1/messages"]],
+  ])("verified evidence preserves declared routes for %s", (model, endpoints) => {
+    const copilot = upstreamRecord({ kind: "copilot", format: null, models: [{ id: model, supported_endpoints: endpoints }] })
+    for (const stream of [false, true]) {
+      const capabilities = nativeCapabilities(copilot, model, stream)
+      expect(capabilities).toHaveLength(endpoints.length)
+      expect(capabilities.every(entry => entry.evidence)).toBe(true)
+      for (const protocol of ["openai", "responses", "anthropic"] as const) {
+        const input = { provider: copilot, model, requestedModel: model, stream, protocol, allowConversion: true }
+        expect(pickStrategy(input)).toEqual(pickStrategy(input, []))
+      }
+    }
+  })
 })
