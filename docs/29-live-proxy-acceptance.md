@@ -181,6 +181,11 @@ Each successful case checks:
   Native Messages may end with one eventless `[DONE]` after `message_stop`, as
   Copilot's native stream does. It cannot replace message completion, appear
   early, repeat, hide an error event or allow subsequent data.
+  Converted Responses streams emit the creation, output-item, content/tool and
+  completion lifecycle with stable IDs, indices and sequence numbers, following
+  the [official streaming contract](https://developers.openai.com/api/reference/resources/responses).
+  Completion waits for DONE or normal EOF so usage trailers remain available;
+  missing finish reasons fail and length/filter stops stay explicitly incomplete.
 - Tool-call IDs, function names and complete JSON arguments after chunk assembly.
   Continuation request histories preserve the matching call/result ID.
 - Exactly one persisted Proxy request with the case's unique User-Agent, expected

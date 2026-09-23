@@ -154,6 +154,23 @@ sentinel only after semantic completion; translated streams, early or repeated
 sentinels and data after completion remain rejected. The batch stopped after
 eight actual sends and its original report is preserved for offline review.
 
+## 2026-09-23: Live conversion exposed an incomplete Responses SSE contract
+
+The first translated Gemini Responses stream returned complete text but omitted
+`response.created`, output-item/content-part lifecycles, correlation indices and
+the final response discriminator. Existing converter tests checked selected
+events rather than a complete client stream. The real acceptance stopped after
+two sends; its failed report was retained without relabeling it as a pass.
+
+The shared Chat-to-Responses adapter now emits ordered, correlated lifecycle
+events for text and tools, preserves incomplete finish reasons, and waits until
+DONE or normal EOF to include a late usage trailer. The same adapter serves
+Messages-backed conversion; native paths remain untouched. Offline regressions
+cover mixed and interleaved output, metadata arriving after arguments, missing
+tool metadata, truncation, late errors and single finalization. Responses usage
+can remain null when the selected non-quota conversion did not request usage;
+the acceptance policy still requires usage where that case promised it.
+
 ## Undated entries migrated from the previous handbook
 
 

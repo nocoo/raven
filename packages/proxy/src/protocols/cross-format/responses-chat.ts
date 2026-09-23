@@ -78,11 +78,17 @@ export function responsesJsonToChat(body: unknown, fallbackModel: string): ChatC
 export interface ChatToResponsesStreamState {
   id: string
   model: string
+  created: number
+  sequence: number
   text: string
-  tools: Map<number, { id: string; name: string; arguments: string; itemId: string; opened: boolean }>
+  textIndex: number | null
+  tools: Map<number, { id: string; name: string; arguments: string; itemId: string; outputIndex: number; opened: boolean }>
   itemSeq: number
+  finishReason: ChatCompletionChunk["choices"][number]["finish_reason"]
   done: boolean
+  finalized: boolean
   inlineFailed: boolean
+  usage: ChatCompletionChunk["usage"]
   inputTokens: number
   outputTokens: number
   cacheReadTokens: number
@@ -92,11 +98,17 @@ export function initChatToResponsesStreamState(model: string): ChatToResponsesSt
   return {
     id: "",
     model,
+    created: Math.floor(Date.now() / 1000),
+    sequence: 0,
     text: "",
+    textIndex: null,
     tools: new Map(),
     itemSeq: 0,
+    finishReason: null,
     done: false,
+    finalized: false,
     inlineFailed: false,
+    usage: null,
     inputTokens: 0,
     outputTokens: 0,
     cacheReadTokens: 0,
@@ -107,29 +119,42 @@ export function adaptChatChunkToResponsesSse(
   chunk: ChatCompletionChunk,
   state: ChatToResponsesStreamState,
 ): SSEMessage[] {
-  if (state.done || state.inlineFailed) return []
+  if (state.finalized || state.inlineFailed) return []
   if (isChatErrorChunk(chunk)) {
     state.inlineFailed = true
-    return [{
-      event: "error",
-      data: JSON.stringify({ type: "error", message: chatErrorMessage(chunk) }),
-    }]
+    return [responsesEvent(state, "error", { message: chatErrorMessage(chunk) })]
   }
   if (chunk.usage) {
+    state.usage = chunk.usage
     state.inputTokens = chunk.usage.prompt_tokens
     state.outputTokens = chunk.usage.completion_tokens
     state.cacheReadTokens = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
   }
-  if (chunk.id) state.id = chunk.id
-  if (chunk.model) state.model = chunk.model
+  if (state.done) return []
   const out: SSEMessage[] = []
+  if (!state.id) {
+    state.id = chunk.id || "resp_pending"
+    state.model = chunk.model || state.model
+    state.created = chunk.created ?? state.created
+    const response = streamResponse(state, "in_progress", [])
+    out.push(responsesEvent(state, "response.created", { response }))
+    out.push(responsesEvent(state, "response.in_progress", { response }))
+  }
   const choice = chunk.choices?.[0]
   const delta = choice?.delta
   if (typeof delta?.content === "string" && delta.content.length > 0) {
+    if (state.textIndex === null) {
+      state.textIndex = state.itemSeq++
+      out.push(responsesEvent(state, "response.output_item.added", {
+        output_index: state.textIndex, item: messageItem(state, "in_progress", []),
+      }))
+      out.push(responsesEvent(state, "response.content_part.added", {
+        ...textLocation(state), part: textPart(""),
+      }))
+    }
     state.text += delta.content
-    out.push(responsesEvent("response.output_text.delta", {
-      type: "response.output_text.delta",
-      delta: delta.content,
+    out.push(responsesEvent(state, "response.output_text.delta", {
+      ...textLocation(state), delta: delta.content, logprobs: [],
     }))
   }
   for (const call of delta?.tool_calls ?? []) {
@@ -138,85 +163,103 @@ export function adaptChatChunkToResponsesSse(
     let tool = state.tools.get(index)
     if (!tool) {
       tool = {
-        id: call.id || `call_${index}`,
-        name: call.function?.name || "",
+        id: "",
+        name: "",
         arguments: "",
-        itemId: "",
+        itemId: `fc_${state.id}_${state.itemSeq}`,
+        outputIndex: state.itemSeq++,
         opened: false,
       }
       state.tools.set(index, tool)
     }
-    if (call.id) tool.id = call.id
-    if (call.function?.name) tool.name = call.function.name
-    if (!tool.opened && tool.name) {
+    if (!tool.opened) {
+      if (call.id) tool.id = call.id
+      if (call.function?.name) tool.name += call.function.name
+    }
+    const argumentsDelta = call.function?.arguments ?? ""
+    tool.arguments += argumentsDelta
+    if (!tool.opened && tool.id && tool.name) {
       tool.opened = true
-      const itemId = `fc_${state.itemSeq++}`
-      tool.itemId = itemId
-      out.push(responsesEvent("response.output_item.added", {
-        type: "response.output_item.added",
-        output_index: index,
+      out.push(responsesEvent(state, "response.output_item.added", {
+        output_index: tool.outputIndex,
         item: {
-          id: itemId,
+          id: tool.itemId,
           type: "function_call",
           call_id: tool.id,
           name: tool.name,
           arguments: "",
+          status: "in_progress",
         },
       }))
-    }
-    if (call.function?.arguments) {
-      tool.arguments += call.function.arguments
-      out.push(responsesEvent("response.function_call_arguments.delta", {
-        type: "response.function_call_arguments.delta",
+      if (tool.arguments) out.push(responsesEvent(state, "response.function_call_arguments.delta", {
         item_id: tool.itemId,
-        output_index: index,
-        delta: call.function.arguments,
+        output_index: tool.outputIndex,
+        delta: tool.arguments,
+      }))
+    } else if (tool.opened && argumentsDelta) {
+      out.push(responsesEvent(state, "response.function_call_arguments.delta", {
+        item_id: tool.itemId, output_index: tool.outputIndex, delta: argumentsDelta,
       }))
     }
   }
   if (choice?.finish_reason) {
-    out.push(completed(state, chunk))
+    state.finishReason = choice.finish_reason
     state.done = true
   }
   return out
 }
 
-function completed(state: ChatToResponsesStreamState, chunk: ChatCompletionChunk): SSEMessage {
+function textPart(text: string) {
+  return { type: "output_text", text, annotations: [], logprobs: [] }
+}
+
+function textLocation(state: ChatToResponsesStreamState) {
+  return { item_id: `msg_${state.id}`, output_index: state.textIndex, content_index: 0 }
+}
+
+function messageItem(state: ChatToResponsesStreamState, status: string, content: unknown[]) {
+  return { id: `msg_${state.id}`, type: "message", role: "assistant", status, content }
+}
+
+function streamResponse(state: ChatToResponsesStreamState, status: string, output: unknown[]) {
+  const usage = state.usage
+  return {
+    id: state.id, object: "response", created_at: state.created, model: state.model, status, output,
+    error: null,
+    incomplete_details: status === "incomplete" ? { reason: state.finishReason === "length" ? "max_output_tokens" : "content_filter" } : null,
+    usage: usage ? {
+      input_tokens: usage.prompt_tokens, output_tokens: usage.completion_tokens, total_tokens: usage.total_tokens,
+      input_tokens_details: { cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? 0 },
+    } : null,
+  }
+}
+
+export function finalizeChatToResponsesStream(state: ChatToResponsesStreamState): SSEMessage[] {
+  if (state.finalized || state.inlineFailed) return []
+  assertResponsesStreamCompleted(state)
+  if ([...state.tools.values()].some(tool => !tool.opened)) throw new Error("Incomplete tool metadata in Chat stream")
+  const status = state.finishReason === "length" || state.finishReason === "content_filter" ? "incomplete" : "completed"
+  const out: SSEMessage[] = []
   const output: unknown[] = []
-  if (state.text) {
-    output.push({
-      type: "message",
-      role: "assistant",
-      content: [{ type: "output_text", text: state.text }],
-    })
+  if (state.textIndex !== null) {
+    const part = textPart(state.text)
+    const item = messageItem(state, status, [part])
+    out.push(responsesEvent(state, "response.output_text.done", { ...textLocation(state), text: state.text, logprobs: [] }))
+    out.push(responsesEvent(state, "response.content_part.done", { ...textLocation(state), part }))
+    out.push(responsesEvent(state, "response.output_item.done", { output_index: state.textIndex, item }))
+    output[state.textIndex] = item
   }
   for (const tool of state.tools.values()) {
-    output.push({
-      type: "function_call",
-      call_id: tool.id,
-      name: tool.name,
-      arguments: tool.arguments,
-    })
+    const item = { id: tool.itemId, type: "function_call", call_id: tool.id, name: tool.name, arguments: tool.arguments, status }
+    out.push(responsesEvent(state, "response.function_call_arguments.done", {
+      item_id: tool.itemId, output_index: tool.outputIndex, arguments: tool.arguments,
+    }))
+    out.push(responsesEvent(state, "response.output_item.done", { output_index: tool.outputIndex, item }))
+    output[tool.outputIndex] = item
   }
-  const usage = chunk.usage
-  return responsesEvent("response.completed", {
-    type: "response.completed",
-    response: {
-      id: state.id || "resp_pending",
-      model: state.model,
-      status: "completed",
-      output,
-      usage: usage
-        ? {
-            input_tokens: usage.prompt_tokens,
-            output_tokens: usage.completion_tokens,
-            input_tokens_details: {
-              cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
-            },
-          }
-        : undefined,
-    },
-  })
+  out.push(responsesEvent(state, `response.${status}`, { response: streamResponse(state, status, output) }))
+  state.finalized = true
+  return out
 }
 
 export function assertResponsesStreamCompleted(state: ChatToResponsesStreamState): void {
@@ -235,8 +278,8 @@ function chatErrorMessage(chunk: ChatCompletionChunk): string {
   return typeof error?.message === "string" ? error.message : "Upstream stream failed"
 }
 
-function responsesEvent(event: string, body: unknown): SSEMessage {
-  return { event, data: JSON.stringify(body) }
+function responsesEvent(state: ChatToResponsesStreamState, event: string, body: Record<string, unknown>): SSEMessage {
+  return { event, data: JSON.stringify({ type: event, sequence_number: state.sequence++, ...body }) }
 }
 
 function appendResponsesItem(messages: Message[], item: unknown): void {

@@ -67,6 +67,14 @@ describe("client wire acceptance", () => {
     expect(() => assertLiveReply(entry, reply)).not.toThrow()
     expect(() => assertLiveReply(item("chat"), reply)).toThrow("usage")
   })
+  test("retains null Responses usage as unknown, subject to the selected case policy", () => {
+    const entry = liveCases.find(value => value.stream && value.upstreamFormat === "openai" && value.protocol === "responses" && value.kind === "text")!
+    const raw = { ...fixtureJson(entry), usage: null }
+    const reply = inspectJson("responses", raw)
+    expect(reply.usage).toEqual({})
+    expect(() => assertLiveReply(entry, reply)).not.toThrow()
+    expect(() => assertLiveReply({ ...entry, stream: false }, reply)).toThrow("usage")
+  })
   test.each(liveCases.map((entry) => [entry.id, entry] as const))("accepts %s with a different upstream echo model", (_id, entry) => {
     const reply = entry.stream ? inspectFrames(entry.protocol, fixtureFrames(entry)) : inspectJson(entry.protocol, fixtureJson(entry))
     expect(reply.model).toBe("upstream-echo-model")

@@ -30,7 +30,7 @@ import {
 } from "../protocols/cross-format/messages-to-responses"
 import {
   adaptChatChunkToResponsesSse,
-  assertResponsesStreamCompleted,
+  finalizeChatToResponsesStream,
   chatJsonToResponses,
   initChatToResponsesStreamState,
   parseChatChunk,
@@ -246,6 +246,7 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           return out
         }
         case "responses-to-chat": {
+          if (chunk.data === "[DONE]") return finalizeChatToResponsesStream(state.responses!)
           const parsed = typeof chunk.data === "string" ? parseChatChunk(chunk.data) : null
           if (!parsed) return []
           const events = adaptChatChunkToResponsesSse(parsed, state.responses!)
@@ -273,8 +274,7 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
         case "chat-to-messages":
           return finalizeAnthropicToChatStream(state.anthropic!, deps.includeUsage ?? false)
         case "responses-to-chat":
-          assertResponsesStreamCompleted(state.responses!)
-          return []
+          return finalizeChatToResponsesStream(state.responses!)
         case "responses-to-messages": {
           if (state.anthropic!.inlineFailed || state.responses!.inlineFailed) return []
           const tail = finalizeAnthropicToChatStream(state.anthropic!)
@@ -284,7 +284,7 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
             if (!parsed) continue
             out.push(...adaptChatChunkToResponsesSse(parsed, state.responses!))
           }
-          assertResponsesStreamCompleted(state.responses!)
+          out.push(...finalizeChatToResponsesStream(state.responses!))
           return out
         }
       }

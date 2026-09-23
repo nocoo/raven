@@ -512,8 +512,10 @@ describe("protocol-converted dispatch and logs", () => {
       delta: { stop_reason: "tool_use", stop_sequence: null },
       usage: { output_tokens: 4 },
     }), state, ctx)
-    expect(finished.map((event) => event.event).join(" ")).toContain("response.completed")
-    expect(strategy.finalizeStream?.(state, ctx)).toEqual([])
+    expect(finished).toEqual([])
+    const tail = strategy.finalizeStream?.(state, ctx) ?? []
+    expect(tail.at(-1)?.event).toBe("response.completed")
+    expect(JSON.parse(String(tail.at(-1)?.data)).response.usage).toMatchObject({ input_tokens: 8, output_tokens: 4 })
     expect(strategy.describeEndLog({ kind: "stream", req: up, state }, ctx)).toMatchObject({
       inputTokens: 6,
       cacheReadTokens: 2,
@@ -666,7 +668,7 @@ describe("protocol-converted dispatch and logs", () => {
         usage: { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3, prompt_tokens_details: { cached_tokens: 0 }, completion_tokens_details: null },
       }),
     }, stream, ctx)
-    expect(toChat.finalizeStream?.(stream, ctx)).toEqual([])
+    expect(toChat.finalizeStream?.(stream, ctx).at(-1)?.event).toBe("response.completed")
     const messages = makeProtocolConverted({
       source: "chat_completions",
       target: "anthropic_messages",

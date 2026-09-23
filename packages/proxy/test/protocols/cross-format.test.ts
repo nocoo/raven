@@ -18,6 +18,7 @@ import {
 import {
   adaptChatChunkToResponsesSse,
   chatJsonToResponses,
+  finalizeChatToResponsesStream,
   initChatToResponsesStreamState,
   responsesRequestToChat,
 } from "../../src/protocols/cross-format/responses-chat"
@@ -369,6 +370,8 @@ describe("chat messages responses matrix", () => {
     } as ChatCompletionChunk
     const events = adaptChatChunkToResponsesSse(chunk, state)
     expect(events.map((event) => event.event)).toEqual([
+      "response.created",
+      "response.in_progress",
       "response.output_item.added",
       "response.function_call_arguments.delta",
     ])
@@ -376,8 +379,12 @@ describe("chat messages responses matrix", () => {
       ...chunk,
       choices: [{ index: 0, delta: { content: null, role: null, tool_calls: [] }, finish_reason: "tool_calls", logprobs: null }],
     }, state)
-    expect(done[0]?.event).toBe("response.completed")
-    expect(done[0]?.data).toContain("call_4")
+    expect(done).toEqual([])
+    const final = finalizeChatToResponsesStream(state)
+    expect(final.map(event => event.event)).toEqual([
+      "response.function_call_arguments.done", "response.output_item.done", "response.completed",
+    ])
+    expect(final.at(-1)?.data).toContain("call_4")
   })
 
   test("anthropic sse becomes a chat tool delta", () => {

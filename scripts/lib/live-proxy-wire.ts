@@ -41,7 +41,7 @@ export function inspectJson(protocol: LiveProtocol, raw: unknown, nativeChat = f
   assert.ok(!value.error, "Response contains an error")
   assert.ok(string(value.id).length > 0, "Missing response ID")
   const model = string(value.model)
-  const usage = wireObject(value.usage)
+  const usage = protocol === "responses" && value.usage == null ? {} : wireObject(value.usage)
   if (protocol === "chat") {
     if (!nativeChat || value.object !== undefined) assert.equal(value.object, "chat.completion")
     const choices = list(value.choices)
