@@ -279,5 +279,28 @@ only Claude's live-test requests to automatic tool choice and running exactly th
 17 unrun cases once, within the remaining 36-request budget. The failed forced
 Chat JSON case is retained as upstream capability evidence and is not replayed
 under this authorization. Stable case IDs identify scenarios; each immutable
-report also records its exact request and revision. Version 3.0.0 remains
-unpublished pending completion of the remaining acceptance.
+report also records its exact request and revision.
+
+## Release acceptance completed on 2026-09-23
+
+Run `2026-09-23T03-17-20-732Z-Knzdk0/report.json` at clean revision
+`95a77bda62f6628fe4c52b7fe79c8debd0e0e9bc` passed all 17 previously unrun
+scenarios. Its SHA-256 is
+`af51e43a95196a8983da16406407e45c9b061ec8da19a2ca0cddf9766de9397d`.
+The five remaining Claude tool cases used automatic choice and returned the
+required actual `echo` call with exact arguments. All twelve model/API
+continuations consumed the matched tool-result history successfully.
+
+The sidecar confirmed exactly 17 actual generation sends and was then stopped.
+Every case recorded one upstream attempt, the default rule and healthy
+accounting. Including two bootstrap requests and one cache-only preflight, the
+task has used 84 of 100 requests, leaving 16 unused. No case was replayed in this
+continuation, and no production code changed for Claude tool choice.
+
+The aggregate outcome is 65 successful scenarios plus one documented upstream
+forced-tool rejection, not 66 successful requests. Claude Chat JSON with the
+updated automatic choice was not separately executed; its earlier forced-choice
+400 remains immutable capability evidence. This accepted limitation does not
+authorize production fallback or rewriting client parameters. Live acceptance
+is complete for the authorized release scope; final gates and publication remain
+separate checks.
