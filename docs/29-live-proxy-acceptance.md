@@ -244,3 +244,32 @@ Each report's adjacent `offline-review.json` records the review separately from
 the original result. Both reviews checked complete output, termination, routing,
 usage/accounting and exactly one actual attempt. No review made a new HTTP call;
 mapping revisions and timestamps identify the actual generation, not the review.
+
+## Release acceptance checkpoint: upstream rejection
+
+At revision `147d322309fe8247de3bf3d01d6e199bff3d76d5`, 48 of 66 unique
+scenarios have passed, including the two explicitly documented native capture
+reviews above. All 30 text/auto scenarios and all 18 Gemini/Grok/GPT forced-tool
+scenarios passed. The repaired Gemini Responses SSE case was verified once on
+the new implementation; the earlier failed conversion report remains unchanged.
+
+Run `2026-09-23T02-14-33-974Z-G1Z74t/report.json` passed 37 cases, then stopped
+at `claude-opus-5.5.chat.tool.json`. Copilot returned HTTP 400 with
+`tool_choice: type "tool" and "any" are not supported for this model.`
+The request used `copilot-openai-direct`, recorded exactly one upstream attempt,
+and retained the default rule. The sidecar stopped after 38 actual model sends;
+no request followed the upstream rejection.
+
+Seventeen scenarios remain unrun: five other Claude forced-tool cases and twelve
+tool-result continuations. The complete task budget consumed 64 of 100 requests,
+including bootstrap and cache-only preflights. Passing text-protocol evidence
+does not imply support for forced tool choice.
+
+Source comparison with v2.6.0 shows that native Chat preparation preserved the
+payload and serialized `tool_choice` unchanged. The current non-streaming native
+path does the same. This is not a live v2.6.0 execution or proof of historical
+upstream support. Raven must not silently drop or change the client's explicit
+tool choice to conceal the rejection. Changing Claude's acceptance request to
+automatic tool choice requires an explicit test-contract decision; it is not a
+production fallback. Version 3.0.0 remains unpublished pending that decision and
+completion of the remaining acceptance.
