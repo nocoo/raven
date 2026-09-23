@@ -68,6 +68,23 @@ test("refresh POST returns the enriched provider and preserves manually entered 
   expect((await h.request("/api/upstreams/missing/models/refresh", {})).status).toBe(404)
 })
 
+test("refresh accepts slug-based catalogs and preserves raw IDs, metadata and manual models", async () => {
+  const up = h.upstream({ manual_models: ["manual"] })
+  const models = [
+    { slug: "glm-5.3", display_name: "GLM 5.3", context_window: 1048576, supported_reasoning_levels: [{ effort: "max", description: "Deep reasoning" }] },
+    { slug: "glm-5.3-flash", input_modalities: ["text", "image"] },
+    { slug: "glm-5-turbo", supported_reasoning_levels: [] },
+  ]
+  network.mockResolvedValueOnce(jsonResponse({ models: [...models, { slug: "glm-5.3", display_name: "Duplicate" }] }))
+  const response = await h.request(`/api/upstreams/${up.id}/models/refresh`, {})
+  expect(response.status).toBe(200)
+  expect(await response.json()).toMatchObject({
+    models: models.map(model => ({ ...model, id: model.slug })), manual_models: ["manual"], last_refresh_error: null,
+  })
+  expect(getProviderRecord(h.db, up.id)?.models).toEqual(models.map(model => ({ ...model, id: model.slug })))
+  expect(network).toHaveBeenCalledTimes(1)
+})
+
 test.each([
   ["chat_completions", "openai", chatResponse()],
   ["anthropic_messages", "anthropic", messageResponse()],
@@ -275,7 +292,11 @@ test("catalog refresh cancels an unexpected held-open event stream and retains i
 test.each([
   [401, "application/json", '{"error":{"message":"Invalid credential","api_key":"fixture-secret"}}', "Model discovery returned HTTP 401"],
   [200, "text/html", "<html>Gateway login required</html>", "Model discovery did not return valid JSON"],
-  [200, "application/json", '{"models":["alternative-schema"]}', "Model discovery did not return a data array"],
+  [200, "application/json", '{"models":{}}', "Model discovery did not return a data or models array"],
+  [200, "application/json", '{}', "Model discovery did not return a data or models array"],
+  [200, "application/json", '{"models":["alternative-schema"]}', "Model discovery returned an invalid model ID"],
+  [200, "application/json", '{"models":[{"slug":"valid"},{"slug":" "}]}', "Model discovery returned an invalid model ID"],
+  [200, "application/json", '{"data":null,"models":[{"slug":"valid"}]}', "Model discovery did not return a data or models array"],
   [200, "application/json", '{"data":[{"id":null}]}', "Model discovery returned an invalid model ID"],
 ] as const)("discovery failure (%s, %s) returns details and retains the good cache", async (status, contentType, body, message) => {
   const up = h.upstream()

@@ -25,18 +25,22 @@ export async function discoverModels(provider: UpstreamRecord): Promise<CatalogM
       throw failure(`Model discovery returned HTTP ${response.status}`)
     }
     const value: unknown = await response.json()
-    if (!value || typeof value !== "object" || !("data" in value) || !Array.isArray(value.data)) {
-      throw failure("Model discovery did not return a data array")
+    if (!value || typeof value !== "object") {
+      throw failure("Model discovery did not return a data or models array")
     }
+    const entries = "data" in value ? value.data : "models" in value ? value.models : undefined
+    if (!Array.isArray(entries)) throw failure("Model discovery did not return a data or models array")
+    const idKey = "data" in value ? "id" : "slug"
     const models: CatalogModel[] = []
     const seen = new Set<string>()
-    for (const item of value.data) {
-      if (!item || typeof item !== "object" || typeof item.id !== "string" || !item.id.trim()) {
+    for (const item of entries) {
+      const id = item && typeof item === "object" ? item[idKey] : undefined
+      if (typeof id !== "string" || !id.trim()) {
         throw failure("Model discovery returned an invalid model ID")
       }
-      if (!seen.has(item.id)) {
-        models.push(item as CatalogModel)
-        seen.add(item.id)
+      if (!seen.has(id)) {
+        models.push({ ...item, id } as CatalogModel)
+        seen.add(id)
       }
     }
     return models

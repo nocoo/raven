@@ -45,7 +45,7 @@ const receiver = Bun.serve({
       hits.push({ path })
       const failure = catalogFailure
       catalogFailure = null
-      if (failure === "wrong-shape") return Response.json({ models: [], api_key: "fixture-provider" }, { headers: { "x-request-id": "fixture-catalog-shape" } })
+      if (failure === "wrong-shape") return Response.json({ models: {}, api_key: "fixture-provider" }, { headers: { "x-request-id": "fixture-catalog-shape" } })
       if (failure === "non-json") return new Response("<html><body>Fixture gateway unavailable; api_key=fixture-provider</body></html>", { status: 502, headers: { "content-type": "text/html", "x-request-id": "fixture-catalog-gateway" } })
       return Response.json({ data: [{ id: "fixture-fast" }, { id: "fixture-smart" }] })
     }

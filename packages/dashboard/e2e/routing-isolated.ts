@@ -208,12 +208,12 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       expect((await response).status()).toBe(503);
       const banner = upstreamCard.getByRole("alert");
       await expect(banner).toContainText("Model refresh failed");
-      await expect(banner).toContainText(failure === "wrong-shape" ? "Model discovery did not return a data array" : "Model discovery returned HTTP 502");
+      await expect(banner).toContainText(failure === "wrong-shape" ? "Model discovery did not return a data or models array" : "Model discovery returned HTTP 502");
       await banner.getByRole("button", { name: "Response details", exact: true }).click();
       await expect(banner.getByText(failure === "wrong-shape" ? "200" : "502", { exact: true })).toBeVisible();
       await expect(banner.getByText("503", { exact: true })).toBeVisible();
       const body = banner.getByRole("region", { name: "Response body", exact: true });
-      await expect(body).toContainText(failure === "wrong-shape" ? '"models": []' : "Fixture gateway unavailable");
+      await expect(body).toContainText(failure === "wrong-shape" ? '"models": {}' : "Fixture gateway unavailable");
       await expect(body).toContainText("[REDACTED]");
       await expect(body).not.toContainText("fixture-provider");
       await banner.getByRole("button", { name: "Copy to clipboard", exact: true }).click();
