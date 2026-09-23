@@ -66,7 +66,7 @@ export async function dispatch(
     const selection = resolveRouting(c, ctx, payload.model)
     const decision = pickStrategy({
       protocol, model: selection.resolved_model, requestedModel: selection.requested_model,
-      provider: selection.upstream, allowConversion: selection.allow_conversion, anthropicBeta: ctx.anthropicBeta,
+      provider: selection.upstream, allowConversion: selection.allow_conversion, anthropicBeta: ctx.anthropicBeta, stream: ctx.stream,
     })
     if (decision.kind === "reject") throw new RoutingError(decision.message, decision.errorType, decision.status as 400 | 503)
     selection.resolved_model = decision.model

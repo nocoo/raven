@@ -145,6 +145,13 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await page.getByRole("button", { name: "Refresh models", exact: true }).click();
     await expect(page.getByRole("list", { name: "Fetched models" }).getByText("fixture-fast", { exact: true })).toBeVisible();
     expect(inspect().catalogCalls).toBe(1);
+    await page.getByRole("button", { name: "fixture-fast protocol details", exact: true }).click();
+    const protocols = page.getByRole("region", { name: "fixture-fast native protocols", exact: true });
+    await expect(protocols).toContainText("Chat native");
+    await expect(protocols).toContainText("JSON: Unverified");
+    await expect(protocols).toContainText("SSE: Unverified");
+    expect(inspect()).toEqual({ catalogCalls: 1, generationCalls: 0 });
+    checkpoint("native JSON/SSE evidence is disclosed on demand without probing");
     await expect(page.getByLabel("Manual model IDs")).toHaveValue("Manual.Raw-ID");
     await page.getByLabel("Test model", { exact: true }).fill("fixture-fast");
     await page.getByLabel("Test model", { exact: true }).press("Tab");
@@ -379,6 +386,11 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(inspect()).toEqual({ catalogCalls: 4, generationCalls: 6 });
     checkpoint("failed diagnostics stop after one attempt; status reload stays cache-only");
 
+    const converted = await fetch(`${proxyUrl}/v1/responses`, { method: "POST", headers: { authorization: `Bearer ${client.key}`, "content-type": "application/json" }, body: JSON.stringify({ model: "Warning.Fixture", input: "ping" }) });
+    expect(converted.status).toBe(200);
+    expect((await converted.json() as { model: string }).model).toBe("Warning.Fixture");
+    expect(inspect().generationCalls).toBe(7);
+
     await page.goto(`${dashboardUrl}/routing/rules`);
     await page.getByRole("navigation", { name: "Routing rules", exact: true }).getByRole("button", { name: /Follow the sun/ }).click();
     await page.getByRole("tab", { name: "Schedule", exact: true }).click();
@@ -461,6 +473,14 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             await page.getByRole("button", { name: "Client setup guides" }).click();
             await expect(page.getByRole("tab", { name: "Claude Code", exact: true })).toBeVisible();
             await page.getByRole("button", { name: "Client setup guides" }).click();
+          }
+          if (path === "requests") {
+            await page.getByRole("row").filter({ hasText: "Warning.Fixture" }).first().click();
+            const drawer = page.getByRole("dialog");
+            await expect(drawer.getByText("Translation · Responses → Chat Completions", { exact: true })).toBeVisible();
+            await expect(drawer).toContainText("Prefer Chat Completions in your client.");
+            await shot(`translation-warning-${theme}-${width}`);
+            await drawer.getByRole("button", { name: "Close", exact: true }).click();
           }
           if (path === "copilot/account") {
             await expect(page.getByText("fixture-tracking")).toBeHidden();

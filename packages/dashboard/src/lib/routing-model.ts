@@ -2,6 +2,8 @@ import type { ProviderPublic, RoutingRule, RoutingRuleInput, RoutingTarget, Upst
 import { toLocalWindows, toUtcWindows, type LocalWindow } from "./routing-schedule";
 
 import { COPILOT_UPSTREAM_ID } from "../../../proxy/src/core/routing-types";
+import { pickStrategy } from "../../../proxy/src/core/router";
+import { formatProtocol, nativeCapabilities } from "../../../proxy/src/core/protocol-capabilities";
 export { COPILOT_UPSTREAM_ID, COPILOT_RULE_ID } from "../../../proxy/src/core/routing-types";
 export const FORMATS: { value: UpstreamFormat; label: string; short: string }[] = [
   { value: "anthropic_messages", label: "Anthropic Messages", short: "Messages" },
@@ -66,25 +68,23 @@ export function dragState(state: DragState, action: DragAction, length: number):
   return state.source === null ? state : { ...state, over: action.index };
 }
 
-const ENDPOINT_FORMATS: Record<string, UpstreamFormat> = {
-  "/v1/messages": "anthropic_messages",
-  "/chat/completions": "chat_completions",
-  "/v1/chat/completions": "chat_completions",
-  "/responses": "responses",
-  "/v1/responses": "responses",
-};
 export type Compatibility = "Native" | "Convert" | "Blocked" | "Unavailable";
-export function compatibility(upstream: ProviderPublic | undefined, model: string, incoming: UpstreamFormat, conversion: boolean, automatic = true): Compatibility {
+export function compatibility(upstream: ProviderPublic | undefined, model: string, incoming: UpstreamFormat, conversion: boolean, automatic = true, stream = false): Compatibility {
   if (!upstream) return "Unavailable";
-  if (upstream.kind === "custom") return upstream.format === incoming ? "Native" : conversion ? "Convert" : "Blocked";
-  const endpoints = upstream.models.find(entry => entry.id === model)?.supported_endpoints;
-  const formats = Array.isArray(endpoints) ? endpoints.map(endpoint => typeof endpoint === "string" ? ENDPOINT_FORMATS[endpoint] : undefined).filter(Boolean) : [];
-  if (!formats.length) {
-    if (automatic) return "Unavailable";
-    return conversion && incoming === "anthropic_messages" ? "Convert" : "Native";
-  }
-  if (formats.includes(incoming)) return "Native";
-  return conversion ? "Convert" : "Blocked";
+  const decision = pickStrategy({ provider: upstream, model, requestedModel: automatic ? "auto" : model, protocol: formatProtocol(incoming), allowConversion: conversion, stream });
+  if (decision.kind === "reject") return decision.status === 400 ? "Blocked" : "Unavailable";
+  return decision.clientProtocol === decision.upstreamProtocol ? "Native" : "Convert";
+}
+
+export function nativeProtocolRows(upstream: ProviderPublic | undefined, model: string) {
+  if (!upstream) return [];
+  const json = nativeCapabilities(upstream, model, false);
+  const sse = nativeCapabilities(upstream, model, true);
+  return FORMATS.flatMap(format => {
+    const protocol = formatProtocol(format.value);
+    const modes = [json, sse].map(entries => entries.find(entry => entry.protocol === protocol));
+    return modes.some(Boolean) ? [{ label: format.short, modes: modes.map((entry, index) => ({ label: index === 0 ? "JSON" : "SSE", status: !entry ? "Unknown" : entry.evidence ? "Verified text" : "Unverified", evidence: entry?.evidence })) }] : [];
+  });
 }
 
 export interface ChainPreview { selected: number | null; labels: string[]; warnings: string[] }

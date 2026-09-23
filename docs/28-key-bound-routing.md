@@ -219,15 +219,17 @@ to `anthropic_messages`. Select a protocol before sending, never by probing one
 generation endpoint and retrying another after an error.
 
 With conversion disabled, custom upstreams accept only their configured protocol.
-Copilot is the built-in multi-endpoint driver. A usable cached endpoint declaration
-for the resolved model, even from a stale snapshot, takes precedence: prefer the
-incoming protocol when advertised; otherwise, when conversion is enabled, choose
-the first supported target in Chat Completions, Responses, Messages order. A
+Copilot is the built-in multi-endpoint driver. Native capabilities combine cached
+endpoint declarations with reviewed live evidence in `core/protocol-evidence.ts`,
+scoped to the exact model and JSON/SSE mode. Prefer the incoming protocol whenever
+either source supports it, even if a different protocol has stronger evidence.
+Otherwise prefer a verified native target, then the declared Chat Completions,
+Responses, Messages order. Unverified declarations remain usable, not blocked. A
 known mismatch with conversion disabled is a local protocol-shaped 400.
 
 Copilot capability reads are local and never trigger discovery. No snapshot,
 an ID absent from an otherwise usable snapshot, and missing/ambiguous endpoint
-metadata all use the following explicit policy:
+metadata, without matching native evidence, use the following explicit policy:
 
 | Request model | Behavior without a usable endpoint declaration |
 | --- | --- |
@@ -241,6 +243,16 @@ remain available while `auto` awaits usable capabilities; the user can explicitl
 refresh Copilot in Upstreams. No request-triggered refresh, endpoint probe, model
 substitution or provider fallback is added. Custom upstreams need no model
 catalog entry to select their one configured protocol, including for `auto`.
+
+The Dashboard uses the same selector for protocol previews. Model details expose
+native JSON/SSE text verification separately; a converted success never creates
+native evidence. Reviewed evidence includes the case, date and tested revision,
+not credentials or private request data. It certifies that text case only, not
+all tools/features or future availability. Custom connections remain unverified
+until separately tested; Copilot evidence never applies to a custom connection.
+Requests show a concise warning only when translation occurred, including its
+direction, compatibility risk, processing overhead and recommended client format.
+Catalog refresh and page rendering never trigger verification calls.
 
 With conversion enabled, the target behavior for stateless text/chat and ordinary
 function-tool turns is:

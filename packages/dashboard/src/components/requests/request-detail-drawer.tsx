@@ -6,10 +6,12 @@
 import { JsonBlock } from "@/components/ui/json-block";
 import type { ExtendedRequestRecord } from "@/lib/types";
 import { formatLatency } from "@/lib/chart-config";
-import { Copy, Terminal, X } from "lucide-react";
+import { Copy, Terminal, TriangleAlert, X } from "lucide-react";
+import { Banner } from "@nocoo/basalt/components/banner";
 import {
   Badge,
   Button,
+  LayerCard,
   Sheet,
   SheetClose,
   SheetContent,
@@ -20,7 +22,7 @@ import {
 import { useLogDock } from "@/components/logs/log-dock-context";
 import Link from "next/link";
 import { DEFAULT_FILTERS, type AnalyticsFilters } from "@/lib/analytics-filters";
-import { dimensionHref, keyIdentity, monitorHref, PROTOCOL_META, protocolLabel, requestProtocolRoute } from "@/lib/monitor";
+import { dimensionHref, keyIdentity, monitorHref, PROTOCOL_META, protocolLabel, requestProtocolRoute, requestTranslationWarning } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
 
 interface RequestDetailDrawerProps {
@@ -61,6 +63,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
   const safeLatency = Math.max(totalLatency, 1); // guard division by zero
   const ttft = request.ttft_ms;
   const processing = request.processing_ms;
+  const warning = requestTranslationWarning(request);
 
   // Clamp TTFT + processing to not exceed 100%
   const ttftPct = ttft != null && ttft > 0 ? Math.min((ttft / safeLatency) * 100, 100) : 0;
@@ -89,11 +92,13 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
         </SheetHeader>
 
         <div className="px-4 pb-4 space-y-4">
-          <section className="rounded-lg bg-basalt-muted/50 p-3">
+          <LayerCard padding="sm" className="space-y-2">
             <div className="flex flex-wrap items-center gap-2"><Badge variant={request.protocol_mode === "native" ? "success" : request.protocol_mode === "translated" ? "warning" : "secondary"}>{protocolLabel(request.protocol_mode)}</Badge>{request.server_tools_used > 0 && <Badge variant="secondary">Server tools</Badge>}</div>
-            <p className="mt-2 text-sm font-medium">{requestProtocolRoute(request)}</p>
-            <p className="mt-1 text-xs leading-relaxed text-basalt-muted-foreground">{PROTOCOL_META[request.protocol_mode].description}</p>
-          </section>
+            {warning ? <Banner variant="alert" size="sm" icon={<TriangleAlert className="size-4" aria-hidden="true" />} {...warning} /> : <>
+              <p className="text-sm font-medium">{requestProtocolRoute(request)}</p>
+              <p className="text-xs leading-relaxed text-basalt-muted-foreground">{PROTOCOL_META[request.protocol_mode].description}</p>
+            </>}
+          </LayerCard>
           {request.routing && <section aria-label="Routing details" className="rounded-widget border border-basalt-border p-3">
             <div className="mb-2 flex items-center gap-2"><h4 className="text-sm font-medium">Routing</h4>{request.routing.diagnostic && <Badge variant="info" className="text-xs">Diagnostic · quota accounted</Badge>}</div>
             <DetailRow label="Chosen target" value={request.routing.upstream_name} />

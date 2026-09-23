@@ -8,6 +8,7 @@ import { useId, useRef, useState } from "react";
 import { compatibility, dragState, FORMATS, IDLE_DRAG, modelIds, moveItem, previewChain } from "@/lib/routing-model";
 import type { ProviderPublic, RoutingTarget } from "@/lib/routing-types";
 import { RoutingSelect } from "./routing-ui";
+import { NativeProtocolStatus } from "./native-protocol-status";
 
 export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
   value: RoutingTarget[]; upstreams: ProviderPublic[]; conversion: boolean; onChange: (value: RoutingTarget[]) => void; label: string;
@@ -98,11 +99,14 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
         {value.map((target, index) => <section key={targetKey(target)} className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" aria-label={`Target ${index + 1} protocol preview`}>
           <span className="font-medium">Target {index + 1}</span>
           {FORMATS.map(format => {
-            const state = compatibility(upstreams.find(item => item.id === target.upstream_id), target.model, format.value, conversion);
-            return <span key={format.value} className={state === "Blocked" || state === "Unavailable" ? "text-basalt-warning" : "text-basalt-muted-foreground"}>{format.short}: <span className="font-medium">{state}</span></span>;
+            const upstream = upstreams.find(item => item.id === target.upstream_id);
+            const state = compatibility(upstream, target.model, format.value, conversion);
+            const sse = compatibility(upstream, target.model, format.value, conversion, true, true);
+            return <span key={format.value} className={state === "Blocked" || state === "Unavailable" ? "text-basalt-warning" : "text-basalt-muted-foreground"}>{format.short}: <span className="font-medium">{state === sse ? state : `JSON ${state} · SSE ${sse}`}</span></span>;
           })}
+          <div className="basis-full"><NativeProtocolStatus upstream={upstreams.find(item => item.id === target.upstream_id)} model={target.model} /></div>
         </section>)}
-        <p className="text-xs text-basalt-muted-foreground"><code>auto</code> uses the chosen model and cached capabilities. Explicit model IDs pass through unchanged. Errors stop on the selected upstream.</p>
+        <p className="text-xs text-basalt-muted-foreground">Unverified formats remain usable. Text verification does not certify tools or other features.</p>
       </div></CollapsibleContent>
     </Collapsible>
     <span role="status" className="sr-only">{announcement}</span>

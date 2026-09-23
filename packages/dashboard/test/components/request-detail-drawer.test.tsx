@@ -107,6 +107,15 @@ function makeExtendedRecord(overrides: Partial<ExtendedRequestRecord> = {}): Ext
 // ===========================================================================
 
 describe("RequestDetailDrawer", () => {
+  it("warns only for translated requests and recommends the actual upstream protocol", () => {
+    const { rerender } = render(<RequestDetailDrawer request={makeExtendedRecord({ client_format: "anthropic", upstream_format: "responses", strategy: "protocol-converted" })} open onOpenChange={vi.fn()} />);
+    expect(screen.getByText("Translation · Messages → Responses")).toBeVisible();
+    expect(screen.getByText(/Prefer Responses in your client/)).toBeVisible();
+    rerender(<RequestDetailDrawer request={makeExtendedRecord({ protocol_mode: "native" })} open onOpenChange={vi.fn()} />);
+    expect(screen.queryByText(/compatibility risk/)).toBeNull();
+    rerender(<RequestDetailDrawer request={makeExtendedRecord({ upstream_format: "unknown", strategy: "protocol-converted" })} open onOpenChange={vi.fn()} />);
+    expect(screen.getByText(/Prefer the model's native protocol/)).toBeVisible();
+  });
   const routing: RequestRouting = {
     requested_model: "auto", resolved_model: "gpt-5.6-sol", rule_id: "rule:work", period_id: "period:morning",
     upstream_id: "builtin:copilot", upstream_name: "GitHub Copilot", quota_window_id: "window:fixture",

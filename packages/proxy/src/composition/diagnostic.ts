@@ -1,7 +1,8 @@
 import type { Database } from "bun:sqlite"
 import type { Context } from "hono"
 import { buildContext } from "../core/context"
-import { declaredProtocols, formatProtocol, pickStrategy, type ClientProtocol } from "../core/router"
+import { pickStrategy, type ClientProtocol } from "../core/router"
+import { nativeCapabilities } from "../core/protocol-capabilities"
 import { RoutingError, type RoutingRule, type UpstreamDiagnostic, type UpstreamOperationDetails } from "../core/routing-types"
 import { selectRoutingTarget } from "../core/routing-selector"
 import { logRequestError, logRequestStart, requestIdentity } from "../core/request-log"
@@ -37,9 +38,7 @@ export async function runUpstreamDiagnostic(c: Context, db: Database, id: string
   const now = Date.now()
   const upstream = getProviderRecord(db, id)
   if (!upstream) throw new RoutingError("Upstream not found", "not_found", 404)
-  const protocol = upstream.kind === "copilot"
-    ? declaredProtocols(upstream.models.find((m) => m.id === model))[0]
-    : upstream.format ? formatProtocol(upstream.format) : undefined
+  const protocol = nativeCapabilities(upstream, model, false)[0]?.protocol
   const ctx = buildContext(c, protocol ?? "openai")
   ctx.admittedAt = now
   ctx.diagnostic = true

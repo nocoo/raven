@@ -143,3 +143,13 @@ export function requestProtocolRoute(request: ExtendedRequestRecord): string {
   if (request.strategy === "copilot-translated") return `${client} → Chat Completions`;
   return `${client} → Unknown`;
 }
+
+export function requestTranslationWarning(request: ExtendedRequestRecord) {
+  if (request.protocol_mode !== "translated") return null;
+  const route = requestProtocolRoute(request);
+  const target = route.split(" → ")[1];
+  return {
+    title: `Translation · ${route}`,
+    description: `Translation adds compatibility risk and processing overhead. ${target === "Unknown" ? "Prefer the model's native protocol." : `Prefer ${target} in your client.`}`,
+  };
+}

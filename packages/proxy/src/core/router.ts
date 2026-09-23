@@ -1,6 +1,8 @@
 import { resolveAgainstCatalog, translateModelName } from "../protocols/anthropic/preprocess"
 import type { StrategyName } from "./strategy"
-import type { CatalogModel, UpstreamFormat, UpstreamRecord } from "./routing-types"
+import { formatProtocol, nativeCapabilities, type ProtocolProvider } from "./protocol-capabilities"
+import { nativeProtocolEvidence, type NativeProtocolEvidence } from "./protocol-evidence"
+export { declaredProtocols, formatProtocol } from "./protocol-capabilities"
 
 export type { StrategyName }
 export type ClientProtocol = "anthropic" | "openai" | "responses"
@@ -13,26 +15,13 @@ export interface RouterInput {
   protocol: ClientProtocol
   model: string
   requestedModel: string
-  provider: UpstreamRecord
+  provider: ProtocolProvider
   allowConversion: boolean
+  stream?: boolean
   anthropicBeta?: string | null
 }
 
-export function formatProtocol(format: UpstreamFormat): ClientProtocol {
-  return format === "anthropic_messages" ? "anthropic" : format === "chat_completions" ? "openai" : "responses"
-}
-
-export function declaredProtocols(model: CatalogModel | undefined): ClientProtocol[] {
-  const endpoints = model?.supported_endpoints
-  if (!Array.isArray(endpoints)) return []
-  const result: ClientProtocol[] = []
-  if (endpoints.includes("/chat/completions") || endpoints.includes("/v1/chat/completions")) result.push("openai")
-  if (endpoints.includes("/responses") || endpoints.includes("/v1/responses")) result.push("responses")
-  if (endpoints.includes("/v1/messages") || endpoints.includes("/messages")) result.push("anthropic")
-  return result
-}
-
-export function pickStrategy(input: RouterInput): StrategyDecision {
+export function pickStrategy(input: RouterInput, evidence: readonly NativeProtocolEvidence[] = nativeProtocolEvidence): StrategyDecision {
   const { provider, protocol, allowConversion } = input
   const copilot = provider.kind === "copilot"
   const model = copilot && protocol === "anthropic"
@@ -40,7 +29,7 @@ export function pickStrategy(input: RouterInput): StrategyDecision {
     : input.model
   let target: ClientProtocol
   if (copilot) {
-    const declared = declaredProtocols(provider.models.find((entry) => entry.id === model))
+    const declared = nativeCapabilities(provider, model, input.stream === true, evidence).map(entry => entry.protocol)
     if (declared.length) {
       target = declared.includes(protocol) ? protocol : declared[0]!
     } else {
