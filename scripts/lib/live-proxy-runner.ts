@@ -1,4 +1,4 @@
-import type { Database } from "bun:sqlite"
+import { Database } from "bun:sqlite"
 import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import { readFileSync, statSync } from "node:fs"
@@ -29,6 +29,10 @@ export function parseLiveKey(value: string): string {
   const key = value.trim()
   assert.ok(Buffer.byteLength(value) <= 4096 && key.length >= 12 && !/\s/.test(key), "Supply one raw API key (at most 4096 bytes)")
   return key
+}
+
+export function openLiveDatabase(path: string): Database {
+  return new Database(path, { readwrite: true, create: false })
 }
 
 export function livePreflight(db: Database, key: string, cases: readonly LiveCase[]) {

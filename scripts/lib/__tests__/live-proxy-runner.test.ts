@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite"
 import { execFileSync } from "node:child_process"
-import { chmodSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
 import { createApiKey, revokeApiKey } from "../../../packages/proxy/src/db/keys"
@@ -8,7 +8,7 @@ import { initDatabase } from "../../../packages/proxy/src/db/requests"
 import { replaceCatalog } from "../../../packages/proxy/src/db/catalog"
 import { routingFixture } from "../../../packages/proxy/test/db/routing-fixture"
 import { liveCases, type LiveCase } from "../live-proxy-cases"
-import { assertLiveTelemetry, liveNativeEvidence, livePreflight, liveProxyUrl, parseLiveKey, readLiveKey, readLiveTelemetry, runLiveCases, type LiveResult } from "../live-proxy-runner"
+import { assertLiveTelemetry, liveNativeEvidence, livePreflight, liveProxyUrl, openLiveDatabase, parseLiveKey, readLiveKey, readLiveTelemetry, runLiveCases, type LiveResult } from "../live-proxy-runner"
 import { fixtureJson, fixtureSse, seedTelemetry } from "./live-proxy-fixtures"
 
 const root = resolve(import.meta.dirname, "../../..")
@@ -39,6 +39,17 @@ afterEach(() => {
 })
 
 describe("live preflight boundaries", () => {
+  test("opens an existing writable database but never creates a missing live database", () => {
+    const db = openLiveDatabase(fixture.path)
+    try {
+      db.query("UPDATE api_keys SET name = ? WHERE id = ?").run("Updated fixture", identity.id)
+      expect(reader.query<{ name: string }, [string]>("SELECT name FROM api_keys WHERE id = ?").get(identity.id)?.name).toBe("Updated fixture")
+    } finally { db.close() }
+    const missing = join(dirname(fixture.path), "missing.db")
+    expect(() => openLiveDatabase(missing)).toThrow()
+    expect(existsSync(missing)).toBe(false)
+  })
+
   test.each(["http://127.0.0.1:7024", "https://localhost:9999/", "http://[::1]:80"])("allows loopback %s", (url) => {
     expect(liveProxyUrl(url)).toBe(new URL(url).origin)
   })

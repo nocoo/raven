@@ -129,6 +129,12 @@ when needed. Bun environment-file flags use the `--env-file=path` form; the
 space-separated attempted invocation printed help without starting the script.
 Check local configuration presence before treating example paths as real files.
 
+A subsequent local-only launch exposed Bun SQLite's flag behavior: passing
+`create: false` without `readwrite: true` provides no valid open mode. The sidecar
+now explicitly opens the existing database read/write, with a regression proving
+accounting writes remain possible while missing paths never create a database.
+Startup failures identify their stage without dumping credentials or responses.
+
 ## Undated entries migrated from the previous handbook
 
 
