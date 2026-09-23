@@ -217,7 +217,7 @@ export async function runLiveCases(input: {
           result.first_event_ms ??= Date.now() - started
           result.frames.push({ event: frame.event, data: frame.data })
         }
-        result.reply = inspectFrames(item.protocol, result.frames)
+        result.reply = inspectFrames(item.protocol, result.frames, item.protocol === "chat" && item.clientFormat === item.upstreamFormat)
       } else {
         assert.ok(/\bapplication\/(?:json|[^;]+\+json)\b/i.test(result.content_type), "Expected a JSON content type")
         result.reply = inspectJson(item.protocol, JSON.parse(result.body!), item.protocol === "chat" && item.clientFormat === item.upstreamFormat)

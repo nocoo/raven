@@ -70,7 +70,7 @@ export function inspectJson(protocol: LiveProtocol, raw: unknown, nativeChat = f
   }
 }
 
-function inspectChatFrames(frames: readonly LiveFrame[]): LiveReply {
+function inspectChatFrames(frames: readonly LiveFrame[], nativeChat: boolean): LiveReply {
   let text = ""
   let model = ""
   let terminal = ""
@@ -86,7 +86,7 @@ function inspectChatFrames(frames: readonly LiveFrame[]): LiveReply {
     }
     const value = wireObject(JSON.parse(frame.data))
     assert.ok(!value.error && frame.event !== "error", "Chat stream error")
-    assert.equal(value.object, "chat.completion.chunk")
+    if (!nativeChat || value.object !== undefined) assert.equal(value.object, "chat.completion.chunk")
     assert.ok(string(value.id).length > 0, "Missing chunk ID")
     model = string(value.model)
     if (value.usage != null) usage = wireObject(value.usage)
@@ -224,9 +224,9 @@ function inspectResponsesFrames(frames: readonly LiveFrame[]): LiveReply {
   return result
 }
 
-export function inspectFrames(protocol: LiveProtocol, frames: readonly LiveFrame[]): LiveReply {
+export function inspectFrames(protocol: LiveProtocol, frames: readonly LiveFrame[], nativeChat = false): LiveReply {
   assert.ok(frames.length > 0, "Empty SSE response")
-  return protocol === "chat" ? inspectChatFrames(frames) : protocol === "messages" ? inspectMessagesFrames(frames) : inspectResponsesFrames(frames)
+  return protocol === "chat" ? inspectChatFrames(frames, nativeChat) : protocol === "messages" ? inspectMessagesFrames(frames) : inspectResponsesFrames(frames)
 }
 
 export function assertLiveReply(item: LiveCase, reply: LiveReply): void {

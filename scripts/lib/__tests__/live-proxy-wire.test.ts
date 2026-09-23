@@ -143,6 +143,21 @@ describe("SSE ordering and completion", () => {
     }
   })
 
+  test("permits missing native Chat SSE discriminators without relaxing completion or errors", () => {
+    const entry = item("chat")
+    const frames = fixtureFrames(entry)
+    for (let index = 0; index < frames.length - 1; index++) {
+      mutateData(frames, index, value => { delete value.object })
+    }
+    expect(() => assertLiveReply(entry, inspectFrames("chat", frames, true))).not.toThrow()
+    expect(() => inspectFrames("chat", frames)).toThrow()
+    expect(() => inspectFrames("chat", frames.slice(0, -1), true)).toThrow("Missing Chat [DONE]")
+    mutateData(frames, 0, value => { value.object = "wrong" })
+    expect(() => inspectFrames("chat", frames, true)).toThrow()
+    mutateData(frames, 0, value => { delete value.object; value.error = { message: "failure" } })
+    expect(() => inspectFrames("chat", frames, true)).toThrow("Chat stream error")
+  })
+
   test.each([
     ["early DONE", (frames: LiveFrame[]) => { frames.unshift(frame("chat", "[DONE]")) }],
     ["data after DONE", (frames: LiveFrame[]) => { frames.push(frames[0]!) }],

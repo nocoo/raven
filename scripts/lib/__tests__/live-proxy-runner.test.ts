@@ -205,6 +205,15 @@ function options(selected: readonly LiveCase[] = cases) {
 }
 
 describe("one request per case and fail-fast execution", () => {
+  test.each([false, true])("accepts missing Chat SSE discriminators only on native routes (native=%s)", async (native) => {
+    const entry = liveCases.find(item => item.protocol === "chat" && item.stream && item.kind === "text" && (item.clientFormat === item.upstreamFormat) === native)!
+    const results = await runLiveCases({ ...options([entry]), fetchImpl: async (_url, init) => {
+      seedTelemetry(fixture.db, entry, identity.id, new Headers(init.headers).get("user-agent")!)
+      return new Response(fixtureSse(entry).replaceAll('"object":"chat.completion.chunk",', ""), { headers: { "content-type": "text/event-stream" } })
+    } })
+    expect(results[0]!.status).toBe(native ? "passed" : "failed")
+  })
+
   test("exercises real loopback HTTP, all three protocols, fragmented CRLF SSE and DB correlation", async () => {
     const received: string[] = []
     const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {

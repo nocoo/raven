@@ -135,6 +135,17 @@ now explicitly opens the existing database read/write, with a regression proving
 accounting writes remain possible while missing paths never create a database.
 Startup failures identify their stage without dumping credentials or responses.
 
+## 2026-09-23: Native SSE was rejected by a converted-envelope assertion
+
+The live Gemini stream returned HTTP 200, the complete marker, usage, a stop
+reason and `[DONE]`, but the harness rejected its absent `object` discriminator.
+The v2.6.0 native strategy passed these upstream chunks through unchanged. The
+JSON assertion already recognized this native behavior; the SSE assertion did
+not. Both now allow only an absent native discriminator while rejecting wrong
+values, missing converted discriminators, errors and incomplete streams. The
+original failed report remains unchanged; saved captures can be reviewed offline
+without spending another model request or normalizing production output.
+
 ## Undated entries migrated from the previous handbook
 
 

@@ -176,7 +176,7 @@ Each successful case checks:
   terminal reason. Chat requires `[DONE]` after a finish reason; Messages requires
   ordered message/block lifecycle events; Responses requires creation and a
   successful completed response matching the accumulated text/tool deltas.
-  Native Chat JSON may omit `object`, matching the v2.6.0 passthrough contract;
+  Native Chat JSON and SSE may omit `object`, matching the v2.6.0 passthrough contract;
   incorrect discriminators and missing converted discriminators still fail.
 - Tool-call IDs, function names and complete JSON arguments after chunk assembly.
   Continuation request histories preserve the matching call/result ID.
