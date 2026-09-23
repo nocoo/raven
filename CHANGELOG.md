@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.0.3
+
+### Fixed
+- Finish streams after their protocol terminator and translated footer, retaining late usage and releasing the upstream reader; a disconnect after complete delivery no longer changes success to error.
+- Record interrupted delivery as `cancelled`, preserve real upstream failures and independent timeouts during cancellation races, and align logged HTTP status with the response.
+- Delay server-tool replay completion logs until delivery finishes; show cancellation neutrally in Requests, Logs and terminal output, with its own filter and no inflated success count.
+- Normalize `thinking.type: disabled` to adaptive thinking for Copilot `claude-opus-5.5`, defaulting to low effort while honoring supported explicit effort choices.
+
+### Upgrade notes
+- Started SSE retains HTTP 200 even when its semantic status is `error` or `cancelled`. Use request status to identify failures; pre-header cancellation uses 499. Existing request history is not rewritten.
+- Opus 5.5 does not support disabling thinking. Its normalization enables adaptive thinking; other models and omitted thinking settings retain their existing behavior.
+
 ## v3.0.2
 
 ### Added

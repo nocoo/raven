@@ -333,3 +333,62 @@ the published v3.0.2 tag remains on its already-green release revision.
 - `34ae0f7` dashboard 56 tests FAIL blocking pre-commit. Root cause: someone ran `pnpm install` inside `packages/dashboard/` after `bun install`, creating a `.pnpm/` store alongside bun's `.bun/` symlinks. `react` resolved from `.pnpm/` (pnpm copy) while `@testing-library/react` resolved from root `.bun/` (bun copy) — two physical React instances = "Invalid hook call" on all component/hook tests. Fix: `rm -rf packages/dashboard/node_modules && bun install`. Also added `turbopack.root` to next.config.ts since Turbopack lost workspace root inference after the reinstall. Rule: never mix package managers in a monorepo; this project uses bun exclusively.
 - `d15e6e6` + `8b9aad1` added dot→hyphen model-ID translation (`claude-opus-4.8` → `claude-opus-4-8`) to Raven's `/v1/models` route, then native `adaptChunk`/`adaptJson` + `preprocess.ts` — both reverted same-day (`d0c647e`, `809c3c3`), net zero. Root cause: assumed the "Opus 4 instead of Opus 4.8" display glitch was Raven's to fix. It is **not** — Copilot upstream accepts both dot and hyphen forms; the display name is resolved client-side by `ccstatusline`'s `includes()` matching, which only recognizes the hyphen form. Correct fix lives in the **cc switch** client config (use `claude-opus-4-8`), and Raven stays a passthrough on model IDs. Rule: when a symptom only manifests in a client's display, confirm the upstream actually mishandles the value before adding translation logic to the proxy — don't make Raven compensate for a client-side resolver. The "fix + revert" pair is a closed investigation, not an open bug.
 - v2.5.0 release: local pre-push reported L1 coverage ✅ while CI `check-coverage.ts` failed (protocols/ floor + untested new files + global regression vs `docs/20-baseline.json`). Root cause: `scripts/pre-push.ts` ran bare `bun run --filter @raven/proxy test` (vitest % thresholds only) and never invoked the §4.5 baseline gate that CI uses. Fix: pre-commit + pre-push both run `gate:coverage` → `scripts/check-coverage.ts`; unit test locks the wiring. Rule: any hook labeled "coverage" must call the same entrypoint as CI — never a weaker substitute.
+
+## 2026-09-24: A pane resize targeted another workspace
+
+During Raven repair coordination, `herdr pane resize --current` resolved to the
+UI-focused Giraffe pane instead of the Raven coordinator. Its width changed. A
+subsequent reverse resize did not establish restoration of the original ratio,
+so further changes to that workspace stopped and the limitation was reported.
+No files or processes in that workspace were modified. Raven was then laid out
+using explicit pane IDs.
+
+Tool subprocesses must not assume that `--current` carries the parent agent's
+pane identity. Use the verified workspace-qualified pane ID for layout changes,
+check the returned target, and capture the original layout before mutations.
+
+## 2026-09-24: Completed streams were overwritten by cancellation
+
+Read-only jp1 investigation found that Bun reports downstream disconnects as
+`AbortError: The connection was closed.`. The Runner propagated cancellation
+correctly, but continued reading after protocol completion and unconditionally
+replaced its outcome with an abort in `finally`. A local Bun/Hono reproduction
+received the complete Chat-to-Responses answer and `[DONE]` with HTTP 200, then
+cancelled its reader; Raven logged error/502 with complete token usage. Generic
+internal failures also had different HTTP and logged statuses (500 versus 502).
+
+Strategies now identify their upstream terminator; the Runner delivers all
+translated terminal events before finishing and releases the upstream iterator.
+A parsed terminal alone is insufficient: cancellation during footer delivery
+remains cancelled. Usage-only Chat trailers precede `[DONE]` and must be retained.
+Known HTTP failures and independent timeouts retain their identity during abort
+races, including the native effort-repair wrapper. Server-tool replay records its
+outcome after delivery. Cancelled requests have a separate neutral status, while
+started SSE retains HTTP 200 and generic error logs match the response mapping.
+
+Regression coverage uses synthetic upstreams, real loopback Bun HTTP for the
+completion race, and all native/conversion paths. An initial test harness passed
+`forwardError` directly to Hono's oppositely ordered error callback; the harness
+was corrected before recording the four expected product failures. Verify the
+failure mechanism before treating a red test as reproduction evidence.
+
+During local version preparation, Bun's offline lockfile refresh still expanded
+the temporary registry override into mirror tarball URLs. Those URLs were removed
+before staging; the resulting lockfile was byte-compared with the previous lock
+plus only the workspace version increment. Offline resolution prevents network
+access, but does not by itself prevent registry metadata drift.
+
+The production-browser run initially stopped on an ambiguous `Upstreams`
+heading locator: both the shell and page content expose that heading. The
+screenshot showed a healthy workbench. Scope the assertion to `main` instead of
+changing the page or weakening the visibility check.
+
+Local 3.0.3 preparation passed 2,727 Proxy tests, 879 Dashboard tests and 248
+script tests, the unchanged coverage baseline, strict types, lint, architecture
+and OSV/gitleaks checks. Proxy coverage was 98.50/95.73/98.32/99.27 percent and
+Dashboard coverage was 99.13/97.02/98.92/99.17 percent (statements/branches/
+functions/lines). A production build in a separate source/dependency copy and
+21 isolated Routing browser checkpoints passed with synthetic credentials,
+private SQLite and local fixture upstreams. This is scoped local verification,
+not a new complete L1/L2/L3 audit or live-provider proof. Version, lockfile and
+release notes are prepared locally; no push, tag, publication or deployment ran.

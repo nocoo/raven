@@ -140,7 +140,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await expect(retention).toHaveText("30 days");
     checkpoint("General saves every retention choice through the real BFF and preserves it after reload");
     await page.goto(`${dashboardUrl}/routing/upstreams`);
-    await expect(page.getByRole("heading", { name: "Upstreams", exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("heading", { name: "Upstreams", exact: true })).toBeVisible();
     await indicator("Connection");
     expect(inspect()).toEqual({ catalogCalls: 0, generationCalls: 0 });
     await page.getByRole("button", { name: "New upstream", exact: true }).click();

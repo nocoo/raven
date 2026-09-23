@@ -219,6 +219,18 @@ If `RAVEN_API_KEY` is set or DB has API keys, append `&token=<key>` to the query
   - `{ "type": "set_filter", "requestId": "..." }` — isolate a single request
   - `{ "type": "set_filter" }` — clear request filter
 - **Three sinks**: terminal (JSON lines → stdout), WebSocket (real-time push), DB (`request_end` → SQLite).
+- **Request outcomes**: `success`, `error` and `cancelled` are semantic outcomes.
+  A delivered protocol terminator, including the full translated footer, ends the
+  request without waiting for transport EOF. Chat usage trailers are consumed
+  before `[DONE]`. Cancellation before complete delivery is neutral and still
+  stops upstream work. Known upstream errors and independent timeouts remain errors.
+- **HTTP status**: started SSE retains `statusCode: 200` and the established
+  `upstreamStatus: 200`, including interrupted/error streams. Pre-header client
+  cancellation uses 499; independent timeouts use 504. Generic internal failures
+  use 500 in both response and log. Filter semantic failures by `status: error`,
+  rather than assuming all failures have an HTTP 5xx code. Total request counts
+  include cancelled requests; success/error counts include only their own status.
+  Historical records are not reclassified.
 - **Dashboard path**: proxy WebSocket → dashboard SSE bridge (`/api/logs/stream`) → `useLogStream` hook → `/logs` page UI.
 
 
