@@ -121,6 +121,14 @@ Two new stdin validation tests initially supplied array rows to a parameterized
 test as a single array argument, which the runner expanded. Object rows fixed
 the fixture; those failed runs were not counted as passing evidence.
 
+The first sidecar launch assumed a documented local environment file existed;
+inspection showed neither environment key was configured, and startup rejected
+before HTTP. The sidecar now validates the supplied database key before network
+access and protects its management plane with an ephemeral in-memory credential
+when needed. Bun environment-file flags use the `--env-file=path` form; the
+space-separated attempted invocation printed help without starting the script.
+Check local configuration presence before treating example paths as real files.
+
 ## Undated entries migrated from the previous handbook
 
 

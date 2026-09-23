@@ -101,9 +101,17 @@ preserving its request headers without an external version lookup. That read als
 counts against the budget, and requires the daily Proxy to be running.
 
 ```sh
-bun --env-file packages/proxy/.env.local run scripts/live-proxy-sidecar.ts --execute --limit 66
+bun run scripts/live-proxy-sidecar.ts --execute --limit 66
 bun run test:live --execute --url 'http://127.0.0.1:PORT_PRINTED_ABOVE'
 ```
+
+Both commands accept `--key-stdin` or `--key-file`. The sidecar validates the
+existing database key before HTTP and uses its supported read-only management
+access to obtain version headers. Database-key generation auth stays unchanged.
+If environment keys are absent, a random in-memory management credential prevents
+the temporary sidecar from entering no-key management mode. No key is persisted
+or created in the database. If the daily server uses an environment file, load
+that same file with Bun's `--env-file=/absolute/path` flag.
 
 Stop the sidecar with Ctrl-C after the run. The live runner refuses generation
 against a server without the guard header or with a different source revision.

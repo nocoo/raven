@@ -326,7 +326,7 @@ describe("CLI isolation and private artifacts", () => {
     expect(await sidecar.exited).toBe(0)
     expect(await new Response(sidecar.stdout).text()).toContain("仅计划")
     expect(await new Response(sidecar.stderr).text()).toBe("")
-    const invalid = Bun.spawn([process.execPath, "run", "scripts/live-proxy-sidecar.ts", "--execute"], { cwd: root, stdout: "pipe", stderr: "pipe", env: { ...process.env, RAVEN_API_KEY: "", RAVEN_INTERNAL_KEY: "" } })
+    const invalid = Bun.spawn([process.execPath, "run", "scripts/live-proxy-sidecar.ts", "--execute", "--key-file", "/absent/key"], { cwd: root, stdout: "pipe", stderr: "pipe", env: { ...process.env, RAVEN_API_KEY: "", RAVEN_INTERNAL_KEY: "", RAVEN_DB_PATH: "/absent/fixture.db" } })
     expect(await invalid.exited).toBe(1)
     expect(await new Response(invalid.stderr).text()).toContain("未重试")
   })
