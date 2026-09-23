@@ -326,6 +326,7 @@ export interface CorsInfo {
 }
 
 export interface SettingsData {
+  history_retention_days: import("../../../proxy/src/core/history-retention").RetentionDays;
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
   optimizations: Record<string, OptimizationInfo>;

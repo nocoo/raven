@@ -115,6 +115,21 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(geometry.screenReaderLabels.every(label => label.contained)).toBe(true);
   };
   try {
+    await page.goto(`${dashboardUrl}/settings`);
+    const retention = page.getByRole("combobox", { name: "History retention", exact: true });
+    await expect(retention).toHaveText("30 days");
+    for (const days of [7, 14, 60, 90, 30]) {
+      const saved = page.waitForResponse(response => response.url().endsWith("/api/settings") && response.request().method() === "PUT");
+      await select(page, "History retention", `${days} days`);
+      const response = await saved;
+      expect(response.ok()).toBe(true);
+      expect((await response.json()).history_retention_days).toBe(days);
+      await expect(retention).toHaveText(`${days} days`);
+      await expect(retention).toBeEnabled();
+    }
+    await page.reload();
+    await expect(retention).toHaveText("30 days");
+    checkpoint("General saves every retention choice through the real BFF and preserves it after reload");
     await page.goto(`${dashboardUrl}/routing/upstreams`);
     await expect(page.getByRole("heading", { name: "Upstreams", exact: true })).toBeVisible();
     await indicator("Connection");

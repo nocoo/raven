@@ -15,6 +15,7 @@ import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
 import { validateApiKey } from "./db/keys"
 import { initSettings } from "./db/settings"
+import { startHistoryRetention } from "./services/history-retention"
 import { initRouting } from "./db/routing-migration"
 import { restoreCopilotCatalog, startCopilotCatalogRefresh } from "./composition/catalog"
 import { timingSafeEqual } from "./middleware"
@@ -44,6 +45,7 @@ logger.info(`Database opened: ${config.dbPath}`)
 initDatabase(db)
 initRouting(db)
 initSettings(db)
+const stopHistoryRetention = startHistoryRetention(db)
 startRequestSink(db)
 logger.info("Database ready (WAL mode)")
 
@@ -186,11 +188,13 @@ export { app, config }
 // ---------------------------------------------------------------------------
 
 process.on("SIGINT", async () => {
+  stopHistoryRetention()
   stopCatalogRefresh()
   await stopBridge()
   process.exit(0)
 })
 process.on("SIGTERM", async () => {
+  stopHistoryRetention()
   stopCatalogRefresh()
   await stopBridge()
   process.exit(0)

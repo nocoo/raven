@@ -4,6 +4,8 @@ import { getSetting, setSetting, deleteSetting } from "../db/settings";
 import { cacheVersions, cacheOptimizations, cacheServerTools, cacheIPWhitelist, cacheCorsSettings } from "../lib/utils";
 import { state } from "../lib/state";
 import { parseIPRanges, serializeIPRanges } from "../lib/ip-whitelist";
+import { parseRetentionDays, RETENTION_SETTING, type RetentionDays } from "../core/history-retention";
+import { getRetentionDays } from "../db/history-retention";
 
 // ---------------------------------------------------------------------------
 // Key definitions
@@ -47,7 +49,7 @@ type IPWhitelistKey = (typeof IP_WHITELIST_KEYS)[number];
 type CorsKey = (typeof CORS_KEYS)[number];
 
 /** All known setting keys accepted by the API. */
-const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...IP_WHITELIST_KEYS, ...CORS_KEYS] as const;
+const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...IP_WHITELIST_KEYS, ...CORS_KEYS, RETENTION_SETTING] as const;
 type SettingKey = (typeof KNOWN_KEYS)[number];
 
 function isKnownKey(key: string): key is SettingKey {
@@ -136,6 +138,7 @@ export interface CorsInfo {
 }
 
 export interface SettingsSnapshot {
+  history_retention_days: RetentionDays;
   vscode_version: SettingInfo;
   copilot_chat_version: SettingInfo;
   optimizations: Record<string, OptimizationInfo>;
@@ -151,6 +154,7 @@ export interface SettingsSnapshot {
 
 function getSettingsSnapshot(db: Database): SettingsSnapshot {
   return {
+    history_retention_days: getRetentionDays(db),
     vscode_version: {
       effective: state.vsCodeVersion ?? "unknown",
       source: state.vsCodeVersionSource ?? "fallback",
@@ -247,7 +251,12 @@ export function createSettingsRoute(db: Database): Hono {
     const trimmed = value.trim();
 
     // Validate based on key type
-    if (isVersionKey(key)) {
+    if (key === RETENTION_SETTING) {
+      try { parseRetentionDays(trimmed); }
+      catch (error) {
+        return c.json({ error: { type: "validation_error", message: (error as Error).message } }, 400);
+      }
+    } else if (isVersionKey(key)) {
       if (!isValidVersion(trimmed)) {
         return c.json(
           {
@@ -393,7 +402,7 @@ export function createSettingsRoute(db: Database): Hono {
       cacheIPWhitelist(db);
     } else if (isCorsKey(key)) {
       cacheCorsSettings(db);
-    } else {
+    } else if (isOptimizationKey(key)) {
       cacheOptimizations(db);
     }
 
@@ -425,7 +434,7 @@ export function createSettingsRoute(db: Database): Hono {
       cacheIPWhitelist(db);
     } else if (isCorsKey(key)) {
       cacheCorsSettings(db);
-    } else {
+    } else if (isOptimizationKey(key)) {
       cacheOptimizations(db);
     }
 

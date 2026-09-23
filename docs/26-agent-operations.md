@@ -129,6 +129,27 @@ time; stored timestamps and routing calculations remain UTC. Server-rendered
 timestamps, including Connect key dates and account assignment dates, wait for
 hydration before displaying local time.
 
+## Request history retention
+
+Settings → General offers 7, 14, 30, 60 or 90 days of request history (default 30).
+The `history_retention_days` setting accepts only those values. Each Proxy process
+checks hourly from startup, reading the current setting on each cycle; changing
+the setting does not trigger immediate deletion. A day is exactly 24 hours, and
+only rows strictly older than the cutoff are deleted. Monitor statistics therefore
+cover retained history, not lifetime totals.
+
+On the first startup with this feature, a transactional, one-time migration
+removes request rows older than 90 days and records completion in settings. This
+also applies to existing 3.0 installations. The selected/default policy first runs
+one hour later. A failed cleanup is logged and retried next hour without disabling
+the proxy; an invalid stored policy prevents scheduled deletion rather than
+silently selecting a shorter retention period.
+
+Deletion is permanent without a separate backup. Keys, providers, routing rules,
+settings and quota accounting are not deleted. SQLite reuses freed pages; this
+does not impose a byte-size cap or immediately shrink the database file, and no
+blocking VACUUM is scheduled.
+
 ## Data Directory Structure
 
 Runtime data is stored in platform-standard user directories, not in the source tree:
