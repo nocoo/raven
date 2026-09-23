@@ -54,7 +54,11 @@ try {
           working_tree_dirty: execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim().length > 0,
           runtime: { bun: Bun.version, node: process.version },
           preflight, cases,
-          coverage_gaps: ["No Anthropic-native model in this selected matrix", "No custom upstream; no quota exhaustion, schedule switching, server tools, image/audio or load cases"],
+          coverage_gaps: [
+            ...(!cases.some((item) => item.upstreamFormat === "anthropic") ? ["No Anthropic-native model in this selected matrix"] : []),
+            "Chat/Responses to Messages conversion is not selected by the current dual-protocol Claude catalog",
+            "No custom upstream; no quota exhaustion, schedule switching, server tools, image/audio or load cases",
+          ],
           results: [] as readonly LiveResult[],
         }
         let lastPrinted = ""

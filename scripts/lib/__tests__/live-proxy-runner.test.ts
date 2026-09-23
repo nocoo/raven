@@ -25,6 +25,7 @@ beforeEach(() => {
     { id: "gemini-3.8-flash", supported_endpoints: ["/chat/completions"] },
     { id: "grok-4.5", supported_endpoints: ["/responses"] },
     { id: "gpt-5.6-sol", supported_endpoints: ["/responses", "ws:/responses"] },
+    { id: "claude-opus-5.5", supported_endpoints: ["/v1/messages", "/chat/completions"] },
   ])
   reader = new Database(fixture.path, { readonly: true, strict: true })
   privateKeyPath = join(dirname(fixture.path), "synthetic-key")
@@ -51,7 +52,7 @@ describe("live preflight boundaries", () => {
     expect(value.key).toEqual({ id: identity.id, name: identity.name, rule_id: "builtin:copilot" })
     expect(JSON.stringify(value)).not.toContain(identity.key)
     expect(JSON.stringify(value)).not.toContain("key_hash")
-    expect(value.catalog).toHaveLength(3)
+    expect(value.catalog).toHaveLength(4)
     expect(value.rule.allow_conversion).toBe(true)
     chmodSync(privateKeyPath, 0o644)
     expect(() => readLiveKey(privateKeyPath)).toThrow("private")
@@ -71,6 +72,12 @@ describe("live preflight boundaries", () => {
     expect(() => livePreflight(reader, "fixture-wrong-key", liveCases)).toThrow("active database key")
     revokeApiKey(fixture.db, identity.id)
     expect(() => livePreflight(reader, identity.key, liveCases)).toThrow("active database key")
+  })
+
+  test("requires the native Messages endpoint for Claude Messages cases", () => {
+    replaceCatalog(fixture.db, "builtin:copilot", [{ id: "claude-opus-5.5", supported_endpoints: ["/chat/completions"] }])
+    const entry = liveCases.find((item) => item.model === "claude-opus-5.5" && item.protocol === "messages")!
+    expect(() => livePreflight(reader, identity.key, [entry])).toThrow("Cached endpoints changed")
   })
 
   test.each([
@@ -196,6 +203,25 @@ describe("one request per case and fail-fast execution", () => {
     expect(results[1]!.body).toContain("Fixture rate limit")
     expect(results[1]!.telemetry?.request.status_code).toBe(429)
     expect(results[1]!.errors).toEqual([expect.stringContaining("HTTP 429")])
+  })
+
+  test("stops after a Proxy-internal replay even if the final response succeeds", async () => {
+    let calls = 0
+    const results = await runLiveCases({ ...options(), fetchImpl: async (_url, init) => {
+      calls++
+      const name = new Headers(init.headers).get("user-agent")!
+      const requestId = seedTelemetry(fixture.db, first, identity.id, name)
+      fixture.db.query(`INSERT INTO quota_settlements
+        (request_id, attempt_ordinal, upstream_id, window_id, captured_at, usage_present, usage_complete,
+         input_tokens, cache_read_tokens, cache_write_tokens, output_tokens, multiplier, weighted_debit)
+        SELECT request_id, 1, upstream_id, window_id, captured_at, 0, 0,
+         NULL, NULL, NULL, NULL, multiplier, 0 FROM quota_settlements WHERE request_id = ?`).run(requestId)
+      fixture.db.query("UPDATE requests SET routing_details = json_set(routing_details, '$.usage_complete', json('false')) WHERE id = ?").run(requestId)
+      return Response.json(fixtureJson(first))
+    } })
+    expect(calls).toBe(1)
+    expect(results.map((entry) => entry.status)).toEqual(["failed", "not_run", "not_run"])
+    expect(results[0]!.errors).toEqual([expect.stringContaining("Multiple upstream attempts")])
   })
 
   test.each([false, true])("rejects a wrong content type (stream=%s)", async (stream) => {

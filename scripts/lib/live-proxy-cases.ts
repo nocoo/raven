@@ -18,18 +18,20 @@ export interface LiveCase {
   body: Record<string, unknown>
 }
 
-const models = ["gemini-3.8-flash", "grok-4.5", "gpt-5.6-sol"]
+const models = ["gemini-3.8-flash", "grok-4.5", "gpt-5.6-sol", "claude-opus-5.5"]
 const protocols: LiveProtocol[] = ["chat", "responses", "messages"]
 const paths = { chat: "/v1/chat/completions", messages: "/v1/messages", responses: "/v1/responses" }
 const clientFormats = { chat: "openai", messages: "anthropic", responses: "responses" } as const
 
 function makeCase(model: string, protocol: LiveProtocol, kind: LiveKind, stream: boolean): LiveCase {
   const resolvedModel = model === "auto" ? "gpt-5.6-sol" : model
-  const upstreamFormat = resolvedModel === "gemini-3.8-flash" ? "openai" : "responses"
+  const upstreamFormat = resolvedModel === "claude-opus-5.5"
+    ? protocol === "messages" ? "anthropic" : "openai"
+    : resolvedModel === "gemini-3.8-flash" ? "openai" : "responses"
   const strategy: StrategyName = protocol === "chat"
     ? upstreamFormat === "openai" ? "copilot-openai-direct" : "copilot-chat-via-responses"
     : protocol === "messages"
-      ? upstreamFormat === "openai" ? "copilot-translated" : "protocol-converted"
+      ? upstreamFormat === "anthropic" ? "copilot-native" : upstreamFormat === "openai" ? "copilot-translated" : "protocol-converted"
       : upstreamFormat === "responses" ? "copilot-responses" : "protocol-converted"
   const id = `${model}.${protocol}.${kind}.${stream ? "sse" : "json"}`
   const marker = `RAVEN_${id.replaceAll(/[^a-zA-Z0-9]/g, "_").toUpperCase()}`

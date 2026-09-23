@@ -44,7 +44,7 @@ export function livePreflight(db: Database, key: string, cases: readonly LiveCas
   for (const item of cases) {
     const model = catalog.find((entry) => entry.id === item.resolvedModel)
     assert.ok(model, `Model missing from the existing Copilot cache: ${item.resolvedModel}`)
-    const expected = item.upstreamFormat === "openai" ? "/chat/completions" : "/responses"
+    const expected = item.upstreamFormat === "anthropic" ? "/v1/messages" : item.upstreamFormat === "openai" ? "/chat/completions" : "/responses"
     assert.ok(Array.isArray(model.supported_endpoints) && model.supported_endpoints.includes(expected), `Cached endpoints changed for ${item.resolvedModel}; review the expected route`)
   }
   return {
@@ -223,7 +223,10 @@ export async function runLiveCases(input: {
         await delay(50)
       }
       assert.ok(result.telemetry, "No persisted request matched this live case")
-      if (!result.errors.length) assertLiveTelemetry(item, result.telemetry, input.keyId)
+      if (!result.errors.length) {
+        assertLiveTelemetry(item, result.telemetry, input.keyId)
+        assert.equal(result.telemetry.attempts.length, 1, "Multiple upstream attempts observed; stop without sending another case")
+      }
     } catch (error) {
       result.errors.push(error instanceof Error ? error.message : String(error))
     }

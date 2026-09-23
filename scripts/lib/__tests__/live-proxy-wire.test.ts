@@ -6,15 +6,25 @@ import { fixtureFrames, fixtureJson, frame } from "./live-proxy-fixtures"
 const item = (protocol: LiveProtocol, tool = false) => liveCases.find((entry) => entry.protocol === protocol && entry.kind === (tool ? "tool" : "text"))!
 
 describe("finite live manifest", () => {
-  test("enumerates all 51 cases without duplicate identities or implicit live execution", () => {
-    expect(liveCases).toHaveLength(51)
-    expect(new Set(liveCases.map((entry) => entry.id)).size).toBe(51)
-    expect(liveCases.filter((entry) => entry.kind === "text")).toHaveLength(24)
-    expect(liveCases.filter((entry) => entry.kind === "tool")).toHaveLength(18)
-    expect(liveCases.filter((entry) => entry.kind === "continuation")).toHaveLength(9)
-    expect(liveCases.slice(0, 6).every((entry) => entry.clientFormat === entry.upstreamFormat && entry.kind === "text")).toBe(true)
+  test("enumerates all 66 cases without duplicate identities or implicit live execution", () => {
+    expect(liveCases).toHaveLength(66)
+    expect(new Set(liveCases.map((entry) => entry.id)).size).toBe(66)
+    expect(liveCases.filter((entry) => entry.kind === "text")).toHaveLength(30)
+    expect(liveCases.filter((entry) => entry.kind === "tool")).toHaveLength(24)
+    expect(liveCases.filter((entry) => entry.kind === "continuation")).toHaveLength(12)
+    expect(liveCases.slice(0, 10).every((entry) => entry.clientFormat === entry.upstreamFormat && entry.kind === "text")).toBe(true)
     expect(liveCases.filter((entry) => entry.model === "auto").every((entry) => entry.resolvedModel === "gpt-5.6-sol")).toBe(true)
-    expect(new Set(liveCases.map((entry) => entry.strategy))).toEqual(new Set(["copilot-openai-direct", "copilot-responses", "copilot-translated", "copilot-chat-via-responses", "protocol-converted"]))
+    expect(new Set(liveCases.map((entry) => entry.strategy))).toEqual(new Set(["copilot-openai-direct", "copilot-responses", "copilot-native", "copilot-translated", "copilot-chat-via-responses", "protocol-converted"]))
+  })
+
+  test.each([
+    ["chat", "openai", "copilot-openai-direct"],
+    ["messages", "anthropic", "copilot-native"],
+    ["responses", "openai", "protocol-converted"],
+  ])("keeps Claude %s on the route selected by its dual-protocol catalog", (protocol, upstreamFormat, strategy) => {
+    const entries = liveCases.filter((entry) => entry.model === "claude-opus-5.5" && entry.protocol === protocol)
+    expect(entries).toHaveLength(5)
+    for (const entry of entries) expect(entry).toMatchObject({ upstreamFormat, strategy })
   })
 
   test("selects exact IDs once in manifest order and rejects typos", () => {

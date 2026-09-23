@@ -20,17 +20,18 @@ The selected catalog at design time declares:
 | `gemini-3.8-flash` | Chat Completions | `copilot-openai-direct` | `copilot-translated` | `protocol-converted` |
 | `grok-4.5` | Responses | `copilot-chat-via-responses` | `protocol-converted` | `copilot-responses` |
 | `gpt-5.6-sol` | Responses | `copilot-chat-via-responses` | `protocol-converted` | `copilot-responses` |
+| `claude-opus-5.5` | Messages and Chat Completions | `copilot-openai-direct` | `copilot-native` | `protocol-converted` (to Chat) |
 | `auto` | Resolves to `gpt-5.6-sol` | `copilot-chat-via-responses` | `protocol-converted` | `copilot-responses` |
 
 The machine-readable manifest is
 [`scripts/lib/live-proxy-cases.ts`](../scripts/lib/live-proxy-cases.ts). It contains
-51 cases with stable IDs:
+66 cases with stable IDs:
 
 | Scenario | Combinations | Cases | Required behavior |
 | --- | --- | ---: | --- |
-| Short text | 3 models × 3 client APIs × JSON/SSE | 18 | Preserve a case-specific marker and finish normally |
-| Forced ordinary function call | 3 models × 3 client APIs × JSON/SSE | 18 | One `echo` call, nonempty call ID and exact assembled JSON arguments |
-| Tool-result continuation | 3 models × 3 client APIs × JSON | 9 | Consume matched call/result history and return the tool-result marker without another tool call |
+| Short text | 4 models × 3 client APIs × JSON/SSE | 24 | Preserve a case-specific marker and finish normally |
+| Forced ordinary function call | 4 models × 3 client APIs × JSON/SSE | 24 | One `echo` call, nonempty call ID and exact assembled JSON arguments |
+| Tool-result continuation | 4 models × 3 client APIs × JSON | 12 | Consume matched call/result history and return the tool-result marker without another tool call |
 | Default `auto` | 3 client APIs × JSON/SSE | 6 | Keep incoming `auto` in telemetry while routing to `gpt-5.6-sol` |
 
 Native text cases run first, then translated text, `auto`, tool calls and
@@ -40,8 +41,10 @@ The ordinary `echo` tool has no external service or side effect. Each request ha
 a 1,024-token output budget and a 120-second timeout. No sampling or reasoning
 override is added.
 
-The current account has no Anthropic-native model. This matrix therefore does not
-verify native Messages, Chat → Messages or Responses → Messages. Custom upstream
+The current cached Claude model supports both Messages and Chat. The default
+router preserves either native input and selects Chat for Responses conversion.
+This matrix therefore verifies native Messages but not Chat → Messages or
+Responses → Messages; it does not change the catalog to force those paths. Custom upstream
 authentication, schedule changes, quota exhaustion, paid server tools,
 multimodal input, long context, cancellation workloads and load testing are also
 outside this matrix. Add separately authorized, bounded cases when those paths
@@ -112,6 +115,8 @@ Later cases remain `not_run`. There is no harness retry, broad legacy-suite
 invocation or automatic golden replacement. Normal Proxy behavior, including
 existing same-provider credential replay, is exercised unchanged; every observed
 upstream attempt is recorded in the result.
+The runner stops after observing more than one upstream attempt even when the
+Proxy's final response succeeds. It never sends the next case after a replay.
 
 Preserve the initial report. Inspect the failed response and correlated request,
 add an offline regression for a production defect, and fix its shared cause.
