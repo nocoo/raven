@@ -279,6 +279,12 @@ version change. A temporary mirror environment is not proof of a portable
 lockfile. Inspect the generated lockfile before a combined install/commit/push
 pipeline can publish it, and finish interrupted release stages explicitly.
 
+Exact-version browser verification also caught a 2.14px false header-alignment
+failure: two sequential browser calls sampled the name field and save button
+at different points in the shared entry animation. Read both rectangles in one
+browser evaluation, preserving the original 1px alignment tolerance. Do not
+weaken geometry assertions or add fixed sleeps to hide cross-frame sampling.
+
 ## Undated entries migrated from the previous handbook
 
 

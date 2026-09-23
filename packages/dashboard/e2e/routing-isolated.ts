@@ -72,12 +72,14 @@ export async function runRoutingBrowser(options: BrowserOptions) {
   };
   const header = async (name: string) => {
     const card = page.getByRole("region", { name: `${name} configuration`, exact: true });
-    const input = await card.getByLabel(`${name} name`, { exact: true }).boundingBox();
-    const action = await card.getByRole("button", { name: "Save changes", exact: true }).boundingBox();
-    expect(input).not.toBeNull();
-    expect(action).not.toBeNull();
-    expect(Math.abs(input!.y - action!.y)).toBeLessThanOrEqual(1);
-    expect(Math.abs(input!.height - action!.height)).toBeLessThanOrEqual(1);
+    await expect(card.getByLabel(`${name} name`, { exact: true })).toBeVisible();
+    const { input, action } = await card.evaluate(element => {
+      const input = element.querySelector<HTMLInputElement>("input[aria-label$=' name']")!;
+      const action = Array.from(element.querySelectorAll("button")).find(button => button.textContent?.includes("Save changes"))!;
+      return { input: input.getBoundingClientRect().toJSON(), action: action.getBoundingClientRect().toJSON() };
+    });
+    expect(Math.abs(input.y - action.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(input.height - action.height)).toBeLessThanOrEqual(1);
     layouts.push({ kind: "configuration-header", name, input, action });
   };
   const feedbackPlacement = async (feedback: Locator) => {
