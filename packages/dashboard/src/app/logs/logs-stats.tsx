@@ -516,8 +516,7 @@ export function LogsStats({ events }: LogsStatsProps) {
 
   return (
     <>
-      {/* ── Desktop: fixed-width left sidebar, always visible ── */}
-      <div className="hidden lg:flex lg:w-[380px] lg:shrink-0 lg:flex-col lg:gap-6 lg:overflow-y-auto">
+      <section aria-label="Log statistics" className="hidden @min-[42rem]/logs:flex w-72 shrink-0 flex-col gap-6 overflow-y-auto">
         {/* ── Section 1: Requests ── */}
         <SectionRule title="Requests">
           <div className="space-y-3">
@@ -558,10 +557,9 @@ export function LogsStats({ events }: LogsStatsProps) {
             Stats will appear as requests arrive
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ── Mobile: collapsible strip above stream ── */}
-      <LayerCard padding="none" className="lg:hidden shrink-0 overflow-hidden">
+      <LayerCard padding="none" className="@min-[42rem]/logs:hidden -order-1 shrink-0 overflow-y-auto max-h-[50%]">
         <button
           type="button"
           onClick={() => setMobileExpanded(!mobileExpanded)}

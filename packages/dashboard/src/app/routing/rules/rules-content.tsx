@@ -46,7 +46,7 @@ function RulesWorkbench({ rules, upstreams, clock }: { rules: RoutingRule[]; ups
         </nav>
         <p className="px-2 pt-3 text-xs text-basalt-muted-foreground">Assign keys in <a href="/connect" className="text-basalt-primary underline underline-offset-2">Connect</a>.</p>
       </LayerCard>
-      <fieldset className="min-w-0 routing-enter" key={state.active?.id ?? "new"} disabled={state.busy}><legend className="sr-only">Rule editor</legend>
+      <fieldset className="@container/editor min-w-0 routing-enter" key={state.active?.id ?? "new"} disabled={state.busy}><legend className="sr-only">Rule editor</legend>
         <section aria-label="Rule configuration" className="min-w-0">
           <ConfigurationHeader name={state.draft.name} label="Rule name" placeholder="Name this rule" onNameChange={name => state.change({ ...state.draft, name })} isNew={!state.active} dirty={state.dirty} busy={state.busy} saving={state.busy} onSave={() => void state.save()} onDiscard={state.discard}>
             {state.active && !state.active.is_builtin && <Button size="icon" variant="ghost" aria-label="Delete" title="Delete rule" className="size-8 text-basalt-muted-foreground hover:text-basalt-destructive" onClick={remove} disabled={state.busy}><Trash2 className="size-3.5" /></Button>}

@@ -93,7 +93,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
         <div className="flex items-center gap-2"><h3 className="text-sm font-semibold">Period override</h3><Badge variant="purple" className="text-xs">{mode === "weekly" ? DAYS[selected.day] : "Every day"}</Badge>{selected.end > DAY && <Badge variant="outline" className="text-xs">Ends next day</Badge>}
           <Button size="icon" variant="ghost" className="ml-auto size-7" aria-label="Remove period" onClick={() => { onChange(mode, windows.filter(window => window.id !== selected.id)); setSelectedId(null); setError(null); }}><Trash2 className="size-3.5" /></Button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 @min-[32rem]/editor:grid-cols-3">
           {mode === "weekly" && <RoutingSelect label="Starts on" value={String(selected.day)} options={DAYS.map((label, index) => ({ label, value: String(index) }))} onChange={value => { const next = Number(value); update({ ...selected, day: next }); setDay(next); }} />}
           <RoutingSelect label="Start time" value={String(selected.start)} options={timeOptions(selected.start)} onChange={value => { const start = Number(value); update({ ...selected, start, end: setWindowEnd(start, selected.end === DAY ? DAY : selected.end % DAY) }); }} />
           <RoutingSelect label="End time" value={String(selected.end === DAY ? DAY : selected.end % DAY)} options={timeOptions(selected.end === DAY ? DAY : selected.end % DAY, true)} onChange={value => update({ ...selected, end: setWindowEnd(selected.start, Number(value)) })} />

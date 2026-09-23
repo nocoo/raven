@@ -879,7 +879,7 @@ export function LogsContent({
   }, [handleScroll, handleScrollForFab]);
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="@container/logs flex h-full min-h-0 flex-col gap-3">
       <PageHeader
         title="Logs"
         description={
@@ -967,13 +967,8 @@ export function LogsContent({
         </div>
       )}
 
-      {/* ── Main body: left stats | right stream ── */}
-      <div className="min-h-0 flex-1 flex flex-col lg:flex-row gap-3">
-        {/* Left — Stats panel (scrollable on desktop, collapsible on mobile) */}
-        <LogsStats events={events} />
-
-        {/* Right — Log stream */}
-        <div className="relative min-h-0 flex-1 flex flex-col">
+      <div className="min-h-0 flex-1 flex flex-col @min-[42rem]/logs:flex-row gap-3">
+        <section aria-label="Log events" className="relative min-h-0 min-w-0 flex-1 flex flex-col">
           <div
             ref={scrollRef}
             onScroll={onScroll}
@@ -1019,7 +1014,8 @@ export function LogsContent({
             </span>
             <span>{relativeTime(events[events.length - 1]?.ts ?? Date.now())}</span>
           </div>
-        </div>
+        </section>
+        <LogsStats events={events} />
       </div>
     </div>
   );

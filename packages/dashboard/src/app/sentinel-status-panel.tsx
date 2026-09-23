@@ -92,7 +92,7 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
   if (!data) {
     return (
       <SectionRule title="Token Refresh Sentinel">
-        <div role="status" aria-label="Loading Token Refresh Sentinel" aria-busy="true" className="grid grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
+        <div role="status" aria-label="Loading Token Refresh Sentinel" aria-busy="true" className="grid grid-cols-1 gap-3 @min-[48rem]/page:grid-cols-3">
           {["occurrences", "retry", "state"].map(key => <LayerCard key={key} aria-hidden="true" className="space-y-4"><Skeleton className="h-4 w-32" /><Skeleton className="h-40 w-full" /></LayerCard>)}
         </div>
       </SectionRule>
@@ -117,7 +117,7 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
       {error && (
         <p className="text-meta text-basalt-destructive">Stale: {error}</p>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 items-stretch">
+      <div className="grid grid-cols-1 @min-[48rem]/page:grid-cols-3 gap-3 items-stretch">
         <PanelShell title="401 Occurrences">
           <OccurrencesDonut slices={slices} />
         </PanelShell>

@@ -247,6 +247,29 @@ The 3.0.0 application code, version, tag and Release remain untouched. Treat
 near-timeout green tests as a warning: isolate independent behaviors and measure
 their work before increasing a timeout or blaming a race.
 
+## 2026-09-23: Push docks need container-based page layouts
+
+Restoring the Logs push dock exposed a layout assumption that was invisible at
+full page width: Monitor and Routing still chose columns from viewport media
+queries. With navigation and the dock open at 1280px, Routing's 330px content
+island overflowed to 502px. Named page, panel and editor container queries now
+choose layouts from the space actually available, including loading skeletons.
+The isolated browser check opens Logs across every sidebar destination in both
+themes, checks island overflow and verifies the stream/statistics column order.
+
+The first auto-refresh browser assertion tried to locate a background control
+while a modal request drawer correctly hid it from the accessibility tree. The
+test now checks that the detail survives a real RSC refresh, then closes the
+drawer before inspecting the preserved interval. Production behavior was not
+changed to accommodate the mistaken assertion.
+
+An initial full Dashboard run overlapped local compilation and machine-wide
+load above 41, producing widespread five-second timeouts across existing files.
+A complete two-worker coverage run passed without changing timeout, coverage,
+assertions or CI configuration. Keep expensive local verification bounded on a
+shared machine; require normal hooks and exact-release CI before publication is
+considered verified.
+
 ## Undated entries migrated from the previous handbook
 
 

@@ -97,6 +97,54 @@
   & > * { min-width: 0; }
 }
 
+button[role="combobox"][aria-controls^="radix-"] {
+  max-width: 100%;
+  gap: --spacing(2);
+  white-space: nowrap;
+}
+
+button[role="combobox"][aria-controls^="radix-"] > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button[role="combobox"][aria-controls^="radix-"] > svg {
+  flex-shrink: 0;
+}
+
+[role="listbox"]:has([data-radix-select-viewport]) {
+  width: max-content;
+  min-width: var(--radix-select-trigger-width);
+  max-width: var(--radix-select-content-available-width);
+}
+
+[data-radix-select-viewport] [role="option"] > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container page (width < 40rem) {
+  .dashboard-page header[aria-labelledby] > div:has(h1) {
+    flex-direction: column;
+  }
+  .dashboard-page header[aria-labelledby] > div:has(h1) > div:last-child {
+    justify-content: flex-start;
+  }
+}
+
+@container logs (width < 42rem) {
+  header[aria-labelledby] > div:has(h1) {
+    flex-direction: column;
+    gap: --spacing(2);
+  }
+  header[aria-labelledby] > div:has(h1) > div:last-child {
+    justify-content: flex-start;
+  }
+}
+
 @utility stagger-1 { animation-delay: 0ms; }
 @utility stagger-2 { animation-delay: 60ms; }
 @utility stagger-3 { animation-delay: 120ms; }

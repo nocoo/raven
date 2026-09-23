@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  type AnalyticsFilters, type TimeRange, countActiveFilters, filtersToApiQuery,
+  type AnalyticsFilters, type TimeRange, filtersToApiQuery,
   filtersToSearchParams, rangeToEpoch, rangeToInterval, searchParamsToFilters,
 } from "@/lib/analytics-filters";
 
@@ -16,7 +16,6 @@ describe("complete analytics deep-link contract", () => {
 
   it("round-trips every supported dimension without losing false or zero", () => {
     expect(searchParamsToFilters(filtersToSearchParams(filters))).toEqual(filters);
-    expect(countActiveFilters(filters)).toBe(17);
   });
 
   it("forwards the same complete selection to the proxy API", () => {

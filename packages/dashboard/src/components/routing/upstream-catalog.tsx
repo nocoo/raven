@@ -34,7 +34,7 @@ export function UpstreamCatalog({ upstream, manual, onManualChange, busy, dirty,
     </LayerCard>
     <LayerCard className="space-y-3" role="region" aria-label="Test connection">
       <div className="flex items-start gap-2.5"><SectionIcon icon={Send} tone="blue" /><div className="space-y-1"><h3 className="text-sm font-semibold">Test a model</h3><p className="text-xs text-basalt-muted-foreground">Sends “ping. Reply with exactly pong.” using this connection. Uses your account’s quota.</p></div></div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-2 @min-[26rem]/editor:flex-row @min-[26rem]/editor:items-end">
         <Field label="Test model" htmlFor="upstream-test-model" className="min-w-0 flex-1"><Autocomplete id="upstream-test-model" aria-label="Test model" size="sm" items={modelIds(upstream ?? undefined).map(id => ({ label: id, value: id }))} value={testModel} onValueChange={onTestModelChange} placeholder="Select or type a model ID" /></Field>
         <Button size="sm" variant="outline" disabled={disabled || !testModel.trim() || testModel.trim() === "auto"} loading={busy === "test"} onClick={test}><Send className="size-3.5" />Send one test</Button>
       </div>

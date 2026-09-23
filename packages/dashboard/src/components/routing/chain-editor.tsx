@@ -67,14 +67,14 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
                 }}><GripVertical className="size-4" /></Button>
               <span className="text-xs font-medium tabular-nums text-basalt-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
               <Badge variant={terminal && value.length > 1 ? "purple" : "secondary"} className="text-xs">{value.length === 1 ? "Target" : terminal ? "Terminal fallback" : "Quota candidate"}</Badge>
-              <span className="order-last basis-full text-xs text-basalt-muted-foreground sm:order-none sm:ml-auto sm:basis-auto">{preview.labels[index]}</span>
-              <div className="ml-auto flex items-center gap-0.5 sm:ml-0">
+              <span className="order-last basis-full text-xs text-basalt-muted-foreground @min-[32rem]/editor:order-none @min-[32rem]/editor:ml-auto @min-[32rem]/editor:basis-auto">{preview.labels[index]}</span>
+              <div className="ml-auto flex items-center gap-0.5 @min-[32rem]/editor:ml-0">
                 <Button size="icon" variant="ghost" className="size-7" aria-label={`Move target ${index + 1} up`} disabled={index === 0} onClick={() => reorder(index, index - 1)}><ArrowUp className="size-3.5" /></Button>
                 <Button size="icon" variant="ghost" className="size-7" aria-label={`Move target ${index + 1} down`} disabled={terminal} onClick={() => reorder(index, index + 1)}><ArrowDown className="size-3.5" /></Button>
                 <Button size="icon" variant="ghost" className="size-7 text-basalt-muted-foreground hover:text-basalt-destructive" aria-label={`Remove target ${index + 1}`} disabled={value.length === 1} onClick={() => onChange(value.filter((_, i) => i !== index))}><Trash2 className="size-3.5" /></Button>
               </div>
             </div>
-            <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            <div className="grid min-w-0 gap-2 @min-[32rem]/editor:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
               <RoutingSelect label={`Upstream ${index + 1}`} value={target.upstream_id} options={upstreams.map(item => ({ value: item.id, label: `${item.name}${item.is_enabled ? "" : " · disabled"}` }))}
                 onChange={upstream_id => update(index, { upstream_id, model: modelIds(upstreams.find(item => item.id === upstream_id))[0] ?? "" })} />
               <div className="space-y-1.5"><label htmlFor={`${id}-model-${index}`} className="text-sm font-medium">Model {index + 1}</label>

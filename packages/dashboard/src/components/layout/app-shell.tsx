@@ -89,15 +89,17 @@ export function AppShell({ children }: AppShellProps) {
           title={item?.label ?? "Raven"}
           actions={<HeaderActions />}
         />
-        <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
-          <ContentIsland className="relative">
-            <SetupWizard />
-            <div className="dashboard-page @container min-w-0 w-full">
-              {children}
-            </div>
-          </ContentIsland>
+        <div className="relative flex min-h-0 min-w-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
+            <ContentIsland className="relative">
+              <SetupWizard />
+              <div className="dashboard-page @container/page min-w-0 w-full">
+                {children}
+              </div>
+            </ContentIsland>
+          </div>
+          <LogsDock />
         </div>
-        <LogsDock />
       </AppMain>
     </Shell>
   );

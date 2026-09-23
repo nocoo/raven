@@ -60,18 +60,20 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
   }
 
   return <Tabs value={tab} onValueChange={select} activationMode="manual" className="min-w-0">
-    <TabsList aria-label={isKey ? "Select API key" : "Select model"} className="flex-nowrap overflow-x-auto pb-0.5" showIndicator={false}>
-      <TabsTrigger value="all" disabled={pending} className="shrink-0 rounded-t-md data-[state=active]:bg-basalt-accent">All {isKey ? "keys" : "models"}</TabsTrigger>
-      {nameGroup && <TabsTrigger value={`account:${nameGroup}`} disabled={pending} className="shrink-0 rounded-t-md data-[state=active]:bg-basalt-accent">Name group: {nameGroup}</TabsTrigger>}
-      {available.map(entry => <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} title={isKey ? `${keyLabel(entry)} · ${keyIdentity(entry.key)}` : entry.key} className="shrink-0 gap-2 rounded-t-md data-[state=active]:bg-basalt-accent"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span>{isKey && <span className="font-mono text-xs text-basalt-muted-foreground">{entry.key.startsWith("legacy:") ? "historical" : entry.key.slice(-8)}</span>}</TabsTrigger>)}
-      {selected && !current && <TabsTrigger value={`entry:${selected}`} disabled={pending} className="shrink-0 rounded-t-md data-[state=active]:bg-basalt-accent">{selected}</TabsTrigger>}
+    <div className="overflow-x-auto pb-0.5">
+    <TabsList aria-label={isKey ? "Select API key" : "Select model"} className="w-max min-w-full flex-nowrap">
+      <TabsTrigger value="all" disabled={pending} className="shrink-0">All {isKey ? "keys" : "models"}</TabsTrigger>
+      {nameGroup && <TabsTrigger value={`account:${nameGroup}`} disabled={pending} className="shrink-0">Name group: {nameGroup}</TabsTrigger>}
+      {available.map(entry => <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} title={isKey ? `${keyLabel(entry)} · ${keyIdentity(entry.key)}` : entry.key} className="shrink-0 gap-2"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span>{isKey && <span className="font-mono text-xs text-basalt-muted-foreground">{entry.key.startsWith("legacy:") ? "historical" : entry.key.slice(-8)}</span>}</TabsTrigger>)}
+      {selected && !current && <TabsTrigger value={`entry:${selected}`} disabled={pending} className="shrink-0">{selected}</TabsTrigger>}
     </TabsList>
+    </div>
     {entries.length >= 50 && <p className="mt-2 text-xs text-basalt-muted-foreground">Top 50 identities by requests · current selection remains available</p>}
     <TabsContent value={tab} className="space-y-4 data-[state=active]:animate-none" aria-busy={pending}>
       {pending ? <UsageStatsSkeleton selected={pendingTab !== "all"} /> : <>
         <MonitorSummary summary={data.summary} percentiles={data.percentiles} filters={data.filters} />
         {data.summary.total_requests === 0 && <EmptyMonitor />}
-        <div className="grid grid-cols-1 items-stretch gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
+        <div className="grid grid-cols-1 items-stretch gap-3 @min-[60rem]/page:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
           <UsageDistribution entries={entries} total={data.distributionTotal} dimension={dimension} selected={selected} />
           <MonitorPanel title={isKey ? "Key details" : "Model details"} description="Protocol paths and usage for the selected scope." action={<MonitorLink href={monitorHref("/requests", data.filters)}>Inspect requests</MonitorLink>}>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-basalt-border/50 pb-3">
@@ -79,14 +81,14 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-basalt-muted-foreground"><span><strong className="text-basalt-foreground">{formatCompact(data.summary.total_requests)}</strong> requests</span><span>{formatCompact(data.summary.total_tokens)} tokens</span><span>P95 {data.percentiles ? formatLatency(data.percentiles.p95) : "—"}</span></div>
               {current && <p className="basis-full text-xs text-basalt-muted-foreground">First in range <LocalTime timestamp={current.first_seen} /> · Last <LocalTime timestamp={current.last_seen} /></p>}
             </div>
-            <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <div className="grid min-w-0 gap-4 @min-[34rem]/panel:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <UsageBreakdown entries={isKey ? data.models : data.keys} dimension={isKey ? "model" : "key_id"} filters={data.filters} total={data.summary.total_requests} />
               <section className="min-w-0" aria-label="Protocol paths"><h3 className="mb-3 text-xs font-semibold">Protocol paths</h3><ProtocolDistribution data={data.protocols} summary={data.summary} filters={data.filters} /></section>
             </div>
           </MonitorPanel>
         </div>
         <ActivityChart data={data} dimension={dimension} />
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2"><TokenChart data={data} /><InvestigationPanel summary={data.summary} filters={data.filters} clients={data.clients} upstreams={data.upstreams} /></div>
+        <div className="grid grid-cols-1 gap-3 @min-[60rem]/page:grid-cols-2"><TokenChart data={data} /><InvestigationPanel summary={data.summary} filters={data.filters} clients={data.clients} upstreams={data.upstreams} /></div>
         {selected && <TrafficChart data={data} />}
       </>}
     </TabsContent>

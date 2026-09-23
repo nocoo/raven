@@ -29,7 +29,7 @@ export function UpstreamConnection({ upstream, value, onChange }: { upstream: Pr
     </LayerCard>
     <Collapsible asChild defaultOpen={value.auth_style !== null || value.use_socks5 !== null || value.supports_reasoning}><LayerCard>
       <LayerCard.Header><h3 className="w-full"><CollapsibleTrigger className="w-full justify-between text-sm font-semibold text-basalt-foreground"><span className="flex items-center gap-2.5"><SectionIcon icon={SlidersHorizontal} tone="purple" />Advanced connection settings</span></CollapsibleTrigger></h3></LayerCard.Header>
-      <CollapsibleContent unstyled><LayerCard.Body className="max-w-3xl space-y-4"><div className="grid gap-3 sm:grid-cols-2">
+      <CollapsibleContent unstyled><LayerCard.Body className="max-w-3xl space-y-4"><div className="grid gap-3 @min-[26rem]/editor:grid-cols-2">
       <RoutingSelect label="Authentication header" value={value.auth_style ?? "default"} options={[{ value: "default", label: "Protocol default" }, { value: "bearer", label: "Authorization: Bearer" }, { value: "x-api-key", label: "x-api-key" }]} onChange={auth => onChange({ ...value, auth_style: auth === "default" ? null : auth as "bearer" | "x-api-key" })} />
       <RoutingSelect label="SOCKS5 proxy" value={value.use_socks5 === null ? "default" : value.use_socks5 ? "on" : "off"} options={[{ value: "default", label: "Use Raven setting" }, { value: "on", label: "Always use proxy" }, { value: "off", label: "Direct connection" }]} onChange={proxy => onChange({ ...value, use_socks5: proxy === "default" ? null : proxy === "on" })} />
     </div>

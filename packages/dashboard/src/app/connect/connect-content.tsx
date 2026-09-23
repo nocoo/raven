@@ -171,7 +171,7 @@ console.log(message.content);`,
     <LayerCard className="min-w-0 overflow-hidden">
       <LayerCard.Header><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Code2} tone="purple" />Code examples</h2></LayerCard.Header>
       <LayerCard.Body>
-      <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+      <div className="grid max-w-xl gap-3 @min-[32rem]/page:grid-cols-2">
         <RoutingSelect label="Model selection" value={selection} onChange={setSelection} options={[{ value: "auto", label: "auto · configured target model" }, { value: "explicit", label: "Explicit · preserve model ID" }]} />
         {selection === "explicit" && <div className="space-y-1.5"><Label htmlFor="example-model">Explicit model ID</Label><Input id="example-model" size="sm" value={explicitModel} onChange={event => setExplicitModel(event.target.value)} /></div>}
       </div>

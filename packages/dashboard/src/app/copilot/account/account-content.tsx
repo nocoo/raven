@@ -245,7 +245,7 @@ export function AccountContent({ data }: AccountContentProps) {
       )}
 
       {/* Subscription overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 @min-[32rem]/page:grid-cols-2 @min-[48rem]/page:grid-cols-3 gap-3">
         {data.login != null && (
           <InfoRow icon={User} tone="purple" label="GitHub Login">
             <p className="text-sm font-medium">{data.login}</p>
@@ -294,7 +294,7 @@ export function AccountContent({ data }: AccountContentProps) {
           title="Quota"
           hint={data.quota_reset_date ? `Resets ${data.quota_reset_date}` : undefined}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 @min-[32rem]/page:grid-cols-2 @min-[48rem]/page:grid-cols-3 gap-3">
             {quotas.map(([id, snapshot]) => (
               <QuotaCard key={id} id={id} snapshot={snapshot} />
             ))}

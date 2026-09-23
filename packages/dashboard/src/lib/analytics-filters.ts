@@ -240,34 +240,6 @@ export function filtersToApiQuery(filters: AnalyticsFilters): string {
   return qs ? `?${qs}` : "";
 }
 
-// ---------------------------------------------------------------------------
-// Utility: count active filters (excluding time range)
-// ---------------------------------------------------------------------------
-
-export function countActiveFilters(filters: AnalyticsFilters): number {
-  let count = 0;
-  if (filters.model) count++;
-  if (filters.resolved_model) count++;
-  if (filters.strategy) count++;
-  if (filters.upstream) count++;
-  if (filters.account) count++;
-  if (filters.key_id) count++;
-  if (filters.protocol_mode) count++;
-  if (filters.client) count++;
-  if (filters.client_version) count++;
-  if (filters.session) count++;
-  if (filters.path) count++;
-  if (filters.status) count++;
-  if (filters.status_code !== undefined) count++;
-  if (filters.stream !== undefined) count++;
-  if (filters.has_error !== undefined) count++;
-  if (filters.min_latency !== undefined) count++;
-  if (filters.max_latency !== undefined) count++;
-  if (filters.stop_reason) count++;
-  if (filters.routing_path) count++;
-  return count;
-}
-
 /** Get human-readable label for a filter key. */
 export function filterLabel(key: string): string {
   const labels: Record<string, string> = {

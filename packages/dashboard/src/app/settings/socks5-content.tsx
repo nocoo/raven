@@ -239,7 +239,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
 
           <Collapsible defaultOpen={Boolean(data.username || data.hasPassword)}>
             <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Authentication (optional)</CollapsibleTrigger>
-            <CollapsibleContent unstyled><div className="grid gap-2 pt-3 sm:grid-cols-2">
+            <CollapsibleContent unstyled><div className="grid gap-2 pt-3 @min-[26rem]/page:grid-cols-2">
             <div>
               <Label htmlFor="socks5-username" className="text-xs">
                 Username{" "}

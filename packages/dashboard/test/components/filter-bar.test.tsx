@@ -171,6 +171,55 @@ describe("FilterChip", () => {
 // ---------------------------------------------------------------------------
 
 describe("FilterBar", () => {
+  it.each([
+    ["model", "model=gpt-5"],
+    ["key_id", "key_id=key-1"],
+    ["key_id", "account=Editor"],
+  ] as const)("does not duplicate the %s tab selection (%s) as filter chips or a count", (tabDimension, query) => {
+    mockSearchParams = new URLSearchParams(query);
+    render(<FilterBar tabDimension={tabDimension} />);
+    expect(screen.queryByRole("button", { name: /^Remove .* filter$/ })).toBeNull();
+    expect(screen.queryByText(/\d+ active/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
+  });
+
+  it.each([
+    ["model", "model=gpt-5"],
+    ["key_id", "key_id=key-1"],
+    ["key_id", "account=Editor"],
+  ] as const)("keeps the %s tab (%s) when resetting other filters", async (tabDimension, query) => {
+    mockSearchParams = new URLSearchParams(`${query}&status=error&range=7d`);
+    render(<FilterBar tabDimension={tabDimension} />);
+    expect(screen.getAllByRole("button", { name: /^Remove .* filter$/ })).toHaveLength(1);
+    expect(screen.getByText("1 active")).toBeDefined();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Reset" }));
+    expect(mockPush).toHaveBeenCalledWith(`/?${query}`);
+  });
+
+  it.each([["Every 1s", 1000], ["Every 5s", 5000], ["Auto: off", 0]] as const)("sets automatic refresh to %s without navigating or clearing filters", async (label, milliseconds) => {
+    const timer = vi.spyOn(window, "setInterval");
+    try {
+      mockSearchParams = new URLSearchParams("model=gpt-5&cursor=cursor-2&sort=latency");
+      const { rerender } = render(<FilterBar />);
+      expect(screen.queryByRole("combobox", { name: "Auto-refresh interval" })).toBeNull();
+      rerender(<FilterBar autoRefresh />);
+      const interval = screen.getByRole("combobox", { name: "Auto-refresh interval" });
+      expect(interval).toHaveTextContent("Every 3s");
+      expect(timer).toHaveBeenLastCalledWith(expect.any(Function), 3000);
+      const user = userEvent.setup();
+      await user.click(interval);
+      await user.click(screen.getByRole("option", { name: label }));
+      expect(interval).toHaveTextContent(label);
+      if (milliseconds) expect(timer).toHaveBeenLastCalledWith(expect.any(Function), milliseconds);
+      await user.click(screen.getByRole("button", { name: "Refresh monitoring data" }));
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockSearchParams.toString()).toBe("model=gpt-5&cursor=cursor-2&sort=latency");
+    } finally {
+      timer.mockRestore();
+    }
+  });
+
   it("selects a stable key ID without retaining a historical name filter", async () => {
     mockSearchParams = new URLSearchParams("range=7d&model=gpt-5&account=Editor&protocol_mode=native");
     render(<FilterBar keys={[{ id: "key-1", label: "Editor" }, { id: "key-2", label: "Editor" }, { id: "legacy:Editor", label: "Editor" }]} />);

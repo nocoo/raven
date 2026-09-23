@@ -5,7 +5,6 @@ import {
   filtersToApiQuery,
   rangeToEpoch,
   rangeToInterval,
-  countActiveFilters,
   filterLabel,
   DEFAULT_FILTERS,
   type AnalyticsFilters,
@@ -164,16 +163,6 @@ describe("rangeToInterval", () => {
     expect(rangeToInterval("24h")).toBe("hour");
     expect(rangeToInterval("7d")).toBe("hour");
     expect(rangeToInterval("30d")).toBe("day");
-  });
-});
-
-describe("countActiveFilters", () => {
-  it("returns 0 for no dimension filters", () => {
-    expect(countActiveFilters({ range: "24h" })).toBe(0);
-  });
-
-  it("counts active dimension filters", () => {
-    expect(countActiveFilters({ range: "24h", model: "x", status: "error", stream: true })).toBe(3);
   });
 });
 

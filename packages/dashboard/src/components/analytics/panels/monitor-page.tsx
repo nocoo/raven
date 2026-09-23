@@ -28,7 +28,7 @@ export async function MonitorPage({ searchParams, dimension }: MonitorPageProps 
       ? "See when each key is used, which models it calls and how those calls are routed."
       : "Traffic, performance and native protocol adoption, with a path from each signal to its requests.";
   return <div className="space-y-4">
-    <PageHeader title={title} description={description} filters={<Suspense><FilterBar models={result.ok && dimension !== "model" ? result.data.models.map(entry => entry.key).filter(Boolean) : []} keys={result.ok && dimension !== "key_id" ? result.data.keys.map(entry => ({ id: entry.key, label: keyLabel(entry) })) : []} /></Suspense>} />
+    <PageHeader title={title} description={description} filters={<Suspense><FilterBar tabDimension={dimension} models={result.ok && dimension !== "model" ? result.data.models.map(entry => entry.key).filter(Boolean) : []} keys={result.ok && dimension !== "key_id" ? result.data.keys.map(entry => ({ id: entry.key, label: keyLabel(entry) })) : []} /></Suspense>} />
     {result.ok ? <>
       {result.data.warnings.length > 0 && <div role="status" className="rounded-lg border border-basalt-warning/40 bg-basalt-warning/5 p-3 text-xs text-basalt-muted-foreground"><p className="font-medium">Some panels could not be loaded. Their empty state is not a zero count.</p>{result.data.warnings.map(warning => <p key={warning} className="mt-1">{warning}</p>)}</div>}
       {dimension ? <UsageExplorer dimension={dimension} data={result.data} /> : <>

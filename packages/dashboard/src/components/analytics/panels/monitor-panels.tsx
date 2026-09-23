@@ -12,7 +12,7 @@ import type { BreakdownEntry, Percentiles, ProtocolCounts, SummaryStats } from "
 
 export function MonitorPanel({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <LayerCard padding="none" className={`min-w-0 ${className}`}>
+    <LayerCard padding="none" className={`@container/panel min-w-0 ${className}`}>
       <LayerCard.Header className="gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-basalt-foreground">{title}</h2>
@@ -47,7 +47,7 @@ export function MonitorSummary({ summary, percentiles, filters }: { summary: Sum
     { label: "Token usage", icon: Zap, value: formatCompact(summary.total_tokens), unit: "uncached in + out", detail: <><span>{formatCompact(summary.total_input_tokens)} in · {formatCompact(summary.total_output_tokens)} out</span><span>Cache hit {cache == null ? "—" : formatPercent(cache)}</span></> },
     { label: "Native protocol", icon: Route, value: native == null ? "—" : formatPercent(native), unit: "of all requests", detail: <><Link className="hover:underline" href={monitorHref("/requests", filters, { protocol_mode: "translated" })}>{formatCompact(summary.translated_count)} translated</Link><Link className="hover:underline" href={monitorHref("/requests", filters, { protocol_mode: "unknown" })}>{formatCompact(summary.unknown_count)} unknown</Link></> },
   ];
-  return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{stats.map(stat => (
+  return <div className="grid grid-cols-1 gap-3 @min-[22rem]/page:grid-cols-2 @min-[60rem]/page:grid-cols-4">{stats.map(stat => (
     <LayerCard key={stat.label} padding="none" className="min-w-0 px-4 py-3">
       <div className="flex items-center gap-2 text-xs font-medium text-basalt-muted-foreground"><stat.icon className="size-3.5" />{stat.label}</div>
       <div className="mt-2 flex flex-wrap items-baseline gap-2"><strong className="font-display text-2xl font-semibold tracking-tight tabular-nums">{stat.value}</strong><span className="text-xs text-basalt-muted-foreground">{stat.unit}</span></div>

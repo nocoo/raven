@@ -82,7 +82,7 @@ describe("site-wide navigation and page frame", () => {
     expect(trail.getByText(group!)).toBeVisible();
     expect(trail.queryByRole("link")).toBeNull();
     const frame = container.querySelector(".dashboard-page");
-    expect(frame).toHaveClass("w-full", "@container");
+    expect(frame).toHaveClass("w-full", "@container/page");
     expect(frame?.className).not.toMatch(/max-w-/);
   });
 });

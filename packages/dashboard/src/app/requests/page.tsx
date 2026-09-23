@@ -75,7 +75,7 @@ export default async function RequestsPage({ searchParams }: PageProps) {
         description="Trace a model, key or time window to individual calls. Open a request for its protocol route, timing and logs."
         filters={
           <Suspense>
-            <FilterBar models={models} keys={keysResult.ok ? keysResult.data.map(entry => ({ id: entry.key, label: keyLabel(entry) })) : []} investigation />
+            <FilterBar models={models} keys={keysResult.ok ? keysResult.data.map(entry => ({ id: entry.key, label: keyLabel(entry) })) : []} investigation autoRefresh />
           </Suspense>
         }
       />

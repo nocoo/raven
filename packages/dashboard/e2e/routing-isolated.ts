@@ -344,6 +344,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     checkpoint("real HTTP key authentication, auto selection, explicit IDs and cached model listing");
 
     await page.goto(`${dashboardUrl}/requests`);
+    await expect(page.getByRole("combobox", { name: "Auto-refresh interval" })).toHaveText("Every 3s");
+    await select(page, "Auto-refresh interval", "Every 1s");
     const requestRow = page.getByRole("row").filter({ hasText: "Manual.Exact-ID" }).first();
     const instant = await requestRow.locator("time").getAttribute("datetime");
     const localTime = new Date(Date.parse(instant!) + 8 * 3_600_000).toISOString().slice(0, 19).replace("T", " ");
@@ -351,8 +353,14 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await requestRow.click();
     await expect(page.getByRole("region", { name: "Routing details" })).toContainText("Research provider");
     await expect(page.getByRole("region", { name: "Routing details" })).toContainText("Manual.Exact-ID");
+    const refreshed = await page.waitForResponse(response => new URL(response.url()).pathname === "/requests" && response.request().headers().rsc === "1");
+    expect(refreshed.ok()).toBe(true);
+    await expect(page.getByRole("region", { name: "Routing details" })).toContainText("Manual.Exact-ID");
     await shot("requests-routing-desktop");
+    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByRole("combobox", { name: "Auto-refresh interval" })).toHaveText("Every 1s");
     checkpoint("Requests displays persisted routing, usage and browser-local timestamps");
+    checkpoint("Requests auto-refreshes through RSC while preserving the selected interval and open detail");
 
     await page.goto(`${dashboardUrl}/routing/upstreams`);
     await page.getByRole("navigation", { name: "Upstreams", exact: true }).getByRole("button", { name: /Research provider/ }).click();
@@ -466,6 +474,35 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           expect(edges.maxWidth).toBe("none");
           expect(Math.abs(bounds!.width - edges.available)).toBeLessThan(1);
           if (width >= 1920) expect(bounds!.width).toBeGreaterThan(1280);
+          if (path === "keys" || path === "models") {
+            const tabs = page.getByRole("tablist");
+            const top = (await tabs.boundingBox())!.y;
+            const first = page.getByRole("tab").nth(1);
+            const name = (await first.getAttribute("aria-label")) ?? (await first.innerText());
+            await first.click();
+            await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-busy", "false");
+            await indicator(name);
+            expect(Math.abs((await tabs.boundingBox())!.y - top)).toBeLessThan(1);
+            await expect(page.getByRole("button", { name: /^Remove (Key|Model) filter$/ })).toHaveCount(0);
+            await page.getByRole("tab", { name: path === "keys" ? "All keys" : "All models", exact: true }).click();
+            await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-busy", "false");
+            expect(Math.abs((await tabs.boundingBox())!.y - top)).toBeLessThan(1);
+          }
+          if (path === "requests") {
+            await page.getByRole("combobox", { name: "Filter by model", exact: true }).click();
+            const popup = page.getByRole("listbox");
+            await expect(popup).toBeVisible();
+            expect(await popup.getByRole("option").evaluateAll(options => options.every(option => {
+              const text = option.firstElementChild!;
+              const line = Number.parseFloat(getComputedStyle(text).lineHeight);
+              return getComputedStyle(text).whiteSpace === "nowrap" && text.getBoundingClientRect().height <= line + 1;
+            }))).toBe(true);
+            const menu = (await popup.boundingBox())!;
+            expect(menu.x).toBeGreaterThanOrEqual(0);
+            expect(menu.x + menu.width).toBeLessThanOrEqual(width);
+            await shot(`model-select-${theme}-${width}`);
+            await page.keyboard.press("Escape");
+          }
           if (path === "connect") {
             await page.getByRole("tab", { name: "Code", exact: true }).click();
             await indicator("Code");
@@ -516,6 +553,29 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           }
           await layout(`${path || "overview"}/${width}/${theme}`);
           await shot(`${path.replaceAll("/", "-") || "overview"}-${width}-${theme}`);
+          if (width === 1280 || width === 390 || (path === "keys" && width === 1920)) {
+            const launcher = page.getByRole("button", { name: "Open live logs", exact: true });
+            await launcher.click();
+            const dock = page.getByRole(width === 390 ? "region" : "complementary", { name: "Live logs dock" });
+            await expect(dock).toBeVisible();
+            await expect(dock.getByRole("heading", { name: "Logs", exact: true })).toBeVisible();
+            await layout(`${path || "overview"}/logs/${width}/${theme}`);
+            const dockBounds = (await dock.boundingBox())!;
+            expect(dockBounds.x + dockBounds.width).toBeLessThanOrEqual(width);
+            if (width > 390) {
+              const island = (await page.locator("main [data-basalt-surface-root]").boundingBox())!;
+              expect(island.x + island.width).toBeLessThanOrEqual(dockBounds.x + 1);
+              await expect(page.getByRole("button", { name: "Collapse sidebar", exact: true })).toBeVisible();
+            }
+            if (width === 1920) {
+              const events = (await dock.getByRole("region", { name: "Log events" }).boundingBox())!;
+              const stats = (await dock.getByRole("region", { name: "Log statistics" }).boundingBox())!;
+              expect(events.x + events.width).toBeLessThan(stats.x);
+            }
+            await shot(`${path.replaceAll("/", "-") || "overview"}-logs-${width}-${theme}`);
+            await dock.getByRole("button", { name: "Close logs dock", exact: true }).click();
+            await expect(launcher).toBeFocused();
+          }
           if (path === "settings" && width === 1280) {
             await page.getByRole("button", { name: "Collapse sidebar" }).click();
             await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
@@ -526,6 +586,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       }
     }
     checkpoint("all 12 sidebar destinations fill the island with responsive cards and disclosures in both themes at four widths");
+    checkpoint("Basalt tabs keep a stable filter height; selects stay single-line; push logs coexist with navigation and put statistics on the right");
     expect(errors).toEqual([]);
     expect(blocked).toEqual([]);
     return { checks, errors, blocked, layouts, viewport: [2560, 1080, 1920, 1080, 1440, 1100, 1280, 1080, 390, 844], timezone: "Asia/Shanghai" };

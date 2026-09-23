@@ -22,7 +22,7 @@ export function UsageDistribution({ entries, total, dimension, selected }: {
     return { ...slice, label, color: slice.key === null ? CHART_COLORS.muted : getChartColor(index) };
   });
   return <MonitorPanel title={isKey ? "Key distribution" : "Model distribution"} description={`All ${isKey ? "keys" : "models"} · time and other filters retained`}>
-    <div className="grid items-center gap-3 sm:grid-cols-2 xl:grid-cols-1">
+    <div className="grid items-center gap-3 @min-[26rem]/panel:grid-cols-2">
       <div className="relative mx-auto size-44 max-w-full" role="img" aria-label={`${formatCompact(distribution.total)} requests across ${isKey ? "keys" : "models"}`}>
         {distribution.total > 0 ? <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}><PieChart>
           <Pie {...ANIMATION_PROPS} data={slices} dataKey="count" nameKey="label" innerRadius="68%" outerRadius="95%" startAngle={90} endAngle={-270} stroke="hsl(var(--basalt-card))" strokeWidth={2}>

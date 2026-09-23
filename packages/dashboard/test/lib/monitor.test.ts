@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cacheHitRate } from "@/lib/chart-config";
 import { bucketHref, chartActivity, dimensionHref, fillActivity, formatAxisTime, formatMonitorTime, intervalMilliseconds, keyIdentity, keyLabel, monitorHref, monitorInterval, nativeShare, protocolLabel, requestProtocolRoute, tokenSeries, trafficSeries } from "@/lib/monitor";
-import { countActiveFilters, filterLabel, filtersToApiQuery, filtersToSearchParams, searchParamsToFilters } from "@/lib/analytics-filters";
+import { filterLabel, filtersToApiQuery, filtersToSearchParams, searchParamsToFilters } from "@/lib/analytics-filters";
 import { bucket, request } from "../helpers/monitor-fixtures";
 
 afterEach(() => vi.restoreAllMocks());
@@ -40,7 +40,6 @@ describe("monitor drilldown contract", () => {
     expect(api.get("from")).toBe("0");
     expect(api.get("key_id")).toBe("key&/2");
     expect(api.get("protocol_mode")).toBe("translated");
-    expect(countActiveFilters(filters)).toBe(4);
     expect(filterLabel("key_id")).toBe("Key");
     expect(filterLabel("protocol_mode")).toBe("Protocol");
     for (const mode of ["native", "unknown"]) expect(searchParamsToFilters(new URLSearchParams({ protocol_mode: mode })).protocol_mode).toBe(mode);

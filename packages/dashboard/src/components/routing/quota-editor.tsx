@@ -17,7 +17,7 @@ export function QuotaStatusView({ upstream }: { upstream: ProviderPublic }) {
   const exhausted = limited && status.remaining_tokens !== null && status.remaining_tokens <= 0;
   return <LayerCard className="space-y-3 p-3">
     <div className="flex flex-wrap items-center gap-2"><SectionIcon icon={Gauge} tone="orange" /><Badge variant={exhausted ? "warning" : limited ? "info" : "secondary"} className="text-xs">{exhausted ? "Exhausted" : limited ? "Soft limit" : "No limit"}</Badge>{!status.healthy && <Badge variant="destructive" className="ml-auto text-xs">Accounting blocked</Badge>}</div>
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 @min-[32rem]/editor:grid-cols-4">
       <div><dt className="text-xs text-basalt-muted-foreground">Weighted use</dt><dd className="mt-0.5 font-mono text-sm tabular-nums">{tokens(status.used_tokens)} <span className="text-xs text-basalt-muted-foreground">tokens</span></dd></div>
       <div><dt className="text-xs text-basalt-muted-foreground">1× allowance</dt><dd className="mt-0.5 font-mono text-sm">{status.limit_tokens === null ? "Unlimited" : tokens(status.limit_tokens)}</dd></div>
       <div><dt className="text-xs text-basalt-muted-foreground">Remaining</dt><dd className="mt-0.5 font-mono text-sm">{status.remaining_tokens === null ? "—" : tokens(status.remaining_tokens)}</dd></div>
@@ -37,7 +37,7 @@ export function QuotaEditor({ value, onChange, clock }: { value: QuotaDraft; onC
     <LayerCard.Header className="items-center gap-3"><h3 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Gauge} tone="orange" /><label htmlFor="quota-enabled">Enable shared token quota</label></h3><Switch id="quota-enabled" checked={value.enabled} onCheckedChange={enabled => onChange({ ...value, enabled })} /></LayerCard.Header>
     <Collapsible open={value.enabled}><CollapsibleContent unstyled><LayerCard.Body className="space-y-4">
       <p className="text-xs text-basalt-muted-foreground">One pool across every model, rule and client key using this upstream.</p>
-      <div className="grid max-w-3xl gap-3 sm:grid-cols-3">
+      <div className="grid max-w-3xl gap-3 @min-[32rem]/editor:grid-cols-3">
         <Field label="1× token allowance" htmlFor="quota-limit"><Input id="quota-limit" type="number" min="1" step="1" size="sm" value={value.limit} onChange={event => onChange({ ...value, limit: event.target.value })} /></Field>
         <Field label="Window (minutes)" htmlFor="quota-window"><Input id="quota-window" type="number" min="1" step="1" size="sm" value={value.window} onChange={event => onChange({ ...value, window: event.target.value })} /></Field>
         <Field label="Next reset (local time)" htmlFor="quota-reset"><Input id="quota-reset" type="datetime-local" size="sm" value={value.reset} onChange={event => onChange({ ...value, reset: event.target.value })} /></Field>

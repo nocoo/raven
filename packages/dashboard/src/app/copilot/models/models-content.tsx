@@ -141,7 +141,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
       )}
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 @min-[48rem]/page:grid-cols-4 gap-3">
         <StatCard
           icon={Boxes}
           label="Models"

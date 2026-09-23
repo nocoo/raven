@@ -7,17 +7,17 @@ import { FilterChip } from "./filter-chip";
 import {
   searchParamsToFilters,
   filtersToSearchParams,
-  countActiveFilters,
   DEFAULT_FILTERS,
   type AnalyticsFilters,
   type TimeRange,
 } from "@/lib/analytics-filters";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { Filter, RefreshCw, RotateCcw } from "lucide-react";
 import { Button, Input } from "@nocoo/basalt";
-import { PROTOCOL_META, PROTOCOL_MODES } from "@/lib/monitor";
+import { PROTOCOL_META, PROTOCOL_MODES, type UsageDimension } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
+import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
 const STATUS_OPTIONS = ["success", "error"];
@@ -37,6 +37,8 @@ interface FilterBarProps {
   investigation?: boolean;
   /** Show fewer filters (compact mode for sub-pages) */
   compact?: boolean;
+  tabDimension?: UsageDimension | undefined;
+  autoRefresh?: boolean;
 }
 
 export function FilterBar({
@@ -46,18 +48,21 @@ export function FilterBar({
   keys = [],
   investigation = false,
   compact = false,
+  tabDimension,
+  autoRefresh = false,
 }: FilterBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [refreshing, startRefresh] = useTransition();
+  const [refreshInterval, setRefreshInterval] = useState("3000");
+  const refresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
+  useAutoRefresh(autoRefresh ? Number(refreshInterval) : 0, refresh, refreshing);
 
   const filters = useMemo(
     () => searchParamsToFilters(searchParams),
     [searchParams],
   );
-
-  const activeCount = countActiveFilters(filters);
 
   const updateFilters = useCallback(
     (patch: Record<string, string | number | boolean | undefined>) => {
@@ -94,10 +99,14 @@ export function FilterBar({
   );
 
   const resetFilters = useCallback(() => {
-    const params = filtersToSearchParams(DEFAULT_FILTERS);
+    const params = filtersToSearchParams({
+      ...DEFAULT_FILTERS,
+      ...(tabDimension === "model" ? { model: filters.model } : {}),
+      ...(tabDimension === "key_id" ? { key_id: filters.key_id, account: filters.account } : {}),
+    });
     const qs = params.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
-  }, [pathname, router]);
+  }, [pathname, router, tabDimension, filters.model, filters.key_id, filters.account]);
 
   const handleRangeChange = useCallback(
     (range: TimeRange) => {
@@ -136,8 +145,9 @@ export function FilterBar({
     if (filters.max_latency !== undefined) chips.push({ key: "max_latency", value: `${filters.max_latency}ms` });
     if (filters.stop_reason) chips.push({ key: "stop_reason", value: filters.stop_reason });
     if (filters.routing_path) chips.push({ key: "routing_path", value: filters.routing_path });
-    return chips;
-  }, [filters]);
+    return chips.filter(chip => chip.key !== tabDimension && !(tabDimension === "key_id" && chip.key === "account"));
+  }, [filters, tabDimension]);
+  const activeCount = activeChips.length;
 
   return (
     <div className="w-full space-y-2">
@@ -259,7 +269,18 @@ export function FilterBar({
           </>
         )}
 
-        <Button variant="ghost" size="sm" disabled={refreshing} onClick={() => startRefresh(() => router.refresh())} aria-label="Refresh monitoring data"><RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />Refresh</Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" disabled={refreshing} onClick={refresh} aria-label="Refresh monitoring data"><RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />Refresh</Button>
+          {autoRefresh && <Select value={refreshInterval} onValueChange={setRefreshInterval}>
+            <SelectTrigger size="sm" className="w-auto text-xs" aria-label="Auto-refresh interval"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">Auto: off</SelectItem>
+              <SelectItem value="1000">Every 1s</SelectItem>
+              <SelectItem value="3000">Every 3s</SelectItem>
+              <SelectItem value="5000">Every 5s</SelectItem>
+            </SelectContent>
+          </Select>}
+        </div>
 
         {/* Active filter count + reset */}
         {activeCount > 0 && (

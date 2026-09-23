@@ -22,7 +22,7 @@
 .routing-period[data-selected="true"] { background-color: hsl(var(--basalt-primary)); color: hsl(var(--basalt-primary-foreground)); }
 .routing-enter { animation: routing-enter 180ms ease-out both; }
 @keyframes routing-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-@media (min-width: 1100px) {
+@container page (min-width: 52rem) {
   .routing-workbench { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); }
   .routing-directory { position: sticky; top: 0; }
   .routing-directory-list { flex-direction: column; }
