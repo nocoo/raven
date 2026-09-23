@@ -34,6 +34,28 @@ describe("finite live manifest", () => {
     expect(() => selectLiveCases(["not-a-case"])).toThrow("Unknown live case")
   })
 
+  test("uses protocol-correct auto only for Claude tool requests", () => {
+    const forced = {
+      chat: { type: "function", function: { name: "echo" } },
+      messages: { type: "tool", name: "echo" },
+      responses: { type: "function", name: "echo" },
+    }
+    for (const entry of liveCases.filter((entry) => entry.kind === "tool")) {
+      expect(entry.body.tool_choice).toEqual(entry.model === "claude-opus-5.5"
+        ? entry.protocol === "messages" ? { type: "auto" } : "auto"
+        : forced[entry.protocol])
+    }
+  })
+
+  test.each(liveCases.filter((entry) => entry.model === "claude-opus-5.5" && entry.kind === "tool"))(
+    "still requires the exact actual tool call with auto: $id", (entry) => {
+      const reply = entry.stream ? inspectFrames(entry.protocol, fixtureFrames(entry)) : inspectJson(entry.protocol, fixtureJson(entry))
+      expect(() => assertLiveReply(entry, reply)).not.toThrow()
+      expect(() => assertLiveReply(entry, { ...reply, tools: [] })).toThrow("Expected exactly one tool call")
+      expect(() => assertLiveReply(entry, { ...reply, tools: [{ ...reply.tools[0]!, arguments: "{}" }] })).toThrow("Tool arguments changed")
+    },
+  )
+
   test("supplies matched tool-result histories as one request, without calling tools during the run", () => {
     for (const entry of liveCases.filter((entry) => entry.kind === "continuation")) {
       const body = wireObject(entry.body)

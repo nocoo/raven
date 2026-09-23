@@ -56,7 +56,7 @@ function makeCase(model: string, protocol: LiveProtocol, kind: LiveKind, stream:
       ] : [{ role: "user", content: prompt }],
       ...(stream ? { stream_options: { include_usage: true } } : {}),
       ...(kind === "text" ? {} : { tools: [{ type: "function", function: definition }] }),
-      ...(kind === "tool" ? { tool_choice: { type: "function", function: { name: "echo" } } } : {}),
+      ...(kind === "tool" ? { tool_choice: model === "claude-opus-5.5" ? "auto" : { type: "function", function: { name: "echo" } } } : {}),
     }
   } else if (protocol === "messages") {
     body = {
@@ -67,7 +67,7 @@ function makeCase(model: string, protocol: LiveProtocol, kind: LiveKind, stream:
         { role: "user", content: [{ type: "tool_result", tool_use_id: callId, content: marker }, { type: "text", text: prompt }] },
       ] : [{ role: "user", content: prompt }],
       ...(kind === "text" ? {} : { tools: [{ name: definition.name, description: definition.description, input_schema: parameters }] }),
-      ...(kind === "tool" ? { tool_choice: { type: "tool", name: "echo" } } : {}),
+      ...(kind === "tool" ? { tool_choice: model === "claude-opus-5.5" ? { type: "auto" } : { type: "tool", name: "echo" } } : {}),
     }
   } else {
     body = {
@@ -79,7 +79,7 @@ function makeCase(model: string, protocol: LiveProtocol, kind: LiveKind, stream:
         { role: "user", content: prompt },
       ] : [{ role: "user", content: prompt }],
       ...(kind === "text" ? {} : { tools: [{ type: "function", ...definition }] }),
-      ...(kind === "tool" ? { tool_choice: { type: "function", name: "echo" } } : {}),
+      ...(kind === "tool" ? { tool_choice: model === "claude-opus-5.5" ? "auto" : { type: "function", name: "echo" } } : {}),
     }
   }
   return { id, model, resolvedModel, protocol, stream, kind, marker, path: paths[protocol], clientFormat: clientFormats[protocol], upstreamFormat, strategy, body }

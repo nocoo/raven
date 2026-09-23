@@ -30,7 +30,7 @@ The machine-readable manifest is
 | Scenario | Combinations | Cases | Required behavior |
 | --- | --- | ---: | --- |
 | Short text | 4 models × 3 client APIs × JSON/SSE | 24 | Preserve a case-specific marker and finish normally |
-| Forced ordinary function call | 4 models × 3 client APIs × JSON/SSE | 24 | One `echo` call, nonempty call ID and exact assembled JSON arguments |
+| Ordinary function call | 4 models × 3 client APIs × JSON/SSE | 24 | One `echo` call, nonempty call ID and exact assembled JSON arguments; Claude requests automatic choice, other models force `echo` |
 | Tool-result continuation | 4 models × 3 client APIs × JSON | 12 | Consume matched call/result history and return the tool-result marker without another tool call |
 | Default `auto` | 3 client APIs × JSON/SSE | 6 | Keep incoming `auto` in telemetry while routing to `gpt-5.6-sol` |
 
@@ -40,6 +40,11 @@ one HTTP request; the harness never executes a tool or sends a hidden follow-up.
 The ordinary `echo` tool has no external service or side effect. Each request has
 a 1,024-token output budget and a 120-second timeout. No sampling or reasoning
 override is added.
+
+Claude tool cases use `"auto"` for Chat/Responses and `{ "type": "auto" }` for
+Messages. Automatic choice does not relax the required actual tool call, exact
+arguments or continuation behavior. This is a live-test request choice only;
+production native passthrough preserves the client's parameters unchanged.
 
 The current cached Claude model supports both Messages and Chat. The default
 router preserves either native input and selects Chat for Responses conversion.
@@ -260,7 +265,7 @@ The request used `copilot-openai-direct`, recorded exactly one upstream attempt,
 and retained the default rule. The sidecar stopped after 38 actual model sends;
 no request followed the upstream rejection.
 
-Seventeen scenarios remain unrun: five other Claude forced-tool cases and twelve
+Seventeen scenarios remained unrun at that checkpoint: five other Claude tool cases and twelve
 tool-result continuations. The complete task budget consumed 64 of 100 requests,
 including bootstrap and cache-only preflights. Passing text-protocol evidence
 does not imply support for forced tool choice.
@@ -269,7 +274,10 @@ Source comparison with v2.6.0 shows that native Chat preparation preserved the
 payload and serialized `tool_choice` unchanged. The current non-streaming native
 path does the same. This is not a live v2.6.0 execution or proof of historical
 upstream support. Raven must not silently drop or change the client's explicit
-tool choice to conceal the rejection. Changing Claude's acceptance request to
-automatic tool choice requires an explicit test-contract decision; it is not a
-production fallback. Version 3.0.0 remains unpublished pending that decision and
-completion of the remaining acceptance.
+tool choice to conceal the rejection. The owner subsequently authorized changing
+only Claude's live-test requests to automatic tool choice and running exactly the
+17 unrun cases once, within the remaining 36-request budget. The failed forced
+Chat JSON case is retained as upstream capability evidence and is not replayed
+under this authorization. Stable case IDs identify scenarios; each immutable
+report also records its exact request and revision. Version 3.0.0 remains
+unpublished pending completion of the remaining acceptance.
