@@ -296,6 +296,16 @@ WebSocket handler into the isolated server with synthetic internal-key validatio
 then assert rendered badges from real fixture request events. An empty panel can
 prove shell geometry, but not populated card surfaces or live-log behavior.
 
+## 2026-09-23 — Test responsive cards against their container
+
+A temporary local browser check incorrectly expected one General column at a
+1280px viewport. The shared grid uses a 57rem container query, so the available
+island width, including sidebar state, determines its columns. The check now
+compares columns and available width in one browser evaluation. Same-row card
+heights are also sampled together before and after disclosures. Do not infer
+container-query behavior from viewport width alone or change production layout
+to satisfy an incorrect test assumption.
+
 ## Undated entries migrated from the previous handbook
 
 

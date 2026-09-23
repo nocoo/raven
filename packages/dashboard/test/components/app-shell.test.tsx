@@ -32,7 +32,7 @@ describe("responsive routing shell", () => {
     expect(header.getByRole("heading", { name: "Routing Rules" })).toBeVisible();
     expect(header.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
     expect(header.getByRole("button", { name: "Open navigation" })).toBeVisible();
-    expect(header.getByRole("button", { name: "Toggle live logs" })).toBeVisible();
+    expect(header.queryByRole("button", { name: /logs/i })).toBeNull();
     expect(header.getByRole("button", { name: "Toggle theme (now dark)" })).toBeVisible();
     expect(header.getByRole("link", { name: "GitHub repository" })).toBeVisible();
     expect(header.getByRole("link", { name: "Raven on hexly.ai (opens in a new tab)" })).toBeVisible();
@@ -78,6 +78,7 @@ describe("site-wide navigation and page frame", () => {
     const { container } = render(<ThemeProvider persist={false} applyToDocument={false}><TooltipProvider><LogDockProvider><AppShell><p>Page content</p></AppShell></LogDockProvider></TooltipProvider></ThemeProvider>);
     const header = within(screen.getByRole("main").querySelector("header")!);
     expect(header.getByRole("heading", { name: title })).toBeVisible();
+    expect(header.queryByRole("button", { name: /logs/i })).toBeNull();
     const trail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
     expect(trail.getByText(group!)).toBeVisible();
     expect(trail.queryByRole("link")).toBeNull();

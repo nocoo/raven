@@ -7,7 +7,6 @@ interface LogDockContextValue {
   requestIdFilter: string | null;
   openLogs: (requestId?: string) => void;
   closeLogs: () => void;
-  toggleLogs: () => void;
   setRequestIdFilter: (requestId: string | null) => void;
 }
 
@@ -28,20 +27,15 @@ export function LogDockProvider({ children }: { children: ReactNode }) {
     setIsOpen(false);
   }, []);
 
-  const toggleLogs = useCallback(() => {
-    setIsOpen((prev) => !prev);
-  }, []);
-
   const value = useMemo(
     () => ({
       isOpen,
       requestIdFilter,
       openLogs,
       closeLogs,
-      toggleLogs,
       setRequestIdFilter,
     }),
-    [isOpen, requestIdFilter, openLogs, closeLogs, toggleLogs],
+    [isOpen, requestIdFilter, openLogs, closeLogs],
   );
 
   return (

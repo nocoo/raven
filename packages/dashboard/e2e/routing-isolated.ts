@@ -92,6 +92,15 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(banner!.y + banner!.height).toBeLessThanOrEqual(tabs!.y);
   };
   const shot = (name: string) => page.screenshot({ path: join(artifacts, `${name}.png`), fullPage: true, animations: "disabled" });
+  const alignedCards = async (grid: Locator) => {
+    await expect.poll(() => grid.locator(":scope > *").evaluateAll(elements => {
+      const cards = elements.map(element => element.getBoundingClientRect());
+      return cards.length > 0 && cards.every((card, index) => {
+        const previous = cards[index - 1];
+        return !previous || Math.abs(card.top - previous.top) > 1 || Math.abs(card.height - previous.height) < 1;
+      });
+    }), { message: "Settings cards in the same row have equal painted heights" }).toBe(true);
+  };
   const layout = async (name: string) => {
     const geometry = await page.evaluate(() => {
       const island = document.querySelector<HTMLElement>("main [data-basalt-surface-root]")!;
@@ -480,6 +489,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           await expect(heading).toBeVisible();
           const header = page.getByRole("main").locator("header").first();
           await expect(header.getByRole("heading", { name: title, exact: true })).toBeVisible();
+          await expect(header.getByRole("button", { name: /logs/i })).toHaveCount(0);
           if (width !== 390) await expect(header.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(group);
           const bounds = await frame.boundingBox();
           expect(Math.abs((await heading.boundingBox())!.x - bounds!.x)).toBeLessThan(1);
@@ -563,6 +573,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             const disclosure = page.getByRole("button", { name: "Allowed IPs · 0" });
             await expect(disclosure).toHaveAttribute("aria-expanded", "false");
             await expect(page.getByPlaceholder("e.g., 192.168.1.0/24")).toBeHidden();
+            await alignedCards(frame.locator(".settings-grid"));
             await shot(`settings-collapsed-${width}-${theme}`);
             await disclosure.focus();
             await page.keyboard.press("Enter");
@@ -570,6 +581,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             await expect(page.getByRole("switch", { name: "Restrict client IPs" })).not.toBeChecked();
           }
           const grid = frame.locator(".settings-grid").first();
+          if (await grid.count()) await alignedCards(grid);
           if (await grid.count() && width !== 1280) {
             expect(await grid.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(width === 390 ? 1 : 2);
           }

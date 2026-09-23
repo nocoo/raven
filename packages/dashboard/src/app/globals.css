@@ -90,7 +90,7 @@
 }
 
 @utility settings-grid {
-  @apply grid grid-cols-1 items-start gap-4;
+  @apply grid grid-cols-1 gap-4;
   @container (min-width: 57rem) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

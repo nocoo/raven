@@ -39,7 +39,6 @@ vi.mock("@/components/logs/log-dock-context", () => ({
   useLogDock: () => ({
     openLogs: mockOpenLogs,
     closeLogs: vi.fn(),
-    toggleLogs: vi.fn(),
     isOpen: false,
     requestIdFilter: null,
     setRequestIdFilter: vi.fn(),

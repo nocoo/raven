@@ -39,10 +39,10 @@ describe("LogDockContext", () => {
     expect(result.current.requestIdFilter).toBe("req-abc");
   });
 
-  it("toggles and closes logs", () => {
+  it("opens and closes logs", () => {
     const { result } = renderHook(() => useLogDock(), { wrapper });
     act(() => {
-      result.current.toggleLogs();
+      result.current.openLogs();
     });
     expect(result.current.isOpen).toBe(true);
 
