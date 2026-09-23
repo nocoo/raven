@@ -306,6 +306,16 @@ heights are also sampled together before and after disclosures. Do not infer
 container-query behavior from viewport width alone or change production layout
 to satisfy an incorrect test assumption.
 
+## 2026-09-23 — Keep local HTTPS checks in the browser trust boundary
+
+The v3.0.2 runtime check loaded the Caddy HTTPS page successfully, but its
+Playwright APIRequestContext health request failed certificate verification.
+That Node-side transport did not share Chromium's local certificate trust;
+curl and both running services were healthy. Fetching the same-origin health
+endpoint from the already-validated browser passed. Do not change certificates,
+Keychain trust or disable TLS verification to accommodate a test transport.
+Record the lesson before tagging and verify CI on the final release head.
+
 ## Undated entries migrated from the previous handbook
 
 
