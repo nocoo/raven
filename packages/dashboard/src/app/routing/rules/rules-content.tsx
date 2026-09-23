@@ -2,7 +2,8 @@
 
 import { Badge, Button, ConfirmDialog, LayerCard, Switch, Tabs, TabsContent, TabsList, TabsTrigger, useConfirm } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { FilePlus2, GitBranch, LockKeyhole, Plus, Trash2 } from "lucide-react";
+import { ArrowLeftRight, CalendarClock, FilePlus2, GitBranch, LockKeyhole, Plus, Trash2 } from "lucide-react";
+import { SectionIcon } from "@/components/section-icon";
 import { useState } from "react";
 import { ChainEditor } from "@/components/routing/chain-editor";
 import { ScheduleEditor } from "@/components/routing/schedule-editor";
@@ -40,7 +41,7 @@ function RulesWorkbench({ rules, upstreams, clock }: { rules: RoutingRule[]; ups
             <FilePlus2 className="size-4 shrink-0 text-basalt-primary" /><span className="min-w-0 flex-1 truncate">{state.draft.name.trim() || "Untitled rule"}</span><Badge variant="warning" className="text-xs">Draft</Badge>
           </Button>}
           {state.rules.map(rule => <Button key={rule.id} variant={state.active?.id === rule.id ? "secondary" : "ghost"} className="routing-directory-item" aria-current={state.active?.id === rule.id ? "true" : undefined} onClick={() => void choose(rule)} disabled={state.busy}>
-            <GitBranch className="size-4 shrink-0 text-basalt-muted-foreground" /><span className="min-w-0 flex-1"><span className="block truncate text-sm">{state.active?.id === rule.id ? state.draft.name.trim() || rule.name : rule.name}</span><span className="mt-0.5 block text-xs font-normal text-basalt-muted-foreground">{rule.mode === "all_day" ? "All day" : rule.mode === "daily" ? "Daily timetable" : "Weekly timetable"}</span></span>{rule.is_builtin && <LockKeyhole aria-label="Built-in · protected" className="size-3.5 shrink-0 text-basalt-muted-foreground" />}
+            <SectionIcon icon={GitBranch} tone="purple" /><span className="min-w-0 flex-1"><span className="block truncate text-sm">{state.active?.id === rule.id ? state.draft.name.trim() || rule.name : rule.name}</span><span className="mt-0.5 block text-xs font-normal text-basalt-muted-foreground">{rule.mode === "all_day" ? "All day" : rule.mode === "daily" ? "Daily timetable" : "Weekly timetable"}</span></span>{rule.is_builtin && <LockKeyhole aria-label="Built-in · protected" className="size-3.5 shrink-0 text-basalt-muted-foreground" />}
           </Button>)}
         </nav>
         <p className="px-2 pt-3 text-xs text-basalt-muted-foreground">Assign keys in <a href="/connect" className="text-basalt-primary underline underline-offset-2">Connect</a>.</p>
@@ -55,11 +56,11 @@ function RulesWorkbench({ rules, upstreams, clock }: { rules: RoutingRule[]; ups
             <Tabs value={tab} onValueChange={setTab} className="min-w-0">
               <TabsList className="mb-4"><TabsTrigger value="targets">Targets</TabsTrigger><TabsTrigger value="schedule">Schedule</TabsTrigger><TabsTrigger value="protocol">Protocol</TabsTrigger></TabsList>
               <TabsContent value="targets" className="space-y-4">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><h3 className="text-sm font-semibold">Default chain</h3><p className="text-xs text-basalt-muted-foreground">{state.draft.mode === "all_day" ? "Used all day" : "Used outside scheduled periods"}</p></div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h3 className="flex items-center gap-2.5 text-sm font-semibold"><SectionIcon icon={GitBranch} tone="purple" />Default chain</h3><p className="text-xs text-basalt-muted-foreground">{state.draft.mode === "all_day" ? "Used all day" : "Used outside scheduled periods"}</p></div>
                 <ChainEditor label="Default chain" value={state.draft.default_chain} upstreams={upstreams} conversion={state.draft.allow_conversion} onChange={default_chain => state.change({ ...state.draft, default_chain })} />
               </TabsContent>
               <TabsContent value="schedule" className="space-y-4">
-                <div className="space-y-1"><h3 className="text-sm font-semibold">Time-period overrides</h3></div>
+                <h3 className="flex items-center gap-2.5 text-sm font-semibold"><SectionIcon icon={CalendarClock} tone="orange" />Time-period overrides</h3>
                 {state.draft.mode !== "all_day" && <TimezoneNote clock={clock} />}
                 <ScheduleEditor mode={state.draft.mode} windows={state.draft.windows} offset={clock.offset}
                   onChange={(mode, windows) => state.change({ ...state.draft, mode, windows })}
@@ -68,7 +69,7 @@ function RulesWorkbench({ rules, upstreams, clock }: { rules: RoutingRule[]; ups
                   emptyLabel="The default chain applies all day. Choose Every day or Weekly to add time periods." />
               </TabsContent>
               <TabsContent value="protocol" className="space-y-4">
-                <LayerCard className="flex items-start justify-between gap-4"><div className="space-y-1"><label htmlFor="allow-conversion" className="text-sm font-medium">Allow protocol conversion</label><p className="text-sm text-basalt-muted-foreground">For clients using a different API format from the upstream. Applies to every chain in this rule.</p></div><Switch id="allow-conversion" checked={state.draft.allow_conversion} onCheckedChange={allow_conversion => state.change({ ...state.draft, allow_conversion })} /></LayerCard>
+                <LayerCard><LayerCard.Header className="items-center gap-3"><h3 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={ArrowLeftRight} tone="blue" /><label htmlFor="allow-conversion">Allow protocol conversion</label></h3><Switch id="allow-conversion" checked={state.draft.allow_conversion} onCheckedChange={allow_conversion => state.change({ ...state.draft, allow_conversion })} /></LayerCard.Header><LayerCard.Body><p className="max-w-prose text-sm text-basalt-muted-foreground">For clients using a different API format from the upstream. Applies to every chain in this rule.</p></LayerCard.Body></LayerCard>
               </TabsContent>
             </Tabs>
           </div>

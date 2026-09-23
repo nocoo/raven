@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { SettingsCard, SettingsSection, SettingToggleRow } from "./settings-ui"
+import { SettingsCard, SettingToggleRow } from "./settings-ui"
+import { Bug } from "lucide-react"
 
 interface DebugInfo {
   enabled: boolean
@@ -27,9 +28,9 @@ export function DebugContent({ data }: DebugContentProps) {
 
   if (!info) {
     return (
-      <p className="text-sm text-basalt-muted-foreground">
+      <SettingsCard title="Debugging" icon={Bug} tone="purple"><p className="text-sm text-basalt-muted-foreground">
         Debug settings not available
-      </p>
+      </p></SettingsCard>
     )
   }
 
@@ -70,8 +71,7 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
   }
 
   return (
-    <SettingsSection title="Debugging">
-      <SettingsCard>
+      <SettingsCard title="Debugging" icon={Bug} tone="purple">
         {DEBUG_ITEMS.map((item) => (
           <SettingToggleRow
             key={item.id}
@@ -86,6 +86,5 @@ function DebugContentBody({ info }: { info: DebugInfo }) {
           />
         ))}
       </SettingsCard>
-    </SettingsSection>
   )
 }

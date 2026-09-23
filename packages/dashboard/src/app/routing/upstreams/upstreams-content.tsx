@@ -4,6 +4,7 @@ import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Con
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { FilePlus2, Globe, History, LockKeyhole, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { SectionIcon } from "@/components/section-icon";
 import { ConfigurationHeader, Feedback, useEditorClock, useUnsavedChanges, type EditorClock } from "@/components/routing/routing-ui";
 import { OperationFeedback } from "@/components/routing/operation-feedback";
 import { QuotaEditor, QuotaStatusView } from "@/components/routing/quota-editor";
@@ -43,14 +44,14 @@ function UpstreamsWorkbench({ upstreams, migration, clock }: { upstreams: Provid
               <FilePlus2 className="size-4 shrink-0 text-basalt-primary" /><span className="min-w-0 flex-1 truncate">{state.draft.name.trim() || "Untitled upstream"}</span><Badge variant="warning" className="text-xs">Draft</Badge>
             </Button>}
             {state.upstreams.map(upstream => <Button key={upstream.id} variant={state.active?.id === upstream.id ? "secondary" : "ghost"} className="routing-directory-item" aria-current={state.active?.id === upstream.id ? "true" : undefined} onClick={() => void choose(upstream)} disabled={state.busy !== null}>
-              {upstream.kind === "copilot" ? <LockKeyhole className="size-4 shrink-0 text-basalt-muted-foreground" /> : <Globe className="size-4 shrink-0 text-basalt-muted-foreground" />}
+              <SectionIcon icon={upstream.kind === "copilot" ? LockKeyhole : Globe} tone={upstream.kind === "copilot" ? "teal" : "blue"} />
               <span className="min-w-0 flex-1"><span className="block truncate text-sm">{state.active?.id === upstream.id ? state.draft.name.trim() || upstream.name : upstream.name}</span><span className="mt-0.5 block text-xs font-normal text-basalt-muted-foreground">{upstream.kind === "copilot" ? "Built-in · protected" : `${FORMATS.find(format => format.value === upstream.format)?.short}${upstream.is_enabled ? "" : " · disabled"}`}</span></span>
             </Button>)}
           </nav>
         </LayerCard>
         {migration && <Collapsible><CollapsibleTrigger className="gap-2 px-3 py-2 text-xs text-basalt-muted-foreground"><span className="flex items-center gap-2"><History className="size-3.5" />Migration summary</span></CollapsibleTrigger><CollapsibleContent><div className="space-y-3 text-xs text-basalt-muted-foreground"><p>{new Date(migration.migrated_at).toLocaleString()}</p><p>{migration.keys.length} existing keys bound to the Copilot rule. Secrets and IDs were preserved.</p>{migration.upstreams.map(upstream => <div key={upstream.id} className="space-y-1"><p className="font-medium text-basalt-foreground">{upstream.name}</p><p className="break-all">Retained IDs: {upstream.retained_models.join(", ") || "None"}</p><p className="break-all">Discarded patterns: {upstream.discarded_patterns.join(", ") || "None"}</p></div>)}<ul className="space-y-1">{migration.keys.map(key => <li key={key.id} className="break-all">{key.name} · {key.rule_id}</li>)}</ul></div></CollapsibleContent></Collapsible>}
       </div>
-      <fieldset className="min-w-0 routing-enter" key={state.active?.id ?? "new"} disabled={state.busy !== null}><legend className="sr-only">Upstream editor</legend>
+      <fieldset className="@container min-w-0 routing-enter" key={state.active?.id ?? "new"} disabled={state.busy !== null}><legend className="sr-only">Upstream editor</legend>
         <section aria-label="Upstream configuration" className="min-w-0">
           <ConfigurationHeader name={state.draft.name} label="Upstream name" placeholder="Name this upstream" onNameChange={state.active?.kind === "copilot" ? undefined : name => state.change({ ...state.draft, name })} isNew={!state.active} dirty={state.dirty} busy={state.busy !== null} saving={state.busy === "save"} onSave={() => void state.save()} onDiscard={state.discard}>
             {state.active?.kind === "custom" && <Button variant="ghost" size="icon" aria-label="Delete" title="Delete upstream" onClick={remove} disabled={state.busy !== null} className="size-8 text-basalt-muted-foreground hover:text-basalt-destructive"><Trash2 className="size-3.5" /></Button>}

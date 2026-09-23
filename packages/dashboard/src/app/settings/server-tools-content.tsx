@@ -1,10 +1,10 @@
 "use client"
 
 import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Input, Switch } from "@nocoo/basalt"
-import { Loader2 } from "lucide-react"
+import { Loader2, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { SettingNote, SettingsCard, SettingsSection } from "./settings-ui"
+import { SettingNote, SettingsCard } from "./settings-ui"
 
 interface ServerToolsContentProps {
   data: Record<string, { enabled: boolean; has_api_key: boolean }>
@@ -91,9 +91,7 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
   }
 
   return (
-    <SettingsSection
-      title="Search integration"
-    >
+    <>
       {SERVER_TOOL_ITEMS.map((item) => {
         const itemEnabled = item.id === "web_search" ? enabled : false
         const hasKey = item.id === "web_search" ? (webSearch?.has_api_key ?? false) : false
@@ -102,6 +100,8 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
           <SettingsCard
             key={item.id}
             title={item.label}
+            icon={Search}
+            tone="blue"
             action={
               <div className="flex items-center gap-2">
                 {saving ? <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" /> : null}
@@ -158,6 +158,6 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
           </SettingsCard>
         )
       })}
-    </SettingsSection>
+    </>
   )
 }

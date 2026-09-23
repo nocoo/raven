@@ -11,16 +11,11 @@ export default async function ProxyPage() {
   if (!result.ok) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Proxy" description="SOCKS5 outbound proxy used for upstream connections." />
+        <PageHeader title="Proxy" description="SOCKS5 outbound connections." />
         <FetchError title="Failed to load proxy settings" message={result.error} />
       </div>
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <PageHeader title="Proxy" description="SOCKS5 outbound proxy used for upstream connections." />
-      <Socks5Content data={result.data} />
-    </div>
-  );
+  return <Socks5Content data={result.data} />;
 }

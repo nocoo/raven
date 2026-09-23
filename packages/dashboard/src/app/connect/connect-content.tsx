@@ -14,11 +14,12 @@ import { KeyRuleBinding } from "./key-rule-binding";
 import { CopyButton } from "@/components/copy-button";
 import { LocalTime } from "@/components/local-time";
 import { CodeBlock } from "@/components/code-block";
+import { SectionIcon } from "@/components/section-icon";
 import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, } from "lucide-react";
+  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, Plug, BookOpen, } from "lucide-react";
 import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
@@ -94,23 +95,23 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
   ];
 
   return (
-    <SectionRule title="Endpoints" className="min-w-0">
-      <div className="grid gap-2">
+    <LayerCard className="min-w-0">
+      <LayerCard.Header><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Plug} tone="blue" />Endpoints</h2></LayerCard.Header>
+      <LayerCard.Body className="divide-y divide-basalt-border/50">
         {endpoints.map((ep) => (
-          <LayerCard
+          <div
             key={ep.label}
-            padding="sm"
-            className="flex items-center justify-between gap-2"
+            className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
           >
             <div className="min-w-0 space-y-1">
               <span className="block text-xs text-basalt-muted-foreground">{ep.label}</span>
               <code className="block truncate font-mono text-xs text-basalt-foreground" title={ep.value}>{ep.value}</code>
             </div>
             <CopyButton value={ep.value} />
-          </LayerCard>
+          </div>
         ))}
-      </div>
-    </SectionRule>
+      </LayerCard.Body>
+    </LayerCard>
   );
 }
 
@@ -167,14 +168,16 @@ console.log(message.content);`,
   };
 
   return (
-    <SectionRule title="Code Examples" className="min-w-0">
-      <div className="mb-3 grid max-w-xl gap-3 sm:grid-cols-2">
+    <LayerCard className="min-w-0 overflow-hidden">
+      <LayerCard.Header><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Code2} tone="purple" />Code examples</h2></LayerCard.Header>
+      <LayerCard.Body>
+      <div className="grid max-w-xl gap-3 sm:grid-cols-2">
         <RoutingSelect label="Model selection" value={selection} onChange={setSelection} options={[{ value: "auto", label: "auto · configured target model" }, { value: "explicit", label: "Explicit · preserve model ID" }]} />
         {selection === "explicit" && <div className="space-y-1.5"><Label htmlFor="example-model">Explicit model ID</Label><Input id="example-model" size="sm" value={explicitModel} onChange={event => setExplicitModel(event.target.value)} /></div>}
       </div>
-      <LayerCard padding="none" className="overflow-hidden">
+      </LayerCard.Body>
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as CodeTab)}>
-          <TabsList>
+          <TabsList className="mx-4">
             {tabs.map((tab) => (
               <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
                 <tab.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -188,8 +191,7 @@ console.log(message.content);`,
             </TabsContent>
           ))}
         </Tabs>
-      </LayerCard>
-    </SectionRule>
+    </LayerCard>
   );
 }
 
@@ -207,8 +209,10 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
   ];
 
   return (
-    <SectionRule title="Setup Guides">
-      <LayerCard padding="none" className="overflow-hidden">
+    <Collapsible asChild>
+      <LayerCard className="overflow-hidden">
+        <LayerCard.Header><h2 className="w-full"><CollapsibleTrigger className="w-full justify-between text-sm font-semibold text-basalt-foreground"><span className="flex items-center gap-2.5"><SectionIcon icon={BookOpen} tone="orange" />Client setup guides</span></CollapsibleTrigger></h2></LayerCard.Header>
+        <CollapsibleContent unstyled><LayerCard.Body>
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SetupTab)}>
           <TabsList>
             {tabs.map((tab) => (
@@ -227,8 +231,9 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
             <CCSwitchGuide />
           </TabsContent>
         </Tabs>
+        </LayerCard.Body></CollapsibleContent>
       </LayerCard>
-    </SectionRule>
+    </Collapsible>
   );
 }
 
@@ -431,7 +436,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
   return (
     <LayerCard padding="none" className="overflow-hidden">
       <LayerCard.Header className="items-center">
-        <span className="text-sm font-semibold text-basalt-foreground">{displayName}</span>
+        <h3 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Cpu} tone="purple" />{displayName}</h3>
         <Badge variant="secondary" className="text-xs">{models.length}</Badge>
       </LayerCard.Header>
         <div className="overflow-x-auto">
@@ -500,9 +505,9 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
   );
 
   return (
-    <SectionRule
-      title="API Keys"
-      actions={
+    <LayerCard padding="none" className="overflow-hidden">
+      <LayerCard.Header className="items-center gap-3">
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Key} tone="teal" />API keys</h2>
         <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" className="gap-1.5">
@@ -512,11 +517,10 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
           </DialogTrigger>
           <CreateKeyDialog key={dialogInstance} onCreated={handleCreated} rules={rules} />
         </Dialog>
-      }
-    >
+      </LayerCard.Header>
 
       {actionError && (
-        <div className="flex items-center gap-2 rounded-widget border border-basalt-destructive/40 bg-basalt-destructive/10 px-3 py-2 mb-3">
+        <div role="alert" className="m-4 flex items-center gap-2 rounded-widget border border-basalt-destructive/40 bg-basalt-destructive/10 px-3 py-2">
           <AlertTriangle
             className="h-3.5 w-3.5 text-basalt-destructive shrink-0"
             strokeWidth={1.5}
@@ -526,15 +530,12 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
       )}
 
       {initialKeys.length === 0 ? (
-        <LayerCard padding="none">
           <LayerCard.Empty
             icon={<Key className="h-8 w-8" strokeWidth={1.5} />}
             title="No API keys yet"
             description="Create a key to authenticate client requests"
           />
-        </LayerCard>
       ) : (
-        <LayerCard padding="none" className="overflow-hidden">
           <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -621,9 +622,8 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
             </TableBody>
           </Table>
           </div>
-        </LayerCard>
       )}
-    </SectionRule>
+    </LayerCard>
   );
 }
 

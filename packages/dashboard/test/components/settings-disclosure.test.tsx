@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CorsContent } from "@/app/settings/cors-content";
@@ -21,6 +21,17 @@ const cases = [
 ];
 
 describe.each(cases)("$name disclosure", fixture => {
+  it("groups its heading, enable switch and configuration in one card", () => {
+    render(fixture.render());
+    const heading = screen.getByRole("heading", { level: 2 });
+    expect(heading).toHaveAccessibleName(fixture.name);
+    expect(heading.querySelector("[aria-hidden='true'] svg")).not.toBeNull();
+    const card = heading.closest<HTMLElement>("[data-basalt-surface]")!;
+    expect(card).not.toBeNull();
+    expect(within(card).getByRole("switch", { name: fixture.toggle })).toBeVisible();
+    expect(within(card).getByRole("button", { name: `${fixture.disclosure} · 0` })).toBeVisible();
+  });
+
   it("allows configuring restrictions before enabling them without a network write", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     render(fixture.render());
@@ -56,6 +67,20 @@ describe.each(cases)("$name disclosure", fixture => {
     expect(screen.getByRole("switch", { name: fixture.toggle })).not.toBeChecked();
     expect(screen.queryByPlaceholderText(fixture.placeholder)).toBeNull();
   });
+});
+
+it("keeps active IP security warnings visible when configuration is collapsed", async () => {
+  render(<IPWhitelistContent data={{ enabled: true, ranges: [], trust_proxy: true }} />);
+  await userEvent.click(screen.getByRole("button", { name: "Allowed IPs · 0" }));
+  expect(screen.queryByPlaceholderText("e.g., 192.168.1.0/24")).toBeNull();
+  expect(screen.getByText(/Clients can spoof their IP/)).toBeVisible();
+  expect(screen.getByText("Empty list or unknown client IP allows access.")).toBeVisible();
+});
+
+it("keeps the empty CORS allowance visible when enabled and collapsed", async () => {
+  render(<CorsContent data={{ enabled: true, allowed_origins: [] }} />);
+  await userEvent.click(screen.getByRole("button", { name: "Allowed origins · 0" }));
+  expect(screen.getByText("Empty list allows all origins.")).toBeVisible();
 });
 
 describe("server tool configuration disclosure", () => {

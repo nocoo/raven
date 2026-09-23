@@ -6,9 +6,9 @@
 import type { SettingsData, SettingInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Save, RotateCcw, Loader2 } from "lucide-react";
+import { Save, RotateCcw, Loader2, Tags } from "lucide-react";
 import { Button, Badge, Input } from "@nocoo/basalt";
-import { SettingsCard, SettingsSection } from "./settings-ui";
+import { SettingsCard } from "./settings-ui";
 
 // ── Display config ──
 
@@ -44,18 +44,13 @@ interface SettingsContentProps {
 
 export function SettingsContent({ data }: SettingsContentProps) {
   return (
-    <SettingsSection
-      title="Version Overrides"
-      hint="Sent in HTTP headers to GitHub Copilot. Auto-detected from local VS Code; set an override to pin a version."
-    >
-      <SettingsCard>
+      <SettingsCard title="Version overrides" icon={Tags} tone="purple">
         {VERSION_KEYS.map((key) => {
           const info = data[key];
           if (!info) return null;
           return <SettingRow key={key} settingKey={key} info={info} />;
         })}
       </SettingsCard>
-    </SettingsSection>
   );
 }
 
@@ -136,14 +131,14 @@ function SettingRow({
   }, [settingKey, router]);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 not-first:border-t not-first:border-basalt-border/50 not-first:pt-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{meta.label}</span>
             <Badge
               variant="outline"
-              className={`px-1.5 py-0 text-[10px] font-normal ${sourceBadge.className}`}
+              className={`px-1.5 py-0 text-xs font-normal ${sourceBadge.className}`}
             >
               {sourceBadge.label}
             </Badge>
@@ -157,8 +152,9 @@ function SettingRow({
         </code>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Input
+          aria-label={meta.label}
           value={value}
           onChange={(e) => {
             setValue(e.target.value);

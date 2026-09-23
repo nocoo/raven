@@ -5,12 +5,12 @@
 
 import { routingRequest } from "@/lib/routing-client";
 import { COPILOT_UPSTREAM_ID } from "@/lib/routing-model";
+import { SectionIcon } from "@/components/section-icon";
 import type { CopilotModel } from "@/lib/types";
 import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
-import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatCompact } from "@/lib/chart-config";
 import {
@@ -166,12 +166,8 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
       </div>
 
       {groups.map(({ vendor, models }) => (
-        <SectionRule
-          key={vendor}
-          title={vendor}
-          actions={<Badge variant="secondary">{models.length}</Badge>}
-        >
-          <LayerCard padding="none" className="overflow-hidden">
+          <LayerCard key={vendor} padding="none" className="overflow-hidden">
+            <LayerCard.Header className="items-center"><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Boxes} tone="purple" />{vendor}</h2><Badge variant="secondary">{models.length}</Badge></LayerCard.Header>
             <div className="overflow-x-auto">
             <Table className="table-fixed">
               <TableHeader>
@@ -234,7 +230,6 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
             </Table>
             </div>
           </LayerCard>
-        </SectionRule>
       ))}
     </>
   );

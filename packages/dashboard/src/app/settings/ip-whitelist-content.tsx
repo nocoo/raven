@@ -7,7 +7,7 @@
 import type { IPWhitelistInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch, LayerCard } from "@nocoo/basalt";
 import {
   SettingAddRow,
@@ -15,7 +15,6 @@ import {
   SettingNote,
   SettingToggleRow,
   SettingsCard,
-  SettingsSection,
 } from "./settings-ui";
 
 interface IPWhitelistContentProps {
@@ -140,12 +139,10 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
   );
 
   return (
-    <SettingsSection
-      title="IP Whitelist"
-      hint="Restrict access to the proxy by client IP. Non-whitelisted IPs receive a silent 403."
-    >
       <SettingsCard
-        title="Restrict client IPs"
+        title="IP whitelist"
+        icon={ShieldCheck}
+        tone="teal"
         action={<Switch aria-label="Restrict client IPs" checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
       >
         <Collapsible open={expanded} onOpenChange={setExpanded}>
@@ -165,23 +162,17 @@ export function IPWhitelistContent({ data }: IPWhitelistContentProps) {
             onCheckedChange={handleTrustProxyToggle}
             disabled={saving}
           />
-          {trustProxy && (
-            <div className="flex items-start gap-2 text-basalt-warning">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <p className="text-xs">
-                Clients can spoof their IP via headers unless your proxy strips and rewrites them.
-              </p>
-            </div>
-          )}
         </LayerCard.Well>
-
-        <SettingNote>
-          Empty list or unknown client IP allows access.
-        </SettingNote>
           </div></CollapsibleContent>
         </Collapsible>
+        {enabled && <SettingNote>Empty list or unknown client IP allows access.</SettingNote>}
+        {trustProxy && (
+          <div className="flex items-start gap-2 text-basalt-warning">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p className="text-xs">Clients can spoof their IP via headers unless your proxy strips and rewrites them.</p>
+          </div>
+        )}
         {error ? <p role="alert" className="text-xs text-basalt-destructive">{error}</p> : null}
       </SettingsCard>
-    </SettingsSection>
   );
 }

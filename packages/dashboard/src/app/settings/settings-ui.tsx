@@ -1,47 +1,32 @@
 "use client";
 
 import { Button, Input, Label, LayerCard, Switch } from "@nocoo/basalt";
-import { SectionRule } from "@nocoo/basalt/components/section-rule";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-
-export function SettingsSection({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <SectionRule title={title} hint={hint} className="min-w-0">
-      {children}
-    </SectionRule>
-  );
-}
+import { SectionIcon, type SectionIconTone } from "@/components/section-icon";
 
 export function SettingsCard({
   title,
+  icon,
+  tone,
   action,
   children,
   footer,
 }: {
-  title?: ReactNode;
+  title: string;
+  icon: LucideIcon;
+  tone: SectionIconTone;
   action?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  const hasHeader = title != null || action != null;
   return (
-    <LayerCard>
-      {hasHeader ? (
-        <LayerCard.Header className="items-center">
-          <span className="text-sm font-semibold text-basalt-foreground">{title}</span>
-          {action}
-        </LayerCard.Header>
-      ) : null}
-      <LayerCard.Body className="space-y-3 divide-y divide-basalt-border/50 [&>div+div]:pt-3">{children}</LayerCard.Body>
+    <LayerCard className="min-w-0">
+      <LayerCard.Header className="items-center gap-3">
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={icon} tone={tone} />{title}</h2>
+        {action}
+      </LayerCard.Header>
+      <LayerCard.Body className="max-w-3xl space-y-4">{children}</LayerCard.Body>
       {footer ? <LayerCard.Footer>{footer}</LayerCard.Footer> : null}
     </LayerCard>
   );
@@ -102,13 +87,14 @@ export function SettingListItem({
 }) {
   return (
     <LayerCard.Well className="flex items-center gap-2">
-      <code className="flex-1 font-mono text-xs">{value}</code>
+      <code className="min-w-0 flex-1 break-all font-mono text-xs">{value}</code>
       <Button
         size="icon"
         variant="ghost"
         className="h-6 w-6 text-basalt-muted-foreground hover:text-basalt-destructive"
         onClick={onRemove}
         disabled={disabled}
+        aria-label={`Remove ${value}`}
       >
         <Trash2 className="h-3 w-3" />
       </Button>

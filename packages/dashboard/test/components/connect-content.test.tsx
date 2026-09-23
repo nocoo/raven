@@ -409,6 +409,23 @@ describe("CreateKeyDialog", () => {
 });
 
 describe("routing-aware connection examples", () => {
+  it("groups endpoints and examples into peer cards and discloses client guides on demand", async () => {
+    render(<ConnectContent rules={fixtureRules} keys={[]} connectionInfo={makeConnectionInfo()} />);
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("tab", { name: "Code" }));
+    const endpoints = screen.getByRole("heading", { name: "Endpoints" }).closest<HTMLElement>("[data-basalt-surface]")!;
+    const examples = screen.getByRole("heading", { name: "Code examples" }).closest<HTMLElement>("[data-basalt-surface]")!;
+    expect(endpoints.parentElement).toBe(examples.parentElement);
+    expect(endpoints.querySelectorAll("[data-basalt-surface]")).toHaveLength(0);
+    expect(within(examples).getByRole("combobox", { name: "Model selection" })).toBeVisible();
+    expect(screen.queryByRole("tab", { name: "Claude Code" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Client setup guides" }));
+    expect(screen.getByRole("tab", { name: "Claude Code" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Client setup guides" }));
+    expect(screen.queryByRole("tab", { name: "Claude Code" })).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("explains the selected upstream, conversion and embeddings boundaries and switches raw model examples", async () => {
     render(<ConnectContent rules={fixtureRules} keys={[]} connectionInfo={makeConnectionInfo()} />);
     const user = userEvent.setup({ delay: null });

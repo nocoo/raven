@@ -4,10 +4,11 @@
 
 import type { CopilotUser, CopilotQuotaSnapshot } from "@/lib/types";
 import { LocalTime } from "@/components/local-time";
+import { SectionIcon, type SectionIconTone } from "@/components/section-icon";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  RefreshCw, User, Building2, CreditCard, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, } from "lucide-react";
+  RefreshCw, User, Building2, CreditCard, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, Sparkles, Braces, type LucideIcon, } from "lucide-react";
 import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
@@ -53,19 +54,19 @@ function BoolBadge({ value }: { value: boolean }) {
 }
 
 function InfoRow({
-  icon: Icon,
+  icon,
+  tone,
   label,
   children,
 }: {
-  icon: React.ElementType;
+  icon: LucideIcon;
+  tone: SectionIconTone;
   label: string;
   children: React.ReactNode;
 }) {
   return (
     <LayerCard padding="sm" className="flex items-center gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-widget bg-basalt-primary/10">
-        <Icon className="h-4 w-4 text-basalt-primary" strokeWidth={1.5} />
-      </div>
+      <SectionIcon icon={icon} tone={tone} />
       <div className="min-w-0 flex-1">
         <p className="text-xs text-basalt-muted-foreground">{label}</p>
         <div className="mt-0.5">{children}</div>
@@ -246,13 +247,13 @@ export function AccountContent({ data }: AccountContentProps) {
       {/* Subscription overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.login != null && (
-          <InfoRow icon={User} label="GitHub Login">
+          <InfoRow icon={User} tone="purple" label="GitHub Login">
             <p className="text-sm font-medium">{data.login}</p>
           </InfoRow>
         )}
 
         {data.copilot_plan != null && (
-          <InfoRow icon={CreditCard} label="Plan">
+          <InfoRow icon={CreditCard} tone="blue" label="Plan">
             <Badge variant="info">{data.copilot_plan}</Badge>
             {data.access_type_sku && (
               <p className="text-xs text-basalt-muted-foreground mt-0.5 font-mono">
@@ -263,7 +264,7 @@ export function AccountContent({ data }: AccountContentProps) {
         )}
 
         {orgs.length > 0 && (
-          <InfoRow icon={Building2} label="Organization">
+          <InfoRow icon={Building2} tone="teal" label="Organization">
             {orgs.map((org) => (
               <p key={org.login} className="text-sm font-medium">
                 {org.name ?? org.login}
@@ -278,7 +279,7 @@ export function AccountContent({ data }: AccountContentProps) {
         )}
 
         {data.assigned_date != null && (
-          <InfoRow icon={Calendar} label="Assigned Date">
+          <InfoRow icon={Calendar} tone="orange" label="Assigned Date">
             <p className="text-sm font-medium">
               <LocalTime timestamp={new Date(data.assigned_date).getTime()} precision="day" />
             </p>
@@ -303,8 +304,9 @@ export function AccountContent({ data }: AccountContentProps) {
 
       <div className="settings-grid">
       {[data.chat_enabled, data.copilotignore_enabled, data.is_mcp_enabled, data.restricted_telemetry, data.can_signup_for_limited].some(value => value != null) &&
-      <SectionRule title="Capabilities">
-        <LayerCard padding="none" className="overflow-hidden divide-y divide-basalt-border/50">
+        <LayerCard padding="none" className="overflow-hidden">
+          <LayerCard.Header><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Sparkles} tone="teal" />Capabilities</h2></LayerCard.Header>
+          <div className="max-w-3xl divide-y divide-basalt-border/50">
           {data.chat_enabled != null && (
             <ToggleRow label="Chat" value={data.chat_enabled} />
           )}
@@ -320,15 +322,13 @@ export function AccountContent({ data }: AccountContentProps) {
           {data.can_signup_for_limited != null && (
             <ToggleRow label="Can Signup for Limited" value={data.can_signup_for_limited} />
           )}
-        </LayerCard>
-      </SectionRule>}
+          </div>
+        </LayerCard>}
 
       {(data.analytics_tracking_id != null || (data.endpoints && Object.keys(data.endpoints).length > 0) || extraEntries.length > 0) &&
-      <SectionRule title="Technical details">
-        <LayerCard>
-          <Collapsible>
-            <CollapsibleTrigger className="w-full justify-between text-sm">Endpoints and properties</CollapsibleTrigger>
-            <CollapsibleContent unstyled><div className="space-y-4 pt-4">
+          <Collapsible asChild><LayerCard>
+            <LayerCard.Header><h2 className="w-full"><CollapsibleTrigger className="w-full justify-between text-sm font-semibold text-basalt-foreground"><span className="flex items-center gap-2.5"><SectionIcon icon={Braces} tone="blue" />Endpoints and properties</span></CollapsibleTrigger></h2></LayerCard.Header>
+            <CollapsibleContent unstyled><LayerCard.Body className="space-y-4">
               {data.analytics_tracking_id != null && <div className="space-y-1"><p className="text-xs text-basalt-muted-foreground">Tracking ID</p><p className="break-all font-mono text-xs">{data.analytics_tracking_id}</p></div>}
       {data.endpoints && Object.keys(data.endpoints).length > 0 && (
         <section aria-label="Endpoints" className="divide-y divide-basalt-border/50">
@@ -363,10 +363,8 @@ export function AccountContent({ data }: AccountContentProps) {
             ))}
         </section>
       )}
-            </div></CollapsibleContent>
-          </Collapsible>
-        </LayerCard>
-      </SectionRule>}
+            </LayerCard.Body></CollapsibleContent>
+          </LayerCard></Collapsible>}
       </div>
     </>
   );

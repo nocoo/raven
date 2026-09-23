@@ -92,7 +92,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
           <ContentIsland className="relative">
             <SetupWizard />
-            <div className={`dashboard-page mx-auto min-w-0 w-full ${item?.layout === "standard" ? "max-w-7xl" : ""}`} data-page-layout={item?.layout ?? "wide"}>
+            <div className="dashboard-page @container min-w-0 w-full">
               {children}
             </div>
           </ContentIsland>

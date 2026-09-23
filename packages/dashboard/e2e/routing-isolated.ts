@@ -427,19 +427,18 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     for (const theme of ["light", "dark"] as const) {
       await page.evaluate(value => localStorage.setItem("theme", value), theme);
       await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
-      for (const width of [1920, 1280, 390]) {
+      for (const width of [2560, 1920, 1280, 390]) {
         await page.setViewportSize({ width, height: width === 390 ? 844 : 1080 });
-        for (const [path, group, title, pageLayout] of [
-          ["", "Monitor", "Overview", "wide"], ["models", "Monitor", "Models", "wide"],
-          ["keys", "Monitor", "API Keys", "wide"], ["requests", "Monitor", "Requests", "wide"],
-          ["copilot/models", "Copilot", "Models", "wide"], ["copilot/account", "Copilot", "Account", "standard"],
-          ["routing/rules", "Routing", "Routing Rules", "standard"], ["routing/upstreams", "Routing", "Upstreams", "standard"],
-          ["settings", "Settings", "General", "standard"], ["settings/proxy", "Settings", "Proxy", "standard"],
-          ["settings/server-tools", "Tools", "Server Tools", "standard"], ["connect", "Settings", "Connect", "standard"],
+        for (const [path, group, title] of [
+          ["", "Monitor", "Overview"], ["models", "Monitor", "Models"],
+          ["keys", "Monitor", "API Keys"], ["requests", "Monitor", "Requests"],
+          ["copilot/models", "Copilot", "Models"], ["copilot/account", "Copilot", "Account"],
+          ["routing/rules", "Routing", "Routing Rules"], ["routing/upstreams", "Routing", "Upstreams"],
+          ["settings", "Settings", "General"], ["settings/proxy", "Settings", "Proxy"],
+          ["settings/server-tools", "Tools", "Server Tools"], ["connect", "Settings", "Connect"],
         ] as const) {
           await page.goto(`${dashboardUrl}/${path}`);
-          const frame = page.locator("[data-page-layout]");
-          await expect(frame).toHaveAttribute("data-page-layout", pageLayout);
+          const frame = page.locator(".dashboard-page");
           const heading = frame.getByRole("heading", { level: 1, name: title, exact: true });
           await expect(heading).toBeVisible();
           const header = page.getByRole("main").locator("header").first();
@@ -447,11 +446,21 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           if (width !== 390) await expect(header.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(group);
           const bounds = await frame.boundingBox();
           expect(Math.abs((await heading.boundingBox())!.x - bounds!.x)).toBeLessThan(1);
-          if (pageLayout === "standard") expect(bounds!.width).toBeLessThanOrEqual(1280);
-          else if (width === 1920) expect(bounds!.width).toBeGreaterThan(1280);
+          const edges = await frame.evaluate(element => {
+            const island = element.parentElement!;
+            const padding = getComputedStyle(island);
+            return { available: island.clientWidth - Number.parseFloat(padding.paddingLeft) - Number.parseFloat(padding.paddingRight), maxWidth: getComputedStyle(element).maxWidth };
+          });
+          expect(edges.maxWidth).toBe("none");
+          expect(Math.abs(bounds!.width - edges.available)).toBeLessThan(1);
+          if (width >= 1920) expect(bounds!.width).toBeGreaterThan(1280);
           if (path === "connect") {
             await page.getByRole("tab", { name: "Code", exact: true }).click();
             await indicator("Code");
+            await expect(page.getByRole("tab", { name: "Claude Code", exact: true })).toBeHidden();
+            await page.getByRole("button", { name: "Client setup guides" }).click();
+            await expect(page.getByRole("tab", { name: "Claude Code", exact: true })).toBeVisible();
+            await page.getByRole("button", { name: "Client setup guides" }).click();
           }
           if (path === "copilot/account") {
             await expect(page.getByText("fixture-tracking")).toBeHidden();
@@ -471,6 +480,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             await expect(page.getByLabel("Tavily API key")).toBeVisible();
           }
           if (path === "settings") {
+            expect(await frame.locator("h2").evaluateAll(headings => headings.every(heading => heading.closest("[data-basalt-surface]")))).toBe(true);
             const disclosure = page.getByRole("button", { name: "Allowed IPs · 0" });
             await expect(disclosure).toHaveAttribute("aria-expanded", "false");
             await expect(page.getByPlaceholder("e.g., 192.168.1.0/24")).toBeHidden();
@@ -495,10 +505,10 @@ export async function runRoutingBrowser(options: BrowserOptions) {
         }
       }
     }
-    checkpoint("all 12 sidebar destinations share navigation, width and disclosure rules in both themes at three widths");
+    checkpoint("all 12 sidebar destinations fill the island with responsive cards and disclosures in both themes at four widths");
     expect(errors).toEqual([]);
     expect(blocked).toEqual([]);
-    return { checks, errors, blocked, layouts, viewport: [1920, 1080, 1440, 1100, 1280, 1080, 390, 844], timezone: "Asia/Shanghai" };
+    return { checks, errors, blocked, layouts, viewport: [2560, 1080, 1920, 1080, 1440, 1100, 1280, 1080, 390, 844], timezone: "Asia/Shanghai" };
   } catch (error) {
     await shot("failure");
     throw error;

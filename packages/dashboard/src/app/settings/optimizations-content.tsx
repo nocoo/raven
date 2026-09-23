@@ -5,7 +5,8 @@
 import type { OptimizationInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { SettingsCard, SettingsSection, SettingToggleRow } from "./settings-ui";
+import { SettingsCard, SettingToggleRow } from "./settings-ui";
+import { Zap } from "lucide-react";
 
 // ── Optimization item definitions ──
 
@@ -36,18 +37,13 @@ interface OptimizationsContentProps {
 
 export function OptimizationsContent({ data }: OptimizationsContentProps) {
   return (
-    <SettingsSection
-      title="Optimizations"
-      hint="Protocol-level fixes from upstream compatibility research. Enable individually as needed."
-    >
-      <SettingsCard>
+      <SettingsCard title="Request optimizations" icon={Zap} tone="orange">
         {OPTIMIZATION_ITEMS.map((item) => {
           const info = data[item.id];
           if (!info) return null;
           return <OptimizationRow key={item.id} item={item} info={info} />;
         })}
       </SettingsCard>
-    </SettingsSection>
   );
 }
 

@@ -2,6 +2,20 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-09-23: Page width was the wrong level for form readability
+
+The follow-up hierarchy pass consistently capped configuration pages at 80rem,
+but left analytics and tables full width. User review rejected the resulting
+change in heading and content edges between routes. Consistency within a page
+family did not establish consistency across the application.
+
+The revised composition uses one full-width shell for every Dashboard route.
+Task cards, two-column container grids and field-level widths handle readability.
+Single-card titles and actions stay inside their card, while optional details
+expand in place. Regression checks now compare every page to the island's actual
+available width, including ultrawide displays, instead of asserting two width
+modes that encoded the rejected design.
+
 ## 2026-09-23: A local layout fix did not establish site-wide consistency
 
 The first hierarchy pass capped Routing, General and only the Code tab in

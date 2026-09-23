@@ -60,19 +60,19 @@ describe("responsive routing shell", () => {
 
 describe("site-wide navigation and page frame", () => {
   it.each([
-    ["/", "Monitor", "Overview", "wide"],
-    ["/models", "Monitor", "Models", "wide"],
-    ["/keys", "Monitor", "API Keys", "wide"],
-    ["/requests", "Monitor", "Requests", "wide"],
-    ["/copilot/models", "Copilot", "Models", "wide"],
-    ["/copilot/account", "Copilot", "Account", "standard"],
-    ["/routing/upstreams", "Routing", "Upstreams", "standard"],
-    ["/routing/rules", "Routing", "Routing Rules", "standard"],
-    ["/settings/server-tools", "Tools", "Server Tools", "standard"],
-    ["/settings", "Settings", "General", "standard"],
-    ["/settings/proxy", "Settings", "Proxy", "standard"],
-    ["/connect", "Settings", "Connect", "standard"],
-  ])("aligns %s with its sidebar group and content type", (pathname, group, title, layout) => {
+    ["/", "Monitor", "Overview"],
+    ["/models", "Monitor", "Models"],
+    ["/keys", "Monitor", "API Keys"],
+    ["/requests", "Monitor", "Requests"],
+    ["/copilot/models", "Copilot", "Models"],
+    ["/copilot/account", "Copilot", "Account"],
+    ["/routing/upstreams", "Routing", "Upstreams"],
+    ["/routing/rules", "Routing", "Routing Rules"],
+    ["/settings/server-tools", "Tools", "Server Tools"],
+    ["/settings", "Settings", "General"],
+    ["/settings/proxy", "Settings", "Proxy"],
+    ["/connect", "Settings", "Connect"],
+  ])("aligns %s with its sidebar group and the shared full-width frame", (pathname, group, title) => {
     viewport.pathname = pathname!;
     viewport.mobile = false;
     const { container } = render(<ThemeProvider persist={false} applyToDocument={false}><TooltipProvider><LogDockProvider><AppShell><p>Page content</p></AppShell></LogDockProvider></TooltipProvider></ThemeProvider>);
@@ -81,9 +81,8 @@ describe("site-wide navigation and page frame", () => {
     const trail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
     expect(trail.getByText(group!)).toBeVisible();
     expect(trail.queryByRole("link")).toBeNull();
-    const frame = container.querySelector("[data-page-layout]");
-    expect(frame).toHaveAttribute("data-page-layout", layout);
-    if (layout === "standard") expect(frame).toHaveClass("max-w-7xl");
-    else expect(frame).not.toHaveClass("max-w-7xl");
+    const frame = container.querySelector(".dashboard-page");
+    expect(frame).toHaveClass("w-full", "@container");
+    expect(frame?.className).not.toMatch(/max-w-/);
   });
 });

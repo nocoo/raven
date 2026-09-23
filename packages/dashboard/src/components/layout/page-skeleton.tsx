@@ -94,7 +94,7 @@ export function SettingsLoading() {
 }
 
 export function ProxyLoading() {
-  return <LoadingPage title="Proxy"><Skeleton className="h-8 w-full" /><div className="settings-grid"><FormSkeleton /><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton></div></LoadingPage>;
+  return <LoadingPage title="Proxy"><div className="settings-grid"><FormSkeleton /><PanelSkeleton><Skeleton className="h-8 w-full" /></PanelSkeleton></div></LoadingPage>;
 }
 
 export function ServerToolsLoading() {
@@ -106,7 +106,7 @@ export function UpstreamsLoading() {
 }
 
 export function ConnectLoading() {
-  return <LoadingPage title="Connect"><div className="grid gap-3 md:grid-cols-2"><PanelSkeleton><Skeleton className="h-40 w-full" /></PanelSkeleton><PanelSkeleton><Skeleton className="h-40 w-full" /></PanelSkeleton></div><TableSkeleton /></LoadingPage>;
+  return <LoadingPage title="Connect"><Skeleton className="h-9 w-64" /><TableSkeleton /></LoadingPage>;
 }
 
 export function LoginLoading() {

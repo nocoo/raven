@@ -2,10 +2,11 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch, Button, Input, Label, LayerCard } from "@nocoo/basalt";
+import { Loader2, CheckCircle, XCircle, Network, Route } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch, Button, Input, Label } from "@nocoo/basalt";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
-import { SettingNote, SettingsSection } from "./settings-ui";
+import { SettingNote, SettingsCard } from "./settings-ui";
 
 
 
@@ -188,19 +189,12 @@ export function Socks5Content({ data }: Socks5ContentProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="socks5-enabled">Use SOCKS5 proxy</Label>
-            <Switch id="socks5-enabled" checked={enabled} onCheckedChange={setEnabled} disabled={saving} />
-            {data.enabled ? (
-              <span
-                className={`text-xs ${data.bridgeStatus === "running" ? "text-basalt-chart-5" : "text-basalt-destructive"}`}
-              >
-                Bridge: {data.bridgeStatus}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+      <PageHeader title="Proxy" description="SOCKS5 outbound connections." actions={
+        <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 text-xs">
+          {saving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+          Save
+        </Button>
+      } />
             {saveSuccess ? (
               <span className="flex items-center gap-1 text-xs text-basalt-chart-5">
                 <CheckCircle className="h-3 w-3" />
@@ -213,17 +207,11 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                 {error}
               </span>
             ) : null}
-            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 text-xs">
-              {saving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
-              Save
-            </Button>
-          </div>
-      </div>
       <div className="settings-grid">
-        <SettingsSection title="Connection">
-        <LayerCard className="space-y-3">
+        <SettingsCard title="SOCKS5 connection" icon={Network} tone="blue" action={<Switch id="socks5-enabled" aria-label="Use SOCKS5 proxy" checked={enabled} onCheckedChange={setEnabled} disabled={saving} />}>
+          {data.enabled && <p className={`text-xs ${data.bridgeStatus === "running" ? "text-basalt-success" : "text-basalt-destructive"}`}>Bridge: {data.bridgeStatus}</p>}
 
-          <div className="grid grid-cols-[1fr_100px] gap-2">
+          <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">
             <div>
               <Label htmlFor="socks5-host" className="text-xs">Host</Label>
               <Input
@@ -342,11 +330,9 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               </span>
             )}
           </div>
-        </LayerCard>
-        </SettingsSection>
+        </SettingsCard>
 
-        <SettingsSection title="Upstream routing">
-        <LayerCard className="space-y-3">
+        <SettingsCard title="Upstream routing" icon={Route} tone="purple">
           <SettingNote>
             Copilot and GitHub use the proxy. Custom providers connect directly by default.
           </SettingNote>
@@ -392,8 +378,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           )}
             </div></CollapsibleContent>
           </Collapsible>
-        </LayerCard>
-        </SettingsSection>
+        </SettingsCard>
       </div>
     </div>
   );

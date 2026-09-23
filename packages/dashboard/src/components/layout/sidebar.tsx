@@ -46,7 +46,6 @@ interface NavItem {
   href: string;
   label: string;
   icon: ElementType;
-  layout: "wide" | "standard";
 }
 
 interface NavGroup {
@@ -60,42 +59,42 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Monitor",
     defaultOpen: true,
     items: [
-      { href: "/", label: "Overview", icon: LayoutDashboard, layout: "wide" },
-      { href: "/models", label: "Models", icon: Boxes, layout: "wide" },
-      { href: "/keys", label: "API Keys", icon: KeyRound, layout: "wide" },
-      { href: "/requests", label: "Requests", icon: List, layout: "wide" },
+      { href: "/", label: "Overview", icon: LayoutDashboard },
+      { href: "/models", label: "Models", icon: Boxes },
+      { href: "/keys", label: "API Keys", icon: KeyRound },
+      { href: "/requests", label: "Requests", icon: List },
     ],
   },
   {
     label: "Copilot",
     defaultOpen: true,
     items: [
-      { href: "/copilot/models", label: "Models", icon: Cpu, layout: "wide" },
-      { href: "/copilot/account", label: "Account", icon: CircleUser, layout: "standard" },
+      { href: "/copilot/models", label: "Models", icon: Cpu },
+      { href: "/copilot/account", label: "Account", icon: CircleUser },
     ],
   },
   {
     label: "Routing",
     defaultOpen: true,
     items: [
-      { href: "/routing/upstreams", label: "Upstreams", icon: Globe, layout: "standard" },
-      { href: "/routing/rules", label: "Routing Rules", icon: Route, layout: "standard" },
+      { href: "/routing/upstreams", label: "Upstreams", icon: Globe },
+      { href: "/routing/rules", label: "Routing Rules", icon: Route },
     ],
   },
   {
     label: "Tools",
     defaultOpen: true,
     items: [
-      { href: "/settings/server-tools", label: "Server Tools", icon: Wrench, layout: "standard" },
+      { href: "/settings/server-tools", label: "Server Tools", icon: Wrench },
     ],
   },
   {
     label: "Settings",
     defaultOpen: true,
     items: [
-      { href: "/settings", label: "General", icon: Settings, layout: "standard" },
-      { href: "/settings/proxy", label: "Proxy", icon: Shield, layout: "standard" },
-      { href: "/connect", label: "Connect", icon: Cable, layout: "standard" },
+      { href: "/settings", label: "General", icon: Settings },
+      { href: "/settings/proxy", label: "Proxy", icon: Shield },
+      { href: "/connect", label: "Connect", icon: Cable },
     ],
   },
 ];

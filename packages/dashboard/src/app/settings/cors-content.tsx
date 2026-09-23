@@ -6,13 +6,13 @@
 import type { CorsInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Globe } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch } from "@nocoo/basalt";
 import {
   SettingAddRow,
   SettingListItem,
   SettingNote,
   SettingsCard,
-  SettingsSection,
 } from "./settings-ui";
 
 interface CorsContentProps {
@@ -119,12 +119,10 @@ export function CorsContent({ data }: CorsContentProps) {
   );
 
   return (
-    <SettingsSection
-      title="CORS"
-      hint="Control which origins can make cross-origin requests to the proxy."
-    >
       <SettingsCard
-        title="Restrict browser origins"
+        title="CORS"
+        icon={Globe}
+        tone="blue"
         action={<Switch aria-label="Restrict browser origins" checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
       >
         <Collapsible open={expanded} onOpenChange={setExpanded}>
@@ -155,13 +153,10 @@ export function CorsContent({ data }: CorsContentProps) {
             saving={saving}
           />
         </div>
-        <SettingNote>
-          When disabled or the allowed origins list is empty, all origins are allowed.
-        </SettingNote>
           </div></CollapsibleContent>
         </Collapsible>
+        {enabled && origins.length === 0 && <SettingNote>Empty list allows all origins.</SettingNote>}
         {error ? <p role="alert" className="text-xs text-basalt-destructive">{error}</p> : null}
       </SettingsCard>
-    </SettingsSection>
   );
 }
