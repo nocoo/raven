@@ -5,7 +5,7 @@ import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { FilePlus2, Globe, History, LockKeyhole, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { SectionIcon } from "@/components/section-icon";
-import { ConfigurationHeader, Feedback, useEditorClock, useUnsavedChanges, type EditorClock } from "@/components/routing/routing-ui";
+import { ConfigurationHeader, useEditorClock, useUnsavedChanges, type EditorClock } from "@/components/routing/routing-ui";
 import { OperationFeedback } from "@/components/routing/operation-feedback";
 import { QuotaEditor, QuotaStatusView } from "@/components/routing/quota-editor";
 import { UpstreamCatalog } from "@/components/routing/upstream-catalog";
@@ -53,22 +53,24 @@ function UpstreamsWorkbench({ upstreams, migration, clock }: { upstreams: Provid
       </div>
       <fieldset className="@container/editor min-w-0 routing-enter" key={state.active?.id ?? "new"} disabled={state.busy !== null}><legend className="sr-only">Upstream editor</legend>
         <section aria-label="Upstream configuration" className="min-w-0">
-          <ConfigurationHeader name={state.draft.name} label="Upstream name" placeholder="Name this upstream" onNameChange={state.active?.kind === "copilot" ? undefined : name => state.change({ ...state.draft, name })} isNew={!state.active} dirty={state.dirty} busy={state.busy !== null} saving={state.busy === "save"} onSave={() => void state.save()} onDiscard={state.discard}>
-            {state.active?.kind === "custom" && <Button variant="ghost" size="icon" aria-label="Delete" title="Delete upstream" onClick={remove} disabled={state.busy !== null} className="size-8 text-basalt-muted-foreground hover:text-basalt-destructive"><Trash2 className="size-3.5" /></Button>}
-          </ConfigurationHeader>
-          <div className="space-y-3">
-            <OperationFeedback feedback={state.feedback} />
-            {!state.feedback && tab === "models" && state.active?.last_refresh_error && <Feedback error={`Last model refresh failed: ${state.active.last_refresh_error}. Cached models were retained. Refresh again to capture current response details.`} />}
-            <Tabs value={tab} onValueChange={setTab} className="min-w-0">
-              <TabsList className="mb-4"><TabsTrigger value="connection">Connection</TabsTrigger><TabsTrigger value="models">Models</TabsTrigger><TabsTrigger value="quota">Quota</TabsTrigger></TabsList>
-              <TabsContent value="connection"><UpstreamConnection upstream={state.active} value={state.draft} onChange={state.change} /></TabsContent>
-              <TabsContent value="models"><UpstreamCatalog upstream={state.active} manual={state.draft.manual} onManualChange={manual => state.change({ ...state.draft, manual })} busy={state.busy} dirty={state.dirty} refresh={() => void state.refresh()} test={() => void state.test()} testModel={state.testModel} onTestModelChange={state.setTestModel} /></TabsContent>
-              <TabsContent value="quota" className="space-y-5">
+          <Tabs value={tab} onValueChange={setTab} className="min-w-0 space-y-3">
+            <LayerCard className="space-y-3 [&>header]:pb-0">
+              <ConfigurationHeader name={state.draft.name} label="Upstream name" placeholder="Name this upstream" onNameChange={state.active?.kind === "copilot" ? undefined : name => state.change({ ...state.draft, name })} isNew={!state.active} dirty={state.dirty} busy={state.busy !== null} saving={state.busy === "save"} onSave={() => void state.save()} onDiscard={state.discard}>
+                {state.active?.kind === "custom" && <Button variant="ghost" size="icon" aria-label="Delete" title="Delete upstream" onClick={remove} disabled={state.busy !== null} className="size-8 text-basalt-muted-foreground hover:text-basalt-destructive"><Trash2 className="size-3.5" /></Button>}
+              </ConfigurationHeader>
+              <OperationFeedback feedback={state.feedback?.action === "save" || state.feedback?.action === "delete" ? state.feedback : null} inlineSuccess />
+              <TabsList><TabsTrigger value="connection">Connection</TabsTrigger><TabsTrigger value="models">Models</TabsTrigger><TabsTrigger value="quota">Quota</TabsTrigger></TabsList>
+            </LayerCard>
+            <TabsContent value="connection"><UpstreamConnection upstream={state.active} value={state.draft} onChange={state.change} /></TabsContent>
+            <TabsContent value="models"><UpstreamCatalog upstream={state.active} manual={state.draft.manual} onManualChange={manual => state.change({ ...state.draft, manual })} busy={state.busy} dirty={state.dirty} refresh={() => void state.refresh()} test={() => void state.test()} testModel={state.testModel} onTestModelChange={state.setTestModel} refreshFeedback={state.feedback?.action === "refresh" ? state.feedback : null} testFeedback={state.feedback?.action === "test" ? state.feedback : null} /></TabsContent>
+            <TabsContent value="quota" className="space-y-3">
                 <QuotaEditor value={state.draft.quota} onChange={quota => state.change({ ...state.draft, quota })} clock={clock} />
-                {state.active && (state.active.quota || !state.active.quota_status.healthy) && <section className="space-y-2" aria-label="Saved quota status"><div className="flex items-center justify-between gap-2"><h3 className="text-sm font-medium">Current usage</h3><Button variant="ghost" size="sm" disabled={state.dirty || state.busy !== null} onClick={() => void state.reload()} loading={state.busy === "status"}><RefreshCw className="size-3.5" />Reload status</Button></div><QuotaStatusView upstream={state.active} /></section>}
-              </TabsContent>
-            </Tabs>
-          </div>
+                {state.active && (state.active.quota || !state.active.quota_status.healthy) && <LayerCard role="region" aria-label="Saved quota status">
+                  <LayerCard.Header className="flex-wrap items-center gap-3"><h3 className="text-sm font-semibold text-basalt-foreground">Current usage</h3><Button variant="outline" size="sm" disabled={state.dirty || state.busy !== null} onClick={() => void state.reload()} loading={state.busy === "status"}><RefreshCw className="size-3.5" />Reload status</Button></LayerCard.Header>
+                  <LayerCard.Body className="space-y-3"><OperationFeedback feedback={state.feedback?.action === "status" ? state.feedback : null} inlineSuccess /><QuotaStatusView upstream={state.active} /></LayerCard.Body>
+                </LayerCard>}
+            </TabsContent>
+          </Tabs>
         </section>
       </fieldset>
     </div>

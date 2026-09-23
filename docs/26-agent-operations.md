@@ -80,6 +80,8 @@ This is approximate accounting; the in-process latch is not a durable outbox.
 Custom catalogs refresh only through explicit POST actions. Copilot restores its
 durable catalog at startup and refreshes independently on an hourly timer. Key
 authentication, model/Connect reads and configuration saves never fetch catalogs.
+Discovery accepts `data[].id` and `models[].slug`, retaining raw IDs and metadata.
+Malformed catalogs fail as a whole and preserve the last successful snapshot.
 `/v1/models` returns exact-ID-deduplicated cached/manual models plus `auto`, using
 Copilot metadata when IDs collide. Explicit diagnostics make at most one native
 generation attempt and consume the same upstream quota.
@@ -134,8 +136,11 @@ remain in the printed temporary artifact directory. This verifies the Routing
 workflows, not every application endpoint or the repository-wide L2/L3/D1 target.
 
 Configuration drafts appear in the page directory before their first save.
-Save/Discard apply to the whole configuration card, success uses a transient
-toast, and diagnostic/error banners retain copyable response evidence. Timetables,
+Save/Discard apply to the whole configuration. Upstreams use separate cards for
+connection, catalog, manual IDs, testing and quota; advanced connection settings
+start collapsed. Success and failure feedback appears below its operation within
+the same card. Rule saves retain the transient toast. Diagnostic/error banners
+retain copyable response evidence. Timetables,
 quota reset previews, request timestamps and analytics labels display browser-local
 time; stored timestamps and routing calculations remain UTC. Server-rendered
 timestamps, including Connect key dates and account assignment dates, wait for

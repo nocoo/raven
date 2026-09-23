@@ -10,6 +10,13 @@ import { makeDiagnostic } from "../helpers/routing-fixtures";
 afterEach(() => { toast.dismiss(); vi.restoreAllMocks(); });
 
 describe("operation feedback", () => {
+  it("keeps inline success feedback beside its operation without emitting a toast", () => {
+    const success = vi.spyOn(toast, "success");
+    render(<OperationFeedback feedback={{ kind: "success", message: "Models refreshed." }} inlineSuccess />);
+    expect(screen.getByRole("status")).toHaveTextContent("Models refreshed.");
+    expect(success).not.toHaveBeenCalled();
+  });
+
   it("shows the actual unexpected answer and opens the native response for debugging", async () => {
     const user = userEvent.setup({ delay: null });
     const copy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();

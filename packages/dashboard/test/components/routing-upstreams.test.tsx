@@ -87,7 +87,8 @@ describe("Upstreams workbench", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy.mock.calls[0]?.[0]).toBe("/api/upstreams");
     expect(payload()).toEqual({ name: "Responses lab", base_url: "https://fixture.invalid/responses/v1", format: "responses", api_key: "synthetic-fixture-secret", is_enabled: false, supports_reasoning: true, auth_style: "x-api-key", use_socks5: true, manual_models: ["lab-a", "lab-b"], quota: null });
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Upstream saved.", expect.any(Object)));
+    expect(await screen.findByRole("status")).toHaveTextContent("Upstream saved.");
+    expect(toast.success).not.toHaveBeenCalled();
     expect(screen.getByRole("navigation", { name: "Upstreams" })).toHaveTextContent("Responses lab");
   });
 
@@ -96,7 +97,9 @@ describe("Upstreams workbench", () => {
     await tab("Connection");
     expect(screen.getByLabelText("Replace API key")).toHaveValue("");
     change("Upstream name", "Renamed research");
-    expect(screen.getByRole("button", { name: "Advanced connection settings" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Advanced connection settings" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("combobox", { name: "Authentication header" })).toBeNull();
+    await click("Advanced connection settings");
     await selectOption("Authentication header", "Protocol default");
     await selectOption("SOCKS5 proxy", "Direct connection");
     await selectOption("SOCKS5 proxy", "Use Raven setting");
@@ -117,12 +120,14 @@ describe("Upstreams workbench", () => {
     expect(fetchSpy).toHaveBeenCalledExactlyOnceWith("/api/upstreams/custom%3Aresearch/models/refresh", { method: "POST" });
     expect(screen.getByRole("list", { name: "Fetched models" })).toHaveTextContent("new-fetched");
     expect(screen.getByRole("textbox", { name: "Manual model IDs" })).toHaveValue("research-manual");
+    expect(within(screen.getByRole("region", { name: "Model catalog" })).getByRole("status")).toHaveTextContent("Models refreshed.");
+    expect(within(screen.getByRole("region", { name: "Test connection" })).queryByRole("status")).toBeNull();
     await tab("Quota");
     expect(screen.getByText("12,345.5")).toBeVisible();
     await tab("Models");
     fetchSpy.mockResolvedValueOnce(Response.json({ error: { message: "Catalog authentication failed", type: "upstream_error" } }, { status: 502 }));
     await click("Refresh models");
-    expect(screen.getByRole("alert")).toHaveTextContent("Catalog authentication failed");
+    expect(within(screen.getByRole("region", { name: "Model catalog" })).getByRole("alert")).toHaveTextContent("Catalog authentication failed");
     expect(screen.getByRole("list", { name: "Fetched models" })).toHaveTextContent("new-fetched");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
@@ -144,13 +149,15 @@ describe("Upstreams workbench", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     await act(async () => finish(Response.json(makeDiagnostic({ model: "vendor/unlisted", latency_ms: 42, answer: expected ? "pong" : "Hello from fixture", expected_pong: expected }))));
     expect(screen.getByText(expected ? "Received pong" : "Request succeeded · unexpected answer")).toBeVisible();
+    expect(within(screen.getByRole("region", { name: "Test connection" })).getByRole("status")).toHaveTextContent(expected ? "Received pong" : "unexpected answer");
+    expect(within(screen.getByRole("region", { name: "Model catalog" })).queryByRole("status")).toBeNull();
     expect(screen.getByText(/42 ms · openai/)).toBeVisible();
     expect(screen.getByLabelText("Model reply")).toHaveTextContent(expected ? "pong" : "Hello from fixture");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     fetchSpy.mockResolvedValueOnce(Response.json(makeUpstream({ quota_status: { ...makeUpstream().quota_status, used_tokens: 18_425.5 } })));
     await tab("Quota");
     await click("Reload status");
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Quota status updated.", expect.any(Object)));
+    expect(within(screen.getByRole("region", { name: "Saved quota status" })).getByRole("status")).toHaveTextContent("Quota status updated.");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(fetchSpy.mock.lastCall?.[0]).toBe("/api/upstreams/custom%3Aresearch");
     expect(fetchSpy.mock.lastCall?.[1]?.method).toBeUndefined();
@@ -175,7 +182,7 @@ describe("Upstreams workbench", () => {
     await click("Discard");
     fetchSpy.mockRejectedValueOnce(new Error("Generation connection lost"));
     await click("Send one test");
-    expect(screen.getByRole("alert")).toHaveTextContent("Generation connection lost");
+    expect(within(screen.getByRole("region", { name: "Test connection" })).getByRole("alert")).toHaveTextContent("Generation connection lost");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Received pong")).toBeNull();
   });
@@ -270,7 +277,7 @@ describe("Upstreams workbench", () => {
     expect(screen.getByRole("navigation", { name: "Upstreams" })).toHaveTextContent("Research gateway");
     fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
     await click("Delete"); await click("Delete upstream");
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Upstream deleted.", expect.any(Object)));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Upstream deleted."));
     expect(screen.getByRole("navigation", { name: "Upstreams" })).not.toHaveTextContent("Research gateway");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, toast } from "@nocoo/basalt";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard, toast } from "@nocoo/basalt";
 import { Banner } from "@nocoo/basalt/components/banner";
 import { AlertCircle, Check, MessageSquare } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
@@ -33,20 +33,21 @@ function ResponseDetails({ details, error, open = false }: { details?: UpstreamO
     <CollapsibleContent unstyled>
       <div className="space-y-3 pt-2 text-basalt-foreground">
         <dl className="grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-[auto_minmax(0,1fr)]">{entries.map(([label, value]) => <div key={label} className="contents"><dt className="text-basalt-muted-foreground">{label}</dt><dd className="min-w-0 break-words font-mono [overflow-wrap:anywhere]">{value}</dd></div>)}</dl>
-        {body !== undefined && <div className="space-y-1.5"><p className="text-xs font-medium">{details?.response_body !== undefined ? "Upstream response" : "Proxy response"}</p><section aria-label="Response body" className="max-h-64 overflow-y-auto rounded-widget bg-basalt-background/50 p-3"><pre className="whitespace-pre-wrap break-words font-mono text-xs [overflow-wrap:anywhere]">{body || "(empty response body)"}</pre></section>{truncated && <p className="text-xs text-basalt-muted-foreground">Response excerpt · remaining content omitted.</p>}</div>}
+        {body !== undefined && <div className="space-y-1.5"><p className="text-xs font-medium">{details?.response_body !== undefined ? "Upstream response" : "Proxy response"}</p><LayerCard.Well role="region" aria-label="Response body" className="max-h-64 overflow-y-auto rounded-widget p-3"><pre className="whitespace-pre-wrap break-words font-mono text-xs [overflow-wrap:anywhere]">{body || "(empty response body)"}</pre></LayerCard.Well>{truncated && <p className="text-xs text-basalt-muted-foreground">Response excerpt · remaining content omitted.</p>}</div>}
       </div>
     </CollapsibleContent>
   </Collapsible>;
 }
 
-export function OperationFeedback({ feedback }: { feedback: RoutingFeedback | null }) {
+export function OperationFeedback({ feedback, inlineSuccess = false }: { feedback: RoutingFeedback | null; inlineSuccess?: boolean }) {
   const region = useRef<HTMLDivElement>(null);
   const toastId = useId();
   useEffect(() => {
-    if (feedback?.kind === "success") toast.success(feedback.message, { id: toastId });
+    if (feedback?.kind === "success" && !inlineSuccess) toast.success(feedback.message, { id: toastId });
     else if (feedback) region.current?.scrollIntoView?.({ block: "nearest", behavior: "instant" });
-  }, [feedback, toastId]);
-  if (!feedback || feedback.kind === "success") return null;
+  }, [feedback, toastId, inlineSuccess]);
+  if (!feedback) return null;
+  if (feedback.kind === "success") return inlineSuccess ? <div ref={region}><Banner role="status" variant="secondary" size="sm" icon={<Check className="text-basalt-success" />} description={feedback.message} /></div> : null;
   if (feedback.kind === "error") {
     const error = feedback.cause instanceof RoutingRequestError ? feedback.cause : undefined;
     return <div ref={region}><Banner role="alert" variant="error" size="sm" icon={<AlertCircle />} title={feedback.title} description={<>
@@ -59,7 +60,7 @@ export function OperationFeedback({ feedback }: { feedback: RoutingFeedback | nu
   const hasText = result.answer.trim().length > 0;
   return <div ref={region}><Banner role="status" variant={result.expected_pong ? "secondary" : "alert"} size="sm" icon={result.expected_pong ? <Check className="text-basalt-success" /> : <MessageSquare />} title={result.expected_pong ? "Received pong" : hasText ? "Request succeeded · unexpected answer" : "Request succeeded · no text returned"} description={<div className="space-y-2">
     <p className="text-xs">{result.latency_ms} ms · {result.protocol} · {result.model}</p>
-    {hasText ? <div className="space-y-1"><p className="text-xs font-medium">Model reply</p><section aria-label="Model reply" className="max-h-48 overflow-y-auto rounded-widget bg-basalt-background/50 p-3"><pre className="whitespace-pre-wrap break-words font-mono text-sm text-basalt-foreground [overflow-wrap:anywhere]">{result.answer}</pre></section>{result.answer_truncated && <p className="text-xs">Reply excerpt · inspect the response details for more.</p>}</div> : <p className="text-sm">The provider returned no visible text. Inspect its response below for a finish reason or incomplete output.</p>}
+    {hasText ? <div className="space-y-1"><p className="text-xs font-medium">Model reply</p><LayerCard.Well role="region" aria-label="Model reply" className="max-h-48 overflow-y-auto rounded-widget p-3"><pre className="whitespace-pre-wrap break-words font-mono text-sm text-basalt-foreground [overflow-wrap:anywhere]">{result.answer}</pre></LayerCard.Well>{result.answer_truncated && <p className="text-xs">Reply excerpt · inspect the response details for more.</p>}</div> : <p className="text-sm">The provider returned no visible text. Inspect its response below for a finish reason or incomplete output.</p>}
     {!result.expected_pong && hasText && <p className="text-xs">Expected “pong”. The reply differs; this alone does not indicate a connection or authentication failure.</p>}
     <ResponseDetails details={result.details} open={!result.expected_pong} />
   </div>} /></div>;

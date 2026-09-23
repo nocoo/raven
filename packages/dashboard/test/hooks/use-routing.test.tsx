@@ -52,7 +52,7 @@ describe("upstream operation guards", () => {
     expect(result.current.busy).toBe("test");
     const diagnostic = makeDiagnostic();
     await act(async () => { finish(Response.json(diagnostic)); await pending; });
-    expect(result.current.feedback).toEqual({ kind: "diagnostic", result: diagnostic });
+    expect(result.current.feedback).toEqual({ kind: "diagnostic", result: diagnostic, action: "test" });
     expect(result.current.busy).toBeNull();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });

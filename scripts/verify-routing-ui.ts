@@ -14,7 +14,7 @@ import { state } from "../packages/proxy/src/lib/state"
 import { wsHandler, type WsData } from "../packages/proxy/src/ws/logs"
 import { LEVEL_ORDER, type LogLevel } from "../packages/proxy/src/util/log-event"
 import { chatResponse, responsesResponse } from "../packages/proxy/test/helpers/routing"
-import { runRoutingBrowser, type CatalogFixtureFailure } from "../packages/dashboard/e2e/routing-isolated"
+import { runRoutingBrowser, type CatalogFixtureResponse } from "../packages/dashboard/e2e/routing-isolated"
 
 const root = resolve(import.meta.dir, "..")
 const artifacts = mkdtempSync(join(tmpdir(), "raven-routing-ui-"))
@@ -34,7 +34,7 @@ const stopSink = startRequestSink(db)
 const hits: { path: string; model?: string; stream?: boolean }[] = []
 const blocked: string[] = []
 const fixtureErrors: string[] = []
-let catalogFailure: CatalogFixtureFailure | null = null
+let catalogResponse: CatalogFixtureResponse | null = null
 const receiver = Bun.serve({
   hostname: "127.0.0.1", port: 0,
   async fetch(request) {
@@ -43,10 +43,11 @@ const receiver = Bun.serve({
     assert.equal(request.headers.get("authorization"), "Bearer fixture-provider")
     if (path === "/v1/models" && request.method === "GET") {
       hits.push({ path })
-      const failure = catalogFailure
-      catalogFailure = null
-      if (failure === "wrong-shape") return Response.json({ models: {}, api_key: "fixture-provider" }, { headers: { "x-request-id": "fixture-catalog-shape" } })
-      if (failure === "non-json") return new Response("<html><body>Fixture gateway unavailable; api_key=fixture-provider</body></html>", { status: 502, headers: { "content-type": "text/html", "x-request-id": "fixture-catalog-gateway" } })
+      const response = catalogResponse
+      catalogResponse = null
+      if (response === "wrong-shape") return Response.json({ models: {}, api_key: "fixture-provider" }, { headers: { "x-request-id": "fixture-catalog-shape" } })
+      if (response === "non-json") return new Response("<html><body>Fixture gateway unavailable; api_key=fixture-provider</body></html>", { status: 502, headers: { "content-type": "text/html", "x-request-id": "fixture-catalog-gateway" } })
+      if (response === "slug-catalog") return Response.json({ models: [{ slug: "fixture-fast", context_window: 1048576 }, { slug: "fixture-smart" }] })
       return Response.json({ data: [{ id: "fixture-fast" }, { id: "fixture-smart" }] })
     }
     if (path === "/v1/chat/completions" && request.method === "POST") {
@@ -149,9 +150,9 @@ try {
   result = await runRoutingBrowser({
     dashboardUrl, receiverUrl, proxyUrl: proxy.url.origin, artifacts,
     inspect: () => ({ catalogCalls: hits.filter(hit => hit.path === "/v1/models").length, generationCalls: hits.filter(hit => hit.model).length }),
-    nextCatalogResponse: kind => { assert.equal(catalogFailure, null); catalogFailure = kind },
+    nextCatalogResponse: kind => { assert.equal(catalogResponse, null); catalogResponse = kind },
   })
-  assert.equal(catalogFailure, null, "Every configured fixture failure must be consumed")
+  assert.equal(catalogResponse, null, "Every configured fixture response must be consumed")
   assert.deepEqual(blocked, [])
   assert.deepEqual(fixtureErrors, [])
 } catch (error) {

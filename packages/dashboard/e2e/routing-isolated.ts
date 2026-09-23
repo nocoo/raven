@@ -1,7 +1,7 @@
 import { chromium, expect, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
 
-export type CatalogFixtureFailure = "wrong-shape" | "non-json";
+export type CatalogFixtureResponse = "wrong-shape" | "non-json" | "slug-catalog";
 
 interface BrowserOptions {
   dashboardUrl: string;
@@ -9,7 +9,7 @@ interface BrowserOptions {
   proxyUrl: string;
   artifacts: string;
   inspect: () => { catalogCalls: number; generationCalls: number };
-  nextCatalogResponse: (kind: CatalogFixtureFailure) => void;
+  nextCatalogResponse: (kind: CatalogFixtureResponse) => void;
 }
 
 export async function runRoutingBrowser(options: BrowserOptions) {
@@ -50,7 +50,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     const result = await response;
     expect(result.ok()).toBe(true);
     await expect(card.getByRole("button", { name: "Save changes", exact: true })).toBeDisabled();
-    await expect(page.locator("[data-sonner-toast]").filter({ hasText: path.startsWith("/api/upstreams") ? "Upstream saved." : "Rule saved." }).last()).toBeVisible();
+    if (path.startsWith("/api/upstreams")) await expect(card.getByRole("status")).toContainText("Upstream saved.");
+    else await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Rule saved." }).last()).toBeVisible();
     await expect(card.getByText("All changes saved", { exact: true })).toHaveCount(0);
     return result.json();
   };
@@ -82,14 +83,26 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(Math.abs(input.height - action.height)).toBeLessThanOrEqual(1);
     layouts.push({ kind: "configuration-header", name, input, action });
   };
-  const feedbackPlacement = async (feedback: Locator) => {
-    const card = page.getByRole("region", { name: /^(Upstream|Rule) configuration$/ });
-    const title = await card.locator("[aria-label$=' name'], h2").first().boundingBox();
+  const feedbackPlacement = async (feedback: Locator, action: "Refresh models" | "Send one test") => {
+    const card = page.getByRole("region", { name: action === "Refresh models" ? "Model catalog" : "Test connection", exact: true });
+    await expect(card.getByRole(await feedback.getAttribute("role") as "alert" | "status")).toBeVisible();
+    const trigger = await card.getByRole("button", { name: action, exact: true }).boundingBox();
     const banner = await feedback.boundingBox();
-    const tabs = await card.getByRole("tablist").boundingBox();
+    const bounds = await card.boundingBox();
     expect(banner).not.toBeNull();
-    expect(banner!.y).toBeGreaterThan(title!.y);
-    expect(banner!.y + banner!.height).toBeLessThanOrEqual(tabs!.y);
+    expect(banner!.y).toBeGreaterThanOrEqual(trigger!.y + trigger!.height);
+    expect(banner!.x).toBeGreaterThan(bounds!.x);
+    expect(banner!.x + banner!.width).toBeLessThan(bounds!.x + bounds!.width);
+    layouts.push({ kind: "operation-feedback", action, trigger, banner, card: bounds });
+  };
+  const upstreamTypography = async () => {
+    const sizes = await page.getByRole("region", { name: "Upstream configuration", exact: true }).evaluate(element =>
+      [...element.querySelectorAll<HTMLElement>("*")].filter(node => node.checkVisibility() && !node.closest(".sr-only") && [...node.childNodes].some(child => child.nodeType === Node.TEXT_NODE && child.textContent?.trim()))
+        .map(node => ({ text: node.textContent?.slice(0, 60), size: Number.parseFloat(getComputedStyle(node).fontSize) })),
+    );
+    expect(sizes.length).toBeGreaterThan(0);
+    expect(sizes.filter(item => item.size < 11)).toEqual([]);
+    layouts.push({ kind: "upstream-typography", width: page.viewportSize()!.width, sizes });
   };
   const shot = (name: string) => page.screenshot({ path: join(artifacts, `${name}.png`), fullPage: true, animations: "disabled" });
   const alignedCards = async (grid: Locator) => {
@@ -160,6 +173,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     const upstream = await save("/api/upstreams", "POST") as { id: string };
     expect(inspect()).toEqual({ catalogCalls: 0, generationCalls: 0 });
     checkpoint("whole-card upstream drafts are visible, discardable and cache-only");
+    await expect(page.getByRole("button", { name: "Advanced connection settings", exact: true })).toHaveAttribute("aria-expanded", "false");
     await shot("upstreams-connection-desktop");
 
     await page.getByRole("tab", { name: "Models", exact: true }).click();
@@ -195,9 +209,16 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await expect(unexpected).toContainText("Request succeeded · unexpected answer");
     await expect(unexpected.getByRole("region", { name: "Model reply", exact: true })).toHaveText("Fixture reply: hello from the provider.");
     await expect(unexpected.getByRole("region", { name: "Response body", exact: true })).toBeVisible();
-    await feedbackPlacement(unexpected);
+    await feedbackPlacement(unexpected, "Send one test");
     expect(inspect().generationCalls).toBe(2);
     await shot("upstream-unexpected-reply-desktop");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await feedbackPlacement(unexpected, "Send one test");
+    await upstreamTypography();
+    await layout("upstreams/diagnostic/mobile");
+    await page.getByRole("region", { name: "Test connection", exact: true }).scrollIntoViewIfNeeded();
+    await shot("upstream-unexpected-reply-mobile");
+    await page.setViewportSize({ width: 1440, height: 1100 });
     checkpoint("unexpected diagnostics expose the actual reply and native response");
 
     for (const failure of ["wrong-shape", "non-json"] as const) {
@@ -220,16 +241,19 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       const copied = await page.evaluate(() => navigator.clipboard.readText());
       expect(copied).toContain("[REDACTED]");
       expect(copied).not.toContain("fixture-provider");
-      await feedbackPlacement(banner);
+      await feedbackPlacement(banner, "Refresh models");
       await expect(page.getByRole("list", { name: "Fetched models" }).getByText("fixture-fast", { exact: true })).toBeVisible();
       await expect(page.getByLabel("Manual model IDs", { exact: true })).toHaveValue("Manual.Raw-ID");
       expect(inspect()).toEqual({ catalogCalls: before.catalogCalls + 1, generationCalls: before.generationCalls });
       await shot(`upstream-catalog-${failure}-desktop`);
     }
+    options.nextCatalogResponse("slug-catalog");
     await page.getByRole("button", { name: "Refresh models", exact: true }).click();
     await expect(upstreamCard.getByRole("alert")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Refresh models", exact: true })).toBeEnabled();
     expect(inspect()).toEqual({ catalogCalls: 4, generationCalls: 2 });
+    await expect(page.getByRole("list", { name: "Fetched models" })).toContainText("fixture-smart");
+    await feedbackPlacement(page.getByRole("region", { name: "Model catalog", exact: true }).getByRole("status"), "Refresh models");
     checkpoint("JSON and HTML discovery failures share detailed redacted feedback and preserve cached models");
 
     await page.getByRole("button", { name: "New upstream", exact: true }).click();
@@ -247,7 +271,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await expect(empty.getByRole("region", { name: "Model reply", exact: true })).toHaveCount(0);
     await expect(empty.getByText("max_output_tokens", { exact: true })).toBeVisible();
     await expect(empty.getByRole("region", { name: "Response body", exact: true })).toContainText("reasoning");
-    await feedbackPlacement(empty);
+    await feedbackPlacement(empty, "Send one test");
     expect(inspect()).toEqual({ catalogCalls: 4, generationCalls: 3 });
     await shot("upstream-reasoning-only-desktop");
     checkpoint("reasoning-only Responses diagnostics show the empty answer and finish reason");
@@ -411,7 +435,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(failureBody.error.details.request_id).toBeTruthy();
     await expect(failedDiagnostic).toContainText(failureBody.error.details.request_id);
     await expect(failedDiagnostic).not.toContainText("fixture-provider");
-    await feedbackPlacement(failedDiagnostic);
+    await feedbackPlacement(failedDiagnostic, "Send one test");
     expect(inspect().generationCalls).toBe(6);
     await shot("upstream-diagnostic-failure-desktop");
     await page.getByRole("tab", { name: "Quota", exact: true }).click();
@@ -579,6 +603,24 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             await page.keyboard.press("Enter");
             await expect(page.getByPlaceholder("e.g., 192.168.1.0/24")).toBeVisible();
             await expect(page.getByRole("switch", { name: "Restrict client IPs" })).not.toBeChecked();
+          }
+          if (path === "routing/upstreams") {
+            await page.getByRole("navigation", { name: "Upstreams", exact: true }).getByRole("button", { name: /Research provider/ }).click();
+            await indicator("Connection");
+            const advanced = page.getByRole("button", { name: "Advanced connection settings", exact: true });
+            await expect(advanced).toHaveAttribute("aria-expanded", "false");
+            await upstreamTypography();
+            await shot(`upstreams-connection-${width}-${theme}`);
+            await advanced.focus();
+            await page.keyboard.press("Enter");
+            await expect(page.getByRole("combobox", { name: "Authentication header", exact: true })).toBeVisible();
+            await upstreamTypography();
+            await layout(`upstreams/advanced/${width}/${theme}`);
+            await shot(`upstreams-advanced-${width}-${theme}`);
+            await page.getByRole("tab", { name: "Models", exact: true }).click();
+            await indicator("Models");
+            await upstreamTypography();
+            await shot(`upstreams-models-${width}-${theme}`);
           }
           const grid = frame.locator(".settings-grid").first();
           if (await grid.count()) await alignedCards(grid);

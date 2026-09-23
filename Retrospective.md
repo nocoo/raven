@@ -392,3 +392,23 @@ functions/lines). A production build in a separate source/dependency copy and
 private SQLite and local fixture upstreams. This is scoped local verification,
 not a new complete L1/L2/L3 audit or live-provider proof. Version, lockfile and
 release notes are prepared locally; no push, tag, publication or deployment ran.
+
+## 2026-09-24 — Upstream catalog schemas and action feedback
+
+A provider returned HTTP 200 with `models[].slug`, but discovery accepted only
+`data[].id` and reported 503. A mocked route test reproduced that failure before
+the parser changed. Both envelopes now preserve raw IDs and metadata; malformed
+entries still reject the entire replacement and retain the last good cache.
+
+The model card mixed a structured Basalt Well with unstructured header content.
+Basalt removes root padding for structured cards, leaving some content against
+the edge. Header/Body slots now own spacing consistently. Upstream feedback also
+lived above every tab, separating results from their actions. The view model now
+tags results with their action, and each operation renders feedback in its card.
+Advanced connection settings start collapsed even with saved overrides.
+
+Verify actual card geometry and feedback placement in the browser, including
+visible text sizes, narrow screens, both themes and keyboard disclosures. Wait
+for the selected tab indicator before capturing screenshots; an immediate image
+after a tab click can capture the previous indicator position. Tests use private
+per-run state and local fixture upstreams, including the slug-based catalog.

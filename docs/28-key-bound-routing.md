@@ -424,6 +424,9 @@ Custom saves, page loads, auth, `/api/connection-info`, `/api/copilot/models` an
 explicit management POST. The same POST may manually refresh Copilot. Discovery
 uses the saved endpoint and authentication settings, not speculative generation
 requests or an automatic auth-style retry loop.
+Accept `data` arrays keyed by `id` and `models` arrays keyed by `slug`, preserving
+the original ID strings and metadata. Reject invalid entries before replacing
+the cached snapshot; preserve manual IDs on every refresh.
 
 Restore Copilot's last good catalog at startup. Use a single non-overlapping
 background refresh with the existing one-hour cadence, including an initial
@@ -749,8 +752,10 @@ whole-card Save/Discard actions in the header. Upstreams start with Connection,
 followed by Models and optional Quota; rules start with Targets, followed by
 optional Schedule and Protocol settings. New drafts appear in the directory
 immediately, track the edited name, and disappear on discard. Discarding a new
-draft returns to the prior saved selection. Clean cards have no persistent saved
-label; successful operations use the shared transient toast. Basalt owns tab
+draft returns to the prior saved selection. Upstream operations show success and
+failure beneath the corresponding controls inside their cards; advanced connection
+settings start collapsed even when overrides are saved. Rule operations use the
+shared transient success toast. Basalt owns tab
 indicator motion; the tab list must not clip its underline with an overflow
 override.
 
