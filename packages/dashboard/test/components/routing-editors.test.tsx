@@ -189,21 +189,42 @@ describe("visual schedule workbench", () => {
     await selectOption("Starts on", "Tuesday");
     expect(changes.mock.lastCall?.[1][0].day).toBe(1);
     await user.click(screen.getByRole("button", { name: "Copy day" }));
-    await user.click(screen.getByRole("checkbox", { name: "Thursday" }));
-    await user.click(screen.getByRole("checkbox", { name: "Friday" }));
-    await user.click(screen.getByRole("checkbox", { name: "Friday" }));
-    await user.click(screen.getByRole("button", { name: "Apply copy" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Copy Tuesday" }));
+    await user.click(dialog.getByRole("checkbox", { name: "Thursday" }));
+    const friday = dialog.getByRole("checkbox", { name: "Friday" });
+    await user.click(friday);
+    await user.click(friday);
+    await user.click(dialog.getByRole("button", { name: "Apply copy" }));
     const copied = changes.mock.lastCall?.[1] as LocalWindow<number>[];
     expect(copied.map(window => window.day)).toEqual([1, 3]);
     expect(copied[1]!.id).not.toBe(morning.id);
+    expect(copied[1]).toMatchObject({ day: 3, start: 540, end: 600, value: 1 });
     await user.click(screen.getByRole("button", { name: "Thu" }));
     expect(screen.getByRole("button", { name: /Thursday 09:00 to 10:00/ })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "09:00–10:00" }));
+    expect(screen.getByRole("combobox", { name: "Starts on" })).toHaveTextContent("Thursday");
+  });
+
+  it("cancels day copying without changing periods", async () => {
+    const changes = vi.fn();
+    render(<ScheduleHarness initialMode="weekly" initial={[morning]} onChange={changes} />);
+    const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Copy day" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Copy Monday" }));
+    await user.click(dialog.getByRole("checkbox", { name: "Thursday" }));
+    await user.click(dialog.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(changes).not.toHaveBeenCalled();
+  });
+
+  it("adds a period on an empty weekday without changing existing periods", async () => {
+    const changes = vi.fn();
+    const initial = [morning, { ...morning, id: "thursday", day: 3 }];
+    render(<ScheduleHarness initialMode="weekly" initial={initial} onChange={changes} />);
+    const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Wed" }));
     await user.click(screen.getByRole("button", { name: "Add a period" }));
-    expect(changes.mock.lastCall?.[1]).toHaveLength(3);
+    expect(changes).toHaveBeenCalledExactlyOnceWith("weekly", [...initial, { id: expect.any(String), day: 2, start: 540, end: 600, value: 1 }]);
   });
 
   it("refuses the complete copy on overlap with an overnight tail", async () => {

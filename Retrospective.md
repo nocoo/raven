@@ -207,6 +207,46 @@ the standalone WAL-mode file; opening the completed, inactive backup with
 `immutable=1` passed `PRAGMA quick_check`. Never apply immutable mode to the
 running database or confuse that local probe failure with an upstream API error.
 
+## 2026-09-23: A combined schedule test exhausted the CI time budget
+
+The documentation-only commit `119562e` failed Dashboard CI because one schedule
+test exceeded its unchanged 5-second limit. The identical test had taken 4.695s
+in the successful `2adba3a` release run, leaving only 305ms of headroom; the next
+Ubuntu run took 5.624s. Its real-timer userEvent interactions already used
+`delay: null`. The only asynchronous lookup waited for the opened Select option;
+there were no fake timers or polling assertions in this scenario. The recent
+keyboard-fixture optimization changed a different test.
+
+Local step instrumentation showed steady progress through selection, copying,
+navigation, cancellation and creation, including 417 computed-style calls. A
+bounded CPU-quota probe (15ms runnable per 200ms, applied only to the owned test
+process group) reproduced the original timeout at 5.245s around cancellation.
+This establishes sensitivity to cumulative work and scheduling, not an observed
+async deadlock. It is a controlled stress reproduction, not an exact Ubuntu
+hardware reproduction. An initial probe throttled runner startup and was
+discarded; the useful probe began at the test body. Its first completed failure
+also exposed a diagnostic cleanup signal after runner shutdown; the harness
+stopped throttling before shutdown for subsequent comparisons.
+
+The fix keeps start-day editing, copying under fresh identities and inspecting
+the copied period together, but tests cancellation and empty-weekday creation
+independently from explicit fixtures. Queries inside the copy modal now use its
+accessible dialog scope. Existing interactions remain covered, with stronger
+assertions for copied values, cancellation without mutations and preservation
+of existing periods. The new exact creation assertion was corrected against
+`availableWindow`'s existing 60-minute default before verification; production
+behavior was not changed to match a guessed fixture.
+
+The 17-test editor file passed five consecutive complete runs. Three identical
+quota runs passed all three affected scenarios; the longest case took
+4.221–4.245s. The normal parallel `bun run test:all` passed all 835 Dashboard
+and 2,614 Proxy tests with coverage enabled; full lint and typecheck also passed.
+Temporary instrumentation stayed outside the final diff. No global
+or local timeout, retry, fake timer, coverage scope or worker setting changed.
+The 3.0.0 application code, version, tag and Release remain untouched. Treat
+near-timeout green tests as a warning: isolate independent behaviors and measure
+their work before increasing a timeout or blaming a race.
+
 ## Undated entries migrated from the previous handbook
 
 
