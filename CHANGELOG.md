@@ -1,5 +1,20 @@
 # Changelog
 
+## v3.0.2
+
+### Added
+- Configure request-history retention in General: 7, 14, 30, 60 or 90 days, defaulting to 30 days, with hourly cleanup.
+
+### Fixed
+- Show Native or Translated for completed log events from their actual client and upstream protocols, including native Responses calls; retain Pending/Unknown when protocol evidence is missing.
+- Give the Logs dock a rounded Basalt card surface, preserve its FAB and remove the duplicate header entry.
+- Add horizontal hover padding to key/model details and keep same-row settings cards equal-height without fixed heights.
+- Exercise the real shared log-stream transport in isolated browser acceptance.
+
+### Upgrade notes
+- On first startup with history retention, a one-time migration permanently deletes request history older than 90 days. Hourly cleanup then uses the selected retention period; changing the setting takes effect on the next cycle.
+- Only request history is removed. API keys, providers, routing rules, settings and quota accounting are preserved. Back up the local database before upgrading if older request history is needed.
+
 ## v3.0.1
 
 ### Changed
