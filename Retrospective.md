@@ -188,6 +188,25 @@ normal checks. Future release preparation should check exact cached artifacts
 and inspect the complete lock diff; a temporary registry is not proof that Bun
 will leave resolution URLs unchanged. No application workaround was needed.
 
+## 2026-09-23: Release runtime checks needed fresh development state
+
+The 3.0.0 production build and 18 isolated browser checks passed, but restarting
+the daily Dashboard reused old `.next/dev` state after dependency relinking and
+failed to compile generated Google-font imports. Moving only that generated
+development directory to a recoverable private temporary location and restarting
+Dashboard fixed the error. The production build, application source and font
+configuration were unchanged; both live components and the HTTPS General page
+then reported 3.0.0. Inspect generated state before changing working source to
+compensate for a local development-cache failure.
+
+Bun's HTTPS client did not trust the existing local certificate; system curl did.
+Verification used curl without disabling TLS or changing certificates/Keychain.
+The release database backup was created through SQLite's backup operation with
+private permissions. Its initial read-only integrity probe could not initialize
+the standalone WAL-mode file; opening the completed, inactive backup with
+`immutable=1` passed `PRAGMA quick_check`. Never apply immutable mode to the
+running database or confuse that local probe failure with an upstream API error.
+
 ## Undated entries migrated from the previous handbook
 
 
