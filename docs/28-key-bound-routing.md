@@ -149,7 +149,10 @@ need not themselves be multiples of 30.
 
 Quota multiplier schedules use the same interval evaluator, with a default 1×
 multiplier outside configured intervals. Support daily and weekly modes without
-creating a second scheduling engine.
+creating a second scheduling engine. The editor shows the fixed 1× baseline and
+starts new override periods at 2×. Only non-default periods are edited and saved;
+setting a period to 1× removes that override on save. Positive fractional
+multipliers remain valid.
 
 Capture one UTC timestamp after authentication at the inference boundary. All
 selection, multiplier and window decisions for the request use that timestamp.

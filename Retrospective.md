@@ -412,3 +412,19 @@ visible text sizes, narrow screens, both themes and keyboard disclosures. Wait
 for the selected tab indicator before capturing screenshots; an immediate image
 after a tab click can capture the previous indicator position. Tests use private
 per-run state and local fixture upstreams, including the slug-based catalog.
+
+## 2026-09-24 — Copy-dialog spacing and multiplier defaults
+
+The copy dialog relied on Basalt's outer padding and footer margin but provided
+no gap between its description and options. Explicit section gaps now separate
+the header, choices and actions. The quota editor also created redundant 1×
+periods even though accounting already defaults to 1× outside overrides. It now
+shows that baseline, starts new periods at 2× and omits 1× periods on save.
+
+A fresh browser profile initially left the setup wizard open, making background
+controls inaccessible to role locators. Reuse the documented dismissal key in
+the temporary profile before checking an existing screen. The read-only guard
+also counted Next.js stack-frame requests as data writes; classify framework
+diagnostics separately while continuing to block application mutations. Visual
+checks use unsaved drafts in a separate browser context, leaving saved settings
+and the user's session untouched.

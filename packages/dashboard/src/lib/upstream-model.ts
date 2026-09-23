@@ -29,7 +29,7 @@ export function quotaDraft(quota: QuotaPolicy | null, offset: number, now: numbe
     window: String(quota?.window_minutes ?? 300),
     reset: localDateTime(quota?.next_reset_at ?? now + 300 * 60_000, offset),
     mode: quota?.mode ?? "all_day",
-    windows: quota ? toLocalWindows(quota.multipliers.map(item => ({ ...item, value: item.multiplier })), quota.mode, offset) : [],
+    windows: quota ? toLocalWindows(quota.multipliers.filter(item => item.multiplier !== 1).map(item => ({ ...item, value: item.multiplier })), quota.mode, offset) : [],
   };
 }
 
@@ -52,7 +52,7 @@ export function quotaPayload(draft: QuotaDraft, offset: number): QuotaPolicy | n
   if (!Number.isFinite(next_reset_at)) throw new Error("Choose a valid next reset date and time.");
   const windows = toUtcWindows(draft.windows, draft.mode, offset);
   if (windows.some(window => !Number.isFinite(window.value) || window.value <= 0)) throw new Error("Every multiplier must be greater than zero.");
-  return { limit_tokens, window_minutes, next_reset_at, mode: draft.mode, multipliers: windows.map(window => ({ id: window.id, start_minute: window.start_minute, end_minute: window.end_minute, multiplier: window.value })) };
+  return { limit_tokens, window_minutes, next_reset_at, mode: draft.mode, multipliers: windows.filter(window => window.value !== 1).map(window => ({ id: window.id, start_minute: window.start_minute, end_minute: window.end_minute, multiplier: window.value })) };
 }
 
 export function upstreamPayload(draft: UpstreamDraft, upstream: ProviderPublic | null, offset: number): UpdateProviderInput {

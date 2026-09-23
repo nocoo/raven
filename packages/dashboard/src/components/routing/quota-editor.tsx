@@ -43,10 +43,11 @@ export function QuotaEditor({ value, onChange, clock }: { value: QuotaDraft; onC
         <Field label="Next reset (local time)" htmlFor="quota-reset"><Input id="quota-reset" type="datetime-local" size="sm" value={value.reset} onChange={event => onChange({ ...value, reset: event.target.value })} /></Field>
       </div>
       <LayerCard.Well className="space-y-1 rounded-widget py-3 text-xs text-basalt-muted-foreground"><p>Effective next reset: <span className="font-medium text-basalt-foreground">{previewReset === null ? "Choose a valid reset time" : localDateTime(previewReset, clock.offset).replace("T", " ")}</span></p><p>Edits retain charged usage. In-flight requests may exceed the soft limit.</p></LayerCard.Well>
-      <div className="space-y-3"><h3 className="text-sm font-semibold">Consumption multipliers</h3><TimezoneNote clock={clock} />
-        <ScheduleEditor mode={value.mode} windows={value.windows} offset={clock.offset} onChange={(mode, windows) => onChange({ ...value, mode, windows })} newValue={() => 1} summarize={multiplier => `${multiplier}×`}
-          renderValue={(multiplier, change) => <Field label="Token multiplier" htmlFor="period-multiplier" hint="One reported token charges this many tokens against the shared allowance."><Input id="period-multiplier" size="sm" type="number" min="0.001" step="any" value={Number.isFinite(multiplier) ? multiplier : ""} onChange={event => change(Number(event.target.value))} className="max-w-44" /></Field>}
-          emptyLabel="Tokens consume 1× allowance all day. Add periods for different multipliers; gaps always use 1×." />
+      <div className="space-y-3">
+        <div className="space-y-1.5"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold">Consumption multipliers</h3><Badge variant="secondary" className="text-xs">Default 1×</Badge></div><p className="text-xs text-basalt-muted-foreground">Only add periods with a different multiplier. All other times use 1×.</p><TimezoneNote clock={clock} /></div>
+        <ScheduleEditor mode={value.mode} windows={value.windows} offset={clock.offset} onChange={(mode, windows) => onChange({ ...value, mode, windows })} defaultLabel="1×" newValue={() => 2} summarize={multiplier => `${multiplier}×`}
+          renderValue={(multiplier, change) => <Field label="Token multiplier" htmlFor="period-multiplier" hint="One reported token charges this many tokens. Set 1× to remove this override when saving."><Input id="period-multiplier" size="sm" type="number" min="0.001" step="any" value={Number.isFinite(multiplier) ? multiplier : ""} onChange={event => change(Number(event.target.value))} className="max-w-44" /></Field>}
+          emptyLabel="Tokens consume 1× allowance all day. Choose Every day or Weekly to add multiplier periods." />
       </div>
     </LayerCard.Body></CollapsibleContent></Collapsible>
   </LayerCard>;

@@ -13,12 +13,13 @@ function timeOptions(current: number, end = false) {
   return values.map(value => ({ value: String(value), label: minuteLabel(value) }));
 }
 
-export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, summarize, renderValue, emptyLabel }: {
+export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, summarize, renderValue, emptyLabel, defaultLabel }: {
   mode: ScheduleMode; windows: LocalWindow<T>[]; offset: number;
   onChange: (mode: ScheduleMode, windows: LocalWindow<T>[]) => void;
   newValue: () => T; summarize: (value: T) => string;
   renderValue: (value: T, onChange: (value: T) => void) => ReactNode;
   emptyLabel: string;
+  defaultLabel?: string;
 }) {
   const controlId = useId();
   const [day, setDay] = useState(0);
@@ -34,7 +35,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
   const setMode = async (next: ScheduleMode) => {
     if (mode === next) return;
     if (windows.length && (next === "all_day" || next === "daily")) {
-      const accepted = await confirm({ title: "Change timetable?", description: next === "all_day" ? "Period overrides will be removed. The default policy will apply all day." : `Only periods starting on ${DAYS[day]} will repeat every day. Other weekdays will be replaced.`, confirmLabel: "Change timetable" });
+      const accepted = await confirm({ title: "Change timetable?", description: next === "all_day" ? `Period overrides will be removed. ${defaultLabel ?? "The default policy"} will apply all day.` : `Only periods starting on ${DAYS[day]} will repeat every day. Other weekdays will be replaced.`, confirmLabel: "Change timetable" });
       if (!accepted) return;
     }
     try {
@@ -57,7 +58,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
   };
   return <div className="space-y-3">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <SegmentControl legend="Timetable" value={mode} onValueChange={value => void setMode(value as ScheduleMode)} options={[{ value: "all_day", label: "All day" }, { value: "daily", label: "Every day" }, { value: "weekly", label: "Weekly" }]} />
+      <SegmentControl legend="Timetable" value={mode} onValueChange={value => void setMode(value as ScheduleMode)} options={[{ value: "all_day", label: defaultLabel ? `${defaultLabel} all day` : "All day" }, { value: "daily", label: "Every day" }, { value: "weekly", label: "Weekly" }]} />
       {mode !== "all_day" && <div className="flex gap-2">
         {mode === "weekly" && <Button variant="ghost" size="sm" onClick={() => { setCopyDays([]); setError(null); setCopyOpen(true); }}><Copy className="size-3.5" />Copy day</Button>}
         <Button variant="outline" size="sm" onClick={add}><Plus className="size-3.5" />Add period</Button>
@@ -83,7 +84,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
           </div>)}
         </div>
       </section>
-      <div className="flex flex-wrap items-center gap-3 text-xs text-basalt-muted-foreground"><span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-basalt-primary/70" />Period override</span><span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-basalt-muted" />Gaps use the default</span><span>30-minute editing steps · click a period to edit</span></div>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-basalt-muted-foreground"><span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-basalt-primary/70" />Period override</span><span className="flex items-center gap-1.5"><span className="size-2 rounded-sm bg-basalt-muted" />Gaps use {defaultLabel ?? "the default"}</span><span>30-minute editing steps · click a period to edit</span></div>
       <section className="flex flex-wrap gap-1.5" aria-label={`${DAYS[day]} periods`}>
         {windows.filter(window => window.day === day).map(window => <Button key={window.id} size="sm" variant={selected?.id === window.id ? "secondary" : "ghost"} aria-pressed={selected?.id === window.id} onClick={() => setSelectedId(window.id)} className="text-xs">
           {minuteLabel(window.start)}–{minuteLabel(window.end === DAY ? DAY : window.end % DAY)}{window.end > DAY && <Moon className="size-3" />}
@@ -100,14 +101,14 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
         </div>
         <p className="text-xs text-basalt-muted-foreground">An end before the start continues overnight and belongs to the day it starts. Equal times are invalid.</p>
         {renderValue(selected.value, value => update({ ...selected, value }))}
-      </LayerCard> : <LayerCard className="flex flex-wrap items-center justify-between gap-2 py-3"><p className="text-sm text-basalt-muted-foreground">No periods start {mode === "weekly" ? `on ${DAYS[day]}` : "today"}. The default covers gaps.</p><Button size="sm" variant="ghost" onClick={add}>Add a period</Button></LayerCard>}
+      </LayerCard> : <LayerCard className="flex flex-wrap items-center justify-between gap-2 py-3"><p className="text-sm text-basalt-muted-foreground">No periods start {mode === "weekly" ? `on ${DAYS[day]}` : "today"}. {defaultLabel ?? "The default"} covers gaps.</p><Button size="sm" variant="ghost" onClick={add}>Add a period</Button></LayerCard>}
     </>}
     <ConfirmDialog {...dialogProps} />
-    <Dialog open={copyOpen} onOpenChange={setCopyOpen}><DialogContent>
-      <DialogHeader><DialogTitle>Copy {DAYS[day]}</DialogTitle><DialogDescription>Replace periods starting on the selected days. Overnight tails stay attached to their starting day. The complete week is checked for overlaps before applying.</DialogDescription></DialogHeader>
-      <div className="grid grid-cols-2 gap-3">{DAYS.map((label, index) => index === day ? null : <label key={label} htmlFor={`${controlId}-copy-${index}`} className="flex items-center gap-2 text-sm"><Checkbox id={`${controlId}-copy-${index}`} checked={copyDays.includes(index)} onCheckedChange={checked => setCopyDays(current => checked ? [...current, index] : current.filter(value => value !== index))} />{label}</label>)}</div>
+    <Dialog open={copyOpen} onOpenChange={setCopyOpen}><DialogContent className="grid gap-5 p-5 sm:p-6">
+      <DialogHeader className="space-y-2"><DialogTitle>Copy {DAYS[day]}</DialogTitle><DialogDescription>Replace periods starting on the selected days. Overnight tails stay attached to their starting day. The complete week is checked for overlaps before applying.</DialogDescription></DialogHeader>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">{DAYS.map((label, index) => index === day ? null : <label key={label} htmlFor={`${controlId}-copy-${index}`} className="flex min-h-8 items-center gap-2 text-sm"><Checkbox id={`${controlId}-copy-${index}`} checked={copyDays.includes(index)} onCheckedChange={checked => setCopyDays(current => checked ? [...current, index] : current.filter(value => value !== index))} />{label}</label>)}</div>
       <Feedback error={error} />
-      <DialogFooter><Button variant="ghost" onClick={() => setCopyOpen(false)}>Cancel</Button><Button onClick={applyCopy} disabled={!copyDays.length}>Apply copy</Button></DialogFooter>
+      <DialogFooter className="mt-0"><Button variant="ghost" onClick={() => setCopyOpen(false)}>Cancel</Button><Button onClick={applyCopy} disabled={!copyDays.length}>Apply copy</Button></DialogFooter>
     </DialogContent></Dialog>
   </div>;
 }

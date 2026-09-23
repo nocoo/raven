@@ -52,6 +52,20 @@ describe("shared quota editor", () => {
     expect(result?.multipliers).toEqual([policy.multipliers[1], policy.multipliers[0]]);
     expect(result).not.toHaveProperty("used_tokens");
   });
+  it.each(["daily", "weekly"] as const)("keeps only non-default multipliers in a %s schedule", mode => {
+    const policy = { ...fixtureQuota, mode, multipliers: [
+      { id: "baseline", start_minute: 0, end_minute: 60, multiplier: 1 },
+      { id: "peak", start_minute: 60, end_minute: 120, multiplier: 2 },
+      { id: "discount", start_minute: 120, end_minute: 180, multiplier: 0.5 },
+    ] };
+    const draft = quotaDraft(policy, -345, FIXTURE_NOW);
+    expect(draft.windows.map(window => window.value)).toEqual([2, 0.5]);
+    expect(quotaPayload(draft, -345)?.multipliers).toEqual(policy.multipliers.slice(1));
+    draft.windows[0]!.value = 1;
+    expect(quotaPayload(draft, -345)?.multipliers).toEqual([policy.multipliers[2]]);
+    draft.windows[1]!.value = 1;
+    expect(quotaPayload(draft, -345)).toMatchObject({ mode, multipliers: [], limit_tokens: policy.limit_tokens, next_reset_at: policy.next_reset_at });
+  });
   it.each(["0", "-1", "Infinity", "1.25", ""])("rejects invalid allowance %s", limit => {
     expect(() => quotaPayload({ ...quotaDraft(fixtureQuota, 0, FIXTURE_NOW), limit }, 0)).toThrow("allowance");
   });

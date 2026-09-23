@@ -192,6 +192,8 @@ describe("Upstreams workbench", () => {
     render(<UpstreamsContent upstreams={[makeCopilot()]} migration={null} />);
     await tab("Quota");
     await user().click(screen.getByRole("switch", { name: "Enable shared token quota" }));
+    expect(screen.getByRole("radio", { name: "1× all day" })).toBeChecked();
+    expect(screen.getByText("Default 1×")).toBeVisible();
     expect(screen.getByRole("spinbutton", { name: "Window (minutes)" })).toHaveValue(300);
     change("1× token allowance", "20000");
     change("Window (minutes)", "60");
@@ -200,11 +202,29 @@ describe("Upstreams workbench", () => {
     expect(screen.queryByText(/2026-09-22 09:00 UTC/)).toBeNull();
     await user().click(screen.getByRole("radio", { name: "Every day" }));
     await click("Add period");
+    expect(screen.getByRole("spinbutton", { name: "Token multiplier" })).toHaveValue(2);
+    expect(screen.getByText("Gaps use 1×")).toBeVisible();
     await selectOption("End time", "09:30");
     change("Token multiplier", "0.5");
     fetchSpy.mockResolvedValueOnce(Response.json(makeCopilot({ quota: { ...fixtureQuota, limit_tokens: 20_000, window_minutes: 60, mode: "daily", multipliers: [{ id: "saved-period", start_minute: 60, end_minute: 90, multiplier: 0.5 }] } })));
     await click("Save changes");
     expect(payload()).toEqual({ manual_models: [], quota: { limit_tokens: 20_000, window_minutes: 60, next_reset_at: Date.UTC(2026, 8, 22, 9), mode: "daily", multipliers: [{ id: expect.any(String), start_minute: 60, end_minute: 90, multiplier: 0.5 }] } });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a multiplier period to the fixed baseline without saving a 1x override", async () => {
+    const quota = { ...fixtureQuota, mode: "daily" as const, multipliers: [{ id: "peak", start_minute: 540, end_minute: 600, multiplier: 2 }] };
+    render(<UpstreamsContent upstreams={[makeCopilot({ quota })]} migration={null} />);
+    await tab("Quota");
+    await user().click(screen.getByRole("radio", { name: "1× all day" }));
+    expect(screen.getByText("Period overrides will be removed. 1× will apply all day.")).toBeVisible();
+    await click("Cancel");
+    change("Token multiplier", "1");
+    fetchSpy.mockResolvedValueOnce(Response.json(makeCopilot({ quota: { ...quota, multipliers: [] } })));
+    await click("Save changes");
+    expect(payload()).toMatchObject({ quota: { mode: "daily", multipliers: [] } });
+    expect(screen.queryByRole("spinbutton", { name: "Token multiplier" })).toBeNull();
+    expect(screen.getByText("No periods start today. 1× covers gaps.")).toBeVisible();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
