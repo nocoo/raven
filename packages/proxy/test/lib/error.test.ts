@@ -5,6 +5,8 @@ import {
   forwardError,
   HTTPError,
   extractErrorDetails,
+  normalizeRequestError,
+  RequestCancelledError,
 } from "../../src/lib/error";
 import { Socks5BridgeUnavailableError } from "../../src/lib/socks5-bridge";
 
@@ -50,6 +52,28 @@ describe("forwardError", () => {
 });
 
 describe("extractErrorDetails", () => {
+  it.each([
+    [new Error("internal"), 500],
+    [Object.assign(new TypeError("socket reset"), { code: "ECONNRESET" }), 502],
+    [new DOMException("deadline", "TimeoutError"), 504],
+    [new RequestCancelledError(), 499],
+    ["unstructured failure", 500],
+  ])("keeps wire and logged status aligned for %s", async (error, status) => {
+    const app = new Hono().get("/", c => forwardError(c, error))
+    expect((await app.request("/")).status).toBe(status)
+    expect(extractErrorDetails(error).statusCode).toBe(status)
+  })
+
+  it("keeps an independent timeout when fetch reports AbortError", () => {
+    const timeout = new DOMException("deadline", "TimeoutError")
+    expect(normalizeRequestError(new DOMException("aborted", "AbortError"), AbortSignal.abort(timeout))).toBe(timeout)
+  })
+
+  it("does not relabel an upstream failure just because the client also aborted", () => {
+    const failure = new HTTPError("quota", 429)
+    expect(normalizeRequestError(failure, AbortSignal.abort())).toBe(failure)
+    expect(normalizeRequestError(failure)).toBe(failure)
+  })
   it("maps Socks5BridgeUnavailableError to 502", () => {
     const result = extractErrorDetails(new Socks5BridgeUnavailableError());
     expect(result.statusCode).toBe(502);

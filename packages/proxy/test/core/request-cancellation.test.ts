@@ -55,7 +55,7 @@ test.each(["body", "request", "context"] as const)("%s cancellation wakes pendin
   expect(cancel).toHaveBeenCalledTimes(1)
   expect(body.locked).toBe(false)
   expect(log).toHaveBeenCalledTimes(1)
-  expect(log.mock.calls[0]?.[0].data?.status).toBe("error")
+  expect(log.mock.calls[0]?.[0].data?.status).toBe("cancelled")
 })
 
 test("pre-header cancellation reaches dispatch without an original context signal", async () => {
@@ -74,7 +74,7 @@ test("pre-header cancellation reaches dispatch without an original context signa
   expect(strategy.adaptChunk).not.toHaveBeenCalled()
   expect(strategy.finalizeStream).not.toHaveBeenCalled()
   expect(log).toHaveBeenCalledTimes(1)
-  expect(log.mock.calls[0]?.[0].data?.status).toBe("error")
+  expect(log.mock.calls[0]?.[0].data?.status).toBe("cancelled")
 })
 
 test("already aborted context prevents dispatch", async () => {
@@ -82,7 +82,7 @@ test("already aborted context prevents dispatch", async () => {
   expect((await app.request("/")).status).toBe(499)
   expect(strategy.dispatch).not.toHaveBeenCalled()
   expect(log).toHaveBeenCalledTimes(1)
-  expect(log.mock.calls[0]?.[0].data?.status).toBe("error")
+  expect(log.mock.calls[0]?.[0].data?.status).toBe("cancelled")
 })
 
 test("natural completion finalizes and logs success without cancel", async () => {
@@ -123,7 +123,7 @@ test("late dispatch after abort closes an unstarted SSE body without adaptation"
   expect(strategy.finalizeStream).not.toHaveBeenCalled()
   expect(strategy.adaptStreamError).not.toHaveBeenCalled()
   expect(log).toHaveBeenCalledTimes(1)
-  expect(log.mock.calls[0]?.[0].data?.status).toBe("error")
+  expect(log.mock.calls[0]?.[0].data?.status).toBe("cancelled")
 })
 
 test("raw abort releases a backpressured writer without draining downstream", async () => {
@@ -148,5 +148,5 @@ test("raw abort releases a backpressured writer without draining downstream", as
   expect(strategy.finalizeStream).not.toHaveBeenCalled()
   expect(strategy.adaptStreamError).not.toHaveBeenCalled()
   expect(log).toHaveBeenCalledTimes(1)
-  expect(log.mock.calls[0]?.[0].data?.status).toBe("error")
+  expect(log.mock.calls[0]?.[0].data?.status).toBe("cancelled")
 })

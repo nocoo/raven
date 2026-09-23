@@ -117,4 +117,7 @@ export interface Strategy<
 
   /** Sticky outcome of forwarded inline events; an error has already reached the client. */
   streamOutcome?(state: StreamState): "success" | "error"
+
+  /** True only at the upstream protocol terminator, after any usage trailer. */
+  isStreamTerminal?(chunk: ChunkIn, state: StreamState): boolean
 }

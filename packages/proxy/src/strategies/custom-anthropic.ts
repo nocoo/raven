@@ -34,6 +34,7 @@ export interface CustomAnthropicUpReq {
 
 export interface CustomAnthropicStreamState {
   inlineFailed?: boolean
+  terminalSeen?: boolean
   inputTokens: number
   outputTokens: number
   cacheReadTokens: number
@@ -91,6 +92,7 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
           usage?: Usage
         }
         st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed)
+        st.terminalSeen ||= parsed.type === "message_stop"
         // message_start carries input + cache counters; message_delta carries
         // output totals and usually omits input_tokens — keep the prior value
         // rather than zeroing it.
@@ -114,6 +116,8 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
     },
 
     streamOutcome: (st) => st.inlineFailed ? "error" : "success",
+
+    isStreamTerminal: (_chunk, st) => st.terminalSeen === true,
 
     adaptStreamError: () => {
       const errorEvent = translateErrorToAnthropicErrorEvent()

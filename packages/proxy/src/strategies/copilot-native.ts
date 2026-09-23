@@ -49,6 +49,7 @@ export interface CopilotNativeUpReq {
 
 export interface CopilotNativeStreamState {
   inlineFailed?: boolean
+  terminalSeen?: boolean
   resolvedModel: string
   inputTokens: number
   outputTokens: number
@@ -111,6 +112,7 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
         try {
           const parsed = JSON.parse(sseEvent.data)
           st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed)
+          st.terminalSeen ||= parsed.type === "message_stop"
           if (parsed.type === "message_start" && parsed.message?.model) {
             st.resolvedModel = parsed.message.model
           }
@@ -133,6 +135,8 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
     },
 
     streamOutcome: (st) => st.inlineFailed ? "error" : "success",
+
+    isStreamTerminal: (_chunk, st) => st.terminalSeen === true,
 
     adaptStreamError: () => {
       // Native handler emits a synthesised generic error event (not the
@@ -194,9 +198,8 @@ async function sendWithEffortFallback(
   try {
     return await client.send({ payload: req.payload, options: req.options }, signal)
   } catch (error) {
-    signal?.throwIfAborted()
     if (!(error instanceof HTTPError)) throw error
-    if (error.status !== 400 || !allowEffortRepair || client.allowReplay === false) throw error
+    if (signal?.aborted || error.status !== 400 || !allowEffortRepair || client.allowReplay === false) throw error
     let errorBody: unknown
     try {
       errorBody = JSON.parse(error.responseBody)

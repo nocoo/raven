@@ -105,6 +105,15 @@ function makeExtendedRecord(overrides: Partial<ExtendedRequestRecord> = {}): Ext
 // RequestDetailDrawer
 // ===========================================================================
 
+describe("cancelled request badge", () => {
+  it("uses the neutral secondary badge for a pre-header cancellation", () => {
+    render(<RequestDetailDrawer request={makeExtendedRecord({ status: "cancelled", status_code: 499, error_message: "client cancelled" })} open onOpenChange={vi.fn()} />);
+    const badge = screen.getByText("cancelled");
+    expect(badge.className).toContain("bg-basalt-secondary");
+    expect(badge.className).not.toContain("bg-basalt-destructive");
+  });
+});
+
 describe("RequestDetailDrawer", () => {
   it("warns only for translated requests and recommends the actual upstream protocol", () => {
     const { rerender } = render(<RequestDetailDrawer request={makeExtendedRecord({ client_format: "anthropic", upstream_format: "responses", strategy: "protocol-converted" })} open onOpenChange={vi.fn()} />);

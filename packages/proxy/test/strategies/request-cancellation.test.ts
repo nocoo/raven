@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { Hono, type Context } from "hono"
+import { makeProtocolConverted } from "../../src/strategies/protocol-converted"
+import { events } from "../../src/util/sse"
+import { forwardError, HTTPError } from "../../src/lib/error"
 import { execute } from "../../src/core/runner"
 import type { RequestContext } from "../../src/core/context"
 import type { UpstreamRecord } from "../../src/core/routing-types"
@@ -71,6 +74,15 @@ function context(): RequestContext {
   }
 }
 
+const converted = [
+  ["responses", "responses"],
+  ["anthropic_messages", "responses"],
+  ["chat_completions", "responses"],
+  ["chat_completions", "anthropic_messages"],
+  ["responses", "chat_completions"],
+  ["responses", "anthropic_messages"],
+] as const
+
 const paths = [
   {
     name: "copilot-native", frame: messagesFrame,
@@ -110,6 +122,17 @@ const paths = [
       provider, payload: chat, originalModel: messages.model,
     }),
   },
+  {
+    name: "custom-openai-native", frame: chatFrame,
+    run: (c: Context) => execute(c, context(), makeCustomOpenAI({ client: new CustomOpenAIClient(config), toolCallDebug: false }), { provider, payload: chat }),
+  },
+  ...converted.map(([source, target]) => ({
+    name: `${source}-via-${target}`, frame: target === "responses" ? responsesFrame : target === "anthropic_messages" ? messagesFrame : chatFrame,
+    run: (c: Context) => execute(c, context(), makeProtocolConverted({
+      source, target, exactModel: true, includeUsage: true,
+      client: { send: async (wire, signal) => events(await fetch("https://upstream.invalid", { method: "POST", signal: signal ?? null, body: JSON.stringify(wire) }), signal) },
+    }), source === "responses" ? { model: "gpt-4o", input: "hello", stream: true } : source === "anthropic_messages" ? messages : chat),
+  })),
 ]
 
 describe.each(paths)("request cancellation through $name", ({ run, frame }) => {
@@ -120,7 +143,7 @@ describe.each(paths)("request cancellation through $name", ({ run, frame }) => {
 
   beforeEach(() => {
     app = new Hono()
-    app.onError(() => new Response("request failed", { status: 500 }))
+    app.onError((error, c) => forwardError(c, error))
     app.post("/x", run)
     ends = []
     ended = Promise.withResolvers<void>()
@@ -136,6 +159,40 @@ describe.each(paths)("request cancellation through $name", ({ run, frame }) => {
 
   afterEach(() => { off(); vi.restoreAllMocks() })
 
+  test("retains an upstream HTTP failure when cancellation races with rejection", async () => {
+    const controller = new AbortController()
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      controller.abort()
+      throw new HTTPError("fixture quota", 429)
+    })
+    const response = await app.request("http://localhost/x", { method: "POST", signal: controller.signal })
+    expect(response.status).toBe(429)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(ends).toHaveLength(1)
+    expect(ends[0]!.data).toMatchObject({ status: "error", statusCode: 429, upstreamStatus: 429 })
+  })
+
+  test("finishes at the protocol terminal, preserves late usage and releases the open upstream", async () => {
+    const cancel = vi.fn()
+    const terminal = frame === chatFrame
+      ? `data: ${JSON.stringify({ id: "chat-1", model: "gpt-4o", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 3, total_tokens: 13 } })}\n\ndata: [DONE]\n\n`
+      : frame === messagesFrame
+        ? `event: message_delta\ndata: ${JSON.stringify({ type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 3 } })}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n`
+        : `event: response.completed\ndata: ${JSON.stringify({ type: "response.completed", response: { id: "resp-1", model: "gpt-4o", status: "completed", output: [], usage: { input_tokens: 10, output_tokens: 3 } } })}\n\n`
+    const body = new ReadableStream<Uint8Array>({
+      start(stream) { stream.enqueue(new TextEncoder().encode(frame + terminal)) }, cancel,
+    })
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(body))
+    const response = await app.request("http://localhost/x", { method: "POST" })
+    const wire = await response.text()
+    expect(wire).toMatch(/\[DONE\]|message_stop|response.completed/)
+    await ended.promise
+    expect(ends).toHaveLength(1)
+    expect(ends[0]!.data).toMatchObject({ status: "success", statusCode: 200, outputTokens: 3 })
+    expect(cancel).toHaveBeenCalledTimes(1)
+    expect(body.locked).toBe(false)
+  })
+
   test("aborts pending fetch before response headers", async () => {
     const controller = new AbortController()
     const started = Promise.withResolvers<AbortSignal>()
@@ -149,12 +206,12 @@ describe.each(paths)("request cancellation through $name", ({ run, frame }) => {
     const upstreamSignal = await started.promise
     const reason = new Error("client disconnected before headers")
     controller.abort(reason)
-    expect((await pending).status).toBe(500)
+    expect((await pending).status).toBe(499)
     expect(upstreamSignal.aborted).toBe(true)
     expect(upstreamSignal.reason).toBe(reason)
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(ends).toHaveLength(1)
-    expect(ends[0]!.data).toMatchObject({ status: "error" })
+    expect(ends[0]!.data).toMatchObject({ status: "cancelled" })
   })
 
   test.each(["request", "response"] as const)("cancels the pending upstream reader on %s cancellation", async (source) => {
@@ -179,7 +236,7 @@ describe.each(paths)("request cancellation through $name", ({ run, frame }) => {
     expect(cancel).toHaveBeenCalledTimes(1)
     expect(body.locked).toBe(false)
     expect(ends).toHaveLength(1)
-    expect(ends[0]!.data).toMatchObject({ status: "error" })
+    expect(ends[0]!.data).toMatchObject({ status: "cancelled" })
     if (source === "request") {
       let tail = ""
       for (;;) {

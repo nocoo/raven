@@ -100,6 +100,14 @@ describe("monitor timelines", () => {
     expect(tokenSeries([], { from: Number.NaN, to: 1 }, 60_000)).toEqual([]);
   });
 
+  it("keeps cancelled requests out of the success bar", () => {
+    const points = trafficSeries([
+      bucket({ count: 4, success_count: 1, error_count: 1, status_codes: { "200": 2, "499": 1, "502": 1 } }),
+    ], { from: 60_000, to: 60_000 }, 60_000);
+    expect(points[0]).toMatchObject({ success_count: 1, error_count: 1 });
+    expect(points[0]!.success_count + points[0]!.error_count).toBeLessThan(4);
+  });
+
   it("fills traffic gaps with zero requests and missing latency, preserving recorded samples", () => {
     const points = trafficSeries([bucket()], { from: 60_000, to: 239_999 }, 60_000);
     expect(points).toHaveLength(3);

@@ -20,7 +20,7 @@ import { LocalTime } from "@/components/local-time";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
-const STATUS_OPTIONS = ["success", "error"];
+const STATUS_OPTIONS = ["success", "error", "cancelled"];
 const STREAM_OPTIONS = [
   { value: "true", label: "Streaming" },
   { value: "false", label: "Synchronous" },

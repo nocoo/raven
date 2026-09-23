@@ -121,6 +121,8 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
 
     streamOutcome: (st) => st.inlineFailed ? "error" : "success",
 
+    isStreamTerminal: (chunk) => chunk.data === "[DONE]",
+
     adaptStreamError: () => [
       {
         data: JSON.stringify({

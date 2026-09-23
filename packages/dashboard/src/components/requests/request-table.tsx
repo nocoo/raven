@@ -246,7 +246,7 @@ export function RequestTable({
                     {isVisible("status") && (
                       <TableCell className="px-3 py-2.5">
                         <Badge
-                          variant={req.status === "success" ? "success" : "destructive"}
+                          variant={req.status === "success" ? "success" : req.status === "cancelled" ? "secondary" : "destructive"}
                           className="text-xs"
                         >
                           {req.status}

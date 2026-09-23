@@ -36,4 +36,17 @@ describe("Logs request badges", () => {
     expect(screen.getByText("Unknown path")).toBeVisible();
     expect(screen.queryByText("Native")).toBeNull();
   });
+
+  it("shows a started-stream cancellation as neutral, not success or error", () => {
+    stream.events = [
+      { ts: 1, type: "request_start", level: "info", requestId: "fixture", msg: "start", data: { path: "/v1/chat/completions", format: "openai", model: "gpt-fixture" } },
+      { ts: 2, type: "request_end", level: "warn", requestId: "fixture", msg: "200 openai", data: { format: "openai", status: "cancelled", statusCode: 200, error: "client cancelled: The connection was closed." } },
+    ];
+    render(<LogsContent />);
+    const badge = screen.getByText("cancelled");
+    expect(badge.className).toContain("bg-basalt-secondary");
+    expect(screen.queryByText("ERROR")).toBeNull();
+    expect(screen.queryByText("OK")).toBeNull();
+    expect(screen.getByText("client cancelled: The connection was closed.").className).toContain("text-basalt-muted-foreground");
+  });
 });

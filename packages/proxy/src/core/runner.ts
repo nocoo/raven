@@ -18,7 +18,7 @@ import { streamSSE } from "hono/streaming"
 import type { RequestContext } from "./context"
 import type { DispatchResult, Strategy } from "./strategy"
 import { computeStreamTimings } from "./stream-runner"
-import { extractErrorDetails } from "../lib/error"
+import { extractErrorDetails, normalizeRequestError, RequestCancelledError } from "../lib/error"
 import { logEmitter } from "../util/log-emitter"
 import { routingLog } from "./routing-log"
 import { logRequestError } from "./request-log"
@@ -48,7 +48,7 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
     dispatched = await strategy.dispatch(upstreamReq, ctx)
     if (dispatched.kind === "json") throwIfAborted(ctx.signal!)
   } catch (err) {
-    const error = ctx.signal!.aborted ? abortError(ctx.signal!) : err
+    const error = normalizeRequestError(err, ctx.signal)
     emitErrorEnd(ctx, strategy, upstreamReq, error, { stream: ctx.stream })
     throw error
   }
@@ -84,35 +84,38 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   const state = strategy.initStreamState(upstreamReq, ctx)
   let firstChunkTime: number | null = null
   let streamError: unknown | null = null
+  let completed = false
 
   return streamSSE(c, async (sseStream) => {
     const signal = ctx.signal!
     sseStream.onAbort(() => controller.abort())
     const onAbort = () => sseStream.abort()
     signal.addEventListener("abort", onAbort, { once: true })
+    const writeEvents = async (events: Ev[], terminal = false) => {
+      throwIfAborted(signal)
+      for (const ev of events) {
+        throwIfAborted(signal)
+        await sseStream.writeSSE(sanitizeSSEMessage(ev))
+        throwIfAborted(signal)
+      }
+      if (terminal) completed = true
+    }
+    const finalEvents = () => strategy.streamOutcome?.(state) === "error"
+      ? [] : strategy.finalizeStream?.(state, ctx) ?? []
     try {
       if (signal.aborted) onAbort()
       for await (const upstreamChunk of chunks) {
         throwIfAborted(signal)
         if (firstChunkTime === null) firstChunkTime = performance.now()
         const events = strategy.adaptChunk(upstreamChunk, state, ctx)
-        for (const ev of events) {
-          throwIfAborted(signal)
-          await sseStream.writeSSE(sanitizeSSEMessage(ev))
-          throwIfAborted(signal)
-        }
+        const terminal = strategy.isStreamTerminal?.(upstreamChunk, state) ?? false
+        await writeEvents(terminal ? [...events, ...finalEvents()] : events, terminal)
+        if (completed) break
       }
-      throwIfAborted(signal)
-      const terminal = strategy.streamOutcome?.(state) === "error"
-        ? []
-        : strategy.finalizeStream?.(state, ctx) ?? []
-      for (const ev of terminal) {
-        throwIfAborted(signal)
-        await sseStream.writeSSE(sanitizeSSEMessage(ev))
-        throwIfAborted(signal)
-      }
+      if (!completed) await writeEvents(finalEvents(), true)
     } catch (err) {
-      streamError = signal.aborted ? abortError(signal) : err
+      if (completed) return
+      streamError = normalizeRequestError(err, signal)
       if (signal.aborted || strategy.streamOutcome?.(state) === "error") return
       const terminal = strategy.adaptStreamError(err, state, ctx)
       for (const ev of terminal) {
@@ -125,7 +128,6 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
       }
     } finally {
       signal.removeEventListener("abort", onAbort)
-      if (signal.aborted) streamError = abortError(signal)
       emitStreamEnd(ctx, strategy, upstreamReq, state, firstChunkTime, streamError)
     }
   })
@@ -204,10 +206,11 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   )
   const extras = strategy.describeEndLog({ kind: "stream", req, state }, ctx)
   const inlineFailed = strategy.streamOutcome?.(state) === "error"
-  const failed = inlineFailed || !!err
+  const cancelled = !inlineFailed && err instanceof RequestCancelledError
+  const failed = inlineFailed || (!!err && !cancelled)
   const errorDetail = inlineFailed ? "upstream stream error event" : err
     ? err instanceof Error
-      ? `stream error: ${err.message}`
+      ? cancelled ? err.message : `stream error: ${err.message}`
       : "stream error"
     : null
 
@@ -216,14 +219,14 @@ function emitStreamEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
     level: failed ? "error" : "info",
     type: "request_end",
     requestId: ctx.requestId,
-    msg: `${failed ? "error" : "200"} ${ctx.format} ${latencyMs}ms`,
+    msg: `${failed ? "error" : cancelled ? "cancelled" : "200"} ${ctx.format} ${latencyMs}ms`,
     data: {
       path: ctx.path,
       format: ctx.format,
       stream: true,
-      status: failed ? "error" : "success",
-      statusCode: inlineFailed ? 200 : err ? 502 : 200,
-      upstreamStatus: inlineFailed ? 200 : err ? null : 200,
+      status: failed ? "error" : cancelled ? "cancelled" : "success",
+      statusCode: 200,
+      upstreamStatus: 200,
       latencyMs,
       ttftMs,
       processingMs,
@@ -248,11 +251,12 @@ function emitErrorEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   opts: { stream: boolean },
 ): void {
   const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(err)
+  const cancelled = err instanceof RequestCancelledError
   const latencyMs = Math.round(performance.now() - ctx.startTime)
   const extras = strategy.describeEndLog({ kind: "error", req, err }, ctx)
   logEmitter.emitLog({
     ts: Date.now(),
-    level: "error",
+    level: cancelled ? "info" : "error",
     type: "request_end",
     requestId: ctx.requestId,
     msg: `${statusCode} ${ctx.format} ${latencyMs}ms`,
@@ -260,7 +264,7 @@ function emitErrorEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
       path: ctx.path,
       format: ctx.format,
       stream: opts.stream,
-      status: "error",
+      status: cancelled ? "cancelled" : "error",
       statusCode,
       upstreamStatus,
       latencyMs,

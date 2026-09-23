@@ -26,6 +26,7 @@ export interface CopilotResponsesDeps {
 
 export interface CopilotResponsesStreamState {
   inlineFailed?: boolean
+  terminalSeen?: boolean
   resolvedModel: string
   inputTokens: number
   outputTokens: number
@@ -290,6 +291,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         const parsed = JSON.parse(chunk.data) as { type?: string; response?: { usage?: unknown } } | null
         st.inlineFailed ||= isInlineStreamError(chunk.event, parsed)
         const event = chunk.event ?? parsed?.type
+        st.terminalSeen ||= isTerminalResponseEvent(event)
         if (event === "response.created") {
           const meta = extractNonStreamingMeta(parsed?.response, st.resolvedModel)
           if (meta.resolvedModel) st.resolvedModel = meta.resolvedModel
@@ -314,6 +316,8 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
     },
 
     streamOutcome: (st) => st.inlineFailed ? "error" : "success",
+
+    isStreamTerminal: (_chunk, st) => st.terminalSeen === true,
 
     adaptStreamError: () => [{
       event: "error",

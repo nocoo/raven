@@ -175,8 +175,8 @@ const cases = [
     })),
   },
   {
-    label: "error after DONE",
-    kind: "err" as const,
+    label: "ignores reads after DONE",
+    kind: "ok" as const,
     gen: () => frames(
       chat({ role: "assistant", content: "hello" }),
       chat({}, "stop"),

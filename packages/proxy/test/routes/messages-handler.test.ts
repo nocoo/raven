@@ -514,7 +514,7 @@ describe("messages handler (streaming)", () => {
 
 describe("messages handler (errors)", () => {
   test("upstream error → emits request_end with error status", async () => {
-    fetchSpy.mockRejectedValueOnce(new Error("upstream failed"))
+    fetchSpy.mockRejectedValueOnce(Object.assign(new TypeError("upstream failed"), { code: "ECONNRESET" }))
 
     const events: LogEvent[] = []
     const listener = (e: LogEvent) => events.push(e)

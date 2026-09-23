@@ -233,6 +233,7 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
         case "responses-to-messages": {
           const event = typeof chunk.data === "string" ? parseAnthropicSseData(chunk.data) : null
           if (!event) return []
+          state.terminalSeen ||= event.type === "message_stop"
           const chatEvents = adaptAnthropicEventToChatSse(event, state.anthropic!)
           state.inlineFailed = state.anthropic!.inlineFailed
           if (kind === "chat-to-messages") return chatEvents
@@ -260,6 +261,14 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
       state.inlineFailed || state.anthropic?.inlineFailed || state.responses?.inlineFailed
         ? "error"
         : "success",
+    isStreamTerminal: (chunk, state) => {
+      switch (kind) {
+        case "messages-to-responses": return state.messages!.chat.done
+        case "chat-to-responses": return state.chat!.done
+        case "responses-to-chat": return chunk.data === "[DONE]"
+        default: return state.terminalSeen
+      }
+    },
     finalizeStream: (state) => {
       if (state.inlineFailed || state.anthropic?.inlineFailed || state.responses?.inlineFailed) return []
       switch (kind) {

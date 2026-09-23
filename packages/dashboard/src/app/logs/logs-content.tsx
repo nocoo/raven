@@ -339,6 +339,7 @@ function RequestCard({
   const httpMethod = path === "/v1/models" ? "GET" : method;
 
   const isComplete = !!endEvent;
+  const isCancelled = status === "cancelled";
   const isError = status === "error";
   const isInProgress = !isComplete;
 
@@ -429,6 +430,10 @@ function RequestCard({
             {isError ? (
               <Badge variant="destructive" className="px-2 py-0.5 text-[11px] font-semibold">
                 ERROR
+              </Badge>
+            ) : isCancelled ? (
+              <Badge variant="secondary" className="px-2 py-0.5 text-[11px] font-semibold">
+                cancelled
               </Badge>
             ) : isComplete ? (
               <Badge variant="success" className="px-2 py-0.5 text-[11px] font-semibold">
@@ -551,7 +556,7 @@ function RequestCard({
                 <button
                   type="button"
                   onClick={() => setFocusedPhase(focusedPhase === "end" ? null : "end")}
-                  aria-label={isError ? "View request error details" : "View request completion details"}
+                  aria-label={isError ? "View request error details" : isCancelled ? "View request cancellation details" : "View request completion details"}
                   aria-expanded={focusedPhase === "end"}
                   className={cn(
                     "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
@@ -561,14 +566,16 @@ function RequestCard({
                     "flex items-center justify-center rounded-full size-7 border-2 transition-shadow",
                     isError
                       ? "border-basalt-destructive/50 bg-basalt-destructive/10"
-                      : "border-basalt-chart-5/50 bg-basalt-chart-5/10",
-                    focusedPhase === "end" && (isError ? "ring-2 ring-basalt-destructive/50" : "ring-2 ring-basalt-chart-5/50"),
+                      : isCancelled
+                        ? "border-basalt-border bg-basalt-secondary"
+                        : "border-basalt-chart-5/50 bg-basalt-chart-5/10",
+                    focusedPhase === "end" && (isError ? "ring-2 ring-basalt-destructive/50" : isCancelled ? "ring-2 ring-basalt-border" : "ring-2 ring-basalt-chart-5/50"),
                   )}>
                     <span className={cn(
                       "text-[9px] font-bold",
-                      isError ? "text-basalt-destructive" : "text-basalt-chart-5",
+                      isError ? "text-basalt-destructive" : isCancelled ? "text-basalt-muted-foreground" : "text-basalt-chart-5",
                     )} aria-hidden="true">
-                      {isError ? "E" : "OK"}
+                      {isError ? "E" : isCancelled ? "–" : "OK"}
                     </span>
                   </span>
                 </button>
@@ -588,7 +595,12 @@ function RequestCard({
 
           {/* Error messages below timeline */}
           {error && (
-            <div className="mt-3 rounded-md border border-basalt-destructive/20 bg-basalt-destructive/5 px-3 py-2 text-xs text-basalt-destructive">
+            <div className={cn(
+              "mt-3 rounded-md border px-3 py-2 text-xs",
+              isCancelled
+                ? "border-basalt-border bg-basalt-secondary text-basalt-muted-foreground"
+                : "border-basalt-destructive/20 bg-basalt-destructive/5 text-basalt-destructive",
+            )}>
               {error}
             </div>
           )}
@@ -673,9 +685,9 @@ function getRawBadge(event: LogEvent): { variant: BadgeVariant; label: string } 
     case "request_start": return { variant: "info", label: "START" };
     case "request_end": {
       const s = event.data?.status as string | undefined;
-      return s === "error"
-        ? { variant: "destructive", label: "END" }
-        : { variant: "success", label: "END" };
+      if (s === "error") return { variant: "destructive", label: "END" };
+      if (s === "cancelled") return { variant: "secondary", label: "END" };
+      return { variant: "success", label: "END" };
     }
     case "upstream_error": return { variant: "destructive", label: "ERR" };
     case "sse_chunk": return { variant: "purple", label: "SSE" };

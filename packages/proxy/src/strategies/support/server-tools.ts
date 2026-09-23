@@ -16,7 +16,7 @@ import type { Context } from "hono"
 import { state } from "../../lib/state"
 import { logEmitter } from "../../util/log-emitter"
 import { searchTavily, TavilyError } from "../../lib/server-tools/tavily"
-import { HTTPError, extractErrorDetails } from "../../lib/error"
+import { HTTPError, extractErrorDetails, normalizeRequestError, RequestCancelledError } from "../../lib/error"
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
@@ -544,43 +544,47 @@ export async function decorate(input: DecorateInput): Promise<Response> {
       payload, serverToolContext, sendRequest, requestId, { ...options, signal },
     )
 
-    const latencyMs = Math.round(performance.now() - startTime)
-    logEmitter.emitLog({
-      ts: Date.now(), level: "info", type: "request_end", requestId,
-      msg: `200 ${model} ${latencyMs}ms (server-tools)`,
-      data: {
-        path: log.path, format: log.format, model,
-        resolvedModel: response.model,
-        inputTokens: response.usage?.input_tokens ?? 0,
-        outputTokens: response.usage?.output_tokens ?? 0,
-        latencyMs,
-        ttftMs: null, processingMs: null,
-        stream: false, status: "success", statusCode: 200,
-        upstreamStatus: 200,
-        serverToolsUsed: true,
-        accountName: log.accountName,
-        apiKeyId: log.apiKeyId,
-        sessionId: log.sessionId,
-        clientName: log.clientName,
-        clientVersion: log.clientVersion,
-        ...(log.extras ?? {}),
-        stopReason: response.stop_reason,
-      },
-    })
-
-    if (stream) {
-      return streamAnthropicResponse(c, response)
+    const emitEnd = (error: unknown | null = null) => {
+      const cancelled = error instanceof RequestCancelledError
+      const latencyMs = Math.round(performance.now() - startTime)
+      logEmitter.emitLog({
+        ts: Date.now(), level: error && !cancelled ? "error" : "info", type: "request_end", requestId,
+        msg: `${error ? cancelled ? "cancelled" : "error" : "200"} ${model} ${latencyMs}ms (server-tools)`,
+        data: {
+          path: log.path, format: log.format, model,
+          resolvedModel: response.model,
+          inputTokens: response.usage?.input_tokens ?? 0,
+          outputTokens: response.usage?.output_tokens ?? 0,
+          latencyMs,
+          ttftMs: null, processingMs: null,
+          stream, status: error ? cancelled ? "cancelled" : "error" : "success", statusCode: 200,
+          upstreamStatus: 200,
+          serverToolsUsed: true,
+          accountName: log.accountName,
+          apiKeyId: log.apiKeyId,
+          sessionId: log.sessionId,
+          clientName: log.clientName,
+          clientVersion: log.clientVersion,
+          ...(log.extras ?? {}),
+          stopReason: response.stop_reason,
+          ...(error ? { error: extractErrorDetails(error).errorDetail } : {}),
+        },
+      })
     }
+    if (stream) return streamAnthropicResponse(c, response, emitEnd)
+    emitEnd()
     return c.json(response as unknown as Record<string, unknown>)
-  } catch (error) {
+  } catch (err) {
+    const error = normalizeRequestError(err, signal)
+    const cancelled = error instanceof RequestCancelledError
     const latencyMs = Math.round(performance.now() - startTime)
     const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
     logEmitter.emitLog({
-      ts: Date.now(), level: "error", type: "request_end", requestId,
+      ts: Date.now(), level: cancelled ? "info" : "error", type: "request_end", requestId,
       msg: `${statusCode} ${model} ${latencyMs}ms (server-tools)`,
       data: {
         path: log.path, format: log.format, model, stream,
-        latencyMs, status: "error", statusCode,
+        latencyMs, status: cancelled ? "cancelled" : "error", statusCode,
         upstreamStatus, error: errorDetail,
         serverToolsUsed: true,
         accountName: log.accountName,

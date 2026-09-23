@@ -138,7 +138,7 @@ describe("Proxy route contracts at the HTTP boundary", () => {
       expect(signal.aborted).toBe(true)
       expect(fetchSpy).toHaveBeenCalledTimes(2)
       expect(ends).toHaveLength(1)
-      expect(ends[0]!.data).toMatchObject({ status: "error", serverToolsUsed: true, routingPath: path })
+      expect(ends[0]!.data).toMatchObject({ status: "cancelled", statusCode: 499, serverToolsUsed: true, routingPath: path })
     } finally {
       logEmitter.off("log", listener)
     }

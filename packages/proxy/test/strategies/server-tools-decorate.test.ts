@@ -94,7 +94,7 @@ async function runDecorate(
       )
     })
     const response = await app.request("http://localhost/x", { method: "POST" })
-    return { response, events }
+    return { response: new Response(await response.text(), { status: response.status, headers: response.headers }), events }
   } finally {
     logEmitter.off("log", h)
   }
@@ -129,7 +129,7 @@ describe("decorate()", () => {
       expect(signal.aborted).toBe(true)
       expect(sendRequest).not.toHaveBeenCalled()
       expect(logs).toHaveLength(1)
-      expect(logs[0]!.data).toMatchObject({ status: "error", serverToolsUsed: true })
+      expect(logs[0]!.data).toMatchObject({ status: "cancelled", serverToolsUsed: true })
     } finally {
       logEmitter.off("log", listener)
     }
@@ -219,9 +219,7 @@ describe("decorate()", () => {
     expect(ends).toHaveLength(1)
     const data = ends[0]!.data as Record<string, unknown>
     expect(data.status).toBe("success")
-    // Stream-mode client, but helper always emits SSE-as-replay — stream flag
-    // in the log tracks the synthesis call (non-stream).
-    expect(data.stream).toBe(false)
+    expect(data.stream).toBe(true)
     expect(data.serverToolsUsed).toBe(true)
   })
 

@@ -784,7 +784,7 @@ export function queryTimeseries(
       `SELECT
         (timestamp / $interval) * $interval as bucket,
         COUNT(*) as count,
-        COUNT(CASE WHEN status != 'error' THEN 1 END) as success_count,
+        COUNT(CASE WHEN status = 'success' THEN 1 END) as success_count,
         COUNT(CASE WHEN status = 'error' THEN 1 END) as error_count,
         COUNT(CASE WHEN stream = 1 THEN 1 END) as stream_count,
         COUNT(CASE WHEN stream = 0 THEN 1 END) as sync_count,

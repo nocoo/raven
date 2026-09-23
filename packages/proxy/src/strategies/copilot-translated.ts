@@ -110,6 +110,8 @@ export function makeCopilotTranslated(deps: CopilotTranslatedDeps): Strategy<
 
     finalizeStream: (st, ctx) => emitTranslated(finalizeAnthropicStream(st), ctx, deps.toolCallDebug),
 
+    isStreamTerminal: (chunk) => chunk.data === "[DONE]",
+
     adaptStreamError: () => {
       const errorEvent = translateErrorToAnthropicErrorEvent()
       return [{

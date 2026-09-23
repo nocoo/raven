@@ -149,14 +149,36 @@ function formatRequestEnd(
   data: Record<string, unknown>,
 ): string {
   const statusCode = data.statusCode as number | null | undefined;
-  const isError = data.status === "error" || (statusCode !== null && statusCode !== undefined && statusCode >= 400);
-  // Prefer resolvedModel (actual model used) over model (request alias)
   const model = cyan(bold(shortenModel(String(data.resolvedModel ?? data.model ?? "unknown"))));
+  if (data.status === "cancelled") {
+    return formatRequestEndCancelled(time, data, model, statusCode ?? null);
+  }
+  const isError = data.status === "error" || (statusCode !== null && statusCode !== undefined && statusCode >= 400);
 
   if (isError) {
     return formatRequestEndError(time, data, model, statusCode ?? null);
   }
   return formatRequestEndSuccess(time, data, model, statusCode ?? null);
+}
+
+function formatRequestEndCancelled(
+  time: string,
+  data: Record<string, unknown>,
+  model: string,
+  statusCode: number | null,
+): string {
+  const status = dim(String(statusCode ?? "cancelled"));
+  const dur = formatDuration(Number(data.latencyMs ?? 0));
+  const note = data.error ? dim(truncateError(String(data.error))) : "";
+  const client = dim(String(data.clientName ?? ""));
+  const session = data.sessionId
+    ? dim(`(${shortenSession(String(data.sessionId))})`)
+    : "";
+  const parts = [time, dim("—"), model, status, dim(dur)];
+  if (note) parts.push(note);
+  if (client) parts.push(client);
+  if (session) parts.push(session);
+  return parts.join("  ");
 }
 
 function formatRequestEndSuccess(

@@ -342,6 +342,20 @@ describe("row click", () => {
   });
 });
 
+describe("cancelled status", () => {
+  it("uses a neutral badge for cancelled and a destructive badge for errors", () => {
+    render(<RequestTable data={[
+      makeRecord({ id: "ok", status: "success" }),
+      makeRecord({ id: "gone", status: "cancelled", status_code: 499 }),
+      makeRecord({ id: "bad", status: "error", status_code: 502 }),
+    ]} hasMore={false} />);
+    expect(screen.getByText("cancelled").className).toContain("bg-basalt-secondary");
+    expect(screen.getByText("cancelled").className).not.toContain("bg-basalt-destructive");
+    expect(screen.getByText("error").className).toContain("bg-basalt-destructive");
+    expect(screen.getByText("success").className).toContain("bg-basalt-heatmap-green-3");
+  });
+});
+
 describe("empty state", () => {
   it('data=[] → shows "No requests found"', () => {
     render(<RequestTable data={[]} hasMore={false} />);

@@ -80,7 +80,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
         </SheetClose>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2 pr-8">
-            <Badge variant={request.status === "success" ? "success" : "destructive"}>
+            <Badge variant={request.status === "success" ? "success" : request.status === "cancelled" ? "secondary" : "destructive"}>
               {request.status}
             </Badge>
             {" "}

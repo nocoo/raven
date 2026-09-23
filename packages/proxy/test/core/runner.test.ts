@@ -145,7 +145,7 @@ describe("core/runner — JSON path", () => {
     const res = await app.request("http://localhost/x", { method: "POST" })
     // global error middleware not installed in this test app → Hono's default
     // returns 500 (or surfaces the throw); we only assert request_end was logged.
-    expect([500, 502]).toContain(res.status)
+    expect(res.status).toBe(500)
 
     const end = captured.find((e) => e.type === "request_end")
     expect(end!.level).toBe("error")
@@ -158,7 +158,7 @@ describe("core/runner — JSON path", () => {
     expect(String(end!.data!.error)).toContain("boom")
   })
 
-  test("non-HTTPError rejection: defaults to 502 with null upstreamStatus", async () => {
+  test("non-HTTPError rejection: matches HTTP 500 with null upstreamStatus", async () => {
     const s = makeStrategy({
       dispatch: async () => {
         throw new Error("network down")
@@ -171,7 +171,7 @@ describe("core/runner — JSON path", () => {
     const end = captured.find((e) => e.type === "request_end")
     expect(end!.data).toMatchObject({
       status: "error",
-      statusCode: 502,
+      statusCode: 500,
       upstreamStatus: null,
     })
     expect(end!.data!.error).toBe("network down")
@@ -283,8 +283,8 @@ describe("core/runner — JSON path", () => {
     expect(end!.data).toMatchObject({
       stream: true,
       status: "error",
-      statusCode: 502,
-      upstreamStatus: null,
+      statusCode: 200,
+      upstreamStatus: 200,
     })
     expect(String(end!.data!.error)).toContain("upstream socket reset")
   })
@@ -339,7 +339,7 @@ describe("core/runner — JSON path", () => {
     app.post("/x", async (c) => execute(c, makeCtx(), s, { hello: "world" }))
     const res = await app.request("http://localhost/x", { method: "POST" })
     // Without an outer error middleware Hono surfaces the throw as 500.
-    expect([500, 502]).toContain(res.status)
+    expect(res.status).toBe(500)
 
     const ends = captured.filter((e) => e.type === "request_end")
     expect(ends).toHaveLength(1)
@@ -347,7 +347,7 @@ describe("core/runner — JSON path", () => {
     expect(ends[0]!.data).toMatchObject({
       status: "error",
       stream: false,
-      statusCode: 502,
+      statusCode: 500,
       upstreamStatus: null,
     })
     expect(String(ends[0]!.data!.error)).toContain("bad tool args")
@@ -366,7 +366,7 @@ describe("core/runner — JSON path", () => {
     expect(end!.data).toMatchObject({
       stream: true,
       status: "error",
-      statusCode: 502,
+      statusCode: 500,
     })
   })
 

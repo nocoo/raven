@@ -93,6 +93,8 @@ export function makeCopilotChatViaResponses(
       return adaptResponsesEventToChatChunks(chunk, st)
     },
 
+    isStreamTerminal: (_chunk, st) => st.done,
+
     adaptStreamError: (err) => {
       const message =
         err instanceof ResponsesStreamFailedError ||

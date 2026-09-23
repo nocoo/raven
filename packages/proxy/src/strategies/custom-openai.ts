@@ -166,6 +166,8 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
 
     streamOutcome: (st) => st.inlineFailed ? "error" : "success",
 
+    isStreamTerminal: (chunk) => chunk.data === "[DONE]",
+
     adaptStreamError: (_err, st) => {
       if (st.originalModel) {
         const errorEvent = translateErrorToAnthropicErrorEvent()

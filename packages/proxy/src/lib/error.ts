@@ -50,6 +50,30 @@ export class ClientInputError extends Error {
   }
 }
 
+export class RequestCancelledError extends Error {
+  readonly status = 499 as const
+  readonly type = "request_cancelled" as const
+
+  constructor(cause?: unknown) {
+    super(cause instanceof Error ? cause.message : "The client cancelled the request", { cause })
+    this.name = "RequestCancelledError"
+  }
+}
+
+export function normalizeRequestError(error: unknown, signal?: AbortSignal): unknown {
+  if (!signal?.aborted) return error
+  if (error !== signal.reason && !(error instanceof Error && error.name === "AbortError")) return error
+  if (signal.reason instanceof Error && signal.reason.name === "TimeoutError") return signal.reason
+  return new RequestCancelledError(signal.reason)
+}
+
+function nonHttpStatus(error: unknown): number {
+  if (error instanceof Error && error.name === "TimeoutError") return 504
+  if (isUpstreamProtocolError(error) || error instanceof Socks5BridgeUnavailableError) return 502
+  if (error instanceof Error && "code" in error && ["ECONNRESET", "ECONNREFUSED", "EPIPE", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN"].includes(String(error.code))) return 502
+  return 500
+}
+
 /**
  * Extract structured error details from a caught error.
  * Used by every handler's request_end log to unify error reporting.
@@ -59,25 +83,17 @@ export function extractErrorDetails(error: unknown): {
   upstreamStatus: number | null
   statusCode: number
 } {
-  if (error instanceof ClientInputError || error instanceof RoutingError) {
+  if (error instanceof ClientInputError || error instanceof RoutingError || error instanceof RequestCancelledError) {
     return {
       errorDetail: error.message,
       upstreamStatus: null,
       statusCode: error.status,
     }
   }
-  if (isUpstreamProtocolError(error)) {
-    // Align with Runner default for non-HTTPError failures (502), not generic 500.
-    return {
-      errorDetail: error.message,
-      upstreamStatus: null,
-      statusCode: 502,
-    }
-  }
   const errorMsg = error instanceof Error ? error.message : String(error)
   const upstreamStatus =
     error instanceof HTTPError ? error.status : null
-  const statusCode = upstreamStatus ?? 502
+  const statusCode = upstreamStatus ?? nonHttpStatus(error)
   const body =
     error instanceof HTTPError ? error.responseBody : ""
   const errorDetail = body
@@ -90,13 +106,13 @@ export async function forwardError(c: Context, error: unknown) {
   // Error details are already logged by the handler's request_end event.
   // This function only builds the HTTP response for the client.
 
-  if (error instanceof ClientInputError || error instanceof RoutingError) {
+  if (error instanceof ClientInputError || error instanceof RoutingError || error instanceof RequestCancelledError) {
     return c.json(
       {
         ...(c.req.path.includes("/messages") ? { type: "error" } : {}),
         error: { message: error.message, type: error.type },
       },
-      error.status,
+      error.status as ContentfulStatusCode,
     )
   }
 
@@ -112,38 +128,13 @@ export async function forwardError(c: Context, error: unknown) {
     )
   }
 
-  // SOCKS5 bridge down → 502 Bad Gateway (fail-closed, consistent with extractErrorDetails)
-  if (error instanceof Socks5BridgeUnavailableError) {
-    return c.json(
-      {
-        error: {
-          message: (error as Error).message,
-          type: "error",
-        },
-      },
-      502,
-    )
-  }
-
-  if (isUpstreamProtocolError(error)) {
-    return c.json(
-      {
-        error: {
-          message: error.message,
-          type: "error",
-        },
-      },
-      502,
-    )
-  }
-
   return c.json(
     {
       error: {
-        message: (error as Error).message,
+        message: error instanceof Error ? error.message : String(error),
         type: "error",
       },
     },
-    500,
+    nonHttpStatus(error) as ContentfulStatusCode,
   )
 }

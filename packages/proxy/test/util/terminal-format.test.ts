@@ -268,6 +268,47 @@ describe("formatEvent", () => {
     })
   })
 
+  describe("request_end — cancelled", () => {
+    test("keeps pre-header 499 and started SSE 200 neutral", () => {
+      const preheader = formatEvent({
+        ts: Date.now(),
+        level: "warn",
+        type: "request_end",
+        requestId: "req_cancel",
+        msg: "499 openai 40ms",
+        data: {
+          model: "gpt-6-sol",
+          status: "cancelled",
+          statusCode: 499,
+          latencyMs: 40,
+          error: "client cancelled: The connection was closed.",
+        },
+      })!
+      const started = formatEvent({
+        ts: Date.now(),
+        level: "warn",
+        type: "request_end",
+        requestId: "req_cancel_sse",
+        msg: "200 openai 800ms",
+        data: {
+          model: "gpt-6-sol",
+          status: "cancelled",
+          statusCode: 200,
+          latencyMs: 800,
+          error: "client cancelled: The connection was closed.",
+        },
+      })!
+      for (const line of [preheader, started]) {
+        expect(line).toContain("—")
+        expect(line).toContain("client cancelled")
+        expect(line).not.toContain("✗──")
+        expect(line).not.toContain("◀──")
+      }
+      expect(preheader).toContain("499")
+      expect(started).toContain("200")
+    })
+  })
+
   describe("request_end — error", () => {
     test("shows error arrow, status, error message", () => {
       const event: LogEvent = {

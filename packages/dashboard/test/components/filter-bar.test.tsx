@@ -302,7 +302,7 @@ describe("FilterBar", () => {
 
   it.each([
     ["fixture-model", "model"], ["fixture-strategy", "strategy"],
-    ["fixture-provider", "upstream"], ["error", "status"],
+    ["fixture-provider", "upstream"], ["error", "status"], ["cancelled", "status"],
   ])("selects %s through the actual dropdown", async (value, key) => {
     render(<FilterBar models={["fixture-model"]} strategies={["fixture-strategy"]} upstreams={["fixture-provider"]} />);
     const user = userEvent.setup();

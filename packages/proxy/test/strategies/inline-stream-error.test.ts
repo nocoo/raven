@@ -197,10 +197,10 @@ test("late transport failure after a forwarded error does not append another err
   expect(ends[0]!.data).toMatchObject({ status: "error", statusCode: 200, upstreamStatus: 200 })
 })
 
-test("a failed Responses terminal without usage preserves earlier usage", async () => {
+test("the first Responses terminal settles usage before contradictory later frames", async () => {
   const wire = usageFrames.responses! + frame("response.failed", '{"type":"response.failed","response":{"error":{"message":"busy"}}}')
-  expect(await drain(paths[4]!.run, wire)).toBe(wire)
-  expect(ends[0]!.data).toMatchObject({ status: "error", inputTokens: 7, outputTokens: 4, cacheReadTokens: 3 })
+  expect(await drain(paths[4]!.run, wire)).toBe(usageFrames.responses!)
+  expect(ends[0]!.data).toMatchObject({ status: "success", inputTokens: 7, outputTokens: 4, cacheReadTokens: 3 })
 })
 
 

@@ -318,6 +318,20 @@ describe("queryTimeseries", () => {
     expect(bucket.status_codes["429"]).toBe(1);
   });
 
+  test("counts only status=success as success and keeps cancelled in the total", () => {
+    const now = stableHourTimestamp();
+    insertRequest(db, makeRecord({ timestamp: now, status: "success", status_code: 200 }));
+    insertRequest(db, makeRecord({ timestamp: now - 100, status: "error", status_code: 502 }));
+    insertRequest(db, makeRecord({ timestamp: now - 200, status: "cancelled", status_code: 499, stream: 0, error_message: "client cancelled" }));
+    insertRequest(db, makeRecord({ timestamp: now - 300, status: "cancelled", status_code: 200, stream: 1, error_message: "client cancelled" }));
+
+    const bucket = queryTimeseries(db, "hour", "24h").at(-1)!;
+    expect(bucket.count).toBe(4);
+    expect(bucket.success_count).toBe(1);
+    expect(bucket.error_count).toBe(1);
+    expect(bucket.success_count + bucket.error_count).toBeLessThan(bucket.count);
+  });
+
   test("supports 5min interval", () => {
     const now = Date.now();
     insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100 }));

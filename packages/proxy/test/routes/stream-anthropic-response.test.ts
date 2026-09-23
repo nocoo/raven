@@ -1,7 +1,8 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect, test, vi } from "vitest"
 import { Hono } from "hono"
 import { streamAnthropicResponse } from "../../src/strategies/support/anthropic-stream-writer"
 import type { AnthropicResponse } from "../../src/protocols/anthropic/types"
+import { RequestCancelledError } from "../../src/lib/error"
 
 /** Collect SSE events from a Hono streaming response. */
 async function collectSSE(response: Response): Promise<Array<{ event: string | null; data: string }>> {
@@ -75,8 +76,33 @@ function makeTestResponse(overrides?: Partial<AnthropicResponse>): AnthropicResp
 }
 
 describe("streamAnthropicResponse", () => {
+  test.each(["request", "reader"])("reports partial replay cancellation from the %s once", async source => {
+    const controller = new AbortController()
+    const ended = Promise.withResolvers<unknown>()
+    const onEnd = vi.fn((error: unknown) => ended.resolve(error))
+    const app = new Hono().get("/", c => streamAnthropicResponse(c, makeTestResponse(), onEnd))
+    const response = await app.request("/", { signal: controller.signal })
+    const reader = response.body!.getReader()
+    await reader.read()
+    expect(onEnd).not.toHaveBeenCalled()
+    if (source === "reader") await reader.cancel()
+    else controller.abort()
+    expect(await ended.promise).toBeInstanceOf(RequestCancelledError)
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    await reader.cancel()
+  })
+
+  test("reports successful delivery only after the final event", async () => {
+    const onEnd = vi.fn()
+    const app = new Hono().get("/", c => streamAnthropicResponse(c, makeTestResponse(), onEnd))
+    const response = await app.request("/")
+    expect(onEnd).not.toHaveBeenCalled()
+    expect(await response.text()).toContain("event: message_stop")
+    expect(onEnd).toHaveBeenCalledExactlyOnceWith(null)
+  })
+
   const app = new Hono().get("/test", (c) =>
-    streamAnthropicResponse(c, makeTestResponse()),
+    streamAnthropicResponse(c, makeTestResponse(), () => undefined),
   )
 
   test("emits correct Anthropic SSE event sequence for web_search response", async () => {
@@ -153,7 +179,7 @@ describe("streamAnthropicResponse", () => {
           cache_creation_input_tokens: null, cache_read_input_tokens: null,
           service_tier: null,
         },
-      })),
+      }), () => undefined),
     )
 
     const res = await textOnlyApp.request("/test")
@@ -177,7 +203,7 @@ describe("streamAnthropicResponse", () => {
           cache_creation_input_tokens: null, cache_read_input_tokens: null,
           service_tier: null,
         },
-      })),
+      }), () => undefined),
     )
 
     const res = await emptyTextApp.request("/test")
