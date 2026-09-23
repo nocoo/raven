@@ -18,6 +18,7 @@ import type { AnthropicMessagesPayload } from "../protocols/anthropic/types"
 
 export interface BuildStrategyDeps {
   toolCallDebug: boolean
+  includeUsage?: boolean
   allowEffortRepair?: boolean
   provider: UpstreamRecord
   transport?: UpstreamRegistryDeps
@@ -30,7 +31,8 @@ export type AnyStrategy = Strategy<unknown, unknown, unknown, unknown, ServerSen
 
 export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDeps): AnyStrategy {
   if (decision.kind !== "ok") throw new Error("buildStrategy requires an accepted endpoint decision")
-  const { provider, transport = {} } = deps
+  const { provider } = deps
+  const transport = { ...deps.transport, requestUsage: provider.quota !== null }
   const copilot = provider.kind === "copilot"
   const chat = () => {
     if (copilot) return buildUpstreamClient("copilot-openai", transport)
@@ -58,7 +60,7 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     case "copilot-responses":
       return makeCopilotResponses({ client: buildUpstreamClient("copilot-responses", transport) }) as unknown as AnyStrategy
     case "copilot-chat-via-responses":
-      return { ...makeCopilotChatViaResponses({ client: responses(), toolCallDebug: deps.toolCallDebug }), name: decision.name } as unknown as AnyStrategy
+      return { ...makeCopilotChatViaResponses({ client: responses(), toolCallDebug: deps.toolCallDebug, requestUsage: provider.quota !== null }), name: decision.name } as unknown as AnyStrategy
     case "custom-openai":
       return makeCustomOpenAI({ client: buildUpstreamClient("custom-openai", transport), toolCallDebug: deps.toolCallDebug }) as unknown as AnyStrategy
     case "custom-anthropic":
@@ -69,6 +71,7 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
       const formats = { anthropic: "anthropic_messages", openai: "chat_completions", responses: "responses" } as const
       const client = decision.upstreamProtocol === "anthropic" ? messages() : decision.upstreamProtocol === "openai" ? chat() : responses()
       return makeProtocolConverted({
+        includeUsage: deps.includeUsage ?? false,
         source: formats[decision.clientProtocol], target: formats[decision.upstreamProtocol],
         exactModel: true, copilotSanitize: copilot && decision.clientProtocol === "anthropic",
         sanitizeOrphanedToolResults: deps.sanitizeOrphanedToolResults ?? false,

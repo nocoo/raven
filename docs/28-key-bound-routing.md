@@ -355,7 +355,11 @@ debits are additional accounting, not a relabeling of existing Monitor metrics.
 Changing a multiplier does not recompute historical debits.
 
 Capture usage in the actual upstream execution path for JSON, SSE and server-tool
-subcalls. Request streaming usage from providers that support it. Debit each
+subcalls. For Chat streaming, add `stream_options.include_usage: true` only when
+the client omitted it and the final selected upstream has a quota policy. Preserve
+explicit `false` and `true`, other stream options, and non-stream bodies. Apply
+the same policy after protocol conversion; pure translators do not force usage.
+Exhausted candidates do not influence the selected upstream's policy. Debit each
 actual model API HTTP attempt once with a unique `(request_id, attempt_ordinal)`;
 server-tool rounds and existing same-provider credential/parameter replays get
 new ordinals. Do not repeatedly sum cumulative stream usage frames or add both

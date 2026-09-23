@@ -735,14 +735,14 @@ describe("other request fields", () => {
     expect(result.stream).toBe(true)
   })
 
-  test("custom OpenAI streaming requests include_usage", () => {
+  test("custom OpenAI streaming leaves usage policy to transport", () => {
     const result = translateToOpenAI(makeRequest({ stream: true }), { targetFormat: "openai" })
-    expect(result.stream_options).toEqual({ include_usage: true })
+    expect(result.stream_options).toBeUndefined()
   })
 
-  test("custom OpenAI reasoning streaming requests include_usage", () => {
+  test("custom OpenAI reasoning streaming leaves usage policy to transport", () => {
     const result = translateToOpenAI(makeRequest({ stream: true }), { targetFormat: "openai-reasoning" })
-    expect(result.stream_options).toEqual({ include_usage: true })
+    expect(result.stream_options).toBeUndefined()
   })
 
   test("custom OpenAI non-stream does not set include_usage", () => {

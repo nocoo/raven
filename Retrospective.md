@@ -98,6 +98,17 @@ While coordinating browser verification, the coordinator sent a worker-status qu
 
 The Routing acceptance runner now forces its isolated Next server to UTC while Chrome uses Asia/Shanghai. Its interactions passed, but a fresh Connect load reported React hydration error 418 because key dates were rendered directly in both environments and fell on different calendar days. Requests and Analytics already deferred local formatting until hydration; Connect and the account assignment date now use the same component. A regression checks server placeholders, a browser day rollover, the valid zero timestamp and zero recovery errors. The browser run must pass its error assertion as well as its interaction checks.
 
+## 2026-09-23: Repeated full-gate UI timeouts under load
+
+Repeated commits were rejected by five-second Dashboard interaction timeouts while
+all other gates passed. Simplifying fixture setup alone did not solve repeated
+accessible-name scans over 49 options. The keyboard test now caches option nodes
+while preserving visibility, labels, focus, keyboard navigation and midnight
+assertions. Another interaction timed out under concurrent load; limiting Vitest
+workers to two passed the complete unchanged gate. Inspect fixture/query cost and
+runner concurrency before repeating expensive checks; do not raise timeouts or
+reduce assertions to obtain a commit.
+
 ## Undated entries migrated from the previous handbook
 
 

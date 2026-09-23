@@ -50,6 +50,7 @@ export interface ProtocolConvertedDeps {
   source: UpstreamFormat
   target: UpstreamFormat
   exactModel: boolean
+  includeUsage?: boolean
   copilotSanitize?: boolean
   sanitizeOrphanedToolResults?: boolean
   reorderToolResults?: boolean
@@ -212,7 +213,7 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
         state.responses = initChatToResponsesStreamState(model)
       }
       if (kind === "chat-to-responses") {
-        state.chat = initChatViaResponsesStreamState({ model, includeUsage: true })
+        state.chat = initChatViaResponsesStreamState({ model, includeUsage: deps.includeUsage ?? false })
       }
       return state
     },
@@ -270,7 +271,7 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           if (!state.chat!.done) throw new Error("Truncated stream: terminal response event was not received")
           return []
         case "chat-to-messages":
-          return finalizeAnthropicToChatStream(state.anthropic!)
+          return finalizeAnthropicToChatStream(state.anthropic!, deps.includeUsage ?? false)
         case "responses-to-chat":
           assertResponsesStreamCompleted(state.responses!)
           return []

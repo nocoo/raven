@@ -114,7 +114,6 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
           { role: "assistant", content: "ok" },
         ],
         stream: true,
-        stream_options: { include_usage: true },
       },
     },
   },

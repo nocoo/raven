@@ -21,7 +21,7 @@ import {
   isTokenExpiredBody,
 } from "../lib/token-signal"
 import type { UpstreamClient, UpstreamResult } from "./interface"
-import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http"
+import { modelFetch, replayAllowed, withStreamingUsage, type ModelHttpConfig } from "./model-http"
 
 // ---------------------------------------------------------------------------
 // Re-exported wire types (canonical home moves here in E.10).
@@ -230,9 +230,7 @@ export class CopilotOpenAIClient
 
     const url = `${this.config.getBaseUrl()}/chat/completions`
     const proxyUrl = this.config.getProxyUrl()
-    const body = JSON.stringify(payload.stream
-      ? { ...payload, stream_options: { ...payload.stream_options, include_usage: true } }
-      : payload)
+    const body = JSON.stringify(withStreamingUsage(payload, this.config.requestUsage))
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
       signal?.throwIfAborted()

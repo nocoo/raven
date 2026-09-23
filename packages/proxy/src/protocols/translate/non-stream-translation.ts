@@ -242,11 +242,6 @@ export function translateToOpenAI(
     tools,
     tool_choice: toolChoice,
     reasoning_effort,
-    stream_options:
-      payload.stream
-      && (options?.targetFormat === "openai" || options?.targetFormat === "openai-reasoning")
-        ? { include_usage: true }
-        : undefined,
   } as ChatCompletionsPayload
 
   return result

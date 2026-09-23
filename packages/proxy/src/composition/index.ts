@@ -74,6 +74,7 @@ export async function dispatch(
     const deps: BuildStrategyDeps = {
       provider: selection.upstream,
       toolCallDebug: state.optToolCallDebug,
+      includeUsage: protocol === "openai" && ((payload as ChatCompletionsPayload).stream_options?.include_usage ?? selection.upstream.quota !== null),
       anthropicBeta: ctx.anthropicBeta,
       sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
       reorderToolResults: state.optReorderToolResults,

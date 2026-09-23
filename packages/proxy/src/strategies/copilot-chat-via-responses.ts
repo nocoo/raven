@@ -36,6 +36,7 @@ import { extractNonStreamingMeta, nonCachedInputTokens } from "../protocols/resp
 export interface CopilotChatViaResponsesDeps {
   client: Pick<CopilotResponsesClient, "send">
   toolCallDebug: boolean
+  requestUsage?: boolean
 }
 
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
@@ -57,7 +58,7 @@ export function makeCopilotChatViaResponses(
     name: "copilot-chat-via-responses",
 
     prepare: (req) => {
-      const includeUsage = !!req.stream_options?.include_usage
+      const includeUsage = req.stream_options?.include_usage ?? deps.requestUsage ?? false
       const responsesPayload = chatRequestToResponses(req)
       // Belt-and-suspenders: never leak local fields
       delete (responsesPayload as { stream_options?: unknown }).stream_options

@@ -212,14 +212,14 @@ export function adaptAnthropicEventToChatSse(
   return []
 }
 
-export function finalizeAnthropicToChatStream(state: AnthropicToChatStreamState): SSEMessage[] {
+export function finalizeAnthropicToChatStream(state: AnthropicToChatStreamState, includeUsage = true): SSEMessage[] {
   if (state.inlineFailed) return []
   if (!state.finishReason) {
     throw new Error("Truncated stream: message_delta was not received")
   }
   const out: SSEMessage[] = []
   const prompt = state.inputTokens + state.cacheReadTokens
-  out.push({
+  if (includeUsage) out.push({
     data: JSON.stringify({
       id: state.id || "chatcmpl-pending",
       object: "chat.completion.chunk",

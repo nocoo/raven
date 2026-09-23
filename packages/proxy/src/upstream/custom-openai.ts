@@ -14,7 +14,7 @@ import { getProxyUrl } from "../lib/socks5-bridge"
 import { state } from "../lib/state"
 import type { UpstreamClient, UpstreamResult } from "./interface"
 import { joinCustomApiUrl } from "./api-url"
-import { modelFetch, type ModelHttpConfig } from "./model-http"
+import { modelFetch, withStreamingUsage, type ModelHttpConfig } from "./model-http"
 
 export interface CustomOpenAIRequest {
   provider: UpstreamRecord
@@ -46,9 +46,7 @@ export class CustomOpenAIClient
         api_key: provider.api_key,
         auth_style: provider.auth_style,
       }),
-      body: JSON.stringify(payload.stream
-        ? { ...payload, stream_options: { ...payload.stream_options, include_usage: true } }
-        : payload),
+      body: JSON.stringify(withStreamingUsage(payload, this.config.requestUsage)),
       ...(proxyUrl ? { proxy: proxyUrl } : {}),
     } as RequestInit)
 

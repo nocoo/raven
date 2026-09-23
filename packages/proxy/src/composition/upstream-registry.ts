@@ -51,6 +51,7 @@ export type UpstreamKind =
 export interface UpstreamRegistryDeps {
   fetch?: typeof globalThis.fetch
   allowReplay?: boolean
+  requestUsage?: boolean
   customResponses?: CustomResponsesConfig
   copilotOpenAI?: CopilotOpenAIConfig
   copilotNative?: CopilotNativeConfig
@@ -77,6 +78,7 @@ export function buildUpstreamClient<K extends UpstreamKind>(
   const overrides = {
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
     ...(deps.allowReplay === undefined ? {} : { allowReplay: deps.allowReplay }),
+    ...(deps.requestUsage === undefined ? {} : { requestUsage: deps.requestUsage }),
   }
   switch (kind) {
     case "copilot-openai":

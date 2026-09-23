@@ -7,6 +7,13 @@ export interface ModelHttpConfig {
    * retries. Omitted means the existing replay behavior.
    */
   allowReplay?: boolean
+  requestUsage?: boolean
+}
+
+export function withStreamingUsage<T extends { stream?: boolean | null; stream_options?: { include_usage?: boolean } | null }>(payload: T, enabled = false): T {
+  return enabled && payload.stream && payload.stream_options?.include_usage === undefined
+    ? { ...payload, stream_options: { ...payload.stream_options, include_usage: true } }
+    : payload
 }
 
 export function modelFetch(config: ModelHttpConfig): typeof globalThis.fetch {
