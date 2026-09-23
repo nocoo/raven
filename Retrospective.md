@@ -270,6 +270,15 @@ assertions or CI configuration. Keep expensive local verification bounded on a
 shared machine; require normal hooks and exact-release CI before publication is
 considered verified.
 
+The release script's `bun install` converted 517 empty registry fields to the
+temporary corporate mirror, despite resolving no dependency changes. Publication
+was stopped during pre-push; remote main remained at `28f9d5d` and no 3.0.1 tag
+existed. The unpublished release commit was corrected only after comparing the
+normalized lockfile byte-for-byte with the prior lockfile plus its workspace
+version change. A temporary mirror environment is not proof of a portable
+lockfile. Inspect the generated lockfile before a combined install/commit/push
+pipeline can publish it, and finish interrupted release stages explicitly.
+
 ## Undated entries migrated from the previous handbook
 
 

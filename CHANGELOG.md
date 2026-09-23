@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.0.1
+
+### Changed
+- Isolate schedule editor scenarios
+- Record release runtime verification
+
+### Fixed
+- Restore Basalt tabs on Keys and Models without duplicate filter rows or page-height jumps.
+- Keep select options on one line with content-sized, viewport-bounded menus.
+- Refresh Requests every 3 seconds by default, with off, 1-second and 5-second options; preserve filters and open details.
+- Restore the Logs FAB and push dock alongside navigation, with logs on the left and statistics on the right; size page layouts by their available container width.
+
 ## v3.0.0
 
 ### Added
