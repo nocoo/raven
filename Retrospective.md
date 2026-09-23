@@ -316,6 +316,13 @@ endpoint from the already-validated browser passed. Do not change certificates,
 Keychain trust or disable TLS verification to accommodate a test transport.
 Record the lesson before tagging and verify CI on the final release head.
 
+The source-archive check also incorrectly expected a commit hash in its root
+directory. GitHub's release download used `raven-3.0.2/`. Verify the remote tag's
+peeled commit and compare archived file bytes with that pinned Git revision;
+the archive directory name is not revision evidence. Version manifests, lockfile,
+release notes and changed production files matched. This follow-up is docs-only;
+the published v3.0.2 tag remains on its already-green release revision.
+
 ## Undated entries migrated from the previous handbook
 
 
