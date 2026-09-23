@@ -22,7 +22,8 @@ import type { ModelsResponse } from "../../src/services/copilot/get-models"
 
 interface CapturedRequest {
   url: string
-  body: { thinking?: { type: string }; output_config?: { effort?: string } | null }
+  headers: Headers
+  body: { model?: string; thinking?: { type: string }; output_config?: { effort?: string } | null }
 }
 
 function makePayload(overrides: Partial<AnthropicMessagesPayload> = {}): AnthropicMessagesPayload {
@@ -42,7 +43,7 @@ function captureFetch(): { spy: ReturnType<typeof vi.spyOn>; captured: CapturedR
   ) => {
     const url = typeof input === "string" ? input : input.toString()
     const bodyText = typeof init?.body === "string" ? init.body : ""
-    captured.push({ url, body: bodyText ? JSON.parse(bodyText) : {} })
+    captured.push({ url, headers: new Headers(init?.headers), body: bodyText ? JSON.parse(bodyText) : {} })
     return Promise.resolve(
       new Response("{}", { status: 200, headers: { "content-type": "application/json" } }),
     )
@@ -128,6 +129,42 @@ async function send(payload: AnthropicMessagesPayload, copilotModel = "claude-op
 }
 
 describe("copilot-native normalizeNativeThinkingPayload", () => {
+  test.each([true, false])("Opus 5.5 disabled thinking becomes adaptive with low effort (catalog: %s)", async (withCatalog) => {
+    state.models = withCatalog ? modelsWith({ reasoning_effort: ["low", "medium", "high", "xhigh", "max"] }) : null
+    if (state.models) state.models.data[0]!.id = "claude-opus-5.5"
+    await send(makePayload({ model: "claude-opus-5.5", thinking: { type: "disabled" } }), "claude-opus-5.5")
+    expect(captured).toHaveLength(1)
+    expect(captured[0]!.body).toMatchObject({
+      model: "claude-opus-5.5",
+      thinking: { type: "adaptive" },
+      output_config: { effort: "low" },
+    })
+    expect(captured[0]!.headers.get("anthropic-beta")).toBeNull()
+  })
+
+  test("Opus 5.5 preserves an explicit effort when replacing disabled thinking", async () => {
+    state.models = modelsWith({ reasoning_effort: ["low", "medium", "high", "xhigh", "max"] })
+    state.models.data[0]!.id = "claude-opus-5.5"
+    await send(makePayload({ thinking: { type: "disabled" }, output_config: { effort: "high" } }), "claude-opus-5.5")
+    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" })
+    expect(captured[0]!.body.output_config).toEqual({ effort: "high" })
+  })
+
+  test("a stale Opus 5.5 effort catalog cannot turn disabled thinking into high effort", async () => {
+    state.models = modelsWith({ reasoning_effort: ["max"], adaptive_thinking: false })
+    state.models.data[0]!.id = "claude-opus-5.5"
+    await send(makePayload({ thinking: { type: "disabled" } }), "claude-opus-5.5")
+    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" })
+    expect(captured[0]!.body.output_config).toEqual({ effort: "low" })
+  })
+
+  test("adaptive support alone does not rewrite disabled thinking for other models", async () => {
+    state.models = modelsWith({})
+    await send(makePayload({ thinking: { type: "disabled" } }))
+    expect(captured[0]!.body.thinking).toEqual({ type: "disabled" })
+    expect(captured[0]!.body.output_config).toBeUndefined()
+  })
+
   test("non-thinking payload passes through unchanged", async () => {
     state.models = modelsWith({})
     await send(makePayload())

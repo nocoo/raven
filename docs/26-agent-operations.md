@@ -38,6 +38,15 @@ Seven layers, top → bottom. Each layer imports only from the layers below (enf
 
 **Server-tool interception** (Tavily `web_search`) runs via `strategies/support/server-tools.ts::decorate()`, which wraps `withServerToolInterception` + `request_end` log + JSON/SSE replay. Both translated and native paths share it.
 
+Copilot native Messages normalizes enabled thinking to adaptive thinking when
+the cached model supports it. For the exact model `claude-opus-5.5`, a request
+with `thinking.type: disabled` also becomes adaptive thinking: Copilot rejects
+disabled thinking for this model. The default effort is `low`; an explicit
+`output_config.effort` is retained when supported. This enables low-effort
+thinking rather than disabling it. Other models keep disabled thinking unchanged,
+and omitted or already-adaptive thinking is not rewritten. This normalization
+does not retry requests or rename models.
+
 ## Key-bound routing and accounting
 
 [R3](28-key-bound-routing.md) is the current routing contract. Every database key

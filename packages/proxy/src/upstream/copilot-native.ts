@@ -214,18 +214,19 @@ function normalizeNativeThinkingPayload(
   payload: AnthropicMessagesPayload,
   copilotModel: string,
 ): AnthropicMessagesPayload {
-  if (payload.thinking?.type !== "enabled") return payload
+  const requiresAdaptive = copilotModel === "claude-opus-5.5"
+    && payload.thinking?.type === "disabled"
+  if (payload.thinking?.type !== "enabled" && !requiresAdaptive) return payload
 
   const capabilities = getModelCapabilities(copilotModel)
-  if (!capabilities?.supports?.adaptive_thinking) return payload
+  if (!requiresAdaptive && !capabilities?.supports?.adaptive_thinking) return payload
 
   const requestedEffort =
     payload.output_config?.effort
-    ?? mapThinkingBudgetToEffort(payload.thinking.budget_tokens)
-  const supportedEffort = pickClosestSupportedEffort(
-    requestedEffort,
-    capabilities.supports.reasoning_effort,
-  )
+    ?? (requiresAdaptive ? "low" : mapThinkingBudgetToEffort(payload.thinking?.budget_tokens))
+  const supportedEffort = requiresAdaptive && !payload.output_config?.effort
+    ? "low"
+    : pickClosestSupportedEffort(requestedEffort, capabilities?.supports?.reasoning_effort)
   const sanitizedOutputConfig = sanitizeOutputConfig(payload.output_config)
 
   return {
