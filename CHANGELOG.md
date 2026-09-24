@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.0.4
+
+### Fixed
+- Accept model discovery responses using `models[].slug` as well as `data[].id`, preserving raw model IDs and retaining the cached catalog when a response is malformed.
+- Organize Upstream settings into compact cards, collapse advanced connection settings by default, and place API test and model-refresh feedback beneath the triggering operation.
+- Improve quota copy-dialog spacing; keep consumption at 1× outside explicit overrides, start new overrides at 2×, and omit redundant 1× periods when saving.
+- Reveal key identities on hover or keyboard focus, align usage metrics consistently, compact card descriptions, and distinguish Investigate clients and upstreams with colored badges.
+- Bound Dashboard test concurrency to keep the combined local quality gates stable without changing coverage requirements or test timeouts.
+
 ## v3.0.3
 
 ### Fixed
