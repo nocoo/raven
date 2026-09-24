@@ -63,10 +63,7 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
     <TabsList aria-label={isKey ? "Select API key" : "Select model"} className="w-max min-w-full flex-nowrap">
       <TabsTrigger value="all" disabled={pending} className="shrink-0">All {isKey ? "keys" : "models"}</TabsTrigger>
       {nameGroup && <TabsTrigger value={`account:${nameGroup}`} disabled={pending} className="shrink-0">Name group: {nameGroup}</TabsTrigger>}
-      {available.map(entry => {
-        const trigger = <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} className="shrink-0"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span></TabsTrigger>;
-        return isKey ? <IdentityHint key={entry.key} identity={keyIdentity(entry.key)}>{trigger}</IdentityHint> : trigger;
-      })}
+      {available.map(entry => <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} title={isKey ? keyIdentity(entry.key) : entry.key} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} className="shrink-0"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span></TabsTrigger>)}
       {selected && !current && <TabsTrigger value={`entry:${selected}`} disabled={pending} className="shrink-0">{selected}</TabsTrigger>}
     </TabsList>
     </div>

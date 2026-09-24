@@ -105,6 +105,10 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     layouts.push({ kind: "upstream-typography", width: page.viewportSize()!.width, sizes });
   };
   const shot = (name: string) => page.screenshot({ path: join(artifacts, `${name}.png`), fullPage: true, animations: "disabled" });
+  const resize = async (viewport: { width: number; height: number }) => {
+    await page.setViewportSize(viewport);
+    await page.getByRole("button", { name: viewport.width < 768 ? "Open navigation" : /^(Collapse|Expand) sidebar$/ }).waitFor();
+  };
   const alignedCards = async (grid: Locator) => {
     await expect.poll(() => grid.locator(":scope > *").evaluateAll(elements => {
       const cards = elements.map(element => element.getBoundingClientRect());
@@ -115,7 +119,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     }), { message: "Settings cards in the same row have equal painted heights" }).toBe(true);
   };
   const layout = async (name: string) => {
-    const geometry = await page.evaluate(() => {
+    const measure = () => page.evaluate(() => {
       const island = document.querySelector<HTMLElement>("main [data-basalt-surface-root]")!;
       return {
         viewport: { width: innerWidth, height: innerHeight },
@@ -129,6 +133,14 @@ export async function runRoutingBrowser(options: BrowserOptions) {
         })),
       };
     });
+    await expect.poll(async () => {
+      const geometry = await measure();
+      return geometry.document.width <= geometry.viewport.width
+        && geometry.document.height <= geometry.viewport.height
+        && geometry.bodyHeight <= geometry.viewport.height
+        && geometry.island.scrollWidth <= geometry.island.clientWidth;
+    }, { message: "Responsive layout fits after the sidebar finishes resizing" }).toBe(true);
+    const geometry = await measure();
     layouts.push({ name, ...geometry });
     expect(geometry.document.width).toBeLessThanOrEqual(geometry.viewport.width);
     expect(geometry.document.height).toBeLessThanOrEqual(geometry.viewport.height);
@@ -153,7 +165,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await expect(retention).toHaveText("30 days");
     checkpoint("General saves every retention choice through the real BFF and preserves it after reload");
     await page.goto(`${dashboardUrl}/routing/upstreams`);
-    await expect(page.getByRole("main").getByRole("heading", { name: "Upstreams", exact: true })).toBeVisible();
+    await expect(page.locator(".dashboard-page").getByRole("heading", { name: "Upstreams", exact: true })).toBeVisible();
     await indicator("Connection");
     expect(inspect()).toEqual({ catalogCalls: 0, generationCalls: 0 });
     await page.getByRole("button", { name: "New upstream", exact: true }).click();
@@ -212,13 +224,13 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await feedbackPlacement(unexpected, "Send one test");
     expect(inspect().generationCalls).toBe(2);
     await shot("upstream-unexpected-reply-desktop");
-    await page.setViewportSize({ width: 390, height: 844 });
+    await resize({ width: 390, height: 844 });
     await feedbackPlacement(unexpected, "Send one test");
     await upstreamTypography();
     await layout("upstreams/diagnostic/mobile");
     await page.getByRole("region", { name: "Test connection", exact: true }).scrollIntoViewIfNeeded();
     await shot("upstream-unexpected-reply-mobile");
-    await page.setViewportSize({ width: 1440, height: 1100 });
+    await resize({ width: 1440, height: 1100 });
     checkpoint("unexpected diagnostics expose the actual reply and native response");
 
     for (const failure of ["wrong-shape", "non-json"] as const) {
@@ -458,7 +470,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await shot("routing-timetable-dark");
     await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });
     expect(await page.locator(".routing-enter").evaluateAll(elements => elements.every(element => getComputedStyle(element).animationName === "none"))).toBe(true);
-    await page.setViewportSize({ width: 390, height: 844 });
+    await resize({ width: 390, height: 844 });
     for (const path of ["routing/rules", "routing/upstreams", "connect"]) {
       await page.goto(`${dashboardUrl}/${path}`);
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
@@ -498,7 +510,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       await page.evaluate(value => localStorage.setItem("theme", value), theme);
       await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
       for (const width of [2560, 1920, 1280, 390]) {
-        await page.setViewportSize({ width, height: width === 390 ? 844 : 1080 });
+        await resize({ width, height: width === 390 ? 844 : 1080 });
         for (const [path, group, title] of [
           ["", "Monitor", "Overview"], ["models", "Monitor", "Models"],
           ["keys", "Monitor", "API Keys"], ["requests", "Monitor", "Requests"],
@@ -508,6 +520,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           ["settings/server-tools", "Tools", "Server Tools"], ["connect", "Settings", "Connect"],
         ] as const) {
           await page.goto(`${dashboardUrl}/${path}`);
+          await page.getByRole("button", { name: `Toggle theme (now ${theme})`, exact: true }).waitFor();
+          if (width === 390) await page.getByRole("button", { name: "Open navigation", exact: true }).waitFor();
           const frame = page.locator(".dashboard-page");
           const heading = frame.getByRole("heading", { level: 1, name: title, exact: true });
           await expect(heading).toBeVisible();
@@ -677,6 +691,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(blocked).toEqual([]);
     return { checks, errors, blocked, layouts, viewport: [2560, 1080, 1920, 1080, 1440, 1100, 1280, 1080, 390, 844], timezone: "Asia/Shanghai" };
   } catch (error) {
+    console.error(JSON.stringify({ url: page.url(), errors, blocked, lastLayout: layouts.at(-1) }));
     await shot("failure");
     throw error;
   } finally {

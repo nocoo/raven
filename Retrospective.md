@@ -459,3 +459,41 @@ trigger. Radix creates a hover bridge on exit and checks subsequent pointer
 movement; sharing a `userEvent` instance alone did not resolve it. The unit test
 uses Escape between hover and keyboard-focus scenarios. A browser check with
 continuous pointer movement verifies exit against actual element bounds.
+
+## 2026-09-24 — Release build dependency isolation
+
+Copying the entire installed dependency tree for the v3.0.4 build spent minutes
+copying unused package versions and overlapped a commit check that timed out.
+The owned copy process was stopped. A frozen install in the isolated source
+directory reused the cache, with the exact installed lucide-react package
+hard-linked into that directory because its pinned version was absent from both
+the cache and allowed mirror. The subsequent offline frozen install passed.
+Prefer a frozen isolated install over copying a whole dependency store; run
+resource-heavy preparation, builds and quality gates sequentially.
+
+The production browser check also measured the island immediately after a
+desktop-to-mobile resize, before the responsive sidebar update settled. Its
+failure screenshot already showed the finished mobile layout. The layout helper
+now waits for the existing geometry conditions before recording and asserting
+them; overflow limits and viewport coverage remain unchanged.
+
+The full browser workflow then caught a real regression when selecting a key:
+TooltipTrigger and TabsTrigger shared one element, so the tooltip's `data-state`
+overwrote the tab's active state and hid Basalt's selection indicator. Key tabs
+now use native title hints and keep their distinct accessible names. The unit
+test checks the active data-state as well as aria-selected; the browser workflow
+continues checking the visible indicator's geometry.
+
+One rebuild command retained the checkout working directory after copying a
+file to the isolated tree. That build completed in the checkout; the release
+artifact was rebuilt separately in the intended directory. Pass the build's
+working directory explicitly in a separate invocation from file copying.
+
+Full-page navigation could also expose server-rendered headings before client
+hydration applied the saved theme and mobile shell. The browser page sweep now
+waits for those interactive controls before checking layout, and includes page
+errors and the last geometry measurement in failure output.
+The initial Upstreams heading locator is scoped to the page frame: `main` also
+contains the shell heading, so it is not a sufficiently narrow landmark.
+All viewport changes wait for the corresponding navigation control before
+measuring any geometry, including feedback placement outside the layout helper.

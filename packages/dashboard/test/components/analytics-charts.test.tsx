@@ -70,6 +70,8 @@ describe("monitor investigation links", () => {
     const data = monitorData({ filters: { range: "7d", key_id: "key-2", account: "Editor", protocol_mode: "native", model: "claude.opus-4.6" }, keys: [entry("key-1", { account_name: "Editor" }), entry("key-2", { account_name: "Editor" })] });
     render(<UsageExplorer data={data} dimension="key_id" />);
     expect(screen.getByRole("tab", { name: "Editor key-2" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Editor key-2" })).toHaveAttribute("data-state", "active");
+    expect(screen.getByRole("tab", { name: "Editor key-2" })).toHaveAttribute("title", "key-2");
     expect(screen.getByRole("tab", { name: "Editor key-2" })).toHaveTextContent(/^Editor$/);
     await userEvent.click(screen.getByRole("tab", { name: "Editor key-2" }));
     expect(push).not.toHaveBeenCalled();
