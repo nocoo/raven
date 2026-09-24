@@ -497,3 +497,15 @@ The initial Upstreams heading locator is scoped to the page frame: `main` also
 contains the shell heading, so it is not a sufficiently narrow landmark.
 All viewport changes wait for the corresponding navigation control before
 measuring any geometry, including feedback placement outside the layout helper.
+
+## 2026-09-24 — Dependency upgrade gate contention
+
+The jsdom 30.1.1 upgrade passed all 885 Dashboard tests in a standalone coverage
+run, but two combined pre-commit runs timed out on different UI tests. The first
+run also overlapped dependency preparation and tests in another repository.
+Avoiding our own preparation overlap reduced failures but did not eliminate
+them. Proxy tests had no worker limit on this 18-core host, while Dashboard was
+already limited to two. Bound Proxy to four workers so the combined gate leaves
+capacity for UI interactions. Keep every test, the five-second timeout and all
+coverage thresholds unchanged; validate the full hook, not just a standalone
+suite, before treating the resource change as effective.
