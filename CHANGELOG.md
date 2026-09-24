@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.0.5
+
+### Changed
+- Upgrade Next.js to 16.3.6, jsdom to 30.1.1, oxc-parser to 0.151.0 and dependency-cruiser to 18.4.0, the latest stable releases verified for issues #422–#425.
+- Limit Proxy test workers to four to reduce resource contention during combined quality gates without changing test selection, timeouts or coverage requirements.
+
+### Fixed
+- Include the Next.js security fix for GHSA-vcvr-r3jv-pc5j in `next/og` ImageResponse.
+
 ## v3.0.4
 
 ### Fixed
