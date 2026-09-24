@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Area, AreaChart, Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTooltip, ChartTooltipRow, DashboardCartesianGrid } from "@/components/dashboard/chart-primitives";
 import { ANIMATION_PROPS, AXIS_CONFIG, CHART_COLORS, formatCompact, formatLatency, formatPercent, getChartColor, RESPONSIVE_CONTAINER_PROPS } from "@/lib/chart-config";
-import { bucketHref, chartActivity, fillActivity, formatAxisTime, formatMonitorTime, keyLabel, monitorHref, tokenSeries, trafficSeries, type UsageDimension } from "@/lib/monitor";
+import { bucketHref, chartActivity, fillActivity, formatAxisTime, formatMonitorTime, keyIdentity, keyLabel, monitorHref, tokenSeries, trafficSeries, type UsageDimension } from "@/lib/monitor";
 import type { MonitorData } from "@/lib/monitor-data";
 import { MonitorLink, MonitorPanel } from "./monitor-panels";
 import { LocalTime } from "@/components/local-time";
@@ -26,14 +26,14 @@ function TimelineTooltip({ active, payload, label }: { active?: boolean | undefi
   return <ChartTooltip title={formatMonitorTime(Number(label))}>{payload.map(item => <ChartTooltipRow key={String(item.dataKey)} {...(item.color ? { color: item.color } : {})} label={item.name} value={formatTimelineValue(item.dataKey, item.value)} />)}</ChartTooltip>;
 }
 
-function ChartLegend({ items }: { items: { label: string; color: string; dashed?: boolean }[] }) {
-  return <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-basalt-muted-foreground">{items.map(item => <span key={item.label} className="flex min-w-0 items-center gap-1.5">{item.dashed ? <span className="h-0.5 w-3.5 shrink-0" style={{ background: `repeating-linear-gradient(90deg, ${item.color} 0 3px, transparent 3px 5px)` }} /> : <span className="size-2 shrink-0 rounded-sm" style={{ background: item.color }} />}<span className="max-w-56 truncate" title={item.label}>{item.label}</span></span>)}</div>;
+function ChartLegend({ items }: { items: { label: string; color: string; hint?: string; dashed?: boolean }[] }) {
+  return <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-basalt-muted-foreground">{items.map(item => <span key={item.hint ?? item.label} className="flex min-w-0 items-center gap-1.5">{item.dashed ? <span className="h-0.5 w-3.5 shrink-0" style={{ background: `repeating-linear-gradient(90deg, ${item.color} 0 3px, transparent 3px 5px)` }} /> : <span className="size-2 shrink-0 rounded-sm" style={{ background: item.color }} />}<span className="max-w-56 truncate" title={item.hint ?? item.label}>{item.label}</span></span>)}</div>;
 }
 
 export function TrafficChart({ data }: { data: MonitorData }) {
   const router = useRouter();
   const points = trafficSeries(data.timeseries, data.window, data.intervalMs);
-  return <MonitorPanel title="Traffic & response time" description="Request outcomes with P95 latency and time to first token." action={<MonitorLink href={monitorHref("/requests", data.filters)}>Requests</MonitorLink>}>
+  return <MonitorPanel title="Traffic & response time" description="Click a bucket to inspect requests." help="Request outcomes with P95 latency and time to first token. Empty intervals have no latency sample." action={<MonitorLink href={monitorHref("/requests", data.filters)}>Requests</MonitorLink>}>
     <ChartLegend items={[{ label: "Success", color: CHART_COLORS.primary }, { label: "Errors", color: CHART_COLORS.danger }, { label: "P95 latency", color: CHART_COLORS.warning }, { label: "Avg TTFT", color: CHART_COLORS.success }]} />
     <div className="h-56 min-w-0">
       <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
@@ -50,7 +50,6 @@ export function TrafficChart({ data }: { data: MonitorData }) {
         </ComposedChart>
       </ResponsiveContainer>
     </div>
-    <p className="mt-2 text-xs text-basalt-muted-foreground">Click a time bucket to inspect its requests · empty intervals have no latency sample</p>
   </MonitorPanel>;
 }
 
@@ -64,7 +63,7 @@ export function TokenChart({ data }: { data: MonitorData }) {
     { key: "cache_read_tokens", label: "Cache read", color: CHART_COLORS.success },
     { key: "cache_write_tokens", label: "Cache write", color: CHART_COLORS.warning },
   ];
-  return <MonitorPanel title="Token composition" description="Input, output and cache counters reported by the upstream, with observed cache hit rate.">
+  return <MonitorPanel title="Token composition" description="Upstream usage and cache hit rate." help="Cache counters are separate from input + output. Hit rate uses observed input only; empty or unobserved buckets stay blank.">
     <ChartLegend items={[...series, { label: "Cache hit rate", color: rateColor, dashed: true }]} />
     <div className="h-48 min-w-0">
       <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
@@ -79,19 +78,18 @@ export function TokenChart({ data }: { data: MonitorData }) {
         </ComposedChart>
       </ResponsiveContainer>
     </div>
-    <p className="mt-2 text-xs text-basalt-muted-foreground">Cache counters are separate from input + output. Hit rate uses observed input only; empty or unobserved buckets stay blank.</p>
   </MonitorPanel>;
 }
 
 export function ActivityChart({ data, dimension }: { data: MonitorData; dimension: UsageDimension }) {
   const router = useRouter();
-  const labels = dimension === "key_id" ? Object.fromEntries(data.keys.map(entry => [entry.key, `${keyLabel(entry)} · ${entry.key.startsWith("legacy:") ? "historical" : entry.key.slice(-8)}`])) : {};
+  const labels = dimension === "key_id" ? Object.fromEntries(data.keys.map(entry => [entry.key, keyLabel(entry)])) : {};
   const grouped = chartActivity(fillActivity(data.activity, data.window.from, data.window.to, data.intervalMs), labels);
   return <MonitorPanel title={dimension === "key_id" ? "Key activity over time" : "Model workload over time"} description="Requests per time bucket. Click a bucket to trace the calls." action={<MonitorLink href={monitorHref("/requests", data.filters)}>Trace requests</MonitorLink>}>
-    <ChartLegend items={grouped.series.map((item, index) => ({ label: item.label, color: getChartColor(index) }))} />
+    <ChartLegend items={grouped.series.map((item, index) => ({ label: item.label, hint: dimension === "key_id" ? `${item.label} · ${keyIdentity(item.key)}` : item.label, color: getChartColor(index) }))} />
     <div className="h-56 min-w-0"><ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}><AreaChart data={grouped.points} margin={{ top: 8, right: 4, left: -18, bottom: 0 }} onClick={state => { if (state.activeLabel !== undefined) router.push(bucketHref(data.filters, Number(state.activeLabel), data.intervalMs, data.window)); }}>
       <DashboardCartesianGrid /><XAxis dataKey="bucket" {...AXIS_CONFIG} minTickGap={38} tickFormatter={value => formatAxisTime(Number(value), data.window.to - data.window.from)} /><YAxis {...AXIS_CONFIG} allowDecimals={false} tickFormatter={formatCompact} /><Tooltip content={<TimelineTooltip />} />
-      {grouped.series.map((item, index) => <Area {...ANIMATION_PROPS} key={item.id} dataKey={item.id} name={item.label} type="stepAfter" stroke={getChartColor(index)} fill={getChartColor(index)} fillOpacity={0.35} stackId="requests" />)}
+      {grouped.series.map((item, index) => <Area {...ANIMATION_PROPS} key={item.id} dataKey={item.id} name={dimension === "key_id" ? `${item.label} · ${keyIdentity(item.key)}` : item.label} type="stepAfter" stroke={getChartColor(index)} fill={getChartColor(index)} fillOpacity={0.35} stackId="requests" />)}
     </AreaChart></ResponsiveContainer></div>
     <p className="mt-2 text-xs text-basalt-muted-foreground"><LocalTime timestamp={data.window.from} /> – <LocalTime timestamp={data.window.to} /> · top series and Others</p>
   </MonitorPanel>;

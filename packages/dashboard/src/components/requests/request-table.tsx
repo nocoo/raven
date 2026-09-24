@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { ExtendedRequestRecord } from "@/lib/types";
 import { keyIdentity, protocolLabel } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
+import { IdentityHint } from "@/components/identity-hint";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
@@ -286,7 +287,7 @@ export function RequestTable({
                     )}
                     {isVisible("protocol_mode") && <TableCell className="px-3 py-2.5"><Badge variant={req.protocol_mode === "native" ? "success" : req.protocol_mode === "translated" ? "warning" : "secondary"} className="text-xs">{protocolLabel(req.protocol_mode)}</Badge></TableCell>}
                     {isVisible("account_name") && (
-                      <TableCell className="max-w-44 px-3 py-2.5 text-xs"><p className="truncate">{req.account_name || "Unattributed"}</p><p className="mt-0.5 truncate font-mono text-basalt-muted-foreground" title={keyIdentity(req.key_id)}>{keyIdentity(req.key_id)}</p></TableCell>
+                      <TableCell className="max-w-44 px-3 py-2.5 text-xs"><IdentityHint identity={keyIdentity(req.key_id)}><Button variant="ghost" size="sm" className="h-auto max-w-full justify-start p-0 text-xs font-normal"><span className="truncate">{req.account_name || "Unattributed"}</span></Button></IdentityHint></TableCell>
                     )}
                     {isVisible("client_name") && (
                       <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.client_name || "—"}</TableCell>

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render as baseRender, screen, waitFor, within } from "@testing-library/react";
+import { TooltipProvider } from "@nocoo/basalt";
+import type { ReactNode } from "react";
+
 import userEvent from "@testing-library/user-event";
 import { monitorData, entry, summary } from "../helpers/monitor-fixtures";
 
@@ -15,7 +18,34 @@ import { MonitorSummary } from "@/components/analytics/panels/monitor-panels";
 import { UsageExplorer } from "@/components/analytics/panels/usage-explorer";
 import { UsageDistribution } from "@/components/analytics/panels/usage-distribution";
 
+const render = (ui: ReactNode) => baseRender(ui, { wrapper: TooltipProvider });
+
 describe("monitor investigation links", () => {
+  it("reveals key identity on hover and keyboard focus without a permanent ID row", async () => {
+    const user = userEvent.setup();
+    const id = "d210803b-9413-4e8c-b6da-5678109ea884";
+    render(<AnalyticsCharts data={monitorData({ keys: [entry(id, { account_name: "Editor" })] })} />);
+    const key = screen.getByRole("link", { name: /Editor/ });
+    expect(screen.queryByText(id)).toBeNull();
+    expect(key).toHaveAttribute("href", expect.stringContaining(`key_id=${id}`));
+    await user.hover(key);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(id);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Last in range");
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+    act(() => key.focus());
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(id);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
+  it("keeps token-accounting details available from the compact chart header", async () => {
+    render(<AnalyticsCharts data={monitorData()} />);
+    expect(screen.queryByText(/Cache counters are separate/)).toBeNull();
+    act(() => screen.getByRole("button", { name: "About token composition" }).focus());
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Hit rate uses observed input only");
+  });
+
   it("carries time, key and native selection into model and error investigation", () => {
     const data = monitorData({ filters: { range: "custom", from: 60_000, to: 239_999, key_id: "key-1", protocol_mode: "native" } });
     render(<AnalyticsCharts data={data} />);
@@ -40,6 +70,7 @@ describe("monitor investigation links", () => {
     const data = monitorData({ filters: { range: "7d", key_id: "key-2", account: "Editor", protocol_mode: "native", model: "claude.opus-4.6" }, keys: [entry("key-1", { account_name: "Editor" }), entry("key-2", { account_name: "Editor" })] });
     render(<UsageExplorer data={data} dimension="key_id" />);
     expect(screen.getByRole("tab", { name: "Editor key-2" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Editor key-2" })).toHaveTextContent(/^Editor$/);
     await userEvent.click(screen.getByRole("tab", { name: "Editor key-2" }));
     expect(push).not.toHaveBeenCalled();
     const model = screen.getByRole("link", { name: /claude.opus-4.6/ });
@@ -69,7 +100,8 @@ describe("monitor investigation links", () => {
     expect(screen.getByRole("img", { name: "40 requests across keys" })).toBeDefined();
     expect(screen.getByText("25.0%")).toBeDefined();
     expect(screen.getByText("Others")).toBeDefined();
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "About key distribution" })).toBeDefined();
     expect(screen.queryByRole("link")).toBeNull();
     await userEvent.click(screen.getByText("Editor"));
     expect(push).not.toHaveBeenCalled();

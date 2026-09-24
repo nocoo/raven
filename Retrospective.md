@@ -428,3 +428,34 @@ also counted Next.js stack-frame requests as data writes; classify framework
 diagnostics separately while continuing to block application mutations. Visual
 checks use unsaved drafts in a separate browser context, leaving saved settings
 and the user's session untouched.
+
+## 2026-09-24 — Dashboard density and aligned metrics
+
+Independently spaced flex rows placed P95 and error percentages at different
+horizontal positions as values changed. Shared grid columns now align every
+metric to the right. Permanent key-ID rows and width-capped descriptions also
+consumed space without helping routine scanning; identities and longer chart
+explanations now use hover/focus hints while names and key URLs stay intact.
+
+The first selector test exposed Radix's generated `aria-labelledby` taking
+precedence over a supplied `aria-label`. Clear that generated association when
+providing a distinct accessible identity, and verify the rendered accessible
+name rather than assuming the JSX prop determines it.
+
+Browser checks and the full Dashboard suite initially overlapped, and multiple
+tests hit their five-second timeout. During repeated 30-day statistics reads,
+the local development services also stopped responding. The exact bottleneck
+was not established. Only the task-owned process group was restarted; subsequent
+browser checks used 24-hour reads and ran separately from full tests. Use bounded
+reads for visual inspection and isolated fixtures for broad statistics checks.
+
+The separate full test run still had 12 timeouts with default concurrency on
+this 18-core machine. Four workers removed those standalone timeouts, but the
+combined pre-commit run still timed out one shell test. Dashboard concurrency is
+bounded at two workers without changing selection, isolation, timeouts or
+coverage floors. Size concurrency for the combined gate workload.
+The hover test also stopped pointer simulation immediately after leaving the
+trigger. Radix creates a hover bridge on exit and checks subsequent pointer
+movement; sharing a `userEvent` instance alone did not resolve it. The unit test
+uses Escape between hover and keyboard-focus scenarios. A browser check with
+continuous pointer movement verifies exit against actual element bounds.

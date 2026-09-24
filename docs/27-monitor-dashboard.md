@@ -19,9 +19,15 @@ links. Upstream configuration remains under Settings; token Sentinel status is
 under Copilot Account, including when account-info loading fails.
 
 Each ranking row combines request count, tokens, P95 latency, errors and native
-share. Overview totals describe the full selection, even when a ranking only
-shows its top entries. Empty model identifiers are displayed without a link
-that would accidentally clear the model filter.
+share. Metrics share right-aligned columns with tabular numerals, switching from
+four columns to two when the row is narrow. Overview totals describe the full
+selection, even when a ranking only shows its top entries. Empty model identifiers
+are displayed without a link that would accidentally clear the model filter.
+
+Panel titles and short descriptions share a line when space permits. Accounting
+and chart explanations remain available through hover/focus help instead of
+permanent footnotes. Investigate uses blue client badges and purple upstream
+badges, with aligned names and counts.
 
 ## Protocol meaning
 
@@ -59,6 +65,12 @@ written before key IDs were recorded. Two current keys with the same name remain
 separate, including after revocation, deletion or reuse of a name. Historical
 name groups are explicitly labeled as ambiguous; their IDs are never inferred
 from current key names. First and last activity refer to the selected time range.
+
+Rows, tabs, legends and filters display key names without a second identity line.
+Full IDs remain available in hover/focus hints or native titles; accessible
+selector names and drilldown URLs retain their identities. Overview key rows
+also expose last activity in the hint. Request rows and the detail drawer use
+the same identity hint, and historical selections retain their ambiguity label.
 
 The identity expression is shared by queries, filters and the SQLite index on
 identity plus timestamp. A query-plan regression test verifies indexed lookup

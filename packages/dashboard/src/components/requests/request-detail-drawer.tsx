@@ -24,6 +24,7 @@ import Link from "next/link";
 import { DEFAULT_FILTERS, type AnalyticsFilters } from "@/lib/analytics-filters";
 import { dimensionHref, keyIdentity, monitorHref, PROTOCOL_META, protocolLabel, requestProtocolRoute, requestTranslationWarning } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
+import { IdentityHint } from "@/components/identity-hint";
 
 interface RequestDetailDrawerProps {
   request: ExtendedRequestRecord | null;
@@ -227,8 +228,7 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
           {/* Client Context */}
           <section>
             <h4 className="text-xs font-medium text-basalt-foreground mb-2">Client</h4>
-            <DetailRow label="API Key" value={<Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("key_id", request.key_id, filters)}>{request.account_name || "Unattributed"}</Link>} />
-            <DetailRow label="Key identity" value={keyIdentity(request.key_id)} mono />
+            <DetailRow label="API Key" value={<IdentityHint identity={keyIdentity(request.key_id)}><Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("key_id", request.key_id, filters)}>{request.account_name || "Unattributed"}</Link></IdentityHint>} />
             <DetailRow label="Client" value={request.client_name ? <Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("client", request.client_name, filters)}>{request.client_name}</Link> : null} />
             <DetailRow label="Version" value={request.client_version} />
             {request.session_id && (

@@ -13,7 +13,7 @@ export function FetchError({ title = "Connection Error", message }: FetchErrorPr
       </div>
       <div>
         <p className="text-sm font-medium">{title}</p>
-        <p className="mt-1 max-w-md text-sm text-basalt-muted-foreground">{message}</p>
+        <p className="mt-1 text-sm text-basalt-muted-foreground">{message}</p>
       </div>
     </div>
   );

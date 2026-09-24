@@ -226,6 +226,8 @@ describe("FilterBar", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("combobox", { name: "Filter by API key" }));
     expect(screen.getByRole("option", { name: "Editor · historical" })).toBeDefined();
+    expect(screen.getByRole("option", { name: "Editor · key-2" })).toHaveTextContent(/^Editor$/);
+    expect(screen.getByRole("option", { name: "Editor · key-2" })).toHaveAttribute("title", "key-2");
     await user.click(screen.getByRole("option", { name: "Editor · key-2" }));
     const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
     expect(params.get("key_id")).toBe("key-2");

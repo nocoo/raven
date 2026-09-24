@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render as baseRender, screen, within } from "@testing-library/react";
+import { TooltipProvider } from "@nocoo/basalt";
+import type { ReactNode } from "react";
+
 import { userEvent } from "@testing-library/user-event";
 
 // ---------------------------------------------------------------------------
@@ -56,6 +59,8 @@ import {
   getDefaultVisibleColumns,
 } from "@/components/requests/column-config";
 import type { ExtendedRequestRecord, RequestRouting } from "@/lib/types";
+
+const render = (ui: ReactNode) => baseRender(ui, { wrapper: TooltipProvider });
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -162,15 +167,17 @@ describe("RequestDetailDrawer", () => {
     expect(section.queryByText("Skipped candidates")).toBeNull();
   });
 
-  it.each(["native", "unknown"] as const)("exposes %s routing, stable key identity and server-tool execution", (mode) => {
+  it.each(["native", "unknown"] as const)("exposes %s routing, stable key identity and server-tool execution", async (mode) => {
     render(<RequestDetailDrawer request={makeExtendedRecord({ protocol_mode: mode, server_tools_used: 1, key_id: "legacy:Editor", account_name: "" })} open onOpenChange={() => {}} filters={{ range: "7d", protocol_mode: mode }} />);
     expect(screen.getByText(mode === "native" ? "Native" : "Unknown")).toBeDefined();
     expect(screen.getByText("Server tools")).toBeDefined();
-    expect(screen.getByText("Historical name · ID not recorded")).toBeDefined();
+    expect(screen.queryByText("Historical name · ID not recorded")).toBeNull();
     const keyLink = screen.getByRole("link", { name: "Unattributed" });
     const params = new URL(keyLink.getAttribute("href")!, "https://raven.test").searchParams;
     expect(params.get("key_id")).toBe("legacy:Editor");
     expect(params.get("range")).toBe("7d");
+    await userEvent.hover(keyLink);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Historical name · ID not recorded");
   });
   it("renders sparse non-streaming requests without fabricated token or routing details", () => {
     const request = makeExtendedRecord({

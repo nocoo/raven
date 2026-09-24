@@ -1,19 +1,19 @@
 "use client";
 
-import { Badge, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
-import { ArrowRight } from "lucide-react";
+import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { UsageStatsSkeleton } from "@/components/layout/page-skeleton";
 import type { AnalyticsFilters } from "@/lib/analytics-filters";
 import { formatCompact, formatLatency, formatPercent } from "@/lib/chart-config";
-import { dimensionHref, keyIdentity, keyLabel, monitorHref, nativeShare, type UsageDimension } from "@/lib/monitor";
+import { dimensionHref, keyIdentity, keyLabel, monitorHref, type UsageDimension } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
+import { IdentityHint } from "@/components/identity-hint";
 import type { MonitorData } from "@/lib/monitor-data";
 import type { BreakdownEntry } from "@/lib/types";
 import { ActivityChart, TokenChart, TrafficChart } from "./monitor-charts";
-import { EmptyMonitor, InvestigationPanel, MonitorLink, MonitorPanel, MonitorSummary, ProtocolBar, ProtocolDistribution } from "./monitor-panels";
+import { EmptyMonitor, InvestigationPanel, MonitorLink, MonitorPanel, MonitorSummary, ProtocolBar, ProtocolDistribution, UsageMetrics } from "./monitor-panels";
 import { UsageDistribution } from "./usage-distribution";
 
 function UsageBreakdown({ entries, dimension, filters, total }: { entries: BreakdownEntry[]; dimension: UsageDimension; filters: AnalyticsFilters; total: number }) {
@@ -23,14 +23,13 @@ function UsageBreakdown({ entries, dimension, filters, total }: { entries: Break
     <div className="max-h-72 overflow-y-auto divide-y divide-basalt-border/50">
       {entries.map(entry => {
         const label = isKey ? keyLabel(entry) : entry.key || "Unattributed";
-        const native = nativeShare(entry);
         const content = <>
           <div className="flex items-center justify-between gap-3"><span className="min-w-0 truncate text-sm font-medium" title={label}>{label}</span><span className="shrink-0 text-xs tabular-nums">{formatCompact(entry.count)} <span className="text-basalt-muted-foreground">· {total > 0 ? formatPercent(entry.count / total) : "—"}</span></span></div>
-          {isKey && <p className="mt-0.5 truncate font-mono text-xs text-basalt-muted-foreground" title={keyIdentity(entry.key)}>{keyIdentity(entry.key)}</p>}
           <div className="my-1.5"><ProtocolBar counts={entry} /></div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums text-basalt-muted-foreground"><span>{formatCompact(entry.total_tokens)} tokens</span><span>P95 {formatLatency(entry.p95_latency_ms)}</span><span className={entry.error_count ? "text-basalt-destructive" : ""}>{formatPercent(entry.error_rate)} errors</span><span>{native === null ? "—" : formatPercent(native)} native</span><ArrowRight className="ml-auto size-3" /></div>
+          <UsageMetrics entry={entry} />
         </>;
-        return entry.key ? <Link prefetch={false} key={entry.key} href={dimensionHref(dimension, entry.key, filters)} className="block rounded-md px-3 py-2.5 hover:bg-basalt-accent/50">{content}</Link> : <div key={entry.key} className="px-3 py-2.5">{content}</div>;
+        const row = entry.key ? <Link prefetch={false} key={entry.key} href={dimensionHref(dimension, entry.key, filters)} className="block rounded-md px-3 py-2 hover:bg-basalt-accent/50">{content}</Link> : <div key={entry.key} className="px-3 py-2">{content}</div>;
+        return isKey && entry.key ? <IdentityHint key={entry.key} identity={keyIdentity(entry.key)}>{row}</IdentityHint> : row;
       })}
       {entries.length === 0 && <p className="py-4 text-xs text-basalt-muted-foreground">No recorded distribution in this selection</p>}
     </div>
@@ -64,7 +63,10 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
     <TabsList aria-label={isKey ? "Select API key" : "Select model"} className="w-max min-w-full flex-nowrap">
       <TabsTrigger value="all" disabled={pending} className="shrink-0">All {isKey ? "keys" : "models"}</TabsTrigger>
       {nameGroup && <TabsTrigger value={`account:${nameGroup}`} disabled={pending} className="shrink-0">Name group: {nameGroup}</TabsTrigger>}
-      {available.map(entry => <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} title={isKey ? `${keyLabel(entry)} · ${keyIdentity(entry.key)}` : entry.key} className="shrink-0 gap-2"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span>{isKey && <span className="font-mono text-xs text-basalt-muted-foreground">{entry.key.startsWith("legacy:") ? "historical" : entry.key.slice(-8)}</span>}</TabsTrigger>)}
+      {available.map(entry => {
+        const trigger = <TabsTrigger key={entry.key} value={`entry:${entry.key}`} disabled={pending} aria-label={isKey ? `${keyLabel(entry)} ${keyIdentity(entry.key)}` : entry.key} className="shrink-0"><span className="max-w-44 truncate">{isKey ? keyLabel(entry) : entry.key}</span></TabsTrigger>;
+        return isKey ? <IdentityHint key={entry.key} identity={keyIdentity(entry.key)}>{trigger}</IdentityHint> : trigger;
+      })}
       {selected && !current && <TabsTrigger value={`entry:${selected}`} disabled={pending} className="shrink-0">{selected}</TabsTrigger>}
     </TabsList>
     </div>
@@ -75,11 +77,11 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
         {data.summary.total_requests === 0 && <EmptyMonitor />}
         <div className="grid grid-cols-1 items-stretch gap-3 @min-[60rem]/page:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
           <UsageDistribution entries={entries} total={data.distributionTotal} dimension={dimension} selected={selected} />
-          <MonitorPanel title={isKey ? "Key details" : "Model details"} description="Protocol paths and usage for the selected scope." action={<MonitorLink href={monitorHref("/requests", data.filters)}>Inspect requests</MonitorLink>}>
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-basalt-border/50 pb-3">
-              <div className="min-w-0"><h3 className="break-all text-sm font-semibold">{label}</h3>{isKey && selected && <p className="mt-1 break-all font-mono text-xs text-basalt-muted-foreground">{keyIdentity(selected)}</p>}{isKey && (nameGroup || selected?.startsWith("legacy:")) && <Badge variant="warning" className="mt-1 text-xs">Historical name group · may contain multiple keys</Badge>}</div>
+          <MonitorPanel title={isKey ? "Key details" : "Model details"} description="Usage and protocol paths." action={<MonitorLink href={monitorHref("/requests", data.filters)}>Inspect requests</MonitorLink>}>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-basalt-border/50 pb-3">
+              <div className="min-w-0"><h3 className="break-all text-sm font-semibold">{isKey && selected ? <IdentityHint identity={keyIdentity(selected)}><Button variant="ghost" size="sm" className="h-auto max-w-full justify-start whitespace-normal p-0 text-left text-sm font-semibold">{label}</Button></IdentityHint> : label}</h3>{isKey && (nameGroup || selected?.startsWith("legacy:")) && <Badge variant="warning" className="mt-1 text-xs">Historical name group · may contain multiple keys</Badge>}</div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-basalt-muted-foreground"><span><strong className="text-basalt-foreground">{formatCompact(data.summary.total_requests)}</strong> requests</span><span>{formatCompact(data.summary.total_tokens)} tokens</span><span>P95 {data.percentiles ? formatLatency(data.percentiles.p95) : "—"}</span></div>
-              {current && <p className="basis-full text-xs text-basalt-muted-foreground">First in range <LocalTime timestamp={current.first_seen} /> · Last <LocalTime timestamp={current.last_seen} /></p>}
+              {current && <p className="text-xs text-basalt-muted-foreground">First in range <LocalTime timestamp={current.first_seen} /> · Last <LocalTime timestamp={current.last_seen} /></p>}
             </div>
             <div className="grid min-w-0 gap-4 @min-[34rem]/panel:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
               <UsageBreakdown entries={isKey ? data.models : data.keys} dimension={isKey ? "model" : "key_id"} filters={data.filters} total={data.summary.total_requests} />

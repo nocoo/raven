@@ -15,7 +15,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { Filter, RefreshCw, RotateCcw } from "lucide-react";
 import { Button, Input } from "@nocoo/basalt";
-import { PROTOCOL_META, PROTOCOL_MODES, type UsageDimension } from "@/lib/monitor";
+import { keyIdentity, PROTOCOL_META, PROTOCOL_MODES, type UsageDimension } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
@@ -162,8 +162,8 @@ export function FilterBar({
               <SelectContent><SelectItem value="__all__">All protocols</SelectItem>{PROTOCOL_MODES.map(mode => <SelectItem key={mode} value={mode}>{PROTOCOL_META[mode].label}</SelectItem>)}</SelectContent>
             </Select>
             {keys.length > 0 && <Select value={filters.key_id ?? "__all__"} onValueChange={(v) => updateFilters({ key_id: v === "__all__" ? undefined : v, account: undefined })}>
-              <SelectTrigger size="sm" className="w-auto min-w-[140px] max-w-64 text-xs" aria-label="Filter by API key"><SelectValue placeholder="All keys" /></SelectTrigger>
-              <SelectContent><SelectItem value="__all__">All keys</SelectItem>{keys.map(key => <SelectItem key={key.id} value={key.id}>{key.label} · {key.id.startsWith("legacy:") ? "historical" : key.id.slice(-8)}</SelectItem>)}</SelectContent>
+              <SelectTrigger size="sm" className="w-auto min-w-[140px] max-w-64 text-xs" aria-label="Filter by API key" title={filters.key_id ? keyIdentity(filters.key_id) : undefined}><SelectValue placeholder="All keys" /></SelectTrigger>
+              <SelectContent><SelectItem value="__all__">All keys</SelectItem>{keys.map(key => <SelectItem key={key.id} value={key.id} title={keyIdentity(key.id)} aria-labelledby={undefined} aria-label={`${key.label} · ${key.id.startsWith("legacy:") ? "historical" : key.id}`}>{key.label}</SelectItem>)}</SelectContent>
             </Select>}
             {/* Model filter */}
             {models.length > 0 && (
@@ -318,6 +318,7 @@ export function FilterBar({
               key={chip.key}
               filterKey={chip.key}
               value={chip.value}
+              displayValue={chip.key === "key_id" ? keys.find(key => key.id === chip.value)?.label ?? "Selected key" : undefined}
               onRemove={() => removeDimensionFilter(chip.key)}
             />
           ))}

@@ -26,7 +26,7 @@ export function SettingsCard({
         <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={icon} tone={tone} />{title}</h2>
         {action}
       </LayerCard.Header>
-      <LayerCard.Body className="max-w-3xl space-y-4">{children}</LayerCard.Body>
+      <LayerCard.Body className="space-y-3">{children}</LayerCard.Body>
       {footer ? <LayerCard.Footer>{footer}</LayerCard.Footer> : null}
     </LayerCard>
   );
@@ -54,12 +54,12 @@ export function SettingToggleRow({
   return (
     <div className="space-y-2">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <Label htmlFor={id} className="cursor-pointer text-sm font-medium">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <Label htmlFor={id} className="max-w-full shrink-0 cursor-pointer text-sm font-medium">
             {label}
           </Label>
           {description ? (
-            <p className="mt-0.5 text-xs text-basalt-muted-foreground">{description}</p>
+            <p className="text-xs text-basalt-muted-foreground">{description}</p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">

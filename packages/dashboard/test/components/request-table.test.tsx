@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as baseRender, screen } from "@testing-library/react";
+import { TooltipProvider } from "@nocoo/basalt";
+import type { ReactNode } from "react";
+
 import { ALL_COLUMNS } from "@/components/requests/column-config";
 import { userEvent } from "@testing-library/user-event";
 
@@ -23,6 +26,8 @@ vi.mock("next/navigation", () => ({
 
 import { RequestTable } from "@/components/requests/request-table";
 import type { ExtendedRequestRecord } from "@/lib/types";
+
+const render = (ui: ReactNode) => baseRender(ui, { wrapper: TooltipProvider });
 
 // ---------------------------------------------------------------------------
 // Helpers
