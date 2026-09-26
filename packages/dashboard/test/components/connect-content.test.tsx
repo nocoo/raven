@@ -88,6 +88,14 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("ApiKeysSection", () => {
+  it("links each key name to its own statistics even when names match", () => {
+    render(<ConnectContent rules={fixtureRules} keys={[makeKey(), makeKey({ id: "key/2?source=client" })]} connectionInfo={makeConnectionInfo()} />);
+    const links = screen.getAllByRole("link", { name: "test-key" });
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute("href", "/keys?key_id=key-1");
+    expect(links[1]).toHaveAttribute("href", "/keys?key_id=key%2F2%3Fsource%3Dclient");
+  });
+
   it("groups icon-only IP access, activity and revoke actions with hover hints", async () => {
     render(<ConnectContent rules={fixtureRules} keys={[makeKey()]} connectionInfo={makeConnectionInfo()} />);
     const access = screen.getByRole("button", { name: "IP access" });

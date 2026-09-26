@@ -554,7 +554,9 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
             <TableBody>
               {initialKeys.map((key) => (
                 <TableRow key={key.id}>
-                  <TableCell className="font-medium">{key.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link href={`/keys?key_id=${encodeURIComponent(key.id)}`} className="text-basalt-primary hover:underline focus-visible:underline">{key.name}</Link>
+                  </TableCell>
                   <TableCell>
                     <code className="text-xs text-basalt-muted-foreground">
                       {key.key_prefix}...
