@@ -21,8 +21,8 @@ import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/l
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Loader2, Cpu, ExternalLink, ChevronRight, Plug, BookOpen, } from "lucide-react";
-import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger } from "@nocoo/basalt";
+  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Cpu, ExternalLink, ChevronRight, Plug, BookOpen, Activity, } from "lucide-react";
+import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
 
@@ -548,7 +548,7 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                 <TableHead className="hidden sm:table-cell">Created</TableHead>
                 <TableHead className="hidden md:table-cell">Last Used</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-20">Actions</TableHead>
+                <TableHead className="w-px">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -560,7 +560,7 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                       {key.key_prefix}...
                     </code>
                   </TableCell>
-                  <TableCell><div className="flex flex-wrap items-center gap-2"><KeyRuleBinding apiKey={key} rules={rules} /><IPPolicyDialog keyId={key.id} name={key.name} /><Button variant="ghost" size="sm" asChild><Link href={`/keys?key_id=${encodeURIComponent(key.id)}`}>IP activity</Link></Button></div></TableCell>
+                  <TableCell><KeyRuleBinding apiKey={key} rules={rules} /></TableCell>
                   <TableCell className="hidden sm:table-cell text-xs text-basalt-muted-foreground">
                     <LocalTime timestamp={key.created_at} precision="day" />
                   </TableCell>
@@ -581,43 +581,25 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                     )}
                   </TableCell>
                   <TableCell className="pr-3">
-                    {key.revoked_at ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleAction(key.id, "delete")}
-                        disabled={actionLoading !== null}
-                        className="h-7 w-[72px] text-xs text-basalt-destructive hover:bg-basalt-destructive/10 gap-1.5"
-                      >
-                        {actionLoading === key.id ? (
-                          <Loader2
-                            className="h-3 w-3 animate-spin"
-                            strokeWidth={1.5}
-                          />
-                        ) : (
-                          <Trash2 className="h-3 w-3" strokeWidth={1.5} />
-                        )}
-                        Delete
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleAction(key.id, "revoke")}
-                        disabled={actionLoading !== null}
-                        className="h-7 w-[72px] text-xs hover:bg-basalt-accent gap-1.5"
-                      >
-                        {actionLoading === key.id ? (
-                          <Loader2
-                            className="h-3 w-3 animate-spin"
-                            strokeWidth={1.5}
-                          />
-                        ) : (
-                          <Ban className="h-3 w-3" strokeWidth={1.5} />
-                        )}
-                        Revoke
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <IPPolicyDialog keyId={key.id} name={key.name} iconOnly />
+                      <Tooltip disableHoverableContent>
+                        <TooltipTrigger asChild>
+                          <Button size="icon" variant="ghost" className="size-8" asChild>
+                            <Link href={`/keys?key_id=${encodeURIComponent(key.id)}`} aria-label="IP activity">
+                              <Activity className="size-3.5" strokeWidth={1.5} />
+                              <span className="sr-only">IP activity</span>
+                            </Link>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>IP activity</TooltipContent>
+                      </Tooltip>
+                      <Tooltip disableHoverableContent><TooltipTrigger asChild>
+                        <Button size="icon" variant="ghost" className={`size-8 ${key.revoked_at ? "text-basalt-destructive" : ""}`} aria-label={key.revoked_at ? "Delete" : "Revoke"}
+                          onClick={() => handleAction(key.id, key.revoked_at ? "delete" : "revoke")} disabled={actionLoading !== null} loading={actionLoading === key.id}
+                          icon={key.revoked_at ? <Trash2 className="size-3.5" strokeWidth={1.5} /> : <Ban className="size-3.5" strokeWidth={1.5} />} />
+                      </TooltipTrigger><TooltipContent>{key.revoked_at ? "Delete" : "Revoke"}</TooltipContent></Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

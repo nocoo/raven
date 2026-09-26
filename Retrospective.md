@@ -531,3 +531,16 @@ The browser regression now checks visible ticks, legend identity, plot width and
 dialog width; the missing-axis assertion failed before the fix. Explicit public
 chart props and the dialog size preset correct the layout. Interaction success
 alone is insufficient evidence of readable data visualization.
+
+## 2026-09-26 — Check transitions between adjacent action hints
+
+The first Connect icon-action pass opened each tooltip but retained the previous
+hint when the pointer moved directly to its neighbor. Both the component test
+and browser reproduced the shared hover-grace behavior. These hints contain no
+interactive content, so disabling hoverable content closes them on trigger exit.
+The regression checks the transition between adjacent actions, not just opening
+an isolated tooltip; keyboard activation still opens the policy dialog.
+
+The commit gate also rejected Playwright's `exact` locator option in a Testing
+Library role query. Runtime test success did not validate the helper's types;
+use each library's declared options and retain the separate typecheck gate.

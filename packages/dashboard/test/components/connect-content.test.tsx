@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render as baseRender, screen, waitFor, within } from "@testing-library/react";
+import { TooltipProvider } from "@nocoo/basalt";
+import type { ReactNode } from "react";
 import { userEvent } from "@testing-library/user-event";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
@@ -33,6 +35,8 @@ import { ConnectContent } from "@/app/connect/connect-content";
 import { fixtureRules } from "../helpers/routing-fixtures";
 import { selectOption } from "../helpers/routing-interactions";
 import type { ApiKeyPublic, ConnectionInfo } from "@/lib/types";
+
+const render = (ui: ReactNode) => baseRender(ui, { wrapper: TooltipProvider });
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -84,9 +88,36 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("ApiKeysSection", () => {
+  it("groups icon-only IP access, activity and revoke actions with hover hints", async () => {
+    render(<ConnectContent rules={fixtureRules} keys={[makeKey()]} connectionInfo={makeConnectionInfo()} />);
+    const access = screen.getByRole("button", { name: "IP access" });
+    const revoke = screen.getByRole("button", { name: "Revoke" });
+    const activity = screen.getByRole("link", { name: "IP activity" });
+    expect(access.closest("td")).toBe(revoke.closest("td"));
+    expect(activity.closest("td")).toBe(revoke.closest("td"));
+    expect(activity).toHaveAttribute("href", "/keys?key_id=key-1");
+    expect(access.textContent).toBe("");
+    expect(revoke.textContent).toBe("");
+    const user = userEvent.setup();
+    await user.hover(access);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("IP access");
+    await user.unhover(access);
+    await user.hover(activity);
+    await waitFor(() => expect(screen.getByRole("tooltip")).toHaveTextContent("IP activity"));
+    await user.unhover(activity);
+    await user.hover(revoke);
+    await waitFor(() => expect(screen.getByRole("tooltip")).toHaveTextContent("Revoke"));
+    await user.unhover(revoke);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockResolvedValueOnce(Response.json({ enabled: false, ranges: [] }));
+    await user.click(access);
+    expect(await screen.findByRole("dialog")).toHaveTextContent("IP access · test-key");
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith("/api/keys/key-1/ip-policy", undefined));
+  });
+
   it("hydrates key dates in the browser timezone when the server day differs", async () => {
     const offset = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(0);
-    const ui = <ConnectContent rules={fixtureRules} keys={[makeKey({ created_at: Date.UTC(2026, 8, 22, 21), last_used_at: 0 })]} connectionInfo={makeConnectionInfo()} />;
+    const ui = <TooltipProvider><ConnectContent rules={fixtureRules} keys={[makeKey({ created_at: Date.UTC(2026, 8, 22, 21), last_used_at: 0 })]} connectionInfo={makeConnectionInfo()} /></TooltipProvider>;
     const container = document.createElement("div");
     const errors = vi.fn();
     let root: Root | undefined;

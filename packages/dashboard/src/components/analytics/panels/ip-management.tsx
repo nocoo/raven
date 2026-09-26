@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Label, Switch } from "@nocoo/basalt";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Label, Switch, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
 import { InputArea } from "@nocoo/basalt/components/input-area";
 import { MapPin, ShieldCheck } from "lucide-react";
 import { useId, useState } from "react";
@@ -9,7 +9,7 @@ import { loadIPPolicy, locateIP, policyPayload, saveIPPolicy, type IPLocation, t
 import { errorMessage } from "@/lib/routing-client";
 import { LocalTime } from "@/components/local-time";
 
-export function IPPolicyDialog({ keyId, name = keyId ? "Selected API key" : "All model requests" }: { keyId?: string; name?: string }) {
+export function IPPolicyDialog({ keyId, name = keyId ? "Selected API key" : "All model requests", iconOnly = false }: { keyId?: string; name?: string; iconOnly?: boolean }) {
   const router = useRouter();
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -31,8 +31,10 @@ export function IPPolicyDialog({ keyId, name = keyId ? "Selected API key" : "All
     catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
   }
+  const label = keyId ? "IP access" : "Global IP access";
+  const trigger = <DialogTrigger asChild><Button variant={iconOnly ? "ghost" : "outline"} size={iconOnly ? "icon" : "sm"} className={iconOnly ? "size-8" : undefined} aria-label={label}><ShieldCheck className="size-3.5" />{!iconOnly && label}</Button></DialogTrigger>;
   return <Dialog open={open} onOpenChange={value => { if (busy) return; setOpen(value); if (value) void load(); }}>
-    <DialogTrigger asChild><Button variant="outline" size="sm"><ShieldCheck className="size-3.5" />{keyId ? "IP access" : "Global IP access"}</Button></DialogTrigger>
+    {iconOnly ? <Tooltip disableHoverableContent><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip> : trigger}
     <DialogContent><DialogHeader><DialogTitle>IP access · {name}</DialogTitle><DialogDescription>{keyId ? "This key must satisfy both its own whitelist and the global whitelist." : "Applies to model API calls. Local Dashboard management remains accessible."}</DialogDescription></DialogHeader>
       {policy && <div className="space-y-4">
         <div className="flex items-center justify-between gap-3"><Label htmlFor={`${id}-enabled`}>{policy.enabled ? "Whitelist only" : "Unrestricted"}</Label><Switch id={`${id}-enabled`} checked={policy.enabled} disabled={busy} onCheckedChange={enabled => setPolicy({ ...policy, enabled })} /></div>
