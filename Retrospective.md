@@ -563,3 +563,13 @@ the caught error. Development and builds with local credentials hid the defect.
 The application layout now requires request-time rendering. Keep credential-free
 builds followed by isolated runtime credentials as release verification; do not
 pass daily credentials into a build to conceal a prerendering failure.
+
+## 2026-09-26 — Keep quota interaction regressions focused
+
+Release CI completed the proxy checks but the Dashboard quota-editing scenario
+exceeded its five-second deadline at 5.38 seconds. It combined enabling quota,
+editing limits and local reset time, and configuring a multiplier timetable.
+Split reset editing and timetable editing into independently saved scenarios,
+retaining the exact UTC payload and single-request assertions. The timeout and
+coverage requirements remain unchanged; local passing runs alone did not prove
+the combined interaction budget was suitable for the Linux CI runner.

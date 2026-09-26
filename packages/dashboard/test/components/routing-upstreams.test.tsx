@@ -187,7 +187,7 @@ describe("Upstreams workbench", () => {
     expect(screen.queryByText("Received pong")).toBeNull();
   });
 
-  it("edits protected Copilot quota using local reset time and the shared multiplier timetable", async () => {
+  it("edits protected Copilot quota using local reset time", async () => {
     offsetSpy.mockReturnValue(-480);
     render(<UpstreamsContent upstreams={[makeCopilot()]} migration={null} />);
     await tab("Quota");
@@ -200,6 +200,18 @@ describe("Upstreams workbench", () => {
     change("Next reset (local time)", "2026-09-22T17:00");
     expect(screen.getByText("2026-09-22 17:00")).toBeVisible();
     expect(screen.queryByText(/2026-09-22 09:00 UTC/)).toBeNull();
+    const quota = { ...fixtureQuota, limit_tokens: 20_000, window_minutes: 60, next_reset_at: Date.UTC(2026, 8, 22, 9) };
+    fetchSpy.mockResolvedValueOnce(Response.json(makeCopilot({ quota })));
+    await click("Save changes");
+    expect(payload()).toEqual({ manual_models: [], quota });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves the protected Copilot multiplier timetable in UTC", async () => {
+    offsetSpy.mockReturnValue(-480);
+    const quota = { ...fixtureQuota, limit_tokens: 20_000, window_minutes: 60, next_reset_at: Date.UTC(2026, 8, 22, 9) };
+    render(<UpstreamsContent upstreams={[makeCopilot({ quota })]} migration={null} />);
+    await tab("Quota");
     await user().click(screen.getByRole("radio", { name: "Every day" }));
     await click("Add period");
     expect(screen.getByRole("spinbutton", { name: "Token multiplier" })).toHaveValue(2);
