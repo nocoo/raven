@@ -404,6 +404,58 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(catalog.data.map(model => model.id).sort()).toEqual(["auto", "fixture-fast", "fixture-smart", "gpt-5.6-sol", "Manual.Raw-ID"].sort());
     expect(inspect()).toEqual({ catalogCalls: 4, generationCalls: 5 });
     checkpoint("real HTTP key authentication, auto selection, explicit IDs and cached model listing");
+    const generationBeforeIP = inspect().generationCalls;
+    await page.goto(`${dashboardUrl}/connect`);
+    await page.getByRole("button", { name: "IP access", exact: true }).click();
+    await expect(page.getByRole("switch", { name: "Unrestricted" })).not.toBeChecked();
+    await page.getByRole("switch").click();
+    await page.getByLabel("Allowed IPs and networks").fill("2001:db8:123::/48");
+    await page.getByRole("button", { name: "Save policy", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const ipRequest = (ip: string) => fetch(`${proxyUrl}/v1/models`, { headers: { authorization: `Bearer ${client.key}`, "x-forwarded-for": ip } });
+    expect((await ipRequest("2001:db8:123::1")).status).toBe(403);
+    await page.getByRole("link", { name: "IP activity", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Source IPs", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Global IP access" }).click();
+    await page.getByText("Trusted reverse proxies", { exact: true }).click();
+    await page.getByLabel("Proxy addresses and networks").fill("127.0.0.1\n::1");
+    await page.getByRole("button", { name: "Save policy", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect((await ipRequest("2001:db8:123::1")).status).toBe(200);
+    expect((await ipRequest("2001:db8:124::1")).status).toBe(403);
+    await page.getByRole("button", { name: "IP access", exact: true }).click();
+    await page.getByRole("switch", { name: "Whitelist only" }).click();
+    await page.getByRole("button", { name: "Save policy", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect((await ipRequest("1.1.1.1")).status).toBe(200);
+    await page.reload();
+    const ipChart = page.getByRole("group", { name: "Source IP requests over time", exact: true });
+    await ipChart.scrollIntoViewIfNeeded();
+    await expect(ipChart.locator(".recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value").first()).toBeVisible();
+    await expect(ipChart.getByText("1.1.1.1", { exact: true })).toBeVisible();
+    expect((await ipChart.locator(".recharts-responsive-container").boundingBox())!.width).toBeGreaterThan((await ipChart.boundingBox())!.width * 0.9);
+    await ipChart.screenshot({ path: join(artifacts, "ip-activity-chart.png") });
+    await page.getByRole("button").filter({ hasText: "1.1.1.1" }).click();
+    await page.getByRole("button", { name: "Look up location" }).click();
+    await expect(page.getByRole("dialog")).toContainText("Fixture country");
+    await shot("ip-source-details");
+    await page.getByRole("dialog").getByRole("link", { name: "Inspect requests", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Remove IP filter" })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("client_ip")).toBe("1.1.1.1");
+    await page.getByRole("button", { name: "Remove IP filter" }).click();
+    await expect(page.getByRole("button", { name: "Remove IP filter" })).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.get("key_id")).toBe(client.id);
+    await page.goto(`${dashboardUrl}/keys?key_id=${client.id}`);
+    await page.getByRole("button", { name: "Global IP access" }).click();
+    await page.getByText("Trusted reverse proxies", { exact: true }).click();
+    await page.getByLabel("Proxy addresses and networks").fill("");
+    await page.getByRole("button", { name: "Save policy", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(inspect().generationCalls).toBe(generationBeforeIP);
+    expect((await fetch(`${proxyUrl}/api/keys`, { headers: { authorization: `Bearer ${client.key}` } })).status).toBe(401);
+    await shot("ip-key-distribution");
+    checkpoint("key IP policies, IPv6 trusted forwarding, denied requests, IP drilldown and on-demand Echo lookup work without model calls");
+
 
     await page.goto(`${dashboardUrl}/requests`);
     await expect(page.getByRole("combobox", { name: "Auto-refresh interval" })).toHaveText("Every 3s");
@@ -674,6 +726,15 @@ export async function runRoutingBrowser(options: BrowserOptions) {
               expect(events.x + events.width).toBeLessThan(stats.x);
             }
             await shot(`${path.replaceAll("/", "-") || "overview"}-logs-${width}-${theme}`);
+            if (path === "keys" && width === 1280) {
+              await expect(dock.getByRole("button", { name: "Copy to clipboard" })).toHaveCount(0);
+              await dock.getByRole("button", { name: /^View log details:/ }).first().click();
+              await expect(page.getByRole("dialog")).toBeVisible();
+              expect((await page.getByRole("dialog").boundingBox())!.width).toBeGreaterThanOrEqual(700);
+              await expect(page.getByRole("dialog").getByRole("button", { name: "Copy to clipboard" })).toBeVisible();
+              await shot(`log-details-${theme}`);
+              await page.keyboard.press("Escape");
+            }
             await dock.getByRole("button", { name: "Close logs dock", exact: true }).click();
             await expect(launcher).toBeFocused();
           }

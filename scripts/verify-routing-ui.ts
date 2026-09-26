@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
+import { checkManagementAccess } from "../packages/proxy/src/middleware"
 import { createApp } from "../packages/proxy/src/app"
 import { initDatabase } from "../packages/proxy/src/db/requests"
 import { initRouting } from "../packages/proxy/src/db/routing-migration"
@@ -80,13 +81,15 @@ const receiver = Bun.serve({
   },
 })
 const receiverUrl = receiver.url.origin
+process.env.RAVEN_IP_LOOKUP_API_KEY = "fixture-echo"
 const app = createApp({ db, githubToken: "fixture-github", apiKey: "fixture-client", internalKey: "fixture-internal" })
 const proxy = Bun.serve<WsData>({
   hostname: "127.0.0.1", port: 0,
   fetch(request, server) {
     const url = new URL(request.url)
     if (url.pathname === "/ws/logs") {
-      if (url.searchParams.get("token") !== "fixture-internal") return new Response("Unauthorized", { status: 401 })
+      const denied = checkManagementAccess(server.requestIP(request)?.address ?? null, url.searchParams.get("token"), "fixture-internal")
+      if (denied) return denied
       const level = url.searchParams.get("level") ?? "info"
       const minLevel: LogLevel = Object.hasOwn(LEVEL_ORDER, level) ? level as LogLevel : "info"
       if (server.upgrade(request, { data: { minLevel, filterRequestId: url.searchParams.get("requestId") } })) return
@@ -102,6 +105,10 @@ globalThis.fetch = Object.assign(async (input: string | URL | Request, init?: Re
   const url = new URL(input instanceof Request ? input.url : String(input))
   if (url.origin === "https://api.github.com" && url.pathname === "/copilot_internal/user") {
     return Response.json({ login: "fixture-user", copilot_plan: "individual", chat_enabled: true, is_mcp_enabled: true, assigned_date: "2026-09-21T20:30:00Z", analytics_tracking_id: "fixture-tracking", endpoints: { api: "https://fixture.invalid/api" }, quota_snapshots: { premium_interactions: { entitlement: 300, remaining: 240, percent_remaining: 80, unlimited: false, overage_count: 0 } } })
+  }
+  if (url.origin === "https://echo.nocoo.cloud" && url.pathname === "/api/ip") {
+    assert.equal(new Headers(init?.headers).get("X-Api-Key"), "fixture-echo")
+    return Response.json({ ip: url.searchParams.get("ip"), location: { country: "Fixture country", isp: "Fixture ISP", asn: 64500 } })
   }
   if (!allowed.has(url.origin)) {
     blocked.push(`${url.origin}${url.pathname}`)

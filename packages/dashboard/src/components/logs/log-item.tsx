@@ -21,16 +21,15 @@ export function LogItem({ events }: { events: LogEvent[] }) {
         {entry.latencyMs !== null && <span className="shrink-0 text-xs tabular-nums">{formatLatency(entry.latencyMs)}</span>}
         <ChevronRight className="size-3.5 shrink-0 text-basalt-muted-foreground" />
       </span>
-      <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-basalt-muted-foreground">
+      <span className="flex min-w-0 items-center gap-2 text-xs text-basalt-muted-foreground">
         {!entry.system && <><Badge variant={entry.protocol.variant} className="text-[11px]" title={entry.protocol.title}>{entry.protocol.label}</Badge><span className="truncate font-mono" title={entry.clientIP}>{entry.clientIP || "Unknown IP"}</span></>}
-        {entry.account && <span className="max-w-36 truncate" title={entry.account}>{entry.account}</span>}
-        <span className="min-w-0 flex-1 truncate font-mono" title={entry.path}>{entry.path}</span>
+        <span className="min-w-0 flex-1 truncate" title={entry.account}>{entry.account}</span>
         {entry.tokens !== null && <span className="shrink-0 tabular-nums">{formatCompact(entry.tokens)} tok</span>}
       </span>
       {entry.error && <span className={cn("truncate text-xs", entry.status === "cancelled" ? "text-basalt-muted-foreground" : "text-basalt-destructive")}>{entry.error}</span>}
     </Button>
   </DialogTrigger>
-    <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><div className="flex items-center gap-2 pr-8"><DialogTitle className="min-w-0 flex-1 break-all">{entry.model}</DialogTitle><CopyButton value={JSON.stringify(events, null, 2)} /></div><DialogDescription><LocalTime timestamp={entry.timestamp} /> · {entry.requestId || "System event"}</DialogDescription></DialogHeader>
+    <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto space-y-4"><DialogHeader><div className="flex items-center gap-2"><DialogTitle className="min-w-0 flex-1 break-all">{entry.model}</DialogTitle><CopyButton value={JSON.stringify(events, null, 2)} /></div><DialogDescription><LocalTime timestamp={entry.timestamp} /> · {entry.requestId || "System event"}</DialogDescription></DialogHeader>
       {!entry.system && <IPLookup ip={entry.clientIP} />}
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
         {Object.entries(entry.data).map(([key, value]) => <div key={key} className="contents"><dt className="text-basalt-muted-foreground">{key === "peerIP" ? "Peer IP" : key}</dt><dd className="min-w-0 whitespace-pre-wrap break-all font-mono">{typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}</dd></div>)}

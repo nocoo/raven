@@ -520,3 +520,14 @@ now requires exactly the two trailing hexadecimal groups of the IPv4-mapped
 format; other IPv6 addresses retain their identity. The regression test pins
 both forms. Address-family conversions must validate the complete canonical
 shape, never just a textual prefix.
+
+## 2026-09-26 — Verify chart and dialog geometry
+
+The first IP dashboard browser run passed interaction and overflow checks, but
+reviewing its screenshots showed an undersized chart with no visible time axis
+or legend and a narrow log detail dialog. Basalt's AreaChart defaults to compact
+geometry, and DialogContent has a width preset independent of max-width classes.
+The browser regression now checks visible ticks, legend identity, plot width and
+dialog width; the missing-axis assertion failed before the fix. Explicit public
+chart props and the dialog size preset correct the layout. Interaction success
+alone is insufficient evidence of readable data visualization.
