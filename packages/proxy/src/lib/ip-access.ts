@@ -6,7 +6,7 @@ export function normalizeIP(value: string | null): string | null {
   if (!family) return null;
   if (family === 4) return value;
   const canonical = new URL(`http://[${value}]`).hostname.slice(1, -1);
-  if (!canonical.startsWith("::ffff:")) return canonical;
+  if (!/^::ffff:[0-9a-f]+:[0-9a-f]+$/.test(canonical)) return canonical;
   const parts = canonical.slice(7).split(":").map(part => Number.parseInt(part, 16));
   const high = parts[0]!;
   const low = parts[1]!;

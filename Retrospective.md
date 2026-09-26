@@ -509,3 +509,14 @@ already limited to two. Bound Proxy to four workers so the combined gate leaves
 capacity for UI interactions. Keep every test, the five-second timeout and all
 coverage thresholds unchanged; validate the full hook, not just a standalone
 suite, before treating the resource change as effective.
+
+## 2026-09-26 — Distinguish mapped IPv4 from translated IPv6
+
+While building the shared IP admission core, the initial normalization matched
+any canonical address beginning with `::ffff:`. A new adversarial test proved
+that `::ffff:0:192.0.2.1` was incorrectly shortened to an unrelated IPv4 address.
+This was found before the new core was enabled in the request path. The parser
+now requires exactly the two trailing hexadecimal groups of the IPv4-mapped
+format; other IPv6 addresses retain their identity. The regression test pins
+both forms. Address-family conversions must validate the complete canonical
+shape, never just a textual prefix.

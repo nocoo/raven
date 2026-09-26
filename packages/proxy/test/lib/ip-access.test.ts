@@ -6,6 +6,7 @@ describe("IP access policy", () => {
     expect(normalizeIP("2001:0DB8:0000:0:0:0:0:1")).toBe("2001:db8::1");
     for (const value of ["::ffff:192.0.2.1", "0:0:0:0:0:FFFF:c000:201"]) expect(normalizeIP(value)).toBe("192.0.2.1");
     expect(normalizeIP("::1")).toBe("::1");
+    expect(normalizeIP("::ffff:0:192.0.2.1")).toBe("::ffff:0:c000:201");
     for (const value of [null, "", "01.2.3.4", "1.2.3.999", "1.2.3.4:80", "[::1]", "fe80::1%en0", "localhost", "::ffff:xx:1"]) expect(normalizeIP(value)).toBeNull();
   });
   it("only permits a matching address when a whitelist is enabled", () => {
