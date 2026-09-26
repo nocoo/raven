@@ -244,3 +244,35 @@ If `RAVEN_API_KEY` is set or DB has API keys, append `&token=<key>` to the query
 `bun run test:e2e` 会复用或启动真实 Proxy，使用其配置/数据库并访问 Copilot；它不是本地隔离测试。不得在 CI/hooks 自动执行。单独授权的诊断也必须首次上游失败就终止，不重试、不做循环或负载测试，每个用例只发一次请求；真实 token 不进入 fixtures。`RAVEN_API_KEY` 是调用端身份，`RAVEN_INTERNAL_KEY` 是管理身份，不可混淆。不要用自动化测试创建真实数据库临时 key。
 
 网络部署沿用 docs/14-vps-deployment.md：Dashboard 必须配置 Google OAuth，不可公开 Local 模式；启用 IP 白名单并保持 API/管理接口访问控制。本产品仍定位个人本机研究，不是多用户托管服务。
+
+## IP admission and local management
+
+All existing database keys start unrestricted. A key's optional whitelist and
+an enabled global whitelist must both match; empty or unknown addresses fail
+closed when a whitelist is enabled. IPv4, IPv6, mapped IPv4, CIDR and inclusive
+ranges share the `node:net` policy core. No country, ASN or lookup service is
+consulted during admission. Policy edits affect subsequent requests only.
+
+Bun captures the socket peer for HTTP and WebSocket entry points. Forwarded
+addresses are accepted only from explicitly configured trusted proxy networks,
+walking X-Forwarded-For from right to left. Proxies must append the actual peer
+or overwrite untrusted headers. The former blanket trust-proxy toggle is retired;
+configure specific peers in Settings → IP access. Loopback management uses the
+socket peer exclusively and always requires RAVEN_INTERNAL_KEY. Client keys
+cannot access `/api/*` or `/ws/logs`; absent secrets never enable management.
+Do not expose these paths through a local reverse proxy. Dashboard uses a
+loopback RAVEN_PROXY_URL and does not follow HTTP redirects with its credential.
+
+Request events and SQLite records capture client IP, peer IP and source. A denied
+attempt is recorded as `status: denied`, HTTP 403, without invoking an upstream
+or settling quota. Historical IPs remain unknown. API Keys adds IP distribution
+and activity under the same key/time filters; Connect links to that view and the
+shared whitelist editor. Statistics include denied attempts in request totals,
+but not in upstream error counts. Key policy rows are removed with their key;
+existing request history retains its stable key identity.
+
+Echo lookup is an explicit Dashboard action through `/api/ip-lookup`. Configure
+RAVEN_IP_LOOKUP_API_KEY only on Proxy. Successful public-IP results are cached
+for 24 hours in SQLite. Returned IPs must match the requested normalized address:
+Echo can return its caller's IP when a credential is invalid. Lookup failure
+never affects model access. Private/reserved addresses are not sent to Echo.

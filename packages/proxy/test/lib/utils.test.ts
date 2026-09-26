@@ -1,3 +1,4 @@
+import { parseRules } from "../../src/lib/ip-access"
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
 import { Database } from "bun:sqlite"
 
@@ -287,19 +288,19 @@ describe("cacheOptimizations", () => {
 
 describe("cacheIPWhitelist", () => {
   const savedIPWhitelistEnabled = state.ipWhitelistEnabled
-  const savedIPWhitelistTrustProxy = state.ipWhitelistTrustProxy
+  const savedIPWhitelistTrustProxy = state.trustedProxyRanges
   const savedIPWhitelistRanges = state.ipWhitelistRanges
 
   afterEach(() => {
     state.ipWhitelistEnabled = savedIPWhitelistEnabled
-    state.ipWhitelistTrustProxy = savedIPWhitelistTrustProxy
+    state.trustedProxyRanges = savedIPWhitelistTrustProxy
     state.ipWhitelistRanges = savedIPWhitelistRanges
   })
 
   test("loads defaults when DB is empty", () => {
     cacheIPWhitelist(db)
     expect(state.ipWhitelistEnabled).toBe(false)
-    expect(state.ipWhitelistTrustProxy).toBe(false)
+    expect(state.trustedProxyRanges).toEqual([])
     expect(state.ipWhitelistRanges).toEqual([])
   })
 
@@ -314,11 +315,11 @@ describe("cacheIPWhitelist", () => {
 
   test("loads ip_whitelist_trust_proxy = true", () => {
     db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
-      $key: "ip_whitelist_trust_proxy",
-      $value: "true",
+      $key: "ip_trusted_proxies",
+      $value: '["::1"]',
     })
     cacheIPWhitelist(db)
-    expect(state.ipWhitelistTrustProxy).toBe(true)
+    expect(state.trustedProxyRanges.map(rule => rule.original)).toEqual(["::1"])
   })
 
   test("parses valid IP ranges from DB", () => {
@@ -334,22 +335,19 @@ describe("cacheIPWhitelist", () => {
 
   test("handles empty ip_whitelist_ranges (resets to empty array)", () => {
     // First set some ranges
-    state.ipWhitelistRanges = [{ start: 0, end: 0, original: "test" }]
+    state.ipWhitelistRanges = parseRules(["::1"])
     // Then call without any DB setting
     cacheIPWhitelist(db)
     expect(state.ipWhitelistRanges).toEqual([])
   })
 
-  test("logs warning and still parses valid ranges on partial errors", () => {
+  test("rejects all ranges on partial corruption", () => {
     db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
       $key: "ip_whitelist_ranges",
       $value: JSON.stringify(["192.168.1.1", "invalid-ip", "10.0.0.1"]),
     })
     cacheIPWhitelist(db)
-    // Should have 2 valid ranges (skipping "invalid-ip")
-    expect(state.ipWhitelistRanges.length).toBe(2)
-    expect(state.ipWhitelistRanges[0]!.original).toBe("192.168.1.1")
-    expect(state.ipWhitelistRanges[1]!.original).toBe("10.0.0.1")
+    expect(state.ipWhitelistRanges).toEqual([])
   })
 
   test("loads all IP whitelist settings together", () => {
@@ -358,8 +356,8 @@ describe("cacheIPWhitelist", () => {
       $value: "true",
     })
     db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
-      $key: "ip_whitelist_trust_proxy",
-      $value: "true",
+      $key: "ip_trusted_proxies",
+      $value: '["::1"]',
     })
     db.query("INSERT INTO settings (key, value) VALUES ($key, $value)").run({
       $key: "ip_whitelist_ranges",
@@ -368,7 +366,7 @@ describe("cacheIPWhitelist", () => {
 
     cacheIPWhitelist(db)
     expect(state.ipWhitelistEnabled).toBe(true)
-    expect(state.ipWhitelistTrustProxy).toBe(true)
+    expect(state.trustedProxyRanges.map(rule => rule.original)).toEqual(["::1"])
     expect(state.ipWhitelistRanges.length).toBe(1)
     expect(state.ipWhitelistRanges[0]!.original).toBe("192.168.0.0/16")
   })

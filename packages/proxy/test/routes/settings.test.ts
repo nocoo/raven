@@ -16,7 +16,7 @@ vi.mock("../../src/services/detect-local-versions", () => ({
 
 const { createSettingsRoute } = await import("../../src/routes/settings.ts");
 const { initSettings, getSetting, setSetting } = await import("../../src/db/settings.ts");
-const { cacheServerTools, cacheIPWhitelist, cacheOptimizations, cacheCorsSettings } = await import("../../src/lib/utils.ts");
+const { cacheServerTools, cacheOptimizations, cacheCorsSettings } = await import("../../src/lib/utils.ts");
 const { state } = await import("../../src/lib/state.ts");
 
 let db: Database;
@@ -32,7 +32,7 @@ beforeEach(() => {
   state.stWebSearchApiKey = null;
   state.ipWhitelistEnabled = false;
   state.ipWhitelistRanges = [];
-  state.ipWhitelistTrustProxy = false;
+  state.trustedProxyRanges = [];
   state.corsEnabled = false;
   state.corsAllowedOrigins = [];
   state.vsCodeVersion = "1.117.0";
@@ -237,199 +237,6 @@ describe("settings route", () => {
       const app = createSettingsRoute(db);
       const res = await app.request("/settings/unknown_key", {
         method: "DELETE",
-      });
-      expect(res.status).toBe(400);
-    });
-  });
-
-  describe("IP whitelist settings", () => {
-    test("GET /settings returns ip_whitelist section", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings");
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body).toHaveProperty("ip_whitelist");
-      expect(body.ip_whitelist).toEqual({ enabled: false, trust_proxy: false, ranges: [] });
-    });
-
-    test("sets ip_whitelist_enabled to true", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ip_whitelist_enabled", value: "true" }),
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.ip_whitelist.enabled).toBe(true);
-      expect(state.ipWhitelistEnabled).toBe(true);
-    });
-
-    test("sets ip_whitelist_enabled to false", async () => {
-      setSetting(db, "ip_whitelist_enabled", "true");
-      cacheIPWhitelist(db);
-
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ip_whitelist_enabled", value: "false" }),
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.ip_whitelist.enabled).toBe(false);
-      expect(state.ipWhitelistEnabled).toBe(false);
-    });
-
-    test("rejects invalid boolean for ip_whitelist_enabled", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ip_whitelist_enabled", value: "yes" }),
-      });
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.error.type).toBe("validation_error");
-    });
-
-    test("sets ip_whitelist_ranges with valid ranges", async () => {
-      const app = createSettingsRoute(db);
-      const ranges = ["192.168.1.0/24", "10.0.0.1", "172.16.0.1-172.16.0.100"];
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "ip_whitelist_ranges",
-          value: JSON.stringify(ranges),
-        }),
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.ip_whitelist.ranges).toEqual(ranges);
-      expect(state.ipWhitelistRanges).toHaveLength(3);
-    });
-
-    test("rejects invalid JSON for ip_whitelist_ranges", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "ip_whitelist_ranges",
-          value: "not json",
-        }),
-      });
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.error.type).toBe("validation_error");
-    });
-
-    test("rejects invalid IP range in ip_whitelist_ranges", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "ip_whitelist_ranges",
-          value: JSON.stringify(["invalid-ip", "192.168.1.1"]),
-        }),
-      });
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.error.type).toBe("validation_error");
-    });
-
-    test("deletes ip_whitelist_enabled", async () => {
-      setSetting(db, "ip_whitelist_enabled", "true");
-      cacheIPWhitelist(db);
-
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings/ip_whitelist_enabled", {
-        method: "DELETE",
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.ip_whitelist.enabled).toBe(false);
-    });
-
-    test("deletes ip_whitelist_ranges", async () => {
-      setSetting(db, "ip_whitelist_ranges", '["192.168.1.0/24"]');
-      cacheIPWhitelist(db);
-
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings/ip_whitelist_ranges", {
-        method: "DELETE",
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.ip_whitelist.ranges).toEqual([]);
-    });
-
-    test("sets ip_whitelist_trust_proxy to true", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ip_whitelist_trust_proxy", value: "true" }),
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.ip_whitelist.trust_proxy).toBe(true);
-      expect(state.ipWhitelistTrustProxy).toBe(true);
-    });
-
-    test("sets ip_whitelist_trust_proxy to false", async () => {
-      setSetting(db, "ip_whitelist_trust_proxy", "true");
-      cacheIPWhitelist(db);
-
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ip_whitelist_trust_proxy", value: "false" }),
-      });
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.ip_whitelist.trust_proxy).toBe(false);
-      expect(state.ipWhitelistTrustProxy).toBe(false);
-    });
-
-    test("rejects invalid boolean for ip_whitelist_trust_proxy", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ip_whitelist_trust_proxy", value: "yes" }),
-      });
-      expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body.error.type).toBe("validation_error");
-    });
-
-    // SECURITY: Test that malformed IP ranges are rejected
-    test("rejects IP range with extra CIDR segments (security)", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "ip_whitelist_ranges",
-          value: JSON.stringify(["192.168.1.0/24/garbage"]),
-        }),
-      });
-      expect(res.status).toBe(400);
-    });
-
-    test("rejects IP range with extra dash segments (security)", async () => {
-      const app = createSettingsRoute(db);
-      const res = await app.request("/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "ip_whitelist_ranges",
-          value: JSON.stringify(["192.168.1.1-192.168.1.2-192.168.1.3"]),
-        }),
       });
       expect(res.status).toBe(400);
     });

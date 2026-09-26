@@ -6,6 +6,9 @@ import type { RequestRoutingDetails } from "../core/routing-log";
 // ---------------------------------------------------------------------------
 
 export interface RequestRecord {
+  client_ip?: string | null;
+  peer_ip?: string | null;
+  ip_source?: string | null;
 	routing_details?: string | null;
 	id: string;
 	timestamp: number;
@@ -263,6 +266,9 @@ export function initDatabase(db: Database): void {
       if (!(e instanceof Error && e.message.includes("duplicate column"))) throw e;
     }
   };
+  safeAddColumn("ALTER TABLE requests ADD COLUMN client_ip TEXT");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN peer_ip TEXT");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN ip_source TEXT");
   safeAddColumn("ALTER TABLE requests ADD COLUMN session_id TEXT NOT NULL DEFAULT ''");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN client_name TEXT NOT NULL DEFAULT ''");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN client_version TEXT");
@@ -280,6 +286,7 @@ export function initDatabase(db: Database): void {
 	safeAddColumn("ALTER TABLE requests ADD COLUMN api_key_id TEXT NOT NULL DEFAULT ''");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN server_tools_used INTEGER NOT NULL DEFAULT 0");
 	safeAddColumn("ALTER TABLE requests ADD COLUMN routing_details TEXT");
+	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_key_ip_time ON requests(api_key_id, client_ip, timestamp)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_strategy ON requests(strategy)");
 	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_account ON requests(account_name)");
@@ -301,7 +308,7 @@ INSERT INTO requests (
   session_id, client_name, client_version,
   processing_ms, strategy, upstream, upstream_format,
   translated_model, copilot_model, routing_path, stop_reason, tool_call_count,
-  cache_read_tokens, cache_write_tokens, server_tools_used, routing_details
+  cache_read_tokens, cache_write_tokens, server_tools_used, routing_details, client_ip, peer_ip, ip_source
 ) VALUES (
   $id, $timestamp, $path, $client_format, $model, $resolved_model,
   $stream, $input_tokens, $output_tokens, $latency_ms, $ttft_ms,
@@ -309,7 +316,7 @@ INSERT INTO requests (
   $session_id, $client_name, $client_version,
   $processing_ms, $strategy, $upstream, $upstream_format,
   $translated_model, $copilot_model, $routing_path, $stop_reason, $tool_call_count,
-  $cache_read_tokens, $cache_write_tokens, $server_tools_used, $routing_details
+  $cache_read_tokens, $cache_write_tokens, $server_tools_used, $routing_details, $client_ip, $peer_ip, $ip_source
 )`;
 
 export function insertRequest(db: Database, record: RequestRecord): void {
@@ -331,6 +338,9 @@ export function insertRequest(db: Database, record: RequestRecord): void {
 		$error_message: record.error_message,
 		$account_name: record.account_name,
 		$api_key_id: record.api_key_id,
+    $client_ip: record.client_ip ?? null,
+    $peer_ip: record.peer_ip ?? null,
+    $ip_source: record.ip_source ?? null,
 		$session_id: record.session_id,
 		$client_name: record.client_name,
 		$client_version: record.client_version,
@@ -455,6 +465,7 @@ const VALID_BY_COLUMNS: Record<string, string> = {
   routing_path: "routing_path",
   session_id: "session_id",
   key_id: KEY_ID_EXPR,
+  client_ip: "COALESCE(client_ip, '')",
   protocol_mode: PROTOCOL_MODE_EXPR,
 };
 

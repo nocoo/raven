@@ -92,7 +92,7 @@ const proxy = Bun.serve<WsData>({
       if (server.upgrade(request, { data: { minLevel, filterRequestId: url.searchParams.get("requestId") } })) return
       return new Response("WebSocket upgrade failed", { status: 400 })
     }
-    return app.fetch(request, server)
+    return app.fetch(request, { remoteAddress: server.requestIP(request)?.address ?? null })
   },
   websocket: wsHandler,
 })

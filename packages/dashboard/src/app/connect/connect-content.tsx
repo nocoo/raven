@@ -10,6 +10,8 @@
 import type { RoutingRule } from "@/lib/routing-types";
 import { COPILOT_RULE_ID } from "@/lib/routing-model";
 import { RoutingSelect } from "@/components/routing/routing-ui";
+import { IPPolicyDialog } from "@/components/analytics/panels/ip-management";
+import Link from "next/link";
 import { KeyRuleBinding } from "./key-rule-binding";
 import { CopyButton } from "@/components/copy-button";
 import { LocalTime } from "@/components/local-time";
@@ -558,7 +560,7 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                       {key.key_prefix}...
                     </code>
                   </TableCell>
-                  <TableCell><KeyRuleBinding apiKey={key} rules={rules} /></TableCell>
+                  <TableCell><div className="flex flex-wrap items-center gap-2"><KeyRuleBinding apiKey={key} rules={rules} /><IPPolicyDialog keyId={key.id} name={key.name} /><Button variant="ghost" size="sm" asChild><Link href={`/keys?key_id=${encodeURIComponent(key.id)}`}>IP activity</Link></Button></div></TableCell>
                   <TableCell className="hidden sm:table-cell text-xs text-basalt-muted-foreground">
                     <LocalTime timestamp={key.created_at} precision="day" />
                   </TableCell>

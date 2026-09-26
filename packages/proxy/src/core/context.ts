@@ -18,6 +18,9 @@ import type { RoutingSelection } from "./routing-types"
 export type RequestFormat = "openai" | "anthropic" | "responses"
 
 export interface RequestContext {
+  clientIP?: string | null
+  peerIP?: string | null
+  ipSource?: string | null
   signal?: AbortSignal
   ruleId?: string
   admittedAt?: number
@@ -83,6 +86,9 @@ export function buildContext(
   )
 
   return {
+    clientIP: c.get("clientIP") ?? null,
+    peerIP: c.get("peerIP") ?? null,
+    ipSource: c.get("ipSource") ?? null,
     ruleId: c.get("ruleId"),
     admittedAt: c.get("admittedAt"),
     requestId: generateRequestId(),

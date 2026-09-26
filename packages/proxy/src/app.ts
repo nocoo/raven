@@ -1,8 +1,9 @@
+import { createIPLookupRoute } from "./routes/ip-lookup"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import type { Database } from "bun:sqlite"
 
-import { apiKeyAuth, dashboardAuth, ipWhitelistMiddleware } from "./middleware"
+import { apiKeyAuth, dashboardAuth } from "./middleware"
 import { state } from "./lib/state"
 import { completionRoutes } from "./routes/chat-completions/route"
 import { messageRoutes } from "./routes/messages/route"
@@ -45,10 +46,6 @@ export function createApp(deps: AppDeps): Hono {
   const { db, apiKey, internalKey, githubToken, port, baseUrl } = deps
   const app = new Hono()
 
-  // ------- IP whitelist (first, applies to all routes) -------
-  // When enabled, silently drops requests from non-whitelisted IPs
-  app.use("*", ipWhitelistMiddleware())
-
   // ------- CORS -------
   app.use("*", cors({
     origin: (origin) => {
@@ -64,10 +61,8 @@ export function createApp(deps: AppDeps): Hono {
   app.use("/chat/*", aiAuth)
   app.use("/embeddings", aiAuth)
 
-  // Dashboard management routes — dev mode for bootstrap only
+  // Dashboard management routes require a loopback peer and internal credential.
   const mgmtAuth = dashboardAuth({
-    db,
-    envApiKey: apiKey ?? null,
     internalKey: internalKey ?? null,
   })
   app.use("/api/*", mgmtAuth)
@@ -91,6 +86,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", createRequestsRoute(db))
   app.route("/api", createCopilotInfoRoute({ githubToken }))
   app.route("/api", createKeysRoute(db))
+  app.route("/api", createIPLookupRoute(db))
   app.route("/api", createConnectionInfoRoute({ db, port: port ?? 7024, baseUrl: baseUrl ?? null }))
   app.route("/api", createSettingsRoute(db))
   app.route("/api", createUpstreamsRoute(db))

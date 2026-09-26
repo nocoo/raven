@@ -26,6 +26,7 @@ export interface AnalyticsFilters {
   upstream?: string;
   account?: string;
   key_id?: string;
+  client_ip?: string;
   protocol_mode?: ProtocolMode;
   client?: string;
   client_version?: string;
@@ -65,6 +66,7 @@ export function filtersToSearchParams(filters: AnalyticsFilters): URLSearchParam
   if (filters.strategy) params.set("strategy", filters.strategy);
   if (filters.upstream) params.set("upstream", filters.upstream);
   if (filters.account) params.set("account", filters.account);
+  if (filters.client_ip) params.set("client_ip", filters.client_ip);
   if (filters.key_id) params.set("key_id", filters.key_id);
   if (filters.protocol_mode) params.set("protocol_mode", filters.protocol_mode);
   if (filters.client) params.set("client", filters.client);
@@ -110,6 +112,8 @@ export function searchParamsToFilters(params: URLSearchParams): AnalyticsFilters
   const account = params.get("account");
   if (account) filters.account = account;
 
+  const clientIP = params.get("client_ip");
+  if (clientIP) filters.client_ip = clientIP;
   const keyId = params.get("key_id");
   if (keyId) filters.key_id = keyId;
   const protocolMode = params.get("protocol_mode");
@@ -221,6 +225,7 @@ export function filtersToApiQuery(filters: AnalyticsFilters): string {
   if (filters.strategy) params.set("strategy", filters.strategy);
   if (filters.upstream) params.set("upstream", filters.upstream);
   if (filters.account) params.set("account", filters.account);
+  if (filters.client_ip) params.set("client_ip", filters.client_ip);
   if (filters.key_id) params.set("key_id", filters.key_id);
   if (filters.protocol_mode) params.set("protocol_mode", filters.protocol_mode);
   if (filters.client) params.set("client", filters.client);
@@ -249,6 +254,7 @@ export function filterLabel(key: string): string {
     upstream: "Upstream",
     account: "Key name",
     key_id: "Key",
+    client_ip: "IP",
     protocol_mode: "Protocol",
     client: "Client",
     client_version: "Version",

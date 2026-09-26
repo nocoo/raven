@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import { getSetting, setSetting, deleteSetting } from "../db/settings";
-import { cacheVersions, cacheOptimizations, cacheServerTools, cacheIPWhitelist, cacheCorsSettings } from "../lib/utils";
+import { cacheVersions, cacheOptimizations, cacheServerTools, cacheCorsSettings } from "../lib/utils";
 import { state } from "../lib/state";
-import { parseIPRanges, serializeIPRanges } from "../lib/ip-whitelist";
 import { parseRetentionDays, RETENTION_SETTING, type RetentionDays } from "../core/history-retention";
 import { getRetentionDays } from "../db/history-retention";
 
@@ -30,11 +29,6 @@ const SERVER_TOOL_KEYS = [
 /** Server tool boolean keys (for validation). */
 const SERVER_TOOL_BOOLEAN_KEYS = ["st_web_search_enabled"] as const;
 
-/** IP whitelist setting keys. */
-const IP_WHITELIST_KEYS = ["ip_whitelist_enabled", "ip_whitelist_ranges", "ip_whitelist_trust_proxy"] as const;
-
-/** IP whitelist boolean keys (for validation). */
-const IP_WHITELIST_BOOLEAN_KEYS = ["ip_whitelist_enabled", "ip_whitelist_trust_proxy"] as const;
 
 /** CORS setting keys. */
 const CORS_KEYS = ["cors_enabled", "cors_allowed_origins"] as const;
@@ -45,11 +39,10 @@ const CORS_BOOLEAN_KEYS = ["cors_enabled"] as const;
 type VersionKey = (typeof VERSION_KEYS)[number];
 type OptimizationKey = (typeof OPTIMIZATION_KEYS)[number];
 type ServerToolKey = (typeof SERVER_TOOL_KEYS)[number];
-type IPWhitelistKey = (typeof IP_WHITELIST_KEYS)[number];
 type CorsKey = (typeof CORS_KEYS)[number];
 
 /** All known setting keys accepted by the API. */
-const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...IP_WHITELIST_KEYS, ...CORS_KEYS, RETENTION_SETTING] as const;
+const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...CORS_KEYS, RETENTION_SETTING] as const;
 type SettingKey = (typeof KNOWN_KEYS)[number];
 
 function isKnownKey(key: string): key is SettingKey {
@@ -72,13 +65,7 @@ function isServerToolBooleanKey(key: string): key is ServerToolKey {
   return (SERVER_TOOL_BOOLEAN_KEYS as readonly string[]).includes(key);
 }
 
-function isIPWhitelistKey(key: string): key is IPWhitelistKey {
-  return (IP_WHITELIST_KEYS as readonly string[]).includes(key);
-}
 
-function isIPWhitelistBooleanKey(key: string): key is IPWhitelistKey {
-  return (IP_WHITELIST_BOOLEAN_KEYS as readonly string[]).includes(key);
-}
 
 function isCorsKey(key: string): key is CorsKey {
   return (CORS_KEYS as readonly string[]).includes(key);
@@ -128,7 +115,7 @@ export interface ServerToolInfo {
 
 export interface IPWhitelistInfo {
   enabled: boolean;
-  trust_proxy: boolean;
+  trusted_proxies: string[];
   ranges: string[];
 }
 
@@ -193,7 +180,7 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
     },
     ip_whitelist: {
       enabled: state.ipWhitelistEnabled,
-      trust_proxy: state.ipWhitelistTrustProxy,
+      trusted_proxies: state.trustedProxyRanges.map(rule => rule.original),
       ranges: state.ipWhitelistRanges.map((r) => r.original),
     },
     cors: {
@@ -292,18 +279,6 @@ export function createSettingsRoute(db: Database): Hono {
           400,
         );
       }
-    } else if (isIPWhitelistBooleanKey(key)) {
-      if (!isValidBoolean(trimmed)) {
-        return c.json(
-          {
-            error: {
-              type: "validation_error",
-              message: `invalid boolean value: "${trimmed}". Expected "true" or "false"`,
-            },
-          },
-          400,
-        );
-      }
     } else if (isCorsBooleanKey(key)) {
       if (!isValidBoolean(trimmed)) {
         return c.json(
@@ -371,25 +346,6 @@ export function createSettingsRoute(db: Database): Hono {
       setSetting(db, key, JSON.stringify(deduped));
       cacheCorsSettings(db);
       return c.json(getSettingsSnapshot(db));
-    } else if (key === "ip_whitelist_ranges") {
-      // Validate JSON array of IP ranges
-      const { ranges, errors } = parseIPRanges(trimmed);
-      if (errors.length > 0) {
-        return c.json(
-          {
-            error: {
-              type: "validation_error",
-              message: `invalid IP ranges: ${errors.join("; ")}`,
-            },
-          },
-          400,
-        );
-      }
-      // Re-serialize to ensure consistent format
-      const normalized = serializeIPRanges(ranges);
-      setSetting(db, key, normalized);
-      cacheIPWhitelist(db);
-      return c.json(getSettingsSnapshot(db));
     }
 
     // Persist to DB and refresh caches
@@ -398,8 +354,7 @@ export function createSettingsRoute(db: Database): Hono {
       await cacheVersions(db);
     } else if (isServerToolKey(key)) {
       cacheServerTools(db);
-    } else if (isIPWhitelistKey(key)) {
-      cacheIPWhitelist(db);
+
     } else if (isCorsKey(key)) {
       cacheCorsSettings(db);
     } else if (isOptimizationKey(key)) {
@@ -430,8 +385,7 @@ export function createSettingsRoute(db: Database): Hono {
       await cacheVersions(db);
     } else if (isServerToolKey(key)) {
       cacheServerTools(db);
-    } else if (isIPWhitelistKey(key)) {
-      cacheIPWhitelist(db);
+
     } else if (isCorsKey(key)) {
       cacheCorsSettings(db);
     } else if (isOptimizationKey(key)) {

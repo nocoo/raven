@@ -6,7 +6,7 @@ import {
   detectLocalCopilotVersion,
 } from "./../services/detect-local-versions"
 import { getSetting } from "./../db/settings"
-import { parseIPRanges } from "./ip-whitelist"
+import { parseRules } from "./ip-access"
 
 import { state } from "./state"
 
@@ -96,17 +96,13 @@ export function cacheServerTools(db: Database): void {
  */
 export function cacheIPWhitelist(db: Database): void {
   state.ipWhitelistEnabled = getSetting(db, "ip_whitelist_enabled") === "true"
-  state.ipWhitelistTrustProxy = getSetting(db, "ip_whitelist_trust_proxy") === "true"
-
-  const rangesJson = getSetting(db, "ip_whitelist_ranges")
-  if (rangesJson) {
-    const { ranges, errors } = parseIPRanges(rangesJson)
-    if (errors.length > 0) {
-      logger.warn(`IP whitelist parse errors: ${errors.join(", ")}`)
-    }
-    state.ipWhitelistRanges = ranges
-  } else {
+  try {
+    state.ipWhitelistRanges = parseRules(JSON.parse(getSetting(db, "ip_whitelist_ranges") ?? "[]"))
+    state.trustedProxyRanges = parseRules(JSON.parse(getSetting(db, "ip_trusted_proxies") ?? "[]"))
+  } catch {
     state.ipWhitelistRanges = []
+    state.trustedProxyRanges = []
+    logger.warn("Invalid IP policy; enabled whitelists deny all requests")
   }
 }
 

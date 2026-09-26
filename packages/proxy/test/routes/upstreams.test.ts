@@ -45,7 +45,7 @@ test("referenced and built-in upstream deletion returns explicit references", as
 
 test("removed pattern payloads and malformed mutations are rejected locally", async () => {
   expect((await h.request("/api/upstreams", { name: "Old", format: "openai", model_patterns: ["*"] })).status).toBe(400)
-  const bad = await h.app.request("/api/upstreams", { method: "POST", headers: { Authorization: "Bearer fixture-internal", "Content-Type": "application/json" }, body: "{" })
+  const bad = await h.app.request("/api/upstreams", { method: "POST", headers: { Authorization: "Bearer fixture-internal", "Content-Type": "application/json" }, body: "{" }, { remoteAddress: "::1" })
   expect(bad.status).toBe(400)
   expect((await h.request("/api/upstreams/missing", { name: "Missing" }, "PUT")).status).toBe(404)
   expect((await h.request("/api/upstreams/missing", undefined, "DELETE")).status).toBe(404)

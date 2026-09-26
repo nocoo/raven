@@ -608,15 +608,16 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           }
           if (path === "settings") {
             expect(await frame.locator("h2").evaluateAll(headings => headings.every(heading => heading.closest("[data-basalt-surface]")))).toBe(true);
-            const disclosure = page.getByRole("button", { name: "Allowed IPs · 0" });
-            await expect(disclosure).toHaveAttribute("aria-expanded", "false");
-            await expect(page.getByPlaceholder("e.g., 192.168.1.0/24")).toBeHidden();
+            const access = page.getByRole("button", { name: "Global IP access" });
+            await expect(page.getByRole("dialog")).toHaveCount(0);
             await alignedCards(frame.locator(".settings-grid"));
             await shot(`settings-collapsed-${width}-${theme}`);
-            await disclosure.focus();
+            await access.focus();
             await page.keyboard.press("Enter");
-            await expect(page.getByPlaceholder("e.g., 192.168.1.0/24")).toBeVisible();
-            await expect(page.getByRole("switch", { name: "Restrict client IPs" })).not.toBeChecked();
+            await expect(page.getByLabel("Allowed IPs and networks")).toBeVisible();
+            await expect(page.getByRole("switch", { name: "Unrestricted" })).not.toBeChecked();
+            await shot(`settings-ip-dialog-${width}-${theme}`);
+            await page.getByRole("button", { name: "Cancel", exact: true }).click();
           }
           if (path === "routing/upstreams") {
             await page.getByRole("navigation", { name: "Upstreams", exact: true }).getByRole("button", { name: /Research provider/ }).click();

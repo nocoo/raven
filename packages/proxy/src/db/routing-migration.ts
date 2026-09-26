@@ -1,3 +1,4 @@
+import { initIPPolicies } from "./ip-policy"
 import type { Database } from "bun:sqlite"
 import { COPILOT_RULE_ID, COPILOT_UPSTREAM_ID, type RoutingMigrationSummary } from "../core/routing-types.ts"
 import { getSetting, initSettings, setSetting } from "./settings.ts"
@@ -125,6 +126,7 @@ export function initRouting(db: Database, now = Date.now()): void {
   if (version > ROUTING_SCHEMA_VERSION) throw new Error(`Unsupported routing schema version ${version}`)
   if (version === ROUTING_SCHEMA_VERSION) {
     verifyForeignKeys(db)
+    initIPPolicies(db)
     return
   }
   db.transaction(() => {
@@ -172,6 +174,7 @@ export function initRouting(db: Database, now = Date.now()): void {
     verifyForeignKeys(db)
     db.exec(`PRAGMA user_version = ${ROUTING_SCHEMA_VERSION}`)
   }).immediate()
+  initIPPolicies(db)
 }
 
 export function getRoutingMigrationSummary(db: Database): RoutingMigrationSummary | null {

@@ -10,7 +10,7 @@ modelRoutes.get("/", async (c) => {
   const ctx = buildContext(c, "openai")
   const data = {
     path: ctx.path, format: ctx.format, model: "models", stream: false,
-    accountName: ctx.accountName, apiKeyId: ctx.keyId, sessionId: ctx.sessionId,
+    accountName: ctx.accountName, apiKeyId: ctx.keyId, clientIP: ctx.clientIP ?? null, peerIP: ctx.peerIP ?? null, ipSource: ctx.ipSource ?? null, sessionId: ctx.sessionId,
     clientName: ctx.clientName, clientVersion: ctx.clientVersion,
   }
   logEmitter.emitLog({ ts: Date.now(), level: "info", type: "request_start", requestId: ctx.requestId, msg: "GET /v1/models", data })

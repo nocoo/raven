@@ -4,10 +4,16 @@ import { createMiddleware } from "hono/factory";
 import { validateApiKey } from "./db/keys.ts";
 import { state } from "./lib/state.ts";
 import { COPILOT_RULE_ID } from "./core/routing-types.ts";
-import { extractIPv4, parseIPv4, isIPInRanges } from "./lib/ip-whitelist.ts";
+import { allowsIP, isLoopback, normalizeIP, parseRules, resolveClientIP } from "./lib/ip-access";
+import { readIPPolicy } from "./db/ip-policy";
+import { logEmitter } from "./util/log-emitter";
+import { generateRequestId } from "./util/id";
 
 declare module "hono" {
   interface ContextVariableMap {
+    clientIP: string | null;
+    peerIP: string | null;
+    ipSource: string;
     keyName: string;
     keyId: string;
     ruleId: string;
@@ -53,7 +59,6 @@ function validateRequestToken(
   c: Context,
   db: Database,
   envApiKey: string | null,
-  internalKey: string | null,
 ): { valid: true; keyName: string; keyId: string; ruleId?: string } | { valid: false; response: Response } {
   // Accept token from Authorization: Bearer <token> or x-api-key: <token>
   // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
@@ -83,11 +88,6 @@ function validateRequestToken(
   // env key timing-safe compare
   if (envApiKey && timingSafeEqual(token, envApiKey)) {
     return { valid: true, keyName: "env:default", keyId: "env:default", ruleId: COPILOT_RULE_ID };
-  }
-
-  // internal key timing-safe compare (dashboardAuth only, caller controls whether to pass this)
-  if (internalKey && timingSafeEqual(token, internalKey)) {
-    return { valid: true, keyName: "internal", keyId: "internal" };
   }
 
   return { valid: false, response: unauthorized(c, "Invalid API key") };
@@ -121,8 +121,22 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
 
   return createMiddleware(async (c, next) => {
     // No internalKey parameter — apiKeyAuth never accepts it
-    const result = validateRequestToken(c, db, envApiKey, null);
+    const result = validateRequestToken(c, db, envApiKey);
     if (!result.valid) return result.response;
+    const peer = normalizeIP(c.env?.remoteAddress ?? null);
+    const client = resolveClientIP(c.req.raw.headers, peer, state.trustedProxyRanges);
+    c.set("clientIP", client.ip);
+    c.set("peerIP", peer);
+    c.set("ipSource", client.source);
+    const policy = result.keyId === "env:default" ? { enabled: false, ranges: [] } : readIPPolicy(db, result.keyId);
+    const scope = !allowsIP(state.ipWhitelistEnabled, state.ipWhitelistRanges, client.ip) ? "global"
+      : !allowsIP(policy.enabled, parseRules(policy.ranges), client.ip) ? "key" : null;
+    if (scope) {
+      logEmitter.emitLog({ ts: Date.now(), level: "warn", type: "request_end", requestId: generateRequestId(), msg: "IP access denied",
+        data: { path: c.req.path, accountName: result.keyName, apiKeyId: result.keyId, clientIP: client.ip, peerIP: peer, ipSource: client.source,
+          status: "denied", statusCode: 403, error: `IP denied by ${scope} whitelist`, latencyMs: 0 } });
+      return c.json({ error: { type: "ip_access_denied", message: "Source IP is not allowed" } }, 403);
+    }
     c.set("keyName", result.keyName);
     c.set("keyId", result.keyId);
     c.set("ruleId", result.ruleId!);
@@ -132,172 +146,20 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// dashboardAuth — management routes with dev mode for bootstrap
-// ---------------------------------------------------------------------------
-
-export interface DashboardAuthOpts {
-  db: Database;
-  envApiKey: string | null;
-  internalKey: string | null;
-}
-
-/**
- * Dashboard management auth for /api/* routes.
- *
- * Dev mode: when neither RAVEN_API_KEY nor RAVEN_INTERNAL_KEY is set,
- * all requests are allowed without auth. This is independent of DB keys —
- * creating/revoking DB keys does not affect dashboard access.
- *
- * When either env key is set, a valid token is required via:
- * - Authorization: Bearer <token>
- * - x-api-key: <token> (for Claude Code compatibility)
- *
- * Accepts RAVEN_API_KEY, RAVEN_INTERNAL_KEY, and DB keys.
- */
-export function dashboardAuth(opts: DashboardAuthOpts) {
-  const { db, envApiKey, internalKey } = opts;
-
-  return createMiddleware(async (c, next) => {
-    // Dev mode: no env keys configured → always allow
-    // DB key existence does NOT affect dashboard access
-    if (!envApiKey && !internalKey) {
-      c.set("keyName", "dev");
-      c.set("keyId", "dev");
-      await next();
-      return;
-    }
-
-    const result = validateRequestToken(c, db, envApiKey, internalKey);
-    if (!result.valid) return result.response;
-    c.set("keyName", result.keyName);
-    c.set("keyId", result.keyId);
-    await next();
-  });
-}
-
-// ---------------------------------------------------------------------------
-// IP whitelist middleware — silently drop requests from non-whitelisted IPs
-// ---------------------------------------------------------------------------
-
-/**
- * Get the client IP from a Hono context.
- *
- * SECURITY: Only trusts x-forwarded-for/x-real-ip headers when
- * state.ipWhitelistTrustProxy is explicitly true. Otherwise,
- * only the direct connection IP is used to prevent header spoofing.
- */
-function getClientIP(c: Context): string | null {
-  // Only trust proxy headers when explicitly configured
-  if (state.ipWhitelistTrustProxy) {
-    // Check x-forwarded-for for reverse proxy setups
-    const forwarded = c.req.header("x-forwarded-for");
-    if (forwarded) {
-      // Take the first IP (original client)
-      const first = forwarded.split(",")[0]?.trim();
-      if (first) return first;
-    }
-
-    // Try x-real-ip (nginx)
-    const realIP = c.req.header("x-real-ip");
-    if (realIP) return realIP.trim();
-  }
-
-  // Direct connection IP from Bun server info
-  const info = c.env?.info;
-  if (info?.remoteAddress) {
-    return info.remoteAddress;
-  }
-
+export function checkManagementAccess(peer: string | null, token: string | null, internalKey: string | null): Response | null {
+  if (!isLoopback(peer)) return Response.json({ error: { type: "access_denied", message: "Management requires a local connection" } }, { status: 403 });
+  if (!internalKey || !token || !timingSafeEqual(token, internalKey)) return Response.json({ error: { type: "authentication_error", message: "Internal credential required" } }, { status: 401 });
   return null;
 }
 
-/**
- * Check if a client IP is allowed by the whitelist.
- * Exported for use in WebSocket upgrade path.
- *
- * Returns: { allowed: true } | { allowed: false, reason: string }
- */
-export function checkIPWhitelist(clientIP: string | null): { allowed: true } | { allowed: false; reason: string } {
-  // Skip if whitelist is disabled
-  if (!state.ipWhitelistEnabled) {
-    return { allowed: true };
-  }
-
-  // Skip if no ranges configured (fail-open to avoid lockout)
-  if (state.ipWhitelistRanges.length === 0) {
-    return { allowed: true };
-  }
-
-  if (!clientIP) {
-    // Cannot determine IP — fail-open
-    return { allowed: true };
-  }
-
-  // Extract IPv4 from potentially IPv6-wrapped address
-  const ipv4 = extractIPv4(clientIP);
-  if (!ipv4) {
-    return { allowed: false, reason: "not-ipv4" };
-  }
-
-  const ipNum = parseIPv4(ipv4);
-  if (ipNum === null) {
-    return { allowed: false, reason: "invalid-ip" };
-  }
-
-  // Check if IP is in any whitelisted range
-  if (!isIPInRanges(ipNum, state.ipWhitelistRanges)) {
-    return { allowed: false, reason: "not-whitelisted" };
-  }
-
-  return { allowed: true };
-}
-
-/**
- * Extract client IP from request for use outside of Hono context.
- * Used by WebSocket upgrade path.
- *
- * SECURITY: Only trusts proxy headers when state.ipWhitelistTrustProxy is true.
- */
-export function getClientIPFromRequest(req: Request, remoteAddress: string | null): string | null {
-  if (state.ipWhitelistTrustProxy) {
-    const forwarded = req.headers.get("x-forwarded-for");
-    if (forwarded) {
-      const first = forwarded.split(",")[0]?.trim();
-      if (first) return first;
-    }
-
-    const realIP = req.headers.get("x-real-ip");
-    if (realIP) return realIP.trim();
-  }
-
-  return remoteAddress;
-}
-
-/**
- * IP whitelist middleware.
- *
- * When IP whitelist is enabled (state.ipWhitelistEnabled = true),
- * requests from IPs not in the whitelist are silently dropped
- * (connection closed with no response).
- *
- * When disabled, all requests pass through.
- *
- * SECURITY: Proxy headers (x-forwarded-for, x-real-ip) are only trusted
- * when state.ipWhitelistTrustProxy is explicitly true. This prevents
- * clients from spoofing their IP via headers.
- *
- * This middleware should be applied at the app level, before any routes.
- */
-export function ipWhitelistMiddleware() {
+export function dashboardAuth(opts: { internalKey: string | null }) {
   return createMiddleware(async (c, next) => {
-    const clientIP = getClientIP(c);
-    const result = checkIPWhitelist(clientIP);
-
-    if (!result.allowed) {
-      return new Response(null, { status: 403, headers: { Connection: "close" } });
-    }
-
+    const header = c.req.header("Authorization");
+    const token = header?.startsWith("Bearer ") ? header.slice(7) : c.req.header("x-api-key") ?? null;
+    const denied = checkManagementAccess(c.env?.remoteAddress ?? null, token, opts.internalKey);
+    if (denied) return denied;
+    c.set("keyName", "internal");
+    c.set("keyId", "internal");
     await next();
   });
 }

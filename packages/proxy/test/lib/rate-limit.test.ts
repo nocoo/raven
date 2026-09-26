@@ -37,7 +37,7 @@ function makeState(overrides: Partial<State> = {}): State {
     stWebSearchApiKey: null,
     ipWhitelistEnabled: false,
     ipWhitelistRanges: [],
-    ipWhitelistTrustProxy: false,
+    trustedProxyRanges: [],
     corsEnabled: false,
     corsAllowedOrigins: [],
     socks5Enabled: false,

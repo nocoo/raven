@@ -129,7 +129,7 @@ export async function dispatch(
           return strategy.adaptJson(body, up, roundCtx) as AnthropicResponse
         },
         log: {
-          path: ctx.path, format: ctx.format, accountName: ctx.accountName, apiKeyId: ctx.keyId,
+          path: ctx.path, format: ctx.format, accountName: ctx.accountName, apiKeyId: ctx.keyId, clientIP: ctx.clientIP ?? null, peerIP: ctx.peerIP ?? null, ipSource: ctx.ipSource ?? null,
           sessionId: ctx.sessionId, clientName: ctx.clientName, clientVersion: ctx.clientVersion,
           get extras() { return { strategy: decision.name, routingPath: decision.upstreamProtocol === "anthropic" ? "native" : "translated", upstreamFormat: decision.upstreamProtocol, ...routingLog(ctx) } },
         },

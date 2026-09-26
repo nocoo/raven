@@ -9,7 +9,7 @@ export function requestIdentity(ctx: RequestContext): Record<string, unknown> {
     format: ctx.format,
     stream: ctx.stream,
     accountName: ctx.accountName,
-    apiKeyId: ctx.keyId,
+    apiKeyId: ctx.keyId, clientIP: ctx.clientIP ?? null, peerIP: ctx.peerIP ?? null, ipSource: ctx.ipSource ?? null,
     sessionId: ctx.sessionId,
     clientName: ctx.clientName,
     clientVersion: ctx.clientVersion,

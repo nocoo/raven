@@ -17,6 +17,8 @@ export interface MonitorData {
   clients: BreakdownEntry[];
   upstreams: BreakdownEntry[];
   activity: GroupedTimeseries;
+  ips: BreakdownEntry[];
+  ipActivity: GroupedTimeseries;
   warnings: string[];
 }
 
@@ -31,7 +33,7 @@ export async function loadMonitorData(filters: AnalyticsFilters, dimension?: Usa
     return `/api/stats/${endpoint}?${query}`;
   };
   const breakdown = (by: string, omit?: string) => safeFetch<BreakdownEntry[]>(path("breakdown", { by, limit: "50", sort: "count", order: "desc" }, omit));
-  const [summary, timeseries, percentiles, models, keys, protocols, clients, upstreams, activity, distribution] = await Promise.all([
+  const [summary, timeseries, percentiles, models, keys, protocols, clients, upstreams, activity, distribution, ips, ipActivity] = await Promise.all([
     safeFetch<SummaryStats>(path("summary")),
     safeFetch<ExtendedTimeseriesBucket[]>(path("timeseries", { interval })),
     safeFetch<Percentiles>(path("percentiles", { metric: "latency_ms" })),
@@ -46,6 +48,8 @@ export async function loadMonitorData(filters: AnalyticsFilters, dimension?: Usa
     dimension && (filters[dimension] || (dimension === "key_id" && filters.account))
       ? safeFetch<SummaryStats>(path("summary", {}, dimension))
       : Promise.resolve(null),
+    dimension === "key_id" ? breakdown("client_ip") : Promise.resolve({ ok: true as const, data: [] }),
+    dimension === "key_id" ? safeFetch<GroupedTimeseries>(path("timeseries-group", { by: "client_ip", interval, limit: "5" })) : Promise.resolve({ ok: true as const, data: { keys: [], points: [] } }),
   ]);
   if (!summary.ok) return summary;
   const warnings: string[] = [];
@@ -68,6 +72,8 @@ export async function loadMonitorData(filters: AnalyticsFilters, dimension?: Usa
     clients: value(clients, [], "Clients"),
     upstreams: value(upstreams, [], "Upstreams"),
     activity: value(activity, { keys: [], points: [] }, "Activity"),
+    ips: value(ips, [], "IP distribution"),
+    ipActivity: value(ipActivity, { keys: [], points: [] }, "IP activity"),
     warnings,
   } };
 }

@@ -28,6 +28,7 @@ export interface AnalyticsFilterParams {
 	stop_reason?: string;
 	routing_path?: string;
 	key_id?: string;
+  client_ip?: string;
 	protocol_mode?: ProtocolMode;
 }
 
@@ -103,6 +104,8 @@ export function parseAnalyticsFilters(c: Context): AnalyticsFilterParams {
 	const routingPath = q("routing_path");
 	if (routingPath) filters.routing_path = routingPath;
 
+	const clientIP = q("client_ip");
+  if (clientIP) filters.client_ip = clientIP;
 	const keyId = q("key_id");
 	if (keyId) filters.key_id = keyId;
 
@@ -198,6 +201,7 @@ export function buildWhereClause(filters: AnalyticsFilterParams): WhereClause {
 		conditions.push("routing_path = ?");
 		bindings.push(filters.routing_path);
 	}
+	if (filters.client_ip) { conditions.push("client_ip = ?"); bindings.push(filters.client_ip); }
 	if (filters.key_id) {
 		conditions.push(`${KEY_ID_EXPR} = ?`);
 		bindings.push(filters.key_id);

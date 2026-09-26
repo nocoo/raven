@@ -81,7 +81,7 @@ describe("monitor data scope", () => {
     expect(result.data.summary.total_requests).toBe(2);
     expect(result.data.distributionTotal).toBe(80);
     const urls = fetchResult.mock.calls.map(([path]) => new URL(path as string, "https://raven.test"));
-    expect(urls).toHaveLength(10);
+    expect(urls).toHaveLength(12);
     expect(new Set(urls.map(url => url.searchParams.get("from"))).size).toBe(1);
     expect(urls.every(url => url.searchParams.get("protocol_mode") === "native")).toBe(true);
   });
@@ -110,7 +110,7 @@ describe("monitor data scope", () => {
     const result = await loadMonitorData({ range: "custom" }, "key_id");
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
-    expect(result.data.warnings).toHaveLength(8);
+    expect(result.data.warnings).toHaveLength(10);
     expect(result.data.warnings).toContain("API keys: Unavailable");
     expect(result.data.models).toEqual([]);
     expect(result.data.percentiles).toBeNull();
@@ -122,4 +122,13 @@ describe("monitor data scope", () => {
     fetchResult.mockResolvedValue({ ok: false, error: "Proxy unavailable" });
     expect(await loadMonitorData({ range: "24h" })).toEqual({ ok: false, error: "Proxy unavailable" });
   });
+});
+
+it("loads IP distribution and activity within the selected key and time window", async () => {
+  const result = await loadMonitorData({ range: "custom", from: 1, to: 1000, key_id: "selected" }, "key_id");
+  expect(result.ok && result.data.ips).toBeDefined();
+  const urls = fetchResult.mock.calls.map(([path]) => new URL(path as string, "https://raven.test"));
+  const ip = urls.filter(url => url.searchParams.get("by") === "client_ip");
+  expect(ip).toHaveLength(2);
+  for (const url of ip) { expect(url.searchParams.get("key_id")).toBe("selected"); expect(url.searchParams.get("from")).toBe("1"); expect(url.searchParams.get("to")).toBe("1000"); }
 });

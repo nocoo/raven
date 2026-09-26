@@ -1,3 +1,4 @@
+import { managementConfig } from "./management-config";
 import { apiErrorDetail, type ApiErrorDetail } from "./routing-client";
 
 /**
@@ -5,8 +6,7 @@ import { apiErrorDetail, type ApiErrorDetail } from "./routing-client";
  * Dashboard Route Handlers use these to forward requests to the proxy server.
  */
 
-const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7024";
-const API_KEY = process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
+
 
 export class ProxyError extends Error {
   constructor(
@@ -34,7 +34,8 @@ export async function proxyFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const url = `${PROXY_URL}${path}`;
+  const { url: base, key: API_KEY } = managementConfig();
+  const url = `${base}${path}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -50,6 +51,7 @@ export async function proxyFetch<T>(
       ...init?.headers,
     },
     cache: "no-store",
+    redirect: "error",
   });
 
   if (!res.ok) {

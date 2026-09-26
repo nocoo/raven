@@ -13,13 +13,11 @@ import { cacheVersions, cacheOptimizations, cacheServerTools, cacheIPWhitelist, 
 import { startBridge, stopBridge } from "./lib/socks5-bridge"
 import { initDatabase } from "./db/requests"
 import { startRequestSink } from "./db/request-sink"
-import { validateApiKey } from "./db/keys"
 import { initSettings } from "./db/settings"
 import { startHistoryRetention } from "./services/history-retention"
 import { initRouting } from "./db/routing-migration"
 import { restoreCopilotCatalog, startCopilotCatalogRefresh } from "./composition/catalog"
-import { timingSafeEqual } from "./middleware"
-import { checkIPWhitelist, getClientIPFromRequest } from "./middleware"
+import { checkManagementAccess } from "./middleware"
 import { wsHandler, type WsData } from "./ws/logs"
 import type { LogLevel } from "./util/log-event"
 import { LEVEL_ORDER } from "./util/log-event"
@@ -117,22 +115,10 @@ const app = createApp({
 logger.info(`Raven proxy listening on port ${config.port}`)
 
 // ---------------------------------------------------------------------------
-// WS auth — dashboardAuth semantics (dev mode when no env keys, accepts
-// RAVEN_INTERNAL_KEY)
+// WebSocket management uses the same local-only admission as HTTP.
 // ---------------------------------------------------------------------------
 
-const envApiKey = config.apiKey ?? null
 const envInternalKey = config.internalKey ?? null
-
-function authenticateWs(token: string | null): boolean {
-  // Dev mode: no env keys configured → always allow (independent of DB keys)
-  if (!envApiKey && !envInternalKey) return true
-  if (!token) return false
-  if (token.startsWith("rk-")) return validateApiKey(db, token) !== null
-  if (envApiKey && timingSafeEqual(token, envApiKey)) return true
-  if (envInternalKey && timingSafeEqual(token, envInternalKey)) return true
-  return false
-}
 
 // ---------------------------------------------------------------------------
 // Bun.serve — handles both HTTP (Hono) and WebSocket upgrades
@@ -145,18 +131,8 @@ export default {
 
     // WebSocket upgrade for /ws/logs
     if (url.pathname === "/ws/logs") {
-      // IP whitelist check (before auth, to avoid leaking auth status)
-      const remoteAddr = server.requestIP(req)?.address ?? null
-      const clientIP = getClientIPFromRequest(req, remoteAddr)
-      const ipResult = checkIPWhitelist(clientIP)
-      if (!ipResult.allowed) {
-        return new Response(null, { status: 403, headers: { Connection: "close" } })
-      }
-
-      const token = url.searchParams.get("token")
-      if (!authenticateWs(token)) {
-        return new Response("Unauthorized", { status: 401 })
-      }
+      const denied = checkManagementAccess(server.requestIP(req)?.address ?? null, url.searchParams.get("token"), envInternalKey)
+      if (denied) return denied
 
       const levelParam = url.searchParams.get("level") ?? "info"
       const minLevel: LogLevel = levelParam in LEVEL_ORDER
@@ -175,7 +151,7 @@ export default {
     }
 
     // Regular HTTP → Hono
-    return app.fetch(req, server)
+    return app.fetch(req, { remoteAddress: server.requestIP(req)?.address ?? null })
   },
   websocket: wsHandler,
   idleTimeout: 255,

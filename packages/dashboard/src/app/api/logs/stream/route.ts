@@ -1,9 +1,10 @@
+import { managementConfig } from "@/lib/management-config";
 // ---------------------------------------------------------------------------
 // BFF SSE proxy for log streaming.
 //
 // Browser connects here via EventSource (SSE). This route handler opens a
 // WebSocket to the proxy's /ws/logs endpoint server-side, then bridges
-// WS messages to SSE events. Credentials (RAVEN_API_KEY) never leave the
+// WS messages to SSE events. Credentials (RAVEN_INTERNAL_KEY) never leave the
 // server — browser auth is via NextAuth session cookie (enforced by proxy.ts).
 //
 // Query params:
@@ -15,11 +16,11 @@ import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7024";
-const API_KEY =
-  process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
 
 export async function GET(req: NextRequest) {
+  let config: ReturnType<typeof managementConfig>;
+  try { config = managementConfig(); } catch { return Response.json({ error: "Local management connection is not configured" }, { status: 503 }); }
+  const { url: PROXY_URL, key: API_KEY } = config;
   const level = req.nextUrl.searchParams.get("level") ?? "info";
   const requestId = req.nextUrl.searchParams.get("requestId");
 

@@ -1,12 +1,12 @@
+import { managementConfig } from "@/lib/management-config";
 import { NextResponse } from "next/server";
 import { proxyFetch, ProxyError } from "@/lib/proxy";
 
-const PROXY_URL = process.env.RAVEN_PROXY_URL ?? "http://localhost:7024";
-const API_KEY = process.env.RAVEN_INTERNAL_KEY ?? process.env.RAVEN_API_KEY ?? "";
 
 export const dynamic = "force-dynamic";
 
 function proxyHeaders(): Record<string, string> {
+  const { key: API_KEY } = managementConfig();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (API_KEY) headers.Authorization = `Bearer ${API_KEY}`;
   return headers;
@@ -27,11 +27,12 @@ export async function PUT(request: Request) {
   try {
     const body = await request.json();
 
+    const { url: PROXY_URL } = managementConfig();
     const res = await fetch(`${PROXY_URL}/api/settings/socks5`, {
       method: "PUT",
       headers: proxyHeaders(),
       body: JSON.stringify(body),
-      cache: "no-store",
+      cache: "no-store", redirect: "error",
     });
 
     // Forward proxy's JSON body as-is (preserves structured validation/bridge errors)

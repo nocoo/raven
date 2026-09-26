@@ -1,3 +1,5 @@
+import { readIPPolicy, writeIPPolicy, readGlobalIPPolicy, writeGlobalIPPolicy } from "../db/ip-policy"
+import { cacheIPWhitelist } from "../lib/utils"
 import type { Database } from "bun:sqlite"
 import { Hono } from "hono"
 import { RoutingError } from "../core/routing-types.ts"
@@ -11,6 +13,14 @@ export function createKeysRoute(db: Database): Hono {
     if (error instanceof SyntaxError) return c.json({ error: { type: "validation_error", message: "Invalid JSON body" } }, 400)
     return c.json({ error: { type: "internal_error", message: "Key operation failed" } }, 500)
   })
+  route.get("/ip-policy", (c) => c.json(readGlobalIPPolicy(db)))
+  route.put("/ip-policy", async (c) => {
+    const policy = writeGlobalIPPolicy(db, await c.req.json())
+    cacheIPWhitelist(db)
+    return c.json(policy)
+  })
+  route.get("/keys/:id/ip-policy", (c) => c.json(readIPPolicy(db, c.req.param("id"))))
+  route.put("/keys/:id/ip-policy", async (c) => c.json(writeIPPolicy(db, c.req.param("id"), await c.req.json())))
   route.get("/keys", (c) => c.json(listApiKeys(db)))
   route.post("/keys", async (c) => {
     const input = parseInput(createKeySchema, await c.req.json())

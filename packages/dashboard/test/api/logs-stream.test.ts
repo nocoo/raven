@@ -92,9 +92,8 @@ describe("GET /api/logs/stream", () => {
     WSFactory = createMockWSFactory();
     vi.stubGlobal("WebSocket", WSFactory);
     vi.stubEnv("RAVEN_PROXY_URL", "http://localhost:7024");
-    vi.stubEnv("RAVEN_API_KEY", "test-api-key");
-    // Ensure RAVEN_INTERNAL_KEY is undefined so ?? falls through to RAVEN_API_KEY
-    delete process.env.RAVEN_INTERNAL_KEY;
+    vi.stubEnv("RAVEN_INTERNAL_KEY", "test-api-key");
+
   });
 
   afterEach(() => {
@@ -113,17 +112,17 @@ describe("GET /api/logs/stream", () => {
       await importAndCall("http://localhost/api/logs/stream");
       const ws = MockWebSocket.lastInstance!;
 
-      expect(ws.url).toMatch(/^ws:\/\/localhost:7024\/ws\/logs\?/);
+      expect(ws.url).toMatch(/^ws:\/\/127\.0\.0\.1:7024\/ws\/logs\?/);
       // Consume stream to avoid dangling
       ws.onclose?.();
     });
 
     it("builds WebSocket URL with wss:// protocol from https://", async () => {
-      vi.stubEnv("RAVEN_PROXY_URL", "https://proxy.example.com");
+      vi.stubEnv("RAVEN_PROXY_URL", "https://127.0.0.1");
       await importAndCall("http://localhost/api/logs/stream");
       const ws = MockWebSocket.lastInstance!;
 
-      expect(ws.url).toMatch(/^wss:\/\/proxy\.example\.com\/ws\/logs\?/);
+      expect(ws.url).toMatch(/^wss:\/\/127\.0\.0\.1\/ws\/logs\?/);
       ws.onclose?.();
     });
 
@@ -264,4 +263,10 @@ describe("GET /api/logs/stream", () => {
       expect(ws.closeCalled).toBe(false);
     });
   });
+});
+it("does not open a websocket when local management credentials are absent", async () => {
+  vi.stubEnv("RAVEN_INTERNAL_KEY", "");
+  const { GET } = await import("@/app/api/logs/stream/route");
+  expect((await GET(new NextRequest("http://raven.test/api/logs/stream"))).status).toBe(503);
+  vi.unstubAllEnvs();
 });

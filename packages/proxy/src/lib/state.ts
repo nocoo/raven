@@ -1,5 +1,5 @@
 import type { ModelsResponse } from "./../services/copilot/get-models"
-import type { IPRange } from "./ip-whitelist"
+import type { IPRule } from "./ip-access"
 
 export interface State {
   githubToken: string | null
@@ -34,10 +34,8 @@ export interface State {
 
   // IP whitelist — access control (default: disabled)
   ipWhitelistEnabled: boolean
-  ipWhitelistRanges: IPRange[]
-  // Trust proxy headers (x-forwarded-for, x-real-ip) only when true
-  // When false, only direct connection IP is used for whitelist checks
-  ipWhitelistTrustProxy: boolean
+  ipWhitelistRanges: IPRule[]
+  trustedProxyRanges: IPRule[]
 
   // CORS — configurable allowed origins (default: disabled = allow all)
   corsEnabled: boolean
@@ -73,7 +71,7 @@ export const state: State = {
   stWebSearchApiKey: null,
   ipWhitelistEnabled: false,
   ipWhitelistRanges: [],
-  ipWhitelistTrustProxy: false,
+  trustedProxyRanges: [],
   corsEnabled: false,
   corsAllowedOrigins: [],
   socks5Enabled: false,

@@ -14,6 +14,7 @@ import type { MonitorData } from "@/lib/monitor-data";
 import type { BreakdownEntry } from "@/lib/types";
 import { ActivityChart, TokenChart, TrafficChart } from "./monitor-charts";
 import { EmptyMonitor, InvestigationPanel, MonitorLink, MonitorPanel, MonitorSummary, ProtocolBar, ProtocolDistribution, UsageMetrics } from "./monitor-panels";
+import { IPDistribution } from "./ip-distribution";
 import { UsageDistribution } from "./usage-distribution";
 
 function UsageBreakdown({ entries, dimension, filters, total }: { entries: BreakdownEntry[]; dimension: UsageDimension; filters: AnalyticsFilters; total: number }) {
@@ -86,6 +87,7 @@ export function UsageExplorer({ data, dimension }: { data: MonitorData; dimensio
             </div>
           </MonitorPanel>
         </div>
+        {isKey && <IPDistribution data={data} />}
         <ActivityChart data={data} dimension={dimension} />
         <div className="grid grid-cols-1 gap-3 @min-[60rem]/page:grid-cols-2"><TokenChart data={data} /><InvestigationPanel summary={data.summary} filters={data.filters} clients={data.clients} upstreams={data.upstreams} /></div>
         {selected && <TrafficChart data={data} />}

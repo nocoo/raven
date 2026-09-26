@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // Mock @/lib/proxy
@@ -20,6 +20,8 @@ const { ProxyError } = await import("@/lib/proxy");
 
 beforeEach(() => {
   mockProxyFetch.mockReset();
+  vi.stubEnv("RAVEN_INTERNAL_KEY", "fixture-internal");
+  vi.stubEnv("RAVEN_PROXY_URL", "http://127.0.0.1:7024");
 });
 
 // ===========================================================================
@@ -196,3 +198,5 @@ describe("POST /api/settings/socks5/test", () => {
     vi.unstubAllGlobals();
   });
 });
+
+afterEach(() => vi.unstubAllEnvs());

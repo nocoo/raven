@@ -316,7 +316,7 @@ export interface ServerToolInfo {
 
 export interface IPWhitelistInfo {
   enabled: boolean;
-  trust_proxy: boolean;
+  trusted_proxies: string[];
   ranges: string[];
 }
 

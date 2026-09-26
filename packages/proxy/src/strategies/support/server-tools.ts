@@ -507,6 +507,9 @@ export interface DecorateLogFields {
   path: string
   format: string
   accountName: string
+  clientIP?: string | null
+  peerIP?: string | null
+  ipSource?: string | null
   apiKeyId: string
   sessionId: string
   clientName: string | null
@@ -561,7 +564,7 @@ export async function decorate(input: DecorateInput): Promise<Response> {
           upstreamStatus: 200,
           serverToolsUsed: true,
           accountName: log.accountName,
-          apiKeyId: log.apiKeyId,
+          apiKeyId: log.apiKeyId, clientIP: log.clientIP ?? null, peerIP: log.peerIP ?? null, ipSource: log.ipSource ?? null,
           sessionId: log.sessionId,
           clientName: log.clientName,
           clientVersion: log.clientVersion,
@@ -588,7 +591,7 @@ export async function decorate(input: DecorateInput): Promise<Response> {
         upstreamStatus, error: errorDetail,
         serverToolsUsed: true,
         accountName: log.accountName,
-        apiKeyId: log.apiKeyId,
+        apiKeyId: log.apiKeyId, clientIP: log.clientIP ?? null, peerIP: log.peerIP ?? null, ipSource: log.ipSource ?? null,
         sessionId: log.sessionId,
         clientName: log.clientName,
         clientVersion: log.clientVersion,

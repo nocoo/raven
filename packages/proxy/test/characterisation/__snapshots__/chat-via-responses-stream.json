@@ -74,6 +74,9 @@
       "admitted_at": 1789948800000,
       "skipped": [],
       "diagnostic": false
-    }
+    },
+    "clientIP": null,
+    "peerIP": null,
+    "ipSource": null
   }
 }

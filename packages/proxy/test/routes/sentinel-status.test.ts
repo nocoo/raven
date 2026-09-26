@@ -16,7 +16,8 @@ beforeEach(() => {
   vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Sentinel status must not call upstreams"))
   fixture = routingFixture()
   app = new Hono()
-  app.use("/api/*", dashboardAuth({ db: fixture.db, envApiKey: "fixture-client", internalKey: "fixture-internal" }))
+  app.use("*", async (c, next) => { c.env = { remoteAddress: "::1" }; await next() })
+  app.use("/api/*", dashboardAuth({ internalKey: "fixture-internal" }))
   app.route("/api", createSentinelStatusRoute())
 })
 
@@ -91,12 +92,11 @@ describe("GET /api/sentinel-status", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled()
   })
 
-  test("a bound client key reads the same snapshot without starting refreshes or timers", async () => {
-    const key = createApiKey(fixture.db, "Monitor", COPILOT_RULE_ID)
+  test("the internal key reads the same snapshot without starting refreshes or timers", async () => {
     const snapshot = getSentinelStatus()
     const timeout = vi.spyOn(globalThis, "setTimeout")
     const interval = vi.spyOn(globalThis, "setInterval")
-    const response = await app.request("/api/sentinel-status", { headers: { Authorization: `Bearer ${key.key}` } })
+    const response = await app.request("/api/sentinel-status", { headers: { Authorization: "Bearer fixture-internal" } })
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual(snapshot)
     expect(getSentinelStatus()).toEqual(snapshot)

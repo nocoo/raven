@@ -38,6 +38,8 @@ describe("proxyFetch", () => {
 
   beforeEach(() => {
     vi.resetModules();
+    vi.stubEnv("RAVEN_INTERNAL_KEY", "fixture-internal");
+    vi.stubEnv("RAVEN_PROXY_URL", "http://127.0.0.1:7024");
     fetchSpy = vi.spyOn(globalThis, "fetch");
   });
 
@@ -56,25 +58,25 @@ describe("proxyFetch", () => {
   }
 
   it("builds correct URL from PROXY_URL + path", async () => {
-    const { proxyFetch } = await importProxy({ RAVEN_PROXY_URL: "http://my-proxy:9000" });
+    const { proxyFetch } = await importProxy({ RAVEN_PROXY_URL: "http://127.0.0.1:9000" });
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 
     await proxyFetch("/api/test");
 
     expect(fetchSpy).toHaveBeenCalledOnce();
     const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://my-proxy:9000/api/test");
+    expect(url).toBe("http://127.0.0.1:9000/api/test");
   });
 
   it("uses default PROXY_URL when env is not set", async () => {
-    const { proxyFetch } = await importProxy({ RAVEN_PROXY_URL: "" });
+    vi.stubEnv("RAVEN_PROXY_URL", undefined);
+    const { proxyFetch } = await importProxy();
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
 
     await proxyFetch("/api/foo");
 
     const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    // RAVEN_PROXY_URL ?? "..." — empty string is NOT nullish, so URL = "" + "/api/foo"
-    expect(url).toBe("/api/foo");
+    expect(url).toBe("http://127.0.0.1:7024/api/foo");
   });
 
   it("includes Content-Type: application/json header", async () => {
@@ -89,7 +91,7 @@ describe("proxyFetch", () => {
   });
 
   it("includes Authorization header when API_KEY is set", async () => {
-    const { proxyFetch } = await importProxy({ RAVEN_API_KEY: "test-key-123" });
+    const { proxyFetch } = await importProxy({ RAVEN_INTERNAL_KEY: "test-key-123" });
     fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
 
     await proxyFetch("/test");
@@ -113,18 +115,10 @@ describe("proxyFetch", () => {
     expect(headers.Authorization).toBe("Bearer internal-key");
   });
 
-  it("omits Authorization header when API_KEY is empty", async () => {
-    const { proxyFetch } = await importProxy({
-      RAVEN_INTERNAL_KEY: "",
-      RAVEN_API_KEY: "",
-    });
-    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
-
-    await proxyFetch("/test");
-
-    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    const headers = init.headers as Record<string, string>;
-    expect(headers.Authorization).toBeUndefined();
+  it("rejects missing internal credentials before sending a request", async () => {
+    const { proxyFetch } = await importProxy({ RAVEN_INTERNAL_KEY: "", RAVEN_API_KEY: "client" });
+    await expect(proxyFetch("/api/settings")).rejects.toThrow("RAVEN_INTERNAL_KEY");
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("merges caller-provided headers", async () => {
@@ -225,6 +219,8 @@ describe("safeFetch", () => {
 
   beforeEach(() => {
     vi.resetModules();
+    vi.stubEnv("RAVEN_INTERNAL_KEY", "fixture-internal");
+    vi.stubEnv("RAVEN_PROXY_URL", "http://127.0.0.1:7024");
     fetchSpy = vi.spyOn(globalThis, "fetch");
   });
 

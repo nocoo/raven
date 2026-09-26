@@ -38,6 +38,8 @@ const ALLOWED_NON_UPSTREAM_FETCH = new Set<string>([
   "lib/server-tools/tavily.ts",
   // SOCKS5 connectivity diagnostic.
   "routes/settings-socks5.ts",
+  // Dashboard-only Echo enrichment, never used during model admission.
+  "routes/ip-lookup.ts",
 ])
 
 function* walk(dir: string): Generator<string> {

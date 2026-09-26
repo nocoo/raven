@@ -11,10 +11,6 @@ afterEach(() => vi.restoreAllMocks());
 
 const cases = [
   {
-    name: "IP whitelist", toggle: "Restrict client IPs", disclosure: "Allowed IPs", placeholder: "e.g., 192.168.1.0/24", entry: "192.0.2.1",
-    render: (enabled = false, entries: string[] = []) => <IPWhitelistContent data={{ enabled, ranges: entries, trust_proxy: false }} />,
-  },
-  {
     name: "CORS", toggle: "Restrict browser origins", disclosure: "Allowed origins", placeholder: "e.g., http://localhost:3000", entry: "https://fixture.invalid",
     render: (enabled = false, entries: string[] = []) => <CorsContent data={{ enabled, allowed_origins: entries }} />,
   },
@@ -69,12 +65,13 @@ describe.each(cases)("$name disclosure", fixture => {
   });
 });
 
-it("keeps active IP security warnings visible when configuration is collapsed", async () => {
-  render(<IPWhitelistContent data={{ enabled: true, ranges: [], trust_proxy: true }} />);
-  await userEvent.click(screen.getByRole("button", { name: "Allowed IPs · 0" }));
-  expect(screen.queryByPlaceholderText("e.g., 192.168.1.0/24")).toBeNull();
-  expect(screen.getByText(/Clients can spoof their IP/)).toBeVisible();
-  expect(screen.getByText("Empty list or unknown client IP allows access.")).toBeVisible();
+it("opens global IP editing on demand without cluttering settings", async () => {
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ enabled: true, ranges: ["::1"], trusted_proxies: [] }));
+  render(<IPWhitelistContent data={{ enabled: true, ranges: ["::1"], trusted_proxies: [] }} />);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(fetchSpy).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "Global IP access" }));
+  expect(await screen.findByLabelText("Allowed IPs and networks")).toHaveValue("::1");
 });
 
 it("keeps the empty CORS allowance visible when enabled and collapsed", async () => {

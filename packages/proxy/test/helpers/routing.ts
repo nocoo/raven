@@ -31,11 +31,11 @@ export function routingHarness() {
   const db = fixture.db
   initDatabase(db)
   const app = createApp({ db, githubToken: "fixture-github-token", apiKey: "fixture-client", internalKey: "fixture-internal" })
-  const request = (path: string, body?: unknown, method = body === undefined ? "GET" : "POST", token = "fixture-client") => app.request(path, {
+  const request = (path: string, body?: unknown, method = body === undefined ? "GET" : "POST", token = path.startsWith("/api/") ? "fixture-internal" : "fixture-client") => app.request(path, {
     method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  })
+  }, { remoteAddress: "127.0.0.1" })
   return {
     ...fixture, db, app, request,
     bind(upstreamId: string, model = "chosen-model", overrides: Partial<RoutingRuleInput> = {}) {
