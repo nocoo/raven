@@ -1,47 +1,16 @@
 "use client";
-
-
-
-
-
 import { cn } from "@/lib/utils";
-import { logProtocol } from "@/lib/log-protocol";
-import {
-  useLogStream,
-  type LogEvent,
-  type LogLevel,
-} from "@/hooks/use-log-stream";
+import { useLogStream, type LogLevel } from "@/hooks/use-log-stream";
 import { LogsStats } from "./logs-stats";
-import { groupEvents } from "./group-events";
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { LogItem } from "@/components/logs/log-item";
+import { filterLogGroups } from "@/lib/log-entry";
+import { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  Pause, Play, Trash2, Circle, ChevronDown, ChevronRight, Monitor, Loader2, Rocket, Copy, Check, X, } from "lucide-react";
+import { Pause, Play, Trash2, Circle, Rocket, X } from "lucide-react";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { Button, Badge, Input, LayerCard } from "@nocoo/basalt";
+import { Button, Input, LayerCard } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleTimeString("en-US", {
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    fractionalSecondDigits: 3,
-  });
-}
-
 function relativeTime(ts: number): string {
   const diff = Date.now() - ts;
   if (diff < 1000) return "just now";
@@ -49,94 +18,6 @@ function relativeTime(ts: number): string {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
   return `${Math.floor(diff / 3_600_000)}h ago`;
 }
-
-function formatLatency(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-function formatTokens(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
-  return `${(n / 1_000_000).toFixed(2)}M`;
-}
-
-type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple" | "teal";
-
-// Model family → pill color. Identifies the underlying model regardless of
-// alias form (date-suffixed ids, resolved ids, vendor prefixes). Translated
-// and resolved variants of the same model keep the same family color so the
-// "model → resolvedModel" arrow stays visually linked.
-function getModelFamily(model: string): BadgeVariant {
-  const m = model.toLowerCase();
-  if (m.includes("claude")) return "warning";              // Anthropic — amber
-  if (/^(gpt|o[1-9]|chatgpt)/.test(m) || m.includes("openai")) return "teal"; // OpenAI
-  if (m.includes("gemini") || m.includes("google")) return "info";            // Google
-  if (m.includes("grok") || m.includes("xai")) return "destructive";          // xAI
-  if (m.includes("deepseek")) return "purple";
-  if (m.includes("qwen") || m.includes("alibaba")) return "success";
-  if (m.includes("llama") || m.includes("meta")) return "default";
-  return "secondary";
-}
-
-/** Serialize events to a readable text for clipboard */
-function serializeEvents(events: LogEvent[]): string {
-  return events
-    .map((e) => {
-      const ts = new Date(e.ts).toISOString();
-      const data = e.data ? ` ${JSON.stringify(e.data)}` : "";
-      return `[${ts}] ${e.level.toUpperCase()} ${e.type}${e.requestId ? ` (${e.requestId})` : ""}: ${e.msg}${data}`;
-    })
-    .join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// Copy button hook
-// ---------------------------------------------------------------------------
-
-function useCopyFeedback() {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  const copy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 800);
-    });
-  }, []);
-
-  useEffect(() => () => clearTimeout(timerRef.current), []);
-
-  return { copied, copy };
-}
-
-function CopyButton({ events }: { events: LogEvent[] }) {
-  const { copied, copy } = useCopyFeedback();
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        copy(serializeEvents(events));
-      }}
-      className={cn(
-        "flex shrink-0 items-center justify-center min-h-11 min-w-11 transition-colors",
-        copied
-          ? "text-basalt-chart-5"
-          : "text-basalt-muted-foreground/40 hover:text-basalt-muted-foreground",
-      )}
-      title="Copy raw events"
-    >
-      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
 
 function ConnectionIndicator({ connected }: { connected: boolean }) {
   return (
@@ -176,545 +57,6 @@ function LevelSelect({
     </Select>
   );
 }
-
-// ---------------------------------------------------------------------------
-// System event — simple card
-// ---------------------------------------------------------------------------
-
-function SystemEventCard({ event }: { event: LogEvent }) {
-  return (
-    <div className="flex items-start gap-2">
-      <div className="shrink-0 pt-3">
-        <CopyButton events={[event]} />
-      </div>
-      <LayerCard
-        padding="sm"
-        className={cn(
-          "flex-1 font-mono text-xs",
-          event.level === "error" && "border border-basalt-destructive/30",
-          event.level === "warn" && "border border-basalt-warning/30",
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="gap-1 px-1.5 py-0 text-[10px]">
-            <Monitor className="size-3" />
-            SYSTEM
-          </Badge>
-          {(event.level === "warn" || event.level === "error") && (
-            <Badge
-              variant={event.level === "error" ? "destructive" : "warning"}
-              className="px-1.5 py-0 text-[10px]"
-            >
-              {event.level}
-            </Badge>
-          )}
-          <span className="text-basalt-muted-foreground tabular-nums">
-            {formatTime(event.ts)}
-          </span>
-        </div>
-        <p className={cn(
-          "mt-1.5 leading-relaxed",
-          event.level === "error" ? "text-basalt-destructive" :
-          event.level === "warn" ? "text-basalt-warning" :
-          "text-basalt-foreground",
-        )}>
-          {event.msg}
-        </p>
-        {typeof event.data?.error === "string" && (
-          <p className="mt-1 text-basalt-destructive break-all leading-relaxed">
-            {event.data.error}
-          </p>
-        )}
-      </LayerCard>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Phase detail — shows events relevant to a clicked timeline node
-// ---------------------------------------------------------------------------
-
-function PhaseDetail({
-  phase,
-  events,
-  onClose,
-}: {
-  phase: "start" | "error" | "end";
-  events: LogEvent[];
-  onClose: () => void;
-}) {
-  const phaseEvents = events.filter((e) => {
-    if (phase === "start") return e.type === "request_start";
-    if (phase === "error") return e.type === "upstream_error";
-    if (phase === "end") return e.type === "request_end";
-    return false;
-  });
-
-  if (phaseEvents.length === 0) return null;
-
-  const phaseLabel = phase === "start" ? "Request Start" : phase === "error" ? "Upstream Error" : "Request End";
-
-  return (
-    <LayerCard.Well className="mt-3 font-mono text-[11px]">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] font-medium text-basalt-muted-foreground uppercase tracking-wider">{phaseLabel}</span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close phase details"
-          className="flex items-center justify-center min-h-11 min-w-11 -mr-2 text-basalt-muted-foreground hover:text-basalt-foreground transition-colors"
-        >
-          <span className="text-sm">✕</span>
-        </button>
-      </div>
-      {phaseEvents.map((ev, i) => {
-        const data = ev.data ? { ...ev.data } : null;
-        return (
-          <div
-            // biome-ignore lint/suspicious/noArrayIndexKey: index disambiguates events with the same ts
-            key={`${ev.ts}-${i}`}
-            className="space-y-1"
-          >
-            <p className="text-basalt-muted-foreground">{ev.msg}</p>
-            {data && Object.keys(data).length > 0 && (
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[10px]">
-                {Object.entries(data).map(([key, val]) => (
-                  <div key={key} className="contents">
-                    <span className="text-basalt-muted-foreground/70">{key}</span>
-                    <span className="text-basalt-foreground truncate">
-                      {typeof val === "object" ? JSON.stringify(val) : String(val)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </LayerCard.Well>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Request card — header + timeline
-// ---------------------------------------------------------------------------
-
-function RequestCard({
-  events,
-  defaultExpanded = false,
-}: {
-  events: LogEvent[];
-  defaultExpanded?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const [focusedPhase, setFocusedPhase] = useState<"start" | "error" | "end" | null>(null);
-
-  const startEvent = events.find((e) => e.type === "request_start");
-  const endEvent = events.find((e) => e.type === "request_end");
-  const errorEvents = events.filter((e) => e.type === "upstream_error");
-
-  // Merge data from start + end, prefer end for result fields
-  const startData = startEvent?.data ?? {};
-  const endData = endEvent?.data ?? {};
-
-  const method = (startData.path as string)?.startsWith("/") ? "POST" : "GET";
-  const path = (startData.path ?? endData.path) as string | undefined;
-  const model = (startData.model ?? endData.model) as string | undefined;
-  const resolvedModel = endData.resolvedModel as string | undefined;
-  const format = (startData.format ?? endData.format) as string | undefined;
-  const stream = (startData.stream ?? endData.stream) as boolean | undefined;
-  const accountName = (startData.accountName ?? endData.accountName) as string | undefined;
-  const messageCount = startData.messageCount as number | undefined;
-  const toolCount = startData.toolCount as number | undefined;
-  const protocol = logProtocol({ ...startData, ...endData }, !!endEvent);
-
-  // End-only fields
-  const latencyMs = endData.latencyMs as number | undefined;
-  const statusCode = endData.statusCode as number | undefined;
-  const status = endData.status as string | undefined;
-  const inputTokens = endData.inputTokens as number | undefined;
-  const outputTokens = endData.outputTokens as number | undefined;
-  const error = endData.error as string | undefined;
-
-  const httpMethod = path === "/v1/models" ? "GET" : method;
-
-  const isComplete = !!endEvent;
-  const isCancelled = status === "cancelled";
-  const isError = status === "error";
-  const isInProgress = !isComplete;
-
-  return (
-    <div className="flex items-start gap-2">
-      <div className="shrink-0 pt-3">
-        <CopyButton events={events} />
-      </div>
-      <LayerCard
-        padding="none"
-        className={cn(
-          "flex-1 overflow-hidden",
-          isError && "border border-basalt-destructive/30",
-        )}
-      >
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between gap-3 p-3 pb-0">
-          <div className="min-w-0 flex-1">
-            {/* Method + Path */}
-            <div className="flex items-center gap-2 font-mono text-sm">
-              <Badge variant={httpMethod === "GET" ? "teal" : "info"} className="px-1.5 py-0 text-[10px] font-bold">
-                {httpMethod}
-              </Badge>
-              <span className="font-semibold truncate">{path ?? "unknown"}</span>
-            </div>
-            {/* Tags row */}
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <Badge
-                variant={protocol.variant}
-                className="px-1.5 py-0 text-[11px] font-semibold"
-                title={protocol.title}
-              >
-                {protocol.label}
-              </Badge>
-              {model && (
-                <Badge
-                  variant={getModelFamily(model)}
-                  className="px-1.5 py-0 text-[10px] font-mono"
-                  title={`Model: ${model}`}
-                >
-                  {model}
-                </Badge>
-              )}
-              {resolvedModel && resolvedModel !== model && (
-                <Badge
-                  variant={getModelFamily(resolvedModel)}
-                  className="px-1.5 py-0 text-[10px] font-mono opacity-85"
-                  title={`Resolved to: ${resolvedModel}`}
-                >
-                  &rarr; {resolvedModel}
-                </Badge>
-              )}
-              {format && (
-                <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                  {format}
-                </Badge>
-              )}
-              {stream !== undefined && (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "px-1.5 py-0 text-[10px]",
-                    stream && "border-basalt-info/40 text-basalt-info",
-                  )}
-                >
-                  {stream ? "stream" : "sync"}
-                </Badge>
-              )}
-              {accountName && accountName !== "default" && (
-                <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                  @{accountName}
-                </Badge>
-              )}
-              {messageCount !== undefined && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px] tabular-nums">
-                  {messageCount} msgs
-                </Badge>
-              )}
-              {toolCount !== undefined && toolCount > 0 && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px] tabular-nums">
-                  {toolCount} tools
-                </Badge>
-              )}
-            </div>
-          </div>
-          {/* Overall status badge — top right */}
-          <div className="shrink-0">
-            {isError ? (
-              <Badge variant="destructive" className="px-2 py-0.5 text-[11px] font-semibold">
-                ERROR
-              </Badge>
-            ) : isCancelled ? (
-              <Badge variant="secondary" className="px-2 py-0.5 text-[11px] font-semibold">
-                cancelled
-              </Badge>
-            ) : isComplete ? (
-              <Badge variant="success" className="px-2 py-0.5 text-[11px] font-semibold">
-                {statusCode ?? 200}
-              </Badge>
-            ) : (
-              <Badge variant="info" className="gap-1 px-2 py-0.5 text-[11px] font-semibold">
-                <Loader2 className="size-3 animate-spin" />
-                IN PROGRESS
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* ── Timeline ── */}
-        <div className="px-3 py-3">
-          <div className="flex items-center gap-0 font-mono text-[11px]">
-            {/* Start node */}
-            <div className="flex shrink-0 flex-col items-center">
-              <button
-                type="button"
-                onClick={() => setFocusedPhase(focusedPhase === "start" ? null : "start")}
-                aria-label="View request start details"
-                aria-expanded={focusedPhase === "start"}
-                className={cn(
-                  "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:rounded-full",
-                )}>
-                <span className={cn(
-                  "flex items-center justify-center rounded-full size-7 border-2 transition-shadow",
-                  isError
-                    ? "border-basalt-destructive/40 bg-basalt-destructive/10"
-                    : "border-basalt-info/40 bg-basalt-info/10",
-                  focusedPhase === "start" && "ring-2 ring-basalt-info/50",
-                  "group-hover:ring-2 group-hover:ring-basalt-info/30",
-                )}>
-                  <span className="text-[9px] font-bold text-basalt-info" aria-hidden="true">S</span>
-                </span>
-              </button>
-              <span className="mt-1 text-[10px] text-basalt-muted-foreground tabular-nums whitespace-nowrap">
-                {startEvent ? formatTime(startEvent.ts) : "—"}
-              </span>
-            </div>
-
-            {/* Connector line + metrics */}
-            <div className="relative mx-1 flex flex-1 items-center">
-              <div className={cn(
-                "h-0.5 w-full rounded-full",
-                isError
-                  ? "bg-basalt-destructive/40"
-                  : isInProgress
-                    ? "bg-basalt-info/30 animate-pulse"
-                    : "bg-basalt-chart-5/40",
-              )} />
-              <div className={cn(
-                "absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px]",
-                isError
-                  ? "border-l-basalt-destructive/50"
-                  : isInProgress
-                    ? "border-l-basalt-info/40"
-                    : "border-l-basalt-chart-5/50",
-              )} />
-              {/* Metrics above line */}
-              <div className="absolute inset-x-0 -top-4 flex items-center justify-center gap-3">
-                {latencyMs !== undefined && (
-                  <span className="rounded bg-basalt-secondary px-1 text-[11px] font-medium tabular-nums text-basalt-foreground">
-                    {formatLatency(latencyMs)}
-                  </span>
-                )}
-                {isInProgress && (
-                  <span className="rounded bg-basalt-secondary px-1 text-[11px] text-basalt-muted-foreground">
-                    waiting...
-                  </span>
-                )}
-              </div>
-              {/* Metrics below line */}
-              {inputTokens !== undefined && outputTokens !== undefined && (
-                <div className="absolute inset-x-0 top-3 flex items-center justify-center">
-                  <span className="rounded bg-basalt-secondary px-1 text-[11px] tabular-nums text-basalt-muted-foreground">
-                    input {formatTokens(inputTokens)} &middot; output {formatTokens(outputTokens)} &middot; total {formatTokens(inputTokens + outputTokens)}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Error node (if upstream_error occurred) */}
-            {errorEvents.length > 0 && (
-              <>
-                <div className="flex shrink-0 flex-col items-center mx-1">
-                  <button
-                    type="button"
-                    onClick={() => setFocusedPhase(focusedPhase === "error" ? null : "error")}
-                    aria-label="View upstream error details"
-                    aria-expanded={focusedPhase === "error"}
-                    className={cn(
-                      "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:rounded-full",
-                    )}>
-                    <span className={cn(
-                      "flex items-center justify-center rounded-full size-7 border-2 border-basalt-destructive/50 bg-basalt-destructive/10 transition-shadow",
-                      focusedPhase === "error" && "ring-2 ring-basalt-destructive/50",
-                    )}>
-                      <span className="text-[9px] font-bold text-basalt-destructive" aria-hidden="true">!</span>
-                    </span>
-                  </button>
-                  <span className="mt-1 text-[10px] text-basalt-destructive whitespace-nowrap">
-                    upstream
-                  </span>
-                </div>
-                <div className="relative mx-1 flex flex-1 max-w-16 items-center">
-                  <div className="h-0.5 w-full rounded-full bg-basalt-destructive/40" />
-                  <div className="absolute right-0 size-0 border-y-[4px] border-y-transparent border-l-[6px] border-l-basalt-destructive/50" />
-                </div>
-              </>
-            )}
-
-            {/* End node */}
-            <div className="flex shrink-0 flex-col items-center">
-              {isComplete ? (
-                <button
-                  type="button"
-                  onClick={() => setFocusedPhase(focusedPhase === "end" ? null : "end")}
-                  aria-label={isError ? "View request error details" : isCancelled ? "View request cancellation details" : "View request completion details"}
-                  aria-expanded={focusedPhase === "end"}
-                  className={cn(
-                    "flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-shadow",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:rounded-full",
-                  )}>
-                  <span className={cn(
-                    "flex items-center justify-center rounded-full size-7 border-2 transition-shadow",
-                    isError
-                      ? "border-basalt-destructive/50 bg-basalt-destructive/10"
-                      : isCancelled
-                        ? "border-basalt-border bg-basalt-secondary"
-                        : "border-basalt-chart-5/50 bg-basalt-chart-5/10",
-                    focusedPhase === "end" && (isError ? "ring-2 ring-basalt-destructive/50" : isCancelled ? "ring-2 ring-basalt-border" : "ring-2 ring-basalt-chart-5/50"),
-                  )}>
-                    <span className={cn(
-                      "text-[9px] font-bold",
-                      isError ? "text-basalt-destructive" : isCancelled ? "text-basalt-muted-foreground" : "text-basalt-chart-5",
-                    )} aria-hidden="true">
-                      {isError ? "E" : isCancelled ? "–" : "OK"}
-                    </span>
-                  </span>
-                </button>
-              ) : (
-                <div className="flex items-center justify-center rounded-full size-7 border-2 border-dashed border-basalt-muted-foreground/40">
-                  <Loader2 className="size-3 text-basalt-muted-foreground animate-spin" />
-                </div>
-              )}
-              <span className={cn(
-                "mt-1 text-[10px] tabular-nums whitespace-nowrap",
-                isError ? "text-basalt-destructive" : isComplete ? "text-basalt-muted-foreground" : "text-basalt-muted-foreground/50",
-              )}>
-                {endEvent ? formatTime(endEvent.ts) : "pending"}
-              </span>
-            </div>
-          </div>
-
-          {/* Error messages below timeline */}
-          {error && (
-            <div className={cn(
-              "mt-3 rounded-md border px-3 py-2 text-xs",
-              isCancelled
-                ? "border-basalt-border bg-basalt-secondary text-basalt-muted-foreground"
-                : "border-basalt-destructive/20 bg-basalt-destructive/5 text-basalt-destructive",
-            )}>
-              {error}
-            </div>
-          )}
-          {errorEvents.map((ev, i) => (
-            <div
-              // biome-ignore lint/suspicious/noArrayIndexKey: index disambiguates errors with the same ts
-              key={`${ev.ts}-${i}`}
-              className="mt-2 rounded-md border border-basalt-destructive/20 bg-basalt-destructive/5 px-3 py-2 text-xs text-basalt-destructive"
-            >
-              {(ev.data?.error as string) ?? ev.msg}
-            </div>
-          ))}
-
-          {/* Phase detail — shown when a timeline node is clicked */}
-          {focusedPhase && (
-            <PhaseDetail
-              phase={focusedPhase}
-              events={events}
-              onClose={() => setFocusedPhase(null)}
-            />
-          )}
-        </div>
-
-        {/* ── Expandable raw events ── */}
-        {events.length > 0 && (
-          <div className="border-t border-basalt-border">
-            <button
-              type="button"
-              onClick={() => setExpanded(!expanded)}
-              aria-expanded={expanded}
-              aria-controls={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`}
-              className="flex w-full items-center gap-1.5 px-3 py-1.5 text-[11px] text-basalt-muted-foreground hover:bg-basalt-background/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-basalt-ring focus-visible:ring-inset"
-            >
-              {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-              {events.length} raw events
-              {startEvent?.requestId && (
-                <span className="ml-auto font-mono text-[10px] opacity-50">
-                  {startEvent.requestId.slice(0, 8)}
-                </span>
-              )}
-            </button>
-            {expanded && (
-              <LayerCard.Well id={`raw-events-${startEvent?.requestId?.slice(0, 8) ?? "unknown"}`} className="border-t border-basalt-border space-y-1">
-                {events.map((event, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: index disambiguates events sharing the same ts
-                  <RawEventLine key={`${event.ts}-${i}`} event={event} />
-                ))}
-              </LayerCard.Well>
-            )}
-          </div>
-        )}
-      </LayerCard>
-    </div>
-  );
-}
-
-/** Compact single-line raw event for expanded detail view */
-function RawEventLine({ event }: { event: LogEvent }) {
-  const badge = getRawBadge(event);
-  return (
-    <div className="flex items-start gap-2 font-mono text-[11px] leading-5">
-      <span className="shrink-0 text-basalt-muted-foreground tabular-nums">
-        {formatTime(event.ts)}
-      </span>
-      <Badge variant={badge.variant} className="shrink-0 px-1 py-0 text-[9px]">
-        {badge.label}
-      </Badge>
-      <span className={cn(
-        "flex-1 break-all",
-        event.level === "error" ? "text-basalt-destructive" :
-        event.level === "warn" ? "text-basalt-warning" :
-        "text-basalt-muted-foreground",
-      )}>
-        {event.msg}
-      </span>
-    </div>
-  );
-}
-
-function getRawBadge(event: LogEvent): { variant: BadgeVariant; label: string } {
-  switch (event.type) {
-    case "request_start": return { variant: "info", label: "START" };
-    case "request_end": {
-      const s = event.data?.status as string | undefined;
-      if (s === "error") return { variant: "destructive", label: "END" };
-      if (s === "cancelled") return { variant: "secondary", label: "END" };
-      return { variant: "success", label: "END" };
-    }
-    case "upstream_error": return { variant: "destructive", label: "ERR" };
-    case "sse_chunk": return { variant: "purple", label: "SSE" };
-    default: return { variant: "secondary", label: "SYS" };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Group renderer
-// ---------------------------------------------------------------------------
-
-function EventGroup({
-  events,
-  defaultExpanded,
-}: {
-  events: LogEvent[];
-  defaultExpanded: boolean;
-}) {
-  if (events.length === 1 && !events[0]!.requestId) {
-    return <SystemEventCard event={events[0]!} />;
-  }
-  return <RequestCard events={events} defaultExpanded={defaultExpanded} />;
-}
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
 
 interface LogsContentProps {
   onClose?: () => void;
@@ -829,17 +171,8 @@ export function LogsContent({
     pinnedRef.current = true;
   }, []);
 
-  // Filter events by search
-  const filteredEvents = search
-    ? events.filter(
-        (e) =>
-          e.msg.toLowerCase().includes(search.toLowerCase()) ||
-          e.requestId?.toLowerCase().includes(search.toLowerCase()) ||
-          (e.data?.model as string)?.toLowerCase().includes(search.toLowerCase()),
-      )
-    : events;
-
-  const groups = groupEvents(filteredEvents);
+  const groups = filterLogGroups(events, search);
+  const filteredCount = groups.reduce((count, group) => count + group.events.length, 0);
 
   // Show FAB when not pinned
   const [showFab, setShowFab] = useState(false);
@@ -866,7 +199,7 @@ export function LogsContent({
         actions={
           <>
             <Input
-              placeholder="Search..."
+              placeholder="Search IP, key, model…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-8 w-28 text-xs md:w-48"
@@ -929,13 +262,13 @@ export function LogsContent({
             <div className="flex shrink-0 items-center gap-2 rounded-md bg-basalt-info/10 px-3 py-1.5 text-xs text-basalt-info">
               <span>Filtered by request: <code className="font-mono">{requestIdFilter}</code></span>
               {onClearRequestIdFilter && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost" size="sm"
                   onClick={onClearRequestIdFilter}
                   className="hover:underline ml-1 font-medium"
                 >
                   Clear filter
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -956,13 +289,10 @@ export function LogsContent({
                 />
               </LayerCard>
             ) : (
-              <div className="space-y-2 pb-2">
+              <div className="space-y-1 pb-2">
                 {groups.map((group) => (
                   <div key={group.key} data-group-key={group.key}>
-                    <EventGroup
-                      events={group.events}
-                      defaultExpanded={false}
-                    />
+                    <LogItem events={group.events} />
                   </div>
                 ))}
               </div>
@@ -971,20 +301,20 @@ export function LogsContent({
 
           {/* FAB — scroll to top (newest) */}
           {showFab && (
-            <button
-              type="button"
+            <Button
+              variant="default" size="icon"
               onClick={scrollToTop}
               className="absolute bottom-4 right-4 flex items-center justify-center size-10 rounded-full bg-basalt-primary text-basalt-primary-foreground shadow-lg hover:bg-basalt-primary/90 transition-all hover:scale-105 active:scale-95"
               title="Back to latest"
             >
               <Rocket className="size-4" />
-            </button>
+            </Button>
           )}
 
           {/* Footer status */}
           <div className="flex shrink-0 items-center justify-between pt-2 text-meta">
             <span>
-              {filteredEvents.length} events
+              {filteredCount} events
               {search && ` (filtered from ${events.length})`}
             </span>
             <span>{relativeTime(events[events.length - 1]?.ts ?? Date.now())}</span>

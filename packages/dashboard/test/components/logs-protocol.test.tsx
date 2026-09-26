@@ -50,3 +50,19 @@ describe("Logs request badges", () => {
     expect(screen.getByText("client cancelled: The connection was closed.").className).toContain("text-basalt-muted-foreground");
   });
 });
+
+it("uses compact IP rows and reveals complete details and copy only on click", async () => {
+  const { default: userEvent } = await import("@testing-library/user-event");
+  stream.events = [
+    { ts: 1, type: "request_start", level: "info", requestId: "fixture", msg: "start", data: { path: "/v1/responses", model: "gpt-fixture", clientIP: "2001:db8::1" } },
+    { ts: 2, type: "request_end", level: "warn", requestId: "fixture", msg: "denied", data: { status: "denied", error: "IP denied by key whitelist", peerIP: "::1", ipSource: "forwarded" } },
+  ];
+  render(<LogsContent />);
+  expect(screen.getByText("2001:db8::1")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Copy to clipboard" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: /View log details/ }));
+  expect(await screen.findByRole("dialog")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Look up location" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Copy to clipboard" })).toBeVisible();
+  expect(screen.getByText("Peer IP")).toBeVisible();
+});

@@ -3,6 +3,7 @@
 
 
 
+import { IPLookup } from "@/components/analytics/panels/ip-management";
 import { JsonBlock } from "@/components/ui/json-block";
 import type { ExtendedRequestRecord } from "@/lib/types";
 import { formatLatency } from "@/lib/chart-config";
@@ -228,6 +229,9 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
           {/* Client Context */}
           <section>
             <h4 className="text-xs font-medium text-basalt-foreground mb-2">Client</h4>
+            <IPLookup ip={request.client_ip ?? ""} />
+            <DetailRow label="Peer IP" value={request.peer_ip} mono />
+            <DetailRow label="IP source" value={request.ip_source} />
             <DetailRow label="API Key" value={<IdentityHint identity={keyIdentity(request.key_id)}><Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("key_id", request.key_id, filters)}>{request.account_name || "Unattributed"}</Link></IdentityHint>} />
             <DetailRow label="Client" value={request.client_name ? <Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("client", request.client_name, filters)}>{request.client_name}</Link> : null} />
             <DetailRow label="Version" value={request.client_version} />

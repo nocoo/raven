@@ -276,3 +276,9 @@ RAVEN_IP_LOOKUP_API_KEY only on Proxy. Successful public-IP results are cached
 for 24 hours in SQLite. Returned IPs must match the requested normalized address:
 Echo can return its caller's IP when a credential is invalid. Lookup failure
 never affects model access. Private/reserved addresses are not sent to Echo.
+
+Live Logs keeps each request in a compact, keyboard-accessible row. Its dialog
+contains the full merged identity/result, peer IP, on-demand location lookup,
+raw events and copy action. Searching a model, key or IP retains the complete
+request group. Stream subscription, ring-buffer and scroll-anchor behavior are
+unchanged; historical Request details exposes the same IP lookup component.

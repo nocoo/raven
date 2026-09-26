@@ -13,15 +13,16 @@ export type LogEventType =
   | "request_start"
   | "request_end"
   | "sse_chunk"
+  | "upstream_raw_sse"
   | "upstream_error";
 
 export interface LogEvent {
   ts: number;
   level: LogLevel;
   type: LogEventType;
-  requestId?: string;
+  requestId?: string | null;
   msg: string;
-  data?: Record<string, unknown>;
+  data?: Record<string, unknown> | null;
   /**
    * Client-assigned monotonic sequence number, unique within the hook's
    * lifetime. Stable across renders and unaffected by ring-buffer

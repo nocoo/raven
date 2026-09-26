@@ -25,6 +25,9 @@ export interface ModelStats {
 }
 
 export interface RequestRecord {
+  client_ip?: string | null;
+  peer_ip?: string | null;
+  ip_source?: string | null;
   id: string;
   timestamp: number;
   path: string;
