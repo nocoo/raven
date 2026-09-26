@@ -154,6 +154,15 @@ try {
     await Bun.sleep(200)
   }
   assert.equal(ready, true, "Isolated Next server did not start")
+  const version = (await Bun.file(join(root, "package.json")).json()).version
+  for (const [origin, component] of [[dashboardUrl, "dashboard"], [proxy.url.origin, "proxy"]]) {
+    const response = await fetch(`${origin}/api/live`, { headers: { Authorization: "Bearer fixture-internal" } })
+    assert.equal(response.status, 200)
+    const health = await response.json() as { status: string; version: string; component: string }
+    assert.equal(health.status, "ok")
+    assert.equal(health.version, version)
+    assert.equal(health.component, component)
+  }
   result = await runRoutingBrowser({
     dashboardUrl, receiverUrl, proxyUrl: proxy.url.origin, artifacts,
     inspect: () => ({ catalogCalls: hits.filter(hit => hit.path === "/v1/models").length, generationCalls: hits.filter(hit => hit.model).length }),

@@ -544,3 +544,22 @@ an isolated tooltip; keyboard activation still opens the policy dialog.
 The commit gate also rejected Playwright's `exact` locator option in a Testing
 Library role query. Runtime test success did not validate the helper's types;
 use each library's declared options and retain the separate typecheck gate.
+
+## 2026-09-26 — Reuse only missing release dependencies
+
+The v3.0.6 isolated install found eleven locked packages absent from the allowed
+mirror. Copying the entire installed store repeated the v3.0.4 mistake above;
+a premature install also ran before that copy finished. The owned copy was
+stopped, only those exact package versions were hard-linked, and the subsequent
+offline frozen install passed. Read previous release failures before preparing
+dependencies and await completion before starting dependent checks.
+
+## 2026-09-26 — Render management pages with runtime configuration
+
+The isolated production check built without management credentials and then
+started with synthetic credentials. Settings remained an error page: configuration
+validation failed before its uncached fetch, allowing Next to prerender and cache
+the caught error. Development and builds with local credentials hid the defect.
+The application layout now requires request-time rendering. Keep credential-free
+builds followed by isolated runtime credentials as release verification; do not
+pass daily credentials into a build to conceal a prerendering failure.

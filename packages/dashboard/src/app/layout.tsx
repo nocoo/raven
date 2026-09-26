@@ -5,6 +5,8 @@ import "./globals.css";
 import { AppProviders } from "@/components/providers";
 import { AppShell } from "@/components/layout/app-shell";
 
+export const dynamic = "force-dynamic";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
