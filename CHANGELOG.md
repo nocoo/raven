@@ -1,5 +1,26 @@
 # Changelog
 
+## v3.0.6
+
+### Added
+
+- Share IPv4/IPv6 address, CIDR and range rules between global and per-key access policies, with unrestricted or whitelist-only modes.
+- Show source-IP distribution and activity over time for each API key, with optional location lookup in the Dashboard.
+- Record client IP, peer IP and denied attempts, and filter requests by IP or access denial.
+
+### Changed
+
+- Keep existing API keys unrestricted and leave historical request IPs unfilled.
+- Restrict internal management APIs and the log WebSocket to loopback peers authenticated with the internal key.
+- Compact log rows and move secondary information, lookup and copy actions into request details.
+
+### Fixed
+
+- Render management pages at request time so builds without credentials can use the configuration supplied when the server starts.
+- Preserve translated IPv6 address identity and resolve forwarded client addresses only through configured trusted proxies.
+- Improve IP chart labels, time axes and responsive layouts.
+- Group IP access, IP activity and revoke actions as icons with hover hints in Connect; link key names to their statistics.
+
 ## v3.0.5
 
 ### Changed
