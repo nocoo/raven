@@ -171,6 +171,29 @@ describe("FilterChip", () => {
 // ---------------------------------------------------------------------------
 
 describe("FilterBar", () => {
+  it("shows and removes an IP drilldown without dropping key or time filters", async () => {
+    mockSearchParams = new URLSearchParams("range=7d&key_id=key-1&client_ip=2001%3Adb8%3A%3A1");
+    render(<FilterBar tabDimension="key_id" />);
+    expect(screen.getByText("2001:db8::1")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Remove IP filter" }));
+    expect(mockPush).toHaveBeenCalledWith("/?range=7d&key_id=key-1");
+  });
+
+  it("applies and clears an exact IP through investigation filters", async () => {
+    mockSearchParams = new URLSearchParams("range=7d&key_id=key-1&client_ip=1.1.1.1");
+    render(<FilterBar investigation />);
+    const user = userEvent.setup();
+    await user.click(screen.getByText(/client & session filters/i));
+    const input = screen.getByRole("textbox", { name: "Source IP" });
+    await user.clear(input);
+    await user.type(input, " 2001:db8::1 ");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(mockPush).toHaveBeenLastCalledWith("/?range=7d&client_ip=2001%3Adb8%3A%3A1&key_id=key-1");
+    await user.clear(input);
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(mockPush).toHaveBeenLastCalledWith("/?range=7d&key_id=key-1");
+  });
+
   it.each([
     ["model", "model=gpt-5"],
     ["key_id", "key_id=key-1"],
@@ -268,7 +291,7 @@ describe("FilterBar", () => {
     mockSearchParams = new URLSearchParams("model=gpt-5&key_id=key-1");
     render(<FilterBar investigation />);
     const user = userEvent.setup();
-    await user.click(screen.getByText("Client & session filters"));
+    await user.click(screen.getByText("IP, client & session filters"));
     await user.type(screen.getByRole("textbox", { name: "Client name" }), " Editor ");
     await user.type(screen.getByRole("textbox", { name: "Session ID" }), "sess&2");
     await user.type(screen.getByRole("textbox", { name: "Upstream name" }), "provider");
@@ -281,7 +304,7 @@ describe("FilterBar", () => {
     mockSearchParams = new URLSearchParams("range=7d&client=Editor&session=sess-1&upstream=provider");
     render(<FilterBar investigation />);
     const user = userEvent.setup();
-    await user.click(screen.getByText("Client & session filters"));
+    await user.click(screen.getByText("IP, client & session filters"));
     for (const name of ["Client name", "Session ID", "Upstream name"]) await user.clear(screen.getByRole("textbox", { name }));
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(mockPush).toHaveBeenCalledWith("/?range=7d");
@@ -304,7 +327,7 @@ describe("FilterBar", () => {
 
   it.each([
     ["fixture-model", "model"], ["fixture-strategy", "strategy"],
-    ["fixture-provider", "upstream"], ["error", "status"], ["cancelled", "status"],
+    ["fixture-provider", "upstream"], ["error", "status"], ["cancelled", "status"], ["denied", "status"],
   ])("selects %s through the actual dropdown", async (value, key) => {
     render(<FilterBar models={["fixture-model"]} strategies={["fixture-strategy"]} upstreams={["fixture-provider"]} />);
     const user = userEvent.setup();

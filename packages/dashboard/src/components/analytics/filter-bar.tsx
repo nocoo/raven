@@ -20,7 +20,7 @@ import { LocalTime } from "@/components/local-time";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 
-const STATUS_OPTIONS = ["success", "error", "cancelled"];
+const STATUS_OPTIONS = ["success", "error", "cancelled", "denied"];
 const STREAM_OPTIONS = [
   { value: "true", label: "Streaming" },
   { value: "false", label: "Synchronous" },
@@ -132,6 +132,7 @@ export function FilterBar({
     if (filters.upstream) chips.push({ key: "upstream", value: filters.upstream });
     if (filters.account) chips.push({ key: "account", value: filters.account });
     if (filters.key_id) chips.push({ key: "key_id", value: filters.key_id });
+    if (filters.client_ip) chips.push({ key: "client_ip", value: filters.client_ip });
     if (filters.protocol_mode) chips.push({ key: "protocol_mode", value: filters.protocol_mode });
     if (filters.client) chips.push({ key: "client", value: filters.client });
     if (filters.client_version) chips.push({ key: "client_version", value: filters.client_version });
@@ -299,11 +300,12 @@ export function FilterBar({
 
       {filters.range === "custom" && filters.from !== undefined && filters.to !== undefined && <p className="text-xs text-basalt-muted-foreground">Selected interval: <LocalTime timestamp={filters.from} /> – <LocalTime timestamp={filters.to} /></p>}
 
-      {investigation && <details className="text-xs text-basalt-muted-foreground"><summary className="cursor-pointer py-1">Client & session filters</summary><form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={event => {
+      {investigation && <details className="text-xs text-basalt-muted-foreground"><summary className="cursor-pointer py-1">IP, client & session filters</summary><form className="mt-2 flex flex-wrap items-end gap-2" onSubmit={event => {
         event.preventDefault();
         const values = new FormData(event.currentTarget);
-        updateFilters({ client: String(values.get("client") ?? "").trim() || undefined, session: String(values.get("session") ?? "").trim() || undefined, upstream: String(values.get("upstream") ?? "").trim() || undefined });
+        updateFilters({ client_ip: String(values.get("client_ip") ?? "").trim() || undefined, client: String(values.get("client") ?? "").trim() || undefined, session: String(values.get("session") ?? "").trim() || undefined, upstream: String(values.get("upstream") ?? "").trim() || undefined });
       }}>
+        <label htmlFor="monitor-ip" className="space-y-1">Source IP<Input id="monitor-ip" key={`ip-${filters.client_ip}`} name="client_ip" aria-label="Source IP" defaultValue={filters.client_ip ?? ""} placeholder="Exact IPv4 / IPv6 address" className="h-8 w-64 text-xs" /></label>
         <label htmlFor="monitor-client" className="space-y-1">Client<Input id="monitor-client" key={`client-${filters.client}`} name="client" aria-label="Client name" defaultValue={filters.client ?? ""} placeholder="Exact client name" className="h-8 w-44 text-xs" /></label>
         <label htmlFor="monitor-session" className="space-y-1">Session<Input id="monitor-session" key={`session-${filters.session}`} name="session" aria-label="Session ID" defaultValue={filters.session ?? ""} placeholder="Exact session ID" className="h-8 w-64 text-xs" /></label>
         <label htmlFor="monitor-upstream" className="space-y-1">Upstream<Input id="monitor-upstream" key={`upstream-${filters.upstream}`} name="upstream" aria-label="Upstream name" defaultValue={filters.upstream ?? ""} placeholder="Exact upstream name" className="h-8 w-44 text-xs" /></label>
