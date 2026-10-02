@@ -2,6 +2,7 @@
 node_modules/
 
 # build
+/packages/dashboard/next-env.d.ts
 .next/
 dist/
 out/

@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 7023",
-    "build": "tsc --noEmit && next build",
+    "build": "bun run typecheck && next build",
     "start": "next start -p 7023",
     "lint": "biome check --no-errors-on-unmatched --error-on-warnings --max-diagnostics=500 src test",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest"
   },
