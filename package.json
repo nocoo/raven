@@ -43,7 +43,7 @@
     "dependency-cruiser": "18.5.0",
     "husky": "^9.1.7",
     "lint-staged": "17.6.0",
-    "oxc-parser": "0.151.0",
+    "oxc-parser": "0.152.0",
     "typescript": "^7.0.2",
     "typescript6-for-depcruise": "npm:typescript@6.0.3"
   },
