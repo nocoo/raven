@@ -4,6 +4,9 @@
 
 ### Changed
 - Upgrade Next.js from 16.3.6 to 16.3.8
+- Pin transitive sharp to 0.35.5 and source-map-js to 1.2.2 to resolve high-severity advisories
+- Upgrade Vite, oxc-parser, lint-staged, dependency-cruiser, Vitest and Biome
+- Upgrade Basalt and patch ip-address
 
 ## v3.0.6
 
