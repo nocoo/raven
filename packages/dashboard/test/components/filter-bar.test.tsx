@@ -228,12 +228,13 @@ describe("FilterBar", () => {
       rerender(<FilterBar autoRefresh />);
       const interval = screen.getByRole("combobox", { name: "Auto-refresh interval" });
       expect(interval).toHaveTextContent("Every 3s");
-      expect(timer).toHaveBeenLastCalledWith(expect.any(Function), 3000);
+      expect(timer).toHaveBeenCalledWith(expect.any(Function), 3000);
+      timer.mockClear();
       const user = userEvent.setup();
       await user.click(interval);
       await user.click(screen.getByRole("option", { name: label }));
       expect(interval).toHaveTextContent(label);
-      if (milliseconds) expect(timer).toHaveBeenLastCalledWith(expect.any(Function), milliseconds);
+      if (milliseconds) expect(timer).toHaveBeenCalledWith(expect.any(Function), milliseconds);
       await user.click(screen.getByRole("button", { name: "Refresh monitoring data" }));
       expect(mockRefresh).toHaveBeenCalled();
       expect(mockPush).not.toHaveBeenCalled();

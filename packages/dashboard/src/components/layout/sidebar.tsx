@@ -212,7 +212,7 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
               </Tooltip>
             ))}
           </SidebarNav>
-          <SidebarFooter className="flex w-full justify-center px-0">
+          <SidebarFooter className="flex w-full items-center justify-center px-0">
             {showAsAuth ? (
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>

@@ -71,11 +71,11 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     }, { message: `${name} indicator aligns with its tab and is not clipped` }).toBe(true);
     layouts.push({ kind: "tab-indicator", ...await geometry() });
   };
-  const header = async (name: string) => {
+  const header = async (name: string, editable = true) => {
     const card = page.getByRole("region", { name: `${name} configuration`, exact: true });
-    await expect(card.getByLabel(`${name} name`, { exact: true })).toBeVisible();
+    await expect(editable ? card.getByLabel(`${name} name`, { exact: true }) : card.getByRole("heading", { name: "GitHub Copilot", exact: true })).toBeVisible();
     const { input, action } = await card.evaluate(element => {
-      const input = element.querySelector<HTMLInputElement>("input[aria-label$=' name']")!;
+      const input = element.querySelector<HTMLElement>("input[aria-label$=' name'], h2")!;
       const action = Array.from(element.querySelectorAll("button")).find(button => button.textContent?.includes("Save changes"))!;
       return { input: input.getBoundingClientRect().toJSON(), action: action.getBoundingClientRect().toJSON() };
     });
@@ -167,6 +167,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await page.goto(`${dashboardUrl}/routing/upstreams`);
     await expect(page.locator(".dashboard-page").getByRole("heading", { name: "Upstreams", exact: true })).toBeVisible();
     await indicator("Connection");
+    await header("Upstream", false);
     expect(inspect()).toEqual({ catalogCalls: 0, generationCalls: 0 });
     await page.getByRole("button", { name: "New upstream", exact: true }).click();
     const upstreamDirectory = page.getByRole("navigation", { name: "Upstreams", exact: true });
@@ -561,6 +562,29 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     for (const theme of ["light", "dark"] as const) {
       await page.evaluate(value => localStorage.setItem("theme", value), theme);
       await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
+      for (const width of [390, 700]) {
+        await resize({ width, height: 844 });
+        await page.goto(`${dashboardUrl}/connect`);
+        const opener = page.getByRole("button", { name: "Open navigation", exact: true });
+        await opener.click();
+        const drawer = page.getByRole("dialog", { name: "Navigation", exact: true });
+        await expect(drawer).toBeVisible();
+        expect(await drawer.evaluate(element => {
+          const style = getComputedStyle(element);
+          return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
+        })).toEqual(["0px", "0px", "0px", "0px"]);
+        await expect.poll(() => drawer.evaluate(element => {
+          const sidebar = element.querySelector("[data-basalt-sidebar]")!;
+          return Math.abs(sidebar.getBoundingClientRect().width - element.clientWidth);
+        })).toBeLessThanOrEqual(1);
+        await shot(`navigation-drawer-${width}-${theme}`);
+        await page.keyboard.press("Escape");
+        await expect(drawer).toBeHidden();
+        await opener.click();
+        await drawer.getByRole("button", { name: "General", exact: true }).click();
+        await expect(page).toHaveURL(`${dashboardUrl}/settings`);
+        await expect(drawer).toBeHidden();
+      }
       for (const width of [2560, 1920, 1280, 390]) {
         await resize({ width, height: width === 390 ? 844 : 1080 });
         for (const [path, group, title] of [
@@ -741,6 +765,12 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           if (path === "settings" && width === 1280) {
             await page.getByRole("button", { name: "Collapse sidebar" }).click();
             await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+            const sidebar = page.locator("[data-basalt-sidebar]");
+            await expect.poll(async () => {
+              const rail = (await sidebar.boundingBox())!;
+              const avatar = (await sidebar.getByText("L", { exact: true }).boundingBox())!;
+              return Math.abs(avatar.x + avatar.width / 2 - rail.x - rail.width / 2);
+            }).toBeLessThanOrEqual(1);
             await layout(`general/collapsed-sidebar/${theme}`);
             await shot(`general-collapsed-sidebar-${theme}`);
           }
@@ -748,10 +778,11 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       }
     }
     checkpoint("all 12 sidebar destinations fill the island with responsive cards and disclosures in both themes at four widths");
+    checkpoint("mobile navigation fills its drawer at 390px and 700px in both themes and closes on Escape and navigation");
     checkpoint("Basalt tabs keep a stable filter height; selects stay single-line; push logs coexist with navigation and put statistics on the right");
     expect(errors).toEqual([]);
     expect(blocked).toEqual([]);
-    return { checks, errors, blocked, layouts, viewport: [2560, 1080, 1920, 1080, 1440, 1100, 1280, 1080, 390, 844], timezone: "Asia/Shanghai" };
+    return { checks, errors, blocked, layouts, viewport: [2560, 1080, 1920, 1080, 1440, 1100, 1280, 1080, 700, 844, 390, 844], timezone: "Asia/Shanghai" };
   } catch (error) {
     console.error(JSON.stringify({ url: page.url(), errors, blocked, lastLayout: layouts.at(-1) }));
     await shot("failure");

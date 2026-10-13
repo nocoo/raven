@@ -54,9 +54,9 @@ export function ConfigurationHeader({ name, label, placeholder, onNameChange, is
   return <header className="flex min-w-0 flex-wrap items-start justify-between gap-x-4 gap-y-3 pb-3">
     <div className="min-w-0 flex-1 basis-52">
       {onNameChange ? <div className="group relative">
-        <Input aria-label={label} value={name} onChange={event => onNameChange(event.target.value)} placeholder={placeholder} maxLength={100} size="sm" className="routing-config-name pr-8 text-base font-semibold" />
-        <PencilLine className="pointer-events-none absolute right-2.5 top-2.5 size-3.5 text-basalt-muted-foreground" aria-hidden="true" />
-      </div> : <h2 className="flex h-8 items-center text-base font-semibold text-basalt-foreground">{name}</h2>}
+        <Input aria-label={label} value={name} onChange={event => onNameChange(event.target.value)} placeholder={placeholder} maxLength={100} size="sm" className="routing-config-name pr-8 font-semibold" />
+        <PencilLine className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-basalt-muted-foreground" aria-hidden="true" />
+      </div> : <h2 className="flex min-h-basalt-control-sm items-center text-basalt-sm font-semibold text-basalt-foreground">{name}</h2>}
       {(dirty || isNew) && <p className="mt-1 flex items-center gap-1.5 text-xs text-basalt-muted-foreground" role="status">
         <span className="size-1.5 rounded-full bg-basalt-warning" aria-hidden="true" />{isNew ? "New draft · not saved" : "Unsaved changes"}
       </p>}

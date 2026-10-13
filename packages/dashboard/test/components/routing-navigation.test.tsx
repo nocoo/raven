@@ -6,12 +6,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppSidebar, NAV_GROUPS } from "@/components/layout/sidebar";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
+const identity = vi.hoisted(() => ({ authenticated: false }));
 vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/routing/rules" }));
-vi.mock("next-auth/react", () => ({ useSession: () => ({ data: null, status: "unauthenticated" }), signOut: vi.fn() }));
-vi.mock("@/hooks/use-auth-config", () => ({ useAuthConfig: () => ({ authEnabled: false, isLoading: false, hasError: false }) }));
-beforeEach(() => router.push.mockClear());
+vi.mock("next-auth/react", () => ({ useSession: () => identity.authenticated ? { data: { user: { name: "Fixture user", email: "fixture@example.test" } }, status: "authenticated" } : { data: null, status: "unauthenticated" }, signOut: vi.fn() }));
+vi.mock("@/hooks/use-auth-config", () => ({ useAuthConfig: () => ({ authEnabled: identity.authenticated, isLoading: false, hasError: false }) }));
+beforeEach(() => { router.push.mockClear(); identity.authenticated = false; });
 
 describe("routing navigation", () => {
+  it.each([false, true])("centers the collapsed avatar with authenticated=%s", authenticated => {
+    identity.authenticated = authenticated;
+    render(<TooltipProvider><AppSidebar collapsed onToggle={vi.fn()} /></TooltipProvider>);
+    const avatar = screen.getByText(authenticated ? "F" : "L", { exact: true });
+    expect(avatar.closest('[data-slot="sidebar-footer"]')).toHaveClass("items-center");
+    expect(screen.queryByRole("button", { name: "Sign out" }) !== null).toBe(authenticated);
+  });
+
   it.each([false, true])("opens the new destinations with the sidebar collapsed=%s", async collapsed => {
     const navigate = vi.fn();
     render(<TooltipProvider><AppSidebar collapsed={collapsed} onToggle={vi.fn()} onNavigate={navigate} /></TooltipProvider>);

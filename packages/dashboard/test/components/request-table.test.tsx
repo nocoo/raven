@@ -357,7 +357,7 @@ describe("cancelled status", () => {
     expect(screen.getByText("cancelled").className).toContain("bg-basalt-secondary");
     expect(screen.getByText("cancelled").className).not.toContain("bg-basalt-destructive");
     expect(screen.getByText("error").className).toContain("bg-basalt-destructive");
-    expect(screen.getByText("success").className).toContain("bg-basalt-heatmap-green-3");
+    expect(screen.getByText("success")).toHaveClass("bg-basalt-badge-green", "text-basalt-badge-green-foreground");
   });
 });
 
