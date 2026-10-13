@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.0.7
+
+### Changed
+- Upgrade Next.js from 16.3.6 to 16.3.8
+
 ## v3.0.6
 
 ### Added
