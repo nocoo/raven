@@ -573,3 +573,14 @@ Split reset editing and timetable editing into independently saved scenarios,
 retaining the exact UTC payload and single-request assertions. The timeout and
 coverage requirements remain unchanged; local passing runs alone did not prove
 the combined interaction budget was suitable for the Linux CI runner.
+
+## 2026-10-13 - Verify Basalt geometry, not only upgrade compatibility
+
+The Basalt 3 upgrade passed navigation, overflow and avatar checks, but retained
+old navigation spacing overrides and missed a 16px logo shift during collapse.
+Comparing Raven with Zhe also exposed a mistaken comparison baseline: Zhe's
+40px custom link rows are not Basalt's 34px navigation contract. Package version
+and working routes do not establish design conformity. Remove consumer-owned
+spacing, centering and theme-control duplicates when the installed package owns
+them. Browser regressions now check row height, insets, gaps, stable logo geometry,
+mobile control targets and drawer focus restoration against the installed API.

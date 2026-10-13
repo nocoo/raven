@@ -24,6 +24,30 @@ const workbench = () => <ThemeProvider defaultTheme="dark" persist={false} apply
 </LogDockProvider></TooltipProvider></ThemeProvider>;
 
 describe("responsive routing shell", () => {
+  it("delegates the theme cycle to Basalt", async () => {
+    render(workbench());
+    const user = userEvent.setup({ delay: null });
+    const toggle = screen.getByRole("button", { name: "Toggle theme (now dark)" });
+    await user.click(toggle);
+    expect(toggle).toHaveAccessibleName("Toggle theme (now system)");
+    await user.click(toggle);
+    expect(toggle).toHaveAccessibleName("Toggle theme (now light)");
+    await user.click(toggle);
+    expect(toggle).toHaveAccessibleName("Toggle theme (now dark)");
+  });
+
+  it("leaves body overflow ownership to the modal library", () => {
+    document.body.style.overflow = "clip";
+    try {
+      const { unmount } = render(workbench());
+      expect(document.body.style.overflow).toBe("clip");
+      unmount();
+      expect(document.body.style.overflow).toBe("clip");
+    } finally {
+      document.body.style.overflow = "";
+    }
+  });
+
   it("keeps the mobile page title and actions without competing breadcrumbs, preserving drafts across resize", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
     const { rerender } = render(workbench());

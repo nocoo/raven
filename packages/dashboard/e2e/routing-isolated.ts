@@ -109,6 +109,32 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     await page.setViewportSize(viewport);
     await page.getByRole("button", { name: viewport.width < 768 ? "Open navigation" : /^(Collapse|Expand) sidebar$/ }).waitFor();
   };
+  const sidebarGeometry = async (sidebar: Locator, collapsed: boolean) => {
+    const geometry = await sidebar.evaluate(element => {
+      const nav = element.querySelector("nav")!;
+      const style = getComputedStyle(nav);
+      const items = [...nav.querySelectorAll<HTMLElement>("[data-basalt-hover-item]")];
+      return {
+        rail: element.getBoundingClientRect().width,
+        logo: element.querySelector("img")!.getBoundingClientRect().toJSON(),
+        padding: style.padding,
+        gap: style.gap,
+        rows: items.map(item => ({ height: item.getBoundingClientRect().height, width: item.getBoundingClientRect().width, padding: getComputedStyle(item).padding, lineHeight: getComputedStyle(item).lineHeight })),
+      };
+    });
+    expect(geometry.rail).toBe(collapsed ? 68 : 260);
+    expect(geometry.padding).toBe("8px");
+    expect(geometry.gap).toBe("2px");
+    expect(geometry.rows).toHaveLength(12);
+    for (const row of geometry.rows) {
+      expect(row.height).toBe(34);
+      expect(row.padding).toBe("6px 8px");
+      expect(row.lineHeight).toBe("22px");
+      if (collapsed) expect(row.width).toBe(34);
+    }
+    layouts.push({ kind: "sidebar-geometry", collapsed, geometry });
+    return geometry;
+  };
   const alignedCards = async (grid: Locator) => {
     await expect.poll(() => grid.locator(":scope > *").evaluateAll(elements => {
       const cards = elements.map(element => element.getBoundingClientRect());
@@ -566,6 +592,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
         await resize({ width, height: 844 });
         await page.goto(`${dashboardUrl}/connect`);
         const opener = page.getByRole("button", { name: "Open navigation", exact: true });
+        await expect(opener).toHaveCSS("min-height", "44px");
+        await expect(opener).toHaveCSS("min-width", "44px");
         await opener.click();
         const drawer = page.getByRole("dialog", { name: "Navigation", exact: true });
         await expect(drawer).toBeVisible();
@@ -577,13 +605,16 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           const sidebar = element.querySelector("[data-basalt-sidebar]")!;
           return Math.abs(sidebar.getBoundingClientRect().width - element.clientWidth);
         })).toBeLessThanOrEqual(1);
+        await sidebarGeometry(drawer.locator("[data-basalt-sidebar]"), false);
         await shot(`navigation-drawer-${width}-${theme}`);
         await page.keyboard.press("Escape");
         await expect(drawer).toBeHidden();
+        await expect(opener).toBeFocused();
         await opener.click();
         await drawer.getByRole("button", { name: "General", exact: true }).click();
         await expect(page).toHaveURL(`${dashboardUrl}/settings`);
         await expect(drawer).toBeHidden();
+        await expect(opener).toBeFocused();
       }
       for (const width of [2560, 1920, 1280, 390]) {
         await resize({ width, height: width === 390 ? 844 : 1080 });
@@ -597,11 +628,14 @@ export async function runRoutingBrowser(options: BrowserOptions) {
         ] as const) {
           await page.goto(`${dashboardUrl}/${path}`);
           await page.getByRole("button", { name: `Toggle theme (now ${theme})`, exact: true }).waitFor();
+          await expect(page.locator("html")).toHaveClass(new RegExp(theme));
           if (width === 390) await page.getByRole("button", { name: "Open navigation", exact: true }).waitFor();
           const frame = page.locator(".dashboard-page");
           const heading = frame.getByRole("heading", { level: 1, name: title, exact: true });
           await expect(heading).toBeVisible();
           const header = page.getByRole("main").locator("header").first();
+          await expect(header).toHaveAttribute("data-density", width === 390 ? "compact" : "comfortable");
+          await expect(header).toHaveCSS("height", width === 390 ? "52px" : "56px");
           await expect(header.getByRole("heading", { name: title, exact: true })).toBeVisible();
           await expect(header.getByRole("button", { name: /logs/i })).toHaveCount(0);
           if (width !== 390) await expect(header.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(group);
@@ -763,9 +797,13 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             await expect(launcher).toBeFocused();
           }
           if (path === "settings" && width === 1280) {
+            const sidebar = page.locator("[data-basalt-sidebar]");
+            const expanded = await sidebarGeometry(sidebar, false);
             await page.getByRole("button", { name: "Collapse sidebar" }).click();
             await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-            const sidebar = page.locator("[data-basalt-sidebar]");
+            const collapsed = await sidebarGeometry(sidebar, true);
+            expect(collapsed.logo.x).toBe(expanded.logo.x);
+            expect(collapsed.logo.y).toBe(expanded.logo.y);
             await expect.poll(async () => {
               const rail = (await sidebar.boundingBox())!;
               const avatar = (await sidebar.getByText("L", { exact: true }).boundingBox())!;
@@ -779,6 +817,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     }
     checkpoint("all 12 sidebar destinations fill the island with responsive cards and disclosures in both themes at four widths");
     checkpoint("mobile navigation fills its drawer at 390px and 700px in both themes and closes on Escape and navigation");
+    checkpoint("Basalt owns 34px navigation rows, 8px insets, 2px gaps and 44px mobile controls; logo stays fixed and drawer restores focus");
     checkpoint("Basalt tabs keep a stable filter height; selects stay single-line; push logs coexist with navigation and put statistics on the right");
     expect(errors).toEqual([]);
     expect(blocked).toEqual([]);

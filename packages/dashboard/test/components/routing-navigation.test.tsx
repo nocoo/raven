@@ -13,12 +13,21 @@ vi.mock("@/hooks/use-auth-config", () => ({ useAuthConfig: () => ({ authEnabled:
 beforeEach(() => { router.push.mockClear(); identity.authenticated = false; });
 
 describe("routing navigation", () => {
-  it.each([false, true])("centers the collapsed avatar with authenticated=%s", authenticated => {
+  it.each([false, true])("uses package-owned collapsed regions with authenticated=%s", authenticated => {
     identity.authenticated = authenticated;
     render(<TooltipProvider><AppSidebar collapsed onToggle={vi.fn()} /></TooltipProvider>);
     const avatar = screen.getByText(authenticated ? "F" : "L", { exact: true });
-    expect(avatar.closest('[data-slot="sidebar-footer"]')).toHaveClass("items-center");
+    expect(avatar.closest('[data-slot="sidebar-footer"]')).not.toHaveClass(/^(items-center|px-0)$/);
+    expect(avatar.closest('[data-basalt-sidebar]')).toHaveAttribute("data-collapsed");
+    expect(avatar).toHaveClass("bg-basalt-muted");
     expect(screen.queryByRole("button", { name: "Sign out" }) !== null).toBe(authenticated);
+  });
+
+  it.each([false, true])("keeps native navigation spacing with collapsed=%s", collapsed => {
+    render(<TooltipProvider><AppSidebar collapsed={collapsed} onToggle={vi.fn()} /></TooltipProvider>);
+    expect(screen.getByRole("navigation")).toHaveClass("p-basalt-nav-inset", "gap-basalt-nav-gap");
+    expect(screen.getByRole("navigation")).not.toHaveClass(/^(pt-1|gap-1|items-center)$/);
+    expect(screen.getByRole("button", { name: "Upstreams" })).toHaveClass("min-h-basalt-control", "leading-basalt-row", "py-basalt-row-y");
   });
 
   it.each([false, true])("opens the new destinations with the sidebar collapsed=%s", async collapsed => {

@@ -37,7 +37,6 @@ import { signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import type { ElementType } from "react";
 import { useAuthConfig } from "@/hooks/use-auth-config";
-import { cn, getAvatarColor } from "@/lib/utils";
 import { APP_VERSION } from "@/lib/version";
 import { searchParamsToFilters } from "@/lib/analytics-filters";
 import { monitorHref } from "@/lib/monitor";
@@ -107,10 +106,12 @@ function navActive(pathname: string, href: string): boolean {
     : pathname.startsWith(href);
 }
 
-function RavenMark({ className }: { className?: string }) {
+function RavenMark() {
   return (
-    // biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit
-    <img src="/logo-24.png" alt="Raven" width={24} height={24} className={className} />
+    <span className="flex w-[calc(var(--basalt-size-rail)-2*var(--basalt-space-nav-inset))] shrink-0 justify-center">
+      {/* biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit */}
+      <img src="/logo-24.png" alt="Raven" width={24} height={24} className="size-basalt-5 shrink-0" />
+    </span>
   );
 }
 
@@ -152,9 +153,9 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
   };
 
   const avatar = (
-    <Avatar className="h-9 w-9 shrink-0">
+    <Avatar>
       {userImage ? <AvatarImage src={userImage} alt={userName} /> : null}
-      <AvatarFallback className={cn("text-xs text-white", getAvatarColor(userName))}>
+      <AvatarFallback>
         {userInitial}
       </AvatarFallback>
     </Avatar>
@@ -166,7 +167,7 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0"
+          className="shrink-0"
           aria-label="Sign out"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
@@ -181,26 +182,25 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
     <Sidebar collapsed={collapsed}>
       {collapsed ? (
         <>
-          <SidebarHeader className="justify-center px-0">
-            <RavenMark className="h-5 w-5" />
+          <SidebarHeader>
+            <RavenMark />
           </SidebarHeader>
           <Button
             variant="ghost"
             size="icon"
-            className="mb-1 self-center"
+            className="mb-basalt-space-sm self-center"
             onClick={onToggle}
             aria-label="Expand sidebar"
           >
             <PanelLeft aria-hidden="true" />
           </Button>
-          <SidebarNav className="w-full items-center gap-1 pt-1">
+          <SidebarNav>
             {ALL_NAV_ITEMS.map((item) => (
               <Tooltip key={item.href} delayDuration={0}>
                 <TooltipTrigger asChild>
                   <SidebarIconItem
                     active={navActive(pathname, item.href)}
                     aria-label={item.label}
-                    className="self-center"
                     onClick={() => go(item.href)}
                   >
                     <item.icon className="h-4 w-4" strokeWidth={1.5} />
@@ -212,18 +212,20 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
               </Tooltip>
             ))}
           </SidebarNav>
-          <SidebarFooter className="flex w-full items-center justify-center px-0">
+          <SidebarFooter>
             {showAsAuth ? (
               <Tooltip delayDuration={0}>
                 <TooltipTrigger asChild>
-                  <button
+                  <Button
                     type="button"
-                    className="cursor-pointer"
+                    variant="ghost"
+                    size="icon"
+                    className="size-basalt-9 rounded-basalt-full"
                     aria-label="Sign out"
                     onClick={() => signOut({ callbackUrl: "/login" })}
                   >
                     {avatar}
-                  </button>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
                   {userName} · Sign out
@@ -245,19 +247,19 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
         <>
           <SidebarHeader>
             <div className="flex w-full items-center justify-between">
-              <div className="flex min-w-0 items-center gap-3">
-                <RavenMark className="h-5 w-5 shrink-0" />
+              <div className="flex min-w-0 items-center gap-basalt-row-gap">
+                <RavenMark />
                 <span className="truncate text-lg font-semibold text-basalt-foreground md:text-xl">
                   raven
                 </span>
-                <span className="shrink-0 rounded-md bg-basalt-secondary px-1.5 py-0.5 text-[10px] leading-none font-medium text-basalt-muted-foreground">
+                <span className="shrink-0 rounded-basalt-sm bg-basalt-secondary px-basalt-space-md py-basalt-space-xs font-mono text-basalt-xs leading-none text-basalt-muted-foreground">
                   v{APP_VERSION}
                 </span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 shrink-0"
+                className="shrink-0"
                 onClick={onToggle}
                 aria-label="Collapse sidebar"
               >
@@ -265,7 +267,7 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
               </Button>
             </div>
           </SidebarHeader>
-          <SidebarNav className="pt-1">
+          <SidebarNav>
             {NAV_GROUPS.map((group) => (
               <SidebarGroup
                 key={group.label}

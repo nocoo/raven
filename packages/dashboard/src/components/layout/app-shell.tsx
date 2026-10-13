@@ -6,6 +6,7 @@ import {
   Sheet,
   SheetContent,
   SheetTitle,
+  SheetTrigger,
 } from "@nocoo/basalt";
 import { AppHeader } from "@nocoo/basalt/components/app-header";
 import {
@@ -41,22 +42,15 @@ export function AppShell({ children }: AppShellProps) {
     setMobileOpen(false);
   }, [pathname]);
 
-  useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileOpen]);
-
   if (pathname === "/login") return children;
 
   return (
-    <Shell className="relative">
-      <AppSkipLink>Skip to main content</AppSkipLink>
-      {!isMobile ? (
-        <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
-      ) : (
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+    <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+      <Shell className="relative">
+        <AppSkipLink>Skip to main content</AppSkipLink>
+        {!isMobile ? (
+          <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((value) => !value)} />
+        ) : (
           <SheetContent
             side="left"
             className="w-[260px] max-w-[260px] border-0 bg-basalt-background p-0 sm:p-0"
@@ -68,39 +62,36 @@ export function AppShell({ children }: AppShellProps) {
               onNavigate={() => setMobileOpen(false)}
             />
           </SheetContent>
-        </Sheet>
-      )}
-      <AppMain>
-        <AppHeader
-          leading={
-            isMobile ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open navigation"
-              >
-                <Menu aria-hidden="true" />
-              </Button>
-            ) : null
-          }
-          breadcrumbs={isMobile ? [] : crumbs}
-          title={item?.label ?? "Raven"}
-          actions={<HeaderActions />}
-        />
-        <div className="relative flex min-h-0 min-w-0 flex-1">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
-            <ContentIsland className="relative">
-              <SetupWizard />
-              <div className="dashboard-page @container/page min-w-0 w-full">
-                {children}
-              </div>
-            </ContentIsland>
+        )}
+        <AppMain>
+          <AppHeader
+            density={isMobile ? "compact" : "comfortable"}
+            leading={
+              isMobile ? (
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Open navigation">
+                    <Menu aria-hidden="true" />
+                  </Button>
+                </SheetTrigger>
+              ) : null
+            }
+            breadcrumbs={isMobile ? [] : crumbs}
+            title={item?.label ?? "Raven"}
+            actions={<HeaderActions />}
+          />
+          <div className="relative flex min-h-0 min-w-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
+              <ContentIsland className="relative">
+                <SetupWizard />
+                <div className="dashboard-page @container/page min-w-0 w-full">
+                  {children}
+                </div>
+              </ContentIsland>
+            </div>
+            <LogsDock />
           </div>
-          <LogsDock />
-        </div>
-      </AppMain>
-    </Shell>
+        </AppMain>
+      </Shell>
+    </Sheet>
   );
 }
