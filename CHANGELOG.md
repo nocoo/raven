@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.0.8
+
+### Changed
+- Upgrade vite to 8.3.2
+
+### Fixed
+- Preserve registry sources during release
+- Migrate dashboard to basalt 3
+- Upgrade ip-address to 10.7.2
+- Generate next types before typecheck
+
 ## v3.0.7
 
 ### Changed
