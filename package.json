@@ -1,6 +1,6 @@
 {
   "name": "raven",
-  "version": "3.0.8",
+  "version": "3.0.9",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -38,19 +38,19 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@types/bun": "1.4.2",
-    "@vitest/coverage-istanbul": "5.0.3",
-    "dependency-cruiser": "18.5.0",
+    "@types/bun": "1.4.3",
+    "@vitest/coverage-istanbul": "5.0.4",
+    "dependency-cruiser": "18.6.0",
     "husky": "^9.1.7",
     "lint-staged": "17.6.0",
-    "oxc-parser": "0.152.0",
+    "oxc-parser": "0.153.0",
     "typescript": "^7.0.2",
     "typescript6-for-depcruise": "npm:typescript@6.0.3"
   },
   "overrides": {
     "flatted": ">=3.4.2",
     "brace-expansion": ">=5.0.5",
-    "vite": "8.3.2",
+    "vite": "8.3.4",
     "postcss": ">=8.5.25",
     "@babel/core": ">=7.29.6",
     "ip-address": "^10.7.2",
@@ -60,7 +60,7 @@
     "browserslist": ">=4.28.7"
   },
   "dependencies": {
-    "vite": "8.3.2",
-    "vitest": "5.0.3"
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
   }
 }
