@@ -22,6 +22,7 @@
 import { spawn } from "node:child_process";
 import { resolve as pathResolve } from "node:path";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { preserveLockfileSources } from "./lib/release-lockfile";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -30,6 +31,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 const PROJECT_ROOT = pathResolve(import.meta.dirname as string, "..");
 const PACKAGE_JSON = pathResolve(PROJECT_ROOT, "package.json");
 const CHANGELOG_MD = pathResolve(PROJECT_ROOT, "CHANGELOG.md");
+const BUN_LOCK = pathResolve(PROJECT_ROOT, "bun.lock");
 
 // ---------------------------------------------------------------------------
 // Monorepo version targets
@@ -464,11 +466,16 @@ async function main(): Promise<void> {
     );
 
     console.log("   🔄 Running bun install to sync lockfile...");
+    const lockfileBefore = readFileSync(BUN_LOCK, "utf-8");
     const installResult = await run("bun", ["install"], { inherit: true });
     if (installResult.code !== 0) {
       console.error("❌ bun install failed");
       process.exit(1);
     }
+    writeFileSync(
+      BUN_LOCK,
+      preserveLockfileSources(lockfileBefore, readFileSync(BUN_LOCK, "utf-8")),
+    );
     console.log("   ✅ Lockfile synced");
   }
   console.log("");
