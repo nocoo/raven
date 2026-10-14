@@ -9,7 +9,7 @@ on:
 
 jobs:
   quality:
-    uses: nocoo/base-ci/.github/workflows/quality.yml@ad43150de3a2be2fa464b5cd2f921dc4fa9f8f0f
+    uses: nocoo/base-ci/.github/workflows/quality.yml@0394178ebcff0418c442d84a84119220f31f8987 # v2026.9
     with:
       runtime-version: "1.3.11"
       install-policy: "project"
@@ -22,7 +22,7 @@ jobs:
 
   arch:
     name: "G1 — Architecture (dep-cruiser + fetch-boundary)"
-    uses: nocoo/base-ci/.github/workflows/test-job.yml@ad43150de3a2be2fa464b5cd2f921dc4fa9f8f0f
+    uses: nocoo/base-ci/.github/workflows/test-job.yml@0394178ebcff0418c442d84a84119220f31f8987 # v2026.9
     with:
       runtime-version: "1.3.11"
       install-policy: "blocked"
@@ -31,7 +31,7 @@ jobs:
 
   coverage-gate:
     name: "L1 — Coverage gate (§4.5 baseline)"
-    uses: nocoo/base-ci/.github/workflows/test-job.yml@ad43150de3a2be2fa464b5cd2f921dc4fa9f8f0f
+    uses: nocoo/base-ci/.github/workflows/test-job.yml@0394178ebcff0418c442d84a84119220f31f8987 # v2026.9
     with:
       runtime-version: "1.3.11"
       install-policy: "blocked"
