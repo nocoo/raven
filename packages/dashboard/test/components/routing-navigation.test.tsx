@@ -27,7 +27,7 @@ describe("routing navigation", () => {
     render(<TooltipProvider><AppSidebar collapsed={collapsed} onToggle={vi.fn()} /></TooltipProvider>);
     expect(screen.getByRole("navigation")).toHaveClass("p-basalt-nav-inset", "gap-basalt-nav-gap");
     expect(screen.getByRole("navigation")).not.toHaveClass(/^(pt-1|gap-1|items-center)$/);
-    expect(screen.getByRole("button", { name: "Upstreams" })).toHaveClass("min-h-basalt-control", "leading-basalt-row", "py-basalt-row-y");
+    expect(screen.getByRole("button", { name: "Upstreams" })).toHaveClass("min-h-[calc(var(--basalt-line-row)+2*var(--basalt-space-lg))]", "leading-basalt-row", "py-basalt-space-lg");
   });
 
   it.each([false, true])("opens the new destinations with the sidebar collapsed=%s", async collapsed => {

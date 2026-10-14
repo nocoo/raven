@@ -584,3 +584,12 @@ and working routes do not establish design conformity. Remove consumer-owned
 spacing, centering and theme-control duplicates when the installed package owns
 them. Browser regressions now check row height, insets, gaps, stable logo geometry,
 mobile control targets and drawer focus restoration against the installed API.
+
+## 2026-10-14 - Update every package geometry assertion
+
+The Basalt 3.1 upgrade updated the browser's sidebar geometry expectations but
+missed a component test tied to the old row classes. The pre-commit hook rejected
+both expanded and collapsed cases. Check component and browser assertions
+together against the published package when geometry changes; search the whole
+test tree rather than guessed filenames. The new contract uses 38px sidebar
+rows with 8px vertical padding, while collapsed items retain their 34px width.

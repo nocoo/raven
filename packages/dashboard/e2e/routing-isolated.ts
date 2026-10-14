@@ -127,8 +127,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(geometry.gap).toBe("2px");
     expect(geometry.rows).toHaveLength(12);
     for (const row of geometry.rows) {
-      expect(row.height).toBe(34);
-      expect(row.padding).toBe("6px 8px");
+      expect(row.height).toBe(38);
+      expect(row.padding).toBe("8px");
       expect(row.lineHeight).toBe("22px");
       if (collapsed) expect(row.width).toBe(34);
     }
@@ -817,7 +817,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     }
     checkpoint("all 12 sidebar destinations fill the island with responsive cards and disclosures in both themes at four widths");
     checkpoint("mobile navigation fills its drawer at 390px and 700px in both themes and closes on Escape and navigation");
-    checkpoint("Basalt owns 34px navigation rows, 8px insets, 2px gaps and 44px mobile controls; logo stays fixed and drawer restores focus");
+    checkpoint("Basalt owns 38px navigation rows, 8px insets, 2px gaps and 44px mobile controls; logo stays fixed and drawer restores focus");
     checkpoint("Basalt tabs keep a stable filter height; selects stay single-line; push logs coexist with navigation and put statistics on the right");
     expect(errors).toEqual([]);
     expect(blocked).toEqual([]);
