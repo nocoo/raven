@@ -47,6 +47,15 @@ thinking rather than disabling it. Other models keep disabled thinking unchanged
 and omitted or already-adaptive thinking is not rewritten. This normalization
 does not retry requests or rename models.
 
+Copilot native Responses streaming anchors each output item's ID to the first
+`response.output_item.added` ID for its `output_index`. Copilot may otherwise
+change that ID on every delta and completion, causing clients such as Codex to
+display the streamed and completed text as separate messages. Subsequent item
+events and terminal `response.output` snapshots use the same upstream-issued ID.
+The map is per stream; message text, reasoning/encrypted content, function
+`call_id`, namespaces, usage and SSE framing metadata are preserved. Non-streaming
+responses and custom providers are unchanged.
+
 ## Key-bound routing and accounting
 
 [R3](28-key-bound-routing.md) is the current routing contract. Every database key

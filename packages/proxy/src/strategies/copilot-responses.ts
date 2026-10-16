@@ -14,6 +14,7 @@ import type {
   ResponsesPayload,
 } from "../upstream/copilot-responses"
 import { sanitizeCopilotResponsesSampling } from "../protocols/responses/sampling"
+import { normalizeCopilotItemIds } from "../protocols/responses/copilot-item-ids"
 import {
   extractNonStreamingMeta,
   isTerminalResponseEvent,
@@ -31,6 +32,7 @@ export interface CopilotResponsesStreamState {
   inputTokens: number
   outputTokens: number
   cacheReadTokens: number
+  itemIdsByOutputIndex: Map<number, string>
   namespaceToolMapping?: NamespaceToolMapping
 }
 
@@ -278,6 +280,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         inputTokens: 0,
         outputTokens: 0,
         cacheReadTokens: 0,
+        itemIdsByOutputIndex: new Map(),
         ...(namespaceToolMapping ? { namespaceToolMapping } : {}),
       }
     },
@@ -302,7 +305,8 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
           st.outputTokens = meta.outputTokens
           st.cacheReadTokens = meta.cachedInputTokens
         }
-        const restored = restoreNamespacedFunctionCalls(parsed, st.namespaceToolMapping)
+        const normalized = normalizeCopilotItemIds(parsed, event, st.itemIdsByOutputIndex)
+        const restored = restoreNamespacedFunctionCalls(normalized, st.namespaceToolMapping)
         if (restored !== parsed) data = JSON.stringify(restored)
       } catch {
         // Malformed passthrough frames retain their original bytes.

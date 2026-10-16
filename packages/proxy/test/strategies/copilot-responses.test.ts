@@ -149,6 +149,7 @@ describe("strategies/copilot-responses", () => {
     const st = s.initStreamState(makeReq(), makeCtx())
     expect(st).toEqual({
       resolvedModel: "gpt-4o", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0,
+      itemIdsByOutputIndex: new Map(),
     })
   })
 
@@ -229,6 +230,7 @@ describe("strategies/copilot-responses", () => {
     const st: CopilotResponsesStreamState = {
       resolvedModel: "gpt-4o-resolved", inputTokens: 22, outputTokens: 13,
       cacheReadTokens: 11,
+      itemIdsByOutputIndex: new Map(),
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
     expect(out).toEqual({
@@ -247,6 +249,7 @@ describe("strategies/copilot-responses", () => {
     const st: CopilotResponsesStreamState = {
       resolvedModel: "gpt-4o-resolved", inputTokens: 100, outputTokens: 5,
       cacheReadTokens: 90,
+      itemIdsByOutputIndex: new Map(),
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
     expect(out.inputTokens).toBe(10)
@@ -258,6 +261,7 @@ describe("strategies/copilot-responses", () => {
     const st: CopilotResponsesStreamState = {
       resolvedModel: "gpt-4o-resolved", inputTokens: 5, outputTokens: 1,
       cacheReadTokens: 40,
+      itemIdsByOutputIndex: new Map(),
     }
     const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
     expect(out.inputTokens).toBe(0)
