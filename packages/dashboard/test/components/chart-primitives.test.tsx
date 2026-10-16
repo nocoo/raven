@@ -14,7 +14,8 @@ describe("dashboard display atoms", () => {
     expect(screen.getByText("Success")).toBeDefined();
     expect(screen.getByText("Failure")).toBeDefined();
     expect(screen.getByText("Total")).toBeDefined();
-    expect(container.querySelector('[aria-hidden="true"]')).toHaveStyle({ background: "rgb(12, 34, 56)" });
+    const swatch = container.querySelector('[aria-hidden]');
+    expect(swatch).toHaveAttribute("style", "background: rgb(12, 34, 56);");
     expect(container.querySelectorAll("p")).toHaveLength(title ? 1 : 0);
   });
 
