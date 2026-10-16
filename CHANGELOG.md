@@ -1,5 +1,36 @@
 # Changelog
 
+## v3.0.11
+
+### Changed
+- Update vitest (#469, #466, #465)
+- Update jsdom (#468)
+- Update gpt-tokenizer (#467)
+- Update @playwright/test (#461)
+- Update react and react-dom (#463, #464)
+- Update next (#462)
+- Update @testing-library/user-event (#455)
+- Update lucide-react (#456)
+- Update oxc-parser (#457)
+- Update @nocoo/basalt (#460)
+- Upgrade base-ci to v2026.9
+- Update @playwright/test (#437)
+- Update @types/node (#438)
+- Update @vitejs/plugin-react (#439)
+- Update hono (#440)
+- Update jsdom (#441)
+- Update lucide-react (#442)
+- Update next (#443)
+- Update oxc-parser (#444)
+- Update vite (#447)
+- Update dependency-cruiser (#448)
+- Update zod (#449)
+- Update @types/bun (#450)
+- Update vitest (#453)
+
+### Fixed
+- Keep Copilot streaming item IDs stable
+
 ## v3.0.8
 
 ### Changed
