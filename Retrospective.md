@@ -593,3 +593,12 @@ both expanded and collapsed cases. Check component and browser assertions
 together against the published package when geometry changes; search the whole
 test tree rather than guessed filenames. The new contract uses 38px sidebar
 rows with 8px vertical padding, while collapsed items retain their 34px width.
+
+## 2026-10-22 - Do not infer restart permission from a local preview request
+
+While preparing the Basalt upgrade preview, the existing Raven processes on
+7023/7024 were identified and stopped to replace their older build. The user
+then explicitly requested that running Bun processes remain untouched. No
+other project's processes were stopped, but confirming ownership alone did
+not establish that interruption was acceptable. Inspect and reuse an existing
+preview when possible; ask before stopping a running service to replace it.
