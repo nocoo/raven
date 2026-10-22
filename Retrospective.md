@@ -610,3 +610,9 @@ isolated browser check still expected the 3.1 navigation gap of 2px. The
 published design contract now uses 4px container-spacing multiples and a
 4px navigation gap. Update the exact browser expectation and its checkpoint
 description together; do not override library spacing to preserve an old test.
+
+Independent review also found that ordinary card headers now omit bottom
+padding, squeezing closed disclosure cards. Use the published header-as-trigger
+composition with a native heading outside the button and explicit unpadded
+card roots. Browser checks cover all four affected disclosures in both states;
+API compatibility alone does not validate a new presentation contract.

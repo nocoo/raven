@@ -212,8 +212,8 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
 
   return (
     <Collapsible asChild>
-      <LayerCard className="overflow-hidden">
-        <LayerCard.Header><h2 className="w-full"><CollapsibleTrigger className="w-full justify-between text-sm font-semibold text-basalt-foreground"><span className="flex items-center gap-2.5"><SectionIcon icon={BookOpen} tone="orange" />Client setup guides</span></CollapsibleTrigger></h2></LayerCard.Header>
+      <LayerCard padding="none">
+        <h2><LayerCard.Header asChild><CollapsibleTrigger className="text-sm font-semibold"><span className="flex items-center gap-2.5"><SectionIcon icon={BookOpen} tone="orange" />Client setup guides</span></CollapsibleTrigger></LayerCard.Header></h2>
         <CollapsibleContent unstyled><LayerCard.Body>
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SetupTab)}>
           <TabsList>

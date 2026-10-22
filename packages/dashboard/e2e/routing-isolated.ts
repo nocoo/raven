@@ -95,6 +95,20 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(banner!.x + banner!.width).toBeLessThan(bounds!.x + bounds!.width);
     layouts.push({ kind: "operation-feedback", action, trigger, banner, card: bounds });
   };
+  const disclosureHeader = async (name: string, level: number) => {
+    const heading = page.getByRole("heading", { name, level, exact: true });
+    const trigger = heading.getByRole("button", { name, exact: true });
+    await expect(trigger).toHaveAttribute("data-slot", "card-header");
+    const geometry = await trigger.evaluate(element => {
+      const style = getComputedStyle(element);
+      const card = element.closest("[data-basalt-surface]")!;
+      return { paddingTop: style.paddingTop, paddingBottom: style.paddingBottom, width: element.getBoundingClientRect().width, cardWidth: card.getBoundingClientRect().width, expanded: element.getAttribute("aria-expanded") };
+    });
+    expect(geometry.paddingTop).toBe("12px");
+    expect(geometry.paddingBottom).toBe("12px");
+    expect(Math.abs(geometry.width - geometry.cardWidth)).toBeLessThanOrEqual(1);
+    layouts.push({ kind: "disclosure-header", name, geometry });
+  };
   const upstreamTypography = async () => {
     const sizes = await page.getByRole("region", { name: "Upstream configuration", exact: true }).evaluate(element =>
       [...element.querySelectorAll<HTMLElement>("*")].filter(node => node.checkVisibility() && !node.closest(".sr-only") && [...node.childNodes].some(child => child.nodeType === Node.TEXT_NODE && child.textContent?.trim()))
@@ -687,8 +701,10 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             await page.getByRole("tab", { name: "Code", exact: true }).click();
             await indicator("Code");
             await expect(page.getByRole("tab", { name: "Claude Code", exact: true })).toBeHidden();
+            await disclosureHeader("Client setup guides", 2);
             await page.getByRole("button", { name: "Client setup guides" }).click();
             await expect(page.getByRole("tab", { name: "Claude Code", exact: true })).toBeVisible();
+            await disclosureHeader("Client setup guides", 2);
             await page.getByRole("button", { name: "Client setup guides" }).click();
           }
           if (path === "requests") {
@@ -701,8 +717,10 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           }
           if (path === "copilot/account") {
             await expect(page.getByText("fixture-tracking")).toBeHidden();
+            await disclosureHeader("Endpoints and properties", 2);
             await page.getByRole("button", { name: "Endpoints and properties" }).click();
             await expect(page.getByText("fixture-tracking")).toBeVisible();
+            await disclosureHeader("Endpoints and properties", 2);
           }
           if (path === "settings/proxy") {
             await expect(page.getByRole("textbox", { name: "Host", exact: true })).toBeVisible();
@@ -734,16 +752,22 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             await indicator("Connection");
             const advanced = page.getByRole("button", { name: "Advanced connection settings", exact: true });
             await expect(advanced).toHaveAttribute("aria-expanded", "false");
+            await disclosureHeader("Advanced connection settings", 3);
             await upstreamTypography();
             await shot(`upstreams-connection-${width}-${theme}`);
             await advanced.focus();
             await page.keyboard.press("Enter");
             await expect(page.getByRole("combobox", { name: "Authentication header", exact: true })).toBeVisible();
+            await disclosureHeader("Advanced connection settings", 3);
             await upstreamTypography();
             await layout(`upstreams/advanced/${width}/${theme}`);
             await shot(`upstreams-advanced-${width}-${theme}`);
             await page.getByRole("tab", { name: "Models", exact: true }).click();
             await indicator("Models");
+            await disclosureHeader("Manual model IDs", 3);
+            await page.getByRole("button", { name: "Manual model IDs", exact: true }).click();
+            await disclosureHeader("Manual model IDs", 3);
+            await page.getByRole("button", { name: "Manual model IDs", exact: true }).click();
             await upstreamTypography();
             await shot(`upstreams-models-${width}-${theme}`);
           }
@@ -818,6 +842,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     checkpoint("all 12 sidebar destinations fill the island with responsive cards and disclosures in both themes at four widths");
     checkpoint("mobile navigation fills its drawer at 390px and 700px in both themes and closes on Escape and navigation");
     checkpoint("Basalt owns 38px navigation rows, 8px insets, 4px gaps and 44px mobile controls; logo stays fixed and drawer restores focus");
+    checkpoint("disclosure headers preserve native headings, full-width triggers and symmetric 12px insets when open or closed");
     checkpoint("Basalt tabs keep a stable filter height; selects stay single-line; push logs coexist with navigation and put statistics on the right");
     expect(errors).toEqual([]);
     expect(blocked).toEqual([]);

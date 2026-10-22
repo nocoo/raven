@@ -40,8 +40,8 @@ export function UpstreamCatalog({ upstream, manual, onManualChange, busy, dirty,
         {upstream && <p className="text-xs text-basalt-muted-foreground">Last refresh: {upstream.last_refreshed_at ? new Date(upstream.last_refreshed_at).toLocaleString() : "Never"}</p>}
       </LayerCard.Body>
     </LayerCard>
-    <Collapsible asChild defaultOpen={manual.length > 0}><LayerCard>
-      <LayerCard.Header><h3 className="w-full"><CollapsibleTrigger className="w-full justify-between text-sm font-semibold"><span className="flex items-center gap-2.5"><SectionIcon icon={ListPlus} tone="teal" />Manual model IDs</span></CollapsibleTrigger></h3></LayerCard.Header>
+    <Collapsible asChild defaultOpen={manual.length > 0}><LayerCard padding="none">
+      <h3><LayerCard.Header asChild><CollapsibleTrigger className="text-sm font-semibold"><span className="flex items-center gap-2.5"><SectionIcon icon={ListPlus} tone="teal" />Manual model IDs</span></CollapsibleTrigger></LayerCard.Header></h3>
       <CollapsibleContent unstyled><LayerCard.Body className="space-y-2">
         <InputArea id="manual-models" aria-label="Manual model IDs" aria-describedby="manual-models-hint" rows={3} size="sm" className="font-mono text-sm" value={manual} onChange={event => onManualChange(event.target.value)} placeholder="your-model-id" />
         <p id="manual-models-hint" className="text-xs text-basalt-muted-foreground">One ID per line or comma-separated. Refreshing keeps these IDs.</p>
