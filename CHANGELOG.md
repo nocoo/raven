@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.0.12
+
+### Changed
+- Record safe preview restart workflow
+- Align basalt navigation gap contract
+- Upgrade basalt to 3.2.1
+- Merge origin main
+- Upgrade basalt to 3.1.0
+
+### Fixed
+- Align expanded disclosure boundaries
+- Preserve collapsed card header spacing
+- Use basalt sidebar and shell defaults
+
 ## v3.0.11
 
 ### Changed
