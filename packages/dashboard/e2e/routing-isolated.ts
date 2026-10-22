@@ -102,11 +102,17 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     const geometry = await trigger.evaluate(element => {
       const style = getComputedStyle(element);
       const card = element.closest("[data-basalt-surface]")!;
-      return { paddingTop: style.paddingTop, paddingBottom: style.paddingBottom, width: element.getBoundingClientRect().width, cardWidth: card.getBoundingClientRect().width, expanded: element.getAttribute("aria-expanded") };
+      return { paddingTop: style.paddingTop, paddingBottom: style.paddingBottom, width: element.getBoundingClientRect().width, cardWidth: card.getBoundingClientRect().width, expanded: element.getAttribute("aria-expanded"), divider: style.borderBottomWidth, borderStyle: style.borderBottomStyle, bottomLeftRadius: style.borderBottomLeftRadius, bottomRightRadius: style.borderBottomRightRadius };
     });
     expect(geometry.paddingTop).toBe("12px");
     expect(geometry.paddingBottom).toBe("12px");
     expect(Math.abs(geometry.width - geometry.cardWidth)).toBeLessThanOrEqual(1);
+    if (geometry.expanded === "true") {
+      expect(geometry.divider).toBe("1px");
+      expect(geometry.borderStyle).toBe("solid");
+      expect(geometry.bottomLeftRadius).toBe("0px");
+      expect(geometry.bottomRightRadius).toBe("0px");
+    }
     layouts.push({ kind: "disclosure-header", name, geometry });
   };
   const upstreamTypography = async () => {

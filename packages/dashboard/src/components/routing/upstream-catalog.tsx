@@ -41,7 +41,7 @@ export function UpstreamCatalog({ upstream, manual, onManualChange, busy, dirty,
       </LayerCard.Body>
     </LayerCard>
     <Collapsible asChild defaultOpen={manual.length > 0}><LayerCard padding="none">
-      <h3><LayerCard.Header asChild><CollapsibleTrigger className="text-sm font-semibold"><span className="flex items-center gap-2.5"><SectionIcon icon={ListPlus} tone="teal" />Manual model IDs</span></CollapsibleTrigger></LayerCard.Header></h3>
+      <h3><LayerCard.Header asChild><CollapsibleTrigger className="border-solid text-sm font-semibold data-[state=open]:rounded-b-none"><span className="flex items-center gap-2.5"><SectionIcon icon={ListPlus} tone="teal" />Manual model IDs</span></CollapsibleTrigger></LayerCard.Header></h3>
       <CollapsibleContent unstyled><LayerCard.Body className="space-y-2">
         <InputArea id="manual-models" aria-label="Manual model IDs" aria-describedby="manual-models-hint" rows={3} size="sm" className="font-mono text-sm" value={manual} onChange={event => onManualChange(event.target.value)} placeholder="your-model-id" />
         <p id="manual-models-hint" className="text-xs text-basalt-muted-foreground">One ID per line or comma-separated. Refreshing keeps these IDs.</p>

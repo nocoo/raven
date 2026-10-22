@@ -616,3 +616,7 @@ padding, squeezing closed disclosure cards. Use the published header-as-trigger
 composition with a native heading outside the button and explicit unpadded
 card roots. Browser checks cover all four affected disclosures in both states;
 API compatibility alone does not validate a new presentation contract.
+
+The trigger's default border reset and the heading's last-child relationship
+also require explicit solid borders and square open-state bottom corners.
+Verify computed borders and radii, not just the presence of state classes.
