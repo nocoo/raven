@@ -620,3 +620,14 @@ API compatibility alone does not validate a new presentation contract.
 The trigger's default border reset and the heading's last-child relationship
 also require explicit solid borders and square open-state bottom corners.
 Verify computed borders and radii, not just the presence of state classes.
+
+## 2026-10-22 - Keep production preview builds separate from active servers
+
+An existing production-mode Dashboard remained running while the upgrade was
+built into the same `.next` directory. The health endpoint and page HTML still
+returned 200, but the process retained an old static-resource inventory and
+returned 404 for a newly referenced client bundle. A healthy API is not proof
+that the preview is usable. Check for an active production server before an
+in-place build; use an isolated build directory or obtain restart approval
+first. Once the user prohibits stopping running Bun processes, preserve them
+and request a user-managed restart rather than silently replacing the service.
