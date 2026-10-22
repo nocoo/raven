@@ -775,8 +775,8 @@ Final integration results on 2026-09-22:
 
 Runtime implementation: `8874699`. Isolated acceptance harness: `fe51e13`.
 The complete package suites, production build, isolated browser verification and
-normal commit gates passed with Node 26.9.0 and Bun 1.4.2. An additional production
-build and isolated browser run passed with Node 24.21.0; the full test gates were
+normal commit gates passed with Node 26.12.1 and Bun 1.4.2. An additional production
+build and isolated browser run passed with Node 24.22.1; the full test gates were
 not rerun on Node 24.
 
 | Verification | Result |
