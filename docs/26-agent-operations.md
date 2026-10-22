@@ -109,7 +109,7 @@ Proxy and scripts run on Bun; Dashboard and its jsdom/V8 tests run on Node.
 As of 2026-09-22, the [official schedule](https://github.com/nodejs/Release/blob/main/schedule.json)
 places Node 24 in Active LTS and schedules Node 26 LTS for 2026-10-28. Node 26
 remains in the Current phase. Raven's CI already defaulted to 26.8.1; the explicit
-pin aligns it with the fully verified local 26.9.0 runtime. Installed Next 16.3.5, Vitest
+pin aligns it with the fully verified local 26.12.1 runtime. Installed Next 16.3.5, Vitest
 5.0.1, jsdom 30.1.0 and Vite 8.3.0 all support Node 26. Full package suites,
 coverage gates, production builds and isolated browser acceptance passed on this
 baseline. The [release index](https://nodejs.org/dist/index.json) lists 26.10.0

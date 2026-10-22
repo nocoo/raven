@@ -236,7 +236,7 @@
         <div><h3>构建与静态检查通过</h3><p class="small muted">Dashboard 生产构建、Proxy / Dashboard 全新类型检查（<code>--incremental false</code>）、全量 Biome 与架构门禁通过。每个修复 commit 的九项正常提交门禁均通过；未跳过门禁或降低阈值。</p></div>
         <div><h3>原始缺陷全部转为普通回归</h3><p class="small muted">四个初审契约文件现有 55 项普通测试全部通过，已计入 Proxy 总数。测试目录与脚本内未发现 <code>only / skip / todo / fails</code> 标记。覆盖率仍使用项目原有范围与基线。</p></div>
       </div>
-      <p class="footnote">Proxy 执行正式 <code>bun run gate:coverage</code>，包括脚本覆盖率、四项 95% 阈值、97.5% 行下限、目录基线、回退限制和未测试文件检查。工具链：Bun 1.4.2 / Node v26.9.0 / Vitest 5.0.1；此处记录本地验证，不作为 CI 或部署证据。</p>
+      <p class="footnote">Proxy 执行正式 <code>bun run gate:coverage</code>，包括脚本覆盖率、四项 95% 阈值、97.5% 行下限、目录基线、回退限制和未测试文件检查。工具链：Bun 1.4.2 / Node v26.12.1 / Vitest 5.0.1；此处记录本地验证，不作为 CI 或部署证据。</p>
       <p class="footnote">报告页面已通过本机 Chrome 离线交互检查：12 个架构节点、36 种路由组合、8 条修复记录、筛选与事件回放、复制命令及键盘切换；390 / 768 / 1500 像素宽度无整页横向溢出，页面错误与自动网络请求均为 0。</p>
       <details style="margin-top:var(--s2)"><summary>查看隔离条件、执行命令与验证过程</summary>
         <p class="footnote">在固定 revision 的独立工作区复用已安装依赖，未复制 .env 或真实 token。配置、数据库和令牌路径均指向本次临时目录；上游调用由 UT mock，构建指向不可达的本地代理。未改动日常 Dashboard 的 .next、实际数据库或服务进程。</p>
@@ -260,7 +260,7 @@
             <tr><td><strong>管理面板</strong> · 36 个文件 / 538 项</td><td class="numeric">98.73%</td><td class="numeric">96.27%</td><td class="numeric">97.43%</td><td class="numeric">98.64%</td></tr>
             <tr><td><strong>脚本</strong> · 3 个文件 / 45 项</td><td class="numeric">100%</td><td class="numeric">98.92%</td><td class="numeric">100%</td><td class="numeric">100%</td></tr>
           </tbody></table></div>
-          <p class="footnote">四项全局覆盖率门槛均为 ≥95%。Proxy 还执行 97.5% 的行覆盖率门槛、目录基线及回退限制。基线测试无跳过项。本机工具链为 Bun 1.4.2 / Node 26.9.0 / Vitest 5.0.1；CI 固定使用 Bun 1.3.11，因此这些结果属于本地验证证据。</p>
+          <p class="footnote">四项全局覆盖率门槛均为 ≥95%。Proxy 还执行 97.5% 的行覆盖率门槛、目录基线及回退限制。基线测试无跳过项。本机工具链为 Bun 1.4.2 / Node 26.12.1 / Vitest 5.0.1；CI 固定使用 Bun 1.3.11，因此这些结果属于本地验证证据。</p>
         </div>
         <div class="panel padded">
           <div class="section-heading"><div><h2>初审关键路径的覆盖率</h2><p class="small muted">单文件数据用于定位盲点；项目门禁执行汇总覆盖率阈值。</p></div></div>
