@@ -602,3 +602,11 @@ then explicitly requested that running Bun processes remain untouched. No
 other project's processes were stopped, but confirming ownership alone did
 not establish that interruption was acceptable. Inspect and reuse an existing
 preview when possible; ask before stopping a running service to replace it.
+
+## 2026-10-22 - Check spacing tokens during minor Basalt upgrades
+
+The 3.2.1 upgrade passed types, unit tests and the production build, but the
+isolated browser check still expected the 3.1 navigation gap of 2px. The
+published design contract now uses 4px container-spacing multiples and a
+4px navigation gap. Update the exact browser expectation and its checkpoint
+description together; do not override library spacing to preserve an old test.
