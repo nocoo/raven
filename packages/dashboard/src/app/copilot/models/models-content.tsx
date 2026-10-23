@@ -96,7 +96,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
   const summary = useMemo(() => {
     const maxContext = data.reduce((max, m) => {
       const c = m.capabilities?.limits?.max_context_window_tokens ?? 0;
-      return c > max ? c : max;
+      return Math.max(c, max);
     }, 0);
     const pickerCount = data.filter((m) => m.model_picker_enabled).length;
     const previewCount = data.filter((m) => !!m.preview_state).length;

@@ -37,6 +37,32 @@ function truncate(str: string, max: number): string {
 
 type SortColumn = "timestamp" | "latency_ms" | "total_tokens" | "ttft_ms" | "processing_ms";
 
+function SortButton({
+  column,
+  children,
+  currentSort,
+  onToggle,
+}: {
+  column: SortColumn;
+  children: React.ReactNode;
+  currentSort: SortColumn;
+  onToggle: (column: SortColumn) => void;
+}) {
+  const isActive = currentSort === column;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(column)}
+      className="inline-flex items-center gap-1 hover:text-basalt-foreground transition-colors"
+    >
+      {children}
+      <ArrowUpDown
+        className={`h-3 w-3 ${isActive ? "text-basalt-foreground" : "text-basalt-muted-foreground"}`}
+      />
+    </button>
+  );
+}
+
 const DEFAULT_VISIBLE = new Set([
   "timestamp", "model", "status", "latency_ms", "ttft_ms", "tokens", "protocol_mode", "account_name",
 ]);
@@ -131,19 +157,6 @@ export function RequestTable({
     ? searchParams.has("cursor")
     : parseInt(searchParams.get("offset") ?? "0", 10) > 0;
 
-  function SortButton({ column, children }: { column: SortColumn; children: React.ReactNode }) {
-    const isActive = currentSort === column;
-    return (
-      <button type="button"
-        onClick={() => toggleSort(column)}
-        className="inline-flex items-center gap-1 hover:text-basalt-foreground transition-colors"
-      >
-        {children}
-        <ArrowUpDown className={`h-3 w-3 ${isActive ? "text-basalt-foreground" : "text-basalt-muted-foreground"}`} />
-      </button>
-    );
-  }
-
   function getAriaSort(column: SortColumn): "ascending" | "descending" | "none" {
     if (currentSort !== column) return "none";
     return currentOrder === "asc" ? "ascending" : "descending";
@@ -160,7 +173,7 @@ export function RequestTable({
               <TableRow className="border-basalt-border hover:bg-transparent">
                 {isVisible("timestamp") && (
                   <TableHead aria-sort={getAriaSort("timestamp")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="timestamp">Time</SortButton>
+                    <SortButton column="timestamp" currentSort={currentSort} onToggle={toggleSort}>Time</SortButton>
                   </TableHead>
                 )}
                 {isVisible("model") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Model</TableHead>}
@@ -169,22 +182,22 @@ export function RequestTable({
                 {isVisible("status") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Status</TableHead>}
                 {isVisible("latency_ms") && (
                   <TableHead aria-sort={getAriaSort("latency_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="latency_ms">Latency</SortButton>
+                    <SortButton column="latency_ms" currentSort={currentSort} onToggle={toggleSort}>Latency</SortButton>
                   </TableHead>
                 )}
                 {isVisible("ttft_ms") && (
                   <TableHead aria-sort={getAriaSort("ttft_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="ttft_ms">TTFT</SortButton>
+                    <SortButton column="ttft_ms" currentSort={currentSort} onToggle={toggleSort}>TTFT</SortButton>
                   </TableHead>
                 )}
                 {isVisible("processing_ms") && (
                   <TableHead aria-sort={getAriaSort("processing_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="processing_ms">Processing</SortButton>
+                    <SortButton column="processing_ms" currentSort={currentSort} onToggle={toggleSort}>Processing</SortButton>
                   </TableHead>
                 )}
                 {isVisible("tokens") && (
                   <TableHead aria-sort={getAriaSort("total_tokens")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="total_tokens">Tokens (in/out)</SortButton>
+                    <SortButton column="total_tokens" currentSort={currentSort} onToggle={toggleSort}>Tokens (in/out)</SortButton>
                   </TableHead>
                 )}
                 {isVisible("stream") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Stream</TableHead>}
