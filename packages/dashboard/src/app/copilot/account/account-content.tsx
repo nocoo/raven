@@ -327,7 +327,7 @@ export function AccountContent({ data }: AccountContentProps) {
 
       {(data.analytics_tracking_id != null || (data.endpoints && Object.keys(data.endpoints).length > 0) || extraEntries.length > 0) &&
           <Collapsible asChild><LayerCard padding="none">
-            <h2><LayerCard.Header asChild><CollapsibleTrigger className="border-solid border-basalt-border text-sm font-semibold data-[state=open]:rounded-b-none data-[state=open]:border-b"><span className="flex items-center gap-2.5"><SectionIcon icon={Braces} tone="blue" />Endpoints and properties</span></CollapsibleTrigger></LayerCard.Header></h2>
+            <h2><LayerCard.Header asChild><CollapsibleTrigger className="border-solid text-sm font-semibold data-[state=open]:rounded-b-none"><span className="flex items-center gap-2.5"><SectionIcon icon={Braces} tone="blue" />Endpoints and properties</span></CollapsibleTrigger></LayerCard.Header></h2>
             <CollapsibleContent unstyled><LayerCard.Body className="space-y-4">
               {data.analytics_tracking_id != null && <div className="space-y-1"><p className="text-xs text-basalt-muted-foreground">Tracking ID</p><p className="break-all font-mono text-xs">{data.analytics_tracking_id}</p></div>}
       {data.endpoints && Object.keys(data.endpoints).length > 0 && (
