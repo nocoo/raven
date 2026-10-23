@@ -25,6 +25,7 @@ export interface BuildStrategyDeps {
   anthropicBeta?: string | null
   sanitizeOrphanedToolResults?: boolean
   reorderToolResults?: boolean
+  plaintextAgentTasks?: boolean
 }
 
 export type AnyStrategy = Strategy<unknown, unknown, unknown, unknown, ServerSentEvent, SSEMessage, unknown>
@@ -58,7 +59,7 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     case "copilot-native":
       return makeCopilotNative({ client: buildUpstreamClient("copilot-native", transport), allowEffortRepair: deps.allowEffortRepair ?? true }) as unknown as AnyStrategy
     case "copilot-responses":
-      return makeCopilotResponses({ client: buildUpstreamClient("copilot-responses", transport) }) as unknown as AnyStrategy
+      return makeCopilotResponses({ client: buildUpstreamClient("copilot-responses", transport), plaintextAgentTasks: deps.plaintextAgentTasks ?? false }) as unknown as AnyStrategy
     case "copilot-chat-via-responses":
       return { ...makeCopilotChatViaResponses({ client: responses(), toolCallDebug: deps.toolCallDebug, requestUsage: provider.quota !== null }), name: decision.name } as unknown as AnyStrategy
     case "custom-openai":

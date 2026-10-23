@@ -144,7 +144,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     });
     expect(geometry.rail).toBe(collapsed ? 68 : 260);
     expect(geometry.padding).toBe("8px");
-    expect(geometry.gap).toBe("4px");
+    // Basalt 3.1 defines a 2px navigation gap; keep this tied to the pinned contract.
+    expect(geometry.gap).toBe("2px");
     expect(geometry.rows).toHaveLength(12);
     for (const row of geometry.rows) {
       expect(row.height).toBe(38);
@@ -847,7 +848,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     }
     checkpoint("all 12 sidebar destinations fill the island with responsive cards and disclosures in both themes at four widths");
     checkpoint("mobile navigation fills its drawer at 390px and 700px in both themes and closes on Escape and navigation");
-    checkpoint("Basalt owns 38px navigation rows, 8px insets, 4px gaps and 44px mobile controls; logo stays fixed and drawer restores focus");
+    checkpoint("Basalt 3.1 owns 38px navigation rows, 8px insets, 2px gaps and 44px mobile controls; logo stays fixed and drawer restores focus");
     checkpoint("disclosure headers preserve native headings, full-width triggers and symmetric 12px insets when open or closed");
     checkpoint("Basalt tabs keep a stable filter height; selects stay single-line; push logs coexist with navigation and put statistics on the right");
     expect(errors).toEqual([]);

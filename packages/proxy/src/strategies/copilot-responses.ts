@@ -15,6 +15,7 @@ import type {
 } from "../upstream/copilot-responses"
 import { sanitizeCopilotResponsesSampling } from "../protocols/responses/sampling"
 import { normalizeCopilotItemIds } from "../protocols/responses/copilot-item-ids"
+import { type AgentArgumentState, type AgentToolAliases, markPlaintextAgentArguments, preparePlaintextAgentTasks } from "../protocols/responses/agent-arguments"
 import {
   extractNonStreamingMeta,
   isTerminalResponseEvent,
@@ -23,6 +24,7 @@ import {
 
 export interface CopilotResponsesDeps {
   client: CopilotResponsesClient
+  plaintextAgentTasks?: boolean
 }
 
 export interface CopilotResponsesStreamState {
@@ -34,6 +36,8 @@ export interface CopilotResponsesStreamState {
   cacheReadTokens: number
   itemIdsByOutputIndex: Map<number, string>
   namespaceToolMapping?: NamespaceToolMapping
+  plaintextAgentTools?: AgentToolAliases
+  agentArgumentState?: AgentArgumentState
 }
 
 type NamespaceToolMapping = Map<string, { namespace: string; name: string }>
@@ -41,6 +45,8 @@ type NamespaceToolMapping = Map<string, { namespace: string; name: string }>
 // Keyed by the object identity of the prepared request returned from prepare().
 // Runner preserves this identity through dispatch → adaptJson / initStreamState.
 const namespaceToolMappings = new WeakMap<ResponsesPayload, NamespaceToolMapping>()
+const plaintextAgentToolsByRequest = new WeakMap<ResponsesPayload, AgentToolAliases>()
+const NO_PLAINTEXT_AGENT_TOOLS: AgentToolAliases = new Map()
 
 const MAX_REWRITE_DEPTH = 20
 
@@ -223,7 +229,8 @@ function rewriteNamespacedFunctionCalls(
 
   let changed = false
   let next: Record<string, unknown> = record
-  if (mapped) {
+  // Flat names belong to this mapping only when no other namespace claims them.
+  if (mapped && (record.namespace == null || record.namespace === mapped.namespace)) {
     next = { ...record, name: mapped.name, namespace: mapped.namespace }
     changed = true
   }
@@ -258,7 +265,14 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
   return {
     name: "copilot-responses",
 
-    prepare: (req) => prepareResponsesTools(sanitizeCopilotResponsesSampling(req)),
+    prepare: (req) => {
+      const sanitized = sanitizeCopilotResponsesSampling(req)
+      if (!deps.plaintextAgentTasks) return prepareResponsesTools(sanitized)
+      const agentTasks = preparePlaintextAgentTasks(sanitized)
+      const prepared = prepareResponsesTools(agentTasks.request)
+      if (agentTasks.toolNames.size > 0) plaintextAgentToolsByRequest.set(prepared, agentTasks.toolNames)
+      return prepared
+    },
 
     dispatch: async (up, ctx) => {
       const response = await deps.client.send(up, ctx.signal)
@@ -268,13 +282,14 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
       return { kind: "json", body: response }
     },
 
-    adaptJson: (resp, req) => restoreNamespacedFunctionCalls(
-      resp,
-      namespaceToolMappings.get(req),
+    adaptJson: (resp, req) => markPlaintextAgentArguments(
+      restoreNamespacedFunctionCalls(resp, namespaceToolMappings.get(req)),
+      plaintextAgentToolsByRequest.get(req) ?? NO_PLAINTEXT_AGENT_TOOLS,
     ),
 
     initStreamState: (req) => {
       const namespaceToolMapping = namespaceToolMappings.get(req)
+      const plaintextAgentTools = plaintextAgentToolsByRequest.get(req)
       return {
         resolvedModel: req.model,
         inputTokens: 0,
@@ -282,6 +297,7 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         cacheReadTokens: 0,
         itemIdsByOutputIndex: new Map(),
         ...(namespaceToolMapping ? { namespaceToolMapping } : {}),
+        ...(plaintextAgentTools ? { plaintextAgentTools, agentArgumentState: new Map() } : {}),
       }
     },
 
@@ -307,7 +323,8 @@ export function makeCopilotResponses(deps: CopilotResponsesDeps): Strategy<
         }
         const normalized = normalizeCopilotItemIds(parsed, event, st.itemIdsByOutputIndex)
         const restored = restoreNamespacedFunctionCalls(normalized, st.namespaceToolMapping)
-        if (restored !== parsed) data = JSON.stringify(restored)
+        const compatible = markPlaintextAgentArguments(restored, st.plaintextAgentTools ?? NO_PLAINTEXT_AGENT_TOOLS, st.agentArgumentState, event)
+        if (compatible !== parsed) data = JSON.stringify(compatible)
       } catch {
         // Malformed passthrough frames retain their original bytes.
       }
