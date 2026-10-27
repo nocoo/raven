@@ -15,12 +15,12 @@
   },
   "dependencies": {
     "gpt-tokenizer": "4.1.0",
-    "hono": "4.13.13",
+    "hono": "4.13.14",
     "socks": "^2.8.10",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "1.4.3",
+    "@types/bun": "1.4.4",
     "@vitest/coverage-istanbul": "5.0.5",
     "vitest": "5.0.5"
   }
