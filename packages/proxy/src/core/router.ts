@@ -5,7 +5,7 @@ import { nativeProtocolEvidence, type NativeProtocolEvidence } from "./protocol-
 export { declaredProtocols, formatProtocol } from "./protocol-capabilities"
 
 export type { StrategyName }
-export type ClientProtocol = "anthropic" | "openai" | "responses"
+export type ClientProtocol = "anthropic" | "openai" | "responses" | "systemone"
 
 export type StrategyDecision =
   | { kind: "ok"; name: StrategyName; providerId: string; upstreamProtocol: ClientProtocol; clientProtocol: ClientProtocol; model: string }
@@ -30,6 +30,9 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
   let target: ClientProtocol
   if (copilot) {
     const declared = nativeCapabilities(provider, model, input.stream === true, evidence).map(entry => entry.protocol)
+    if (protocol === "systemone" && !declared.includes("systemone")) {
+      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/systemone. Refresh its model catalog in Upstreams." }
+    }
     if (declared.length) {
       target = declared.includes(protocol) ? protocol : declared[0]!
     } else {
@@ -44,12 +47,16 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
     }
     target = formatProtocol(provider.format)
   }
+  if ((protocol === "systemone" || target === "systemone") && (protocol !== target || input.stream)) {
+    return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: "Systemone requires a native non-streaming upstream; protocol conversion is not supported." }
+  }
   if (!allowConversion && protocol !== target) {
     return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: `The selected upstream uses ${target}; this rule does not allow conversion from ${protocol}.` }
   }
   let name: StrategyName = "protocol-converted"
   if (copilot) {
-    if (protocol === "anthropic" && target === "anthropic") name = "copilot-native"
+    if (protocol === "systemone" && target === "systemone") name = "copilot-systemone"
+    else if (protocol === "anthropic" && target === "anthropic") name = "copilot-native"
     else if (protocol === "anthropic" && target === "openai") name = "copilot-translated"
     else if (protocol === "openai" && target === "openai") name = "copilot-openai-direct"
     else if (protocol === "responses" && target === "responses") name = "copilot-responses"

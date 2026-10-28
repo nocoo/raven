@@ -21,8 +21,9 @@ Maintain project instructions only in this root `AGENTS.md`. Do not create neste
 ## Project Invariants
 
 - Personal local research is the primary scope. Preserve API versus internal management keys and GitHub OAuth versus Copilot JWT distinctions; do not weaken authentication when a database is empty.
-- Seven-layer proxy architecture, seven established strategies and the shared `protocol-converted` strategy follow [operations](docs/26-agent-operations.md). Composition is the sole routes↔strategies/upstream bridge; strategies receive injected dependencies; protocols remain pure.
+- Seven-layer proxy architecture, seven established strategies, shared `protocol-converted` and native `copilot-systemone` follow [operations](docs/26-agent-operations.md). Composition is the sole routes↔strategies/upstream bridge; strategies receive injected dependencies; protocols remain pure.
 - Share server-tool interception through the existing decorator; preserve correct JSON/SSE shapes and raw model IDs. Do not rewrite model names to compensate for a client's display bug.
+- Native `/v1/systemone` uses the Copilot token's validated API destination, unified key-bound admission and raw JSON responses. No decision/chat conversion, inference retries, redirect following or fabricated fields. See [protocol evidence](docs/30-systemone.md).
 - Management `/api/*` and `/ws/logs` require a loopback socket peer plus `RAVEN_INTERNAL_KEY`; client API keys never authorize management. Model global/key IP whitelists share the IPv4/IPv6 core; geography is Dashboard-only enrichment.
 - Tokens/database belong in platform user directories with private permissions, not Git. Preserve `RAVEN_CONFIG_DIR`, `RAVEN_DATA_DIR`, `RAVEN_TOKEN_PATH`, `RAVEN_DB_PATH` and legacy migration semantics.
 - Upstream HTTP is always mocked in unit/in-process route tests. Never place real tokens in fixtures or automatically exercise a real Copilot/provider account.

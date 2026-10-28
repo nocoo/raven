@@ -14,11 +14,12 @@ import { consumeStreamToResponse } from "../protocols/translate/consume-stream"
 import { decorate } from "../strategies/support/server-tools"
 import type { ChatCompletionsPayload } from "../upstream/copilot-openai"
 import type { ResponsesPayload } from "../upstream/copilot-responses"
+import type { SystemonePayload } from "../protocols/systemone"
 import { buildStrategy, type BuildStrategyDeps } from "./strategy-registry"
 import { accountedFetch, resolveRouting } from "./routing"
 import { logEmitter } from "../util/log-emitter"
 
-export type GenerationPayload = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload
+export type GenerationPayload = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload | SystemonePayload
 export type { ClientProtocol } from "../core/router"
 export type { StrategyName } from "../core/strategy"
 

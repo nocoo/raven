@@ -2,6 +2,7 @@ const PROTOCOLS = {
   anthropic: "Messages",
   openai: "Chat Completions",
   responses: "Responses",
+  systemone: "Systemone",
 } as const;
 
 function protocol(value: unknown): value is keyof typeof PROTOCOLS {

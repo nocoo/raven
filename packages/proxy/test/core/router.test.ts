@@ -71,4 +71,21 @@ describe("endpoint selection after key-bound upstream selection", () => {
     expect(declaredProtocols({ id: "x", supported_endpoints: "invalid" as never })).toEqual([])
     expect(declaredProtocols(undefined)).toEqual([])
   })
+
+  test.each([false, true])("systemone is native-only regardless of conversion=%s", (allowConversion) => {
+    const model = "microsoft-decision-1"
+    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: model, supported_endpoints: ["/v1/systemone"] }] })
+    const input = { protocol: "systemone" as const, model, requestedModel: model, provider, allowConversion }
+    expect(declaredProtocols(provider.models[0])).toEqual(["systemone"])
+    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name: "copilot-systemone", upstreamProtocol: "systemone", model })
+    expect(pickStrategy({ ...input, stream: true })).toMatchObject({ kind: "reject", status: 400 })
+    for (const protocol of protocols) {
+      expect(pickStrategy({ ...input, protocol })).toMatchObject({ kind: "reject", status: 400 })
+    }
+    for (const format of formats) {
+      expect(pickStrategy({ ...input, provider: upstreamRecord({ format }) })).toMatchObject({ kind: "reject", status: 400 })
+    }
+    expect(pickStrategy({ ...input, provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
+    expect(pickStrategy({ ...input, requestedModel: "auto", provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
+  })
 })

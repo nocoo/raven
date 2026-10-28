@@ -21,6 +21,7 @@ function makeState(overrides: Partial<State> = {}): State {
   return {
     githubToken: null,
     copilotToken: null,
+    copilotApiBaseUrl: null,
     accountType: "individual",
     models: null,
     vsCodeVersion: null,

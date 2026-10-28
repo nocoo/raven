@@ -161,7 +161,7 @@ function mockCopilotTokenResponse(
 ) {
   fetchSpy.mockResolvedValueOnce(
     new Response(
-      JSON.stringify({ token, expires_at: 9999999999, refresh_in }),
+      JSON.stringify({ token, expires_at: 9999999999, refresh_in, endpoints: { api: "https://api.enterprise.githubcopilot.com" } }),
       { status: 200, headers: { "content-type": "application/json" } },
     ),
   )
@@ -259,6 +259,7 @@ describe("setupCopilotToken", () => {
     await setupCopilotToken(fakeTimers)
 
     expect(state.copilotToken).toBe("copilot-jwt")
+    expect(state.copilotApiBaseUrl).toBe("https://api.enterprise.githubcopilot.com")
     // sentinel.bootstrap scheduled one timeout (not interval)
     expect(fakeTimers.timers).toHaveLength(1)
     expect(fakeTimers.timers[0]!.type).toBe("timeout")

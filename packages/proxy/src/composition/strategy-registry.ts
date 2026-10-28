@@ -7,6 +7,7 @@ import { buildUpstreamClient, type UpstreamRegistryDeps } from "./upstream-regis
 import { makeCopilotOpenAIDirect } from "../strategies/copilot-openai-direct"
 import { makeCopilotNative } from "../strategies/copilot-native"
 import { makeCopilotResponses } from "../strategies/copilot-responses"
+import { makeCopilotSystemone } from "../strategies/copilot-systemone"
 import { makeCopilotChatViaResponses } from "../strategies/copilot-chat-via-responses"
 import { makeCustomOpenAI } from "../strategies/custom-openai"
 import { makeCustomAnthropic } from "../strategies/custom-anthropic"
@@ -53,6 +54,8 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     return { send: (payload: ResponsesPayload, signal?: AbortSignal) => client.send({ target: provider, payload }, signal) }
   }
   switch (decision.name) {
+    case "copilot-systemone":
+      return makeCopilotSystemone({ client: buildUpstreamClient("copilot-systemone", transport) }) as unknown as AnyStrategy
     case "copilot-openai-direct":
       return makeCopilotOpenAIDirect({ client: buildUpstreamClient("copilot-openai", transport), toolCallDebug: deps.toolCallDebug }) as unknown as AnyStrategy
     case "copilot-native":
@@ -68,6 +71,7 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     case "copilot-translated":
       return makeCopilotTranslated({ client: buildUpstreamClient("copilot-openai", transport), toolCallDebug: deps.toolCallDebug }) as unknown as AnyStrategy
     case "protocol-converted": {
+      if (decision.clientProtocol === "systemone" || decision.upstreamProtocol === "systemone") throw new Error("Systemone cannot be converted")
       const formats = { anthropic: "anthropic_messages", openai: "chat_completions", responses: "responses" } as const
       const client = decision.upstreamProtocol === "anthropic" ? messages() : decision.upstreamProtocol === "openai" ? chat() : responses()
       return makeProtocolConverted({

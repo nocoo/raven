@@ -14,6 +14,7 @@ export type StrategyName =
   | "copilot-translated"
   | "copilot-openai-direct"
   | "copilot-responses"
+  | "copilot-systemone"
   | "copilot-chat-via-responses"
   | "custom-openai"
   | "custom-anthropic"
@@ -30,6 +31,7 @@ export const STRATEGY_NAMES = [
   "copilot-translated",
   "copilot-openai-direct",
   "copilot-responses",
+  "copilot-systemone",
   "copilot-chat-via-responses",
   "custom-openai",
   "custom-anthropic",
@@ -85,6 +87,8 @@ export interface Strategy<
 
   /** Pure: convert one upstream JSON response to the client shape. */
   adaptJson(resp: UpstreamResp, req: UpstreamReq, ctx: RequestContext): ClientResp
+
+  jsonOutcome?(resp: UpstreamResp): "success" | "error"
 
   /** Pure: convert one upstream chunk to zero or more client events. */
   adaptChunk(

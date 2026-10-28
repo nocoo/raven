@@ -4,6 +4,7 @@ import type { IPRule } from "./ip-access"
 export interface State {
   githubToken: string | null
   copilotToken: string | null
+  copilotApiBaseUrl: string | null
 
   accountType: string
   models: ModelsResponse | null
@@ -54,6 +55,7 @@ export interface State {
 export const state: State = {
   githubToken: null,
   copilotToken: null,
+  copilotApiBaseUrl: null,
   accountType: "individual",
   models: null,
   vsCodeVersion: null,

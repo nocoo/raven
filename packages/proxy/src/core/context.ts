@@ -15,7 +15,7 @@ import { deriveClientIdentity } from "../util/client-identity"
 import { generateRequestId } from "../util/id"
 import type { RoutingSelection } from "./routing-types"
 
-export type RequestFormat = "openai" | "anthropic" | "responses"
+export type RequestFormat = "openai" | "anthropic" | "responses" | "systemone"
 
 export interface RequestContext {
   clientIP?: string | null

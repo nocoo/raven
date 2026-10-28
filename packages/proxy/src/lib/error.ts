@@ -7,6 +7,7 @@ import { Socks5BridgeUnavailableError } from "./socks5-bridge"
 const UPSTREAM_PROTOCOL_ERROR_NAMES = new Set([
   "ResponsesProtocolError",
   "ResponsesStreamFailedError",
+  "SystemoneUpstreamError",
 ])
 
 function isUpstreamProtocolError(error: unknown): error is Error {

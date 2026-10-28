@@ -631,3 +631,26 @@ that the preview is usable. Check for an active production server before an
 in-place build; use an isolated build directory or obtain restart approval
 first. Once the user prohibits stopping running Bun processes, preserve them
 and request a user-managed restart rather than silently replacing the service.
+
+## 2026-10-28 - Verify decision dialects and credential destinations separately
+
+The initial Systemone integration draft reused Raven's account-derived Copilot
+base URL. An authorized one-request diagnostic showed that this credential's
+token response selects the enterprise API host. The successful native request
+used that destination; it did not establish the personal-account host's behavior.
+Capture validated token destinations with the token, including refresh and stale
+generation handling, rather than guessing from model names or catalog visibility.
+
+Official TypeAgent code uses a different decision model and `/v1/decisions`
+array dialect. It must not override model-specific `/v1/systemone` evidence or
+justify inventing missing response fields. Keep native wire bodies unchanged.
+Offline gates also caught a test fixture using the token-grant field name for
+the bootstrap option; assert both initialization and refresh boundaries, not
+just the HTTP client's payload. No production service was modified or restarted.
+
+Independent review reproduced three pre-commit defects with synthetic inputs:
+HTTP-200 semantic errors bypassed redaction, the shared collector charged nested
+extension usage, and ordinary JSON parsing rounded request integers. Fixes now
+classify semantic failures before redaction, restrict Systemone accounting to
+top-level usage and preserve numeric source text using native JSON support.
+Regression tests and read-only re-review passed; no live credential leaked.

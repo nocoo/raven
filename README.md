@@ -30,6 +30,7 @@ Raven 是用于个人研究和开发的模型 API 代理。Bun / Hono 服务接�
 | `POST /v1/messages` | 按规则选择 Copilot 或自定义 Messages、Chat、Responses 上游；跨协议需要规则开启转换。 |
 | `POST /v1/chat/completions` | 同上，支持原生 Chat 与到 Messages / Responses 的转换。 |
 | `POST /v1/responses` | 支持 Copilot、自定义原生 Responses，以及到 Chat / Messages 的转换。 |
+| `POST /v1/systemone` | Native Microsoft Decision JSON through the same key-bound routing and quota admission; no chat conversion or retries. [Protocol and live evidence](docs/30-systemone.md). |
 | `POST /v1/embeddings` | 同样执行规则与配额准入，目前仅支持 Copilot 嵌入接口。 |
 | `GET /v1/models` | 仅读已有缓存，返回 `auto` 加所有已知模型 ID，精确去重。 |
 

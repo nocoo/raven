@@ -141,6 +141,7 @@ function createFakeTimers(): FakeTimerHarness {
 // ---------------------------------------------------------------------------
 
 const savedCopilotToken = state.copilotToken
+const savedCopilotApiBaseUrl = state.copilotApiBaseUrl
 let harness: FakeTimerHarness
 let handle: { stop(): void } | null = null
 
@@ -168,12 +169,14 @@ afterEach(() => {
     h.stop()
   }
   state.copilotToken = savedCopilotToken
+  state.copilotApiBaseUrl = savedCopilotApiBaseUrl
   vi.useRealTimers()
 })
 
 function startSentinel(token = "initial-jwt", refreshIn = 1500) {
   handle = bootstrap({
     token,
+    apiBaseUrl: "https://api.githubcopilot.com",
     refreshInSeconds: refreshIn,
     timers: harness.factory,
   })
@@ -207,11 +210,13 @@ describe("bootstrap", () => {
 
     handle = bootstrap({
       token: "tok-2",
+      apiBaseUrl: "https://api.enterprise.githubcopilot.com",
       refreshInSeconds: 600,
       timers: harness.factory,
     })
 
     expect(state.copilotToken).toBe("tok-2")
+    expect(state.copilotApiBaseUrl).toBe("https://api.enterprise.githubcopilot.com")
     expect(_debugSnapshot().generation).toBe(gen1 + 1)
     expect(_debugSnapshot().cooldownRemaining).toBe(0)
     expect(_debugSnapshot().consecutiveFailures).toBe(0)
@@ -285,12 +290,14 @@ describe("sentinelTick: STEADY", () => {
     startSentinel("tok-1", 1500)
     getCopilotTokenMock.mockResolvedValueOnce({
       token: "tok-2",
+      api_base_url: "https://api.enterprise.githubcopilot.com",
       refresh_in: 600,
       expires_at: 9_999_999_999,
     })
     await harness.flushPending()
 
     expect(state.copilotToken).toBe("tok-2")
+    expect(state.copilotApiBaseUrl).toBe("https://api.enterprise.githubcopilot.com")
     expect(getLastRefreshInSeconds()).toBe(600)
     const pending = harness.timers.filter((t) => !t.cleared && !t.fired)
     expect(pending).toHaveLength(1)
@@ -482,8 +489,8 @@ describe("generation isolation", () => {
   test("stop() + bootstrap() while old inflight is in flight → old result discarded", async () => {
     startSentinel("tok-1", 1500)
 
-    let resolveOld!: (v: { token: string; refresh_in: number; expires_at: number }) => void
-    const oldPromise = new Promise<{ token: string; refresh_in: number; expires_at: number }>(
+    let resolveOld!: (v: { token: string; refresh_in: number; expires_at: number; api_base_url: string }) => void
+    const oldPromise = new Promise<{ token: string; refresh_in: number; expires_at: number; api_base_url: string }>(
       (resolve) => {
         resolveOld = resolve
       },
@@ -502,6 +509,7 @@ describe("generation isolation", () => {
     handle = null
     handle = bootstrap({
       token: "tok-NEW",
+      apiBaseUrl: "https://api.enterprise.githubcopilot.com",
       refreshInSeconds: 1500,
       timers: harness.factory,
     })
@@ -509,12 +517,13 @@ describe("generation isolation", () => {
     expect(state.copilotToken).toBe("tok-NEW")
 
     // Now resolve the OLD promise — stale generation, result must be discarded
-    resolveOld({ token: "tok-OLD-STALE", refresh_in: 1500, expires_at: 9_999_999_999 })
+    resolveOld({ token: "tok-OLD-STALE", refresh_in: 1500, expires_at: 9_999_999_999, api_base_url: "https://api.githubcopilot.com" })
     await Promise.resolve()
     await Promise.resolve()
     await Promise.resolve()
 
     expect(state.copilotToken).toBe("tok-NEW")
+    expect(state.copilotApiBaseUrl).toBe("https://api.enterprise.githubcopilot.com")
     expect(_debugSnapshot().consecutiveFailures).toBe(0)
   })
 

@@ -38,11 +38,13 @@ import {
 } from "../upstream/custom-anthropic"
 
 import { CustomResponsesClient, defaultCustomResponsesConfig, type CustomResponsesConfig } from "../upstream/custom-responses"
+import { CopilotSystemoneClient, defaultCopilotSystemoneConfig, type CopilotSystemoneConfig } from "../upstream/copilot-systemone"
 
 export type UpstreamKind =
   | "copilot-openai"
   | "copilot-native"
   | "copilot-responses"
+  | "copilot-systemone"
   | "copilot-embeddings"
   | "custom-openai"
   | "custom-anthropic"
@@ -56,6 +58,7 @@ export interface UpstreamRegistryDeps {
   copilotOpenAI?: CopilotOpenAIConfig
   copilotNative?: CopilotNativeConfig
   copilotResponses?: CopilotResponsesConfig
+  copilotSystemone?: CopilotSystemoneConfig
   copilotEmbeddings?: CopilotEmbeddingsConfig
   customOpenAI?: CustomOpenAIConfig
   customAnthropic?: CustomAnthropicConfig
@@ -65,6 +68,7 @@ export type UpstreamClientByKind = {
   "copilot-openai": CopilotOpenAIClient
   "copilot-native": CopilotNativeClient
   "copilot-responses": CopilotResponsesClient
+  "copilot-systemone": CopilotSystemoneClient
   "copilot-embeddings": CopilotEmbeddingsClient
   "custom-openai": CustomOpenAIClient
   "custom-anthropic": CustomAnthropicClient
@@ -81,6 +85,8 @@ export function buildUpstreamClient<K extends UpstreamKind>(
     ...(deps.requestUsage === undefined ? {} : { requestUsage: deps.requestUsage }),
   }
   switch (kind) {
+    case "copilot-systemone":
+      return new CopilotSystemoneClient({ ...(deps.copilotSystemone ?? defaultCopilotSystemoneConfig()), ...overrides }) as UpstreamClientByKind[K]
     case "copilot-openai":
       return new CopilotOpenAIClient(
         { ...(deps.copilotOpenAI ?? defaultCopilotOpenAIConfig()), ...overrides },

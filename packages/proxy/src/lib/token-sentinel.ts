@@ -51,6 +51,7 @@ export interface RefreshNowOptions {
 }
 
 export interface BootstrapOptions {
+  apiBaseUrl?: string | null
   token: string
   refreshInSeconds: number
   timers?: TimerFactory
@@ -572,7 +573,7 @@ export async function refreshNow(
       const oldToken = state.copilotToken
       counters.refreshUpstreamCalls += 1
       bumpBy(reason, counters.refreshUpstreamCallsByReason)
-      const { token, refresh_in } = await getCopilotToken()
+      const { token, refresh_in, api_base_url } = await getCopilotToken()
 
       // generation 校验：旧 loop 飞行刷新被废弃
       if (myGeneration !== generation) {
@@ -586,6 +587,7 @@ export async function refreshNow(
       }
 
       state.copilotToken = token // I-1 唯一写入点
+      state.copilotApiBaseUrl = api_base_url ?? null
       noteSuccess(refresh_in)
       const tokenWasUpdated = token !== oldToken
       if (tokenWasUpdated) {
@@ -686,6 +688,7 @@ export function bootstrap(opts: BootstrapOptions): SentinelHandle {
   }
 
   state.copilotToken = opts.token // I-1 写入点（bootstrap 路径）
+  state.copilotApiBaseUrl = opts.apiBaseUrl ?? null
   noteSuccess(opts.refreshInSeconds)
 
   sentinelState = {

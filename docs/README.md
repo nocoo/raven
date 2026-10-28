@@ -31,6 +31,7 @@
 | 27 | [Monitor Dashboard](./27-monitor-dashboard.md) | Overview, model/key usage, protocol paths and request investigation |
 | 28 | [Key-Bound Routing](./28-key-bound-routing.md) | R3 contract and implementation: key-bound rules, UTC schedules, shared upstream quotas, cached model catalogs and isolated verification |
 | 29 | [Live Proxy Acceptance](./29-live-proxy-acceptance.md) | Reusable default-rule native/translated acceptance matrix, private reports and explicitly authorized reruns |
+| 30 | [Native Microsoft Decision](./30-systemone.md) | Unified-key Systemone passthrough, token API destination and bounded live evidence |
 | — | [Interactive Proxy Architecture](./proxy-architecture.html) | Offline route explorer, eight protocol repairs with local commits, and fresh UT/coverage evidence |
 
 ## Archive

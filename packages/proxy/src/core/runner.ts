@@ -66,8 +66,9 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
       emitErrorEnd(ctx, strategy, upstreamReq, err, { stream: ctx.stream })
       throw err
     }
-    emitSuccessEnd(ctx, strategy, upstreamReq, dispatched.body)
-    return c.json(clientResp as Record<string, unknown>)
+    const response = clientResp instanceof Response ? clientResp : c.json(clientResp as Record<string, unknown>)
+    emitSuccessEnd(ctx, strategy, upstreamReq, dispatched.body, response.status)
+    return response
   }
 
   return runStream(c, ctx, strategy, upstreamReq, dispatched.chunks, controller)
@@ -161,22 +162,24 @@ function emitSuccessEnd<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
   req: UpReq,
   resp: UpResp,
+  statusCode: number,
 ): void {
   const latencyMs = Math.round(performance.now() - ctx.startTime)
   const extras = strategy.describeEndLog({ kind: "json", req, resp }, ctx)
+  const failed = statusCode >= 300 || strategy.jsonOutcome?.(resp) === "error"
   logEmitter.emitLog({
     ts: Date.now(),
-    level: "info",
+    level: failed ? "error" : "info",
     type: "request_end",
     requestId: ctx.requestId,
-    msg: `200 ${ctx.format} ${latencyMs}ms`,
+    msg: `${statusCode} ${ctx.format} ${latencyMs}ms`,
     data: {
       path: ctx.path,
       format: ctx.format,
       stream: false,
-      status: "success",
-      statusCode: 200,
-      upstreamStatus: 200,
+      status: failed ? "error" : "success",
+      statusCode,
+      upstreamStatus: statusCode,
       latencyMs,
       ttftMs: null,
       processingMs: null,

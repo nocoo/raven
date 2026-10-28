@@ -54,8 +54,8 @@ export const setupCopilotToken = async (timers: TimerFactory = defaultTimers) =>
     sentinelHandle = null
   }
 
-  const { token, refresh_in } = await getCopilotToken()
-  sentinelHandle = sentinelBootstrap({ token, refreshInSeconds: refresh_in, timers })
+  const { token, refresh_in, api_base_url } = await getCopilotToken()
+  sentinelHandle = sentinelBootstrap({ token, apiBaseUrl: api_base_url, refreshInSeconds: refresh_in, timers })
 
   logger.debug("GitHub Copilot Token fetched successfully!")
 }

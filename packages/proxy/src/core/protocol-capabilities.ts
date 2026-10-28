@@ -15,6 +15,7 @@ export function declaredProtocols(model: CatalogModel | undefined): ClientProtoc
   if (endpoints.includes("/chat/completions") || endpoints.includes("/v1/chat/completions")) result.push("openai")
   if (endpoints.includes("/responses") || endpoints.includes("/v1/responses")) result.push("responses")
   if (endpoints.includes("/v1/messages") || endpoints.includes("/messages")) result.push("anthropic")
+  if (endpoints.includes("/v1/systemone")) result.push("systemone")
   return result
 }
 

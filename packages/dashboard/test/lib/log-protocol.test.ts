@@ -18,6 +18,11 @@ describe("live log protocol classification", () => {
       .toEqual({ label: "Native", variant: "success", title: "Responses → Responses · No protocol translation" });
   });
 
+  it("identifies native decisions without classifying them as chat", () => {
+    expect(logProtocol({ format: "systemone", upstreamFormat: "systemone" }, true))
+      .toEqual({ label: "Native", variant: "success", title: "Systemone → Systemone · No protocol translation" });
+  });
+
   it.each([{}, { format: "responses" }, { format: "invalid", upstreamFormat: "responses" }, { format: "openai", upstreamFormat: "toString" }])("does not guess when protocol evidence is missing: %j", data => {
     expect(logProtocol(data, false).label).toBe("Pending path");
     expect(logProtocol(data, true).label).toBe("Unknown path");

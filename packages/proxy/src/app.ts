@@ -8,6 +8,7 @@ import { state } from "./lib/state"
 import { completionRoutes } from "./routes/chat-completions/route"
 import { messageRoutes } from "./routes/messages/route"
 import { responsesRoutes } from "./routes/responses/route"
+import { systemoneRoutes } from "./routes/systemone/route"
 import { modelRoutes } from "./routes/models/route"
 import { embeddingRoutes } from "./routes/embeddings/route"
 import { createStatsRoute } from "./routes/stats"
@@ -77,6 +78,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/chat/completions", completionRoutes) // no-prefix alias
   app.route("/v1/messages", messageRoutes)
   app.route("/v1/responses", responsesRoutes)
+  app.route("/v1/systemone", systemoneRoutes)
   app.route("/v1/models", modelRoutes)
   app.route("/v1/embeddings", embeddingRoutes)
   app.route("/embeddings", embeddingRoutes) // no-prefix alias

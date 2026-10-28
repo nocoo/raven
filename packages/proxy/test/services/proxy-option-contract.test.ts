@@ -30,7 +30,7 @@ describe.each([
 ])("mocked upstream proxy option: %s", (_name, invoke) => {
   test("passes the configured proxy only to the mocked fetch transport", async () => {
     fetcher.mockResolvedValueOnce(Response.json({ fixture: true }))
-    expect(await invoke()).toEqual({ fixture: true })
+    expect(await invoke()).toEqual({ fixture: true, ...(_name === "copilot token" ? { api_base_url: null } : {}) })
     expect(fetcher).toHaveBeenCalledOnce()
     expect(fetcher.mock.calls[0]?.[1]).toMatchObject({ proxy: "http://proxy.fixture.test:1234" })
   })
