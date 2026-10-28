@@ -1,5 +1,30 @@
 # Changelog
 
+## v3.1.0
+
+### Added
+- Proxy native copilot systemone requests
+
+### Changed
+- Record native decision live acceptance
+- Bump hono 4.13.13 → 4.13.14
+- Bump @biomejs/biome 2.6.2 → 2.6.3
+- Bump next 16.4.2 → 16.4.3
+- Bump @types/bun 1.4.3 → 1.4.4
+- Override ip-address ^10.7.4 (GHSA-rxp7-6hxx-x8q5)
+- Bump vite 8.3.4 → 8.3.5
+- Bump @biomejs/biome 2.5.15 → 2.6.2
+- Bump oxc-parser 0.154.0 → 0.155.0
+- Bump dependency-cruiser 18.6.0 → 18.7.0
+- Bump gpt-tokenizer 4.0.3 → 4.1.0
+- Bump lucide-react 1.57.0 → 1.61.0
+- Sync node toolchain pin references
+- Pin 26.12.1 security release
+- Repin base-ci to ac635753
+
+### Fixed
+- Omit prior releases from changelog
+
 ## v3.0.12
 
 ### Changed
