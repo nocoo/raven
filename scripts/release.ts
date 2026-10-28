@@ -271,7 +271,7 @@ async function getCommitsSinceTag(
         subject: line.slice(sepIdx + 3),
       };
     })
-    .filter((c) => !c.subject.startsWith("release: v"));
+    .filter((c) => !/^(?:release|chore): release v\d+\.\d+\.\d+$/i.test(c.subject));
 }
 
 // ---------------------------------------------------------------------------
