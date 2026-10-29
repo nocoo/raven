@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.1.1
+
+### Fixed
+- Guard nullable App Router `useSearchParams` and `usePathname` results so fresh installs pass dashboard `tsc --noEmit`
+
 ## v3.1.0
 
 ### Added
