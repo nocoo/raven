@@ -59,6 +59,11 @@ describe("searchParamsToFilters", () => {
     expect(filters.model).toBeUndefined();
   });
 
+  it("returns defaults when params are unavailable", () => {
+    expect(searchParamsToFilters(null)).toEqual(DEFAULT_FILTERS);
+    expect(searchParamsToFilters(undefined)).toEqual(DEFAULT_FILTERS);
+  });
+
   it("parses range", () => {
     const filters = searchParamsToFilters(new URLSearchParams("range=7d"));
     expect(filters.range).toBe("7d");

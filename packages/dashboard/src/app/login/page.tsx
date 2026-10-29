@@ -36,7 +36,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { authEnabled, isLoading, hasError } = useAuthConfig();
-  const error = searchParams.get("error");
+  const error = searchParams?.get("error");
   const year = new Date().getFullYear();
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 

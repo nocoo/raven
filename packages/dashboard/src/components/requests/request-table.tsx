@@ -10,8 +10,9 @@ import { keyIdentity, protocolLabel } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
 import { IdentityHint } from "@/components/identity-hint";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback } from "react";
+import { useAppPathname, useAppSearchParams } from "@/lib/app-navigation";
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@nocoo/basalt/components/table";
@@ -76,8 +77,8 @@ export function RequestTable({
   onRowClick,
 }: RequestTableProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const pathname = useAppPathname();
+  const searchParams = useAppSearchParams();
 
   const currentSort = (searchParams.get("sort") ?? "timestamp") as SortColumn;
   const currentOrder = searchParams.get("order") ?? "desc";

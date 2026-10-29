@@ -11,8 +11,9 @@ import {
   type AnalyticsFilters,
   type TimeRange,
 } from "@/lib/analytics-filters";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
+import { useAppPathname } from "@/lib/app-navigation";
 import { Filter, RefreshCw, RotateCcw } from "lucide-react";
 import { Button, Input } from "@nocoo/basalt";
 import { keyIdentity, PROTOCOL_META, PROTOCOL_MODES, type UsageDimension } from "@/lib/monitor";
@@ -52,7 +53,7 @@ export function FilterBar({
   autoRefresh = false,
 }: FilterBarProps) {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = useAppPathname();
   const searchParams = useSearchParams();
   const [refreshing, startRefresh] = useTransition();
   const [refreshInterval, setRefreshInterval] = useState("3000");

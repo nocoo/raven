@@ -85,77 +85,81 @@ export function filtersToSearchParams(filters: AnalyticsFilters): URLSearchParam
   return params;
 }
 
+/** Query-string shape accepted by {@link searchParamsToFilters}. */
+export type FilterSearchParamsInput = Pick<URLSearchParams, "get"> | null | undefined;
+
 /** Deserialize filters from URLSearchParams. */
-export function searchParamsToFilters(params: URLSearchParams): AnalyticsFilters {
+export function searchParamsToFilters(params: FilterSearchParamsInput): AnalyticsFilters {
+  const query = params ?? new URLSearchParams();
   const filters: AnalyticsFilters = {
-    range: (params.get("range") as TimeRange) || "24h",
+    range: (query.get("range") as TimeRange) || "24h",
   };
 
-  const from = params.get("from");
+  const from = query.get("from");
   if (from) filters.from = Number(from);
 
-  const to = params.get("to");
+  const to = query.get("to");
   if (to) filters.to = Number(to);
 
-  const model = params.get("model");
+  const model = query.get("model");
   if (model) filters.model = model;
 
-  const resolvedModel = params.get("resolved_model");
+  const resolvedModel = query.get("resolved_model");
   if (resolvedModel) filters.resolved_model = resolvedModel;
 
-  const strategy = params.get("strategy");
+  const strategy = query.get("strategy");
   if (strategy) filters.strategy = strategy;
 
-  const upstream = params.get("upstream");
+  const upstream = query.get("upstream");
   if (upstream) filters.upstream = upstream;
 
-  const account = params.get("account");
+  const account = query.get("account");
   if (account) filters.account = account;
 
-  const clientIP = params.get("client_ip");
+  const clientIP = query.get("client_ip");
   if (clientIP) filters.client_ip = clientIP;
-  const keyId = params.get("key_id");
+  const keyId = query.get("key_id");
   if (keyId) filters.key_id = keyId;
-  const protocolMode = params.get("protocol_mode");
+  const protocolMode = query.get("protocol_mode");
   if (protocolMode === "native" || protocolMode === "translated" || protocolMode === "unknown") {
     filters.protocol_mode = protocolMode;
   }
 
-  const client = params.get("client");
+  const client = query.get("client");
   if (client) filters.client = client;
 
-  const clientVersion = params.get("client_version");
+  const clientVersion = query.get("client_version");
   if (clientVersion) filters.client_version = clientVersion;
 
-  const session = params.get("session");
+  const session = query.get("session");
   if (session) filters.session = session;
 
-  const path = params.get("path");
+  const path = query.get("path");
   if (path) filters.path = path;
 
-  const status = params.get("status");
+  const status = query.get("status");
   if (status) filters.status = status;
 
-  const statusCode = params.get("status_code");
+  const statusCode = query.get("status_code");
   if (statusCode) filters.status_code = Number(statusCode);
 
-  const stream = params.get("stream");
+  const stream = query.get("stream");
   if (stream === "true") filters.stream = true;
   else if (stream === "false") filters.stream = false;
 
-  const hasError = params.get("has_error");
+  const hasError = query.get("has_error");
   if (hasError === "true") filters.has_error = true;
 
-  const minLatency = params.get("min_latency");
+  const minLatency = query.get("min_latency");
   if (minLatency) filters.min_latency = Number(minLatency);
 
-  const maxLatency = params.get("max_latency");
+  const maxLatency = query.get("max_latency");
   if (maxLatency) filters.max_latency = Number(maxLatency);
 
-  const stopReason = params.get("stop_reason");
+  const stopReason = query.get("stop_reason");
   if (stopReason) filters.stop_reason = stopReason;
 
-  const routingPath = params.get("routing_path");
+  const routingPath = query.get("routing_path");
   if (routingPath) filters.routing_path = routingPath;
 
   return filters;
