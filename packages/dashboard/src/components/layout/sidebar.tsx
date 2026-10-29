@@ -34,10 +34,11 @@ import {
   Route,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { ElementType } from "react";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { APP_VERSION } from "@/lib/version";
+import { useAppPathname } from "@/lib/app-navigation";
 import { searchParamsToFilters } from "@/lib/analytics-filters";
 import { monitorHref } from "@/lib/monitor";
 
@@ -122,7 +123,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps) {
-  const pathname = usePathname();
+  const pathname = useAppPathname();
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const { authEnabled, isLoading: authLoading, hasError } = useAuthConfig();

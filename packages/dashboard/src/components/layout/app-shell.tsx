@@ -15,8 +15,8 @@ import {
   AppShell as Shell,
 } from "@nocoo/basalt/components/app-shell";
 import { Menu } from "lucide-react";
-import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAppPathname } from "@/lib/app-navigation";
 import { LogsDock } from "@/components/logs/logs-dock";
 import { SetupWizard } from "@/components/setup-wizard";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -31,7 +31,7 @@ export function AppShell({ children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const pathname = usePathname();
+  const pathname = useAppPathname();
   const group = NAV_GROUPS.find(group => group.items.some(item => item.href === pathname));
   const item = group?.items.find(item => item.href === pathname);
   const crumbs = group ? [{ label: group.label }] : [];
