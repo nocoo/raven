@@ -63,6 +63,14 @@ RAVEN_API_KEY=replace-with-client-key
 RAVEN_INTERNAL_KEY=replace-with-management-key
 ```
 
+默认使用公共 `github.com`。如果账号属于启用数据驻留的 GitHub Enterprise Cloud，请额外配置企业 tenant host：
+
+```dotenv
+RAVEN_GITHUB_HOST=octocorp.ghe.com
+```
+
+Raven 仅接受 `github.com` 或 `SUBDOMAIN.ghe.com`，并由该 host 推导 Device Flow、REST API 与 Copilot fallback endpoint；用户、token 与 usage 请求使用推导出的 tenant REST API，模型目录与推理请求则优先使用 Copilot token 返回的、经 tenant 校验的 authoritative endpoint。不要填写 API host、路径、端口或其他任意域名。切换 GitHub host 时应删除旧 token 文件，或通过 `RAVEN_TOKEN_PATH` 为不同 host 使用独立文件。参见 GitHub 官方的 [Copilot data residency 文档](https://docs.github.com/en/enterprise-cloud@latest/admin/data-residency/github-copilot-with-data-residency)。
+
 创建 `packages/dashboard/.env.local`，其中管理密钥与 Proxy 保持一致：
 
 ```dotenv

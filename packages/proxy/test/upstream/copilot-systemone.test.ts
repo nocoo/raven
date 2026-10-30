@@ -3,6 +3,7 @@ import { CopilotSystemoneClient, defaultCopilotSystemoneConfig } from "../../src
 import { state } from "../../src/lib/state"
 import { buildUpstreamClient } from "../../src/composition/upstream-registry"
 import { parseCopilotApiBaseUrl } from "../../src/services/github/get-copilot-token"
+import { resolveGitHubEndpoints } from "../../src/lib/api-config"
 
 const payload = { model: "microsoft-decision-1", state: "fixture", questions: { gate: { type: "noul" } } }
 const saved = { ...state }
@@ -84,6 +85,16 @@ test.each([false, true])("response read failure preserves cancellation=%s withou
 
 test.each([undefined, "https://api.githubcopilot.com", "https://api.enterprise.githubcopilot.com/"])("validates token destination %s", input => {
   expect(parseCopilotApiBaseUrl(input)).toBe(input === undefined ? null : input.replace(/\/$/, ""))
+})
+
+test("validates only the configured GHE.com Copilot token destination", () => {
+  const endpoints = resolveGitHubEndpoints("octocorp.ghe.com")
+  expect(parseCopilotApiBaseUrl("https://copilot-api.octocorp.ghe.com/", endpoints))
+    .toBe("https://copilot-api.octocorp.ghe.com")
+  expect(() => parseCopilotApiBaseUrl("https://copilot-api.other.ghe.com", endpoints))
+    .toThrow("Invalid Copilot API endpoint in token response")
+  expect(() => parseCopilotApiBaseUrl("https://api.githubcopilot.com", endpoints))
+    .toThrow("Invalid Copilot API endpoint in token response")
 })
 
 test.each([null, 3, "bad", "http://api.githubcopilot.com", "https://api.githubcopilot.com.evil.test", "https://user:secret@api.githubcopilot.com", "https://api.githubcopilot.com:444", "https://api.githubcopilot.com/path", "https://api.githubcopilot.com?key=secret", "https://api.githubcopilot.com#secret"])("rejects unsafe token destination without echoing it: %s", input => {

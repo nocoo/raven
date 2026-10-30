@@ -10,6 +10,7 @@ import { state } from "../../src/lib/state"
 
 const savedToken = state.copilotToken
 const savedGithubToken = state.githubToken
+const savedCopilotApiBaseUrl = state.copilotApiBaseUrl
 let fetchSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
@@ -17,6 +18,7 @@ beforeEach(() => {
   state.githubToken = "test-github-token"
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
+  state.copilotApiBaseUrl = null
   fetchSpy = vi.spyOn(globalThis, "fetch")
 })
 
@@ -25,6 +27,7 @@ afterEach(() => {
   else state.copilotToken = null
   if (savedGithubToken !== undefined) state.githubToken = savedGithubToken
   else state.githubToken = null
+  state.copilotApiBaseUrl = savedCopilotApiBaseUrl
   fetchSpy.mockRestore()
 })
 
@@ -50,6 +53,10 @@ describe("getCopilotToken", () => {
     expect(result.token).toBe("copilot-jwt-123")
     expect(result.refresh_in).toBe(1500)
     expect(result.expires_at).toBe(1700000000)
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.github.com/copilot_internal/v2/token",
+      expect.any(Object),
+    )
   })
 
   test("throws HTTPError on non-ok response", async () => {
