@@ -62,6 +62,14 @@ RAVEN_API_KEY=replace-with-client-key
 RAVEN_INTERNAL_KEY=replace-with-management-key
 ```
 
+Public `github.com` is used by default. For a GitHub Enterprise Cloud account with data residency, also configure the enterprise tenant host:
+
+```dotenv
+RAVEN_GITHUB_HOST=octocorp.ghe.com
+```
+
+Raven accepts only `github.com` or `SUBDOMAIN.ghe.com` and derives the matching Device Flow, REST API, and Copilot fallback endpoints from that host. User, token, and usage requests use the derived tenant REST API; model catalog and inference requests prefer the Copilot token's authoritative endpoint after validating it against the configured tenant. Do not configure an API hostname, path, port, or arbitrary domain. When switching GitHub hosts, remove the old token file or use a separate `RAVEN_TOKEN_PATH` for each host. See GitHub's official [Copilot data residency documentation](https://docs.github.com/en/enterprise-cloud@latest/admin/data-residency/github-copilot-with-data-residency).
+
 Create `packages/dashboard/.env.local` with the same management key as the Proxy:
 
 ```dotenv

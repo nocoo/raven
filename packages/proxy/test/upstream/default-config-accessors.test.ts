@@ -22,6 +22,7 @@ const SAVED = {
   vsCodeVersion: state.vsCodeVersion,
   accountType: state.accountType,
   copilotChatVersion: state.copilotChatVersion,
+  copilotApiBaseUrl: state.copilotApiBaseUrl,
 }
 
 beforeEach(() => {
@@ -29,6 +30,7 @@ beforeEach(() => {
   state.vsCodeVersion = "1.90.0"
   state.accountType = "individual"
   state.copilotChatVersion = "0.45.1"
+  state.copilotApiBaseUrl = null
 })
 
 afterEach(() => {
@@ -36,6 +38,7 @@ afterEach(() => {
   state.vsCodeVersion = SAVED.vsCodeVersion
   state.accountType = SAVED.accountType
   state.copilotChatVersion = SAVED.copilotChatVersion
+  state.copilotApiBaseUrl = SAVED.copilotApiBaseUrl
 })
 
 describe("defaultCopilotEmbeddingsConfig accessors", () => {
