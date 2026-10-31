@@ -63,13 +63,14 @@ RAVEN_API_KEY=replace-with-client-key
 RAVEN_INTERNAL_KEY=replace-with-management-key
 ```
 
-默认使用公共 `github.com`。如果账号属于启用数据驻留的 GitHub Enterprise Cloud，请额外配置企业 tenant host：
+默认登录公共 `github.com`。如果账号属于启用数据驻留的 GitHub Enterprise Cloud，在 `packages/proxy/.env.local` 另外配置企业租户域名和独立的 token 文件：
 
 ```dotenv
 RAVEN_GITHUB_HOST=octocorp.ghe.com
+RAVEN_TOKEN_PATH=/absolute/path/to/private-directory/github_token_ghe
 ```
 
-Raven 仅接受 `github.com` 或 `SUBDOMAIN.ghe.com`，并由该 host 推导 Device Flow、REST API 与 Copilot fallback endpoint；用户、token 与 usage 请求使用推导出的 tenant REST API，模型目录与推理请求则优先使用 Copilot token 返回的、经 tenant 校验的 authoritative endpoint。不要填写 API host、路径、端口或其他任意域名。切换 GitHub host 时应删除旧 token 文件，或通过 `RAVEN_TOKEN_PATH` 为不同 host 使用独立文件。参见 GitHub 官方的 [Copilot data residency 文档](https://docs.github.com/en/enterprise-cloud@latest/admin/data-residency/github-copilot-with-data-residency)。
+将域名替换为实际的 `SUBDOMAIN.ghe.com`，不要填写 API 域名、路径或端口。将 token 路径替换为已存在的私有目录中的文件；不同 GitHub host 使用不同文件，避免复用旧账户的 token。启动 Proxy 后，在终端打开设备登录地址，输入验证码并使用企业账户授权。Raven 根据租户域名确定 Device Flow 和 REST API 地址，模型与推理优先使用经校验的 Copilot token endpoint。参见 GitHub 官方的 [Copilot data residency 文档](https://docs.github.com/en/enterprise-cloud@latest/admin/data-residency/github-copilot-with-data-residency)。
 
 创建 `packages/dashboard/.env.local`，其中管理密钥与 Proxy 保持一致：
 
