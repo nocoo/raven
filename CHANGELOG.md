@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.2.0
+
+### Added
+- Support GitHub Enterprise Cloud with data residency through `RAVEN_GITHUB_HOST`, with tenant-specific device login and validated Copilot endpoints.
+- Expose available Copilot model context, input and output limits, display names, modalities, tool support and reasoning levels in `/v1/models`.
+- Add opt-in `RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS` compatibility for Codex collaboration tasks through Copilot Responses. Task text can appear in raw logs when enabled.
+
+### Fixed
+- Retry Copilot requests using the refreshed token's endpoint after a 401, including concurrent refreshes.
+
+### Changed
+- Document enterprise login and separate token files for each GitHub host.
+- Add regression tests for model metadata, token refresh and collaboration tool handling.
+
 ## v3.1.1
 
 ### Fixed
