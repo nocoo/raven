@@ -79,7 +79,7 @@ describe("createApp", () => {
       headers: { Authorization: "Bearer secret" },
     })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ object: "list", has_more: false, data: [{ id: "auto", object: "model", owned_by: "raven" }] })
+    expect(await res.json()).toEqual({ object: "list", first_id: "auto", last_id: "auto", has_more: false, data: [{ id: "auto", object: "model", owned_by: "raven" }] })
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
@@ -160,7 +160,7 @@ describe("createApp", () => {
     const connect = await app.request("/api/connection-info", { headers: { Authorization: "Bearer internal" } }, { remoteAddress: "::1" })
     expect(models.status).toBe(200)
     expect(connect.status).toBe(200)
-    expect(await models.json()).toEqual({ object: "list", has_more: false, data: [
+    expect(await models.json()).toEqual({ object: "list", first_id: "auto", last_id: "raw/fixture-model", has_more: false, data: [
       { id: "auto", object: "model", owned_by: "raven" },
       { ...snapshot[0], object: "model", owned_by: "fixture-vendor" },
     ] })

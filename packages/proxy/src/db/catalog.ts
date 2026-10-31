@@ -28,11 +28,39 @@ export function getCatalog(db: Database, upstreamId: string): CatalogModel[] {
   return [...models.values()]
 }
 
+function copilotMetadata(model: CatalogModel): Record<string, unknown> {
+  const capabilities = model.capabilities as { type?: unknown; limits?: Record<string, unknown>; supports?: Record<string, unknown> } | null | undefined
+  const limits = capabilities?.limits
+  const supports = capabilities?.supports
+  const metadata: Record<string, unknown> = {}
+  if (typeof model.name === "string" && model.name.trim()) metadata.display_name = model.name
+  for (const [source, targets] of [
+    ["max_context_window_tokens", ["context_length", "context_window"]],
+    ["max_prompt_tokens", ["max_input_tokens"]],
+    ["max_output_tokens", ["max_output_tokens"]],
+  ] as const) {
+    const value = limits?.[source]
+    if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+      for (const target of targets) metadata[target] = value
+    }
+  }
+  if (capabilities?.type === "chat" && supports?.vision === true) metadata.modalities = { input: ["text", "image"] }
+  if (typeof supports?.tool_calls === "boolean") metadata.tool_call = supports.tool_calls
+  const levels = supports?.reasoning_effort
+  if (Array.isArray(levels) && levels.every((level) => typeof level === "string" && level.trim())) {
+    metadata.reasoning = levels.length > 0
+    metadata.reasoning_levels = levels
+    metadata.supported_reasoning_levels = levels.map((effort) => ({ effort }))
+  }
+  return metadata
+}
+
 export function projectCatalog(db: Database): CatalogModel[] {
   const models = new Map<string, CatalogModel>([["auto", { id: "auto", object: "model", owned_by: "raven" }]])
   for (const upstream of listProviderRecords(db)) {
     for (const model of upstream.models) if (!models.has(model.id)) models.set(model.id, {
       ...model,
+      ...(upstream.kind === "copilot" ? copilotMetadata(model) : {}),
       object: model.object ?? "model",
       owned_by: model.owned_by ?? model.vendor ?? upstream.name,
     })

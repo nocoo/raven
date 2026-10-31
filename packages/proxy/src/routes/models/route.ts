@@ -20,7 +20,7 @@ modelRoutes.get("/", async (c) => {
       ts: Date.now(), level: "info", type: "request_end", requestId: ctx.requestId,
       msg: "200 models", data: { ...data, modelCount: models.length, status: "success", statusCode: 200, latencyMs: Math.round(performance.now() - ctx.startTime), ttftMs: null, processingMs: null },
     })
-    return c.json({ object: "list", data: models, has_more: false })
+    return c.json({ object: "list", data: models, first_id: models[0]?.id, last_id: models.at(-1)?.id, has_more: false })
   } catch (error) {
     const { errorDetail, statusCode, upstreamStatus } = extractErrorDetails(error)
     logEmitter.emitLog({

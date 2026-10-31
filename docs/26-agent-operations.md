@@ -93,7 +93,12 @@ authentication, model/Connect reads and configuration saves never fetch catalogs
 Discovery accepts `data[].id` and `models[].slug`, retaining raw IDs and metadata.
 Malformed catalogs fail as a whole and preserve the last successful snapshot.
 `/v1/models` returns exact-ID-deduplicated cached/manual models plus `auto`, using
-Copilot metadata when IDs collide. Explicit diagnostics make at most one native
+Copilot metadata when IDs collide. Known Copilot context, input and output limits
+are exposed as `context_length`/`context_window`, `max_input_tokens` and
+`max_output_tokens`; known names, chat vision, tool support and reasoning levels also use
+Magpie-style fields. Missing or invalid values are not invented. These are
+catalog metadata, not guarantees about a key's eventual routed target.
+Explicit diagnostics make at most one native
 generation attempt and consume the same upstream quota.
 
 Requests persist `routing.resolved_model` for the admitted/sent model, alongside
