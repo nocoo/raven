@@ -228,7 +228,6 @@ export class CopilotOpenAIClient
       ["assistant", "tool"].includes(msg.role),
     )
 
-    const url = `${this.config.getBaseUrl()}/chat/completions`
     const proxyUrl = this.config.getProxyUrl()
     const body = JSON.stringify(withStreamingUsage(payload, this.config.requestUsage))
 
@@ -238,6 +237,7 @@ export class CopilotOpenAIClient
         enableVision,
         isAgentCall,
       })
+      const url = `${this.config.getBaseUrl()}/chat/completions`
       const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,

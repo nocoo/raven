@@ -54,13 +54,13 @@ export class CopilotResponsesClient
     const enableVision = hasVisionContent(payload)
     const isAgentCall = hasAgentHistory(payload)
 
-    const url = `${this.config.getBaseUrl()}/responses`
     const proxyUrl = this.config.getProxyUrl()
     const body = JSON.stringify(payload)
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
       signal?.throwIfAborted()
       const { token, headers } = this.config.snapshotAuth({ enableVision, isAgentCall })
+      const url = `${this.config.getBaseUrl()}/responses`
       const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,

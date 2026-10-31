@@ -89,7 +89,6 @@ export class CopilotNativeClient
       delete requestBody.output_config
     }
 
-    const url = `${this.config.getBaseUrl()}/v1/messages`
     const proxyUrl = this.config.getProxyUrl()
     const body = JSON.stringify(requestBody)
 
@@ -100,6 +99,7 @@ export class CopilotNativeClient
         visionRequest,
         isAgentCall,
       })
+      const url = `${this.config.getBaseUrl()}/v1/messages`
       const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,

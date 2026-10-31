@@ -56,13 +56,13 @@ export class CopilotEmbeddingsClient
     signal?.throwIfAborted()
     this.config.getToken()
 
-    const url = `${this.config.getBaseUrl()}/embeddings`
     const proxyUrl = this.config.getProxyUrl()
     const body = JSON.stringify(payload)
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
       signal?.throwIfAborted()
       const { token, headers } = this.config.snapshotAuth()
+      const url = `${this.config.getBaseUrl()}/embeddings`
       const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,
