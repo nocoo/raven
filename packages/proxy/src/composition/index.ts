@@ -75,6 +75,7 @@ export async function dispatch(
     const deps: BuildStrategyDeps = {
       provider: selection.upstream,
       toolCallDebug: state.optToolCallDebug,
+      plaintextAgentTasks: process.env.RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS === "true",
       includeUsage: protocol === "openai" && ((payload as ChatCompletionsPayload).stream_options?.include_usage ?? selection.upstream.quota !== null),
       anthropicBeta: ctx.anthropicBeta,
       sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
