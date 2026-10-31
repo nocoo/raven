@@ -654,3 +654,24 @@ extension usage, and ordinary JSON parsing rounded request integers. Fixes now
 classify semantic failures before redaction, restrict Systemone accounting to
 top-level usage and preserve numeric source text using native JSON support.
 Regression tests and read-only re-review passed; no live credential leaked.
+
+## 2026-10-31 - Stop verification when a patch fails
+
+A test patch used a repository-relative path from the proxy directory and
+failed, but the following test command still ran the old tests. Apply patches
+from the repository root and chain dependent verification with `&&`; check that
+the intended tests were added before treating a passing run as evidence.
+
+## 2026-10-31 - Check sandbox limits before lowering them
+
+The isolated review runner lowered the per-user process limit below the number
+of existing processes and could not launch the test or its cleanup command.
+The temporary directory was removed separately. Check platform support and
+current per-user usage before setting limits; do not treat an unstarted test as
+verification or run untrusted code without all required isolation controls.
+
+## 2026-10-31 - Typecheck new regression fixtures
+
+The new refresh regression tests ran successfully but their native request
+fixture omitted required typed fields, blocking the pre-commit gate. Run the
+project typecheck as well as focused tests before treating a change as ready.
