@@ -57,6 +57,35 @@ The map is per stream; message text, reasoning/encrypted content, function
 `call_id`, namespaces, usage and SSE framing metadata are preserved. Non-streaming
 responses and custom providers are unchanged.
 
+### Codex collaboration argument compatibility (opt-in)
+
+`RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS=true` opts Copilot Responses into ordinary
+text parameters for `collaboration.spawn_agent`, `send_message`, and
+`followup_task`. It defaults off. Codex's encrypted task arguments can be rejected
+by Copilot with `Encrypted function output content could not be decrypted or
+decoded`; regular task text with explicit argument-encoding metadata is supported
+by the native client (`encrypted_function_args: []` when no other parameters are
+encrypted). The adapter changes only the selected tool schemas (both
+top-level tools and Responses Lite `additional_tools`) and the corresponding
+function-call metadata, including streaming item/terminal snapshots. Copilot
+reserves the native `collaboration` schema, so declarations and historical call
+names use the adapter-owned `raven_agent_compat` wire namespace; forced/allowed
+tool references follow the same mapping. Only exactly declared aliases are
+restored before Codex sees them. Namespace or flattened wire-name collisions
+leave the compatibility transformation disabled for that request. Existing
+encrypted input, reasoning, task text, call IDs, other tools, and other providers
+are not rewritten. Explicit upstream encryption declarations remain authoritative
+through subsequent stream snapshots. Encoding is not inferred from incomplete
+argument fragments; complete task arguments retain recognized opaque task
+encryption and any other schema-declared encrypted parameters. TLS, API
+authentication, and management isolation are unchanged.
+
+This mode makes new agent task arguments ordinary API text, including in raw log
+streams, so enable it intentionally for a trusted local installation. It cannot
+repair a failed child's already-encrypted history; create a new child after
+enabling it. A local source change requires the running proxy to reload before
+native App calls use the adapter. Mock protocol checks are not live acceptance.
+
 ## Key-bound routing and accounting
 
 [R3](28-key-bound-routing.md) is the current routing contract. Every database key

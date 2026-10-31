@@ -88,6 +88,39 @@ const savedToken = state.copilotToken
 let fetchSpy: ReturnType<typeof vi.spyOn>
 let harness: ReturnType<typeof routingHarness>
 
+describe("Copilot agent task compatibility setting", () => {
+  test.each([false, true])("routes the opt-in setting without changing task content: %s", async (enabled) => {
+    vi.stubEnv("RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS", String(enabled))
+    try {
+      const declaration = { type: "namespace", name: "collaboration", tools: [{
+        type: "function", name: "spawn_agent", parameters: { type: "object", properties: { message: { type: "string", encrypted: true }, other: { type: "string", encrypted: true } } },
+      }] }
+      const task = { type: "agent_message", content: [{ type: "encrypted_content", encrypted_content: "opaque-fixture" }] }
+      let forwarded: Record<string, any> | undefined
+      fetchSpy.mockImplementation(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        forwarded = JSON.parse(String(init?.body))
+        return mockFetchJson(makeResponsesResponse({ output: [{
+          type: "function_call", name: "spawn_agent", namespace: enabled ? "raven_agent_compat" : "collaboration", call_id: "fixture-call", arguments: '{"message":"Whole task"}',
+        }] }))
+      })
+      const response = await makeApp().request(req({ model: "gpt-4o", input: [{ type: "additional_tools", tools: [declaration] }, task],
+        tool_choice: { type: "function", namespace: "collaboration", name: "spawn_agent" },
+      }))
+      expect(response.status).toBe(200)
+      const result = await response.json()
+      expect(forwarded?.input[0].tools[0].tools[0].parameters.properties.message.encrypted).toBe(!enabled)
+      expect(forwarded?.input[1]).toEqual(task)
+      expect(forwarded?.tool_choice).toEqual({ type: "function", namespace: enabled ? "raven_agent_compat" : "collaboration", name: "spawn_agent" })
+      expect(forwarded?.input[0].tools[0].tools[0].parameters.properties.other.encrypted).toBe(true)
+      expect(result.output[0].arguments).toBe('{"message":"Whole task"}')
+      expect(result.output[0].encrypted_function_args).toEqual(enabled ? ["other"] : undefined)
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+})
+
 beforeEach(() => {
   harness = routingHarness()
   state.copilotToken = "test-token"
