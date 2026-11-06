@@ -675,3 +675,24 @@ verification or run untrusted code without all required isolation controls.
 The new refresh regression tests ran successfully but their native request
 fixture omitted required typed fields, blocking the pre-commit gate. Run the
 project typecheck as well as focused tests before treating a change as ready.
+
+## 2026-11-06 - Resolve an agent name before dispatching work
+
+A coordinator tried to name a newly split coding pane `coding`. Herdr rejected
+the rename because that name already belonged to a pane in another workspace,
+but the following `agent prompt coding ...` still resolved to that other pane.
+The dependency task was therefore delivered to an unrelated agent, which ran
+for eleven minutes and left uncommitted Vite/Vitest edits in this repository's
+working tree before its own controller closed the pane. The coordinator then
+saw an intermediate state of local commits plus staged manifest and lockfile
+edits that looked like out-of-scope work.
+
+Agent names are unique per Herdr server, not per workspace. Treat a failed
+rename as a hard error and stop before sending anything. Use a project-prefixed
+name (`raven-coding`) and dispatch by the returned `pane_id`, verifying the
+pane's `pane_id`, `cwd` and `workspace_id` together in `agent list` first.
+Never address an agent in another workspace. On recovery, confirm the
+misdirected pane is gone and no process still writes the tree, then audit and
+adopt the related edits instead of discarding them. Intermediate staged files
+from a single shared working tree are not evidence of scope drift; judge the
+final commits and a clean `git status`.
