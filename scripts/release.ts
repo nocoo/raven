@@ -517,7 +517,7 @@ async function main(): Promise<void> {
 
   if (isDryRun) {
     console.log(
-      `   [dry-run] Would commit: release: v${newVersion}`,
+      `   [dry-run] Would commit: chore: release v${newVersion}`,
     );
     console.log(`   [dry-run] Files: ${filesToStage.join(", ")}`);
   } else {
@@ -525,7 +525,7 @@ async function main(): Promise<void> {
     const commitResult = await run("git", [
       "commit",
       "-m",
-      `release: v${newVersion}`,
+      `chore: release v${newVersion}`,
     ]);
     if (commitResult.code !== 0) {
       console.error("❌ Commit failed (pre-commit hooks?)");
@@ -535,7 +535,7 @@ async function main(): Promise<void> {
       console.error("   Fix the issues and retry.");
       process.exit(1);
     }
-    console.log(`   ✅ Committed: release: v${newVersion}`);
+    console.log(`   ✅ Committed: chore: release v${newVersion}`);
   }
   console.log("");
 
@@ -636,7 +636,7 @@ async function main(): Promise<void> {
   // Summary
   console.log(`\n${"=".repeat(50)}`);
   console.log(`✅ Released v${newVersion}`);
-  console.log(`   📋 Commit:  release: v${newVersion}`);
+  console.log(`   📋 Commit:  chore: release v${newVersion}`);
   console.log(`   🏷️  Tag:     v${newVersion}`);
   console.log(`   📦 Files:   ${VERSION_TARGETS.length} updated`);
   if (ghAuthed) {
