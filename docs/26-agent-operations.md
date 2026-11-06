@@ -34,7 +34,7 @@ Seven layers, top → bottom. Each layer imports only from the layers below (enf
 - `copilot-responses` — `/v1/responses` to Copilot
 - `copilot-systemone` — native non-streaming `/v1/systemone` to the Copilot token's API destination; [evidence and limits](30-systemone.md). No protocol conversion or inference retries; raw JSON response bodies preserve missing fields and number text.
 - `copilot-decisions` — native non-streaming `/v1/decisions` for exact Copilot catalog declarations of `gpt-6-luna-decisions`.
-- `copilot-images` — native non-streaming `/v1/images/generations` for exact Copilot catalog declarations of `gpt-image-2.5-flare`; image edits remain unimplemented.
+- `copilot-images` — native non-streaming JSON `/v1/images/generations` and multipart `/v1/images/edits`, each requiring its exact Copilot catalog declaration. Edits preserve file/form semantics and share admission, response transport and image usage accounting; live Copilot edits remain unverified.
 - `custom-openai` — user-configured OpenAI-compatible providers
 - `custom-anthropic` — user-configured Anthropic providers
 - `protocol-converted` — Messages → Responses, Chat → Messages, custom Chat → Responses, Responses → Chat/Messages and custom native Responses. Pure adapters own conversion; the injected client owns HTTP.

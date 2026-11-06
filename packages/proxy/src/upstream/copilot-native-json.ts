@@ -3,7 +3,7 @@ import { HTTPError } from "../lib/error"
 import { getProxyUrl } from "../lib/socks5-bridge"
 import { state } from "../lib/state"
 import { redactUpstreamText } from "../lib/upstream-operation"
-import type { NativeJsonPayload } from "../protocols/native-json"
+import type { ImageEndpoint, NativeJsonPayload } from "../protocols/native-json"
 import { modelFetch, type ModelHttpConfig } from "./model-http"
 
 export interface CopilotNativeJsonConfig extends ModelHttpConfig {
@@ -13,7 +13,7 @@ export interface CopilotNativeJsonConfig extends ModelHttpConfig {
 }
 
 export interface CopilotNativeJsonSpec {
-  path: "/v1/decisions" | "/v1/images/generations"
+  path: "/v1/decisions" | ImageEndpoint
   label: "decisions" | "images"
   failed(value: unknown): boolean
 }
@@ -39,12 +39,24 @@ export class CopilotNativeJsonClient {
   async send(payload: NativeJsonPayload, signal?: AbortSignal): Promise<CopilotNativeJsonResult> {
     signal?.throwIfAborted()
     const { token, headers } = this.config.snapshotAuth()
+    const requestHeaders = new Headers(headers)
+    let body: BodyInit
+    if (this.spec.path === "/v1/images/edits") {
+      if (!(payload.form instanceof FormData)) throw new Error("Image edits requires a multipart payload")
+      const form = new FormData()
+      for (const [name, value] of payload.form) form.append(name, name === "model" ? payload.model : value)
+      body = form
+      // Fetch must supply the boundary matching its multipart encoder.
+      requestHeaders.delete("content-type")
+    } else {
+      body = JSON.stringify(payload)
+    }
     const proxy = this.config.getProxyUrl()
     const url = `${this.config.getBaseUrl()}${this.spec.path}`
     let response: Response
     try {
       response = await modelFetch(this.config)(url, {
-        method: "POST", headers, signal, redirect: "manual", body: JSON.stringify(payload),
+        method: "POST", headers: requestHeaders, signal, redirect: "manual", body,
         ...(proxy ? { proxy } : {}),
       } as RequestInit)
     } catch {

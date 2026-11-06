@@ -1,9 +1,9 @@
 # 30 - Native Microsoft Decision / Systemone / Luna / Image
 
 Raven exposes `POST /v1/systemone` plus the Copilot-native `POST /v1/decisions`
-and `POST /v1/images/generations` JSON endpoints. They are not Chat Completions,
-Image Edits or protocol translation paths. No model name or response field is
-synthesized and image edits remain unimplemented.
+and `POST /v1/images/generations` JSON endpoints, plus native multipart
+`POST /v1/images/edits`. They are not Chat Completions or protocol translation
+paths. No model name or response field is synthesized.
 
 ## Verified Live Binding
 
@@ -99,9 +99,9 @@ It does not translate this model to Systemone or Chat Completions.
 exact `/v1/images/generations` endpoint. Raven forwards the native JSON body,
 including `prompt` and unknown fields, and preserves the upstream response text.
 Success image data, including `b64_json`, is response transport only and is not
-written into request logs. `/v1/images/edits` is not a Raven route.
+written into request logs.
 
-Both routes use the Copilot token's validated API destination, manual redirect
+These routes use the Copilot token's validated API destination, manual redirect
 handling, unified API-key admission, key routing, IP admission, quota and
 request logs. Environment/database keys are accepted by the existing AI route
 middleware; internal credentials and custom-provider rules remain excluded.
@@ -116,6 +116,56 @@ but unknown payload fields are preserved upstream without routing control.
 No inference retry, credential refresh, redirect follow or account fallback is
 allowed. HTTP and HTTP-200 semantic errors preserve their native JSON and status,
 with credential-bearing text redacted and bounded.
+
+### Flare Image Edits: Transport Support, Not Live Acceptance
+
+Raven v3.3.0 implemented only the generations JSON path. The maintainer explicitly
+described multipart edits as unimplemented and unverified in
+[#502](https://github.com/nocoo/raven/issues/502#issuecomment-6682586780);
+there was no documented upstream prohibition.
+
+`POST /v1/images/edits` now accepts `multipart/form-data` with one nonempty
+`model`, one nonempty `prompt`, and uploaded `image` or `image[]` files.
+Multiple images, an optional `mask`, filenames, media types, binary contents,
+repeated fields and unknown fields are preserved. Optional model-specific
+parameters and image/mask constraints remain upstream validation, not a Raven
+allowlist. `stream` must be omitted or `false`; Raven does not support partial
+image SSE. JSON/URL/file-ID image inputs and image variations are not implemented
+by this multipart route.
+
+The selected model must declare exactly `/v1/images/edits`; declaring generations
+does not grant edits, or vice versa. The authenticated key still owns routing,
+including `auto` resolution. Only the model form field is replaced by that
+resolved ID. Client form fields cannot override the destination or endpoint.
+Copilot headers are reused, but Fetch supplies the multipart Content-Type and
+matching boundary. The response is native JSON/error transport, without
+protocol conversion, redirects, inference retries or account fallback.
+Logs and stats use the existing `images` format and `copilot-images` strategy,
+with the edits path distinguishing requests. Image bytes, form contents and
+`b64_json` are not logged, including upstream error echoes. Accounting observes
+only reported image usage.
+
+Example (a live call consumes image credits; run only when authorized):
+
+```sh
+curl "$RAVEN_BASE_URL/v1/images/edits" \
+  -H "Authorization: Bearer $RAVEN_API_KEY" \
+  -F "model=gpt-image-2.5-flare" \
+  -F "image[]=@source.png" \
+  -F "prompt=Replace the background with a plain blue sky." \
+  -F "quality=low" \
+  -F "output_format=png"
+```
+
+OpenAI's [image guide](https://developers.openai.com/api/docs/guides/image-generation)
+documents multipart edits with multiple images and masks. GitHub's
+[2026-10-28 announcement](https://github.blog/changelog/2026-10-28-generate-and-edit-images-directly-in-copilot/)
+confirms Flare generation and editing in Copilot. Together with the advertised
+catalog path, this supports implementing a gated transport, but does not prove
+Copilot's multipart contract, a particular account's entitlement or parameter
+support. **No live Copilot edit was sent for this implementation**: tests use
+synthetic uploads, isolated SQLite and mocked upstream HTTP. A separately
+authorized successful multipart edit is still required for live acceptance.
 
 ## Routing and Credentials
 

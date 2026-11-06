@@ -5,7 +5,7 @@ import {
 } from "../../src/upstream/copilot-native-json"
 import { buildUpstreamClient } from "../../src/composition/upstream-registry"
 import { state } from "../../src/lib/state"
-import { decisionsFailed, nativeJsonError } from "../../src/protocols/native-json"
+import { decisionsFailed, nativeJsonError, type ImageEndpoint } from "../../src/protocols/native-json"
 import { buildStrategy } from "../../src/composition/strategy-registry"
 import { upstreamRecord } from "../helpers/routing"
 
@@ -15,7 +15,7 @@ const saved = { ...state }
 
 afterEach(() => { Object.assign(state, saved); vi.restoreAllMocks() })
 
-function client(kind: "copilot-decisions" | "copilot-images", response: Response | Error) {
+function client(kind: "copilot-decisions" | "copilot-images", response: Response | Error, copilotImagesEndpoint?: ImageEndpoint) {
   const fetcher = vi.fn<typeof fetch>()
   if (response instanceof Error) fetcher.mockRejectedValue(response)
   else fetcher.mockResolvedValue(response)
@@ -26,7 +26,7 @@ function client(kind: "copilot-decisions" | "copilot-images", response: Response
   }
   return {
     fetcher,
-    client: buildUpstreamClient(kind, { fetch: fetcher, copilotDecisions: config, copilotImages: config }),
+    client: buildUpstreamClient(kind, { fetch: fetcher, copilotDecisions: config, copilotImages: config, ...(copilotImagesEndpoint ? { copilotImagesEndpoint } : {}) }),
   }
 }
 
@@ -112,4 +112,10 @@ test("recognized native semantic failures include decisions refusals and image e
   expect(decisionsFailed({ answers: [{ choice: "test" }] })).toBe(false)
   expect(nativeJsonError({ error: { message: "bad" } })).toBe(true)
   expect(nativeJsonError({ data: [{ b64_json: "AA==" }] })).toBe(false)
+})
+
+test("image edits rejects a missing multipart payload without sending", async () => {
+  const { client: upstream, fetcher } = client("copilot-images", Response.json({}), "/v1/images/edits")
+  await expect(upstream.send(images)).rejects.toThrow("multipart payload")
+  expect(fetcher).not.toHaveBeenCalled()
 })

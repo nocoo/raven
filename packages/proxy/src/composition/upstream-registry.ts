@@ -44,7 +44,7 @@ import {
   defaultCopilotNativeJsonConfig,
   type CopilotNativeJsonConfig,
 } from "../upstream/copilot-native-json"
-import { decisionsFailed, nativeJsonError } from "../protocols/native-json"
+import { decisionsFailed, nativeJsonError, type ImageEndpoint } from "../protocols/native-json"
 
 export type UpstreamKind =
   | "copilot-openai"
@@ -69,6 +69,7 @@ export interface UpstreamRegistryDeps {
   copilotSystemone?: CopilotSystemoneConfig
   copilotDecisions?: CopilotNativeJsonConfig
   copilotImages?: CopilotNativeJsonConfig
+  copilotImagesEndpoint?: ImageEndpoint
   copilotEmbeddings?: CopilotEmbeddingsConfig
   customOpenAI?: CustomOpenAIConfig
   customAnthropic?: CustomAnthropicConfig
@@ -107,7 +108,7 @@ export function buildUpstreamClient<K extends UpstreamKind>(
     case "copilot-images":
       return new CopilotNativeJsonClient(
         { ...(deps.copilotImages ?? defaultCopilotNativeJsonConfig()), ...overrides },
-        { path: "/v1/images/generations", label: "images", failed: nativeJsonError },
+        { path: deps.copilotImagesEndpoint ?? "/v1/images/generations", label: "images", failed: nativeJsonError },
       ) as UpstreamClientByKind[K]
     case "copilot-openai":
       return new CopilotOpenAIClient(

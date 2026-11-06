@@ -101,4 +101,16 @@ describe("endpoint selection after key-bound upstream selection", () => {
     expect(pickStrategy({ ...input, provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
     expect(pickStrategy({ ...input, requestedModel: "auto", provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
   })
+
+  test.each(["/v1/images/generations", "/v1/images/edits"] as const)("images require the exact %s declaration", imageEndpoint => {
+    const model = "gpt-image-2.5-flare"
+    const other = imageEndpoint === "/v1/images/edits" ? "/v1/images/generations" : "/v1/images/edits"
+    const provider = upstreamRecord({ kind: "copilot", models: [{ id: model, supported_endpoints: [imageEndpoint] }] })
+    const input = { protocol: "images" as const, model, requestedModel: model, provider, allowConversion: true, imageEndpoint }
+    expect(declaredProtocols(provider.models[0])).toEqual(["images"])
+    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name: "copilot-images", imageEndpoint })
+    expect(pickStrategy({ ...input, imageEndpoint: other })).toMatchObject({ kind: "reject", status: 503 })
+    expect(pickStrategy({ ...input, protocol: "openai" })).toMatchObject({ kind: "reject", status: 400 })
+    expect(pickStrategy({ ...input, stream: true })).toMatchObject({ kind: "reject", status: 400 })
+  })
 })

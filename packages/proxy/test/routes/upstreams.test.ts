@@ -135,6 +135,7 @@ test.each([
 test.each([
   ["gpt-6-luna-decisions", "/v1/decisions", "/v1/decisions"],
   ["gpt-image-2.5-flare", "/v1/images/generations", "/v1/images/generations"],
+  ["gpt-image-2.5-flare", "/v1/images/edits", "/v1/images/edits"],
 ])("text ping diagnostics reject native %s without sending chat", async (model, endpoint) => {
   h.copilot([{ id: model, supported_endpoints: [endpoint] }])
   const response = await h.request(`/api/upstreams/${COPILOT_UPSTREAM_ID}/test`, { model })

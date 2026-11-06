@@ -15,7 +15,7 @@ import { decorate } from "../strategies/support/server-tools"
 import type { ChatCompletionsPayload } from "../upstream/copilot-openai"
 import type { ResponsesPayload } from "../upstream/copilot-responses"
 import type { SystemonePayload } from "../protocols/systemone"
-import type { NativeJsonPayload } from "../protocols/native-json"
+import type { ImageEndpoint, NativeJsonPayload } from "../protocols/native-json"
 import { buildStrategy, type BuildStrategyDeps } from "./strategy-registry"
 import { accountedFetch, resolveRouting } from "./routing"
 import { logEmitter } from "../util/log-emitter"
@@ -65,6 +65,7 @@ export async function dispatch(
   ctx: RequestContext,
   payload: GenerationPayload,
   protocol: ClientProtocol,
+  imageEndpoint?: ImageEndpoint,
 ): Promise<Response> {
   let executionOwnsLog = false
   try {
@@ -72,6 +73,7 @@ export async function dispatch(
     const decision = pickStrategy({
       protocol, model: selection.resolved_model, requestedModel: selection.requested_model,
       provider: selection.upstream, allowConversion: selection.allow_conversion, anthropicBeta: ctx.anthropicBeta, stream: ctx.stream,
+      ...(imageEndpoint ? { imageEndpoint } : {}),
     })
     if (decision.kind === "reject") throw new RoutingError(decision.message, decision.errorType, decision.status as 400 | 503)
     selection.resolved_model = decision.model

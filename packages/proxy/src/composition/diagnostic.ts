@@ -62,7 +62,7 @@ export async function runUpstreamDiagnostic(c: Context, db: Database, id: string
     if (!protocol) throw new RoutingError("Refresh Copilot model capabilities before testing this model", "copilot_capabilities_unavailable", 503)
     if (protocol === "systemone") throw new RoutingError("The text ping diagnostic does not support decision models. Use an explicitly authorized /v1/systemone request.", "protocol_mismatch")
     if (protocol === "decisions") throw new RoutingError("The text ping diagnostic does not support native decisions. Use an explicitly authorized /v1/decisions request.", "protocol_mismatch")
-    if (protocol === "images") throw new RoutingError("The text ping diagnostic does not support native image generations. Use an explicitly authorized /v1/images/generations request.", "protocol_mismatch")
+    if (protocol === "images") throw new RoutingError("The text ping diagnostic does not support native images. Use an explicitly authorized /v1/images/generations or /v1/images/edits request.", "protocol_mismatch")
     const decision = pickStrategy({ protocol, provider: upstream, model, requestedModel: model, allowConversion: false })
     if (decision.kind === "reject") throw new RoutingError(decision.message, decision.errorType, decision.status as 400 | 503)
     ctx.routing.resolved_model = decision.model
