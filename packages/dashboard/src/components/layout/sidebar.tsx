@@ -36,8 +36,10 @@ import {
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import type { ElementType } from "react";
+import { Link } from "@nocoo/basalt/components/link";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { APP_VERSION } from "@/lib/version";
+import { cn } from "@/lib/utils";
 import { useAppPathname } from "@/lib/app-navigation";
 import { searchParamsToFilters } from "@/lib/analytics-filters";
 import { monitorHref } from "@/lib/monitor";
@@ -100,6 +102,7 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+const SIDEBAR_MARK_SLOT_CLASS = "flex w-full items-center";
 
 function navActive(pathname: string, href: string): boolean {
   return href === "/" || href === "/dashboard" || href === "/settings"
@@ -109,8 +112,8 @@ function navActive(pathname: string, href: string): boolean {
 
 function RavenMark() {
   return (
-    /* biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit */
-    <img src="/logo-24.png" alt="Raven" width={24} height={24} className="size-basalt-5 shrink-0" />
+    /* biome-ignore lint/performance/noImgElement: static local logo, next/image adds no benefit */
+    <img src="/logo-80.png" width={28} height={28} alt="" className="h-7 w-7 shrink-0 object-contain" />
   );
 }
 
@@ -179,11 +182,38 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
 
   return (
     <Sidebar collapsed={collapsed}>
+      <SidebarHeader>
+        <div className={cn(SIDEBAR_MARK_SLOT_CLASS, collapsed ? "justify-center" : "justify-between pl-basalt-layout-sm")}>
+          <Link
+            href="/"
+            aria-label="Raven home"
+            className="flex items-center gap-basalt-space-lg text-basalt-foreground no-underline hover:no-underline"
+          >
+            <RavenMark />
+            {collapsed ? null : (
+              <>
+                <span className="text-basalt-xl font-semibold text-basalt-foreground">raven</span>
+                <span className="rounded-basalt-md bg-basalt-secondary px-basalt-space-md py-basalt-space-xs text-basalt-sm leading-basalt-tight font-medium text-basalt-muted-foreground">
+                  v{APP_VERSION}
+                </span>
+              </>
+            )}
+          </Link>
+          {collapsed ? null : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-7"
+              onClick={onToggle}
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeft aria-hidden="true" />
+            </Button>
+          )}
+        </div>
+      </SidebarHeader>
       {collapsed ? (
         <>
-          <SidebarHeader>
-            <RavenMark />
-          </SidebarHeader>
           <Button
             variant="ghost"
             size="icon"
@@ -244,28 +274,6 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
         </>
       ) : (
         <>
-          <SidebarHeader>
-            <div className="flex w-full items-center justify-between">
-              <div className="flex min-w-0 items-center gap-basalt-space-lg">
-                <RavenMark />
-                <span className="truncate text-lg font-semibold text-basalt-foreground md:text-xl">
-                  raven
-                </span>
-                <span className="shrink-0 rounded-basalt-sm bg-basalt-secondary px-basalt-space-md py-basalt-space-xs font-mono text-basalt-xs leading-none text-basalt-muted-foreground">
-                  v{APP_VERSION}
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0"
-                onClick={onToggle}
-                aria-label="Collapse sidebar"
-              >
-                <PanelLeft aria-hidden="true" />
-              </Button>
-            </div>
-          </SidebarHeader>
           <SidebarNav>
             {NAV_GROUPS.map((group) => (
               <SidebarGroup
