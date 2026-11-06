@@ -109,10 +109,8 @@ function navActive(pathname: string, href: string): boolean {
 
 function RavenMark() {
   return (
-    <span className="flex w-[calc(var(--basalt-size-rail)-2*var(--basalt-space-nav-inset))] shrink-0 justify-center">
-      {/* biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit */}
-      <img src="/logo-24.png" alt="Raven" width={24} height={24} className="size-basalt-5 shrink-0" />
-    </span>
+    /* biome-ignore lint/performance/noImgElement: static local 24px logo, next/image adds no benefit */
+    <img src="/logo-24.png" alt="Raven" width={24} height={24} className="size-basalt-5 shrink-0" />
   );
 }
 
@@ -248,7 +246,7 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
         <>
           <SidebarHeader>
             <div className="flex w-full items-center justify-between">
-              <div className="flex min-w-0 items-center gap-basalt-row-gap">
+              <div className="flex min-w-0 items-center gap-basalt-space-lg">
                 <RavenMark />
                 <span className="truncate text-lg font-semibold text-basalt-foreground md:text-xl">
                   raven

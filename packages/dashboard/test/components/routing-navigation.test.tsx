@@ -13,6 +13,17 @@ vi.mock("@/hooks/use-auth-config", () => ({ useAuthConfig: () => ({ authEnabled:
 beforeEach(() => { router.push.mockClear(); identity.authenticated = false; });
 
 describe("routing navigation", () => {
+  it.each([false, true])("keeps the Raven mark on the 24px rail axis with collapsed=%s", collapsed => {
+    render(<TooltipProvider><AppSidebar collapsed={collapsed} onToggle={vi.fn()} /></TooltipProvider>);
+    const mark = screen.getByRole("img", { name: "Raven" });
+    expect(mark).toHaveAttribute("src", "/logo-24.png");
+    expect(mark).toHaveClass("size-basalt-5", "shrink-0");
+    expect(mark.parentElement).not.toHaveClass(/w-\[calc/);
+    if (!collapsed) {
+      expect(mark.parentElement).toHaveClass("gap-basalt-space-lg");
+    }
+  });
+
   it.each([false, true])("uses package-owned collapsed regions with authenticated=%s", authenticated => {
     identity.authenticated = authenticated;
     render(<TooltipProvider><AppSidebar collapsed onToggle={vi.fn()} /></TooltipProvider>);
