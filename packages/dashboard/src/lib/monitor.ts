@@ -140,7 +140,7 @@ export function requestProtocolRoute(request: ExtendedRequestRecord): string {
     responses: "Responses",
     systemone: "Systemone",
     decisions: "Decisions",
-    images: "Image Generations",
+    images: request.path === "/v1/images/edits" ? "Image Edits" : "Image Generations",
   };
   const client = names[request.client_format] ?? "Unknown";
   if (request.strategy === "copilot-chat-via-responses" || request.routing_path === "chat-via-responses") return `${client} → Responses`;

@@ -26,8 +26,13 @@ describe("live log protocol classification", () => {
   it("identifies native Luna decisions and image generations", () => {
     expect(logProtocol({ format: "decisions", upstreamFormat: "decisions" }, true))
       .toEqual({ label: "Native", variant: "success", title: "Decisions → Decisions · No protocol translation" });
-    expect(logProtocol({ format: "images", upstreamFormat: "images" }, true))
+    expect(logProtocol({ format: "images", upstreamFormat: "images", path: "/v1/images/generations" }, true))
       .toEqual({ label: "Native", variant: "success", title: "Image Generations → Image Generations · No protocol translation" });
+  });
+
+  it("labels native image edits from the existing request path", () => {
+    expect(logProtocol({ format: "images", upstreamFormat: "images", path: "/v1/images/edits" }, true))
+      .toEqual({ label: "Native", variant: "success", title: "Image Edits → Image Edits · No protocol translation" });
   });
 
   it.each([{}, { format: "responses" }, { format: "invalid", upstreamFormat: "responses" }, { format: "openai", upstreamFormat: "toString" }])("does not guess when protocol evidence is missing: %j", data => {

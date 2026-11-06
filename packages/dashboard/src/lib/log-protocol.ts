@@ -16,10 +16,13 @@ export function logProtocol(data: Record<string, unknown>, complete: boolean) {
   const upstream = data.upstreamFormat;
   if (protocol(client) && protocol(upstream)) {
     const native = client === upstream;
+    const imageName = data.path === "/v1/images/edits" ? "Image Edits" : null;
+    const clientName = client === "images" && imageName ? imageName : PROTOCOLS[client];
+    const upstreamName = upstream === "images" && imageName ? imageName : PROTOCOLS[upstream];
     return {
       label: native ? "Native" : "Translated",
       variant: native ? "success" as const : "warning" as const,
-      title: `${PROTOCOLS[client]} → ${PROTOCOLS[upstream]}${native ? " · No protocol translation" : ` · Prefer ${PROTOCOLS[upstream]} in your client`}`,
+      title: `${clientName} → ${upstreamName}${native ? " · No protocol translation" : ` · Prefer ${upstreamName} in your client`}`,
     };
   }
   return {
