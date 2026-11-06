@@ -103,7 +103,6 @@ describe("routing accounting admission", () => {
     const app = new Hono().get("/attempt", async (c) => {
       c.set("routingDb", fixture.db)
       c.set("ruleId", COPILOT_RULE_ID)
-      c.set("admittedAt", NOW)
       const ctx = buildContext(c, "openai")
       const selected = resolveRouting(c, ctx, "auto")
       expect(quota.settleQuota(fixture.db, { request_id: ctx.requestId, attempt_ordinal: 0, capture: selected.quota, usage }).committed).toBe(true)

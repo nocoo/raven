@@ -136,6 +136,58 @@ test("database key auto resolution replaces only model and settles reported imag
   expect(events.find(event => event.type === "request_end")?.data).toMatchObject({ model: "auto", apiKeyId: key.id, routing: { resolved_model: model } })
 })
 
+test.each([true, false])("routes an upload across quota reset when the window was already advanced=%s", async advanced => {
+  const initial = Date.now()
+  let now = initial
+  vi.spyOn(Date, "now").mockImplementation(() => now)
+  saveQuotaPolicy(h.db, COPILOT_UPSTREAM_ID, quotaPolicy({ next_reset_at: initial + 1000 }), initial)
+  const oldWindow = getQuotaStatus(h.db, COPILOT_UPSTREAM_ID, initial).window_id
+  h.db.query("UPDATE quota_windows SET charged = 100 WHERE id = ?").run(oldWindow)
+  const encoded = new Request("http://localhost", { method: "POST", body: form() })
+  const contentType = encoded.headers.get("content-type")!
+  const bytes = new Uint8Array(await encoded.arrayBuffer())
+  let release!: () => void
+  let entered!: () => void
+  const blocked = new Promise<void>(resolve => { release = resolve })
+  const parsing = new Promise<void>(resolve => { entered = resolve })
+  const originalFormData = Request.prototype.formData
+  vi.spyOn(Request.prototype, "formData").mockImplementation(function (this: Request) {
+    entered()
+    return originalFormData.call(this)
+  })
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(bytes.slice(0, 10))
+      await blocked
+      controller.enqueue(bytes.slice(10))
+      controller.close()
+    },
+  })
+  network.mockResolvedValueOnce(jsonResponse(responseBody))
+  const pending = h.app.request(path, {
+    method: "POST", headers: { Authorization: "Bearer fixture-client", "content-type": contentType }, body,
+  }, { remoteAddress: "127.0.0.1" })
+  try {
+    await parsing
+    now = initial + 1001
+    if (advanced) expect(getQuotaStatus(h.db, COPILOT_UPSTREAM_ID, now).window_id).not.toBe(oldWindow)
+    release()
+    const response = await pending
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(responseBody)
+    expect(network).toHaveBeenCalledOnce()
+    const current = getQuotaStatus(h.db, COPILOT_UPSTREAM_ID, now)
+    expect(current).toMatchObject({ healthy: true, used_tokens: 5 })
+    expect(current.window_id).not.toBe(oldWindow)
+    expect(h.db.query("SELECT window_id, captured_at, weighted_debit FROM quota_settlements").get()).toEqual({
+      window_id: current.window_id, captured_at: now, weighted_debit: 5,
+    })
+    expect(events.find(event => event.type === "request_end")?.data).toMatchObject({ routing: { admitted_at: now } })
+  } finally {
+    release()
+  }
+})
+
 test("real loopback HTTP encodes multipart with a matching boundary and isolated SQLite", async () => {
   const received: { headers: Headers; form: FormData }[] = []
   const upstream = Bun.serve({

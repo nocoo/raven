@@ -33,7 +33,7 @@ implementation and its verification.
 | Quota ownership | An upstream has one optional shared quota across all models, rules and client keys. Configure its period, next reset timestamp, 1× token allowance and time-dependent consumption multipliers. |
 | Quota selection | Skip exhausted candidates. After a reset restores allowance, the next request uses the earliest eligible candidate again. No sticky provider selection. |
 | Request failure | Once an eligible upstream is selected, an error ends the request. Do not try another candidate or Copilot. This also applies to protocol incompatibility and model-not-found errors. |
-| Approximation | Use soft limits. Lock the target, model, multiplier and quota window at request start; allow in-flight requests to overrun the limit. No live stream switching or manual consumed-token calibration. |
+| Approximation | Use soft limits. After parsing the request, lock the target, model, multiplier and quota window at routing admission; allow in-flight requests to overrun the limit. No live stream switching or manual consumed-token calibration. |
 | Model discovery | Persist fetched catalogs and manual model IDs. Custom catalogs refresh only on an explicit user action. Copilot refreshes periodically in the background. |
 | Model listing | `/v1/models` reads existing caches only and returns `auto` plus all known model IDs, deduplicated by exact ID. No upstream UUID prefix and no filtering by the caller's rule or current period. |
 | Upstream testing | A user may explicitly send one small `ping` request asking for `pong` to a selected upstream/model. Discovery refresh and generation testing are separate actions. |
@@ -181,8 +181,9 @@ flowchart TD
 1. Reject invalid/revoked keys before any upstream I/O or rule execution.
 2. Load the authenticated key's rule. A missing/corrupt binding is a configuration
    error, never permission to use the default Copilot driver.
-3. Select the period or default chain using the captured UTC time. An empty or
-   invalid chain is a configuration error, not an implicit Copilot route.
+3. After the request body is parsed, capture the routing admission UTC time and
+   select the period or default chain. An empty or invalid chain is a
+   configuration error, not an implicit Copilot route.
 4. Consider targets in order. A missing upstream is a local configuration error.
    Attempt that upstream's pending local settlements once as described in §7.2.
    If quota is disabled, ignore accounting health for admission and select this

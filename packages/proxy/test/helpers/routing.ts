@@ -21,7 +21,6 @@ export function installTestRouting(app: Hono, db: ReturnType<typeof routingFixtu
   app.use("*", async (c, next) => {
     c.set("routingDb", db)
     c.set("ruleId", ruleId)
-    c.set("admittedAt", Date.now())
     await next()
   })
 }

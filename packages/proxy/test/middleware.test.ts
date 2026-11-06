@@ -18,7 +18,7 @@ function createAiApp(db: Database, envApiKey: string | null = null) {
   app.get("/v1/models", (c) => {
     const keyName = c.get("keyName");
     const keyId = c.get("keyId");
-    return c.json({ keyName, keyId, ruleId: c.get("ruleId"), admittedAt: c.get("admittedAt"), usesRoutingDb: c.get("routingDb") === db });
+    return c.json({ keyName, keyId, ruleId: c.get("ruleId"), usesRoutingDb: c.get("routingDb") === db });
   });
   app.post("/v1/chat/completions", (c) => c.json({ ok: true }));
   return app;
@@ -94,7 +94,7 @@ describe("apiKeyAuth middleware", () => {
       const body = await res.json();
       expect(body.keyName).toBe("env:default");
       expect(body.keyId).toBe("env:default");
-      expect(body).toMatchObject({ ruleId: COPILOT_RULE_ID, admittedAt: NOW, usesRoutingDb: true });
+      expect(body).toMatchObject({ ruleId: COPILOT_RULE_ID, usesRoutingDb: true });
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
@@ -111,7 +111,7 @@ describe("apiKeyAuth middleware", () => {
       const body = await res.json();
       expect(body.keyName).toBe("test-key");
       expect(body.keyId).toBe(created.id);
-      expect(body).toMatchObject({ ruleId: rule.id, admittedAt: NOW, usesRoutingDb: true });
+      expect(body).toMatchObject({ ruleId: rule.id, usesRoutingDb: true });
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 
@@ -156,7 +156,7 @@ describe("apiKeyAuth middleware", () => {
     });
   });
 
-  test("captures admission once and applies a key rebind only to its later requests", async () => {
+  test("captures the key binding once and applies a rebind only to later requests", async () => {
     const key = createApiKey(db, "shared-rule", COPILOT_RULE_ID);
     const other = createApiKey(db, "same-rule", COPILOT_RULE_ID);
     const replacement = createRoutingRule(db, ruleInput());
@@ -169,7 +169,7 @@ describe("apiKeyAuth middleware", () => {
     pendingApp.get("/pending", async (c) => {
       entered();
       await completion;
-      return c.json({ ruleId: c.get("ruleId"), admittedAt: c.get("admittedAt"), usesRoutingDb: c.get("routingDb") === db });
+      return c.json({ ruleId: c.get("ruleId"), usesRoutingDb: c.get("routingDb") === db });
     });
     const pending = pendingApp.request("/pending", { headers: { "x-api-key": key.key } });
     await admitted;
@@ -179,8 +179,8 @@ describe("apiKeyAuth middleware", () => {
     const later = await app.request("/v1/models", { headers: { "x-api-key": key.key } });
     const unchanged = await app.request("/v1/models", { headers: { "x-api-key": other.key } });
     release();
-    expect(await (await pending).json()).toEqual({ ruleId: COPILOT_RULE_ID, admittedAt: NOW, usesRoutingDb: true });
-    expect(await later.json()).toMatchObject({ keyId: key.id, ruleId: replacement.id, admittedAt: NOW + 60000, usesRoutingDb: true });
+    expect(await (await pending).json()).toEqual({ ruleId: COPILOT_RULE_ID, usesRoutingDb: true });
+    expect(await later.json()).toMatchObject({ keyId: key.id, ruleId: replacement.id, usesRoutingDb: true });
     expect(await unchanged.json()).toMatchObject({ keyId: other.id, ruleId: COPILOT_RULE_ID });
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });

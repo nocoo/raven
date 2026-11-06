@@ -103,8 +103,8 @@ upstream failure ends the request. Copilot is a protected upstream, with no
 implicit fallback. Explicit incoming model IDs follow the selected upstream and
 remain unchanged for custom providers; `auto` uses the configured candidate ID.
 
-Composition captures the provider configuration, model, admission time, quota
-window and multiplier once. The same capture and a monotonically increasing
+After request parsing, composition captures the provider configuration, model,
+admission time, quota window and multiplier once. The same capture and a monotonically increasing
 attempt ordinal span server-tool rounds and existing same-provider retries.
 `composition/usage-observer.ts` observes the actual HTTP response before protocol
 translation. Chat clients explicitly request streaming usage. The observer handles

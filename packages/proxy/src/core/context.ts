@@ -90,7 +90,6 @@ export function buildContext(
     peerIP: c.get("peerIP") ?? null,
     ipSource: c.get("ipSource") ?? null,
     ruleId: c.get("ruleId"),
-    admittedAt: c.get("admittedAt"),
     requestId: generateRequestId(),
     startTime: performance.now(),
     format,

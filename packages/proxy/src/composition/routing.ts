@@ -13,7 +13,7 @@ export function resolveRouting(c: Context, ctx: RequestContext, requestedModel: 
   const db = c.get("routingDb")
   const ruleId = c.get("ruleId")
   if (!db || !ruleId) throw new RoutingError("The authenticated key has no routing rule", "routing_configuration_error", 503)
-  const now = c.get("admittedAt") ?? Date.now()
+  const now = Date.now()
   const rule = getRoutingRule(db, ruleId)
   const upstreams = listProviderRecords(db)
   const snapshots = new class extends Map<string, QuotaStatus> {

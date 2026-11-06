@@ -17,7 +17,6 @@ declare module "hono" {
     keyName: string;
     keyId: string;
     ruleId: string;
-    admittedAt: number;
     routingDb: Database;
   }
 }
@@ -140,7 +139,6 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
     c.set("keyName", result.keyName);
     c.set("keyId", result.keyId);
     c.set("ruleId", result.ruleId!);
-    c.set("admittedAt", Date.now());
     c.set("routingDb", db);
     await next();
   });
