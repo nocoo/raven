@@ -22,6 +22,7 @@
     "typecheck": "bun run --filter '*' typecheck",
     "test:e2e": "bun run scripts/run-e2e.ts",
     "test:live": "bun run scripts/verify-live-proxy.ts",
+    "test:typed-models": "bun run scripts/verify-typed-models.ts",
     "test:e2e:full": "RAVEN_E2E_FULL=1 bun run scripts/run-e2e.ts",
     "capture-goldens": "bun run scripts/capture-goldens.ts",
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
