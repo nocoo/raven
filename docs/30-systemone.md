@@ -105,6 +105,14 @@ Both routes use the Copilot token's validated API destination, manual redirect
 handling, unified API-key admission, key routing, IP admission, quota and
 request logs. Environment/database keys are accepted by the existing AI route
 middleware; internal credentials and custom-provider rules remain excluded.
+The Luna/Flare routes may observe only reported protocol usage; missing or
+invalid buckets stay unobserved rather than being fabricated.
+
+All native JSON payload fields remain data, including unknown fields and
+`upstream_id`. Routing never reads `upstream_id` or another payload field:
+the authenticated key's rule and server-owned Copilot destination remain
+authoritative. Model fields still resolve through the key's selected rule,
+but unknown payload fields are preserved upstream without routing control.
 No inference retry, credential refresh, redirect follow or account fallback is
 allowed. HTTP and HTTP-200 semantic errors preserve their native JSON and status,
 with credential-bearing text redacted and bounded.
@@ -139,8 +147,10 @@ Client JSON cannot override the destination, credentials, or routing selection.
 - Preserve successful JSON response text without reserializing numbers or
   inserting missing `model`, `usage`, `confidence`, `legend` or distributions.
   This is transport support, not an exhaustive semantic schema validator.
-- Observe only reported `usage.input_tokens` and `usage.output_tokens` for
-  accounting. Missing buckets stay null; incomplete usage is marked incomplete.
+- Systemone accounting observes only reported `usage.input_tokens` and
+  `usage.output_tokens`. Chat-style `prompt_tokens`/`completion_tokens` aliases
+  are not accepted for Systemone. Missing buckets stay null and incomplete usage
+  remains incomplete.
   Cache buckets are not invented. Accounting never changes the wire body.
 - Preserve upstream error status and bounded, credential-redacted body. Do not
   forward credentials, cookies, arbitrary upstream headers or redirect targets.

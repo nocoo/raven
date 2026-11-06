@@ -22,7 +22,15 @@ function tokens(value: unknown): number | null {
 export function normalizeUsage(protocol: UsageProtocol, value: unknown): NormalizedUsage {
   const usage = object(value)
   const usage_present = value !== null && typeof value === "object" && !Array.isArray(value)
-  if (protocol === "systemone" || protocol === "decisions" || protocol === "images") {
+  if (protocol === "systemone") {
+    const input = Number.isSafeInteger(usage.input_tokens) ? tokens(usage.input_tokens) : null
+    const output = Number.isSafeInteger(usage.output_tokens) ? tokens(usage.output_tokens) : null
+    return {
+      input_tokens: input, output_tokens: output, cache_read_tokens: null, cache_write_tokens: null,
+      complete: input !== null && output !== null, usage_present,
+    }
+  }
+  if (protocol === "decisions" || protocol === "images") {
     const input = Number.isSafeInteger(usage.input_tokens) ? tokens(usage.input_tokens)
       : Number.isSafeInteger(usage.prompt_tokens) ? tokens(usage.prompt_tokens) : null
     const output = Number.isSafeInteger(usage.output_tokens) ? tokens(usage.output_tokens)

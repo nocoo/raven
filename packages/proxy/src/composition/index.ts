@@ -35,9 +35,7 @@ function preparePayload(
 ): unknown {
   const resolved = { ...payload, model: decision.model }
   if (protocol === "systemone" || protocol === "decisions" || protocol === "images") {
-    const native = { ...resolved } as Record<string, unknown>
-    delete native.upstream_id
-    return native
+    return { ...resolved }
   }
   if (protocol === "anthropic") {
     const messages = resolved as AnthropicMessagesPayload

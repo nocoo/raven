@@ -77,11 +77,23 @@ test("database key binding, auto resolution and quota accounting use the admitte
   network.mockResolvedValueOnce(new Response(body, { headers: { "content-type": "application/json" } }))
   const response = await h.request("/v1/systemone", { ...payload, model: "auto", upstream_id: "not-a-routing-override" }, "POST", key.key)
   expect(response.status).toBe(200)
-  expect(JSON.parse(String(network.mock.calls[0]![1].body)).model).toBe(model)
+  const sent = JSON.parse(String(network.mock.calls[0]![1].body))
+  expect(sent.model).toBe(model)
+  expect(sent.upstream_id).toBe("not-a-routing-override")
+  expect(network.mock.calls[0]![0]).toBe("https://api.enterprise.githubcopilot.com/v1/systemone")
   expect(getQuotaStatus(h.db, COPILOT_UPSTREAM_ID).used_tokens).toBe(46)
   expect(h.db.query("SELECT attempt_ordinal, upstream_id, weighted_debit, usage_complete FROM quota_settlements").all()).toEqual([{ attempt_ordinal: 0, upstream_id: COPILOT_UPSTREAM_ID, weighted_debit: 46, usage_complete: 1 }])
   const end = events.find(event => event.type === "request_end")!
   expect(end.data).toMatchObject({ model: "auto", ruleId: rule.id, apiKeyId: key.id, routing: { resolved_model: model } })
+})
+
+test("chat-style usage aliases never debit or complete Systemone", async () => {
+  saveQuotaPolicy(h.db, COPILOT_UPSTREAM_ID, quotaPolicy({ next_reset_at: Date.now() + 3600000 }))
+  network.mockResolvedValueOnce(jsonResponse({ answers: {}, usage: { prompt_tokens: 100, completion_tokens: 1 } }))
+  const response = await h.request("/v1/systemone", payload)
+  expect(response.status).toBe(200)
+  expect(h.db.query("SELECT input_tokens, output_tokens, usage_present, usage_complete FROM quota_settlements").get()).toEqual({ input_tokens: null, output_tokens: null, usage_present: 1, usage_complete: 0 })
+  expect(getQuotaStatus(h.db, COPILOT_UPSTREAM_ID).used_tokens).toBe(0)
 })
 
 test.each(["", "wrong", "fixture-internal"])("rejects unauthorized key %s before any upstream", async token => {

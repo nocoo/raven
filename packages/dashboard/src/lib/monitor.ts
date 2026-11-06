@@ -134,7 +134,14 @@ export function protocolLabel(mode: ProtocolMode): string {
 }
 
 export function requestProtocolRoute(request: ExtendedRequestRecord): string {
-  const names: Record<string, string> = { anthropic: "Messages", openai: "Chat Completions", responses: "Responses" };
+  const names: Record<string, string> = {
+    anthropic: "Messages",
+    openai: "Chat Completions",
+    responses: "Responses",
+    systemone: "Systemone",
+    decisions: "Decisions",
+    images: "Image Generations",
+  };
   const client = names[request.client_format] ?? "Unknown";
   if (request.strategy === "copilot-chat-via-responses" || request.routing_path === "chat-via-responses") return `${client} → Responses`;
   const upstream = names[request.upstream_format];

@@ -99,7 +99,8 @@ for (const entry of cases) {
     expect(response.status).toBe(200)
     const sent = JSON.parse(String(network.mock.calls[0]![1].body))
     expect(sent.model).toBe(entry.model)
-    expect(sent).not.toHaveProperty("upstream_id")
+    expect(sent.upstream_id).toBe("not-a-routing-override")
+    expect(String(network.mock.calls[0]![0])).toBe(`https://api.enterprise.githubcopilot.com${entry.endpoint}`)
     const usageTokens = entry.response.usage.input_tokens + entry.response.usage.output_tokens
     expect(getQuotaStatus(h.db, COPILOT_UPSTREAM_ID).used_tokens).toBe(usageTokens)
     expect(h.db.query("SELECT attempt_ordinal, upstream_id, weighted_debit, usage_complete FROM quota_settlements").all()).toEqual([{ attempt_ordinal: 0, upstream_id: COPILOT_UPSTREAM_ID, weighted_debit: usageTokens, usage_complete: 1 }])

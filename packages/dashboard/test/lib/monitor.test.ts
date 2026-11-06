@@ -69,6 +69,9 @@ describe("honest identity and protocol presentation", () => {
     expect(requestProtocolRoute(request({ strategy: "custom-openai", protocol_mode: "translated", upstream_format: "openai" }))).toBe("Messages → Chat Completions");
     expect(requestProtocolRoute(request({ strategy: "copilot-translated", protocol_mode: "translated" }))).toBe("Messages → Chat Completions");
     expect(requestProtocolRoute(request({ client_format: "responses", strategy: "copilot-responses" }))).toBe("Responses → Responses");
+    expect(requestProtocolRoute(request({ client_format: "systemone", upstream_format: "systemone", strategy: "copilot-systemone" }))).toBe("Systemone → Systemone");
+    expect(requestProtocolRoute(request({ client_format: "decisions", upstream_format: "decisions", strategy: "copilot-decisions" }))).toBe("Decisions → Decisions");
+    expect(requestProtocolRoute(request({ client_format: "images", upstream_format: "images", strategy: "copilot-images" }))).toBe("Image Generations → Image Generations");
     expect(requestProtocolRoute(request({ client_format: "missing", strategy: "", protocol_mode: "unknown" }))).toBe("Unknown → Unknown");
   });
 });

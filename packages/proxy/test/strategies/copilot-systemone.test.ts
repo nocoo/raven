@@ -26,7 +26,14 @@ test.each(["systemone", "openai"] as const)("composition rejects a forged conver
   })).toThrow("Systemone cannot be converted")
 })
 
-test.each([{}, { input_tokens: 0 }, { input_tokens: 0, output_tokens: 0 }, { input_tokens: -1, output_tokens: 2 }, { input_tokens: 1.5, output_tokens: Number.MAX_SAFE_INTEGER + 1 }])("usage keeps absent or invalid counters unknown: %j", usage => {
+test.each([
+  {},
+  { prompt_tokens: 100, completion_tokens: 1 },
+  { input_tokens: 0 },
+  { input_tokens: 0, output_tokens: 0 },
+  { input_tokens: -1, output_tokens: 2, prompt_tokens: 100, completion_tokens: 1 },
+  { input_tokens: 1.5, output_tokens: Number.MAX_SAFE_INTEGER + 1, prompt_tokens: 100, completion_tokens: 1 },
+])("usage keeps absent or invalid native counters unknown: %j", usage => {
   const result = normalizeUsage("systemone", usage)
   const valid = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0
   expect(result.input_tokens).toBe(valid(usage.input_tokens) ? usage.input_tokens : null)
