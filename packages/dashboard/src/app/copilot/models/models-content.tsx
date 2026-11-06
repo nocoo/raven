@@ -11,6 +11,7 @@ import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { TagBadge } from "@nocoo/basalt/components/tag-badge";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatCompact } from "@/lib/chart-config";
 import {
@@ -53,6 +54,10 @@ interface VendorGroup {
   models: CopilotModel[];
 }
 
+function modelTypeLabel(model: CopilotModel): string {
+  return model.capabilities?.type ?? "Unknown";
+}
+
 function groupAndSort(data: CopilotModel[]): VendorGroup[] {
   const map = new Map<string, CopilotModel[]>();
 
@@ -66,13 +71,11 @@ function groupAndSort(data: CopilotModel[]): VendorGroup[] {
     }
   }
 
-  // Sort models within each group by max_context_window_tokens descending
   const groups: VendorGroup[] = [];
   for (const [vendor, models] of map) {
     models.sort((a, b) => {
-      const ap = a.capabilities?.limits?.max_context_window_tokens ?? 0;
-      const bp = b.capabilities?.limits?.max_context_window_tokens ?? 0;
-      return bp - ap;
+      const typeComparison = modelTypeLabel(a).localeCompare(modelTypeLabel(b));
+      return typeComparison !== 0 ? typeComparison : a.id.localeCompare(b.id);
     });
     groups.push({ vendor, models });
   }
@@ -173,10 +176,10 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[22%]">Model ID</TableHead>
-                  <TableHead className="hidden sm:table-cell w-[15%]">Name</TableHead>
+                  <TableHead className="hidden sm:table-cell w-[13%]">Name</TableHead>
                   <TableHead className="hidden xl:table-cell w-[8%]">Version</TableHead>
-                  <TableHead className="hidden xl:table-cell w-[11%]">Family</TableHead>
-                  <TableHead className="hidden md:table-cell w-[7%]">Type</TableHead>
+                  <TableHead className="hidden xl:table-cell w-[10%]">Family</TableHead>
+                  <TableHead className="hidden md:table-cell w-[10%]">Type</TableHead>
                   <TableHead className="w-[11%] text-right">Context</TableHead>
                   <TableHead className="hidden sm:table-cell w-[10%] text-right">Max Output</TableHead>
                   <TableHead className="hidden lg:table-cell w-[8%]">Picker</TableHead>
@@ -198,9 +201,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                     </TableCell>
                     <TableCell className="hidden xl:table-cell truncate">{model.capabilities?.family ?? "—"}</TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <Badge variant="secondary">
-                        {model.capabilities?.type ?? "Unknown"}
-                      </Badge>
+                      <TagBadge name={modelTypeLabel(model)} size="sm" />
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       {model.capabilities?.limits?.max_context_window_tokens?.toLocaleString() ??

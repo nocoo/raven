@@ -138,6 +138,43 @@ describe("CopilotModelsContent.handleRefresh", () => {
     expect(first.getAllByText("—")).toHaveLength(5);
     expect(screen.getByText("sparse-b")).toBeVisible();
     expect(fetchSpy).not.toHaveBeenCalled();
+
+    const unknownBadge = screen.getByRole("row", { name: /sparse-a/ }).querySelector("[data-tag-color]");
+    expect(unknownBadge).toHaveTextContent("Unknown");
+    expect(unknownBadge).not.toHaveAttribute("style");
+  });
+
+  it("uses stable package-owned hash colors and sorts each vendor table by type then id", () => {
+    render(<CopilotModelsContent data={[
+      makeModel({ id: "z-chat-b", vendor: "zeta", capabilities: { family: "z", type: "chat" } }),
+      makeModel({ id: "z-chat-a", vendor: "zeta", capabilities: { family: "z", type: "chat" } }),
+      makeModel({ id: "z-image-a", vendor: "zeta", capabilities: { family: "z", type: "image" } }),
+      makeModel({ id: "z-audio-a", vendor: "zeta", capabilities: { family: "z", type: "audio" } }),
+      makeModel({ id: "a-image-b", vendor: "alpha", capabilities: { family: "a", type: "image" } }),
+      makeModel({ id: "a-chat-a", vendor: "alpha", capabilities: { family: "a", type: "chat" } }),
+    ]} />);
+
+    const vendorNames = screen.getAllByRole("heading", { level: 2 }).map(heading => heading.textContent?.trim());
+    expect(vendorNames).toEqual(["alpha", "zeta"]);
+
+    const idsInVendor = (vendor: string) => {
+      const heading = screen.getByRole("heading", { name: vendor });
+      const table = heading.parentElement?.parentElement?.querySelector("table");
+      expect(table).not.toBeNull();
+      return within(table as HTMLTableElement).getAllByRole("row").slice(1).map(row => row.querySelector("td")?.textContent?.trim());
+    };
+
+    expect(idsInVendor("alpha")).toEqual(["a-chat-a", "a-image-b"]);
+    expect(idsInVendor("zeta")).toEqual(["z-audio-a", "z-chat-a", "z-chat-b", "z-image-a"]);
+
+    const chatBadges = screen.getAllByText("chat").filter(element => element.hasAttribute("data-tag-color"));
+    expect(chatBadges).toHaveLength(3);
+    const colors = chatBadges.map(badge => badge.getAttribute("data-tag-color"));
+    expect(new Set(colors).size).toBe(1);
+    chatBadges.forEach(badge => {
+      expect(badge).not.toHaveAttribute("style");
+      expect(badge.className).toContain("bg-basalt-tag-");
+    });
   });
 
   it("explicitly refreshes the persistent Copilot catalog", async () => {
