@@ -17,7 +17,7 @@ export function declaredProtocols(model: CatalogModel | undefined): ClientProtoc
   if (endpoints.includes("/v1/messages") || endpoints.includes("/messages")) result.push("anthropic")
   if (endpoints.includes("/v1/systemone")) result.push("systemone")
   if (endpoints.includes("/v1/decisions")) result.push("decisions")
-  if (endpoints.includes("/v1/images/generations")) result.push("images")
+  if (endpoints.includes("/v1/images/generations") || endpoints.includes("/v1/images/edits")) result.push("images")
   return result
 }
 

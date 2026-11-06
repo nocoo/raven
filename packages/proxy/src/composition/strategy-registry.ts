@@ -61,7 +61,7 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     case "copilot-decisions":
       return makeCopilotNativeJson({ name: "copilot-decisions", client: buildUpstreamClient("copilot-decisions", transport), usageProtocol: "decisions" }) as unknown as AnyStrategy
     case "copilot-images":
-      return makeCopilotNativeJson({ name: "copilot-images", client: buildUpstreamClient("copilot-images", transport), usageProtocol: "images" }) as unknown as AnyStrategy
+      return makeCopilotNativeJson({ name: "copilot-images", client: buildUpstreamClient("copilot-images", { ...transport, copilotImagesEndpoint: decision.imageEndpoint ?? "/v1/images/generations" }), usageProtocol: "images", imageEdits: decision.imageEndpoint === "/v1/images/edits" }) as unknown as AnyStrategy
     case "copilot-openai-direct":
       return makeCopilotOpenAIDirect({ client: buildUpstreamClient("copilot-openai", transport), toolCallDebug: deps.toolCallDebug }) as unknown as AnyStrategy
     case "copilot-native":

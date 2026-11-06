@@ -4,12 +4,18 @@ import { buildContext } from "../core/context"
 import { logRequestError, logRequestStart } from "../core/request-log"
 import { ClientInputError, forwardError } from "../lib/error"
 import { parseSystemoneJson, systemoneInputError } from "../protocols/systemone"
-import { decisionsInputError, imagesInputError, parseNativeJson } from "../protocols/native-json"
+import { decisionsInputError, imagesInputError, parseImageEdits, parseNativeJson, type ImageEndpoint } from "../protocols/native-json"
 
-export async function handleGeneration(c: Context, protocol: ClientProtocol): Promise<Response> {
+export async function handleGeneration(c: Context, protocol: ClientProtocol, imageEndpoint?: ImageEndpoint): Promise<Response> {
   let payload: GenerationPayload
+  const edits = protocol === "images" && imageEndpoint === "/v1/images/edits"
   try {
-    payload = protocol === "systemone"
+    if (edits && c.req.header("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "multipart/form-data") {
+      throw new ClientInputError("Image edits requires multipart/form-data")
+    }
+    payload = edits
+      ? parseImageEdits(await c.req.raw.formData())
+      : protocol === "systemone"
       ? parseSystemoneJson(await c.req.text())
       : protocol === "decisions" || protocol === "images"
         ? parseNativeJson(await c.req.text())
@@ -25,12 +31,12 @@ export async function handleGeneration(c: Context, protocol: ClientProtocol): Pr
       const message = decisionsInputError(payload as unknown as Record<string, unknown>)
       if (message) throw new ClientInputError(message)
     }
-    if (protocol === "images") {
+    if (protocol === "images" && !edits) {
       const message = imagesInputError(payload as unknown as Record<string, unknown>)
       if (message) throw new ClientInputError(message)
     }
   } catch (error) {
-    const failure = error instanceof ClientInputError ? error : new ClientInputError("Invalid JSON")
+    const failure = error instanceof ClientInputError ? error : new ClientInputError(edits ? "Invalid image edits multipart form" : "Invalid JSON")
     logRequestError(buildContext(c, protocol), failure)
     return forwardError(c, failure)
   }
@@ -41,7 +47,7 @@ export async function handleGeneration(c: Context, protocol: ClientProtocol): Pr
   const counts = payload as { messages?: unknown[]; tools?: unknown[] }
   logRequestStart(ctx, payload.model, { messageCount: counts.messages?.length ?? 0, toolCount: counts.tools?.length ?? 0 })
   try {
-    return await dispatch(c, ctx, payload, protocol)
+    return await dispatch(c, ctx, payload, protocol, imageEndpoint)
   } catch (error) {
     return forwardError(c, error)
   }

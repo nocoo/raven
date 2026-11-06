@@ -2,13 +2,14 @@ import { resolveAgainstCatalog, translateModelName } from "../protocols/anthropi
 import type { StrategyName } from "./strategy"
 import { formatProtocol, nativeCapabilities, type ProtocolProvider } from "./protocol-capabilities"
 import { nativeProtocolEvidence, type NativeProtocolEvidence } from "./protocol-evidence"
+import type { ImageEndpoint } from "../protocols/native-json"
 export { declaredProtocols, formatProtocol } from "./protocol-capabilities"
 
 export type { StrategyName }
 export type ClientProtocol = "anthropic" | "openai" | "responses" | "systemone" | "decisions" | "images"
 
 export type StrategyDecision =
-  | { kind: "ok"; name: StrategyName; providerId: string; upstreamProtocol: ClientProtocol; clientProtocol: ClientProtocol; model: string }
+  | { kind: "ok"; name: StrategyName; providerId: string; upstreamProtocol: ClientProtocol; clientProtocol: ClientProtocol; model: string; imageEndpoint?: ImageEndpoint }
   | { kind: "reject"; status: number; message: string; errorType: string }
 
 export interface RouterInput {
@@ -19,6 +20,7 @@ export interface RouterInput {
   allowConversion: boolean
   stream?: boolean
   anthropicBeta?: string | null
+  imageEndpoint?: ImageEndpoint
 }
 
 export function pickStrategy(input: RouterInput, evidence: readonly NativeProtocolEvidence[] = nativeProtocolEvidence): StrategyDecision {
@@ -36,8 +38,10 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
     if (protocol === "decisions" && !declared.includes("decisions")) {
       return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/decisions. Refresh its model catalog in Upstreams." }
     }
-    if (protocol === "images" && !declared.includes("images")) {
-      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/images/generations. Refresh its model catalog in Upstreams." }
+    const imageEndpoint = input.imageEndpoint ?? "/v1/images/generations"
+    const endpoints = provider.models.find(entry => entry.id === model)?.supported_endpoints
+    if (protocol === "images" && (!Array.isArray(endpoints) || !endpoints.includes(imageEndpoint))) {
+      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: `The selected Copilot model does not declare ${imageEndpoint}. Refresh its model catalog in Upstreams.` }
     }
     if (declared.length) {
       target = declared.includes(protocol) ? protocol : declared[0]!
@@ -56,7 +60,7 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
   const nativeJsonProtocols: readonly ClientProtocol[] = ["systemone", "decisions", "images"]
   if (nativeJsonProtocols.includes(protocol) || nativeJsonProtocols.includes(target)) {
     if (protocol !== target || input.stream) {
-      const label = protocol === "systemone" ? "Systemone" : protocol === "decisions" ? "Decisions" : "Images generations"
+      const label = protocol === "systemone" ? "Systemone" : protocol === "decisions" ? "Decisions" : "Images"
       return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: `${label} requires a native non-streaming upstream; protocol conversion is not supported.` }
     }
   }
@@ -77,5 +81,6 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
     if (protocol === "anthropic" && target === "anthropic") name = "custom-anthropic"
     else if ((protocol === "openai" || protocol === "anthropic") && target === "openai") name = "custom-openai"
   }
-  return { kind: "ok", name, providerId: provider.id, upstreamProtocol: target, clientProtocol: protocol, model }
+  return { kind: "ok", name, providerId: provider.id, upstreamProtocol: target, clientProtocol: protocol, model,
+    ...(protocol === "images" ? { imageEndpoint: input.imageEndpoint ?? "/v1/images/generations" } : {}) }
 }

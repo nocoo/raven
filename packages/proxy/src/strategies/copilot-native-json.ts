@@ -8,6 +8,7 @@ export interface CopilotNativeJsonStrategyDeps {
   name: "copilot-decisions" | "copilot-images"
   client: CopilotNativeJsonClient
   usageProtocol: UsageProtocol
+  imageEdits?: boolean
 }
 
 export function makeCopilotNativeJson(deps: CopilotNativeJsonStrategyDeps): Strategy<
@@ -33,7 +34,8 @@ export function makeCopilotNativeJson(deps: CopilotNativeJsonStrategyDeps): Stra
         outputTokens: usage.output_tokens,
         cacheReadTokens: usage.cache_read_tokens,
         cacheWriteTokens: usage.cache_write_tokens,
-        ...(result.resp.status >= 300 ? { error: result.resp.text.slice(0, 512) }
+        ...(result.resp.failed && deps.imageEdits ? { error: "Upstream returned an image edit error" }
+          : result.resp.status >= 300 ? { error: result.resp.text.slice(0, 512) }
           : result.resp.failed ? { error: "Upstream returned a decision or image error or refusal" } : {}),
       }
     },

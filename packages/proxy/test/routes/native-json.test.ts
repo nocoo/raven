@@ -266,10 +266,9 @@ test("empty auth configuration does not grant access", async () => {
   expect(network).not.toHaveBeenCalled()
 })
 
-test("gpt-41-copilot is not a handled completion or image-edit endpoint", async () => {
+test("gpt-41-copilot is not a handled completion endpoint", async () => {
   h.copilot([])
   expect((await h.request("/v1/decisions", { model: "gpt-41-copilot", input: "x", questions: [{ name: "x", type: "noul" }] })).status).toBe(503)
   expect((await h.request("/v1/completions", { model: "gpt-41-copilot", prompt: "x" })).status).toBe(404)
-  expect((await h.request("/v1/images/edits", { model: "gpt-image-2.5-flare", prompt: "x" })).status).toBe(404)
   expect(network).not.toHaveBeenCalled()
 })
