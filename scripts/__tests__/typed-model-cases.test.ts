@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest"
-import { runTypedModelCase, selectTypedModelCases, typedModelCases, typedModelReplyError, type TypedModelCase } from "../typed-model-cases"
+import { runTypedModelCase, runTypedModelCases, selectTypedModelCases, typedModelCases, typedModelReplyError, type TypedModelCase } from "../typed-model-cases"
 
 const byId = (id: string): TypedModelCase => {
   const entry = typedModelCases.find((item) => item.id === id)
@@ -18,7 +18,7 @@ const embeddingsReply = jsonResponse({
 })
 
 describe("typed model cases", () => {
-  test("covers every non-chat typed model with its native path", () => {
+  test("covers selected non-chat models with their native paths", () => {
     expect(typedModelCases.map((item) => [item.id, item.kind, item.declaredPath, item.path])).toEqual([
       ["text-embedding-3-small.embeddings", "embeddings", null, "/v1/embeddings"],
       ["text-embedding-3-small-inference.embeddings", "embeddings", null, "/v1/embeddings"],
@@ -26,7 +26,6 @@ describe("typed model cases", () => {
       ["microsoft-decision-1.systemone", "decisions", "/v1/systemone", "/v1/systemone"],
       ["gpt-6-luna-decisions.decisions", "decisions", "/v1/decisions", "/v1/decisions"],
       ["gpt-image-2.5-flare.image", "image", "/v1/images/generations", "/v1/images/generations"],
-      ["gpt-41-copilot.completion", "completion", null, "/v1/completions"],
     ])
     for (const item of typedModelCases) {
       expect(item.body.model).toBe(item.model)
@@ -72,6 +71,45 @@ describe("typed model cases", () => {
     expect(result.error).toContain("transport: connection refused")
   })
 
+  test.each(["http", "invalid", "refusal", "invalid-choice", "transport"]) ("stops subsequent cases on %s", async (failure) => {
+    const cases = [byId("microsoft-decision-1.systemone"), byId("gpt-image-2.5-flare.image")]
+    const fetchImpl = vi.fn(async () => {
+      if (failure === "transport") throw new Error("offline")
+      if (failure === "http") return new Response("Bad Request", { status: 400 })
+      if (failure === "invalid") return new Response("bad json", { headers: { "content-type": "application/json" } })
+      if (failure === "invalid-choice") return jsonResponse({ answers: { next_step: { choice: ["test"] } } })
+      return jsonResponse({ answers: { next_step: { type: "refusal" } } })
+    })
+    const results = await runTypedModelCases(cases, { url: "http://127.0.0.1:7024", key: "fixture-key", fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(results[0]?.error).not.toBeNull()
+    expect(results[1]?.error).toBe("not_run")
+  })
+
+  test("continues after valid cases", async () => {
+    const cases = [byId("microsoft-decision-1.systemone"), byId("gpt-image-2.5-flare.image")]
+    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ answers: { next_step: { choice: "test" } } }))
+      .mockResolvedValueOnce(jsonResponse({ data: [{ b64_json: "AA==" }] }))
+    const results = await runTypedModelCases(cases, { url: "http://127.0.0.1:7024", key: "fixture-key", fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+    expect(results.map((item) => item.error)).toEqual([null, null])
+  })
+
+  test("redacts keys in transport errors and content types", async () => {
+    const key = "fixture-key-1234567890"
+    const entry = byId("text-embedding-3-small.embeddings")
+    for (const reason of [new Error(`bad ${key}`), `bad ${key}`]) {
+      const fetchImpl = vi.fn(async () => { throw reason })
+      const result = await runTypedModelCase(entry, { url: "http://127.0.0.1:7024", key, fetchImpl: fetchImpl as unknown as typeof fetch })
+      expect(result.error).toContain("[REDACTED]")
+      expect(result.error).not.toContain(key)
+    }
+    const fetchImpl = vi.fn(async () => new Response("no", { headers: { "content-type": `text/plain; key=${key}` } }))
+    const result = await runTypedModelCase(entry, { url: "http://127.0.0.1:7024", key, fetchImpl: fetchImpl as unknown as typeof fetch })
+    expect(result.error).toContain("[REDACTED]")
+    expect(result.error).not.toContain(key)
+  })
+
   test("redacts the supplied key from the response excerpt", async () => {
     const key = "fixture-key-1234567890"
     const spy = vi.fn(async () => jsonResponse({ error: { message: `bad ${key}` } }))
@@ -89,12 +127,11 @@ describe("typed model cases", () => {
 describe("typed model reply validation", () => {
   const text = (payload: unknown) => JSON.stringify(payload)
 
-  test("accepts native embedding, decision, image and completion shapes", () => {
+  test("accepts native embedding, decision and image shapes", () => {
     expect(typedModelReplyError(byId("text-embedding-3-small.embeddings"), 200, "application/json", text({ data: [{ embedding: [0.1] }] }))).toBeNull()
     expect(typedModelReplyError(byId("microsoft-decision-1.systemone"), 200, "application/json", text({ answers: { next_step: { choice: "test" } } }))).toBeNull()
-    expect(typedModelReplyError(byId("gpt-6-luna-decisions.decisions"), 200, "application/json", text({ answers: [{ name: "next_step" }] }))).toBeNull()
+    expect(typedModelReplyError(byId("gpt-6-luna-decisions.decisions"), 200, "application/json", text({ answers: [{ name: "next_step", choice: "test" }] }))).toBeNull()
     expect(typedModelReplyError(byId("gpt-image-2.5-flare.image"), 200, "application/json", text({ data: [{ b64_json: "AA==" }] }))).toBeNull()
-    expect(typedModelReplyError(byId("gpt-41-copilot.completion"), 200, "application/json", text({ choices: [{ text: "OK" }] }))).toBeNull()
   })
 
   test("rejects wrong shapes, non-JSON replies and HTTP errors", () => {
@@ -106,8 +143,12 @@ describe("typed model reply validation", () => {
     expect(typedModelReplyError(entry, 200, "application/json", text({ error: "no" }))).toBe("Response contains an error object")
     expect(typedModelReplyError(entry, 200, "application/json", text({ data: [] }))).toBe("Missing embedding data")
     expect(typedModelReplyError(entry, 200, "application/json", text({ data: [{ embedding: [] }] }))).toBe("Missing embedding vector")
-    expect(typedModelReplyError(byId("microsoft-decision-1.systemone"), 200, "application/json", text({ model: "x" }))).toBe("Missing answers")
+    expect(typedModelReplyError(byId("microsoft-decision-1.systemone"), 200, "application/json", text({ model: "x" }))).toBe("Missing choice answer")
+    expect(typedModelReplyError(byId("microsoft-decision-1.systemone"), 200, "application/json", text({ answers: { next_step: { type: "refusal" } } }))).toBe("Decision refused")
+    expect(typedModelReplyError(byId("gpt-6-luna-decisions.decisions"), 200, "application/json", text({ answers: [] }))).toBe("Missing choice answer")
+    expect(typedModelReplyError(byId("gpt-6-luna-decisions.decisions"), 200, "application/json", text({ answers: [{ name: "next_step", choice: ["test"] }] }))).toBe("Missing choice answer")
+    expect(typedModelReplyError(byId("gpt-image-2.5-flare.image"), 200, "application/json", text({ data: [{}] }))).toBe("Missing image data")
+    expect(typedModelReplyError(byId("gpt-image-2.5-flare.image"), 200, "application/json", text({ data: [{ b64_json: " " }] }))).toBe("Missing image data")
     expect(typedModelReplyError(byId("gpt-image-2.5-flare.image"), 200, "application/json", text({ created: 1 }))).toBe("Missing image data")
-    expect(typedModelReplyError(byId("gpt-41-copilot.completion"), 200, "application/json", text({ id: "x" }))).toBe("Missing completion output")
   })
 })

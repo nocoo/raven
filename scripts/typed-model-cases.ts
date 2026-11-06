@@ -1,4 +1,4 @@
-export type TypedModelKind = "embeddings" | "decisions" | "image" | "completion"
+export type TypedModelKind = "embeddings" | "decisions" | "image"
 
 export interface TypedModelCase {
   id: string
@@ -75,14 +75,6 @@ export const typedModelCases: readonly TypedModelCase[] = [
       size: "1024x1024",
     },
   },
-  {
-    id: "gpt-41-copilot.completion",
-    model: "gpt-41-copilot",
-    kind: "completion",
-    declaredPath: null,
-    path: "/v1/completions",
-    body: { model: "gpt-41-copilot", prompt: "Reply with OK.", max_tokens: 16 },
-  },
 ]
 
 export function selectTypedModelCases(ids: readonly string[]): readonly TypedModelCase[] {
@@ -106,11 +98,15 @@ export function typedModelReplyError(entry: TypedModelCase, status: number, cont
     if (!first || !Array.isArray(first.embedding) || first.embedding.length === 0) return "Missing embedding vector"
   } else if (entry.kind === "decisions") {
     const answers = value.answers
-    if (!answers || typeof answers !== "object") return "Missing answers"
+    const answer = Array.isArray(answers)
+      ? answers.find((item) => item?.name === "next_step")
+      : answers && typeof answers === "object" ? (answers as Record<string, unknown>).next_step : null
+    if (answer && typeof answer === "object" && (answer as Record<string, unknown>).type === "refusal") return "Decision refused"
+    const choice = answer && typeof answer === "object" ? (answer as Record<string, unknown>).choice : null
+    if (typeof choice !== "string" || !["test", "merge"].includes(choice)) return "Missing choice answer"
   } else if (entry.kind === "image") {
-    if (!Array.isArray(value.data) || value.data.length === 0) return "Missing image data"
-  } else if (!Array.isArray(value.choices) && typeof value.text !== "string") {
-    return "Missing completion output"
+    if (!Array.isArray(value.data) || !value.data.some((item) =>
+      item && typeof item === "object" && [item.b64_json, item.url].some((field) => typeof field === "string" && field.trim().length > 0))) return "Missing image data"
   }
   return null
 }
@@ -146,16 +142,36 @@ export async function runTypedModelCase(entry: TypedModelCase, deps: TypedModelC
       id: entry.id,
       status: 0,
       durationMs: Math.round(performance.now() - started),
-      error: `transport: ${error instanceof Error ? error.message : String(error)}`,
+      error: `transport: ${error instanceof Error ? error.message.replaceAll(deps.key, "[REDACTED]") : String(error).replaceAll(deps.key, "[REDACTED]")}`,
       excerpt: "",
     }
   }
-  const text = (await response.text()).replaceAll(deps.key, "[REDACTED]")
+  let text: string
+  try { text = (await response.text()).replaceAll(deps.key, "[REDACTED]") }
+  catch {
+    return { id: entry.id, status: response.status, durationMs: Math.round(performance.now() - started), error: "Response read failed", excerpt: "" }
+  }
   return {
     id: entry.id,
     status: response.status,
     durationMs: Math.round(performance.now() - started),
-    error: typedModelReplyError(entry, response.status, response.headers.get("content-type") ?? "", text),
+    error: typedModelReplyError(entry, response.status, response.headers.get("content-type") ?? "", text)?.replaceAll(deps.key, "[REDACTED]") ?? null,
     excerpt: text.slice(0, 1200),
   }
+}
+
+export async function runTypedModelCases(
+  cases: readonly TypedModelCase[], deps: TypedModelCaseDeps, onResult?: (result: TypedModelResult) => void,
+): Promise<TypedModelResult[]> {
+  const results: TypedModelResult[] = []
+  let stopped = false
+  for (const entry of cases) {
+    const result = stopped
+      ? { id: entry.id, status: 0, durationMs: 0, error: "not_run", excerpt: "" }
+      : await runTypedModelCase(entry, deps)
+    results.push(result)
+    onResult?.(result)
+    stopped ||= result.error !== null
+  }
+  return results
 }
