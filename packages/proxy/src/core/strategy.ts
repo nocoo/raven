@@ -15,6 +15,8 @@ export type StrategyName =
   | "copilot-openai-direct"
   | "copilot-responses"
   | "copilot-systemone"
+  | "copilot-decisions"
+  | "copilot-images"
   | "copilot-chat-via-responses"
   | "custom-openai"
   | "custom-anthropic"
@@ -32,6 +34,8 @@ export const STRATEGY_NAMES = [
   "copilot-openai-direct",
   "copilot-responses",
   "copilot-systemone",
+  "copilot-decisions",
+  "copilot-images",
   "copilot-chat-via-responses",
   "custom-openai",
   "custom-anthropic",

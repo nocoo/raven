@@ -1,8 +1,9 @@
-# 30 - Native Microsoft Decision / Systemone
+# 30 - Native Microsoft Decision / Systemone / Luna / Image
 
-Raven exposes `POST /v1/systemone` as a non-streaming, Copilot-native JSON
-endpoint. It is not Chat Completions and does not translate another decision
-protocol into TypeSafe's response format.
+Raven exposes `POST /v1/systemone` plus the Copilot-native `POST /v1/decisions`
+and `POST /v1/images/generations` JSON endpoints. They are not Chat Completions,
+Image Edits or protocol translation paths. No model name or response field is
+synthesized and image edits remain unimplemented.
 
 ## Verified Live Binding
 
@@ -87,6 +88,27 @@ These two separately authorized live cases establish the tested credential's
 direct and Raven-routed behavior. They do not replace isolated unit/coverage
 proof, certify all workflows or plans, or run automatically in hooks/CI.
 
+## Copilot Luna Decisions and Flare Image Generations
+
+`gpt-6-luna-decisions` is eligible only when the Copilot catalog declares the
+exact `/v1/decisions` endpoint. Raven forwards a non-streaming native JSON body
+with `model`, `input`, a nonempty `questions` array and unknown fields intact.
+It does not translate this model to Systemone or Chat Completions.
+
+`gpt-image-2.5-flare` is eligible only when the Copilot catalog declares the
+exact `/v1/images/generations` endpoint. Raven forwards the native JSON body,
+including `prompt` and unknown fields, and preserves the upstream response text.
+Success image data, including `b64_json`, is response transport only and is not
+written into request logs. `/v1/images/edits` is not a Raven route.
+
+Both routes use the Copilot token's validated API destination, manual redirect
+handling, unified API-key admission, key routing, IP admission, quota and
+request logs. Environment/database keys are accepted by the existing AI route
+middleware; internal credentials and custom-provider rules remain excluded.
+No inference retry, credential refresh, redirect follow or account fallback is
+allowed. HTTP and HTTP-200 semantic errors preserve their native JSON and status,
+with credential-bearing text redacted and bounded.
+
 ## Routing and Credentials
 
 The endpoint uses existing `/v1/*` API-key authentication, key-bound routing,
@@ -151,9 +173,10 @@ questions array, and an answers array with optional model/confidence:
 
 https://github.com/microsoft/TypeAgent/blob/be99055dfa20d3cbe9978d298b087f6bb9896edf/ts/packages/aiclient/src/decisionModels.ts
 
-That client does not establish that `microsoft-decision-1` uses the same path.
-Raven's live `/v1/systemone` result resolves the binding for the tested account;
-`/v1/decisions` has not been probed or added as an alias.
+That client establishes the Luna contract shape; it does not establish model
+entitlement or catalog coverage for every account. Raven exposes
+`/v1/decisions` only through exact catalog declarations and does not add it as
+an alias for `microsoft-decision-1` or any `/v1/systemone` model.
 
 The earlier third-party report is supporting evidence, not Raven verification:
 

@@ -895,8 +895,11 @@ describe("protocol_mode classification", () => {
     return row.pm;
   }
 
-  test("classifies all seven strategies", () => {
+  test("classifies native and translated strategies", () => {
     expect(modeOf({ strategy: "copilot-native" })).toBe("native");
+    expect(modeOf({ strategy: "copilot-systemone" })).toBe("native");
+    expect(modeOf({ strategy: "copilot-decisions" })).toBe("native");
+    expect(modeOf({ strategy: "copilot-images" })).toBe("native");
     expect(modeOf({ strategy: "copilot-openai-direct", client_format: "openai" })).toBe("native");
     expect(modeOf({ strategy: "copilot-responses", client_format: "responses" })).toBe("native");
     expect(modeOf({ strategy: "custom-anthropic", client_format: "anthropic" })).toBe("native");

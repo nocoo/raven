@@ -23,6 +23,13 @@ describe("live log protocol classification", () => {
       .toEqual({ label: "Native", variant: "success", title: "Systemone → Systemone · No protocol translation" });
   });
 
+  it("identifies native Luna decisions and image generations", () => {
+    expect(logProtocol({ format: "decisions", upstreamFormat: "decisions" }, true))
+      .toEqual({ label: "Native", variant: "success", title: "Decisions → Decisions · No protocol translation" });
+    expect(logProtocol({ format: "images", upstreamFormat: "images" }, true))
+      .toEqual({ label: "Native", variant: "success", title: "Image Generations → Image Generations · No protocol translation" });
+  });
+
   it.each([{}, { format: "responses" }, { format: "invalid", upstreamFormat: "responses" }, { format: "openai", upstreamFormat: "toString" }])("does not guess when protocol evidence is missing: %j", data => {
     expect(logProtocol(data, false).label).toBe("Pending path");
     expect(logProtocol(data, true).label).toBe("Unknown path");

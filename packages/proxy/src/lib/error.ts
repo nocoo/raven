@@ -8,6 +8,7 @@ const UPSTREAM_PROTOCOL_ERROR_NAMES = new Set([
   "ResponsesProtocolError",
   "ResponsesStreamFailedError",
   "SystemoneUpstreamError",
+  "CopilotNativeJsonUpstreamError",
 ])
 
 function isUpstreamProtocolError(error: unknown): error is Error {

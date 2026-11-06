@@ -3,6 +3,8 @@ const PROTOCOLS = {
   openai: "Chat Completions",
   responses: "Responses",
   systemone: "Systemone",
+  decisions: "Decisions",
+  images: "Image Generations",
 } as const;
 
 function protocol(value: unknown): value is keyof typeof PROTOCOLS {

@@ -5,7 +5,7 @@ import { nativeProtocolEvidence, type NativeProtocolEvidence } from "./protocol-
 export { declaredProtocols, formatProtocol } from "./protocol-capabilities"
 
 export type { StrategyName }
-export type ClientProtocol = "anthropic" | "openai" | "responses" | "systemone"
+export type ClientProtocol = "anthropic" | "openai" | "responses" | "systemone" | "decisions" | "images"
 
 export type StrategyDecision =
   | { kind: "ok"; name: StrategyName; providerId: string; upstreamProtocol: ClientProtocol; clientProtocol: ClientProtocol; model: string }
@@ -33,6 +33,12 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
     if (protocol === "systemone" && !declared.includes("systemone")) {
       return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/systemone. Refresh its model catalog in Upstreams." }
     }
+    if (protocol === "decisions" && !declared.includes("decisions")) {
+      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/decisions. Refresh its model catalog in Upstreams." }
+    }
+    if (protocol === "images" && !declared.includes("images")) {
+      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/images/generations. Refresh its model catalog in Upstreams." }
+    }
     if (declared.length) {
       target = declared.includes(protocol) ? protocol : declared[0]!
     } else {
@@ -47,8 +53,12 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
     }
     target = formatProtocol(provider.format)
   }
-  if ((protocol === "systemone" || target === "systemone") && (protocol !== target || input.stream)) {
-    return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: "Systemone requires a native non-streaming upstream; protocol conversion is not supported." }
+  const nativeJsonProtocols: readonly ClientProtocol[] = ["systemone", "decisions", "images"]
+  if (nativeJsonProtocols.includes(protocol) || nativeJsonProtocols.includes(target)) {
+    if (protocol !== target || input.stream) {
+      const label = protocol === "systemone" ? "Systemone" : protocol === "decisions" ? "Decisions" : "Images generations"
+      return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: `${label} requires a native non-streaming upstream; protocol conversion is not supported.` }
+    }
   }
   if (!allowConversion && protocol !== target) {
     return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: `The selected upstream uses ${target}; this rule does not allow conversion from ${protocol}.` }
@@ -56,6 +66,8 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
   let name: StrategyName = "protocol-converted"
   if (copilot) {
     if (protocol === "systemone" && target === "systemone") name = "copilot-systemone"
+    else if (protocol === "decisions" && target === "decisions") name = "copilot-decisions"
+    else if (protocol === "images" && target === "images") name = "copilot-images"
     else if (protocol === "anthropic" && target === "anthropic") name = "copilot-native"
     else if (protocol === "anthropic" && target === "openai") name = "copilot-translated"
     else if (protocol === "openai" && target === "openai") name = "copilot-openai-direct"

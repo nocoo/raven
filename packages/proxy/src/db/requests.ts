@@ -210,7 +210,7 @@ export const PROTOCOL_MODE_EXPR = `CASE
   WHEN strategy IN ('copilot-translated', 'copilot-chat-via-responses') THEN 'translated'
   WHEN strategy = 'protocol-converted' AND client_format = upstream_format THEN 'native'
   WHEN strategy = 'protocol-converted' AND client_format != upstream_format THEN 'translated'
-  WHEN strategy IN ('copilot-native', 'copilot-openai-direct', 'copilot-responses', 'custom-anthropic') THEN 'native'
+  WHEN strategy IN ('copilot-native', 'copilot-openai-direct', 'copilot-responses', 'copilot-systemone', 'copilot-decisions', 'copilot-images', 'custom-anthropic') THEN 'native'
   WHEN strategy = 'custom-openai' AND client_format = 'anthropic' AND translated_model != '' THEN 'translated'
   WHEN strategy = 'custom-openai' AND client_format = 'openai' AND translated_model = '' THEN 'native'
   WHEN strategy = '' AND routing_path IN ('native', 'translated') THEN routing_path

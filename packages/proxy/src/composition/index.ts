@@ -15,11 +15,12 @@ import { decorate } from "../strategies/support/server-tools"
 import type { ChatCompletionsPayload } from "../upstream/copilot-openai"
 import type { ResponsesPayload } from "../upstream/copilot-responses"
 import type { SystemonePayload } from "../protocols/systemone"
+import type { NativeJsonPayload } from "../protocols/native-json"
 import { buildStrategy, type BuildStrategyDeps } from "./strategy-registry"
 import { accountedFetch, resolveRouting } from "./routing"
 import { logEmitter } from "../util/log-emitter"
 
-export type GenerationPayload = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload | SystemonePayload
+export type GenerationPayload = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload | SystemonePayload | NativeJsonPayload
 export type { ClientProtocol } from "../core/router"
 export type { StrategyName } from "../core/strategy"
 
@@ -33,6 +34,11 @@ function preparePayload(
   deps: BuildStrategyDeps,
 ): unknown {
   const resolved = { ...payload, model: decision.model }
+  if (protocol === "systemone" || protocol === "decisions" || protocol === "images") {
+    const native = { ...resolved } as Record<string, unknown>
+    delete native.upstream_id
+    return native
+  }
   if (protocol === "anthropic") {
     const messages = resolved as AnthropicMessagesPayload
     if (decision.name === "copilot-native") {

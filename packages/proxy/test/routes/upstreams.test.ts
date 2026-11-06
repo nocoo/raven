@@ -132,6 +132,16 @@ test.each([
   expect(network).toHaveBeenCalledTimes(1)
 })
 
+test.each([
+  ["gpt-6-luna-decisions", "/v1/decisions", "/v1/decisions"],
+  ["gpt-image-2.5-flare", "/v1/images/generations", "/v1/images/generations"],
+])("text ping diagnostics reject native %s without sending chat", async (model, endpoint) => {
+  h.copilot([{ id: model, supported_endpoints: [endpoint] }])
+  const response = await h.request(`/api/upstreams/${COPILOT_UPSTREAM_ID}/test`, { model })
+  expect(response.status).toBe(400)
+  expect(network).not.toHaveBeenCalled()
+})
+
 test("native diagnostics reject a catalog alias that resolves to a different protocol without sending", async () => {
   h.copilot([
     { id: "claude-sonnet-4-5", supported_endpoints: ["/messages"] },

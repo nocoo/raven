@@ -67,9 +67,22 @@ describe("endpoint selection after key-bound upstream selection", () => {
   })
 
   test("endpoint declarations accept both API path spellings and ignore non-arrays", () => {
-    expect(declaredProtocols({ id: "x", supported_endpoints: ["/v1/chat/completions", "/v1/responses", "/messages"] })).toEqual(["openai", "responses", "anthropic"])
+    expect(declaredProtocols({ id: "x", supported_endpoints: ["/v1/chat/completions", "/v1/responses", "/messages", "/v1/systemone", "/v1/decisions", "/v1/images/generations"] })).toEqual(["openai", "responses", "anthropic", "systemone", "decisions", "images"])
     expect(declaredProtocols({ id: "x", supported_endpoints: "invalid" as never })).toEqual([])
     expect(declaredProtocols(undefined)).toEqual([])
+  })
+
+  test.each([
+    ["decisions", "/v1/decisions", "copilot-decisions"],
+    ["images", "/v1/images/generations", "copilot-images"],
+  ] as const)("%s is native-only regardless of conversion", (protocol, endpoint, name) => {
+    const model = protocol === "decisions" ? "gpt-6-luna-decisions" : "gpt-image-2.5-flare"
+    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: model, supported_endpoints: [endpoint] }] })
+    const input = { protocol, model, requestedModel: model, provider, allowConversion: true }
+    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name, upstreamProtocol: protocol, model })
+    expect(pickStrategy({ ...input, stream: true })).toMatchObject({ kind: "reject", status: 400 })
+    expect(pickStrategy({ ...input, allowConversion: false })).toMatchObject({ kind: "ok", name })
+    expect(pickStrategy({ ...input, provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
   })
 
   test.each([false, true])("systemone is native-only regardless of conversion=%s", (allowConversion) => {

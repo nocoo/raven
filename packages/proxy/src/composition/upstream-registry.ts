@@ -39,12 +39,20 @@ import {
 
 import { CustomResponsesClient, defaultCustomResponsesConfig, type CustomResponsesConfig } from "../upstream/custom-responses"
 import { CopilotSystemoneClient, defaultCopilotSystemoneConfig, type CopilotSystemoneConfig } from "../upstream/copilot-systemone"
+import {
+  CopilotNativeJsonClient,
+  defaultCopilotNativeJsonConfig,
+  type CopilotNativeJsonConfig,
+} from "../upstream/copilot-native-json"
+import { decisionsFailed, nativeJsonError } from "../protocols/native-json"
 
 export type UpstreamKind =
   | "copilot-openai"
   | "copilot-native"
   | "copilot-responses"
   | "copilot-systemone"
+  | "copilot-decisions"
+  | "copilot-images"
   | "copilot-embeddings"
   | "custom-openai"
   | "custom-anthropic"
@@ -59,6 +67,8 @@ export interface UpstreamRegistryDeps {
   copilotNative?: CopilotNativeConfig
   copilotResponses?: CopilotResponsesConfig
   copilotSystemone?: CopilotSystemoneConfig
+  copilotDecisions?: CopilotNativeJsonConfig
+  copilotImages?: CopilotNativeJsonConfig
   copilotEmbeddings?: CopilotEmbeddingsConfig
   customOpenAI?: CustomOpenAIConfig
   customAnthropic?: CustomAnthropicConfig
@@ -69,6 +79,8 @@ export type UpstreamClientByKind = {
   "copilot-native": CopilotNativeClient
   "copilot-responses": CopilotResponsesClient
   "copilot-systemone": CopilotSystemoneClient
+  "copilot-decisions": CopilotNativeJsonClient
+  "copilot-images": CopilotNativeJsonClient
   "copilot-embeddings": CopilotEmbeddingsClient
   "custom-openai": CustomOpenAIClient
   "custom-anthropic": CustomAnthropicClient
@@ -87,6 +99,16 @@ export function buildUpstreamClient<K extends UpstreamKind>(
   switch (kind) {
     case "copilot-systemone":
       return new CopilotSystemoneClient({ ...(deps.copilotSystemone ?? defaultCopilotSystemoneConfig()), ...overrides }) as UpstreamClientByKind[K]
+    case "copilot-decisions":
+      return new CopilotNativeJsonClient(
+        { ...(deps.copilotDecisions ?? defaultCopilotNativeJsonConfig()), ...overrides },
+        { path: "/v1/decisions", label: "decisions", failed: decisionsFailed },
+      ) as UpstreamClientByKind[K]
+    case "copilot-images":
+      return new CopilotNativeJsonClient(
+        { ...(deps.copilotImages ?? defaultCopilotNativeJsonConfig()), ...overrides },
+        { path: "/v1/images/generations", label: "images", failed: nativeJsonError },
+      ) as UpstreamClientByKind[K]
     case "copilot-openai":
       return new CopilotOpenAIClient(
         { ...(deps.copilotOpenAI ?? defaultCopilotOpenAIConfig()), ...overrides },

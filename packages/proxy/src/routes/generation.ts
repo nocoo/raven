@@ -4,11 +4,16 @@ import { buildContext } from "../core/context"
 import { logRequestError, logRequestStart } from "../core/request-log"
 import { ClientInputError, forwardError } from "../lib/error"
 import { parseSystemoneJson, systemoneInputError } from "../protocols/systemone"
+import { decisionsInputError, imagesInputError, parseNativeJson } from "../protocols/native-json"
 
 export async function handleGeneration(c: Context, protocol: ClientProtocol): Promise<Response> {
   let payload: GenerationPayload
   try {
-    payload = protocol === "systemone" ? parseSystemoneJson(await c.req.text()) : await c.req.json<GenerationPayload>()
+    payload = protocol === "systemone"
+      ? parseSystemoneJson(await c.req.text())
+      : protocol === "decisions" || protocol === "images"
+        ? parseNativeJson(await c.req.text())
+        : await c.req.json<GenerationPayload>()
     if (!payload || typeof payload !== "object" || typeof payload.model !== "string" || !payload.model.trim()) {
       throw new ClientInputError("A model is required")
     }
@@ -16,12 +21,20 @@ export async function handleGeneration(c: Context, protocol: ClientProtocol): Pr
       const message = systemoneInputError(payload as unknown as Record<string, unknown>)
       if (message) throw new ClientInputError(message)
     }
+    if (protocol === "decisions") {
+      const message = decisionsInputError(payload as unknown as Record<string, unknown>)
+      if (message) throw new ClientInputError(message)
+    }
+    if (protocol === "images") {
+      const message = imagesInputError(payload as unknown as Record<string, unknown>)
+      if (message) throw new ClientInputError(message)
+    }
   } catch (error) {
     const failure = error instanceof ClientInputError ? error : new ClientInputError("Invalid JSON")
     logRequestError(buildContext(c, protocol), failure)
     return forwardError(c, failure)
   }
-  const identity = (protocol === "systemone" ? {} : payload) as { user?: string; metadata?: { user_id?: string } }
+  const identity = (protocol === "systemone" || protocol === "decisions" || protocol === "images" ? {} : payload) as { user?: string; metadata?: { user_id?: string } }
   const ctx = buildContext(c, protocol, {
     openaiUser: identity.user ?? null, anthropicUserId: identity.metadata?.user_id ?? null,
   }, !!payload.stream)

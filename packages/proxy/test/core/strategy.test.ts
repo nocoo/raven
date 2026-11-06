@@ -6,6 +6,8 @@ describe("core/strategy", () => {
   test("STRATEGY_NAMES enumerates every shipped strategy (§3.2)", () => {
     expect([...STRATEGY_NAMES].sort()).toEqual([
       "copilot-chat-via-responses",
+      "copilot-decisions",
+      "copilot-images",
       "copilot-native",
       "copilot-openai-direct",
       "copilot-responses",
@@ -15,7 +17,7 @@ describe("core/strategy", () => {
       "custom-openai",
       "protocol-converted",
     ])
-    expect(STRATEGY_NAMES.length).toBe(9)
+    expect(STRATEGY_NAMES.length).toBe(11)
   })
 
   test("isStrategyName accepts known + rejects unknown", () => {

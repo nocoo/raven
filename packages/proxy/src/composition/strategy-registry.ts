@@ -8,6 +8,7 @@ import { makeCopilotOpenAIDirect } from "../strategies/copilot-openai-direct"
 import { makeCopilotNative } from "../strategies/copilot-native"
 import { makeCopilotResponses } from "../strategies/copilot-responses"
 import { makeCopilotSystemone } from "../strategies/copilot-systemone"
+import { makeCopilotNativeJson } from "../strategies/copilot-native-json"
 import { makeCopilotChatViaResponses } from "../strategies/copilot-chat-via-responses"
 import { makeCustomOpenAI } from "../strategies/custom-openai"
 import { makeCustomAnthropic } from "../strategies/custom-anthropic"
@@ -57,6 +58,10 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
   switch (decision.name) {
     case "copilot-systemone":
       return makeCopilotSystemone({ client: buildUpstreamClient("copilot-systemone", transport) }) as unknown as AnyStrategy
+    case "copilot-decisions":
+      return makeCopilotNativeJson({ name: "copilot-decisions", client: buildUpstreamClient("copilot-decisions", transport), usageProtocol: "decisions" }) as unknown as AnyStrategy
+    case "copilot-images":
+      return makeCopilotNativeJson({ name: "copilot-images", client: buildUpstreamClient("copilot-images", transport), usageProtocol: "images" }) as unknown as AnyStrategy
     case "copilot-openai-direct":
       return makeCopilotOpenAIDirect({ client: buildUpstreamClient("copilot-openai", transport), toolCallDebug: deps.toolCallDebug }) as unknown as AnyStrategy
     case "copilot-native":
@@ -72,7 +77,13 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     case "copilot-translated":
       return makeCopilotTranslated({ client: buildUpstreamClient("copilot-openai", transport), toolCallDebug: deps.toolCallDebug }) as unknown as AnyStrategy
     case "protocol-converted": {
-      if (decision.clientProtocol === "systemone" || decision.upstreamProtocol === "systemone") throw new Error("Systemone cannot be converted")
+      if (decision.clientProtocol === "systemone" || decision.upstreamProtocol === "systemone") {
+        throw new Error("Systemone cannot be converted")
+      }
+      if (decision.clientProtocol === "decisions" || decision.clientProtocol === "images"
+        || decision.upstreamProtocol === "decisions" || decision.upstreamProtocol === "images") {
+        throw new Error("Native Copilot JSON cannot be converted")
+      }
       const formats = { anthropic: "anthropic_messages", openai: "chat_completions", responses: "responses" } as const
       const client = decision.upstreamProtocol === "anthropic" ? messages() : decision.upstreamProtocol === "openai" ? chat() : responses()
       return makeProtocolConverted({
