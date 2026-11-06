@@ -1,5 +1,26 @@
 # Changelog
 
+## v3.2.2
+
+### Changed
+- Record misdirected agent dispatch
+- Upgrade lucide react
+- Upgrade oxc parser
+- Upgrade biome to 2.6.5
+- Upgrade dependency cruiser
+- Upgrade next to 16.4.5
+- Upgrade tailwindcss toolchain
+- Upgrade playwright test
+- Upgrade jsdom to 31
+- Upgrade vite and vitest toolchain
+- Bump hono 4.13.14 → 4.13.16
+- Bump @types/node 26.6.5 → 26.6.6
+
+### Fixed
+- Replicate basalt sidebar brand slot
+- Sort copilot model types
+- Align raven sidebar brand
+
 ## v3.2.0
 
 ### Added
