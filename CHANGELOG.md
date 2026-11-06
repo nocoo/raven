@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.3.1
+
+### Added
+- Add native multipart image edits
+
+### Changed
+- Record package resolution mistake
+
+### Fixed
+- Align release commit messages
+- Capture routing admission after parsing
+- Label image edits distinctly
+
 ## v3.3.0
 
 ### Added
