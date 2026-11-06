@@ -47,7 +47,6 @@ interface VersionTarget {
 const VERSION_TARGETS: VersionTarget[] = [
   { path: "package.json", pattern: "json-version" },
   { path: "packages/dashboard/package.json", pattern: "json-version" },
-  { path: "packages/proxy/package.json", pattern: "json-version" },
 ];
 
 const BUMP_TYPES = ["patch", "minor", "major"] as const;
@@ -202,7 +201,7 @@ function updateVersionInFile(
 ): boolean {
   const abs = pathResolve(PROJECT_ROOT, target.path);
 
-  // Skip if file has no version field (e.g. proxy has "version": null)
+  // Skip if file has no version field
   const content = readFileSync(abs, "utf-8");
   const pkg = JSON.parse(content);
   if (pkg.version === null || pkg.version === undefined) {

@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.3.0
+
+### Added
+- Add native Copilot decisions and image routes
+
+### Changed
+- Record focused test configuration
+- Harden typed model diagnostics
+- Send embedding input as array
+- Add live cases for non-chat model types
+
+### Fixed
+- Preserve native JSON contracts
+
 ## v3.2.2
 
 ### Changed
