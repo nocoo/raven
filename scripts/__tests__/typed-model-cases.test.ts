@@ -30,8 +30,9 @@ describe("typed model cases", () => {
     ])
     for (const item of typedModelCases) {
       expect(item.body.model).toBe(item.model)
-      expect(JSON.stringify(typedModelCases)).not.toMatch(/rk-|Bearer/)
+      if (item.kind === "embeddings") expect(item.body.input).toEqual(["Raven typed-model probe"])
     }
+    expect(JSON.stringify(typedModelCases)).not.toMatch(/rk-|Bearer/)
   })
 
   test("selects a finite subset without duplicates", () => {

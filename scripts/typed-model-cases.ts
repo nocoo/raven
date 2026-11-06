@@ -20,7 +20,7 @@ function embeddingCase(model: string): TypedModelCase {
     kind: "embeddings",
     declaredPath: null,
     path: "/v1/embeddings",
-    body: { model, input: "Raven typed-model probe" },
+    body: { model, input: ["Raven typed-model probe"] },
   }
 }
 
