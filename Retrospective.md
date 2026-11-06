@@ -676,6 +676,10 @@ The new refresh regression tests ran successfully but their native request
 fixture omitted required typed fields, blocking the pre-commit gate. Run the
 project typecheck as well as focused tests before treating a change as ready.
 
+## 2026-11-06 - Use the package Vitest configuration
+
+A focused verification used the nonexistent root Vitest project name `proxy` and failed before running tests. Proxy has no named workspace project; run focused tests from `packages/proxy` using its own Vitest configuration instead, and verify that the intended tests actually ran.
+
 ## 2026-11-06 - Stop live diagnostics at the first upstream error
 
 A typed-model probe continued to send two embedding requests after the first upstream 400, despite the project's stop-on-first-error rule. The client runner also only stopped for selected HTTP statuses. Future diagnostics must stop on any failed response, transport failure or invalid output, and production-process replay cannot be ruled out without an upstream guard. A single successful array-input probe does not establish why a previous string-input request failed.
