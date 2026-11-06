@@ -141,7 +141,7 @@ describe("visual schedule workbench", () => {
     const options = within(popup).getAllByRole("option", { hidden: true });
     expect(popup).toBeVisible();
     expect(options).toHaveLength(49);
-    expect(popup).toHaveStyle({ maxHeight: "min(20rem, var(--radix-select-content-available-height))" });
+    expect(popup.style.maxHeight).toBe("min(20rem, var(--radix-select-content-available-height))");
     expect(popup.querySelector("[data-radix-select-viewport]")).toHaveStyle({ overflow: "hidden auto" });
     expect(options[48]).toHaveTextContent("24:00");
     await waitFor(() => expect(options[48]).toHaveFocus());
