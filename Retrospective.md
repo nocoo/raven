@@ -2,6 +2,10 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-11-06: A version check invoked package resolution
+
+During release verification, `bunx --bun playwright --version` unexpectedly resolved and downloaded a transient package rather than only inspecting the workspace installation. The tracked lockfile and manifests remained unchanged. For installed workspace tools, inspect the package manifest or invoke the workspace's `node_modules/.bin` directly; reserve package resolution for explicitly configured mirror installs.
+
 ## 2026-09-23: Page width was the wrong level for form readability
 
 The follow-up hierarchy pass consistently capped configuration pages at 80rem,
