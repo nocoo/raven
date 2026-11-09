@@ -81,20 +81,31 @@ A minimal local HTTPS publication is:
 raven.example.com {
     reverse_proxy 127.0.0.1:7023
 }
-
-raven-api.example.com {
-    @management {
-        path /api /api/* /ws/logs
-    }
-    respond @management 403
-
-    reverse_proxy 127.0.0.1:7024
-}
 ```
 
-The Dashboard host remains unrestricted at the Caddy layer and exposes its same-origin BFF `/api/*` through the Dashboard's Google OAuth boundary. On the separate Proxy API host, Caddy rejects management paths before forwarding. Do not remove that matcher or combine the two origins into one catch-all route.
+The Dashboard host remains unrestricted at the Caddy layer and exposes its same-origin BFF `/api/*` through the Dashboard's Google OAuth boundary.
 
-Use a real OAuth-protected Dashboard origin as `NEXTAUTH_URL`. Do not publish the Proxy management routes as a substitute for the Dashboard; management is deliberately accepted only from a loopback socket peer with the internal key. Caddy must forward proxy and WebSocket traffic for API features it exposes.
+This guide intentionally provides no Caddy route to the Proxy port. A reverse proxy must not publish a catch-all or a path-blacklist: `/ws//../logs` can be interpreted differently by an edge matcher and Raven's WHATWG URL parser, which canonicalizes it to `/ws/logs`.
+
+If an operator publishes the AI API, the edge must validate the original request target before forwarding and allow only canonical paths from this exact public allowlist:
+
+- `/health`
+- `/chat/completions`
+- `/embeddings`
+- `/v1/chat/completions`
+- `/v1/messages`
+- `/v1/messages/count_tokens`
+- `/v1/responses`
+- `/v1/systemone`
+- `/v1/decisions`
+- `/v1/images/generations`
+- `/v1/images/edits`
+- `/v1/models`
+- `/v1/embeddings`
+
+Reject repeated slashes, dot segments (including encoded variants), encoded slashes/backslashes, `/api`, `/api/*`, and `/ws/*`; requests outside the exact allowlist must never reach port 7024. Do not copy a Dashboard-only BFF route from the first host to the Proxy host.
+
+Use a real OAuth-protected Dashboard origin as `NEXTAUTH_URL`. Do not publish the Proxy management routes as a substitute for the Dashboard; management is deliberately accepted only from a loopback socket peer with the internal key. Any supported public API edge must preserve streaming and WebSocket behavior for allowed client routes while keeping management paths private.
 
 ## Stop and backup
 

@@ -58,8 +58,30 @@ describe("Docker deployment configuration", () => {
 
     expect(guide).toContain("does not document or support a direct `docker run`")
     expect(guide).not.toContain("docker run --name")
-    expect(guide).toContain("path /api /api/* /ws/logs")
-    expect(guide).toContain("respond @management 403")
+    expect(guide).not.toContain("reverse_proxy 127.0.0.1:7024")
+    expect(guide).toContain("intentionally provides no Caddy route to the Proxy port")
+    expect(guide).toContain("exact public allowlist")
+    for (const route of [
+      "/health",
+      "/chat/completions",
+      "/embeddings",
+      "/v1/chat/completions",
+      "/v1/messages",
+      "/v1/messages/count_tokens",
+      "/v1/responses",
+      "/v1/systemone",
+      "/v1/decisions",
+      "/v1/images/generations",
+      "/v1/images/edits",
+      "/v1/models",
+      "/v1/embeddings",
+    ]) {
+      expect(guide).toContain(`- \`${route}\``)
+    }
+    expect(guide).toContain("Reject repeated slashes")
+    expect(new URL("/ws//../logs", "http://fixture.invalid").pathname).toBe(
+      "/ws/logs",
+    )
   })
 
   test("keeps entrypoint tests independent of real bootstrap state", () => {
