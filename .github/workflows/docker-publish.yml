@@ -1,0 +1,149 @@
+name: Docker publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example v3.3.2)
+        required: true
+        type: string
+
+concurrency:
+  group: docker-publish-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Prove release source
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      tooling-ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}
+      release-tag: ${{ steps.validate.outputs.release-tag }}
+      release-version: ${{ steps.validate.outputs.release-version }}
+      prerelease: ${{ steps.validate.outputs.prerelease }}
+      target-sha: ${{ steps.prove.outputs.target-sha }}
+      source-run-id: ${{ steps.prove.outputs.source-run-id }}
+    steps:
+      - name: Checkout workflow tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}
+          path: .ci-tooling
+          persist-credentials: false
+      - name: Setup Bun for workflow scripts
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.11
+      - id: validate
+        working-directory: .ci-tooling
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bun run scripts/docker-publish-validate.ts
+      - name: Wait for tag commit CI to succeed
+        working-directory: .ci-tooling
+        env:
+          RELEASE_TAG: ${{ steps.validate.outputs.release-tag }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CI_WAIT_TIMEOUT_MS: "1800000"
+          CI_WAIT_POLL_MS: "30000"
+        run: bun run scripts/docker-publish-wait-ci.ts
+      - id: prove
+        uses: nocoo/base-ci/.github/actions/release-source@2231caf82cf16f103f48cab467b3464b106d6604
+        with:
+          github-token: ${{ github.token }}
+          expected-workflow-path: .github/workflows/ci.yml
+          expected-workflow-name: CI
+          expected-branch: main
+          tag: ${{ steps.validate.outputs.release-tag }}
+          package-version-match: "true"
+          require-fresh-main: "false"
+
+  build:
+    name: Build and push GHCR image
+    needs: source
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+    steps:
+      - name: Checkout workflow tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.tooling-ref }}
+          path: .ci-tooling
+          persist-credentials: false
+      - name: Checkout proven release source for image build
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.target-sha }}
+          path: release
+          persist-credentials: false
+      - name: Setup Bun for workflow scripts
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.3.11
+      - name: Verify release tree matches proven source
+        working-directory: release
+        env:
+          TARGET_SHA: ${{ needs.source.outputs.target-sha }}
+        run: bun run ../.ci-tooling/scripts/docker-publish-verify-checkout.ts
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - id: tags
+        working-directory: .ci-tooling
+        env:
+          RELEASE_SOURCE_SHA: ${{ needs.source.outputs.target-sha }}
+          RELEASE_VERSION: ${{ needs.source.outputs.release-version }}
+          RELEASE_PRERELEASE: ${{ needs.source.outputs.prerelease }}
+        run: bun run scripts/docker-publish-prepare-tags.ts
+      - id: image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: release
+          file: release/Dockerfile
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            BUN_CONFIG_REGISTRY=${{ vars.BUN_CONFIG_REGISTRY }}
+          tags: ${{ steps.tags.outputs.list }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.source.outputs.target-sha }}
+            org.opencontainers.image.version=${{ needs.source.outputs.release-version }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=raven
+          cache-to: type=gha,mode=max,scope=raven
+      - name: Record release image manifest
+        working-directory: .ci-tooling
+        env:
+          RELEASE_TAG: ${{ needs.source.outputs.release-tag }}
+          RELEASE_VERSION: ${{ needs.source.outputs.release-version }}
+          RELEASE_DIGEST: ${{ steps.image.outputs.digest }}
+          RELEASE_SOURCE_SHA: ${{ needs.source.outputs.target-sha }}
+          RELEASE_SOURCE_RUN_ID: ${{ needs.source.outputs.source-run-id }}
+          RELEASE_PRERELEASE: ${{ needs.source.outputs.prerelease }}
+        run: bun run scripts/docker-publish-record-manifest.ts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ghcr-manifest-${{ needs.source.outputs.target-sha }}
+          path: .ci-tooling/ghcr-release/manifest.json
+          if-no-files-found: error
+          retention-days: 90

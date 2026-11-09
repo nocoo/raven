@@ -1,3 +1,5 @@
+import type { FetchLike } from "./lib/http-fetch.ts"
+
 export type TypedModelKind = "embeddings" | "decisions" | "image"
 
 export interface TypedModelCase {
@@ -114,7 +116,7 @@ export function typedModelReplyError(entry: TypedModelCase, status: number, cont
 export interface TypedModelCaseDeps {
   url: string
   key: string
-  fetchImpl: typeof fetch
+  fetchImpl: FetchLike
   timeoutMs?: number
 }
 
@@ -166,7 +168,7 @@ export async function runTypedModelCases(
   const results: TypedModelResult[] = []
   let stopped = false
   for (const entry of cases) {
-    const result = stopped
+    const result: TypedModelResult = stopped
       ? { id: entry.id, status: 0, durationMs: 0, error: "not_run", excerpt: "" }
       : await runTypedModelCase(entry, deps)
     results.push(result)

@@ -47,7 +47,45 @@ Missing any of the three Google/NextAuth credentials selects Raven's existing Lo
 
 Set `RAVEN_BASE_URL` to the API URL clients actually use, for example `https://raven-api.example.com`. `RAVEN_GITHUB_HOST` is empty for public `github.com`; for GitHub Enterprise Cloud with data residency, set the tenant hostname only.
 
-## Build and first authorization
+## GHCR production image
+
+GitHub Releases publish **`ghcr.io/nocoo/raven`** images through [`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml).
+
+| Trigger | When it runs |
+| --- | --- |
+| `release` → `published` | Each new GitHub Release (after `bun run release` creates the tag and release) |
+| `workflow_dispatch` | Maintainer backfill for an **existing** release tag without creating a new release |
+
+The workflow validates the release tag (and, for manual backfill, requires a **published, non-draft** GitHub Release with a matching `tag_name`), then **waits up to 30 minutes** (30s polls) for a completed green **CI** run on the tag commit—`bun run release` can publish the GitHub Release before that CI finishes, so the wait step closes the race. It then proves the tag’s commit with [`release-source`](https://github.com/nocoo/base-ci) (`package.json` version matches `vX.Y.Z`) and fails closed on red CI or timeout.
+
+**Tooling checkout** is separate from the image tree: GitHub Actions loads `docker-publish.yml` from the default branch, but `github.sha` on `release:published` is the **tag commit** (which may predate the publish scripts). On release events the source job records **`github.workflow_sha`** (the default-branch commit that loaded the workflow) as `tooling-ref` and both jobs check out `.ci-tooling` at that immutable SHA—so a advancing `main` during the CI wait cannot desync source scripts from the build job. `workflow_dispatch` keeps using **`github.sha`** (the branch head you selected) for tooling. The **immutable release tree** is checked out at the proven SHA under `release/` only for `git` verification and the Docker build context. Historical backfill (`workflow_dispatch` + `v3.3.2`) runs current tooling while building **`release/Dockerfile`** from `f7858e58…`. The source job has **read-only** permissions; only the build job receives **`packages: write`**. It verifies `git rev-parse HEAD` inside `release/`, builds **`linux/amd64`**, and pushes to GHCR. It records the **digest**, source revision, and CI run ID in the job summary and a `ghcr-manifest-*.json` artifact.
+
+**Image references** (content identity is the digest; **tags can be moved or repointed**):
+
+- `ghcr.io/nocoo/raven@sha256:…` — preferred for production pinning
+- `ghcr.io/nocoo/raven:vX.Y.Z` and `ghcr.io/nocoo/raven:X.Y.Z` — convenience (omitted for prereleases)
+- `ghcr.io/nocoo/raven:<40-char-source-sha>` — maps to the proven release commit
+
+The workflow does **not** publish a `:latest` tag (avoid accidental drift on backfill or prerelease).
+
+**GHCR visibility** is not guaranteed by repository visibility. After the first successful publish, open the package on `https://github.com/nocoo/raven/pkgs/container/raven` and confirm whether pulls require authentication. Private packages need `docker login ghcr.io` with a token that includes **`read:packages`**; do not bake registry credentials into the image.
+
+Production runtime uses **`compose.prod.yaml`** (image pull only; same named volume, loopback ports, and environment as `compose.yaml`). Set the full reference in `.env`:
+
+```dotenv
+RAVEN_IMAGE_REF=ghcr.io/nocoo/raven@sha256:…
+# or: RAVEN_IMAGE_REF=ghcr.io/nocoo/raven:v3.3.2
+```
+
+```bash
+docker login ghcr.io   # when the package is private or your account requires it
+docker compose -f compose.prod.yaml --env-file .env pull
+docker compose -f compose.prod.yaml --env-file .env up
+```
+
+OAuth, API keys, and tenant settings remain **runtime** `.env` values only (see above). Optional repository variable **`BUN_CONFIG_REGISTRY`** can be set for the publish workflow if the default npm registry fails during the image build on GitHub Actions.
+
+## Build from source (development)
 
 Docker Desktop is not required by the repository at build or test time, but Docker Engine is required to build and run the container.
 
@@ -55,6 +93,8 @@ Docker Desktop is not required by the repository at build or test time, but Dock
 docker compose build
 docker compose up
 ```
+
+Use the root [`compose.yaml`](../compose.yaml) for local builds from a checkout. Use [`compose.prod.yaml`](../compose.prod.yaml) with a GHCR reference for production pulls (previous section).
 
 On the first run, keep Compose attached and read the Proxy logs. Raven prints a GitHub Device Flow URL and code; open the URL, enter the code, and authorize an account with Copilot access. Startup completes after Raven obtains and persists the GitHub token and Copilot JWT. Subsequent runs use the token from that Compose project's `raven-docker-state` volume and do not require this step unless authorization is removed or replaced.
 

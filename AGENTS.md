@@ -94,7 +94,7 @@ Physical test isolation includes DB, credentials, configuration and upstream rec
 
 ## Operations / Release
 
-Authorized release entry: `bun run release`; build and verify the intended version/CI. Normal use remains local. Network deployment requires Google OAuth for Dashboard, explicit API/management access controls and IP whitelist; follow [VPS guide](docs/14-vps-deployment.md). Keep live diagnostics separate from automated tests and never imply a dry run published or validated live upstreams.
+Authorized release entry: `bun run release`; build and verify the intended version/CI. Normal use remains local. Publishing a GitHub Release triggers `.github/workflows/docker-publish.yml` to build and push `ghcr.io/nocoo/raven` (`linux/amd64`, proven CI + tag); production pulls use `compose.prod.yaml` and runtime `.env` (see [Docker deployment](docs/31-docker-deployment.md)). Network deployment requires Google OAuth for Dashboard, explicit API/management access controls and IP whitelist; follow [VPS guide](docs/14-vps-deployment.md). Keep live diagnostics separate from automated tests and never imply a dry run published or validated live upstreams.
 
 ## Retrospective
 

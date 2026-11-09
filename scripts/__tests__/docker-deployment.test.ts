@@ -18,6 +18,18 @@ describe("Docker deployment configuration", () => {
     expect(compose).toContain("RAVEN_PROXY_URL: http://127.0.0.1:7024")
   })
 
+  test("pulls production image by tag or digest reference", () => {
+    const compose = read("compose.prod.yaml")
+
+    expect(compose).toContain(
+      "RAVEN_IMAGE_REF:?set RAVEN_IMAGE_REF to ghcr.io/nocoo/raven:vX.Y.Z or ghcr.io/nocoo/raven@sha256:...",
+    )
+    expect(compose).not.toContain("build:")
+    expect(compose).toContain("raven-docker-state:/var/lib/raven")
+    expect(compose).toContain("RAVEN_DASHBOARD_HOST_PORT:-7023")
+    expect(compose).not.toMatch(/-\s+\.:/)
+  })
+
   test("keeps the registry empty by default and supports an explicit override", () => {
     const compose = read("compose.yaml")
 
@@ -86,6 +98,10 @@ describe("Docker deployment configuration", () => {
       expect(guide).toContain(`- \`${route}\``)
     }
     expect(guide).toContain("Reject repeated slashes")
+    expect(guide).toContain("compose.prod.yaml")
+    expect(guide).toContain("ghcr.io/nocoo/raven")
+    expect(guide).toContain("tags can be moved")
+    expect(guide).toContain("GHCR visibility")
     expect(new URL("/ws//../logs", "http://fixture.invalid").pathname).toBe(
       "/ws/logs",
     )
@@ -111,4 +127,5 @@ describe("Docker deployment configuration", () => {
       expect(ignore).toContain(pattern)
     }
   })
+
 })
