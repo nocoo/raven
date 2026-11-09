@@ -1,6 +1,101 @@
 #!/bin/sh
-# L1: gate:coverage (proxy + §4.5 baseline) + dashboard unit tests
-# G1: Static analysis (lint-staged + typecheck + arch micro-checks)
-# G2: gitleaks (staged-only scan)
-# All run in parallel — see scripts/pre-commit.ts
+# L1 + G1 + G2 (6DQ): checks the Git index snapshot, not the working tree.
+# Parallel gates — see scripts/pre-commit.ts
+set -e
+command -v git >/dev/null 2>&1 || {
+	echo "pre-commit: git is required" >&2
+	exit 1
+}
+command -v bun >/dev/null 2>&1 || {
+	echo "pre-commit: bun is required" >&2
+	exit 1
+}
+command -v gitleaks >/dev/null 2>&1 || {
+	echo "pre-commit: gitleaks is required" >&2
+	exit 1
+}
+
+snapshot=
+staged_paths_file=
+cleanup() {
+	status=$?
+	trap - EXIT INT TERM HUP
+	if [ -n "$staged_paths_file" ]; then
+		rm -f "$staged_paths_file" || :
+		staged_paths_file=
+	fi
+	if [ -n "$snapshot" ]; then
+		rm -rf "$snapshot" || :
+		snapshot=
+	fi
+	exit "$status"
+}
+trap cleanup EXIT
+trap "exit 130" INT
+trap "exit 143" TERM
+trap "exit 129" HUP
+
+repo=$(git rev-parse --show-toplevel)
+cd "$repo" || exit 1
+
+# G2: staged secrets on the real index before exporting the snapshot.
+gitleaks protect --staged --no-banner
+
+staged_paths_file=$(mktemp "${TMPDIR:-/tmp}/raven-staged-paths-XXXXXX")
+git diff --cached --name-only --diff-filter=ACMR >"$staged_paths_file"
+
+snapshot=$(mktemp -d "${TMPDIR:-/tmp}/raven-index-XXXXXX")
+git checkout-index --all --prefix="$snapshot/"
+
+if [ ! -d "$repo/node_modules" ]; then
+	echo "pre-commit: node_modules is required" >&2
+	exit 1
+fi
+if [ ! -f "$snapshot/package.json" ] || [ ! -f "$snapshot/bun.lock" ]; then
+	echo "pre-commit: staged package.json and bun.lock are required" >&2
+	exit 1
+fi
+if ! cmp -s "$snapshot/package.json" "$repo/package.json" || ! cmp -s "$snapshot/bun.lock" "$repo/bun.lock"; then
+	echo "pre-commit: staged package.json/bun.lock must match the installed worktree copies" >&2
+	exit 1
+fi
+
+mkdir "$snapshot/node_modules"
+for entry in "$repo/node_modules"/*; do
+	[ -e "$entry" ] || continue
+	ln -s "$entry" "$snapshot/node_modules/${entry##*/}"
+done
+ln -s "$repo/node_modules/.bin" "$snapshot/node_modules/.bin"
+
+for pkg_dir in "$repo"/packages/*/; do
+	[ -d "$pkg_dir" ] || continue
+	rel="${pkg_dir#$repo/}"
+	target="$snapshot/$rel"
+	mkdir -p "$target"
+	if [ -d "$pkg_dir/node_modules" ]; then
+		mkdir "$target/node_modules"
+		for entry in "$pkg_dir/node_modules"/*; do
+			[ -e "$entry" ] || continue
+			ln -s "$entry" "$target/node_modules/${entry##*/}"
+		done
+	fi
+done
+
+mkdir -p "$snapshot/node_modules/.vite" "$snapshot/node_modules/.vitest" "$snapshot/.cache"
+unset GIT_INDEX_FILE GIT_PREFIX
+export GIT_DIR="$repo/.git"
+export GIT_WORK_TREE="$snapshot"
+export XDG_CACHE_HOME="$snapshot/.cache"
+export XDG_STATE_HOME="$snapshot/.cache"
+export RAVEN_HOOK_INDEX=1
+export RAVEN_STAGED_PATHS_FILE="$staged_paths_file"
+PATH="$snapshot/node_modules/.bin:$PATH"
+for pkg_dir in "$repo"/packages/*/; do
+	bin="$pkg_dir/node_modules/.bin"
+	if [ -d "$bin" ]; then
+		PATH="$bin:$PATH"
+	fi
+done
+cd "$snapshot"
+
 bun run scripts/pre-commit.ts
