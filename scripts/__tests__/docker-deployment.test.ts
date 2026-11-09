@@ -53,6 +53,21 @@ describe("Docker deployment configuration", () => {
     expect(dockerfile).toContain("bun install --frozen-lockfile --production")
   })
 
+  test("documents complete Compose-only runtime and protected Caddy paths", () => {
+    const guide = read("docs/31-docker-deployment.md")
+
+    expect(guide).toContain("does not document or support a direct `docker run`")
+    expect(guide).not.toContain("docker run --name")
+    expect(guide).toContain("path /api /api/* /ws/logs")
+    expect(guide).toContain("respond @management 403")
+  })
+
+  test("keeps entrypoint tests independent of real bootstrap state", () => {
+    const test = read("scripts/__tests__/container-entrypoint.test.ts")
+
+    expect(test).not.toContain("Bun.spawn")
+    expect(test).not.toContain("Bun.env")
+  })
   test("keeps secrets and persistent state out of the build context", () => {
     const ignore = read(".dockerignore")
 

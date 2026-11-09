@@ -69,24 +69,9 @@ docker compose up -d
 
 ## Direct `docker run`
 
-Compose is the recommended path, but the entrypoint enforces the same key boundary without Compose. A direct invocation must provide a non-empty `RAVEN_INTERNAL_KEY` different from `RAVEN_API_KEY`; otherwise PID 1 exits before starting either service.
+Raven does not document or support a direct `docker run` deployment. Compose supplies the project-scoped volume name, runtime allowlisted environment, loopback port bindings and stop policy together. A hand-written `docker run` can silently omit OAuth, tenant or base URL variables and accidentally share an independently named volume across instances. Use the Compose entrypoint in this guide instead.
 
-```bash
-docker build \
-  --build-arg BUN_CONFIG_REGISTRY=https://packagefeedproxy.microsoft.io/npm/ \
-  -t raven:local .
-docker run --name raven \
-  -p 127.0.0.1:7023:7023 \
-  -p 127.0.0.1:7024:7024 \
-  -e RAVEN_API_KEY \
-  -e RAVEN_INTERNAL_KEY \
-  -v raven-local-state:/var/lib/raven \
-  raven:local
-```
-
-Set the two exported shell values to different generated secrets before this command. Direct `docker run` has no Compose project namespace, so choose a stable, instance-unique volume name instead of sharing `raven-local-state` across independent Raven instances. Do not replace the `127.0.0.1` host bindings with public `0.0.0.0` bindings while the Dashboard is in Local mode.
-
-Missing any of the three Dashboard OAuth values leaves the existing Local mode unchanged; an incomplete OAuth configuration is not treated as authenticated mode. In that state the entrypoint logs a warning and the operator must keep the Dashboard host-loopback-only. Complete OAuth with an empty `ALLOWED_EMAILS` still logs a warning and permits every authenticated Google account.
+The image entrypoint still rejects a missing internal key or reuse of the API key before starting either service, but that guard does not replace Compose's configuration and instance isolation.
 
 ## Host Caddy
 
@@ -98,9 +83,16 @@ raven.example.com {
 }
 
 raven-api.example.com {
+    @management {
+        path /api /api/* /ws/logs
+    }
+    respond @management 403
+
     reverse_proxy 127.0.0.1:7024
 }
 ```
+
+The Dashboard host remains unrestricted at the Caddy layer and exposes its same-origin BFF `/api/*` through the Dashboard's Google OAuth boundary. On the separate Proxy API host, Caddy rejects management paths before forwarding. Do not remove that matcher or combine the two origins into one catch-all route.
 
 Use a real OAuth-protected Dashboard origin as `NEXTAUTH_URL`. Do not publish the Proxy management routes as a substitute for the Dashboard; management is deliberately accepted only from a loopback socket peer with the internal key. Caddy must forward proxy and WebSocket traffic for API features it exposes.
 

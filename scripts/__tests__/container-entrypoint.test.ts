@@ -1,4 +1,3 @@
-import { resolve } from "node:path"
 import { describe, expect, test } from "vitest"
 import { supervise, validateRuntimeEnvironment, type ManagedChild, type ShutdownSignal } from "../container-entrypoint"
 
@@ -70,22 +69,6 @@ describe("container entrypoint", () => {
         RAVEN_API_KEY: "client",
       }),
     ).toBeNull()
-  })
-
-  test("rejects reused keys before a direct container start", async () => {
-    const entrypoint = resolve(process.cwd(), "scripts/container-entrypoint.ts")
-    const childProcess = Bun.spawn([globalThis.process.execPath, "run", entrypoint], {
-      env: {
-        ...Bun.env,
-        RAVEN_INTERNAL_KEY: "same",
-        RAVEN_API_KEY: "same",
-      },
-      stdout: "pipe",
-      stderr: "pipe",
-    })
-
-    expect(await childProcess.exited).toBe(1)
-    expect(await new Response(childProcess.stderr).text()).toContain("must differ")
   })
 
   test("turns an unexpected zero exit into a failure and stops its peer", async () => {
