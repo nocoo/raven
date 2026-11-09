@@ -137,7 +137,9 @@ describe("Docker deployment configuration", () => {
     expect(workflow).toContain("packages: write")
     expect(workflow).toContain("release-source@2231caf82cf16f103f48cab467b3464b106d6604")
     expect(workflow).toContain("package-version-match: \"true\"")
-    expect(workflow).toContain("refs/tags/${{ needs.source.outputs.release-tag }}")
+    expect(workflow).toMatch(
+      /refs\/tags\/\$\{\{ needs\.source\.outputs\.release-tag \}\}/,
+    )
     expect(workflow).toContain("needs.source.outputs.target-sha")
     expect(workflow).toContain("ghcr.io/nocoo/raven")
     expect(workflow).not.toMatch(/:latest\b/)
