@@ -124,7 +124,9 @@ docker compose logs
 
 ## Verification limits
 
-The repository's isolated tests verify container configuration and the PID-1 exit/signal policy without Docker or upstream access.
+The repository's isolated tests verify container configuration and the PID-1 exit/signal policy without Docker or upstream access. Docker-specific acceptance remains manual: the test suite does not invoke the Docker CLI or require `/dev/null`.
+
+During this pre-release check, `docker compose config --format json` was also run manually with an allowlisted synthetic process environment and an explicit empty env file. It resolved `BUN_CONFIG_REGISTRY` to an empty string by default and to the Tencent URL when explicitly supplied. This manual configuration check is evidence for that run, not a portable unit-test prerequisite.
 
 On 2026-11-09, source v3.3.1 at commit `5a7d0b1` was built from the current Dockerfile and Compose definition with Docker Desktop Engine 29.7.2. This was a linux/arm64 check using a temporary image tag, isolated Compose project and fresh named volume. The Microsoft package mirror returned 404 for current locked packages, while the explicitly selected `https://mirrors.tencent.com/npm/` completed both frozen-lockfile installs and the Next.js production build without writing that URL into `bun.lock`. The repository default registry override remains empty; the mirror is not a global requirement.
 

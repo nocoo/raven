@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -6,42 +5,6 @@ import { describe, expect, test } from "vitest"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 const read = (path: string) => readFileSync(resolve(root, path), "utf8")
-
-interface ComposeConfig {
-  services: {
-    raven: {
-      build: {
-        args: Record<string, string | null>
-      }
-    }
-  }
-}
-
-function composeConfig(registry?: string): ComposeConfig {
-  const environment: NodeJS.ProcessEnv = {
-    PATH: process.env.PATH ?? "",
-    RAVEN_API_KEY: "synthetic-compose-api-key",
-    RAVEN_INTERNAL_KEY: "synthetic-compose-internal-key",
-  }
-  if (registry !== undefined) environment.BUN_CONFIG_REGISTRY = registry
-
-  return JSON.parse(
-    execFileSync(
-      "docker",
-      [
-        "compose",
-        "-f",
-        "compose.yaml",
-        "--env-file",
-        "/dev/null",
-        "config",
-        "--format",
-        "json",
-      ],
-      { cwd: root, encoding: "utf8", env: environment },
-    ),
-  ) as ComposeConfig
-}
 
 describe("Docker deployment configuration", () => {
   test("binds host ports to loopback and uses only a new named volume", () => {
@@ -55,12 +18,10 @@ describe("Docker deployment configuration", () => {
     expect(compose).toContain("RAVEN_PROXY_URL: http://127.0.0.1:7024")
   })
 
-  test("keeps the registry empty by default and accepts an explicit build override", () => {
-    expect(composeConfig().services.raven.build.args.BUN_CONFIG_REGISTRY).toBe("")
-    expect(
-      composeConfig("https://mirrors.tencent.com/npm/").services.raven.build.args
-        .BUN_CONFIG_REGISTRY,
-    ).toBe("https://mirrors.tencent.com/npm/")
+  test("keeps the registry empty by default and supports an explicit override", () => {
+    const compose = read("compose.yaml")
+
+    expect(compose).toMatch(/BUN_CONFIG_REGISTRY: \$\{BUN_CONFIG_REGISTRY:-\}/)
     expect(read(".env.docker.example")).toContain("BUN_CONFIG_REGISTRY=\n")
   })
 
