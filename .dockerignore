@@ -28,7 +28,10 @@ packages/proxy/data/
 .superset/
 docs/
 assets/
-**/test/
-**/e2e/
+# Test-only package trees. Never use bare **/test/ or **/e2e/: Next app
+# route segments such as app/api/settings/socks5/test/ are build inputs.
+packages/*/test/
+packages/*/e2e/
+scripts/__tests__/
 *.md
 logo.png

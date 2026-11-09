@@ -37,3 +37,12 @@ jobs:
       install-policy: "blocked"
       timeout-minutes: 10
       command: "bun run scripts/check-coverage.ts"
+
+  docker-context:
+    name: "Docker build context (.dockerignore keeps build inputs)"
+    uses: nocoo/base-ci/.github/workflows/test-job.yml@ac635753a869cb85fad1f52aae4ccbd6119f3cae # main 2026-10-22
+    with:
+      runtime-version: "1.3.11"
+      install-policy: "blocked"
+      timeout-minutes: 5
+      command: "bun run gate:docker-context"

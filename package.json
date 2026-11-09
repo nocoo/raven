@@ -1,6 +1,6 @@
 {
   "name": "raven",
-  "version": "3.3.2",
+  "version": "3.3.3",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -28,6 +28,7 @@
     "test:perf": "bun run --filter '@raven/proxy' test:perf",
     "gate:coverage": "bun run scripts/check-coverage.ts",
     "gate:security": "bun run scripts/gate-security.ts",
+    "gate:docker-context": "bun run scripts/check-docker-context.ts",
     "gate:arch": "bun run scripts/gate-arch-depcruise.ts && bun run scripts/check-fetch-boundary.ts && bun run scripts/check-dynamic-delete.ts && bun run scripts/check-ts-expect-error.ts",
     "test:ui": "bun run scripts/run-playwright.ts",
     "prepare": "husky",
