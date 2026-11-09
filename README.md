@@ -83,7 +83,7 @@ RAVEN_INTERNAL_KEY=replace-with-management-key
 
 ### Docker
 
-生产镜像、Docker Compose、首次 GitHub 设备授权、Caddy、OAuth 与持久卷的完整步骤见 [Docker 部署文档](docs/31-docker-deployment.md)。Compose 只把端口绑定到宿主机 `127.0.0.1`，并使用新的 named volume，不挂载或读取宿主机现有 Raven 数据。
+生产镜像、Docker Compose、GHCR 发布与 `compose.prod.yaml` 拉取、首次 GitHub 设备授权、Caddy、OAuth 与持久卷的完整步骤见 [Docker 部署文档](docs/31-docker-deployment.md)。Compose 只把端口绑定到宿主机 `127.0.0.1`，并使用新的 named volume，不挂载或读取宿主机现有 Raven 数据。
 
 ### 启动与连接
 
