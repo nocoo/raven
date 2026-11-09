@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -5,6 +6,42 @@ import { describe, expect, test } from "vitest"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 const read = (path: string) => readFileSync(resolve(root, path), "utf8")
+
+interface ComposeConfig {
+  services: {
+    raven: {
+      build: {
+        args: Record<string, string | null>
+      }
+    }
+  }
+}
+
+function composeConfig(registry?: string): ComposeConfig {
+  const environment: NodeJS.ProcessEnv = {
+    PATH: process.env.PATH ?? "",
+    RAVEN_API_KEY: "synthetic-compose-api-key",
+    RAVEN_INTERNAL_KEY: "synthetic-compose-internal-key",
+  }
+  if (registry !== undefined) environment.BUN_CONFIG_REGISTRY = registry
+
+  return JSON.parse(
+    execFileSync(
+      "docker",
+      [
+        "compose",
+        "-f",
+        "compose.yaml",
+        "--env-file",
+        "/dev/null",
+        "config",
+        "--format",
+        "json",
+      ],
+      { cwd: root, encoding: "utf8", env: environment },
+    ),
+  ) as ComposeConfig
+}
 
 describe("Docker deployment configuration", () => {
   test("binds host ports to loopback and uses only a new named volume", () => {
@@ -16,8 +53,15 @@ describe("Docker deployment configuration", () => {
     expect(compose).toMatch(/\nvolumes:\n {2}raven-docker-state:\n$/)
     expect(compose).not.toMatch(/-\s+\.:/)
     expect(compose).toContain("RAVEN_PROXY_URL: http://127.0.0.1:7024")
-    expect(compose).toContain("BUN_CONFIG_REGISTRY:-https://mirrors.tencent.com/npm/")
-    expect(read(".env.docker.example")).toContain("BUN_CONFIG_REGISTRY=https://mirrors.tencent.com/npm/")
+  })
+
+  test("keeps the registry empty by default and accepts an explicit build override", () => {
+    expect(composeConfig().services.raven.build.args.BUN_CONFIG_REGISTRY).toBe("")
+    expect(
+      composeConfig("https://mirrors.tencent.com/npm/").services.raven.build.args
+        .BUN_CONFIG_REGISTRY,
+    ).toBe("https://mirrors.tencent.com/npm/")
+    expect(read(".env.docker.example")).toContain("BUN_CONFIG_REGISTRY=\n")
   })
 
   test("runs non-root with runtime-only state and no-upstream probes", () => {

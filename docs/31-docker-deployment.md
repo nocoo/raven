@@ -8,7 +8,7 @@ Raven's container runs the Proxy and Dashboard in one network namespace. Dashboa
 - The container runs as the non-root `node` user. Node 26.12.1 runs the Dashboard; Bun runs the Proxy and PID 1 entrypoint from the same Debian trixie libc family. The entrypoint sets umask `077`, forwards stop signals, and maps an unexpected clean child exit to failure. It escalates a child that does not stop within ten seconds.
 - A project-scoped named volume, `<compose-project>_raven-docker-state`, owns all persistent state under `/var/lib/raven`: GitHub token, SQLite database, WAL and provider configuration. No host bind mount is used, so it neither reads nor modifies the existing native Raven directories. Different checkout names or `docker compose -p` values receive different volumes; the same project name reuses its volume across container restarts and rebuilds.
 - A permission failure stops startup. The container does not broaden filesystem permissions.
-- Build-time configuration contains no real secrets. Runtime values come from `.env`/the host environment. Compose passes `BUN_CONFIG_REGISTRY` only to `bun install`; the build rejects that URL if it appears in `bun.lock`. Dockerignore excludes nested env files, tokens, databases, WAL/SHM files and backups.
+- Build-time registry configuration must not contain credentials. Compose passes `BUN_CONFIG_REGISTRY` only to `bun install`; the build rejects that URL if it appears in `bun.lock`. Docker build arguments can remain visible in image history or provenance metadata, so this option is not a secret channel and does not guarantee that the registry URL is absent from the built image. Dockerignore excludes nested env files, tokens, databases, WAL/SHM files and backups.
 
 Docker port publishing performs network-address translation. The container may see a Docker or Caddy peer rather than the original client address. Raven's original-client-IP and IP-whitelist behavior through this path has not been established by a Docker acceptance test; do not rely on IP allowlists as the only network control.
 
@@ -24,7 +24,13 @@ openssl rand -hex 32  # RAVEN_INTERNAL_KEY
 
 Set the two different random values in `.env`. Keep `.env` outside Git; it is also excluded from the Docker build context.
 
-Set `BUN_CONFIG_REGISTRY` only if a different build-time package mirror is needed. The example uses the permitted Tencent mirror; the temporary value is not copied to runtime and is not persisted in `bun.lock`.
+`BUN_CONFIG_REGISTRY` is empty by default, so Bun uses its project/default registry. If the default registry is blocked or does not contain the locked artifacts on a particular network, set the build-only argument explicitly. For example, the Tencent mirror used by this machine's pre-release check was:
+
+```dotenv
+BUN_CONFIG_REGISTRY=https://mirrors.tencent.com/npm/
+```
+
+A third-party mirror has its own availability, retention and trust boundary; verify that it is acceptable for your environment. Do not put credentials in a build argument: Docker may expose build arguments in image history or provenance metadata. The URL is not added to runtime service configuration, and the Dockerfile verifies that it is not written into `bun.lock`.
 
 The default is safe host-local operation. If a Caddy site makes the Dashboard reachable from another machine, configure all of the following in `.env`:
 
@@ -120,8 +126,10 @@ docker compose logs
 
 The repository's isolated tests verify container configuration and the PID-1 exit/signal policy without Docker or upstream access.
 
-On 2026-11-09, the current v3.3.2 pre-release HEAD was built through Docker Compose with Docker Desktop Engine 29.7.2. A temporary image tag, isolated Compose project and fresh named volume were used. The Microsoft package mirror returned 404 for current locked packages, while `https://mirrors.tencent.com/npm/` completed both frozen-lockfile installs and the Next.js production build without writing the mirror URL into `bun.lock`; the Compose and `.env` examples now default to that verified mirror.
+On 2026-11-09, source v3.3.1 at commit `5a7d0b1` was built from the current Dockerfile and Compose definition with Docker Desktop Engine 29.7.2. This was a linux/arm64 check using a temporary image tag, isolated Compose project and fresh named volume. The Microsoft package mirror returned 404 for current locked packages, while the explicitly selected `https://mirrors.tencent.com/npm/` completed both frozen-lockfile installs and the Next.js production build without writing that URL into `bun.lock`. The repository default registry override remains empty; the mirror is not a global requirement.
 
-All runtime checks used only synthetic keys and fresh state, with Docker `network_mode: none`. The image reported `node v26.12.1` and `bun 1.4.4`; a non-root `node` user (UID 1000) wrote to the three mode-0700 state directories and a marker survived container replacement on the named volume. Next.js started from the production image, returned 200 for `/`, a referenced `/_next/static/*` asset and `/api/auth/config`, then stopped through SIGTERM without an OOM event.
+The temporary Compose invocation used a new named volume and Docker `network_mode: none`. The image reported `node v26.12.1` and `bun 1.4.4`; a non-root `node` user (UID 1000) could access the three mode-0700 state directories, and a marker survived container replacement on that volume. A standalone Next production process returned 200 for `/`, a referenced `/_next/static/*` asset and `/api/auth/config`, then terminated after `docker stop` without an OOM event. This was a single-process Next stop test, not a successful full entrypoint shutdown test.
 
-Full production Proxy bootstrap remains unverified: `src/index.ts` necessarily calls GitHub to validate the stored token and exchange it for a Copilot JWT, then schedules Copilot catalog access. The release check therefore did not start that bootstrap as a claimed success; an isolated no-network attempt was used only to verify fail-closed behavior. Synthetic credentials are not a substitute for a real GitHub/Copilot integration, and no real token, account or database was used.
+The check supplied synthetic values through a temporary env file, but `docker compose --env-file` does not clear same-named host-process variables. It therefore does not prove that every inherited variable was synthetic. No real GitHub/Copilot account, token or user database was intentionally used, and `network_mode: none` prevented the tested production bootstrap from reaching GitHub; the isolated attempt initialized fresh SQLite state, then failed closed at token bootstrap. A complete production Proxy + Dashboard startup was not established.
+
+Not verified: successful startup with a real account and Copilot token, the full two-process entrypoint success path, host-published ports or Caddy routing, IP-address behavior through Docker/Caddy, and linux/amd64. Synthetic credentials are not a substitute for a real upstream integration, and the no-network fixture establishes only the reported local boundaries.
