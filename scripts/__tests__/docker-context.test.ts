@@ -26,4 +26,17 @@ describe("repository docker build context", () => {
     expect(checkRequiredAppEntries(files)).toEqual([])
     expect(read(".dockerignore")).not.toMatch(/^\*\*\/(test|tests|e2e)\/?$/m)
   })
+
+  test("publish workflow checks context before build and image routes before push", () => {
+    const workflow = read(".github/workflows/docker-publish.yml")
+    const contextCheck = workflow.indexOf("check-docker-context.ts")
+    const verifyBuild = workflow.indexOf("load: true")
+    const routeCheck = workflow.indexOf("docker-publish-verify-image-routes.ts")
+    const push = workflow.indexOf("push: true")
+    expect(contextCheck).toBeGreaterThan(-1)
+    expect(verifyBuild).toBeGreaterThan(contextCheck)
+    expect(routeCheck).toBeGreaterThan(verifyBuild)
+    expect(push).toBeGreaterThan(routeCheck)
+    expect(read(".github/workflows/ci.yml")).toContain("bun run gate:docker-context")
+  })
 })
