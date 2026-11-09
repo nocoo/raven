@@ -24,14 +24,21 @@ export function buildGhcrTagList(options: {
   return names
 }
 
-export function verifyCheckoutHead(targetSha: string): void {
+export function readCheckoutHead(): string {
+  return execSync("git rev-parse HEAD", { encoding: "utf8" })
+    .trim()
+    .toLowerCase()
+}
+
+export function verifyCheckoutHead(
+  targetSha: string,
+  readHead: () => string = readCheckoutHead,
+): void {
   const expected = String(targetSha ?? "").trim().toLowerCase()
   if (!SHA_RE.test(expected)) {
     throw new Error("TARGET_SHA must be a 40-character commit SHA")
   }
-  const head = execSync("git rev-parse HEAD", { encoding: "utf8" })
-    .trim()
-    .toLowerCase()
+  const head = readHead()
   if (head !== expected) {
     throw new Error(
       `Checkout HEAD ${head} does not match proven source ${expected}`,

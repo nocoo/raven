@@ -10,11 +10,6 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: read
-  packages: write
-  actions: read
-
 concurrency:
   group: docker-publish-${{ github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: false
@@ -23,7 +18,10 @@ jobs:
   source:
     name: Prove release source
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
     outputs:
       release-tag: ${{ steps.validate.outputs.release-tag }}
       release-version: ${{ steps.validate.outputs.release-version }}
@@ -34,7 +32,7 @@ jobs:
       - name: Checkout workflow tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || format('refs/heads/{0}', github.event.repository.default_branch) }}
           path: .ci-tooling
           persist-credentials: false
       - name: Setup Bun for workflow scripts
@@ -51,6 +49,16 @@ jobs:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: bun run scripts/docker-publish-validate.ts
+      - name: Wait for tag commit CI to succeed
+        working-directory: .ci-tooling
+        env:
+          RELEASE_TAG: ${{ steps.validate.outputs.release-tag }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CI_WAIT_TIMEOUT_MS: "1800000"
+          CI_WAIT_POLL_MS: "30000"
+        run: bun run scripts/docker-publish-wait-ci.ts
       - id: prove
         uses: nocoo/base-ci/.github/actions/release-source@2231caf82cf16f103f48cab467b3464b106d6604
         with:
@@ -67,11 +75,15 @@ jobs:
     needs: source
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      actions: read
     steps:
       - name: Checkout workflow tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || format('refs/heads/{0}', github.event.repository.default_branch) }}
           path: .ci-tooling
           persist-credentials: false
       - name: Checkout proven release source for image build

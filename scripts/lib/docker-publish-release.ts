@@ -1,3 +1,5 @@
+import type { FetchLike } from "./http-fetch.ts"
+
 export const VERSION_TAG_RE = /^v[0-9]+\.[0-9]+\.[0-9]+$/
 
 export interface ResolvedReleaseMetadata {
@@ -45,7 +47,7 @@ export async function resolveReleaseMetadata(options: {
   repository: string
   apiUrl: string
   token: string
-  fetchImpl?: typeof fetch
+  fetchImpl?: FetchLike
 }): Promise<ResolvedReleaseMetadata> {
   const { tag, version } = parseVersionReleaseTag(options.rawTag)
   let prerelease = options.releasePrereleaseFlag === "true"
