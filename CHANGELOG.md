@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.3.2
+
+### Added
+- Add secure docker deployment
+
+### Changed
+- Keep docker checks static
+- Record docker review lessons
+- Upgrade biome to 2.6.6
+- Upgrade lucide react to 1.70.0
+- Upgrade tailwind packages to 4.3.5
+- Upgrade hono to 4.13.17
+
+### Fixed
+- Keep docker registry override optional
+- Use working docker npm mirror
+- Require canonical api caddy allowlist
+- Address docker review findings
+- Scope docker volume by project
+
 ## v3.3.1
 
 ### Added
