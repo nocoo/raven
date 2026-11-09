@@ -81,6 +81,10 @@ RAVEN_INTERNAL_KEY=replace-with-management-key
 
 完整变量示例分别在 [Proxy 模板](packages/proxy/.env.example)和 [Dashboard 模板](packages/dashboard/.env.example)。Proxy 模板中的 `RAVEN_TOKEN_PATH=data/github_token` 会覆盖默认数据路径；使用平台默认目录时省略该变量。
 
+### Docker
+
+生产镜像、Docker Compose、首次 GitHub 设备授权、Caddy、OAuth 与持久卷的完整步骤见 [Docker 部署文档](docs/31-docker-deployment.md)。Compose 只把端口绑定到宿主机 `127.0.0.1`，并使用新的 named volume，不挂载或读取宿主机现有 Raven 数据。
+
 ### 启动与连接
 
 ```bash

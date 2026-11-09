@@ -80,6 +80,10 @@ RAVEN_INTERNAL_KEY=replace-with-management-key
 
 Full examples are in the [Proxy template](../packages/proxy/.env.example) and [Dashboard template](../packages/dashboard/.env.example). The Proxy template's `RAVEN_TOKEN_PATH=data/github_token` overrides the default data location; omit it to use platform defaults.
 
+### Docker
+
+See the [Docker deployment guide](31-docker-deployment.md) for the production image, first GitHub Device Flow authorization, Caddy, OAuth and persistent-volume operation. Compose binds ports only to host `127.0.0.1` and uses a new named volume without mounting or reading existing native Raven data.
+
 ### Start and connect
 
 ```bash
@@ -174,6 +178,7 @@ Real API tests reuse or start the Proxy on port 7024, use its actual configurati
 ## Documentation
 
 - [Documentation index](README.md)
+- [Docker deployment](31-docker-deployment.md)
 - [Authentication design background](09-unified-auth.md)
 - [Key-bound routing, schedules and quotas](28-key-bound-routing.md)
 - [Server-side search tools](13-server-tools.md)

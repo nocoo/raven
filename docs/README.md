@@ -32,6 +32,7 @@
 | 28 | [Key-Bound Routing](./28-key-bound-routing.md) | R3 contract and implementation: key-bound rules, UTC schedules, shared upstream quotas, cached model catalogs and isolated verification |
 | 29 | [Live Proxy Acceptance](./29-live-proxy-acceptance.md) | Reusable default-rule native/translated acceptance matrix, private reports and explicitly authorized reruns |
 | 30 | [Native Microsoft Decision / Luna / Image](./30-systemone.md) | Unified-key native Systemone, Luna decisions and Flare image generations/multipart edits; exact catalog and API destination |
+| 31 | [Docker Deployment](./31-docker-deployment.md) | Production multi-stage image, loopback Compose, first-run OAuth, named-volume persistence and Caddy security |
 | — | [Interactive Proxy Architecture](./proxy-architecture.html) | Offline route explorer, eight protocol repairs with local commits, and fresh UT/coverage evidence |
 
 ## Archive

@@ -1,2 +1,34 @@
-logo.png
+# Dependencies and build output
+node_modules/
+**/node_modules/
+**/.next/
+coverage/
+**/coverage/
+*.tsbuildinfo
+
+# Runtime secrets and persistent state
+.env
+.env.*
+**/.env
+**/.env.*
+packages/proxy/data/
+**/*.db*
+**/*.sqlite*
+**/github_token*
+**/*.pem
+**/*.key
+**/*.bak
+**/*.backup
+
+# Repository-only files that are not build inputs
+.git/
+.github/
+.husky/
+.claude/
+.superset/
+docs/
+assets/
+**/test/
+**/e2e/
 *.md
+logo.png

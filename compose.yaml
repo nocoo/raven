@@ -1,0 +1,39 @@
+services:
+  raven:
+    build:
+      context: .
+      args:
+        BUN_CONFIG_REGISTRY: ${BUN_CONFIG_REGISTRY:-https://packagefeedproxy.microsoft.io/npm/}
+    restart: unless-stopped
+    stop_grace_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "127.0.0.1:${RAVEN_DASHBOARD_HOST_PORT:-7023}:7023"
+      - "127.0.0.1:${RAVEN_PROXY_HOST_PORT:-7024}:7024"
+    environment:
+      RAVEN_PORT: "7024"
+      RAVEN_API_KEY: ${RAVEN_API_KEY:?set RAVEN_API_KEY in .env}
+      RAVEN_INTERNAL_KEY: ${RAVEN_INTERNAL_KEY:?set RAVEN_INTERNAL_KEY in .env}
+      RAVEN_GITHUB_HOST: ${RAVEN_GITHUB_HOST:-}
+      RAVEN_BASE_URL: ${RAVEN_BASE_URL:-http://127.0.0.1:7024}
+      RAVEN_LOG_LEVEL: ${RAVEN_LOG_LEVEL:-info}
+      RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS: ${RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS:-false}
+      RAVEN_IP_LOOKUP_API_KEY: ${RAVEN_IP_LOOKUP_API_KEY:-}
+      RAVEN_PROXY_URL: http://127.0.0.1:7024
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://127.0.0.1:7023}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      USE_SECURE_COOKIES: ${USE_SECURE_COOKIES:-}
+    volumes:
+      - raven-docker-state:/var/lib/raven
+    tmpfs:
+      - /tmp
+
+volumes:
+  raven-docker-state:
+    name: raven-docker-state-v1
