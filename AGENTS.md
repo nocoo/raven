@@ -72,13 +72,13 @@ After a production build, `bun run scripts/verify-routing-ui.ts` exercises Routi
 | L1 coverage: scripts | Four metrics ≥95% | enforced | The baseline gate explicitly runs the dedicated Bun/Istanbul config for the declared `scripts/lib` scope; reports are isolated in `coverage/scripts` |
 | L2 | Every API endpoint/method through real isolated HTTP/SQLite | planned | CI `test:l2` is in-process route/handler tests with mocked upstream; legacy live E2E uses real state |
 | L3 | Real isolated dashboard/auth/provider workflows | planned | Playwright manual runner uses real auth and fixed test DB |
-| L1 complete contract | Coverage above plus strict types, zero-warning/error check-only Biome, architecture boundaries and installed index-snapshot rejection | planned | Configured coverage/static subchecks run in hooks; lint-staged commands are check-only. Hooks still inspect working files; complete index isolation, failure-rejection evidence and <30s timing remain unverified |
+| L1 complete contract | Coverage above plus strict types, zero-warning/error check-only Biome, architecture boundaries and verified index-snapshot rejection | enforced | `.husky/pre-commit` exports `git checkout-index` to a temp tree, symlinks installed `node_modules`, runs parallel check-only gates via `scripts/pre-commit.ts` (`GIT_WORK_TREE` = snapshot), Biome on staged paths only; gitleaks on the real index; trap cleanup on exit/interrupt |
 | G2 | Required OSV and gitleaks, fail when absent | enforced | `gate:security`, pre-push and CI |
 | D1 | Per-run test DB/config/token paths and local fixture upstream | planned | Legacy HTTP E2E reuses real database; browser fixed test DB still uses real credentials |
 | Build | Next production bundle | manual | Root `build`; mandatory for runtime/bundler changes |
 | Docs | Protocol and gate-baseline evidence kept current | manual | Numbered guide review |
 
-Pre-commit runs `gate:coverage`, Dashboard/script tests, lint-staged/types/micro-gates and staged secrets in parallel. Pre-push runs the same baseline gate, architecture, full lint and G2 on working files. Never replace baseline entry with bare Vitest. Target: check-only index unified L1 <30s, stdin pushed-ref local L2/G2 <3min; no hook bypass or soft-security mode.
+Pre-commit gates the **Git index snapshot** (`checkout-index` temp dir, not the working tree): `gate:coverage`, Dashboard/script tests, index-scoped Biome, typecheck/micro-gates, and staged gitleaks. Pre-push runs the same baseline gate, architecture, full lint and G2 on working files. Never replace baseline entry with bare Vitest. Target: check-only index unified L1 <30s, stdin pushed-ref local L2/G2 <3min; no hook bypass or soft-security mode.
 
 ## Resources / Isolation
 

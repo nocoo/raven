@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { tasks as preCommitTasks } from "../../pre-commit"
+import { commandTasks as preCommitTasks } from "../../pre-commit"
 import { tasks as prePushTasks } from "../../pre-push"
 
 /**

@@ -1,22 +1,48 @@
 /**
- * Pre-commit gate runner — parallel:
+ * Pre-commit gate runner (Git index snapshot) — parallel:
  *   - L1 coverage  (proxy tests + §4.5 baseline via gate:coverage / check-coverage.ts)
  *   - L1 dashboard unit tests
- *   - G1 lint-staged, typecheck, fetch-boundary, dynamic-delete, ts-expect-error
- *   - G2 gitleaks (staged-only)
+ *   - G1 index-scoped Biome (replaces lint-staged; paths from staged snapshot)
+ *   - G1 typecheck, fetch-boundary, dynamic-delete, ts-expect-error
+ *
+ * Invoked from `.husky/pre-commit` after `git checkout-index` into a temp
+ * directory. G2 gitleaks runs in the husky launcher on the real index.
  *
  * Proxy L1 must go through check-coverage.ts — bare vitest thresholds do not
  * enforce docs/20-baseline.json (directory floors, untested files, regression).
  */
 
-export interface Task {
+import { existsSync, readFileSync } from "node:fs"
+
+import { pathsMatchingLintStaged, runBiomeOnStaged } from "./lib/pre-commit-staged-lint.ts"
+
+export interface CommandTask {
   name: string
   gate: string
   cmd: string[]
 }
 
+export type Task =
+  | CommandTask
+  | {
+      name: string
+      gate: string
+      run: () => Promise<{ ok: boolean; output: string }>
+    }
+
+function loadStagedPaths(): string[] {
+  const file = process.env.RAVEN_STAGED_PATHS_FILE
+  if (!file) {
+    return []
+  }
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
 /** Exported for unit tests — coverage task must invoke the CI baseline gate. */
-export const tasks: Task[] = [
+export const commandTasks: CommandTask[] = [
   { name: "coverage", gate: "L1", cmd: ["bun", "run", "gate:coverage"] },
   { name: "dashboard-tests", gate: "L1", cmd: ["bun", "run", "--filter", "dashboard", "test"] },
   // Only the root vitest "scripts" project — not full monorepo (coverage +
@@ -26,15 +52,34 @@ export const tasks: Task[] = [
     gate: "L1",
     cmd: ["bunx", "--bun", "vitest", "run", "--project", "scripts"],
   },
-  { name: "lint-staged", gate: "G1", cmd: ["bunx", "lint-staged"] },
   { name: "typecheck", gate: "G1", cmd: ["bun", "run", "typecheck"] },
   { name: "fetch-boundary", gate: "G1", cmd: ["bun", "run", "scripts/check-fetch-boundary.ts"] },
   { name: "dynamic-delete", gate: "G1", cmd: ["bun", "run", "scripts/check-dynamic-delete.ts"] },
   { name: "ts-expect-error", gate: "G1", cmd: ["bun", "run", "scripts/check-ts-expect-error.ts"] },
-  { name: "gitleaks", gate: "G2", cmd: ["gitleaks", "protect", "--staged", "--no-banner"] },
+]
+
+export const tasks: Task[] = [
+  ...commandTasks,
+  {
+    name: "staged-lint",
+    gate: "G1",
+    run: async (): Promise<{ ok: boolean; output: string }> => {
+      const staged = loadStagedPaths()
+      const lintable = pathsMatchingLintStaged(staged).filter((path) => existsSync(path))
+      return runBiomeOnStaged(lintable)
+    },
+  },
 ]
 
 async function runTask(task: Task): Promise<{ task: Task; ok: boolean; output: string }> {
+  if ("run" in task) {
+    try {
+      const result = await task.run()
+      return { task, ...result }
+    } catch (err) {
+      return { task, ok: false, output: String(err) }
+    }
+  }
   try {
     const proc = Bun.spawn(task.cmd, { stdout: "pipe", stderr: "pipe" })
     const [stdout, stderr] = await Promise.all([
@@ -49,8 +94,13 @@ async function runTask(task: Task): Promise<{ task: Task; ok: boolean; output: s
 }
 
 async function main(): Promise<void> {
+  if (process.env.RAVEN_HOOK_INDEX !== "1") {
+    console.error("❌ pre-commit: must run from .husky/pre-commit index snapshot (RAVEN_HOOK_INDEX=1)")
+    process.exit(1)
+  }
+
   const start = performance.now()
-  console.log("🚀 Pre-commit (parallel)\n")
+  console.log("🚀 Pre-commit (index snapshot, parallel)\n")
 
   const results = await Promise.all(tasks.map(runTask))
   const elapsed = ((performance.now() - start) / 1000).toFixed(1)
