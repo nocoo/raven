@@ -2,6 +2,12 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-11-09: Local mirror limits and Docker evidence were overstated
+
+The Docker pre-release check replaced Compose's default npm registry with a Tencent mirror because that mirror worked on this machine. The mirror limitation was local, not a project-wide requirement, so the default change would have forced all users onto a third-party registry and its availability and trust boundary. Docker examples now leave the registry override empty and document the mirror as an explicit local fallback when the default source is blocked or incomplete.
+
+The same check described its synthetic environment too broadly. `docker compose --env-file` layers values over the process environment rather than replacing it, so the command did not prove that every same-named environment value was absent or synthetic. The verification record also compressed several distinct gaps into one success: the tested source was v3.3.1 at commit `5a7d0b1` on linux/arm64, the stopped service was a single Next process, and no real-account production bootstrap, dual-process startup, Caddy or host-port path, or amd64 run had occurred. Record each observed boundary exactly; do not infer credential isolation, full bootstrap, architecture coverage or network publication from a narrower fixture.
+
 ## 2026-11-06: A version check invoked package resolution
 
 During release verification, `bunx --bun playwright --version` unexpectedly resolved and downloaded a transient package rather than only inspecting the workspace installation. The tracked lockfile and manifests remained unchanged. For installed workspace tools, inspect the package manifest or invoke the workspace's `node_modules/.bin` directly; reserve package resolution for explicitly configured mirror installs.
