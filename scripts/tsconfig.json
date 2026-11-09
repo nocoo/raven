@@ -5,10 +5,5 @@
     "allowImportingTsExtensions": true,
     "types": ["bun", "vitest/globals"]
   },
-  "include": [
-    "lib/http-fetch.ts",
-    "lib/docker-publish-*.ts",
-    "docker-publish-*.ts",
-    "__tests__/docker-publish-*.test.ts"
-  ]
+  "include": ["**/*.ts"]
 }

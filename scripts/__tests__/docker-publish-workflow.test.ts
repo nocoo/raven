@@ -22,7 +22,13 @@ describe("docker publish workflow contract", () => {
     expect(toolingCheckouts).toHaveLength(2)
     expect(releaseCheckouts).toHaveLength(1)
     expect(workflow).toContain("workflow_dispatch' && github.sha")
-    expect(workflow).toContain("refs/heads/{0}', github.event.repository.default_branch")
+    expect(workflow).toContain("github.workflow_sha")
+    expect(workflow).toMatch(
+      /tooling-ref:\s*\$\{\{\s*github\.event_name == 'workflow_dispatch' && github\.sha \|\| github\.workflow_sha \}\}/,
+    )
+    expect(workflow).toMatch(
+      /ref:\s*\$\{\{\s*needs\.source\.outputs\.tooling-ref \}\}[\s\S]*path: \.ci-tooling/,
+    )
     expect(workflow).toMatch(
       new RegExp(
         `ref: \\$\\{\\{ needs\\.source\\.outputs\\.target-sha \\}\\}[\\s\\S]*path: ${DOCKER_PUBLISH_RELEASE_CHECKOUT_PATH}`,

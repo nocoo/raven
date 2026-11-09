@@ -23,6 +23,7 @@ jobs:
       contents: read
       actions: read
     outputs:
+      tooling-ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}
       release-tag: ${{ steps.validate.outputs.release-tag }}
       release-version: ${{ steps.validate.outputs.release-version }}
       prerelease: ${{ steps.validate.outputs.prerelease }}
@@ -32,7 +33,7 @@ jobs:
       - name: Checkout workflow tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || format('refs/heads/{0}', github.event.repository.default_branch) }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.workflow_sha }}
           path: .ci-tooling
           persist-credentials: false
       - name: Setup Bun for workflow scripts
@@ -83,7 +84,7 @@ jobs:
       - name: Checkout workflow tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || format('refs/heads/{0}', github.event.repository.default_branch) }}
+          ref: ${{ needs.source.outputs.tooling-ref }}
           path: .ci-tooling
           persist-credentials: false
       - name: Checkout proven release source for image build

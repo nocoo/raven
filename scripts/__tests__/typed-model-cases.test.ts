@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest"
+import type { FetchLike } from "../lib/http-fetch.ts"
 import { runTypedModelCase, runTypedModelCases, selectTypedModelCases, typedModelCases, typedModelReplyError, type TypedModelCase } from "../typed-model-cases"
 
 const byId = (id: string): TypedModelCase => {
@@ -43,11 +44,13 @@ describe("typed model cases", () => {
 
   test("sends exactly one native request with no conversion", async () => {
     const entry = byId("text-embedding-3-small.embeddings")
-    const spy = vi.fn(async () => embeddingsReply)
+    const spy = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => embeddingsReply,
+    )
     const result = await runTypedModelCase(entry, {
       url: "http://127.0.0.1:7024",
       key: "fixture-key-1234567890",
-      fetchImpl: spy as unknown as typeof fetch,
+      fetchImpl: spy as FetchLike,
     })
     expect(result.error).toBeNull()
     expect(spy).toHaveBeenCalledTimes(1)
@@ -64,7 +67,7 @@ describe("typed model cases", () => {
     const result = await runTypedModelCase(byId("gpt-image-2.5-flare.image"), {
       url: "http://127.0.0.1:7024",
       key: "fixture-key-1234567890",
-      fetchImpl: spy as unknown as typeof fetch,
+      fetchImpl: spy as FetchLike,
     })
     expect(spy).toHaveBeenCalledTimes(1)
     expect(result.status).toBe(0)
@@ -80,7 +83,7 @@ describe("typed model cases", () => {
       if (failure === "invalid-choice") return jsonResponse({ answers: { next_step: { choice: ["test"] } } })
       return jsonResponse({ answers: { next_step: { type: "refusal" } } })
     })
-    const results = await runTypedModelCases(cases, { url: "http://127.0.0.1:7024", key: "fixture-key", fetchImpl: fetchImpl as unknown as typeof fetch })
+    const results = await runTypedModelCases(cases, { url: "http://127.0.0.1:7024", key: "fixture-key", fetchImpl: fetchImpl as FetchLike })
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     expect(results[0]?.error).not.toBeNull()
     expect(results[1]?.error).toBe("not_run")
@@ -90,7 +93,7 @@ describe("typed model cases", () => {
     const cases = [byId("microsoft-decision-1.systemone"), byId("gpt-image-2.5-flare.image")]
     const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({ answers: { next_step: { choice: "test" } } }))
       .mockResolvedValueOnce(jsonResponse({ data: [{ b64_json: "AA==" }] }))
-    const results = await runTypedModelCases(cases, { url: "http://127.0.0.1:7024", key: "fixture-key", fetchImpl: fetchImpl as unknown as typeof fetch })
+    const results = await runTypedModelCases(cases, { url: "http://127.0.0.1:7024", key: "fixture-key", fetchImpl: fetchImpl as FetchLike })
     expect(fetchImpl).toHaveBeenCalledTimes(2)
     expect(results.map((item) => item.error)).toEqual([null, null])
   })
@@ -100,12 +103,12 @@ describe("typed model cases", () => {
     const entry = byId("text-embedding-3-small.embeddings")
     for (const reason of [new Error(`bad ${key}`), `bad ${key}`]) {
       const fetchImpl = vi.fn(async () => { throw reason })
-      const result = await runTypedModelCase(entry, { url: "http://127.0.0.1:7024", key, fetchImpl: fetchImpl as unknown as typeof fetch })
+      const result = await runTypedModelCase(entry, { url: "http://127.0.0.1:7024", key, fetchImpl: fetchImpl as FetchLike })
       expect(result.error).toContain("[REDACTED]")
       expect(result.error).not.toContain(key)
     }
     const fetchImpl = vi.fn(async () => new Response("no", { headers: { "content-type": `text/plain; key=${key}` } }))
-    const result = await runTypedModelCase(entry, { url: "http://127.0.0.1:7024", key, fetchImpl: fetchImpl as unknown as typeof fetch })
+    const result = await runTypedModelCase(entry, { url: "http://127.0.0.1:7024", key, fetchImpl: fetchImpl as FetchLike })
     expect(result.error).toContain("[REDACTED]")
     expect(result.error).not.toContain(key)
   })
@@ -116,7 +119,7 @@ describe("typed model cases", () => {
     const result = await runTypedModelCase(byId("microsoft-decision-1.systemone"), {
       url: "http://127.0.0.1:7024",
       key,
-      fetchImpl: spy as unknown as typeof fetch,
+      fetchImpl: spy as FetchLike,
     })
     expect(result.excerpt).toContain("[REDACTED]")
     expect(result.excerpt).not.toContain(key)
