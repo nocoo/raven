@@ -13,7 +13,7 @@ describe("Docker deployment configuration", () => {
     expect(compose).toContain("RAVEN_DASHBOARD_HOST_PORT:-7023")
     expect(compose).toContain("RAVEN_PROXY_HOST_PORT:-7024")
     expect(compose).toContain("raven-docker-state:/var/lib/raven")
-    expect(compose).toContain("name: raven-docker-state-v1")
+    expect(compose).toMatch(/\nvolumes:\n {2}raven-docker-state:\n$/)
     expect(compose).not.toMatch(/-\s+\.:/)
     expect(compose).toContain("RAVEN_PROXY_URL: http://127.0.0.1:7024")
   })
