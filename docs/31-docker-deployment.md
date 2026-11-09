@@ -56,7 +56,7 @@ GitHub Releases publish **`ghcr.io/nocoo/raven`** images through [`.github/workf
 | `release` → `published` | Each new GitHub Release (after `bun run release` creates the tag and release) |
 | `workflow_dispatch` | Maintainer backfill for an **existing** release tag without creating a new release |
 
-The workflow proves the annotated tag’s commit with [`release-source`](https://github.com/nocoo/base-ci) (successful **CI** on that SHA, `package.json` version matches `vX.Y.Z`), checks out **`refs/tags/vX.Y.Z`** (not the dispatcher’s default SHA), builds **`linux/amd64`**, and pushes to GHCR. It records the **digest**, source revision, and CI run ID in the job summary and a `ghcr-manifest-*.json` artifact.
+The workflow validates the release tag (and, for manual backfill, requires a **published, non-draft** GitHub Release with a matching `tag_name`), proves the tag’s commit with [`release-source`](https://github.com/nocoo/base-ci) (successful **CI** on that SHA, `package.json` version matches `vX.Y.Z`), checks out the **proven commit SHA** (not a mutable tag ref or the dispatcher’s default SHA), verifies `git rev-parse HEAD` matches that SHA, then builds **`linux/amd64`** and pushes to GHCR. It records the **digest**, source revision, and CI run ID in the job summary and a `ghcr-manifest-*.json` artifact.
 
 **Image references** (content identity is the digest; **tags can be moved or repointed**):
 
