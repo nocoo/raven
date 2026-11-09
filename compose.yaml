@@ -3,7 +3,7 @@ services:
     build:
       context: .
       args:
-        BUN_CONFIG_REGISTRY: ${BUN_CONFIG_REGISTRY:-https://packagefeedproxy.microsoft.io/npm/}
+        BUN_CONFIG_REGISTRY: ${BUN_CONFIG_REGISTRY:-https://mirrors.tencent.com/npm/}
     restart: unless-stopped
     stop_grace_period: 15s
     security_opt:

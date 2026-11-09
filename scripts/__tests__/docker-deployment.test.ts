@@ -16,6 +16,8 @@ describe("Docker deployment configuration", () => {
     expect(compose).toMatch(/\nvolumes:\n {2}raven-docker-state:\n$/)
     expect(compose).not.toMatch(/-\s+\.:/)
     expect(compose).toContain("RAVEN_PROXY_URL: http://127.0.0.1:7024")
+    expect(compose).toContain("BUN_CONFIG_REGISTRY:-https://mirrors.tencent.com/npm/")
+    expect(read(".env.docker.example")).toContain("BUN_CONFIG_REGISTRY=https://mirrors.tencent.com/npm/")
   })
 
   test("runs non-root with runtime-only state and no-upstream probes", () => {

@@ -24,7 +24,7 @@ openssl rand -hex 32  # RAVEN_INTERNAL_KEY
 
 Set the two different random values in `.env`. Keep `.env` outside Git; it is also excluded from the Docker build context.
 
-Set `BUN_CONFIG_REGISTRY` only if a different build-time package mirror is needed. The example uses the permitted Microsoft mirror; the temporary value is not copied to runtime and is not persisted in `bun.lock`.
+Set `BUN_CONFIG_REGISTRY` only if a different build-time package mirror is needed. The example uses the permitted Tencent mirror; the temporary value is not copied to runtime and is not persisted in `bun.lock`.
 
 The default is safe host-local operation. If a Caddy site makes the Dashboard reachable from another machine, configure all of the following in `.env`:
 
@@ -118,4 +118,10 @@ docker compose logs
 
 ## Verification limits
 
-The repository's isolated tests verify container configuration and the PID-1 exit/signal policy without Docker or upstream access. The exact Node and Bun tags were checked through Docker Hub metadata and the official image Dockerfiles establish that Oven's image supplies only a Bun-backed `node` fallback on Debian trixie. The Docker daemon was unavailable, so image pulls, `docker build`, and runtime behavior were not executed or claimed as passing.
+The repository's isolated tests verify container configuration and the PID-1 exit/signal policy without Docker or upstream access.
+
+On 2026-11-09, the current v3.3.2 pre-release HEAD was built through Docker Compose with Docker Desktop Engine 29.7.2. A temporary image tag, isolated Compose project and fresh named volume were used. The Microsoft package mirror returned 404 for current locked packages, while `https://mirrors.tencent.com/npm/` completed both frozen-lockfile installs and the Next.js production build without writing the mirror URL into `bun.lock`; the Compose and `.env` examples now default to that verified mirror.
+
+All runtime checks used only synthetic keys and fresh state, with Docker `network_mode: none`. The image reported `node v26.12.1` and `bun 1.4.4`; a non-root `node` user (UID 1000) wrote to the three mode-0700 state directories and a marker survived container replacement on the named volume. Next.js started from the production image, returned 200 for `/`, a referenced `/_next/static/*` asset and `/api/auth/config`, then stopped through SIGTERM without an OOM event.
+
+Full production Proxy bootstrap remains unverified: `src/index.ts` necessarily calls GitHub to validate the stored token and exchange it for a Copilot JWT, then schedules Copilot catalog access. The release check therefore did not start that bootstrap as a claimed success; an isolated no-network attempt was used only to verify fail-closed behavior. Synthetic credentials are not a substitute for a real GitHub/Copilot integration, and no real token, account or database was used.
