@@ -1,5 +1,32 @@
 # Changelog
 
+## v3.3.3
+
+### Added
+- Add image-only compose.prod
+
+### Changed
+- Record docker context guard
+- Verify image routes before ghcr push
+- Guard docker build context inputs
+- Retrigger ci after g2 flake
+- Explain dual checkout backfill
+- Keep docker publish tests offline
+- Document proven-sha docker checkout
+- Add docker publish behavioral checks
+- Document ghcr publish workflow
+- Extend docker deployment checks
+- Add ghcr docker publish workflow
+
+### Fixed
+- Keep app test routes in docker context
+- Pin docker publish tooling sha
+- Wait for green ci before ghcr publish
+- Split tooling and release checkouts
+- Harden docker publish workflow
+- Add docker publish step scripts
+- Satisfy biome in docker test
+
 ## v3.3.2
 
 ### Added
