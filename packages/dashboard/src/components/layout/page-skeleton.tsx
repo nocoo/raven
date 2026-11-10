@@ -6,12 +6,16 @@ import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ROWS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"];
+const FILTER_SKELETON_KEYS = ["time", "protocol", "key", "model", "status", "mode"];
 
 function LoadingPage({ title, filters = false, children }: { title: string; filters?: boolean; children: ReactNode }) {
   return <section role="status" aria-label={`Loading ${title}`} aria-busy="true" className="space-y-4">
     <div aria-hidden="true" className="space-y-4">
-      <div className="space-y-2"><PageHeader title={title} /><Skeleton className="h-4 w-full max-w-lg" /></div>
-      {filters && <div className="flex flex-wrap gap-2">{["time", "protocol", "key", "model", "status", "mode"].map(key => <Skeleton key={key} className="h-8 w-32" />)}</div>}
+      <PageHeader
+        title={title}
+        description={<Skeleton className="h-4 w-full max-w-lg" />}
+        filters={filters ? <div className="flex flex-wrap gap-2">{FILTER_SKELETON_KEYS.map(key => <Skeleton key={key} className="h-8 w-32" />)}</div> : undefined}
+      />
       {children}
     </div>
   </section>;
