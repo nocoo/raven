@@ -234,7 +234,7 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
                     aria-label={item.label}
                     onClick={() => go(item.href)}
                   >
-                    <item.icon className="h-4 w-4" strokeWidth={1.5} />
+                    <item.icon strokeWidth={1.5} aria-hidden="true" />
                   </SidebarIconItem>
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
@@ -288,7 +288,7 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
                     active={navActive(pathname, item.href)}
                     onClick={() => go(item.href)}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <item.icon strokeWidth={1.5} aria-hidden="true" />
                     <span className="flex-1 truncate text-left">{item.label}</span>
                   </SidebarItem>
                 ))}
