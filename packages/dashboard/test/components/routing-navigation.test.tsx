@@ -13,25 +13,21 @@ vi.mock("@/hooks/use-auth-config", () => ({ useAuthConfig: () => ({ authEnabled:
 beforeEach(() => { router.push.mockClear(); identity.authenticated = false; });
 
 describe("routing navigation", () => {
-  it.each([false, true])("replicates the Basalt brand slot with collapsed=%s", collapsed => {
+  it.each([false, true])("uses the shared sidebar brand header with collapsed=%s", collapsed => {
     render(<TooltipProvider><AppSidebar collapsed={collapsed} onToggle={vi.fn()} /></TooltipProvider>);
     const brand = screen.getByRole("link", { name: "Raven home" });
-    const slot = brand.parentElement;
-    expect(slot).toHaveClass("flex", "w-full", "items-center");
-    expect(slot).toHaveClass(collapsed ? "justify-center" : "justify-between");
-    expect(brand).toHaveClass("gap-basalt-space-lg", "no-underline");
+    expect(brand).not.toHaveClass("pl-basalt-layout-sm");
     const mark = brand.querySelector("img");
     expect(mark).toHaveAttribute("src", "/logo-80.png");
-    expect(mark).toHaveClass("h-7", "w-7", "shrink-0", "object-contain");
+    expect(mark).toHaveClass("h-5", "w-5", "shrink-0", "object-contain");
     if (collapsed) {
-      expect(slot).not.toHaveClass("pl-basalt-layout-sm");
       expect(screen.queryByText("raven")).toBeNull();
       expect(screen.queryByRole("button", { name: "Collapse sidebar" })).toBeNull();
     } else {
-      expect(slot).toHaveClass("pl-basalt-layout-sm");
-      expect(screen.getByText("raven")).toHaveClass("text-basalt-xl", "font-semibold");
+      expect(brand.closest("div")).toHaveClass("justify-between");
+      expect(screen.getByText("raven")).toHaveClass("text-lg", "font-semibold");
       expect(screen.getByText(/^v\d/)).toHaveClass("rounded-basalt-md", "text-basalt-sm");
-      expect(screen.getByRole("button", { name: "Collapse sidebar" })).toHaveClass("w-7");
+      expect(screen.getByRole("button", { name: "Collapse sidebar" })).not.toHaveClass("w-7");
     }
   });
 
