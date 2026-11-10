@@ -1,3 +1,5 @@
+# CI slot standard v1 (nocoo/base-ci docs/slots.md): impl S1, S2, S3, G1, G2, B1, L1, L2, Z1 via quality.yml;
+# na L1.5, P1; todo L3 (Playwright). nocoo/base-ci v2026.12: top-level slot jobs.
 name: CI
 
 on:
@@ -7,42 +9,56 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   quality:
-    uses: nocoo/base-ci/.github/workflows/quality.yml@633a5545fcfec91b688840650d4edf3e9cc1abbd # v2026.10
+    uses: nocoo/base-ci/.github/workflows/quality.yml@1ea10ecab22b72512399485391603fe03a161016 # v2026.12
     with:
       runtime-version: "1.3.11"
-      install-policy: "project"
-      test-command: "bun run test:all"
-      lint-command: "bun run lint"
-      typecheck-command: "bun run typecheck"
+      node-version: "26.12.1"
+      install-policy: project
+      typecheck-command: bun run typecheck
+      lint-command: bun run lint
+      test-command: bun run test:all && bun run gate:coverage --skip-tests
+      coverage-path: packages/proxy/coverage
+      osv-config: osv-scanner.toml
+      gitleaks-config: .gitleaks.toml
+      build: true
+      build-command: bun run build
+      workflow-lint: true
       l2: true
-      l2-command: "bun run test:l2"
-      coverage-path: "packages/proxy/coverage"
+      l2-command: bun run test:l2
+      env-json: '{"CI": "true"}'
+      slot-status: >-
+        {"S1": {"status": "impl"},
+        "S2": {"status": "impl"},
+        "S3": {"status": "impl"},
+        "G1": {"status": "impl"},
+        "G2": {"status": "impl"},
+        "B1": {"status": "impl"},
+        "L1": {"status": "impl"},
+        "L1.5": {"status": "na", "reason": "Bun/Hono 本地服务，无 Cloudflare workerd / vitest-pool-workers 运行时套件"},
+        "L2": {"status": "impl"},
+        "L3": {"status": "todo", "reason": "已有 bun run test:ui（Playwright），但 proxy 启动需 GitHub/Copilot token，CI 尚无 D1 隔离 harness"},
+        "P1": {"status": "na", "reason": "根 package.json 为 private monorepo，不发布 npm 包"},
+        "Z1": {"status": "impl"}}
 
   arch:
-    name: "G1 — Architecture (dep-cruiser + fetch-boundary)"
-    uses: nocoo/base-ci/.github/workflows/test-job.yml@633a5545fcfec91b688840650d4edf3e9cc1abbd # v2026.10
+    name: Architecture gate (dep-cruiser + fetch-boundary)
+    uses: nocoo/base-ci/.github/workflows/test-job.yml@1ea10ecab22b72512399485391603fe03a161016 # v2026.12
     with:
       runtime-version: "1.3.11"
-      install-policy: "blocked"
+      install-policy: blocked
       timeout-minutes: 5
-      command: "bun run gate:arch"
-
-  coverage-gate:
-    name: "L1 — Coverage gate (§4.5 baseline)"
-    uses: nocoo/base-ci/.github/workflows/test-job.yml@633a5545fcfec91b688840650d4edf3e9cc1abbd # v2026.10
-    with:
-      runtime-version: "1.3.11"
-      install-policy: "blocked"
-      timeout-minutes: 10
-      command: "bun run scripts/check-coverage.ts"
+      command: bun run gate:arch
 
   docker-context:
-    name: "Docker build context (.dockerignore keeps build inputs)"
-    uses: nocoo/base-ci/.github/workflows/test-job.yml@633a5545fcfec91b688840650d4edf3e9cc1abbd # v2026.10
+    name: Docker build context (.dockerignore keeps build inputs)
+    uses: nocoo/base-ci/.github/workflows/test-job.yml@1ea10ecab22b72512399485391603fe03a161016 # v2026.12
     with:
       runtime-version: "1.3.11"
-      install-policy: "blocked"
+      install-policy: blocked
       timeout-minutes: 5
-      command: "bun run gate:docker-context"
+      command: bun run gate:docker-context
