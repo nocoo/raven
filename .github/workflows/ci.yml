@@ -1,5 +1,5 @@
-# CI slot standard v1 (nocoo/base-ci docs/slots.md): impl S1, S2, S3, G1, G2, B1, L1, L2, L3, Z1 via quality.yml;
-# na L1.5, P1 in slot-status. nocoo/base-ci v2026.12: top-level slot jobs, L3 browsers/artifacts.
+# CI slot standard v1 (nocoo/base-ci docs/slots.md): impl S1, S2, S3, G1, G2, B1, L1, L2, Z1 via quality.yml;
+# na L1.5, P1; todo L3 (Playwright). nocoo/base-ci v2026.12: top-level slot jobs.
 name: CI
 
 on:
@@ -30,13 +30,6 @@ jobs:
       workflow-lint: true
       l2: true
       l2-command: bun run test:l2
-      l3: true
-      l3-browsers: chromium
-      l3-command: bun run test:ui
-      l3-artifact-name: browser-evidence
-      l3-artifact-path: |
-        packages/dashboard/test-results/
-      l3-artifact-retention-days: 14
       env-json: '{"CI": "true"}'
       slot-status: >-
         {"S1": {"status": "impl"},
@@ -48,7 +41,7 @@ jobs:
         "L1": {"status": "impl"},
         "L1.5": {"status": "na", "reason": "Bun/Hono 本地服务，无 Cloudflare workerd / vitest-pool-workers 运行时套件"},
         "L2": {"status": "impl"},
-        "L3": {"status": "impl"},
+        "L3": {"status": "todo", "reason": "已有 bun run test:ui（Playwright），但 proxy 启动需 GitHub/Copilot token，CI 尚无 D1 隔离 harness"},
         "P1": {"status": "na", "reason": "根 package.json 为 private monorepo，不发布 npm 包"},
         "Z1": {"status": "impl"}}
 
