@@ -167,7 +167,6 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
         <Button
           variant="ghost"
           size="icon"
-          className="shrink-0"
           aria-label="Sign out"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
@@ -252,7 +251,6 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="size-basalt-9 rounded-basalt-full"
                     aria-label="Sign out"
                     onClick={() => signOut({ callbackUrl: "/login" })}
                   >
