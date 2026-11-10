@@ -48,6 +48,12 @@ describe("routing navigation", () => {
     expect(screen.getByRole("button", { name: "Upstreams" })).toHaveClass("min-h-[calc(var(--basalt-line-row)+2*var(--basalt-space-lg))]", "leading-basalt-row", "py-basalt-space-lg");
   });
 
+  it("uses basalt defaults for the collapsed expand control", () => {
+    render(<TooltipProvider><AppSidebar collapsed onToggle={vi.fn()} /></TooltipProvider>);
+    const expand = screen.getByRole("button", { name: "Expand sidebar" });
+    expect(expand).not.toHaveClass("self-center", "mb-basalt-space-sm", "w-7", "h-7");
+  });
+
   it.each([false, true])("opens the new destinations with the sidebar collapsed=%s", async collapsed => {
     const navigate = vi.fn();
     render(<TooltipProvider><AppSidebar collapsed={collapsed} onToggle={vi.fn()} onNavigate={navigate} /></TooltipProvider>);
