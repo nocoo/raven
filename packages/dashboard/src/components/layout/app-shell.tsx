@@ -34,7 +34,7 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = useAppPathname();
   const group = NAV_GROUPS.find(group => group.items.some(item => item.href === pathname));
   const item = group?.items.find(item => item.href === pathname);
-  const crumbs = group ? [{ label: group.label }] : [];
+  const crumbs: { label: string }[] = group ? [{ label: group.label }] : [];
 
   // Close mobile sidebar on route change.
   // biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger; setMobileOpen is stable

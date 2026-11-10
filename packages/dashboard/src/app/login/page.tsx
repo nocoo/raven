@@ -60,7 +60,7 @@ function LoginContent() {
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-basalt-background">
       <div className="pointer-events-none absolute inset-0 login-glow" />
 
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-basalt-space-sm">
         <HeaderActions />
       </div>
 
