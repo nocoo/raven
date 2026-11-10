@@ -216,15 +216,21 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
       </SidebarHeader>
       {collapsed ? (
         <>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="mb-basalt-space-sm self-center"
-            onClick={onToggle}
-            aria-label="Expand sidebar"
-          >
-            <PanelLeft aria-hidden="true" />
-          </Button>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggle}
+                aria-label="Expand sidebar"
+              >
+                <PanelLeft aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              Expand sidebar
+            </TooltipContent>
+          </Tooltip>
           <SidebarNav>
             {ALL_NAV_ITEMS.map((item) => (
               <Tooltip key={item.href} delayDuration={0}>
