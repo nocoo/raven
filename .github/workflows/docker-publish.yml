@@ -61,7 +61,7 @@ jobs:
           CI_WAIT_POLL_MS: "30000"
         run: bun run scripts/docker-publish-wait-ci.ts
       - id: prove
-        uses: nocoo/base-ci/.github/actions/release-source@2231caf82cf16f103f48cab467b3464b106d6604
+        uses: nocoo/base-ci/.github/actions/release-source@633a5545fcfec91b688840650d4edf3e9cc1abbd # v2026.10
         with:
           github-token: ${{ github.token }}
           expected-workflow-path: .github/workflows/ci.yml
