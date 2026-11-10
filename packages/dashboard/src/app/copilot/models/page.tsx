@@ -23,7 +23,6 @@ export default async function CopilotModelsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Models" description="Copilot models, capabilities and limits." />
       <CopilotModelsContent data={result.data.data} />
     </div>
   );

@@ -11,6 +11,7 @@ import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
+import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { TagBadge } from "@nocoo/basalt/components/tag-badge";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatCompact } from "@/lib/chart-config";
@@ -121,23 +122,31 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <p className="text-meta">
-          {data.length} model{data.length !== 1 ? "s" : ""} across{" "}
-          {groups.length} vendor{groups.length !== 1 ? "s" : ""}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Models"
+        description={
+          <>
+            Copilot models, capabilities and limits.{" "}
+            <span className="text-basalt-muted-foreground">
+              {data.length} model{data.length !== 1 ? "s" : ""} across{" "}
+              {groups.length} vendor{groups.length !== 1 ? "s" : ""}.
+            </span>
+          </>
+        }
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </Button>
+        }
+      />
 
       {refreshError && (
         <p className="text-xs text-basalt-destructive">{refreshError}</p>
