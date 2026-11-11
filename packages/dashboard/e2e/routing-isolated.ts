@@ -647,7 +647,7 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           ["settings/server-tools", "Tools", "Server Tools"], ["connect", "Settings", "Connect"],
         ] as const) {
           await page.goto(`${dashboardUrl}/${path}`);
-          await page.getByRole("button", { name: `Toggle theme (now ${theme})`, exact: true }).waitFor();
+          await page.getByRole("button", { name: theme === "dark" ? "Use system theme" : "Switch to dark theme", exact: true }).waitFor();
           await expect(page.locator("html")).toHaveClass(new RegExp(theme));
           if (width === 390) await page.getByRole("button", { name: "Open navigation", exact: true }).waitFor();
           const frame = page.locator(".dashboard-page");
