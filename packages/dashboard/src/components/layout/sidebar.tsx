@@ -4,19 +4,24 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-  Button,
-  Sidebar,
+  Sidebar as BasaltSidebar,
+  SidebarBrand,
   SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarIconItem,
   SidebarItem,
   SidebarNav,
+  SidebarProvider,
+  SidebarToggle,
   SidebarUser,
+} from "@nocoo/basalt";
+import { useSidebar } from "@nocoo/basalt/components/sidebar";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@nocoo/basalt";
+} from "@nocoo/basalt/components/tooltip";
 import {
   Boxes,
   Cable,
@@ -25,18 +30,16 @@ import {
   Globe,
   LayoutDashboard,
   List,
-  LogOut,
   KeyRound,
-  PanelLeft,
+  Route,
   Settings,
   Shield,
   Wrench,
-  Route,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import type { ElementType } from "react";
-import { Link } from "@nocoo/basalt/components/link";
+import Image from "next/image";
+import { type ReactNode, useCallback, useState, type ElementType } from "react";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { APP_VERSION } from "@/lib/version";
 import { useAppPathname } from "@/lib/app-navigation";
@@ -52,13 +55,11 @@ interface NavItem {
 interface NavGroup {
   label: string;
   items: NavItem[];
-  defaultOpen?: boolean;
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Monitor",
-    defaultOpen: true,
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard },
       { href: "/models", label: "Models", icon: Boxes },
@@ -68,7 +69,6 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Copilot",
-    defaultOpen: true,
     items: [
       { href: "/copilot/models", label: "Models", icon: Cpu },
       { href: "/copilot/account", label: "Account", icon: CircleUser },
@@ -76,7 +76,6 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Routing",
-    defaultOpen: true,
     items: [
       { href: "/routing/upstreams", label: "Upstreams", icon: Globe },
       { href: "/routing/rules", label: "Routing Rules", icon: Route },
@@ -84,14 +83,12 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Tools",
-    defaultOpen: true,
     items: [
       { href: "/settings/server-tools", label: "Server Tools", icon: Wrench },
     ],
   },
   {
     label: "Settings",
-    defaultOpen: true,
     items: [
       { href: "/settings", label: "General", icon: Settings },
       { href: "/settings/proxy", label: "Proxy", icon: Shield },
@@ -102,28 +99,73 @@ const NAV_GROUPS: NavGroup[] = [
 
 const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
+const SIDEBAR_COLLAPSED_KEY = "raven:sidebar-collapsed";
+type SidebarCollapsedPreference = "false" | "true";
+
 function navActive(pathname: string, href: string): boolean {
   return href === "/" || href === "/dashboard" || href === "/settings"
     ? pathname === href
     : pathname.startsWith(href);
 }
 
-function RavenMark() {
+function usePersistedSidebarCollapsed(
+  key: string,
+  defaultValue: SidebarCollapsedPreference,
+): [SidebarCollapsedPreference, (value: SidebarCollapsedPreference) => void] {
+  const [stored, setStored] = useState<SidebarCollapsedPreference>(() => {
+    if (typeof window === "undefined") return defaultValue;
+    const value = localStorage.getItem(key);
+    return value === "true" || value === "false" ? value : defaultValue;
+  });
+
+  const setValue = useCallback(
+    (next: SidebarCollapsedPreference) => {
+      setStored(next);
+      localStorage.setItem(key, next);
+    },
+    [key],
+  );
+
+  return [stored, setValue];
+}
+
+export function PersistedSidebarProvider({ children }: { children: ReactNode }) {
+  const [stored, setStored] = usePersistedSidebarCollapsed(SIDEBAR_COLLAPSED_KEY, "false");
+  const collapsed = stored === "true";
+  const onCollapsedChange = useCallback(
+    (next: boolean) => {
+      setStored(next ? "true" : "false");
+    },
+    [setStored],
+  );
+
   return (
-    /* biome-ignore lint/performance/noImgElement: static local logo, next/image adds no benefit */
-    <img src="/logo-80.png" width={20} height={20} alt="" className="h-5 w-5 shrink-0 object-contain" />
+    <SidebarProvider collapsed={collapsed} onCollapsedChange={onCollapsedChange} defaultWidth={260}>
+      {children}
+    </SidebarProvider>
   );
 }
 
-interface AppSidebarProps {
-  collapsed: boolean;
-  onToggle: () => void;
+interface SidebarProps {
+  ariaLabel: string;
+  variant?: "desktop" | "mobile";
   onNavigate?: () => void;
+  onDismiss?: () => void;
 }
 
-export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps) {
+function RavenSidebarBody({
+  variant,
+  onNavigate,
+  onDismiss,
+}: {
+  variant?: SidebarProps["variant"];
+  onNavigate?: () => void;
+  onDismiss?: () => void;
+}) {
   const pathname = useAppPathname();
   const router = useRouter();
+  const { collapsed, peek, peeking } = useSidebar();
+  const railCollapsed = collapsed && !(peek && peeking);
   const { data: session, status: sessionStatus } = useSession();
   const { authEnabled, isLoading: authLoading, hasError } = useAuthConfig();
 
@@ -155,166 +197,97 @@ export function AppSidebar({ collapsed, onToggle, onNavigate }: AppSidebarProps)
   const avatar = (
     <Avatar>
       {userImage ? <AvatarImage src={userImage} alt={userName} /> : null}
-      <AvatarFallback>
-        {userInitial}
-      </AvatarFallback>
+      <AvatarFallback>{userInitial}</AvatarFallback>
     </Avatar>
   );
 
-  const signOutButton = (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Sign out"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-        >
-          <LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.5} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="top">Sign out</TooltipContent>
-    </Tooltip>
-  );
-
   return (
-    <Sidebar collapsed={collapsed}>
+    <>
       <SidebarHeader>
-        {collapsed ? (
-          <Link
-            href="/"
-            aria-label="Raven home"
-            className="text-basalt-foreground no-underline hover:no-underline"
-          >
-            <RavenMark />
-          </Link>
-        ) : (
-          <div className="flex w-full items-center justify-between">
-            <Link
-              href="/"
-              aria-label="Raven home"
-              className="flex min-w-0 items-center gap-basalt-space-lg text-basalt-foreground no-underline hover:no-underline"
-            >
-              <RavenMark />
-              <span className="truncate text-lg font-semibold text-basalt-foreground md:text-xl">
-                raven
-              </span>
-              <span className="shrink-0 rounded-basalt-md bg-basalt-secondary px-basalt-space-md py-basalt-space-xs text-basalt-sm leading-basalt-tight font-medium text-basalt-muted-foreground">
-                v{APP_VERSION}
-              </span>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggle}
-              aria-label="Collapse sidebar"
-            >
-              <PanelLeft aria-hidden="true" />
-            </Button>
-          </div>
-        )}
-      </SidebarHeader>
-      {collapsed ? (
-        <>
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggle}
-                aria-label="Expand sidebar"
-              >
-                <PanelLeft aria-hidden="true" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              Expand sidebar
-            </TooltipContent>
-          </Tooltip>
-          <SidebarNav>
-            {ALL_NAV_ITEMS.map((item) => (
-              <Tooltip key={item.href} delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <SidebarIconItem
-                    active={navActive(pathname, item.href)}
-                    aria-label={item.label}
-                    onClick={() => go(item.href)}
-                  >
-                    <item.icon strokeWidth={1.5} aria-hidden="true" />
-                  </SidebarIconItem>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  {item.label}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </SidebarNav>
-          <SidebarFooter>
-            {showAsAuth ? (
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Sign out"
-                    onClick={() => signOut({ callbackUrl: "/login" })}
-                  >
-                    {avatar}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  {userName} · Sign out
-                </TooltipContent>
-              </Tooltip>
+        <SidebarBrand
+          logo={<Image src="/logo-24.png" alt="" width={24} height={24} unoptimized />}
+          name="raven"
+          version={`v${APP_VERSION}`}
+          action={
+            variant === "mobile" ? (
+              <SidebarToggle
+                mode="dismiss"
+                dismissLabel="Close navigation"
+                {...(onDismiss ? { onDismiss } : {})}
+              />
             ) : (
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">{avatar}</span>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  {userName} · Local mode
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </SidebarFooter>
-        </>
-      ) : (
-        <>
-          <SidebarNav>
-            {NAV_GROUPS.map((group) => (
-              <SidebarGroup
-                key={group.label}
-                label={group.label}
-                defaultOpen={group.defaultOpen ?? true}
-              >
-                {group.items.map((item) => (
-                  <SidebarItem
-                    key={item.href}
-                    active={navActive(pathname, item.href)}
-                    onClick={() => go(item.href)}
-                  >
-                    <item.icon strokeWidth={1.5} aria-hidden="true" />
-                    <span className="flex-1 truncate text-left">{item.label}</span>
-                  </SidebarItem>
-                ))}
+              <SidebarToggle expandLabel="Expand sidebar" collapseLabel="Collapse sidebar" />
+            )
+          }
+        />
+      </SidebarHeader>
+      <SidebarNav aria-label={variant === "mobile" ? "Navigation menu" : "Main navigation"}>
+        {railCollapsed
+          ? ALL_NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = navActive(pathname, item.href);
+              return (
+                <Tooltip key={item.href} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <SidebarIconItem
+                      active={active}
+                      aria-label={item.label}
+                      onClick={() => go(item.href)}
+                    >
+                      <Icon className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                    </SidebarIconItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    {item.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })
+          : NAV_GROUPS.map((group) => (
+              <SidebarGroup key={group.label} label={group.label}>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = navActive(pathname, item.href);
+                  return (
+                    <SidebarItem
+                      key={item.href}
+                      active={active}
+                      onClick={() => go(item.href)}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
+                      <span className="flex-1 truncate text-left">{item.label}</span>
+                    </SidebarItem>
+                  );
+                })}
               </SidebarGroup>
             ))}
-          </SidebarNav>
-          <SidebarFooter>
-            <SidebarUser
-              name={userName}
-              email={userEmail}
-              avatar={avatar}
-              {...(showAsAuth ? { action: signOutButton } : {})}
-            />
-          </SidebarFooter>
-        </>
-      )}
-    </Sidebar>
+      </SidebarNav>
+      <SidebarFooter>
+        <SidebarUser
+          name={userName}
+          email={userEmail || undefined}
+          avatar={avatar}
+          tooltip={userName}
+          {...(showAsAuth
+            ? { onSignOut: () => signOut({ callbackUrl: "/login" }), signOutLabel: "Sign out" }
+            : {})}
+        />
+      </SidebarFooter>
+    </>
+  );
+}
+
+export function Sidebar({ ariaLabel, variant = "desktop", onNavigate, onDismiss }: SidebarProps) {
+  return (
+    <BasaltSidebar aria-label={ariaLabel} resizable={false}>
+      <RavenSidebarBody
+        variant={variant}
+        {...(onNavigate ? { onNavigate } : {})}
+        {...(onDismiss ? { onDismiss } : {})}
+      />
+    </BasaltSidebar>
   );
 }
 
 export { NAV_GROUPS, ALL_NAV_ITEMS };
 export type { NavItem, NavGroup };
-export { AppSidebar as Sidebar };

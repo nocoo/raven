@@ -19,21 +19,29 @@ vi.mock("@/components/setup-wizard", () => ({ SetupWizard: () => null }));
 afterEach(() => vi.restoreAllMocks());
 beforeEach(() => { viewport.mobile = true; viewport.pathname = "/routing/rules"; });
 
-const workbench = () => <ThemeProvider defaultTheme="dark" persist={false} applyToDocument={false}><TooltipProvider><LogDockProvider>
-  <AppShell><RulesContent rules={[fixtureRules[1]!]} upstreams={fixtureUpstreams} /></AppShell>
-</LogDockProvider></TooltipProvider></ThemeProvider>;
+const workbench = () => (
+  <ThemeProvider defaultTheme="dark" persist={false} applyToDocument={false}>
+    <TooltipProvider>
+      <LogDockProvider>
+        <AppShell>
+          <RulesContent rules={[fixtureRules[1]!]} upstreams={fixtureUpstreams} />
+        </AppShell>
+      </LogDockProvider>
+    </TooltipProvider>
+  </ThemeProvider>
+);
 
 describe("responsive routing shell", () => {
   it("delegates the theme cycle to Basalt", async () => {
     render(workbench());
     const user = userEvent.setup({ delay: null });
-    const toggle = screen.getByRole("button", { name: "Toggle theme (now dark)" });
+    const toggle = screen.getByRole("button", { name: "Use system theme" });
     await user.click(toggle);
-    expect(toggle).toHaveAccessibleName("Toggle theme (now system)");
+    expect(toggle).toHaveAccessibleName("Switch to light theme");
     await user.click(toggle);
-    expect(toggle).toHaveAccessibleName("Toggle theme (now light)");
+    expect(toggle).toHaveAccessibleName("Switch to dark theme");
     await user.click(toggle);
-    expect(toggle).toHaveAccessibleName("Toggle theme (now dark)");
+    expect(toggle).toHaveAccessibleName("Use system theme");
   });
 
   it("leaves body overflow ownership to the modal library", () => {
@@ -48,26 +56,28 @@ describe("responsive routing shell", () => {
     }
   });
 
-  it("keeps the mobile page title and actions without competing breadcrumbs, preserving drafts across resize", async () => {
+  it("keeps the mobile page title and actions with compact breadcrumbs, preserving drafts across resize", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
     const { rerender } = render(workbench());
     await userEvent.setup({ delay: null }).click(screen.getByRole("tab", { name: /^Schedule/ }));
     const header = within(screen.getByRole("main").querySelector("header")!);
     expect(header.getByRole("heading", { name: "Routing Rules" })).toBeVisible();
-    expect(header.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
+    const trail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
+    expect(trail.getByText("Routing")).toBeVisible();
+    expect(trail.queryByText("Home")).toBeNull();
     expect(header.getByRole("button", { name: "Open navigation" })).toBeVisible();
     expect(header.queryByRole("button", { name: /logs/i })).toBeNull();
-    expect(header.getByRole("button", { name: "Toggle theme (now dark)" })).toBeVisible();
-    expect(header.getByRole("link", { name: "GitHub repository" })).toBeVisible();
+    expect(header.getByRole("button", { name: "Use system theme" })).toBeVisible();
+    expect(header.getByRole("link", { name: "GitHub repository (opens in a new tab)" })).toBeVisible();
     expect(header.getByRole("link", { name: "Raven on hexly.ai (opens in a new tab)" })).toBeVisible();
     expect(screen.getByRole("region", { name: "Local schedule visualization" })).toBeVisible();
     fireEvent.change(screen.getByRole("textbox", { name: "Rule name" }), { target: { value: "Mobile draft" } });
 
     viewport.mobile = false;
     rerender(workbench());
-    const trail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
-    expect(trail.queryByText("Home")).toBeNull();
-    expect(trail.getByText("Routing")).toBeVisible();
+    const desktopTrail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
+    expect(desktopTrail.getByText("Home")).toBeVisible();
+    expect(desktopTrail.getByText("Routing")).toBeVisible();
     expect(header.getByRole("heading", { name: "Routing Rules" })).toBeVisible();
     expect(header.queryByRole("button", { name: "Open navigation" })).toBeNull();
     expect(screen.getByRole("textbox", { name: "Rule name" })).toHaveValue("Mobile draft");
@@ -75,10 +85,22 @@ describe("responsive routing shell", () => {
 
     viewport.mobile = true;
     rerender(workbench());
-    expect(header.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
+    expect(trail.queryByText("Home")).toBeNull();
     expect(screen.getByRole("region", { name: "Local schedule visualization" })).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Rule name" })).toHaveValue("Mobile draft");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("closes the mobile drawer from the dismiss toggle and restores focus to the menu button", async () => {
+    render(workbench());
+    const user = userEvent.setup({ delay: null });
+    const opener = screen.getByRole("button", { name: "Open navigation" });
+    await user.click(opener);
+    const drawer = screen.getByRole("dialog", { name: "Navigation" });
+    expect(drawer).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Close navigation" }));
+    expect(drawer).not.toBeVisible();
+    expect(opener).toHaveFocus();
   });
 });
 
@@ -99,13 +121,23 @@ describe("site-wide navigation and page frame", () => {
   ])("aligns %s with its sidebar group and the shared full-width frame", (pathname, group, title) => {
     viewport.pathname = pathname!;
     viewport.mobile = false;
-    const { container } = render(<ThemeProvider persist={false} applyToDocument={false}><TooltipProvider><LogDockProvider><AppShell><p>Page content</p></AppShell></LogDockProvider></TooltipProvider></ThemeProvider>);
+    const { container } = render(
+      <ThemeProvider persist={false} applyToDocument={false}>
+        <TooltipProvider>
+          <LogDockProvider>
+            <AppShell>
+              <p>Page content</p>
+            </AppShell>
+          </LogDockProvider>
+        </TooltipProvider>
+      </ThemeProvider>,
+    );
     const header = within(screen.getByRole("main").querySelector("header")!);
     expect(header.getByRole("heading", { name: title })).toBeVisible();
     expect(header.queryByRole("button", { name: /logs/i })).toBeNull();
     const trail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
+    expect(trail.getByText("Home")).toBeVisible();
     expect(trail.getByText(group!)).toBeVisible();
-    expect(trail.queryByRole("link")).toBeNull();
     const frame = container.querySelector(".dashboard-page");
     expect(frame).toHaveClass("w-full", "@container/page");
     expect(frame?.className).not.toMatch(/max-w-/);
