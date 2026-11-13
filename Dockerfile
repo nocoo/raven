@@ -1,5 +1,5 @@
 FROM oven/bun:1.4.4-slim AS bun
-FROM node:26.12.1-trixie-slim AS build
+FROM node:26.13.1-trixie-slim AS build
 
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN cd packages/dashboard && \
     node node_modules/typescript/bin/tsc --noEmit && \
     node node_modules/next/dist/bin/next build
 
-FROM node:26.12.1-trixie-slim AS runtime
+FROM node:26.13.1-trixie-slim AS runtime
 
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app

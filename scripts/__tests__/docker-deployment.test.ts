@@ -41,7 +41,7 @@ describe("Docker deployment configuration", () => {
     const dockerfile = read("Dockerfile")
     const entrypoint = read("scripts/container-entrypoint.ts")
 
-    expect(dockerfile).toContain("FROM node:26.12.1-trixie-slim AS runtime")
+    expect(dockerfile).toContain("FROM node:26.13.1-trixie-slim AS runtime")
     expect(dockerfile).toContain("COPY --from=bun /usr/local/bin/bun")
     expect(dockerfile).toContain("USER node")
     expect(dockerfile).toContain("chmod 700")
