@@ -4,7 +4,7 @@ Accident narratives and original lessons. Historical instructions below describe
 
 ## 2026-11-14: Avatar automation assumed an unpublished DOM slot
 
-The Basalt 3.3.4 browser acceptance initially selected `[data-slot='avatar']` without inspecting the published Avatar implementation. The real component does not emit that attribute, so the run stopped on a locator timeout before measuring geometry. The test now locates the published default `.h-basalt-9.w-basalt-9` root. Read the selected artifact's rendered attributes before introducing component selectors; distinguish a locator failure from a measured visual defect. No application or package styles were changed.
+The Basalt 3.3.4 browser acceptance initially selected `[data-slot='avatar']` without inspecting the published Avatar implementation. The real component does not emit that attribute, so the run stopped on a locator timeout before measuring geometry. The test now locates the published default `.h-basalt-9.w-basalt-9` root. A second locator mistake looked up the menu opener in the accessibility tree while the modal intentionally hid the background; the opener lookup now includes hidden elements for its `aria-controls` assertion. Read the selected artifact's rendered attributes and modal accessibility behavior before introducing component selectors; distinguish locator failures from measured visual defects. No application or package styles were changed.
 
 ## 2026-11-09: Local mirror limits and Docker evidence were overstated
 
