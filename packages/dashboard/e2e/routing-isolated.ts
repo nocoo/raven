@@ -620,14 +620,13 @@ export async function runRoutingBrowser(options: BrowserOptions) {
         await opener.click();
         const drawer = page.getByRole("dialog", { name: "Navigation", exact: true });
         await expect(drawer).toBeVisible();
+        await expect(drawer).toHaveAttribute("data-slot", "sidebar-drawer");
+        await expect.poll(() => drawer.evaluate(element => element.getBoundingClientRect().width)).toBe(320);
         expect(await drawer.evaluate(element => {
           const style = getComputedStyle(element);
           return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
         })).toEqual(["0px", "0px", "0px", "0px"]);
-        await expect.poll(() => drawer.evaluate(element => {
-          const sidebar = element.querySelector("[data-basalt-sidebar]")!;
-          return Math.abs(sidebar.getBoundingClientRect().width - element.clientWidth);
-        })).toBeLessThanOrEqual(1);
+        await expect.poll(() => drawer.locator("[data-basalt-sidebar]").evaluate(element => element.getBoundingClientRect().width)).toBe(260);
         await sidebarGeometry(drawer.locator("[data-basalt-sidebar]"), false);
         await shot(`navigation-drawer-${width}-${theme}`);
         await page.keyboard.press("Escape");

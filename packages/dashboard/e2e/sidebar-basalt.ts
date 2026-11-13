@@ -81,7 +81,7 @@ export async function verifyBasaltSidebar(page: Page, dashboardUrl: string, arti
       await expect(opener).toHaveAttribute("aria-controls", await drawer.getAttribute("id") as string);
       await expect(drawer.locator("[data-slot='sidebar-toggle']")).toHaveAttribute("data-mode", "dismiss");
       const mobile = await capture(drawer.locator("[data-basalt-sidebar]"), `drawer-${width}-${theme}`);
-      expect(mobile.drawer!.bounds.width).toBe(260);
+      expect(mobile.drawer!.bounds.width).toBe(320);
       expect(mobile.sidebar.width).toBe(260);
       expect(mobile.drawer!.paddingLeft).toBe("0px");
       expect(mobile.drawer!.paddingRight).toBe("0px");
