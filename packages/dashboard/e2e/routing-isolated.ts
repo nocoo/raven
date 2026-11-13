@@ -1,5 +1,6 @@
 import { chromium, expect, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
+import { verifyBasaltSidebar } from "./sidebar-basalt";
 
 export type CatalogFixtureResponse = "wrong-shape" | "non-json" | "slug-catalog";
 
@@ -195,6 +196,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(geometry.screenReaderLabels.every(label => label.contained)).toBe(true);
   };
   try {
+    await verifyBasaltSidebar(page, dashboardUrl, artifacts);
+    checkpoint("Basalt 3.3.4 sidebar geometry, brand clipping, first Escape and focus restoration");
     await page.goto(`${dashboardUrl}/settings`);
     const retention = page.getByRole("combobox", { name: "History retention", exact: true });
     await expect(retention).toHaveText("30 days");
