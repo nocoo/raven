@@ -39,7 +39,7 @@ import {
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { type ReactNode, useCallback, useState, type ElementType } from "react";
+import { type ReactNode, useCallback, useEffect, useState, type ElementType } from "react";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { APP_VERSION } from "@/lib/version";
 import { useAppPathname } from "@/lib/app-navigation";
@@ -112,11 +112,12 @@ function usePersistedSidebarCollapsed(
   key: string,
   defaultValue: SidebarCollapsedPreference,
 ): [SidebarCollapsedPreference, (value: SidebarCollapsedPreference) => void] {
-  const [stored, setStored] = useState<SidebarCollapsedPreference>(() => {
-    if (typeof window === "undefined") return defaultValue;
+  const [stored, setStored] = useState<SidebarCollapsedPreference>(defaultValue);
+
+  useEffect(() => {
     const value = localStorage.getItem(key);
-    return value === "true" || value === "false" ? value : defaultValue;
-  });
+    setStored(value === "true" || value === "false" ? value : defaultValue);
+  }, [key, defaultValue]);
 
   const setValue = useCallback(
     (next: SidebarCollapsedPreference) => {
