@@ -23,7 +23,7 @@ export async function verifyBasaltSidebar(page: Page, dashboardUrl: string, arti
         }
         return { bounds: bounds.toJSON(), paintedWidth: Math.max(0, right - left), paintedHeight: Math.max(0, bottom - top) };
       };
-      const avatar = element.querySelector("[data-slot='avatar']")!;
+      const avatar = element.querySelector(".h-basalt-9.w-basalt-9")!;
       const email = element.querySelector("[data-slot='sidebar-user'] p:last-child");
       const drawer = element.closest("[data-slot='sidebar-drawer']");
       return {
@@ -55,7 +55,7 @@ export async function verifyBasaltSidebar(page: Page, dashboardUrl: string, arti
     await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
     const sidebar = page.locator("[data-basalt-sidebar]");
     await expect(sidebar).toHaveCount(1);
-    await expect(sidebar.locator("[data-slot='avatar']")).toBeVisible();
+    await expect(sidebar.locator(".h-basalt-9.w-basalt-9")).toBeVisible();
     await page.mouse.move(1000, 800);
     const expanded = await capture(sidebar, `expanded-${theme}`);
     expect(expanded.sidebar.width).toBe(260);
