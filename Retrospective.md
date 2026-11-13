@@ -2,6 +2,10 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-11-14: Avatar automation assumed an unpublished DOM slot
+
+The Basalt 3.3.4 browser acceptance initially selected `[data-slot='avatar']` without inspecting the published Avatar implementation. The real component does not emit that attribute, so the run stopped on a locator timeout before measuring geometry. The test now locates the published default `.h-basalt-9.w-basalt-9` root. Read the selected artifact's rendered attributes before introducing component selectors; distinguish a locator failure from a measured visual defect. No application or package styles were changed.
+
 ## 2026-11-09: Local mirror limits and Docker evidence were overstated
 
 The Docker pre-release check replaced Compose's default npm registry with a Tencent mirror because that mirror worked on this machine. The mirror limitation was local, not a project-wide requirement, so the default change would have forced all users onto a third-party registry and its availability and trust boundary. Docker examples now leave the registry override empty and document the mirror as an explicit local fallback when the default source is blocked or incomplete.
