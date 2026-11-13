@@ -74,7 +74,7 @@ export async function verifyBasaltSidebar(page: Page, dashboardUrl: string, arti
     for (const width of [320, 390, 700]) {
       await page.setViewportSize({ width, height: 844 });
       await page.goto(`${dashboardUrl}/connect`);
-      const opener = page.getByRole("button", { name: "Open navigation", exact: true });
+      const opener = page.getByRole("button", { name: "Open navigation", exact: true, includeHidden: true });
       await opener.click();
       const drawer = page.locator("[data-slot='sidebar-drawer']");
       await expect(drawer).toBeVisible();
