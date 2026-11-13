@@ -1,21 +1,13 @@
 "use client";
 
-import {
-  ContentIsland,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SidebarProvider,
-} from "@nocoo/basalt";
+import { ContentIsland, SidebarDrawer } from "@nocoo/basalt";
 import { AppHeader, AppHeaderMenuButton } from "@nocoo/basalt/components/app-header";
 import {
   AppMain,
   AppSkipLink,
   AppShell as Shell,
 } from "@nocoo/basalt/components/app-shell";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useAppPathname } from "@/lib/app-navigation";
 import { LogsDock } from "@/components/logs/logs-dock";
 import { SetupWizard } from "@/components/setup-wizard";
@@ -33,6 +25,7 @@ function AppShellInner({ children }: AppShellProps) {
   const { mobileOpen, setMobileOpen } = useMobileNav();
   const pathname = useAppPathname();
   const menuButton = useRef<HTMLButtonElement>(null);
+  const drawerId = useId();
   const group = NAV_GROUPS.find((g) => g.items.some((item) => item.href === pathname));
   const item = group?.items.find((i) => i.href === pathname);
   const allBreadcrumbs = [
@@ -59,30 +52,21 @@ function AppShellInner({ children }: AppShellProps) {
       )}
 
       {isMobile && (
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent
-            id="mobile-navigation-sheet"
-            side="left"
-            className="w-[260px] max-w-[260px] border-0 bg-basalt-background p-0 sm:max-w-[260px] sm:p-0"
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
-              menuButton.current?.focus();
-            }}
-          >
-            <SheetHeader className="sr-only">
-              <SheetTitle>Navigation</SheetTitle>
-              <SheetDescription>Browse Raven dashboard pages</SheetDescription>
-            </SheetHeader>
-            <SidebarProvider collapsed={false} defaultWidth={260}>
-              <Sidebar
-                ariaLabel="Navigation menu"
-                variant="mobile"
-                onNavigate={() => setMobileOpen(false)}
-                onDismiss={() => setMobileOpen(false)}
-              />
-            </SidebarProvider>
-          </SheetContent>
-        </Sheet>
+        <SidebarDrawer
+          id={drawerId}
+          open={mobileOpen}
+          onOpenChange={setMobileOpen}
+          returnFocusRef={menuButton}
+          title="Navigation"
+          description="Browse Raven dashboard pages"
+        >
+          <Sidebar
+            ariaLabel="Navigation menu"
+            variant="mobile"
+            onNavigate={() => setMobileOpen(false)}
+            onDismiss={() => setMobileOpen(false)}
+          />
+        </SidebarDrawer>
       )}
 
       <AppMain>
@@ -95,7 +79,7 @@ function AppShellInner({ children }: AppShellProps) {
                 label="Open navigation"
                 aria-expanded={mobileOpen}
                 aria-haspopup="dialog"
-                aria-controls={mobileOpen ? "mobile-navigation-sheet" : undefined}
+                aria-controls={drawerId}
                 onClick={() => setMobileOpen(true)}
               />
             ) : undefined
