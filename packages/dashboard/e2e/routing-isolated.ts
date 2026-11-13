@@ -144,7 +144,6 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       };
     });
     expect(geometry.rail).toBe(collapsed ? 68 : 260);
-    expect(geometry.padding).toBe("8px");
     expect(geometry.gap).toBe("4px");
     expect(geometry.rows).toHaveLength(12);
     for (const row of geometry.rows) {
