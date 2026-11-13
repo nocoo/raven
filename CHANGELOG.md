@@ -1,5 +1,29 @@
 # Changelog
 
+## v3.3.4
+
+### Changed
+- Pin node 26.13.1 security release
+- Align app shell with basalt 3.3.x
+- Bump @nocoo/basalt to 3.3.1
+- Mark L3 todo until Playwright has isolated CI harness
+- Pin docker-publish release-source to base-ci v2026.12
+- Migrate to base-ci v2026.12 quality.yml strict slot-status
+- Move copilot models toolbar into PageHeader
+- Align collapsed sidebar expand control with basalt
+- Show PageHeader descriptions on routing load errors
+- Rely on basalt nav row styling for sidebar icons
+- Use basalt PageHeader slots in loading skeleton
+- Sync docker-publish workflow contract for base-ci v2026.10
+- Pin base-ci to v2026.10
+- Simplify sidebar footer user controls
+- Use basalt LinkButton for header actions
+- Pass breadcrumbs through AppHeader without wrappers
+- Align sidebar header with basalt defaults
+
+### Fixed
+- Run pre-commit L1 gates on Git index snapshot
+
 ## v3.3.3
 
 ### Added
