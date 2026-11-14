@@ -2,6 +2,14 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-11-14: Persisted sidebar state changed the first hydration tree
+
+The sidebar preference hook used an SSR default of expanded but read localStorage in the first client state initializer. A saved collapsed preference changed the initial navigation from grouped rows to flat icon rows, producing React hydration error #418 on desktop and mobile full loads. Restore the preference in an effect after the matching initial render; persist only explicit collapse changes so restoration never overwrites a saved true value with the server default.
+
+The immutable 5ef97da/Basalt 3.3.1 baseline reproduced the error for saved true on both settings and connect at desktop/mobile widths, while false produced no page errors. The fixed production-build isolated HTTP/SQLite browser regression covers all eight combinations, storage writes, toggles, reloads and responsive navigation with no page or console errors. This regression does not establish a green full workflow: the subsequent existing breadcrumb assertion independently expects Monitor where the application renders HomeMonitor.
+
+The same investigation confirmed that Basalt 3.3.1 and 3.3.4 already own state-dependent navigation padding. The user explicitly approved removing only the extra nav shorthand 8px assertion; row padding, geometry, interactions and recorded measurements remain. This is adoption of the upstream contract, not a package fix or proof that the old assertion passed.
+
 ## 2026-11-14: Avatar automation assumed an unpublished DOM slot
 
 The Basalt 3.3.4 browser acceptance initially selected `[data-slot='avatar']` without inspecting the published Avatar implementation. The real component does not emit that attribute, so the run stopped on a locator timeout before measuring geometry. The test now locates the published default `.h-basalt-9.w-basalt-9` root. A second locator mistake looked up the menu opener in the accessibility tree while the modal intentionally hid the background; the opener lookup now includes hidden elements for its `aria-controls` assertion. Read the selected artifact's rendered attributes and modal accessibility behavior before introducing component selectors; distinguish locator failures from measured visual defects. No application or package styles were changed.
