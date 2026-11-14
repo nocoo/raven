@@ -25,7 +25,7 @@
       "name": "dashboard",
       "version": "3.3.4",
       "dependencies": {
-        "@nocoo/basalt": "3.3.4",
+        "@nocoo/basalt": "3.3.5",
         "clsx": "^2.1.1",
         "lucide-react": "1.72.0",
         "next": "16.4.6",
@@ -227,7 +227,7 @@
 
     "@next/swc-win32-x64-msvc": ["@next/swc-win32-x64-msvc@16.4.6", "", { "os": "win32", "cpu": "x64" }, "sha512-3ZG15/5WIdlTQsIEvc9sPTTSL5XFrlLklIKmfF4fwsDnoAhu6NcBDXsk3mbGxNyo6aVLEGex+fHCv2MahY7a9g=="],
 
-    "@nocoo/basalt": ["@nocoo/basalt@3.3.4", "", { "dependencies": { "@radix-ui/react-accordion": "1.3.1", "@radix-ui/react-alert-dialog": "1.2.1", "@radix-ui/react-avatar": "1.3.1", "@radix-ui/react-checkbox": "1.4.1", "@radix-ui/react-collapsible": "1.2.1", "@radix-ui/react-context-menu": "2.4.1", "@radix-ui/react-dialog": "1.3.1", "@radix-ui/react-dropdown-menu": "2.2.1", "@radix-ui/react-hover-card": "1.2.1", "@radix-ui/react-label": "2.1.17", "@radix-ui/react-menubar": "1.2.1", "@radix-ui/react-navigation-menu": "1.4.1", "@radix-ui/react-popover": "1.3.1", "@radix-ui/react-progress": "1.2.1", "@radix-ui/react-radio-group": "1.5.1", "@radix-ui/react-scroll-area": "1.4.0", "@radix-ui/react-select": "2.4.1", "@radix-ui/react-separator": "1.2.0", "@radix-ui/react-slider": "1.6.1", "@radix-ui/react-slot": "1.5.0", "@radix-ui/react-switch": "1.4.1", "@radix-ui/react-tabs": "1.2.1", "@radix-ui/react-toggle": "1.2.1", "@radix-ui/react-toggle-group": "1.2.1", "@radix-ui/react-tooltip": "1.4.1", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "cmdk": "^1.1.1", "entities": "8.1.0", "marked": "18.1.1", "sonner": "2.0.8", "tailwind-merge": "3.7.0" }, "peerDependencies": { "@tanstack/react-table": "^9", "lucide-react": "*", "react": "^19", "react-day-picker": "^10", "react-dom": "^19", "recharts": "^3", "tailwindcss": "^4" }, "optionalPeers": ["@tanstack/react-table", "react-day-picker", "recharts", "tailwindcss"] }, "sha512-96THuaXvo7FswWnVKlBWu67I/AW8hgRmBofbBTuqZnOtPr3WXqJK0Rs4EohBsVtvR2DlHg607n+BowbkNCb66w=="],
+    "@nocoo/basalt": ["@nocoo/basalt@3.3.5", "", { "dependencies": { "@radix-ui/react-accordion": "1.3.1", "@radix-ui/react-alert-dialog": "1.2.1", "@radix-ui/react-avatar": "1.3.1", "@radix-ui/react-checkbox": "1.4.1", "@radix-ui/react-collapsible": "1.2.1", "@radix-ui/react-context-menu": "2.4.1", "@radix-ui/react-dialog": "1.3.1", "@radix-ui/react-dropdown-menu": "2.2.1", "@radix-ui/react-hover-card": "1.2.1", "@radix-ui/react-label": "2.1.17", "@radix-ui/react-menubar": "1.2.1", "@radix-ui/react-navigation-menu": "1.4.1", "@radix-ui/react-popover": "1.3.1", "@radix-ui/react-progress": "1.2.1", "@radix-ui/react-radio-group": "1.5.1", "@radix-ui/react-scroll-area": "1.4.0", "@radix-ui/react-select": "2.4.1", "@radix-ui/react-separator": "1.2.0", "@radix-ui/react-slider": "1.6.1", "@radix-ui/react-slot": "1.5.0", "@radix-ui/react-switch": "1.4.1", "@radix-ui/react-tabs": "1.2.1", "@radix-ui/react-toggle": "1.2.1", "@radix-ui/react-toggle-group": "1.2.1", "@radix-ui/react-tooltip": "1.4.1", "class-variance-authority": "^0.7.1", "clsx": "^2.1.1", "cmdk": "^1.1.1", "entities": "8.1.0", "marked": "18.2.0", "sonner": "2.0.8", "tailwind-merge": "3.7.0" }, "peerDependencies": { "@tanstack/react-table": "^9", "lucide-react": "*", "react": "^19", "react-day-picker": "^10", "react-dom": "^19", "recharts": "^3", "tailwindcss": "^4" }, "optionalPeers": ["@tanstack/react-table", "react-day-picker", "recharts", "tailwindcss"] }, "sha512-HcQRkcAoZ7+foeHOSAvQLFxq98fUIoDRGwi9KahGjYCWlqgx5XQzSfp0UMn3y7HUaH9oHjiq3hxyVsjkO/fNXg=="],
 
     "@oxc-parser/binding-android-arm-eabi": ["@oxc-parser/binding-android-arm-eabi@0.158.0", "", { "os": "android", "cpu": "arm" }, "sha512-eZ4sHtg/u9mzPaRPWXZ7MmJ3tSFYPDCoDrnAJEXBOIQfdAy0TnzlaJx7nq0HZwE8DkYLQg6GqGZlcjaJrnijKg=="],
 
@@ -781,7 +781,7 @@
 
     "magicast": ["magicast@0.5.5", "", { "dependencies": { "@babel/parser": "^7.29.7", "@babel/types": "^7.29.7", "source-map-js": "^1.2.1" } }, "sha512-UicdXN8zQ3JHlxVq+28afMXPr1z7WNY6+7EJnzTdQWkTAlMLF5fNCCKxJHBQwGaNGR11581EiQmQzx73+MvszA=="],
 
-    "marked": ["marked@18.1.1", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-zEGgrtUG8crk+TrMacJSVABU4DYDDkS8uqgU3ohrn/2fW9C2AEfUrO3m6IhpIpQpl7YcVpiXXC9cSMWDANT3dg=="],
+    "marked": ["marked@18.2.0", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-KaeL+tAbtvI930q7HE2PN5lYXYdT8EiSmxHlN6F3rsfb57wd5mp5W5TLazpdj4inTQBJdgjYwbs40W/0VUGU+Q=="],
 
     "min-indent": ["min-indent@1.0.1", "", {}, "sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg=="],
 
