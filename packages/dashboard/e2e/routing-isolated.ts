@@ -1,6 +1,7 @@
 import { chromium, expect, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { verifyBasaltSidebar } from "./sidebar-basalt";
+import { verifySidebarHydration } from "./sidebar-hydration";
 
 export type CatalogFixtureResponse = "wrong-shape" | "non-json" | "slug-catalog";
 
@@ -195,6 +196,8 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(geometry.screenReaderLabels.every(label => label.contained)).toBe(true);
   };
   try {
+    layouts.push({ kind: "sidebar-hydration", cases: await verifySidebarHydration(dashboardUrl, artifacts) });
+    checkpoint("stored sidebar preferences hydrate without errors and survive toggles, reloads and responsive navigation");
     await verifyBasaltSidebar(page, dashboardUrl, artifacts);
     checkpoint("Basalt 3.3.4 sidebar geometry, brand clipping, first Escape and focus restoration");
     await page.goto(`${dashboardUrl}/settings`);
