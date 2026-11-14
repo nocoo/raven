@@ -1,5 +1,7 @@
 import { chromium, expect, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
+import { verifyBasaltSidebar } from "./sidebar-basalt";
+import { verifySidebarHydration } from "./sidebar-hydration";
 
 export type CatalogFixtureResponse = "wrong-shape" | "non-json" | "slug-catalog";
 
@@ -143,7 +145,6 @@ export async function runRoutingBrowser(options: BrowserOptions) {
       };
     });
     expect(geometry.rail).toBe(collapsed ? 68 : 260);
-    expect(geometry.padding).toBe("8px");
     expect(geometry.gap).toBe("4px");
     expect(geometry.rows).toHaveLength(12);
     for (const row of geometry.rows) {
@@ -195,6 +196,10 @@ export async function runRoutingBrowser(options: BrowserOptions) {
     expect(geometry.screenReaderLabels.every(label => label.contained)).toBe(true);
   };
   try {
+    layouts.push({ kind: "sidebar-hydration", cases: await verifySidebarHydration(dashboardUrl, artifacts) });
+    checkpoint("stored sidebar preferences hydrate without errors and survive toggles, reloads and responsive navigation");
+    await verifyBasaltSidebar(page, dashboardUrl, artifacts);
+    checkpoint("Basalt 3.3.4 sidebar geometry, brand clipping, first Escape and focus restoration");
     await page.goto(`${dashboardUrl}/settings`);
     const retention = page.getByRole("combobox", { name: "History retention", exact: true });
     await expect(retention).toHaveText("30 days");
@@ -617,14 +622,13 @@ export async function runRoutingBrowser(options: BrowserOptions) {
         await opener.click();
         const drawer = page.getByRole("dialog", { name: "Navigation", exact: true });
         await expect(drawer).toBeVisible();
+        await expect(drawer).toHaveAttribute("data-slot", "sidebar-drawer");
+        await expect.poll(() => drawer.evaluate(element => element.getBoundingClientRect().width)).toBe(320);
         expect(await drawer.evaluate(element => {
           const style = getComputedStyle(element);
           return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
         })).toEqual(["0px", "0px", "0px", "0px"]);
-        await expect.poll(() => drawer.evaluate(element => {
-          const sidebar = element.querySelector("[data-basalt-sidebar]")!;
-          return Math.abs(sidebar.getBoundingClientRect().width - element.clientWidth);
-        })).toBeLessThanOrEqual(1);
+        await expect.poll(() => drawer.locator("[data-basalt-sidebar]").evaluate(element => element.getBoundingClientRect().width)).toBe(260);
         await sidebarGeometry(drawer.locator("[data-basalt-sidebar]"), false);
         await shot(`navigation-drawer-${width}-${theme}`);
         await page.keyboard.press("Escape");
@@ -658,7 +662,11 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           await expect(header).toHaveCSS("height", width === 390 ? "52px" : "56px");
           await expect(header.getByRole("heading", { name: title, exact: true })).toBeVisible();
           await expect(header.getByRole("button", { name: /logs/i })).toHaveCount(0);
-          if (width !== 390) await expect(header.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(group);
+          const trail = header.getByRole("navigation", { name: "Breadcrumb" });
+          await expect(trail.locator("[aria-current='page']")).toHaveText(group);
+          const home = trail.getByRole("link", { name: "Home", exact: true });
+          if (width !== 390) await expect(home).toHaveAttribute("href", "/");
+          else await expect(home).toHaveCount(0);
           const bounds = await frame.boundingBox();
           expect(Math.abs((await heading.boundingBox())!.x - bounds!.x)).toBeLessThan(1);
           const edges = await frame.evaluate(element => {
@@ -841,6 +849,9 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             }).toBeLessThanOrEqual(1);
             await layout(`general/collapsed-sidebar/${theme}`);
             await shot(`general-collapsed-sidebar-${theme}`);
+            await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+            await expect(page.getByRole("button", { name: "Collapse sidebar", exact: true })).toBeVisible();
+            await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(260);
           }
         }
       }
