@@ -2,6 +2,10 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-11-14: A task PATH with spaces broke an env argument
+
+The first authorized push attempt passed `PATH=/tmp/raven-node-v26.13.1/bin:$PATH` as an unquoted argument to env. Cindy's task-bin path contains Application Support, so shell word splitting made env try to execute the remaining path fragment. It exited 127 before Git or hooks started; no push occurred. Quote the entire env assignment as `"PATH=/tmp/raven-node-v26.13.1/bin:$PATH"` when forwarding the task-local runtime through direnv, preserving the normal hook path.
+
 ## 2026-11-14: Whole-landmark text and shared rail state misled UI checks
 
 The full UI runner compared the entire breadcrumb landmark with the expected group, but the desktop contract includes a Home link before that group. A real immutable 5ef97da/Basalt 3.3.1 diagnostic at desktop/mobile widths confirmed the existing shape, matching published Breadcrumbs semantics and the unit tests. Target the terminal aria-current node for the unchanged group assertion; separately require the desktop Home destination and its absence in the compact mobile trail. Do not remove the Home ancestor or change expected group strings to accommodate a locator mistake.
