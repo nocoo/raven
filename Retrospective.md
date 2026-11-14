@@ -2,6 +2,12 @@
 
 Accident narratives and original lessons. Historical instructions below describe their time; the current handbook and its local-isolation contract take precedence.
 
+## 2026-11-14: Whole-landmark text and shared rail state misled UI checks
+
+The full UI runner compared the entire breadcrumb landmark with the expected group, but the desktop contract includes a Home link before that group. A real immutable 5ef97da/Basalt 3.3.1 diagnostic at desktop/mobile widths confirmed the existing shape, matching published Breadcrumbs semantics and the unit tests. Target the terminal aria-current node for the unchanged group assertion; separately require the desktop Home destination and its absence in the compact mobile trail. Do not remove the Home ancestor or change expected group strings to accommodate a locator mistake.
+
+The next reached failure came from leaving the sidebar collapsed after its geometry case while later pages assumed an expanded rail. Restore and verify the expanded state at that case's end without removing collapsed assertions. The full isolated production UI runner then passed all 27 checkpoints, including both themes and every existing viewport/navigation case. Keep each shared browser scenario's stated starting state intact.
+
 ## 2026-11-14: Persisted sidebar state changed the first hydration tree
 
 The sidebar preference hook used an SSR default of expanded but read localStorage in the first client state initializer. A saved collapsed preference changed the initial navigation from grouped rows to flat icon rows, producing React hydration error #418 on desktop and mobile full loads. Restore the preference in an effect after the matching initial render; persist only explicit collapse changes so restoration never overwrites a saved true value with the server default.
