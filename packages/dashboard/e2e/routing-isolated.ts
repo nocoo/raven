@@ -662,7 +662,11 @@ export async function runRoutingBrowser(options: BrowserOptions) {
           await expect(header).toHaveCSS("height", width === 390 ? "52px" : "56px");
           await expect(header.getByRole("heading", { name: title, exact: true })).toBeVisible();
           await expect(header.getByRole("button", { name: /logs/i })).toHaveCount(0);
-          if (width !== 390) await expect(header.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(group);
+          const trail = header.getByRole("navigation", { name: "Breadcrumb" });
+          await expect(trail.locator("[aria-current='page']")).toHaveText(group);
+          const home = trail.getByRole("link", { name: "Home", exact: true });
+          if (width !== 390) await expect(home).toHaveAttribute("href", "/");
+          else await expect(home).toHaveCount(0);
           const bounds = await frame.boundingBox();
           expect(Math.abs((await heading.boundingBox())!.x - bounds!.x)).toBeLessThan(1);
           const edges = await frame.evaluate(element => {
