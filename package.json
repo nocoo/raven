@@ -39,21 +39,21 @@
     "scripts/**/*.ts": "biome check --no-errors-on-unmatched --error-on-warnings --max-diagnostics=500"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.6",
+    "@biomejs/biome": "2.6.7",
     "@types/bun": "1.4.4",
     "@vitest/coverage-istanbul": "5.1.0",
     "dependency-cruiser": "18.7.2",
     "husky": "^9.1.7",
     "lint-staged": "17.6.0",
     "picomatch": "4.0.7",
-    "oxc-parser": "0.157.0",
+    "oxc-parser": "0.158.0",
     "typescript": "^7.0.2",
     "typescript6-for-depcruise": "npm:typescript@6.0.3"
   },
   "overrides": {
     "flatted": ">=3.4.2",
     "brace-expansion": ">=5.0.5",
-    "vite": "8.3.6",
+    "vite": "8.3.8",
     "postcss": ">=8.5.25",
     "@babel/core": ">=7.29.6",
     "ip-address": "^10.7.4",
@@ -63,7 +63,7 @@
     "browserslist": ">=4.28.7"
   },
   "dependencies": {
-    "vite": "8.3.6",
+    "vite": "8.3.8",
     "vitest": "5.1.0"
   }
 }
