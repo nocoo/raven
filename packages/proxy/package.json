@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "gpt-tokenizer": "4.1.2",
-    "hono": "4.13.17",
+    "hono": "4.13.18",
     "socks": "^2.8.10",
     "zod": "4.6.7"
   },
