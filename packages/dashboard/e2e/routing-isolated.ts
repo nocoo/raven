@@ -849,6 +849,9 @@ export async function runRoutingBrowser(options: BrowserOptions) {
             }).toBeLessThanOrEqual(1);
             await layout(`general/collapsed-sidebar/${theme}`);
             await shot(`general-collapsed-sidebar-${theme}`);
+            await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+            await expect(page.getByRole("button", { name: "Collapse sidebar", exact: true })).toBeVisible();
+            await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(260);
           }
         }
       }
