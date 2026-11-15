@@ -27,7 +27,7 @@ Maintain project instructions only in this root `AGENTS.md`. Do not create neste
 - Management `/api/*` and `/ws/logs` require a loopback socket peer plus `RAVEN_INTERNAL_KEY`; client API keys never authorize management. Model global/key IP whitelists share the IPv4/IPv6 core; geography is Dashboard-only enrichment.
 - Tokens/database belong in platform user directories with private permissions, not Git. Preserve `RAVEN_CONFIG_DIR`, `RAVEN_DATA_DIR`, `RAVEN_TOKEN_PATH`, `RAVEN_DB_PATH` and legacy migration semantics.
 - Upstream HTTP is always mocked in unit/in-process route tests. Never place real tokens in fixtures or automatically exercise a real Copilot/provider account.
-- Any separately authorized live diagnostic stops at the first upstream error, no retry/loop/load testing, one request per case. It does not qualify as isolated 6DQ proof.
+- Any separately authorized live diagnostic stops at the first upstream error, no retry/loop/load testing, one request per case. It does not qualify as isolated L2/L3 proof.
 - Use Bun workspaces only; mixing package managers can create duplicate React instances. Keep MVVM and the shared log-stream path/ring-buffer/event contracts documented in [operations](docs/26-agent-operations.md).
 
 ## Stack / Layout
@@ -63,7 +63,7 @@ After a production build, `bun run scripts/verify-routing-ui.ts` exercises Routi
 
 ## Verification
 
-6DQ retains its name; former G1 merged into unified L1 on 2026-09-21. Scope: L1/L2/L3, G2 and D1. Follow the maintained `system0-6dq-l1` skill for the pre-commit contract. Status: `enforced`, `planned`, `manual`, `N/A`. No focused/skipped tests; all four L1 metrics ≥95%, preserving stricter baseline floors.
+Status: `enforced`, `planned`, `manual`, `N/A`. No focused/skipped tests; all four L1 metrics ≥95%, preserving stricter baseline floors.
 
 | Piece | Requirement and current reality | Status | Evidence |
 | --- | --- | --- | --- |

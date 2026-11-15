@@ -1,5 +1,5 @@
 #!/bin/sh
-# L1 + G1 + G2 (6DQ): checks the Git index snapshot, not the working tree.
+# L1 + G1 + G2: checks the Git index snapshot, not the working tree.
 # Parallel gates — see scripts/pre-commit.ts
 set -e
 command -v git >/dev/null 2>&1 || {
