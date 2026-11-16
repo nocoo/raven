@@ -1,4 +1,4 @@
-import type { ClientProtocol, StrategyName } from "../../packages/proxy/src/core/router"
+import type { ClientProtocol, UpstreamProtocol, StrategyName } from "../../packages/proxy/src/core/router"
 
 export type LiveProtocol = "chat" | "messages" | "responses"
 export type LiveKind = "text" | "tool" | "continuation"
@@ -13,7 +13,7 @@ export interface LiveCase {
   marker: string
   path: string
   clientFormat: ClientProtocol
-  upstreamFormat: ClientProtocol
+  upstreamFormat: UpstreamProtocol
   strategy: StrategyName
   body: Record<string, unknown>
 }

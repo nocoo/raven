@@ -58,6 +58,7 @@ function validateRequestToken(
   c: Context,
   db: Database,
   envApiKey: string | null,
+  googleApiKey: boolean,
 ): { valid: true; keyName: string; keyId: string; ruleId?: string } | { valid: false; response: Response } {
   // Accept token from Authorization: Bearer <token> or x-api-key: <token>
   // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
@@ -69,6 +70,8 @@ function validateRequestToken(
     token = authHeader.slice(7);
   } else if (xApiKey) {
     token = xApiKey;
+  } else if (googleApiKey) {
+    token = c.req.header("x-goog-api-key");
   }
 
   if (!token) {
@@ -99,6 +102,7 @@ function validateRequestToken(
 export interface ApiKeyAuthOpts {
   db: Database;
   envApiKey: string | null;
+  googleApiKey?: boolean;
 }
 
 /**
@@ -120,7 +124,7 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
 
   return createMiddleware(async (c, next) => {
     // No internalKey parameter — apiKeyAuth never accepts it
-    const result = validateRequestToken(c, db, envApiKey);
+    const result = validateRequestToken(c, db, envApiKey, opts.googleApiKey === true);
     if (!result.valid) return result.response;
     const peer = normalizeIP(c.env?.remoteAddress ?? null);
     const client = resolveClientIP(c.req.raw.headers, peer, state.trustedProxyRanges);

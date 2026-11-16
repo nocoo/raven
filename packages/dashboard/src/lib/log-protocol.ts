@@ -5,6 +5,7 @@ const PROTOCOLS = {
   systemone: "Systemone",
   decisions: "Decisions",
   images: "Image Generations",
+  gemini: "Gemini",
 } as const;
 
 function protocol(value: unknown): value is keyof typeof PROTOCOLS {

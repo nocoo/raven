@@ -33,6 +33,7 @@
 | 29 | [Live Proxy Acceptance](./29-live-proxy-acceptance.md) | Reusable default-rule native/translated acceptance matrix, private reports and explicitly authorized reruns |
 | 30 | [Native Microsoft Decision / Luna / Image](./30-systemone.md) | Unified-key native Systemone, Luna decisions and Flare image generations/multipart edits; exact catalog and API destination |
 | 31 | [Docker Deployment](./31-docker-deployment.md) | Production multi-stage image, loopback Compose, first-run OAuth, named-volume persistence and Caddy security |
+| 32 | [Gemini CLI](./32-gemini-cli.md) | Direct Gemini-compatible client endpoints, Chat conversion, configuration and isolated CLI verification |
 | — | [Interactive Proxy Architecture](./proxy-architecture.html) | Offline route explorer, eight protocol repairs with local commits, and fresh UT/coverage evidence |
 
 ## Archive

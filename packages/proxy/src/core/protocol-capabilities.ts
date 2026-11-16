@@ -1,17 +1,17 @@
 import { nativeProtocolEvidence, type NativeProtocolEvidence } from "./protocol-evidence"
-import type { ClientProtocol } from "./router"
+import type { UpstreamProtocol } from "./router"
 import type { CatalogModel, UpstreamFormat, UpstreamRecord } from "./routing-types"
 
 export type ProtocolProvider = Pick<UpstreamRecord, "id" | "kind" | "format" | "models">
 
-export function formatProtocol(format: UpstreamFormat): ClientProtocol {
+export function formatProtocol(format: UpstreamFormat): UpstreamProtocol {
   return format === "anthropic_messages" ? "anthropic" : format === "chat_completions" ? "openai" : "responses"
 }
 
-export function declaredProtocols(model: CatalogModel | undefined): ClientProtocol[] {
+export function declaredProtocols(model: CatalogModel | undefined): UpstreamProtocol[] {
   const endpoints = model?.supported_endpoints
   if (!Array.isArray(endpoints)) return []
-  const result: ClientProtocol[] = []
+  const result: UpstreamProtocol[] = []
   if (endpoints.includes("/chat/completions") || endpoints.includes("/v1/chat/completions")) result.push("openai")
   if (endpoints.includes("/responses") || endpoints.includes("/v1/responses")) result.push("responses")
   if (endpoints.includes("/v1/messages") || endpoints.includes("/messages")) result.push("anthropic")
