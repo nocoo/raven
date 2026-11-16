@@ -82,12 +82,16 @@ it does not automatically import Raven's catalog.
   declarations (`parameters` or `parametersJsonSchema`), calls and responses.
   Parallel calls retain their IDs. Name-only responses must identify one pending
   call unambiguously. Streaming arguments are buffered until the call completes.
+  Truncation, filtering or refusal never exposes an executable function call.
 - Temperature, top-p, output limit, stop sequences, penalties, seed, one candidate,
   JSON output/schema and function selection. Google schema type casing and
-  nullability are normalized; JSON Schema passes through.
+  nullability are normalized; JSON Schema passes through. Output limits use
+  `max_completion_tokens` on Copilot and `max_tokens` on custom Chat upstreams.
 - Requested thought text maps from `reasoning_content`. Thinking levels map to
   `reasoning_effort`; budgets `-1` (automatic) and `0` (none) are supported.
   Explicit positive token budgets have no faithful Chat equivalent and reject.
+  Reported reasoning usage becomes `thoughtsTokenCount`, separate from candidate
+  tokens; Raven's upstream quota and log accounting retain the original usage.
 - Token counting accepts `contents` or a `generateContentRequest` wrapper. It
   requires cached model metadata, performs no upstream call and settles no quota.
   Its tokenizer is an estimate, not Google's billing count.
@@ -114,6 +118,7 @@ bun run scripts/verify-gemini-cli.ts /path/to/gemini
 The CLI runner creates fresh SQLite/settings/workspace state, uses synthetic
 keys and random loopback ports, and blocks external sockets in the CLI child.
 It checks catalog reads, local token estimation, a streamed text reply and a
-fragmented `read_file` call followed by its result. It keeps a private report and
+fragmented `read_file` call followed by its result. A length-limited response with
+tool arguments must finish without executing the tool. It keeps a private report and
 request receipts outside the repository, then removes runtime state and both
 fixture servers. No live Copilot or Google account is exercised.

@@ -25,6 +25,13 @@ export function geminiUsage(value: unknown): Record<string, number> | undefined 
     const cached = (details as Record<string, unknown>).cached_tokens
     if (typeof cached === "number" && Number.isSafeInteger(cached) && cached >= 0) result.cachedContentTokenCount = cached
   }
+  const completionDetails = usage.completion_tokens_details as { reasoning_tokens?: unknown } | null | undefined
+  const thoughts = completionDetails?.reasoning_tokens ?? usage.reasoning_tokens
+  if (typeof thoughts === "number" && Number.isSafeInteger(thoughts) && thoughts >= 0
+    && (result.candidatesTokenCount === undefined || thoughts <= result.candidatesTokenCount)) {
+    result.thoughtsTokenCount = thoughts
+    if (result.candidatesTokenCount !== undefined) result.candidatesTokenCount -= thoughts
+  }
   return Object.keys(result).length ? result : undefined
 }
 
@@ -63,7 +70,8 @@ export function chatToGemini(value: unknown, includeThoughts: boolean) {
     if (!Number.isSafeInteger(choice.index) || Number(choice.index) < 0) throw new GeminiUpstreamError("Invalid upstream choice index")
     const message = object(choice.message)
     const parts = geminiTextParts(message, includeThoughts)
-    if (message.tool_calls != null) {
+    const finishReason = message.refusal ? "SAFETY" : geminiFinish(choice.finish_reason)
+    if (finishReason === "STOP" && message.tool_calls != null) {
       if (!Array.isArray(message.tool_calls)) throw new GeminiUpstreamError("Invalid upstream tool calls")
       for (const rawCall of message.tool_calls) {
         const call = object(rawCall)
@@ -72,7 +80,7 @@ export function chatToGemini(value: unknown, includeThoughts: boolean) {
         parts.push(geminiFunctionCall(call.id, fn.name, fn.arguments))
       }
     }
-    return { index: choice.index, content: { role: "model", parts }, finishReason: message.refusal ? "SAFETY" : geminiFinish(choice.finish_reason) }
+    return { index: choice.index, content: { role: "model", parts }, finishReason }
   })
   const usageMetadata = geminiUsage(response.usage)
   return { candidates, ...(typeof response.model === "string" ? { modelVersion: response.model } : {}),

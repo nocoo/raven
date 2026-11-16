@@ -61,6 +61,21 @@ test("Google header authenticates generation and preserves raw model, unified lo
   expect(h.db.query("SELECT client_format, upstream_format, model, status, strategy FROM requests").all()).toEqual([{ client_format: "gemini", upstream_format: "openai", model, status: "success", strategy: "gemini-chat" }])
 })
 
+test.each(["copilot", "custom"])("output limits use the %s upstream's Chat field", async kind => {
+  const strictModel = "gpt-5.4"
+  h.copilot([{ id: strictModel, supported_endpoints: ["/chat/completions"] }])
+  h.bind(kind === "copilot" ? COPILOT_UPSTREAM_ID : h.upstream().id, strictModel)
+  network.mockImplementationOnce(async (_url: unknown, init: RequestInit) => {
+    const sent = JSON.parse(String(init.body))
+    expect(sent[kind === "copilot" ? "max_completion_tokens" : "max_tokens"]).toBe(40)
+    expect(sent[kind === "copilot" ? "max_tokens" : "max_completion_tokens"]).toBeUndefined()
+    return jsonResponse(chatResponse(strictModel))
+  })
+  const response = await h.request(`/v1beta/models/${strictModel}:generateContent`, { ...body, generationConfig: { maxOutputTokens: 40 } })
+  expect(response.status).toBe(200)
+  expect(network).toHaveBeenCalledTimes(1)
+})
+
 test("key-bound custom Chat routing resolves auto and debits the selected quota", async () => {
   const provider = h.upstream()
   const rule = createRoutingRule(h.db, ruleInput({ allow_conversion: true, default_chain: [{ upstream_id: provider.id, model }] }))
@@ -87,6 +102,22 @@ test("streaming emits Gemini SSE and includes usage trailers with a single succe
   expect(wire).not.toContain("[DONE]")
   expect(ends()).toHaveLength(1)
   expect(ends()[0]?.data).toMatchObject({ status: "success", inputTokens: 20, outputTokens: 5 })
+})
+
+test.each([false, true])("thought usage is translated without changing quota charges (stream=%s)", async stream => {
+  saveQuotaPolicy(h.db, COPILOT_UPSTREAM_ID, quotaPolicy({ next_reset_at: Date.now() + 3600000 }))
+  const usage = { prompt_tokens: 10, completion_tokens: 24, total_tokens: 34, completion_tokens_details: { reasoning_tokens: 8 } }
+  network.mockResolvedValueOnce(stream
+    ? sseResponse([...generationEvents("openai", model).slice(0, -1), { choices: [], usage }, "[DONE]"])
+    : jsonResponse({ ...chatResponse(model), usage }))
+  const response = await h.request(stream ? streamPath : path, body)
+  const wire = await response.text()
+  expect(wire).toContain('"thoughtsTokenCount":8')
+  expect(wire).toContain('"candidatesTokenCount":16')
+  expect(wire).toContain('"totalTokenCount":34')
+  expect(getQuotaStatus(h.db, COPILOT_UPSTREAM_ID).used_tokens).toBe(34)
+  expect(ends()).toHaveLength(1)
+  expect(ends()[0]?.data).toMatchObject({ status: "success", inputTokens: 10, outputTokens: 24 })
 })
 
 test.each(["truncated", "inline", "malformed"])("stream %s yields Google error and records failure", async kind => {

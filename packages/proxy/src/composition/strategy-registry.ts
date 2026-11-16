@@ -57,8 +57,14 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     return { send: (payload: ResponsesPayload, signal?: AbortSignal) => client.send({ target: provider, payload }, signal) }
   }
   switch (decision.name) {
-    case "gemini-chat":
-      return makeGeminiChat(chat()) as unknown as AnyStrategy
+    case "gemini-chat": {
+      const client = chat()
+      return makeGeminiChat({ send: (payload, signal) => {
+        if (!copilot || payload.max_tokens == null) return client.send(payload, signal)
+        const { max_tokens, ...rest } = payload
+        return client.send({ ...rest, max_completion_tokens: max_tokens }, signal)
+      } }) as unknown as AnyStrategy
+    }
     case "copilot-systemone":
       return makeCopilotSystemone({ client: buildUpstreamClient("copilot-systemone", transport) }) as unknown as AnyStrategy
     case "copilot-decisions":

@@ -140,8 +140,8 @@ test.each([
   null, [], { error: {} }, {}, { choices: [] }, { choices: [null] },
   { choices: [{ index: -1, message: {} }] }, { choices: [{ index: 0, message: null }] },
   { choices: [{ index: 0, message: { content: [] } }] },
-  { choices: [{ index: 0, message: { tool_calls: {} } }] },
-  { choices: [{ index: 0, message: { tool_calls: [{ type: "custom" }] } }] },
+  { choices: [{ index: 0, message: { tool_calls: {} }, finish_reason: "tool_calls" }] },
+  { choices: [{ index: 0, message: { tool_calls: [{ type: "custom" }] }, finish_reason: "tool_calls" }] },
   { choices: [{ index: 0, message: {}, finish_reason: "unknown" }] },
 ])("malformed or failed upstream JSON %# never becomes a successful candidate", body => {
   expect(() => chatToGemini(body, false)).toThrow(GeminiUpstreamError)
@@ -157,8 +157,46 @@ test("usage preserves absence and zero without fabricating token buckets", () =>
   expect(geminiUsage({ prompt_tokens: 0, completion_tokens: -1, total_tokens: 1.2, prompt_tokens_details: { cached_tokens: "4" } })).toEqual({ promptTokenCount: 0 })
 })
 
+test.each([
+  { completion_tokens_details: { reasoning_tokens: 8 } },
+  { reasoning_tokens: 8 },
+])("usage separates thought tokens from candidate tokens: %j", details => {
+  expect(geminiUsage({ prompt_tokens: 10, completion_tokens: 24, total_tokens: 34, ...details }))
+    .toEqual({ promptTokenCount: 10, candidatesTokenCount: 16, thoughtsTokenCount: 8, totalTokenCount: 34 })
+})
+
+test("partial and inconsistent thought usage never fabricates candidate counts", () => {
+  expect(geminiUsage({ completion_tokens_details: { reasoning_tokens: 8 } })).toEqual({ thoughtsTokenCount: 8 })
+  expect(geminiUsage({ completion_tokens: 0, completion_tokens_details: { reasoning_tokens: 0 } })).toEqual({ candidatesTokenCount: 0, thoughtsTokenCount: 0 })
+  for (const reasoning_tokens of [-1, 25, 1.5, "8"]) {
+    expect(geminiUsage({ completion_tokens: 24, completion_tokens_details: { reasoning_tokens } })).toEqual({ candidatesTokenCount: 24 })
+  }
+})
+
 const chunk = (data: unknown, event: string | null = null) => ({ data: typeof data === "string" ? data : JSON.stringify(data), event, id: null, retry: null })
 const delta = (value: unknown, finish: string | null = null, index = 0) => ({ choices: [{ index, delta: value, finish_reason: finish }] })
+
+test.each([
+  ["length", undefined, "MAX_TOKENS"],
+  ["content_filter", undefined, "SAFETY"],
+  ["tool_calls", "Refused", "SAFETY"],
+])("JSON and SSE with %s do not expose executable function calls", (reason, refusal, expected) => {
+  for (const args of ['{"file_path":"fixture.txt"}', "{\"file_path\":"]) {
+    const tool = { id: "a", type: "function", function: { name: "read_file", arguments: args } }
+    const message = { content: "Partial answer", refusal, tool_calls: [tool] }
+    const json = chatToGemini({ choices: [{ index: 0, message, finish_reason: reason }] }, false)
+    expect(json.candidates[0]?.finishReason).toBe(expected)
+    expect(json.candidates[0]?.content.parts.some(part => "functionCall" in part)).toBe(false)
+    const state = createGeminiStream("fixture", false)
+    const opening = chatChunkToGemini(chunk(delta({ ...message, tool_calls: [{ ...tool, index: 0 }] })), state)
+    const ending = chatChunkToGemini(chunk(delta({}, reason!)), state)
+    const frames = [...opening, ...ending].map(event => JSON.parse(event.data))
+    expect(frames.at(-1).candidates[0].finishReason).toBe(expected)
+    expect(JSON.stringify(frames)).not.toContain("functionCall")
+    expect(chatChunkToGemini(chunk("[DONE]"), state)).toEqual([])
+    expect(finishGeminiStream(state)).toEqual([])
+  }
+})
 
 test("SSE assembles fragmented parallel tool calls and consumes late usage before DONE", () => {
   const state = createGeminiStream("requested", true)

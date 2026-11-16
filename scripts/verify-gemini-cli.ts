@@ -24,7 +24,7 @@ const model = "gemini-3.8-flash"
 const hits: ChatCompletionsPayload[] = []
 const requests: { path: string; body: unknown }[] = []
 const fixtureErrors: string[] = []
-let phase: "text" | "tool" = "text"
+let phase: "text" | "tool" | "blocked-tool" = "text"
 const receiver = Bun.serve({ hostname: "127.0.0.1", port: 0,
   async fetch(request) {
     assert.equal(new URL(request.url).pathname, "/v1/chat/completions")
@@ -35,6 +35,9 @@ const receiver = Bun.serve({ hostname: "127.0.0.1", port: 0,
     assert.equal(payload.stream, true)
     assert.equal("topK" in payload, false)
     if (phase === "text") return sseResponse(generationEvents("openai", model).map(event => typeof event === "object" ? JSON.parse(JSON.stringify(event).replaceAll("pong", "TEXT_FIXTURE_OK")) : event))
+    if (phase === "blocked-tool") return sseResponse([
+      { id: "fixture", model, choices: [{ index: 0, delta: { role: "assistant", content: "TOOL_BLOCKED", tool_calls: [{ index: 0, id: "blocked", type: "function", function: { name: "read_file", arguments: '{"file_path":"fixture.txt"}' } }] }, finish_reason: "length" }], usage: chatResponse().usage }, "[DONE]",
+    ])
     const result = payload.messages.find(message => message.role === "tool")
     if (result) {
       assert.equal(result.tool_call_id, "call_fixture")
@@ -126,9 +129,14 @@ try {
   const tool = await run("tool", ["-p", "Read line 1 of fixture.txt using read_file, then reply TOOL_FIXTURE_OK.", "--output-format", "json"])
   assert.equal(JSON.parse(tool).response, "TOOL_FIXTURE_OK")
   assert.equal(hits.length, 3)
+  phase = "blocked-tool"
+  const blocked = JSON.parse(await run("blocked-tool", ["-p", "Read fixture.txt using read_file.", "--output-format", "json"]))
+  assert.equal(blocked.response, "TOOL_BLOCKED")
+  assert.equal(blocked.stats.tools.totalCalls, 0)
+  assert.equal(hits.length, 4)
   assert.deepEqual(fixtureErrors, [])
-  writeFileSync(join(artifacts, "report.json"), JSON.stringify({ passed: true, version, requests: requests.map(item => item.path), upstreamRequests: hits.length, text: JSON.parse(text).stats, tool: JSON.parse(tool).stats }, null, 2))
-  console.log(`Gemini CLI text + tool round-trip passed (${version}): ${artifacts}`)
+  writeFileSync(join(artifacts, "report.json"), JSON.stringify({ passed: true, version, requests: requests.map(item => item.path), upstreamRequests: hits.length, text: JSON.parse(text).stats, tool: JSON.parse(tool).stats, blockedTool: blocked.stats }, null, 2))
+  console.log(`Gemini CLI text, tool round-trip and interrupted-tool rejection passed (${version}): ${artifacts}`)
 } finally {
   writeFileSync(join(artifacts, "requests.json"), JSON.stringify(requests, null, 2))
   writeFileSync(join(artifacts, "upstream.json"), JSON.stringify(hits, null, 2))

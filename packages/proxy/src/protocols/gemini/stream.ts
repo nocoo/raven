@@ -76,8 +76,10 @@ export function chatChunkToGemini(chunk: ServerSentEvent, state: GeminiStreamSta
     }
     let finishReason: string | undefined
     if (choice.finish_reason != null) {
-      for (const call of accumulated.calls.values()) parts.push(geminiFunctionCall(call.id, call.name, call.args))
       finishReason = accumulated.refused ? "SAFETY" : geminiFinish(choice.finish_reason)
+      if (finishReason === "STOP") {
+        for (const call of accumulated.calls.values()) parts.push(geminiFunctionCall(call.id, call.name, call.args))
+      }
       accumulated.finished = true
     }
     if (parts.length || finishReason) candidates.push({ index, content: { role: "model", parts }, ...(finishReason ? { finishReason } : {}) })
