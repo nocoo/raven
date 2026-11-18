@@ -10,7 +10,7 @@ import {
   Coins,
   Users,
   Zap,
-} from "lucide-react";
+} from "@nocoo/basalt/icons";
 import {
   formatCompact,
   formatLatency as fmtLatency,

@@ -1,7 +1,7 @@
 "use client";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, Field, Input, LayerCard, Switch } from "@nocoo/basalt";
-import { ExternalLink, LockKeyhole, Plug, SlidersHorizontal } from "lucide-react";
+import { ExternalLink, LockKeyhole, Plug, SlidersHorizontal } from "@nocoo/basalt/icons";
 import { SectionIcon } from "@/components/section-icon";
 import { FORMATS } from "@/lib/routing-model";
 import type { ProviderPublic, UpstreamFormat } from "@/lib/routing-types";

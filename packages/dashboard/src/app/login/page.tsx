@@ -2,7 +2,7 @@
 
 import { Button } from "@nocoo/basalt";
 import { LoadingScreen } from "@nocoo/basalt/components/loading-screen";
-import { Bird } from "lucide-react";
+import { Bird } from "@nocoo/basalt/icons";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";

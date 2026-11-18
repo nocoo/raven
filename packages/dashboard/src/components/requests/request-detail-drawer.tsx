@@ -4,10 +4,10 @@
 
 
 import { IPLookup } from "@/components/analytics/panels/ip-management";
-import { JsonBlock } from "@/components/ui/json-block";
+import { JsonBlock } from "@/components/requests/json-block";
 import type { ExtendedRequestRecord } from "@/lib/types";
 import { formatLatency } from "@/lib/chart-config";
-import { Copy, Terminal, TriangleAlert, X } from "lucide-react";
+import { Copy, Terminal, TriangleAlert, X } from "@nocoo/basalt/icons";
 import { Banner } from "@nocoo/basalt/components/banner";
 import {
   Badge,

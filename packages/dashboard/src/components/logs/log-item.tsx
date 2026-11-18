@@ -1,7 +1,7 @@
 "use client";
 import type { LogEvent } from "@/hooks/use-log-stream";
 import { Badge, Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@nocoo/basalt";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@nocoo/basalt/icons";
 import { logEntry } from "@/lib/log-entry";
 import { formatCompact, formatLatency } from "@/lib/chart-config";
 import { CopyButton } from "@/components/copy-button";

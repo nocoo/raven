@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@nocoo/basalt";
-import { CheckCircle2, CircleHelp } from "lucide-react";
+import { CheckCircle2, CircleHelp } from "@nocoo/basalt/icons";
 import { nativeProtocolRows } from "@/lib/routing-model";
 import type { ProviderPublic } from "@/lib/routing-types";
 

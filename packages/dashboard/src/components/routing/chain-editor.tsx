@@ -3,7 +3,7 @@
 import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard } from "@nocoo/basalt";
 import { Autocomplete } from "@nocoo/basalt/components/autocomplete";
 import { Banner } from "@nocoo/basalt/components/banner";
-import { ArrowDown, ArrowUp, CornerDownRight, GripVertical, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, CornerDownRight, GripVertical, Plus, Trash2 } from "@nocoo/basalt/icons";
 import { useId, useRef, useState } from "react";
 import { compatibility, dragState, FORMATS, IDLE_DRAG, modelIds, moveItem, previewChain } from "@/lib/routing-model";
 import type { ProviderPublic, RoutingTarget } from "@/lib/routing-types";

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { JsonBlock, tokenizeJson } from "@/components/ui/json-block";
+import { JsonBlock, tokenizeJson } from "@/components/requests/json-block";
 
 describe("tokenizeJson", () => {
   it("marks quoted strings followed by colon as keys, the rest as values", () => {

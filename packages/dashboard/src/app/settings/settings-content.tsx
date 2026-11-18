@@ -6,7 +6,7 @@
 import type { SettingsData, SettingInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Save, RotateCcw, Loader2, Tags } from "lucide-react";
+import { Save, RotateCcw, Loader2, Tags } from "@nocoo/basalt/icons";
 import { Button, Badge, Input } from "@nocoo/basalt";
 import { SettingsCard } from "./settings-ui";
 

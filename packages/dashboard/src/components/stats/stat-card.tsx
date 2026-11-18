@@ -1,5 +1,5 @@
 import { LayerCard } from "@nocoo/basalt";
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@nocoo/basalt/icons";
 import type { ComponentType } from "react";
 import { Sparkline } from "@/components/charts/sparkline";
 import { cn } from "@/lib/utils";

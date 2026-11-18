@@ -6,7 +6,7 @@ import type { OptimizationInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { SettingsCard, SettingToggleRow } from "./settings-ui";
-import { Zap } from "lucide-react";
+import { Zap } from "@nocoo/basalt/icons";
 
 // ── Optimization item definitions ──
 

@@ -1,9 +1,18 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { LayerCard } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
+export function Skeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn("animate-pulse rounded-md bg-basalt-muted motion-reduce:animate-none", className)}
+      {...props}
+    />
+  );
+}
 
 const ROWS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"];
 const FILTER_SKELETON_KEYS = ["time", "protocol", "key", "model", "status", "mode"];

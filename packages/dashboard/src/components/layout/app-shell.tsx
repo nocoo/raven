@@ -90,7 +90,7 @@ function AppShellInner({ children }: AppShellProps) {
           actions={<HeaderActions />}
         />
         <div className="relative flex min-h-0 min-w-0 flex-1">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col px-2 pb-2 md:px-3 md:pb-3">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col px-basalt-space-lg pb-basalt-space-lg md:px-basalt-layout-sm md:pb-basalt-layout-sm">
             <ContentIsland className="relative">
               <SetupWizard />
               <div id="main-content" className="dashboard-page @container/page min-w-0 w-full">

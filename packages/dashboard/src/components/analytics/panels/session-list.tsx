@@ -4,7 +4,7 @@
 import { cn } from "@/lib/utils";
 import { formatCompact } from "@/lib/chart-config";
 import type { SessionInfo } from "./types";
-import { Circle } from "lucide-react";
+import { Circle } from "@nocoo/basalt/icons";
 import { Badge, LayerCard } from "@nocoo/basalt";
 
 function formatPercent(v: number): string {

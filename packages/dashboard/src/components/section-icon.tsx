@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "@nocoo/basalt/icons";
 
 const tones = {
   blue: "bg-basalt-info/10 text-basalt-info",

@@ -1,6 +1,4 @@
-/* biome-ignore-all lint/correctness/noInvalidPositionAtImportRule: Basalt INTEGRATION requires @source before @import */
-@source "../../node_modules/@nocoo/basalt/dist/**/*.{js,jsx,ts,tsx}";
-@import "@nocoo/basalt/styles/tailwind";
+@import "@nocoo/basalt/styles";
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));

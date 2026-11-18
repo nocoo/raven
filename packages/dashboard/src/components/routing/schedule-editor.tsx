@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge, Button, Checkbox, ConfirmDialog, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, LayerCard, SegmentControl, useConfirm } from "@nocoo/basalt";
-import { Clock3, Copy, Moon, Plus, Trash2 } from "lucide-react";
+import { Clock3, Copy, Moon, Plus, Trash2 } from "@nocoo/basalt/icons";
 import { useId, useState, type ReactNode } from "react";
 import { availableWindow, changeScheduleMode, copyDay, DAY, DAYS, daySegments, minuteLabel, setWindowEnd, toUtcWindows, type LocalWindow } from "@/lib/routing-schedule";
 import type { ScheduleMode } from "@/lib/routing-types";

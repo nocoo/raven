@@ -6,7 +6,7 @@ import { LogItem } from "@/components/logs/log-item";
 import { filterLogGroups } from "@/lib/log-entry";
 import { useState, useRef, useLayoutEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import { Pause, Play, Trash2, Circle, Rocket, X } from "lucide-react";
+import { Pause, Play, Trash2, Circle, Rocket, X } from "@nocoo/basalt/icons";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { Button, Input, LayerCard } from "@nocoo/basalt";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";

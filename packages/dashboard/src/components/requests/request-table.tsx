@@ -13,7 +13,7 @@ import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { useAppPathname, useAppSearchParams } from "@/lib/app-navigation";
-import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUpDown, ChevronLeft, ChevronRight } from "@nocoo/basalt/icons";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@nocoo/basalt/components/table";
 

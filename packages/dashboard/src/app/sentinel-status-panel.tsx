@@ -12,7 +12,7 @@ import type { SentinelStatus } from "@/lib/types";
 import { OccurrencesDonut } from "./sentinel/occurrences-donut";
 import { RetryBar } from "./sentinel/retry-bar";
 import { LiveState } from "./sentinel/live-state";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/layout/page-skeleton";
 
 // ---------------------------------------------------------------------------
 // SentinelStatusPanel — orchestrator

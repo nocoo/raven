@@ -2,7 +2,7 @@
 
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Label, Switch, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
 import { InputArea } from "@nocoo/basalt/components/input-area";
-import { MapPin, ShieldCheck } from "lucide-react";
+import { MapPin, ShieldCheck } from "@nocoo/basalt/icons";
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadIPPolicy, locateIP, policyPayload, saveIPPolicy, type IPLocation, type IPPolicy } from "@/lib/ip-management";

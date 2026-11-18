@@ -1,4 +1,4 @@
-import { createLucideIcon } from "lucide-react";
+import { createLucideIcon } from "@nocoo/basalt/icons";
 
 export const Hexly = createLucideIcon("Hexly", [
   ["path", { d: "m12 2 8.66 5v10L12 22l-8.66-5V7Z", key: "hexagon" }],

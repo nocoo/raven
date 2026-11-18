@@ -9,7 +9,7 @@ import { SectionIcon } from "@/components/section-icon";
 import type { CopilotModel } from "@/lib/types";
 import { useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "lucide-react";
+import { RefreshCw, Check, Copy, Boxes, Building2, Brain, Eye } from "@nocoo/basalt/icons";
 import { Badge, Button, LayerCard } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { TagBadge } from "@nocoo/basalt/components/tag-badge";

@@ -1,6 +1,6 @@
 "use client";
 import type { IPWhitelistInfo } from "@/lib/types";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "@nocoo/basalt/icons";
 import { IPPolicyDialog } from "@/components/analytics/panels/ip-management";
 import { SettingsCard, SettingNote } from "./settings-ui";
 

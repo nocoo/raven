@@ -3,7 +3,7 @@
 import { Button, Field, Input } from "@nocoo/basalt";
 import { Banner } from "@nocoo/basalt/components/banner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
-import { AlertCircle, Check, PencilLine, Save, Undo2 } from "lucide-react";
+import { AlertCircle, Check, PencilLine, Save, Undo2 } from "@nocoo/basalt/icons";
 import { useEffect, useId, useState } from "react";
 
 export interface EditorClock { offset: number; zone: string; now: number }
