@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Settings2, Check } from "lucide-react";
+import { Settings2, Check } from "@nocoo/basalt/icons";
 import { Button } from "@nocoo/basalt";
 
 

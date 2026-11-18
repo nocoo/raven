@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { SettingsCard, SettingToggleRow } from "./settings-ui"
-import { Bug } from "lucide-react"
+import { Bug } from "@nocoo/basalt/icons"
 
 interface DebugInfo {
   enabled: boolean

@@ -8,7 +8,7 @@ import { SectionIcon, type SectionIconTone } from "@/components/section-icon";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  RefreshCw, User, Building2, CreditCard, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, Sparkles, Braces, type LucideIcon, } from "lucide-react";
+  RefreshCw, User, Building2, CreditCard, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, Sparkles, Braces, type LucideIcon, } from "@nocoo/basalt/icons";
 import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";

@@ -2,7 +2,7 @@
 
 import { Badge, Button, ConfirmDialog, LayerCard, Switch, Tabs, TabsContent, TabsList, TabsTrigger, useConfirm } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { ArrowLeftRight, CalendarClock, FilePlus2, GitBranch, LockKeyhole, Plus, Trash2 } from "lucide-react";
+import { ArrowLeftRight, CalendarClock, FilePlus2, GitBranch, LockKeyhole, Plus, Trash2 } from "@nocoo/basalt/icons";
 import { SectionIcon } from "@/components/section-icon";
 import { useState } from "react";
 import { ChainEditor } from "@/components/routing/chain-editor";

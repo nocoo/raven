@@ -2,7 +2,7 @@
 
 
 import type { TimeRange } from "@/lib/analytics-filters";
-import { Clock } from "lucide-react";
+import { Clock } from "@nocoo/basalt/icons";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 

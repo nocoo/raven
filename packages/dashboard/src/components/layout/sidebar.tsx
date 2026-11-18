@@ -35,7 +35,7 @@ import {
   Settings,
   Shield,
   Wrench,
-} from "lucide-react";
+} from "@nocoo/basalt/icons";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -236,6 +236,7 @@ function RavenSidebarBody({
                       onClick={() => go(item.href)}
                     >
                       <Icon className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+                      <span className="sr-only">{item.label}</span>
                     </SidebarIconItem>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={8}>

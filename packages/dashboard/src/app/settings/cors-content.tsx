@@ -6,7 +6,7 @@
 import type { CorsInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Globe } from "lucide-react";
+import { Globe } from "@nocoo/basalt/icons";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch } from "@nocoo/basalt";
 import {
   SettingAddRow,

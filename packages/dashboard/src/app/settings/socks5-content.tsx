@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle, XCircle, Network, Route } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Network, Route } from "@nocoo/basalt/icons";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch, Button, Input, Label } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";

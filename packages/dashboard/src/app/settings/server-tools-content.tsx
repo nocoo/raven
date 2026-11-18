@@ -1,7 +1,7 @@
 "use client"
 
 import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Input, Switch } from "@nocoo/basalt"
-import { Loader2, Search } from "lucide-react"
+import { Loader2, Search } from "@nocoo/basalt/icons"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { SettingNote, SettingsCard } from "./settings-ui"

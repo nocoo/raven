@@ -3,7 +3,7 @@
 
 import { cn } from "@/lib/utils";
 import { useState, useCallback } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from "@nocoo/basalt/icons";
 import { Button } from "@nocoo/basalt";
 
 interface CopyButtonProps {

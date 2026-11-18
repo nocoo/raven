@@ -3,7 +3,7 @@
 
 import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from "@nocoo/basalt/icons";
 import { Button, LayerCard } from "@nocoo/basalt";
 
 type TokenKind = "key" | "string" | "number" | "boolean" | "null" | "punct" | "whitespace";

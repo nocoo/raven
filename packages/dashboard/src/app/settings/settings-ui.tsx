@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Input, Label, LayerCard, Switch } from "@nocoo/basalt";
-import { Loader2, Plus, Trash2, type LucideIcon } from "lucide-react";
+import { Loader2, Plus, Trash2, type LucideIcon } from "@nocoo/basalt/icons";
 import type { ReactNode } from "react";
 import { SectionIcon, type SectionIconTone } from "@/components/section-icon";
 

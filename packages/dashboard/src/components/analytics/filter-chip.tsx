@@ -2,7 +2,7 @@
 
 
 import { filterLabel } from "@/lib/analytics-filters";
-import { X } from "lucide-react";
+import { X } from "@nocoo/basalt/icons";
 import { Badge, Button } from "@nocoo/basalt";
 
 interface FilterChipProps {

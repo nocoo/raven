@@ -1,4 +1,4 @@
-import { createLucideIcon } from "lucide-react";
+import { createLucideIcon } from "@nocoo/basalt/icons";
 
 // Extracted from lucide-react 0.503.0 (ISC license).
 // Brand icons were removed in lucide v1; inline this glyph to keep the mark stable.

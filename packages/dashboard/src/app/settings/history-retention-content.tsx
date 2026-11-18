@@ -1,6 +1,6 @@
 "use client";
 
-import { Database } from "lucide-react";
+import { Database } from "@nocoo/basalt/icons";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
 import { useHistoryRetention } from "@/hooks/use-history-retention";
 import { RETENTION_DAYS, type RetentionDays } from "../../../../proxy/src/core/history-retention";

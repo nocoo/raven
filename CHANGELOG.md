@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.3.5
+
+### Changed
+- Upgrade `@nocoo/basalt` from `3.3.6` to `^3.5.1`
+- Migrate dashboard CSS to two-line `@import "@nocoo/basalt/styles"; @import "tailwindcss";`
+- Rewrite all `lucide-react` imports to `@nocoo/basalt/icons` and remove `lucide-react` dependency
+- Align `ip-distribution` chart with `@nocoo/basalt/components/chart` and Recharts
+- Align `ContentIsland` outer inset with Basalt spacing tokens and add `sr-only` labels to `SidebarIconItem`
+
+### Removed
+- Delete `components/ui/skeleton.tsx` and relocate `json-block.tsx` out of `components/ui/`
+
 ## v3.3.4
 
 ### Changed

@@ -2,7 +2,7 @@
 
 import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, ConfirmDialog, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger, useConfirm } from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { FilePlus2, Globe, History, LockKeyhole, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { FilePlus2, Globe, History, LockKeyhole, Plus, RefreshCw, Trash2 } from "@nocoo/basalt/icons";
 import { useState } from "react";
 import { SectionIcon } from "@/components/section-icon";
 import { ConfigurationHeader, useEditorClock, useUnsavedChanges, type EditorClock } from "@/components/routing/routing-ui";

@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge, Collapsible, CollapsibleContent, Field, Input, LayerCard, Meter, Switch } from "@nocoo/basalt";
-import { Activity, Gauge } from "lucide-react";
+import { Activity, Gauge } from "@nocoo/basalt/icons";
 import { SectionIcon } from "@/components/section-icon";
 import { effectiveReset, type QuotaDraft } from "@/lib/upstream-model";
 import { localDateTime, utcDateTime } from "@/lib/routing-schedule";

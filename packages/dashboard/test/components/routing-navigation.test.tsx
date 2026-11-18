@@ -75,7 +75,7 @@ describe("routing navigation", () => {
     const nav = screen.getByRole("navigation", { name: "Main navigation" });
     expect(nav).toHaveClass("basalt-sidebar-nav", "gap-basalt-nav-gap");
     expect(screen.getByRole("button", { name: "Upstreams" })).toHaveClass(
-      "min-h-[calc(var(--basalt-line-row)+2*var(--basalt-space-lg))]",
+      "min-h-basalt-control",
     );
   });
 

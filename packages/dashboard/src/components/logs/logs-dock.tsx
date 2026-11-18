@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { ContentIsland } from "@nocoo/basalt";
 import { Dock } from "@nocoo/basalt/components/dock";
 import { Fab } from "@nocoo/basalt/components/fab";
-import { Terminal } from "lucide-react";
+import { Terminal } from "@nocoo/basalt/icons";
 import { LogsContent } from "@/app/logs/logs-content";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLogDock } from "./log-dock-context";

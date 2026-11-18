@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Activity, Clock3, Info, KeyRound, Route, Zap } from "lucide-react";
+import { ArrowRight, Activity, Clock3, Info, KeyRound, Route, Zap } from "@nocoo/basalt/icons";
 import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
 import type { ReactNode } from "react";
 import type { AnalyticsFilters } from "@/lib/analytics-filters";

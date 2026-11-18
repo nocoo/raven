@@ -4,7 +4,7 @@ import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Field, Lay
 import { Autocomplete } from "@nocoo/basalt/components/autocomplete";
 import { Banner } from "@nocoo/basalt/components/banner";
 import { InputArea } from "@nocoo/basalt/components/input-area";
-import { Database, ListPlus, RefreshCw, Send } from "lucide-react";
+import { Database, ListPlus, RefreshCw, Send } from "@nocoo/basalt/icons";
 import { SectionIcon } from "@/components/section-icon";
 import { modelIds } from "@/lib/routing-model";
 import type { ProviderPublic } from "@/lib/routing-types";

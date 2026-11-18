@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@nocoo/basalt";
-import { GitBranch } from "lucide-react";
+import { GitBranch } from "@nocoo/basalt/icons";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Feedback, RoutingSelect } from "@/components/routing/routing-ui";

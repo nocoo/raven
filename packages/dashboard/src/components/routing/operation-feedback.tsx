@@ -2,7 +2,7 @@
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard, toast } from "@nocoo/basalt";
 import { Banner } from "@nocoo/basalt/components/banner";
-import { AlertCircle, Check, MessageSquare } from "lucide-react";
+import { AlertCircle, Check, MessageSquare } from "@nocoo/basalt/icons";
 import { useEffect, useId, useRef } from "react";
 import { CopyButton } from "@/components/copy-button";
 import { errorMessage, RoutingRequestError, type RoutingFeedback } from "@/lib/routing-client";

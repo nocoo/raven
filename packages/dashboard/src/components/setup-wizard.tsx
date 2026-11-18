@@ -7,7 +7,7 @@ import { CodeBlock } from "@/components/code-block";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { useState, useEffect } from "react";
 import {
-  Monitor, Shield, Terminal, Key, Cable, ChevronRight, ChevronLeft, Rocket, ExternalLink, X, } from "lucide-react";
+  Monitor, Shield, Terminal, Key, Cable, ChevronRight, ChevronLeft, Rocket, ExternalLink, X, } from "@nocoo/basalt/icons";
 import { Github } from "@/components/icons/github";
 import {
   Badge,

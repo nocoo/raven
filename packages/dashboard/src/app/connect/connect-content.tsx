@@ -21,7 +21,7 @@ import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/l
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Cpu, ExternalLink, ChevronRight, Plug, BookOpen, Activity, } from "lucide-react";
+  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Cpu, ExternalLink, ChevronRight, Plug, BookOpen, Activity, } from "@nocoo/basalt/icons";
 import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";

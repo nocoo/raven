@@ -14,7 +14,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useAppPathname } from "@/lib/app-navigation";
-import { Filter, RefreshCw, RotateCcw } from "lucide-react";
+import { Filter, RefreshCw, RotateCcw } from "@nocoo/basalt/icons";
 import { Button, Input } from "@nocoo/basalt";
 import { keyIdentity, PROTOCOL_META, PROTOCOL_MODES, type UsageDimension } from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
