@@ -463,7 +463,7 @@ VITEST_MAX_WORKERS=2 bun ../../node_modules/vitest/vitest.mjs run semantic-contr
     ["content_block_start · index 0", "工具 A 开始，参数目前只有“{”。", "已打开的内容块：A", false],
     ["content_block_stop · index 0", "工具 B 开始，适配器提前关闭了 A。", "A 已关闭 · 参数尚未完整", false],
     ["content_block_start · index 1", "工具 B 开始，参数目前只有“{”。", "已打开的内容块：B · A 仍处于关闭状态", false],
-    ["input_json_delta · index 0", '工具 A 在结束事件之后，继续收到“\"a\":1}”。', "生命周期错误：向已关闭的内容块 0 发送增量", true],
+    ["input_json_delta · index 0", '工具 A 在结束事件之后，继续收到“"a":1}”。', "生命周期错误：向已关闭的内容块 0 发送增量", true],
     ["input_json_delta · index 1", "工具 B 正常完成，但 A 已违反协议契约。", "B 已完成 · A 的事件顺序非法", false],
     ["message_delta → message_stop", "工具事件顺序已出错，响应仍正常结束。", "流已结束 · 协议契约验证失败", true],
   ];
