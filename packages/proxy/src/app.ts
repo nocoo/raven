@@ -11,6 +11,7 @@ import { responsesRoutes } from "./routes/responses/route"
 import { systemoneRoutes } from "./routes/systemone/route"
 import { decisionsRoutes } from "./routes/decisions/route"
 import { imageEditsRoutes, imagesRoutes } from "./routes/images/route"
+import { geminiRoutes, geminiErrorResponses } from "./routes/gemini/route"
 import { modelRoutes } from "./routes/models/route"
 import { embeddingRoutes } from "./routes/embeddings/route"
 import { createStatsRoute } from "./routes/stats"
@@ -63,6 +64,8 @@ export function createApp(deps: AppDeps): Hono {
   app.use("/v1/*", aiAuth)
   app.use("/chat/*", aiAuth)
   app.use("/embeddings", aiAuth)
+  app.use("/v1beta/*", geminiErrorResponses)
+  app.use("/v1beta/*", apiKeyAuth({ db, envApiKey: apiKey ?? null, googleApiKey: true }))
 
   // Dashboard management routes require a loopback peer and internal credential.
   const mgmtAuth = dashboardAuth({
@@ -85,6 +88,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/v1/images/generations", imagesRoutes)
   app.route("/v1/images/edits", imageEditsRoutes)
   app.route("/v1/models", modelRoutes)
+  app.route("/v1beta/models", geminiRoutes)
   app.route("/v1/embeddings", embeddingRoutes)
   app.route("/embeddings", embeddingRoutes) // no-prefix alias
 

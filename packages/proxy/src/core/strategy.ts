@@ -21,6 +21,7 @@ export type StrategyName =
   | "custom-openai"
   | "custom-anthropic"
   | "protocol-converted"
+  | "gemini-chat"
 
 /**
  * Enumerated runtime list of every legal `StrategyName`. Mirrors the
@@ -40,6 +41,7 @@ export const STRATEGY_NAMES = [
   "custom-openai",
   "custom-anthropic",
   "protocol-converted",
+  "gemini-chat",
 ] as const satisfies readonly StrategyName[]
 
 export function isStrategyName(value: string): value is StrategyName {

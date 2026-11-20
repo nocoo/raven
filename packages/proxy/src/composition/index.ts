@@ -16,11 +16,12 @@ import type { ChatCompletionsPayload } from "../upstream/copilot-openai"
 import type { ResponsesPayload } from "../upstream/copilot-responses"
 import type { SystemonePayload } from "../protocols/systemone"
 import type { ImageEndpoint, NativeJsonPayload } from "../protocols/native-json"
+import type { GeminiPayload } from "../protocols/gemini/request"
 import { buildStrategy, type BuildStrategyDeps } from "./strategy-registry"
 import { accountedFetch, resolveRouting } from "./routing"
 import { logEmitter } from "../util/log-emitter"
 
-export type GenerationPayload = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload | SystemonePayload | NativeJsonPayload
+export type GenerationPayload = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload | SystemonePayload | NativeJsonPayload | GeminiPayload
 export type { ClientProtocol } from "../core/router"
 export type { StrategyName } from "../core/strategy"
 

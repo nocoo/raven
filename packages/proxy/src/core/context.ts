@@ -15,7 +15,7 @@ import { deriveClientIdentity } from "../util/client-identity"
 import { generateRequestId } from "../util/id"
 import type { RoutingSelection } from "./routing-types"
 
-export type RequestFormat = "openai" | "anthropic" | "responses" | "systemone" | "decisions" | "images"
+export type RequestFormat = "openai" | "anthropic" | "responses" | "systemone" | "decisions" | "images" | "gemini"
 
 export interface RequestContext {
   clientIP?: string | null
@@ -27,7 +27,7 @@ export interface RequestContext {
   routing?: RoutingSelection
   quotaUsage?: { weighted_tokens: number; complete: boolean; healthy: boolean }
   diagnostic?: boolean
-  upstreamProtocol?: RequestFormat
+  upstreamProtocol?: Exclude<RequestFormat, "gemini">
   /** ULID-like; set once per request and reused as DB key + log correlation key. */
   requestId: string
   /** `performance.now()` at handler entry; used for TTFT / total latency. */
