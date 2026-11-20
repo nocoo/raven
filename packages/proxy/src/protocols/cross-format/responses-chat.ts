@@ -86,6 +86,9 @@ export interface ChatToResponsesStreamState {
   itemSeq: number
   finishReason: ChatCompletionChunk["choices"][number]["finish_reason"]
   done: boolean
+  upstreamEnd: "done" | "eof"
+  lastFrame: "none" | "choices" | "usage" | "other" | "unparsed"
+  unparsedFrameSeen: boolean
   finalized: boolean
   inlineFailed: boolean
   usage: ChatCompletionChunk["usage"]
@@ -106,6 +109,9 @@ export function initChatToResponsesStreamState(model: string): ChatToResponsesSt
     itemSeq: 0,
     finishReason: null,
     done: false,
+    upstreamEnd: "eof",
+    lastFrame: "none",
+    unparsedFrameSeen: false,
     finalized: false,
     inlineFailed: false,
     usage: null,
@@ -120,6 +126,7 @@ export function adaptChatChunkToResponsesSse(
   state: ChatToResponsesStreamState,
 ): SSEMessage[] {
   if (state.finalized || state.inlineFailed) return []
+  state.lastFrame = chunk.choices?.length ? "choices" : chunk.usage ? "usage" : "other"
   if (isChatErrorChunk(chunk)) {
     state.inlineFailed = true
     return [responsesEvent(state, "error", { message: chatErrorMessage(chunk) })]
@@ -262,10 +269,16 @@ export function finalizeChatToResponsesStream(state: ChatToResponsesStreamState)
   return out
 }
 
+export class MissingChatFinishReasonError extends Error {
+  constructor({ upstreamEnd, lastFrame, unparsedFrameSeen }: ChatToResponsesStreamState) {
+    super(`Truncated stream: terminal response event was not received (upstream_end=${upstreamEnd}, last_frame=${lastFrame}, unparsed_frame_seen=${unparsedFrameSeen}, usable_finish_reason=false)`)
+  }
+}
+
 export function assertResponsesStreamCompleted(state: ChatToResponsesStreamState): void {
   if (state.inlineFailed) return
   if (!state.done) {
-    throw new Error("Truncated stream: terminal response event was not received")
+    throw new MissingChatFinishReasonError(state)
   }
 }
 
