@@ -124,4 +124,21 @@ describe("converted Responses stream lifecycle", () => {
       message: "Upstream stream ended before a terminal response event: Chat Completions did not provide a usable finish_reason.",
     }])
   })
+
+  test("preserves the error contract of the Anthropic-backed conversion", () => {
+    const strategy = makeProtocolConverted({ source: "responses", target: "anthropic_messages", exactModel: true, client: { send: async () => ({}) } })
+    const ctx = { requestId: "fixture" } as RequestContext
+    const state = strategy.initStreamState({ model: "m", messages: [], stream: true }, ctx)
+    const frame = (value: object) => ({ event: null, id: null, retry: null, data: JSON.stringify(value) })
+    strategy.adaptChunk(frame({ type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "call_fixture", name: "echo", input: {} } }), state, ctx)
+    strategy.adaptChunk(frame({ type: "message_stop" }), state, ctx)
+    let error: unknown
+    try { strategy.finalizeStream!(state, ctx) } catch (caught) { error = caught }
+
+    expect(error).toHaveProperty("message", "Truncated stream: terminal response event was not received")
+    expect(decode(strategy.adaptStreamError(error, state, ctx))).toEqual([{
+      type: "error",
+      message: "Truncated stream: terminal response event was not received",
+    }])
+  })
 })

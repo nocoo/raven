@@ -86,7 +86,7 @@ export interface ChatToResponsesStreamState {
   itemSeq: number
   finishReason: ChatCompletionChunk["choices"][number]["finish_reason"]
   done: boolean
-  upstreamEnd: "done" | "eof"
+  upstreamEnd?: "done" | "eof"
   lastFrame: "none" | "choices" | "usage" | "other" | "unparsed"
   unparsedFrameSeen: boolean
   finalized: boolean
@@ -109,7 +109,6 @@ export function initChatToResponsesStreamState(model: string): ChatToResponsesSt
     itemSeq: 0,
     finishReason: null,
     done: false,
-    upstreamEnd: "eof",
     lastFrame: "none",
     unparsedFrameSeen: false,
     finalized: false,
@@ -271,7 +270,10 @@ export function finalizeChatToResponsesStream(state: ChatToResponsesStreamState)
 
 export class MissingChatFinishReasonError extends Error {
   constructor({ upstreamEnd, lastFrame, unparsedFrameSeen }: ChatToResponsesStreamState) {
-    super(`Truncated stream: terminal response event was not received (upstream_end=${upstreamEnd}, last_frame=${lastFrame}, unparsed_frame_seen=${unparsedFrameSeen}, usable_finish_reason=false)`)
+    const message = "Truncated stream: terminal response event was not received"
+    super(upstreamEnd
+      ? `${message} (upstream_end=${upstreamEnd}, last_frame=${lastFrame}, unparsed_frame_seen=${unparsedFrameSeen}, usable_finish_reason=false)`
+      : message)
   }
 }
 

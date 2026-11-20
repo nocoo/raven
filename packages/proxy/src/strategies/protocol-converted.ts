@@ -293,8 +293,11 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           return []
         case "chat-to-messages":
           return finalizeAnthropicToChatStream(state.anthropic!, deps.includeUsage ?? false)
-        case "responses-to-chat":
-          return finalizeChatToResponsesStream(state.responses!)
+        case "responses-to-chat": {
+          const responses = state.responses!
+          responses.upstreamEnd ??= "eof"
+          return finalizeChatToResponsesStream(responses)
+        }
         case "responses-to-messages": {
           if (state.anthropic!.inlineFailed || state.responses!.inlineFailed) return []
           const tail = finalizeAnthropicToChatStream(state.anthropic!)
