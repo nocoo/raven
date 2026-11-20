@@ -33,6 +33,7 @@ import {
   finalizeChatToResponsesStream,
   chatJsonToResponses,
   initChatToResponsesStreamState,
+  MissingChatFinishReasonError,
   parseChatChunk,
   responsesJsonToChat,
   responsesRequestToChat,
@@ -247,12 +248,22 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           return out
         }
         case "responses-to-chat": {
-          if (chunk.data === "[DONE]") return finalizeChatToResponsesStream(state.responses!)
-          const parsed = typeof chunk.data === "string" ? parseChatChunk(chunk.data) : null
-          if (!parsed) return []
-          const events = adaptChatChunkToResponsesSse(parsed, state.responses!)
-          state.inlineFailed = state.responses!.inlineFailed
-          state.terminalSeen = state.responses!.done
+          const responses = state.responses!
+          const data = chunk.data.trim()
+          if (data === "[DONE]") {
+            responses.upstreamEnd = "done"
+            return finalizeChatToResponsesStream(responses)
+          }
+          if (!data) return []
+          const parsed = parseChatChunk(data)
+          if (!parsed) {
+            responses.lastFrame = "unparsed"
+            responses.unparsedFrameSeen = true
+            return []
+          }
+          const events = adaptChatChunkToResponsesSse(parsed, responses)
+          state.inlineFailed = responses.inlineFailed
+          state.terminalSeen = responses.done
           return events
         }
       }
@@ -261,11 +272,11 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
       state.inlineFailed || state.anthropic?.inlineFailed || state.responses?.inlineFailed
         ? "error"
         : "success",
-    isStreamTerminal: (chunk, state) => {
+    isStreamTerminal: (_chunk, state) => {
       switch (kind) {
         case "messages-to-responses": return state.messages!.chat.done
         case "chat-to-responses": return state.chat!.done
-        case "responses-to-chat": return chunk.data === "[DONE]"
+        case "responses-to-chat": return state.responses!.upstreamEnd === "done"
         default: return state.terminalSeen
       }
     },
@@ -282,8 +293,11 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           return []
         case "chat-to-messages":
           return finalizeAnthropicToChatStream(state.anthropic!, deps.includeUsage ?? false)
-        case "responses-to-chat":
-          return finalizeChatToResponsesStream(state.responses!)
+        case "responses-to-chat": {
+          const responses = state.responses!
+          responses.upstreamEnd ??= "eof"
+          return finalizeChatToResponsesStream(responses)
+        }
         case "responses-to-messages": {
           if (state.anthropic!.inlineFailed || state.responses!.inlineFailed) return []
           const tail = finalizeAnthropicToChatStream(state.anthropic!)
@@ -299,6 +313,16 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
       }
     },
     adaptStreamError: (err) => {
+      if (kind === "responses-to-chat" && err instanceof MissingChatFinishReasonError) {
+        return [{
+          event: "error",
+          data: JSON.stringify({
+            type: "error",
+            code: "upstream_stream_read_error",
+            message: "Upstream stream ended before a terminal response event: Chat Completions did not provide a usable finish_reason.",
+          }),
+        }]
+      }
       const message = err instanceof Error ? err.message : "An upstream error occurred during streaming."
       if (deps.source === "chat_completions") {
         return [{
