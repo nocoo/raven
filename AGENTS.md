@@ -1,103 +1,73 @@
 # Raven
 
-Personal local model-API proxy and dashboard for GitHub Copilot and configured upstream providers.
-Profile: ts-worker-web (Bun server with local SQLite; no Cloudflare runtime).
-Direction: [architecture](docs/20-architecture-refactor.md), [operations](docs/26-agent-operations.md).
-
-## Sources of Truth
-
-This file is the contract; hooks, CI and config enforce it. Raise weaker enforcement to match, never reduce requirements. Frameworks must not replace this handbook.
-
-Maintain project instructions only in this root `AGENTS.md`. Do not create nested instruction files or any `CLAUDE.md`. Dashboard disables Next.js agent-file generation with `agentRules: false`; consult the installed Next.js guides in `packages/dashboard/node_modules/next/dist/docs/` before changing framework APIs.
-
-| Fact | Where |
-| --- | --- |
-| Human docs | [README.md](README.md), [docs/README.md](docs/README.md) |
-| Version | Root/dashboard `package.json`, `scripts/release.ts` |
-| Enforcement | `.husky/`, hook TS scripts, CI, Vitest configs and `docs/20-baseline.json` |
-| Environment | Ignored Proxy/Dashboard `.env.local`; package `.env.example` files |
-| Accidents | [Retrospective.md](Retrospective.md) |
-
-## Project Invariants
-
-- Personal local research is the primary scope. Preserve API versus internal management keys and GitHub OAuth versus Copilot JWT distinctions; do not weaken authentication when a database is empty.
-- Seven-layer proxy architecture, seven established strategies, shared `protocol-converted` and native `copilot-systemone` follow [operations](docs/26-agent-operations.md). Composition is the sole routes↔strategies/upstream bridge; strategies receive injected dependencies; protocols remain pure.
-- Share server-tool interception through the existing decorator; preserve correct JSON/SSE shapes and raw model IDs. Do not rewrite model names to compensate for a client's display bug.
-- Native `/v1/systemone`, `/v1/decisions`, `/v1/images/generations` and multipart `/v1/images/edits` use exact Copilot catalog declarations and the Copilot token's validated API destination, unified key-bound admission and raw JSON responses. No protocol conversion, inference retries, redirect following or fabricated fields. Copilot image edits transport is covered by isolated tests, not live verification. See [protocol evidence](docs/30-systemone.md).
-- Management `/api/*` and `/ws/logs` require a loopback socket peer plus `RAVEN_INTERNAL_KEY`; client API keys never authorize management. Model global/key IP whitelists share the IPv4/IPv6 core; geography is Dashboard-only enrichment.
-- Tokens/database belong in platform user directories with private permissions, not Git. Preserve `RAVEN_CONFIG_DIR`, `RAVEN_DATA_DIR`, `RAVEN_TOKEN_PATH`, `RAVEN_DB_PATH` and legacy migration semantics.
-- Upstream HTTP is always mocked in unit/in-process route tests. Never place real tokens in fixtures or automatically exercise a real Copilot/provider account.
-- Any separately authorized live diagnostic stops at the first upstream error, no retry/loop/load testing, one request per case. It does not qualify as isolated L2/L3 proof.
-- Use Bun workspaces only; mixing package managers can create duplicate React instances. Keep MVVM and the shared log-stream path/ring-buffer/event contracts documented in [operations](docs/26-agent-operations.md).
-
-## Stack / Layout
-
-| Component | Choice |
-| --- | --- |
-| Proxy | `packages/proxy`, Bun/Hono, SQLite, protocol/SSE adapters |
-| Dashboard | `packages/dashboard`, Next.js/React, Basalt, SWR/Recharts |
-| Quality | TypeScript 7 strict, Biome, Vitest, bun:test, Playwright |
-| Support | Root `scripts/` gates; dependency-cruiser architecture rules |
+Personal local model-API proxy (`packages/proxy`: Bun/Hono, SQLite, protocol/SSE adapters; no Cloudflare runtime) and dashboard (`packages/dashboard`: Next.js 16/React, `@nocoo/basalt`, SWR/Recharts) for GitHub Copilot and configured upstream providers.
+Tooling: TypeScript 7 strict, Biome, Vitest, `bun:test`, Playwright, root `scripts/` gates, `dependency-cruiser`.
+Docs: [README.md](README.md) · [Docs](docs/README.md) · [Architecture](docs/20-architecture-refactor.md) · [Operations](docs/26-agent-operations.md) · [Systemone](docs/30-systemone.md) · [Docker](docs/31-docker-deployment.md) · [VPS](docs/14-vps-deployment.md) · [Retrospective](Retrospective.md)
 
 ## Commands
 
-Run from root with Bun 1.3.11+ and the Node.js 26 release pinned in [.node-version](.node-version). CI reads the same Node version file; use its pinned Bun version for CI reproduction.
+Run from root with Bun 1.3.11+ and the Node.js 26 release pinned in [.node-version](.node-version) (CI reads the same file; match CI's pinned Bun version when reproducing CI). Local `.env.local` files are ignored; variable names live in `packages/proxy/.env.example`, `packages/dashboard/.env.example`, and `.env.docker.example`.
 
 ```sh
 bun install --frozen-lockfile
-bun run dev
-bun run typecheck
-bun run lint
-bun run build
-bun run test:all
-bun run test:root
-bun run test:l2
-bun run gate:coverage
-bun run gate:arch
-bun run gate:security
+bun run dev                  # Dashboard :7023 / Proxy :7024 (real GitHub/Copilot auth)
+bun run typecheck            # S1
+bun run lint                 # S2 check-only, 0 warnings
+bun run build                # B1 Next.js production bundle
+bun run test:all             # L1 workspace tests (Proxy + Dashboard)
+bun run test:root            # L1 workspace + scripts unit tests
+bun run test:l2              # L2 in-process route/handler tests (mocked upstream)
+bun run gate:coverage        # L1 baseline gate (Proxy >=97.5% floor + scripts/lib >=95%)
+bun run gate:arch            # dependency-cruiser + fetch-boundary + micro-gates
+bun run gate:security        # G1/G2 gitleaks + osv-scanner (hard-fail when missing)
+bun run gate:docker-context  # CI .dockerignore build-input verification
 ```
 
-`dev`/`start:proxy` perform real GitHub/Copilot authentication; they are not test setup. Proxy needs separate `RAVEN_API_KEY` and `RAVEN_INTERNAL_KEY`; Dashboard uses matching internal key and `RAVEN_PROXY_URL`. `test:e2e` uses real configuration/database/upstream; `test:ui` uses test DB but still needs real GitHub auth. Do not run those for routine verification; a fully isolated local system runner is planned.
+- `dev` and `start:proxy` perform real GitHub/Copilot auth (not test setup). Proxy requires separate `RAVEN_API_KEY` and `RAVEN_INTERNAL_KEY`; Dashboard uses matching `RAVEN_INTERNAL_KEY` and `RAVEN_PROXY_URL`.
+- Do not run `test:e2e` (real config/DB/upstream) or `test:ui` (fixed test DB + real GitHub auth) for routine verification; a full isolated system runner is `planned`.
+- After `bun run build`, `bun run scripts/verify-routing-ui.ts` tests Routing/Upstreams/Connect/Requests using per-run SQLite, synthetic keys, random loopback ports, and a fixture upstream (reports saved outside).
 
-After a production build, `bun run scripts/verify-routing-ui.ts` exercises Routing/Upstreams/Connect/Requests with per-run SQLite, synthetic credentials, random loopback ports and a local fixture upstream. It preserves screenshots and a report outside the repository and removes its runtime state. This bounded workflow does not establish complete endpoint/workflow coverage or change the planned L2/L3/D1 status.
+## Invariants
 
-## Verification
+- Personal local research is primary scope. Keep client API vs internal management keys and GitHub OAuth vs Copilot JWT distinct; never weaken auth when the DB is empty.
+- Proxy follows [operations](docs/26-agent-operations.md): 7 layers, `composition/` is sole `routes/`↔`strategies/`/`upstream/` bridge, injected strategy deps (incl. `protocol-converted`/native), pure `protocols/`.
+- Share server-tool interception through the existing decorator; preserve JSON/SSE shapes and raw model IDs. Never rewrite model names to compensate for client display bugs.
+- Native `/v1/systemone`, `/v1/decisions`, `/v1/images/generations`, and multipart `/v1/images/edits` use exact Copilot catalog entries, validated token API hosts, and key-bound admission ([docs](docs/30-systemone.md)).
+- Those native endpoints return raw JSON with no protocol conversion, inference retries, redirect following, or fabricated fields; Copilot image edits transport is verified by isolated tests only, not live.
+- Management `/api/*` and `/ws/logs` require a loopback socket peer plus `RAVEN_INTERNAL_KEY` (never client API keys). Global/key IP whitelists share the IPv4/IPv6 core; geo lookup is Dashboard-only enrichment.
+- Store tokens/DB in platform user dirs with private permissions, never Git. Preserve `RAVEN_CONFIG_DIR`, `RAVEN_DATA_DIR`, `RAVEN_TOKEN_PATH`, `RAVEN_DB_PATH`, and legacy migration semantics.
+- Always mock upstream HTTP in unit and in-process route tests. Never place real tokens in fixtures or automatically exercise a real Copilot/provider account.
+- Separately authorized live diagnostics stop at the first upstream error (one request/case, no retries/loops/load) and never qualify as isolated L2–L4 proof or imply dry runs validated live upstreams.
+- Use Bun workspaces only (mixing package managers duplicates React). Preserve Dashboard MVVM and shared log-stream path/ring-buffer/event contracts in [operations](docs/26-agent-operations.md).
+- Dashboard sets `agentRules: false`; consult `packages/dashboard/node_modules/next/dist/docs/` before changing Next.js APIs. Keep versions synced across root/dashboard `package.json` and `scripts/release.ts`.
+- Authorized releases run `bun run release`; GitHub Releases trigger `docker-publish.yml` (`ghcr.io/nocoo/raven`, `linux/amd64`, proven CI) for `compose.prod.yaml` + `.env` ([Docker](docs/31-docker-deployment.md)).
+- Network deployment requires Google OAuth for Dashboard, explicit API/management access controls, and IP whitelists ([VPS guide](docs/14-vps-deployment.md)).
 
-Status: `enforced`, `planned`, `manual`, `N/A`. No focused/skipped tests; all four L1 metrics ≥95%, preserving stricter baseline floors.
+## Quality & Local Gates
 
-| Piece | Requirement and current reality | Status | Evidence |
-| --- | --- | --- | --- |
-| L1 coverage: Proxy | Four metrics ≥95%, plus baseline line floor ≥97.5%, ≤0.1pp regression and no untested files | enforced | `gate:coverage` retains the stronger line/directory baseline, regression and untested-file rules; Vitest enforces all four 95% thresholds |
-| L1 coverage: Dashboard | Four metrics ≥95% | enforced | Dashboard tests and CI enforce all four 95% thresholds on the declared scope |
-| L1 coverage: scripts | Four metrics ≥95% | enforced | The baseline gate explicitly runs the dedicated Bun/Istanbul config for the declared `scripts/lib` scope; reports are isolated in `coverage/scripts` |
-| L2 | Every API endpoint/method through real isolated HTTP/SQLite | planned | CI `test:l2` is in-process route/handler tests with mocked upstream; legacy live E2E uses real state |
-| L3 | Real isolated dashboard/auth/provider workflows | planned | Playwright manual runner uses real auth and fixed test DB |
-| L1 complete contract | Coverage above plus strict types, zero-warning/error check-only Biome, architecture boundaries and verified index-snapshot rejection | enforced | `.husky/pre-commit` exports `git checkout-index` to a temp tree, symlinks installed `node_modules`, runs parallel check-only gates via `scripts/pre-commit.ts` (`GIT_WORK_TREE` = snapshot), Biome on staged paths only; gitleaks on the real index; trap cleanup on exit/interrupt |
-| G2 | Required OSV and gitleaks, fail when absent | enforced | `gate:security`, pre-push and CI |
-| D1 | Per-run test DB/config/token paths and local fixture upstream | planned | Legacy HTTP E2E reuses real database; browser fixed test DB still uses real credentials |
-| Build | Next production bundle | manual | Root `build`; mandatory for runtime/bundler changes |
-| Docs | Protocol and gate-baseline evidence kept current | manual | Numbered guide review |
+Follows `system1-quality`; hooks, CI, and config enforce this contract (raise weaker enforcement to match, never weaken requirements). CI slot definitions and pinned `base-ci` revision live in `.github/workflows/quality-slots.yml` (`quality / Z1: Gate` required on `main`), alongside `arch` and `docker-context` jobs in `.github/workflows/ci.yml`. Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
 
-Pre-commit gates the **Git index snapshot** (`checkout-index` temp dir, not the working tree): `gate:coverage`, Dashboard/script tests, index-scoped Biome, typecheck/micro-gates, and staged gitleaks. Pre-push runs the same baseline gate, architecture, full lint and G2 on working files. Never replace baseline entry with bare Vitest. Target: check-only index unified L1 <30s, stdin pushed-ref local L2/G2 <3min; no hook bypass or soft-security mode.
+- **L1 coverage (`enforced`)**: No focused/skipped tests; all 4 metrics >=95% for Proxy, Dashboard, and `scripts/lib` (`vitest.scripts.config.ts` → `coverage/scripts`).
+- **Proxy baseline (`enforced`)**: `gate:coverage` enforces `docs/20-baseline.json` (>=97.5% line floor, per-dir floors, <=0.1pp regression, no new untested files); never swap for bare Vitest.
+- **Exceptions / gaps**: `L2 Runtime` is `enforced` via in-process route tests (mocked upstream); isolated real-HTTP/SQLite `L3 Integration` and `L4 E2E` are `planned` (CI gated off).
+- **N/A & manual**: `P1 Package` is `N/A` (private monorepo); protocol and baseline doc updates are `manual`. `scripts/verify-routing-ui.ts` covers Routing flows only, not full `L3`/`L4`.
+- **Pre-commit (`.husky/pre-commit`)**: Installed via `bun run prepare`. Runs staged `gitleaks` (`G1`), exports `git checkout-index` temp tree (`trap` cleanup), then `scripts/pre-commit.ts` in parallel (<30s target).
+- **Pre-commit scope**: `gate:coverage`, Dashboard/scripts tests, `typecheck`, index-scoped Biome, and micro-gates (`fetch-boundary`, `dynamic-delete`, `ts-expect-error`); staged manifests must match worktree.
+- **Pre-push (`.husky/pre-push`)**: Parallel `scripts/pre-push.ts` on working files: `gate:security` (`G1`/`G2`, hard-fail if missing), `gate:coverage`, `gate:arch`, full `lint` (<3min target).
+- **Hook policy**: Stdin pushed-ref scoping and isolated local `B1`/`L3`/`L4` pre-push checks are `planned`; never bypass hooks or use soft-security mode.
 
-## Resources / Isolation
+## Resources & Isolation
 
-| Purpose | Resource | Policy |
+| Lane | Endpoint / State | Boundary |
 | --- | --- | --- |
-| Daily dev | Dashboard 7023 / Proxy 7024 | Actual account/config/database |
-| Unit/routes | Mocked upstream and synthetic state | No real token/provider requests |
-| Legacy browser | Fixed `packages/proxy/data/raven-test.db`, dev ports | Partial isolation; complete per-run local harness required |
+| Daily dev | `https://raven.dev.hexly.ai` → Dashboard `:7023`, Proxy `:7024`; user data dir | Actual account/config/DB; verify `/opt/homebrew/etc/Caddyfile` before previewing |
+| Unit / L2 | In-process handlers, mocked upstream, synthetic state | No real tokens or external provider calls |
+| Isolated UI | Random loopback ports, per-run SQLite/dir, fixture upstream | `scripts/verify-routing-ui.ts`; synthetic credentials, cleans up runtime state |
+| Legacy UI | Fixed `packages/proxy/data/raven-test.db`, dev ports | `test:ui` requires real GitHub auth; partial isolation only (not routine) |
 
-For local development previews and manual browser verification, open **https://raven.dev.hexly.ai** through the machine's Caddy reverse proxy. Verify the mapping in `/opt/homebrew/etc/Caddyfile` before opening the browser. Ports 7023 (Dashboard) and 7024 (Proxy) are internal upstreams; loopback URLs are reserved for internal service calls and isolated automated tests. Use the Caddy HTTPS URL in user-facing preview links. Do not change certificates or Keychain trust for ordinary development.
-
-Physical test isolation includes DB, credentials, configuration and upstream receiver. Fresh per-run directories plus guards before seed/reset/cleanup must separate tests from daily-dev and production. This Bun/SQLite application needs no remote test Workers or Cloudflare D1 resources.
-
-## Operations / Release
-
-Authorized release entry: `bun run release`; build and verify the intended version/CI. Normal use remains local. Publishing a GitHub Release triggers `.github/workflows/docker-publish.yml` to build and push `ghcr.io/nocoo/raven` (`linux/amd64`, proven CI + tag); production pulls use `compose.prod.yaml` and runtime `.env` (see [Docker deployment](docs/31-docker-deployment.md)). Network deployment requires Google OAuth for Dashboard, explicit API/management access controls and IP whitelist; follow [VPS guide](docs/14-vps-deployment.md). Keep live diagnostics separate from automated tests and never imply a dry run published or validated live upstreams.
+- Use `https://raven.dev.hexly.ai` for local browser previews and user-facing links; ports `7023`/`7024` are internal upstreams and loopback URLs stay internal/test-only. Do not alter certs or Keychain trust.
+- Physical test isolation requires fresh per-run DB/config/token dirs, a local fixture upstream, and guards before seed/reset/cleanup to separate tests from dev and prod. No Cloudflare Workers or D1 are needed.
 
 ## Retrospective
 
-Full narratives live in [Retrospective.md](Retrospective.md). Keep recurring rules brief; cross-project lessons belong in global rules/nmem and deterministic checks in hooks/tests.
-
-- Use exactly the same coverage-baseline gate in hooks and CI; preserve protocol event shapes and authentication compatibility.
+Record incident narratives in [Retrospective.md](Retrospective.md); promote recurring project constraints to `Invariants` above and deterministic checks to hooks/tests. Keep the same `gate:coverage` baseline entry in hooks and CI, and preserve protocol event shapes and authentication compatibility.
