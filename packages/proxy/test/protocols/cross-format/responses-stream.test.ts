@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { adaptChatChunkToResponsesSse, finalizeChatToResponsesStream, initChatToResponsesStreamState } from "../../../src/protocols/cross-format/responses-chat"
+import { adaptChatChunkToResponsesSse, finalizeChatToResponsesStream, initChatToResponsesStreamState, MissingChatFinishReasonError } from "../../../src/protocols/cross-format/responses-chat"
 import { makeProtocolConverted } from "../../../src/strategies/protocol-converted"
 import type { RequestContext } from "../../../src/core/context"
 import type { ChatCompletionChunk } from "../../../src/upstream/copilot-openai"
@@ -91,14 +91,54 @@ describe("converted Responses stream lifecycle", () => {
     expect(adaptChatChunkToResponsesSse(chunk(), state)).toEqual([])
   })
 
-  test.each([false, true])("strategy finalizes once at EOF or DONE (sentinel=%s)", (sentinel) => {
+  test.each([null, "[DONE]", " [DONE] \t"])("strategy finalizes once at EOF or DONE (sentinel=%s)", (sentinel) => {
     const strategy = makeProtocolConverted({ source: "responses", target: "chat_completions", exactModel: true, client: { send: async () => ({}) } })
     const ctx = { requestId: "fixture" } as RequestContext
     const state = strategy.initStreamState({ model: "m", messages: [], stream: true }, ctx)
     strategy.adaptChunk({ event: null, id: null, retry: null, data: JSON.stringify(chunk({ content: "ok" }, "stop")) }, state, ctx)
     strategy.adaptChunk({ event: null, id: null, retry: null, data: JSON.stringify({ ...chunk(), choices: [], usage }) }, state, ctx)
-    const end = sentinel ? strategy.adaptChunk({ event: null, id: null, retry: null, data: "[DONE]" }, state, ctx) : strategy.finalizeStream!(state, ctx)
+    const end = sentinel ? strategy.adaptChunk({ event: null, id: null, retry: null, data: sentinel }, state, ctx) : strategy.finalizeStream!(state, ctx)
     expect(decode(end).at(-1)).toMatchObject({ type: "response.completed", response: { object: "response", usage: { input_tokens: 30, output_tokens: 19 } } })
     expect(strategy.finalizeStream!(state, ctx)).toEqual([])
+  })
+
+  test.each([null, "[DONE]"])("reports a retryable error and bounded stream details when finish reason is absent (sentinel=%s)", (sentinel) => {
+    const strategy = makeProtocolConverted({ source: "responses", target: "chat_completions", exactModel: true, client: { send: async () => ({}) } })
+    const ctx = { requestId: "fixture" } as RequestContext
+    const state = strategy.initStreamState({ model: "m", messages: [], stream: true }, ctx)
+    const frame = (data: string) => ({ event: null, id: null, retry: null, data })
+    strategy.adaptChunk(frame(JSON.stringify(chunk({ content: "synthetic partial text" }))), state, ctx)
+    if (sentinel) strategy.adaptChunk(frame('{"synthetic-private-fragment":'), state, ctx)
+    strategy.adaptChunk(frame(JSON.stringify({ ...chunk(), choices: [], usage })), state, ctx)
+    const end = () => sentinel ? strategy.adaptChunk(frame(sentinel), state, ctx) : strategy.finalizeStream!(state, ctx)
+    let error: unknown
+    try { end() } catch (caught) { error = caught }
+
+    expect(error).toBeInstanceOf(MissingChatFinishReasonError)
+    expect(error).toHaveProperty("message", `Truncated stream: terminal response event was not received (upstream_end=${sentinel ? "done" : "eof"}, last_frame=usage, unparsed_frame_seen=${Boolean(sentinel)}, usable_finish_reason=false)`)
+    const events = strategy.adaptStreamError(error, state, ctx)
+    expect(events.map(event => event.event)).toEqual(["error"])
+    expect(decode(events)).toEqual([{
+      type: "error",
+      code: "upstream_stream_read_error",
+      message: "Upstream stream ended before a terminal response event: Chat Completions did not provide a usable finish_reason.",
+    }])
+  })
+
+  test("preserves the error contract of the Anthropic-backed conversion", () => {
+    const strategy = makeProtocolConverted({ source: "responses", target: "anthropic_messages", exactModel: true, client: { send: async () => ({}) } })
+    const ctx = { requestId: "fixture" } as RequestContext
+    const state = strategy.initStreamState({ model: "m", messages: [], stream: true }, ctx)
+    const frame = (value: object) => ({ event: null, id: null, retry: null, data: JSON.stringify(value) })
+    strategy.adaptChunk(frame({ type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "call_fixture", name: "echo", input: {} } }), state, ctx)
+    strategy.adaptChunk(frame({ type: "message_stop" }), state, ctx)
+    let error: unknown
+    try { strategy.finalizeStream!(state, ctx) } catch (caught) { error = caught }
+
+    expect(error).toHaveProperty("message", "Truncated stream: terminal response event was not received")
+    expect(decode(strategy.adaptStreamError(error, state, ctx))).toEqual([{
+      type: "error",
+      message: "Truncated stream: terminal response event was not received",
+    }])
   })
 })
