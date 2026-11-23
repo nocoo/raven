@@ -14,6 +14,7 @@ import { makeCustomOpenAI } from "../strategies/custom-openai"
 import { makeCustomAnthropic } from "../strategies/custom-anthropic"
 import { makeCopilotTranslated } from "../strategies/copilot-translated"
 import { makeProtocolConverted } from "../strategies/protocol-converted"
+import { makeGeminiChat } from "../strategies/gemini-chat"
 import type { ChatCompletionsPayload } from "../upstream/copilot-openai"
 import type { ResponsesPayload } from "../upstream/copilot-responses"
 import type { AnthropicMessagesPayload } from "../protocols/anthropic/types"
@@ -35,7 +36,7 @@ export type AnyStrategy = Strategy<unknown, unknown, unknown, unknown, ServerSen
 export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDeps): AnyStrategy {
   if (decision.kind !== "ok") throw new Error("buildStrategy requires an accepted endpoint decision")
   const { provider } = deps
-  const transport = { ...deps.transport, requestUsage: provider.quota !== null }
+  const transport = { ...deps.transport, requestUsage: provider.quota !== null, ...(decision.name === "gemini-chat" ? { allowReplay: false } : {}) }
   const copilot = provider.kind === "copilot"
   const chat = () => {
     if (copilot) return buildUpstreamClient("copilot-openai", transport)
@@ -56,6 +57,14 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     return { send: (payload: ResponsesPayload, signal?: AbortSignal) => client.send({ target: provider, payload }, signal) }
   }
   switch (decision.name) {
+    case "gemini-chat": {
+      const client = chat()
+      return makeGeminiChat({ send: (payload, signal) => {
+        if (!copilot || payload.max_tokens == null) return client.send(payload, signal)
+        const { max_tokens, ...rest } = payload
+        return client.send({ ...rest, max_completion_tokens: max_tokens }, signal)
+      } }) as unknown as AnyStrategy
+    }
     case "copilot-systemone":
       return makeCopilotSystemone({ client: buildUpstreamClient("copilot-systemone", transport) }) as unknown as AnyStrategy
     case "copilot-decisions":
@@ -77,6 +86,7 @@ export function buildStrategy(decision: StrategyDecision, deps: BuildStrategyDep
     case "copilot-translated":
       return makeCopilotTranslated({ client: buildUpstreamClient("copilot-openai", transport), toolCallDebug: deps.toolCallDebug }) as unknown as AnyStrategy
     case "protocol-converted": {
+      if (decision.clientProtocol === "gemini") throw new Error("Gemini requires its Chat conversion strategy")
       if (decision.clientProtocol === "systemone" || decision.upstreamProtocol === "systemone") {
         throw new Error("Systemone cannot be converted")
       }

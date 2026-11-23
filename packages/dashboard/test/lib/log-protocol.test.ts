@@ -18,6 +18,11 @@ describe("live log protocol classification", () => {
       .toEqual({ label: "Native", variant: "success", title: "Responses → Responses · No protocol translation" });
   });
 
+  it("identifies Gemini client requests converted to Chat", () => {
+    expect(logProtocol({ format: "gemini", upstreamFormat: "openai" }, true))
+      .toEqual({ label: "Translated", variant: "warning", title: "Gemini → Chat Completions · Prefer Chat Completions in your client" });
+  });
+
   it("identifies native decisions without classifying them as chat", () => {
     expect(logProtocol({ format: "systemone", upstreamFormat: "systemone" }, true))
       .toEqual({ label: "Native", variant: "success", title: "Systemone → Systemone · No protocol translation" });

@@ -27,6 +27,7 @@ Seven layers, top → bottom. Each layer imports only from the layers below (enf
 7. **`infra/` + `lib/` + `util/`** — state, auth, rate-limit, logging primitives, IDs.
 
 **Registered strategies** (all registered in `composition/strategy-registry.ts`):
+- `gemini-chat` — Gemini `/v1beta/models/*` generation → Chat Completions; same key-bound admission and accounting. [CLI configuration and limits](32-gemini-cli.md).
 - `copilot-openai-direct` — `/v1/chat/completions` to Copilot
 - `copilot-chat-via-responses` — `/v1/chat/completions` → Copilot `/responses` (responses-only models)
 - `copilot-translated` — `/v1/messages` Anthropic → Copilot OpenAI

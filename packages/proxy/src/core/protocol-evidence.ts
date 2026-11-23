@@ -1,9 +1,9 @@
-import type { ClientProtocol } from "./router"
+import type { UpstreamProtocol } from "./router"
 
 export interface NativeProtocolEvidence {
   upstream: "copilot"
   model: string
-  protocol: ClientProtocol
+  protocol: UpstreamProtocol
   stream: boolean
   tested_at: string
   revision: string
