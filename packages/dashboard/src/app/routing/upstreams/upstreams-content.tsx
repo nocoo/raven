@@ -41,7 +41,7 @@ function UpstreamsWorkbench({ upstreams, migration, clock }: { upstreams: Provid
           <div className="flex justify-between px-2 pb-2 text-xs text-basalt-muted-foreground"><span>UPSTREAMS</span><span className="tabular-nums">{state.upstreams.length + (state.active ? 0 : 1)}</span></div>
           <nav aria-label="Upstreams" className="routing-directory-list">
             {!state.active && <Button variant="secondary" className="routing-directory-item" aria-current="true" disabled={state.busy !== null}>
-              <FilePlus2 className="size-4 shrink-0 text-basalt-primary" /><span className="min-w-0 flex-1 truncate">{state.draft.name.trim() || "Untitled upstream"}</span><Badge variant="warning" className="text-xs">Draft</Badge>
+              <FilePlus2 className="size-4 shrink-0 text-basalt-primary" /><span className="min-w-0 flex-1 truncate">{state.draft.name.trim() || "Untitled upstream"}</span><Badge tone="warning" className="text-xs">Draft</Badge>
             </Button>}
             {state.upstreams.map(upstream => <Button key={upstream.id} variant={state.active?.id === upstream.id ? "secondary" : "ghost"} className="routing-directory-item" aria-current={state.active?.id === upstream.id ? "true" : undefined} onClick={() => void choose(upstream)} disabled={state.busy !== null}>
               <SectionIcon icon={upstream.kind === "copilot" ? LockKeyhole : Globe} tone={upstream.kind === "copilot" ? "teal" : "blue"} />

@@ -41,8 +41,8 @@ export function RoutingSelect({ label, value, options, onChange, disabled = fals
 }
 
 export function Feedback({ error, message }: { error?: string | null; message?: string | null }) {
-  if (error) return <Banner role="alert" variant="error" size="sm" icon={<AlertCircle />} description={error} />;
-  if (message) return <Banner role="status" variant="secondary" size="sm" icon={<Check className="text-basalt-success" />} description={message} />;
+  if (error) return <Banner role="alert" tone="danger" size="sm" icon={<AlertCircle />} description={error} />;
+  if (message) return <Banner role="status" tone="neutral" size="sm" icon={<Check className="text-basalt-success" />} description={message} />;
   return null;
 }
 

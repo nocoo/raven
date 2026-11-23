@@ -3,7 +3,7 @@
 import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Field, LayerCard } from "@nocoo/basalt";
 import { Autocomplete } from "@nocoo/basalt/components/autocomplete";
 import { Banner } from "@nocoo/basalt/components/banner";
-import { InputArea } from "@nocoo/basalt/components/input-area";
+import { Textarea } from "@nocoo/basalt/components/textarea";
 import { Database, ListPlus, RefreshCw, Send } from "@nocoo/basalt/icons";
 import { SectionIcon } from "@/components/section-icon";
 import { modelIds } from "@/lib/routing-model";
@@ -29,7 +29,7 @@ export function UpstreamCatalog({ upstream, manual, onManualChange, busy, dirty,
       <LayerCard.Body className="space-y-3">
         <OperationFeedback feedback={refreshFeedback} inlineSuccess />
         {!refreshFeedback && upstream?.last_refresh_error && <Feedback error={`Last model refresh failed: ${upstream.last_refresh_error}. Cached models were retained. Refresh again to capture current response details.`} />}
-        {(!upstream || dirty) && <Banner variant="secondary" size="sm" description={upstream ? "Save or discard changes before refreshing or testing this connection." : "Save this upstream to enable model discovery and testing. You can add manual IDs now."} />}
+        {(!upstream || dirty) && <Banner tone="neutral" size="sm" description={upstream ? "Save or discard changes before refreshing or testing this connection." : "Save this upstream to enable model discovery and testing. You can add manual IDs now."} />}
         <p className="text-xs text-basalt-muted-foreground">{upstream?.kind === "copilot" ? "Copilot updates hourly. You can also refresh now." : "Refresh from the provider, or enter model IDs manually."}</p>
         <LayerCard.Well className="max-h-64 overflow-y-auto rounded-widget p-2">
           {upstream?.models.length ? <ul aria-label="Fetched models" className="space-y-1">{upstream.models.map(model => <li key={model.id}><Collapsible>
@@ -43,7 +43,7 @@ export function UpstreamCatalog({ upstream, manual, onManualChange, busy, dirty,
     <Collapsible asChild defaultOpen={manual.length > 0}><LayerCard padding="none">
       <h3><LayerCard.Header asChild><CollapsibleTrigger className="border-solid text-sm font-semibold data-[state=open]:rounded-b-none"><span className="flex items-center gap-2.5"><SectionIcon icon={ListPlus} tone="teal" />Manual model IDs</span></CollapsibleTrigger></LayerCard.Header></h3>
       <CollapsibleContent unstyled><LayerCard.Body className="space-y-2">
-        <InputArea id="manual-models" aria-label="Manual model IDs" aria-describedby="manual-models-hint" rows={3} size="sm" className="font-mono text-sm" value={manual} onChange={event => onManualChange(event.target.value)} placeholder="your-model-id" />
+        <Textarea id="manual-models" aria-label="Manual model IDs" aria-describedby="manual-models-hint" rows={3} size="sm" className="font-mono text-sm" value={manual} onChange={event => onManualChange(event.target.value)} placeholder="your-model-id" />
         <p id="manual-models-hint" className="text-xs text-basalt-muted-foreground">One ID per line or comma-separated. Refreshing keeps these IDs.</p>
       </LayerCard.Body></CollapsibleContent>
     </LayerCard></Collapsible>

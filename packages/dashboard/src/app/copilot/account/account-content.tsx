@@ -41,12 +41,12 @@ const KNOWN_KEYS = new Set([
 
 function BoolBadge({ value }: { value: boolean }) {
   return value ? (
-    <Badge variant="success" className="gap-1">
+    <Badge tone="success" className="gap-1">
       <CheckCircle2 className="h-3 w-3" />
       Enabled
     </Badge>
   ) : (
-    <Badge variant="secondary" className="gap-1">
+    <Badge tone="neutral" className="gap-1">
       <XCircle className="h-3 w-3" />
       Disabled
     </Badge>
@@ -254,7 +254,7 @@ export function AccountContent({ data }: AccountContentProps) {
 
         {data.copilot_plan != null && (
           <InfoRow icon={CreditCard} tone="blue" label="Plan">
-            <Badge variant="info">{data.copilot_plan}</Badge>
+            <Badge tone="info">{data.copilot_plan}</Badge>
             {data.access_type_sku && (
               <p className="text-xs text-basalt-muted-foreground mt-0.5 font-mono">
                 {data.access_type_sku}

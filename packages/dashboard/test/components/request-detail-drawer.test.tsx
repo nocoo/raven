@@ -114,8 +114,8 @@ describe("cancelled request badge", () => {
   it("uses the neutral secondary badge for a pre-header cancellation", () => {
     render(<RequestDetailDrawer request={makeExtendedRecord({ status: "cancelled", status_code: 499, error_message: "client cancelled" })} open onOpenChange={vi.fn()} />);
     const badge = screen.getByText("cancelled");
-    expect(badge.className).toContain("bg-basalt-secondary");
-    expect(badge.className).not.toContain("bg-basalt-destructive");
+    expect(badge.className).toContain("bg-basalt-foreground/6");
+    expect(badge.className).not.toContain("bg-basalt-danger");
   });
 });
 

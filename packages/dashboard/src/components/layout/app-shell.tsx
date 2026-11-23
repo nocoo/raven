@@ -71,7 +71,7 @@ function AppShellInner({ children }: AppShellProps) {
 
       <AppMain>
         <AppHeader
-          density={isMobile ? "compact" : "comfortable"}
+          density={isMobile ? "compact" : "default"}
           leading={
             isMobile ? (
               <AppHeaderMenuButton

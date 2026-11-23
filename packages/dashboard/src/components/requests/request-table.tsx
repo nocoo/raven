@@ -253,7 +253,7 @@ export function RequestTable({
                     )}
                     {isVisible("client_format") && (
                       <TableCell className="px-3 py-2.5">
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge tone="neutral" className="text-xs">
                           {req.client_format}
                         </Badge>
                       </TableCell>
@@ -261,7 +261,8 @@ export function RequestTable({
                     {isVisible("status") && (
                       <TableCell className="px-3 py-2.5">
                         <Badge
-                          variant={req.status === "success" ? "success" : req.status === "cancelled" ? "secondary" : "destructive"}
+                          tone={req.status === "success" ? "success" : req.status === "cancelled" ? "neutral" : "danger"}
+                          variant={req.status !== "success" && req.status !== "cancelled" ? "solid" : "soft"}
                           className="text-xs"
                         >
                           {req.status}
@@ -299,7 +300,7 @@ export function RequestTable({
                     {isVisible("upstream") && (
                       <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.upstream || "—"}</TableCell>
                     )}
-                    {isVisible("protocol_mode") && <TableCell className="px-3 py-2.5"><Badge variant={req.protocol_mode === "native" ? "success" : req.protocol_mode === "translated" ? "warning" : "secondary"} className="text-xs">{protocolLabel(req.protocol_mode)}</Badge></TableCell>}
+                    {isVisible("protocol_mode") && <TableCell className="px-3 py-2.5"><Badge tone={req.protocol_mode === "native" ? "success" : req.protocol_mode === "translated" ? "warning" : "neutral"} className="text-xs">{protocolLabel(req.protocol_mode)}</Badge></TableCell>}
                     {isVisible("account_name") && (
                       <TableCell className="max-w-44 px-3 py-2.5 text-xs"><IdentityHint identity={keyIdentity(req.key_id)}><Button variant="ghost" size="sm" className="h-auto max-w-full justify-start p-0 text-xs font-normal"><span className="truncate">{req.account_name || "Unattributed"}</span></Button></IdentityHint></TableCell>
                     )}

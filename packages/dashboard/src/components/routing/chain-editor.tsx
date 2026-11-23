@@ -66,7 +66,7 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
                   if (event.key === "Escape") setDrag(IDLE_DRAG);
                 }}><GripVertical className="size-4" /></Button>
               <span className="text-xs font-medium tabular-nums text-basalt-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
-              <Badge variant={terminal && value.length > 1 ? "purple" : "secondary"} className="text-xs">{value.length === 1 ? "Target" : terminal ? "Terminal fallback" : "Quota candidate"}</Badge>
+              <Badge tone={terminal && value.length > 1 ? "info" : "neutral"} className="text-xs">{value.length === 1 ? "Target" : terminal ? "Terminal fallback" : "Quota candidate"}</Badge>
               <span className="order-last basis-full text-xs text-basalt-muted-foreground @min-[32rem]/editor:order-none @min-[32rem]/editor:ml-auto @min-[32rem]/editor:basis-auto">{preview.labels[index]}</span>
               <div className="ml-auto flex items-center gap-0.5 @min-[32rem]/editor:ml-0">
                 <Button size="icon" variant="ghost" className="size-7" aria-label={`Move target ${index + 1} up`} disabled={index === 0} onClick={() => reorder(index, index - 1)}><ArrowUp className="size-3.5" /></Button>
@@ -92,7 +92,7 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
       }}><Plus className="size-3.5" />Add quota candidate</Button>
       {value.length > 1 && <span className="flex items-center gap-1.5 text-xs text-basalt-muted-foreground"><CornerDownRight className="size-3.5" />Only exhausted quotas advance the chain.</span>}
     </div>
-    {preview.warnings.map(warning => <Banner key={warning} variant="alert" size="sm" description={warning} />)}
+    {preview.warnings.map(warning => <Banner key={warning} tone="warning" size="sm" description={warning} />)}
     <Collapsible>
       <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Protocol preview</CollapsibleTrigger>
       <CollapsibleContent unstyled><div className="space-y-3 pt-2">

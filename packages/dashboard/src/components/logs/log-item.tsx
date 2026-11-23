@@ -11,18 +11,18 @@ import { cn } from "@/lib/utils";
 
 export function LogItem({ events }: { events: LogEvent[] }) {
   const entry = logEntry(events);
-  const variant = entry.status === "success" ? "success" : entry.status === "error" ? "destructive" : entry.status === "denied" || entry.status === "warn" ? "warning" : "secondary";
+  const tone = entry.status === "success" ? "success" : entry.status === "error" ? "danger" : entry.status === "denied" || entry.status === "warn" ? "warning" : "neutral";
   return <Dialog><DialogTrigger asChild>
     <Button variant="ghost" aria-label={`View log details: ${entry.model}`} className="h-auto w-full min-w-0 flex-col items-stretch gap-1 rounded-widget bg-basalt-secondary px-3 py-2 text-left font-normal">
       <span className="flex min-w-0 items-center gap-2">
         <time dateTime={new Date(entry.timestamp).toISOString()} className="shrink-0 font-mono text-xs tabular-nums text-basalt-muted-foreground">{new Date(entry.timestamp).toLocaleTimeString("en-GB", { hour12: false })}</time>
-        <Badge variant={variant} className="shrink-0 text-[11px]">{entry.status}</Badge>
+        <Badge tone={tone} variant={entry.status === "error" ? "solid" : "soft"} className="shrink-0 text-[11px]">{entry.status}</Badge>
         <span className="min-w-0 flex-1 truncate text-sm font-medium" title={entry.model}>{entry.model}</span>
         {entry.latencyMs !== null && <span className="shrink-0 text-xs tabular-nums">{formatLatency(entry.latencyMs)}</span>}
         <ChevronRight className="size-3.5 shrink-0 text-basalt-muted-foreground" />
       </span>
       <span className="flex min-w-0 items-center gap-2 text-xs text-basalt-muted-foreground">
-        {!entry.system && <><Badge variant={entry.protocol.variant} className="text-[11px]" title={entry.protocol.title}>{entry.protocol.label}</Badge><span className="truncate font-mono" title={entry.clientIP}>{entry.clientIP || "Unknown IP"}</span></>}
+        {!entry.system && <><Badge tone={entry.protocol.variant === "secondary" ? "neutral" : entry.protocol.variant} className="text-[11px]" title={entry.protocol.title}>{entry.protocol.label}</Badge><span className="truncate font-mono" title={entry.clientIP}>{entry.clientIP || "Unknown IP"}</span></>}
         <span className="min-w-0 flex-1 truncate" title={entry.account}>{entry.account}</span>
         {entry.tokens !== null && <span className="shrink-0 tabular-nums">{formatCompact(entry.tokens)} tok</span>}
       </span>

@@ -17,7 +17,7 @@ export function FilterChip({ filterKey, value, displayValue, onRemove }: FilterC
   const text = displayValue ?? (typeof value === "boolean" ? (value ? "Yes" : "No") : String(value));
 
   return (
-    <Badge variant="secondary" className="gap-1 pr-1 font-normal">
+    <Badge tone="neutral" className="gap-1 pr-1 font-normal">
       <span className="text-basalt-muted-foreground">{label}:</span>
       <span className="max-w-40 truncate" title={String(value)}>{text}</span>
       <Button

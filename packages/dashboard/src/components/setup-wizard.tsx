@@ -97,7 +97,7 @@ function StepDashboard() {
         <LayerCard className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Current mode</span>
-            <Badge variant="secondary">
+            <Badge tone="neutral">
               {hasError ? (
                 <>
                   <Monitor className="h-3 w-3" strokeWidth={1.5} />
@@ -137,12 +137,12 @@ function StepDashboard() {
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Current mode</span>
           {authEnabled ? (
-            <Badge variant="success">
+            <Badge tone="success">
               <Shield className="h-3 w-3" strokeWidth={1.5} />
               Google OAuth
             </Badge>
           ) : (
-            <Badge variant="secondary">
+            <Badge tone="neutral">
               <Monitor className="h-3 w-3" strokeWidth={1.5} />
               Local (no auth)
             </Badge>

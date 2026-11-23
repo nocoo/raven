@@ -179,7 +179,7 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
 
       {groups.map(({ vendor, models }) => (
           <LayerCard key={vendor} padding="none" className="overflow-hidden">
-            <LayerCard.Header className="items-center"><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Boxes} tone="purple" />{vendor}</h2><Badge variant="secondary">{models.length}</Badge></LayerCard.Header>
+            <LayerCard.Header className="items-center"><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Boxes} tone="purple" />{vendor}</h2><Badge tone="neutral">{models.length}</Badge></LayerCard.Header>
             <div className="overflow-x-auto">
             <Table className="table-fixed">
               <TableHeader>
@@ -222,14 +222,14 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {model.model_picker_enabled === undefined ? <span className="text-basalt-muted-foreground">Unknown</span> : model.model_picker_enabled ? (
-                        <Badge variant="success">Yes</Badge>
+                        <Badge tone="success">Yes</Badge>
                       ) : (
-                        <Badge variant="secondary">No</Badge>
+                        <Badge tone="neutral">No</Badge>
                       )}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {model.preview_state ? (
-                        <Badge variant="info">{model.preview_state}</Badge>
+                        <Badge tone="info">{model.preview_state}</Badge>
                       ) : (
                         <span className="text-basalt-muted-foreground">-</span>
                       )}

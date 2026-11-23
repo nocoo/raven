@@ -354,10 +354,10 @@ describe("cancelled status", () => {
       makeRecord({ id: "gone", status: "cancelled", status_code: 499 }),
       makeRecord({ id: "bad", status: "error", status_code: 502 }),
     ]} hasMore={false} />);
-    expect(screen.getByText("cancelled").className).toContain("bg-basalt-secondary");
-    expect(screen.getByText("cancelled").className).not.toContain("bg-basalt-destructive");
-    expect(screen.getByText("error").className).toContain("bg-basalt-destructive");
-    expect(screen.getByText("success")).toHaveClass("bg-basalt-badge-green", "text-basalt-badge-green-foreground");
+    expect(screen.getByText("cancelled").className).toContain("bg-basalt-foreground/6");
+    expect(screen.getByText("cancelled").className).not.toContain("bg-basalt-danger");
+    expect(screen.getByText("error").className).toContain("bg-basalt-danger-solid");
+    expect(screen.getByText("success")).toHaveClass("bg-basalt-success-tint", "text-basalt-success");
   });
 });
 

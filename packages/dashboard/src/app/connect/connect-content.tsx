@@ -395,7 +395,7 @@ function ModelsSection({ models }: { models: ModelInfo[] }) {
       <div className="flex items-center gap-4 text-sm text-basalt-muted-foreground">
         <span>{models.length} models available</span>
         {copilotGroups.length > 0 && (
-          <Badge variant="secondary" className="text-xs">
+          <Badge tone="neutral" className="text-xs">
             {copilotGroups.reduce((sum, [, m]) => sum + m.length, 0)} Copilot
           </Badge>
         )}
@@ -439,7 +439,7 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
     <LayerCard padding="none" className="overflow-hidden">
       <LayerCard.Header className="items-center">
         <h3 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Cpu} tone="purple" />{displayName}</h3>
-        <Badge variant="secondary" className="text-xs">{models.length}</Badge>
+        <Badge tone="neutral" className="text-xs">{models.length}</Badge>
       </LayerCard.Header>
         <div className="overflow-x-auto">
         <Table>
@@ -573,11 +573,11 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                   </TableCell>
                   <TableCell>
                     {key.revoked_at ? (
-                      <Badge variant="destructive" className="text-[10px]">
+                      <Badge tone="danger" variant="solid" className="text-[10px]">
                         Revoked
                       </Badge>
                     ) : (
-                      <Badge variant="success" className="text-[10px]">
+                      <Badge tone="success" className="text-[10px]">
                         Active
                       </Badge>
                     )}

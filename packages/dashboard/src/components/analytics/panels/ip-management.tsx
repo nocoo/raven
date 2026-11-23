@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Label, Switch, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
-import { InputArea } from "@nocoo/basalt/components/input-area";
+import { Textarea } from "@nocoo/basalt/components/textarea";
 import { MapPin, ShieldCheck } from "@nocoo/basalt/icons";
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -38,8 +38,8 @@ export function IPPolicyDialog({ keyId, name = keyId ? "Selected API key" : "All
     <DialogContent><DialogHeader><DialogTitle>IP access · {name}</DialogTitle><DialogDescription>{keyId ? "This key must satisfy both its own whitelist and the global whitelist." : "Applies to model API calls. Local Dashboard management remains accessible."}</DialogDescription></DialogHeader>
       {policy && <div className="space-y-4">
         <div className="flex items-center justify-between gap-3"><Label htmlFor={`${id}-enabled`}>{policy.enabled ? "Whitelist only" : "Unrestricted"}</Label><Switch id={`${id}-enabled`} checked={policy.enabled} disabled={busy} onCheckedChange={enabled => setPolicy({ ...policy, enabled })} /></div>
-        <div className="space-y-1.5"><Label htmlFor={`${id}-ranges`}>Allowed IPs and networks</Label><InputArea id={`${id}-ranges`} rows={4} value={ranges} onChange={event => setRanges(event.target.value)} disabled={busy} placeholder={"192.0.2.1\n2001:db8::/32"} className="font-mono text-sm" /><p className="text-xs text-basalt-muted-foreground">One IPv4 / IPv6 address, CIDR or range per line. Unknown sources are denied when enabled.</p></div>
-        {!keyId && <details><summary className="cursor-pointer text-sm">Trusted reverse proxies</summary><div className="space-y-1.5 pt-3"><Label htmlFor={`${id}-trusted`}>Proxy addresses and networks</Label><InputArea id={`${id}-trusted`} rows={3} value={trusted} onChange={event => setTrusted(event.target.value)} disabled={busy} placeholder={"127.0.0.1\n::1"} className="font-mono text-sm" /><p className="text-xs text-basalt-muted-foreground">Only these peers may supply X-Forwarded-For. Proxies must append the actual peer or replace untrusted headers. Leave empty for direct connections.</p></div></details>}
+        <div className="space-y-1.5"><Label htmlFor={`${id}-ranges`}>Allowed IPs and networks</Label><Textarea id={`${id}-ranges`} rows={4} value={ranges} onChange={event => setRanges(event.target.value)} disabled={busy} placeholder={"192.0.2.1\n2001:db8::/32"} className="font-mono text-sm" /><p className="text-xs text-basalt-muted-foreground">One IPv4 / IPv6 address, CIDR or range per line. Unknown sources are denied when enabled.</p></div>
+        {!keyId && <details><summary className="cursor-pointer text-sm">Trusted reverse proxies</summary><div className="space-y-1.5 pt-3"><Label htmlFor={`${id}-trusted`}>Proxy addresses and networks</Label><Textarea id={`${id}-trusted`} rows={3} value={trusted} onChange={event => setTrusted(event.target.value)} disabled={busy} placeholder={"127.0.0.1\n::1"} className="font-mono text-sm" /><p className="text-xs text-basalt-muted-foreground">Only these peers may supply X-Forwarded-For. Proxies must append the actual peer or replace untrusted headers. Leave empty for direct connections.</p></div></details>}
       </div>}
       {busy && !policy && <p role="status" className="text-sm">Loading policy…</p>}
       {error && <p role="alert" className="text-sm text-basalt-destructive">{error}</p>}

@@ -91,7 +91,7 @@ export function ScheduleEditor<T>({ mode, windows, offset, onChange, newValue, s
         </Button>)}
       </section>
       {selected ? <LayerCard className="routing-enter space-y-3 p-3 md:p-4">
-        <div className="flex items-center gap-2"><h3 className="text-sm font-semibold">Period override</h3><Badge variant="purple" className="text-xs">{mode === "weekly" ? DAYS[selected.day] : "Every day"}</Badge>{selected.end > DAY && <Badge variant="outline" className="text-xs">Ends next day</Badge>}
+        <div className="flex items-center gap-2"><h3 className="text-sm font-semibold">Period override</h3><Badge tone="info" className="text-xs">{mode === "weekly" ? DAYS[selected.day] : "Every day"}</Badge>{selected.end > DAY && <Badge variant="outline" className="text-xs">Ends next day</Badge>}
           <Button size="icon" variant="ghost" className="ml-auto size-7" aria-label="Remove period" onClick={() => { onChange(mode, windows.filter(window => window.id !== selected.id)); setSelectedId(null); setError(null); }}><Trash2 className="size-3.5" /></Button>
         </div>
         <div className="grid gap-3 @min-[32rem]/editor:grid-cols-3">

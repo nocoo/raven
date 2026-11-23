@@ -44,7 +44,7 @@ describe("Logs request badges", () => {
     ];
     render(<LogsContent />);
     const badge = screen.getByText("cancelled");
-    expect(badge.className).toContain("bg-basalt-secondary");
+    expect(badge.className).toContain("bg-basalt-foreground/6");
     expect(screen.queryByText("ERROR")).toBeNull();
     expect(screen.queryByText("OK")).toBeNull();
     expect(screen.getByText("client cancelled: The connection was closed.").className).toContain("text-basalt-muted-foreground");

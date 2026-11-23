@@ -47,10 +47,10 @@ export function OperationFeedback({ feedback, inlineSuccess = false }: { feedbac
     else if (feedback) region.current?.scrollIntoView?.({ block: "nearest", behavior: "instant" });
   }, [feedback, toastId, inlineSuccess]);
   if (!feedback) return null;
-  if (feedback.kind === "success") return inlineSuccess ? <div ref={region}><Banner role="status" variant="secondary" size="sm" icon={<Check className="text-basalt-success" />} description={feedback.message} /></div> : null;
+  if (feedback.kind === "success") return inlineSuccess ? <div ref={region}><Banner role="status" tone="neutral" size="sm" icon={<Check className="text-basalt-success" />} description={feedback.message} /></div> : null;
   if (feedback.kind === "error") {
     const error = feedback.cause instanceof RoutingRequestError ? feedback.cause : undefined;
-    return <div ref={region}><Banner role="alert" variant="error" size="sm" icon={<AlertCircle />} title={feedback.title} description={<>
+    return <div ref={region}><Banner role="alert" tone="danger" size="sm" icon={<AlertCircle />} title={feedback.title} description={<>
       <p className="break-words [overflow-wrap:anywhere]">{errorMessage(feedback.cause)}</p>
       {error?.detail?.details?.upstream_status !== undefined && <p className="mt-1 text-xs">Upstream HTTP {error.detail.details.upstream_status}</p>}
       <ResponseDetails error={error} details={error?.detail?.details} />
@@ -58,7 +58,7 @@ export function OperationFeedback({ feedback, inlineSuccess = false }: { feedbac
   }
   const result = feedback.result;
   const hasText = result.answer.trim().length > 0;
-  return <div ref={region}><Banner role="status" variant={result.expected_pong ? "secondary" : "alert"} size="sm" icon={result.expected_pong ? <Check className="text-basalt-success" /> : <MessageSquare />} title={result.expected_pong ? "Received pong" : hasText ? "Request succeeded · unexpected answer" : "Request succeeded · no text returned"} description={<div className="space-y-2">
+  return <div ref={region}><Banner role="status" tone={result.expected_pong ? "neutral" : "warning"} size="sm" icon={result.expected_pong ? <Check className="text-basalt-success" /> : <MessageSquare />} title={result.expected_pong ? "Received pong" : hasText ? "Request succeeded · unexpected answer" : "Request succeeded · no text returned"} description={<div className="space-y-2">
     <p className="text-xs">{result.latency_ms} ms · {result.protocol} · {result.model}</p>
     {hasText ? <div className="space-y-1"><p className="text-xs font-medium">Model reply</p><LayerCard.Well role="region" aria-label="Model reply" className="max-h-48 overflow-y-auto rounded-widget p-3"><pre className="whitespace-pre-wrap break-words font-mono text-sm text-basalt-foreground [overflow-wrap:anywhere]">{result.answer}</pre></LayerCard.Well>{result.answer_truncated && <p className="text-xs">Reply excerpt · inspect the response details for more.</p>}</div> : <p className="text-sm">The provider returned no visible text. Inspect its response below for a finish reason or incomplete output.</p>}
     {!result.expected_pong && hasText && <p className="text-xs">Expected “pong”. The reply differs; this alone does not indicate a connection or authentication failure.</p>}
