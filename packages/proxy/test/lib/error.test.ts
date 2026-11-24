@@ -59,21 +59,23 @@ describe("extractErrorDetails", () => {
     [new RequestCancelledError(), 499],
     ["unstructured failure", 500],
   ])("keeps wire and logged status aligned for %s", async (error, status) => {
-    const app = new Hono().get("/", c => forwardError(c, error))
-    expect((await app.request("/")).status).toBe(status)
-    expect(extractErrorDetails(error).statusCode).toBe(status)
-  })
+    const app = new Hono().get("/", (c) => forwardError(c, error));
+    expect((await app.request("/")).status).toBe(status);
+    expect(extractErrorDetails(error).statusCode).toBe(status);
+  });
 
   it("keeps an independent timeout when fetch reports AbortError", () => {
-    const timeout = new DOMException("deadline", "TimeoutError")
-    expect(normalizeRequestError(new DOMException("aborted", "AbortError"), AbortSignal.abort(timeout))).toBe(timeout)
-  })
+    const timeout = new DOMException("deadline", "TimeoutError");
+    expect(
+      normalizeRequestError(new DOMException("aborted", "AbortError"), AbortSignal.abort(timeout)),
+    ).toBe(timeout);
+  });
 
   it("does not relabel an upstream failure just because the client also aborted", () => {
-    const failure = new HTTPError("quota", 429)
-    expect(normalizeRequestError(failure, AbortSignal.abort())).toBe(failure)
-    expect(normalizeRequestError(failure)).toBe(failure)
-  })
+    const failure = new HTTPError("quota", 429);
+    expect(normalizeRequestError(failure, AbortSignal.abort())).toBe(failure);
+    expect(normalizeRequestError(failure)).toBe(failure);
+  });
   it("maps Socks5BridgeUnavailableError to 502", () => {
     const result = extractErrorDetails(new Socks5BridgeUnavailableError());
     expect(result.statusCode).toBe(502);
@@ -96,26 +98,26 @@ describe("extractErrorDetails", () => {
 
 describe("upstream protocol errors", () => {
   it("maps ResponsesProtocolError to 502 in extract and forward", async () => {
-    const err = new Error("proto fail")
-    err.name = "ResponsesProtocolError"
-    const details = extractErrorDetails(err)
-    expect(details.statusCode).toBe(502)
-    expect(details.upstreamStatus).toBeNull()
+    const err = new Error("proto fail");
+    err.name = "ResponsesProtocolError";
+    const details = extractErrorDetails(err);
+    expect(details.statusCode).toBe(502);
+    expect(details.upstreamStatus).toBeNull();
 
-    const app = new Hono()
-    app.get("/", (c) => forwardError(c, err))
-    const res = await app.request("/")
-    expect(res.status).toBe(502)
-    const body = await res.json()
-    expect(body.error.message).toBe("proto fail")
-  })
+    const app = new Hono();
+    app.get("/", (c) => forwardError(c, err));
+    const res = await app.request("/");
+    expect(res.status).toBe(502);
+    const body = await res.json();
+    expect(body.error.message).toBe("proto fail");
+  });
 
   it("maps ResponsesStreamFailedError to 502", async () => {
-    const err = new Error("stream fail")
-    err.name = "ResponsesStreamFailedError"
-    expect(extractErrorDetails(err).statusCode).toBe(502)
-    const app = new Hono()
-    app.get("/", (c) => forwardError(c, err))
-    expect((await app.request("/")).status).toBe(502)
-  })
-})
+    const err = new Error("stream fail");
+    err.name = "ResponsesStreamFailedError";
+    expect(extractErrorDetails(err).statusCode).toBe(502);
+    const app = new Hono();
+    app.get("/", (c) => forwardError(c, err));
+    expect((await app.request("/")).status).toBe(502);
+  });
+});

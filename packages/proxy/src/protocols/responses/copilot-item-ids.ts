@@ -1,12 +1,13 @@
-import { isTerminalResponseEvent } from "./stream-state"
+import { isTerminalResponseEvent } from "./stream-state";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function withItemId(item: unknown, id: string | undefined): unknown {
-  if (!isRecord(item) || id === undefined || typeof item.id !== "string" || item.id === id) return item
-  return { ...item, id }
+  if (!isRecord(item) || id === undefined || typeof item.id !== "string" || item.id === id)
+    return item;
+  return { ...item, id };
 }
 
 /**
@@ -21,35 +22,35 @@ export function normalizeCopilotItemIds(
   event: string | undefined,
   ids: Map<number, string>,
 ): unknown {
-  if (!isRecord(value)) return value
+  if (!isRecord(value)) return value;
 
   if (isTerminalResponseEvent(event)) {
-    const response = value.response
-    if (!isRecord(response) || !Array.isArray(response.output)) return value
-    let changed = false
+    const response = value.response;
+    if (!isRecord(response) || !Array.isArray(response.output)) return value;
+    let changed = false;
     const output = response.output.map((item: unknown, index: number) => {
-      const next = withItemId(item, ids.get(index))
-      changed ||= next !== item
-      return next
-    })
-    return changed ? { ...value, response: { ...response, output } } : value
+      const next = withItemId(item, ids.get(index));
+      changed ||= next !== item;
+      return next;
+    });
+    return changed ? { ...value, response: { ...response, output } } : value;
   }
 
-  const index = value.output_index
-  if (typeof index !== "number" || !Number.isInteger(index) || index < 0) return value
+  const index = value.output_index;
+  if (typeof index !== "number" || !Number.isInteger(index) || index < 0) return value;
   if (event === "response.output_item.added" && isRecord(value.item)) {
-    const id = value.item.id
-    if (typeof id === "string" && id.length > 0 && !ids.has(index)) ids.set(index, id)
+    const id = value.item.id;
+    if (typeof id === "string" && id.length > 0 && !ids.has(index)) ids.set(index, id);
   }
 
-  const id = ids.get(index)
-  if (id === undefined) return value
+  const id = ids.get(index);
+  if (id === undefined) return value;
   if (event === "response.output_item.added" || event === "response.output_item.done") {
-    const item = withItemId(value.item, id)
-    return item !== value.item ? { ...value, item } : value
+    const item = withItemId(value.item, id);
+    return item !== value.item ? { ...value, item } : value;
   }
   if (event?.startsWith("response.") && typeof value.item_id === "string" && value.item_id !== id) {
-    return { ...value, item_id: id }
+    return { ...value, item_id: id };
   }
-  return value
+  return value;
 }

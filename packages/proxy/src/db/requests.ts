@@ -9,48 +9,48 @@ export interface RequestRecord {
   client_ip?: string | null;
   peer_ip?: string | null;
   ip_source?: string | null;
-	routing_details?: string | null;
-	id: string;
-	timestamp: number;
-	path: string;
-	client_format: string;
-	model: string;
-	resolved_model: string | null;
-	stream: number;
-	input_tokens: number | null;
-	output_tokens: number | null;
-	cache_read_tokens: number | null;
-	cache_write_tokens: number | null;
-	latency_ms: number;
-	ttft_ms: number | null;
-	status: string;
-	status_code: number;
-	upstream_status: number | null;
-	error_message: string | null;
-	account_name: string;
-	api_key_id: string;
-	session_id: string;
-	client_name: string;
-	client_version: string | null;
-	processing_ms: number | null;
-	strategy: string;
-	upstream: string;
-	upstream_format: string;
-	translated_model: string;
-	copilot_model: string;
-	routing_path: string;
-	stop_reason: string;
-	tool_call_count: number;
-	server_tools_used: number;
+  routing_details?: string | null;
+  id: string;
+  timestamp: number;
+  path: string;
+  client_format: string;
+  model: string;
+  resolved_model: string | null;
+  stream: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+  latency_ms: number;
+  ttft_ms: number | null;
+  status: string;
+  status_code: number;
+  upstream_status: number | null;
+  error_message: string | null;
+  account_name: string;
+  api_key_id: string;
+  session_id: string;
+  client_name: string;
+  client_version: string | null;
+  processing_ms: number | null;
+  strategy: string;
+  upstream: string;
+  upstream_format: string;
+  translated_model: string;
+  copilot_model: string;
+  routing_path: string;
+  stop_reason: string;
+  tool_call_count: number;
+  server_tools_used: number;
 }
 
 export type ProtocolMode = "native" | "translated" | "unknown";
 
 /** RequestRecord plus query-derived fields returned by /api/requests. */
 export interface RequestRow extends RequestRecord {
-	routing?: RequestRoutingDetails;
-	key_id: string;
-	protocol_mode: ProtocolMode;
+  routing?: RequestRoutingDetails;
+  key_id: string;
+  protocol_mode: ProtocolMode;
 }
 
 export interface OverviewResult {
@@ -161,7 +161,16 @@ export interface QueryParams {
   model?: string | null;
   status?: string | null;
   format?: string | null;
-  sort?: "timestamp" | "latency_ms" | "total_tokens" | "ttft_ms" | "processing_ms" | "input_tokens" | "output_tokens" | null | undefined;
+  sort?:
+    | "timestamp"
+    | "latency_ms"
+    | "total_tokens"
+    | "ttft_ms"
+    | "processing_ms"
+    | "input_tokens"
+    | "output_tokens"
+    | null
+    | undefined;
   order?: "asc" | "desc" | null | undefined;
   cursor?: string | null | undefined;
   offset?: number | null | undefined;
@@ -262,7 +271,9 @@ export function initDatabase(db: Database): void {
 
   // Migration: add session tracking columns
   const safeAddColumn = (sql: string) => {
-    try { db.exec(sql); } catch (e) {
+    try {
+      db.exec(sql);
+    } catch (e) {
       if (!(e instanceof Error && e.message.includes("duplicate column"))) throw e;
     }
   };
@@ -270,30 +281,34 @@ export function initDatabase(db: Database): void {
   safeAddColumn("ALTER TABLE requests ADD COLUMN peer_ip TEXT");
   safeAddColumn("ALTER TABLE requests ADD COLUMN ip_source TEXT");
   safeAddColumn("ALTER TABLE requests ADD COLUMN session_id TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN client_name TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN client_version TEXT");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN processing_ms INTEGER");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN strategy TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN upstream TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN upstream_format TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN translated_model TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN copilot_model TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN routing_path TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN stop_reason TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN tool_call_count INTEGER NOT NULL DEFAULT 0");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN cache_read_tokens INTEGER");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN cache_write_tokens INTEGER");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN api_key_id TEXT NOT NULL DEFAULT ''");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN server_tools_used INTEGER NOT NULL DEFAULT 0");
-	safeAddColumn("ALTER TABLE requests ADD COLUMN routing_details TEXT");
-	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_key_ip_time ON requests(api_key_id, client_ip, timestamp)");
-	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
-	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_strategy ON requests(strategy)");
-	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_account ON requests(account_name)");
-	db.exec(`CREATE INDEX IF NOT EXISTS idx_requests_key_identity ON requests(${KEY_ID_EXPR}, timestamp)`);
-	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_client ON requests(client_name)");
-	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_path ON requests(path)");
-	db.exec("CREATE INDEX IF NOT EXISTS idx_requests_upstream ON requests(upstream)");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN client_name TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN client_version TEXT");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN processing_ms INTEGER");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN strategy TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN upstream TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN upstream_format TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN translated_model TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN copilot_model TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN routing_path TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN stop_reason TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN tool_call_count INTEGER NOT NULL DEFAULT 0");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN cache_read_tokens INTEGER");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN cache_write_tokens INTEGER");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN api_key_id TEXT NOT NULL DEFAULT ''");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN server_tools_used INTEGER NOT NULL DEFAULT 0");
+  safeAddColumn("ALTER TABLE requests ADD COLUMN routing_details TEXT");
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_requests_key_ip_time ON requests(api_key_id, client_ip, timestamp)",
+  );
+  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_session_id ON requests(session_id)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_strategy ON requests(strategy)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_account ON requests(account_name)");
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_requests_key_identity ON requests(${KEY_ID_EXPR}, timestamp)`,
+  );
+  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_client ON requests(client_name)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_path ON requests(path)");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_requests_upstream ON requests(upstream)");
 }
 
 // ---------------------------------------------------------------------------
@@ -320,44 +335,44 @@ INSERT INTO requests (
 )`;
 
 export function insertRequest(db: Database, record: RequestRecord): void {
-	db.query(INSERT_SQL).run({
-		$id: record.id,
-		$timestamp: record.timestamp,
-		$path: record.path,
-		$client_format: record.client_format,
-		$model: record.model,
-		$resolved_model: record.resolved_model,
-		$stream: record.stream,
-		$input_tokens: record.input_tokens,
-		$output_tokens: record.output_tokens,
-		$latency_ms: record.latency_ms,
-		$ttft_ms: record.ttft_ms,
-		$status: record.status,
-		$status_code: record.status_code,
-		$upstream_status: record.upstream_status,
-		$error_message: record.error_message,
-		$account_name: record.account_name,
-		$api_key_id: record.api_key_id,
+  db.query(INSERT_SQL).run({
+    $id: record.id,
+    $timestamp: record.timestamp,
+    $path: record.path,
+    $client_format: record.client_format,
+    $model: record.model,
+    $resolved_model: record.resolved_model,
+    $stream: record.stream,
+    $input_tokens: record.input_tokens,
+    $output_tokens: record.output_tokens,
+    $latency_ms: record.latency_ms,
+    $ttft_ms: record.ttft_ms,
+    $status: record.status,
+    $status_code: record.status_code,
+    $upstream_status: record.upstream_status,
+    $error_message: record.error_message,
+    $account_name: record.account_name,
+    $api_key_id: record.api_key_id,
     $client_ip: record.client_ip ?? null,
     $peer_ip: record.peer_ip ?? null,
     $ip_source: record.ip_source ?? null,
-		$session_id: record.session_id,
-		$client_name: record.client_name,
-		$client_version: record.client_version,
-		$processing_ms: record.processing_ms,
-		$strategy: record.strategy,
-		$upstream: record.upstream,
-		$upstream_format: record.upstream_format,
-		$translated_model: record.translated_model,
-		$copilot_model: record.copilot_model,
-		$routing_path: record.routing_path,
-		$stop_reason: record.stop_reason,
-		$tool_call_count: record.tool_call_count,
-		$cache_read_tokens: record.cache_read_tokens,
-		$cache_write_tokens: record.cache_write_tokens,
-		$server_tools_used: record.server_tools_used,
-		$routing_details: record.routing_details ?? null,
-	});
+    $session_id: record.session_id,
+    $client_name: record.client_name,
+    $client_version: record.client_version,
+    $processing_ms: record.processing_ms,
+    $strategy: record.strategy,
+    $upstream: record.upstream,
+    $upstream_format: record.upstream_format,
+    $translated_model: record.translated_model,
+    $copilot_model: record.copilot_model,
+    $routing_path: record.routing_path,
+    $stop_reason: record.stop_reason,
+    $tool_call_count: record.tool_call_count,
+    $cache_read_tokens: record.cache_read_tokens,
+    $cache_write_tokens: record.cache_write_tokens,
+    $server_tools_used: record.server_tools_used,
+    $routing_details: record.routing_details ?? null,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -478,10 +493,7 @@ export interface BreakdownParams {
   limit?: number | undefined;
 }
 
-export function queryBreakdown(
-  db: Database,
-  params: BreakdownParams,
-): BreakdownEntry[] {
+export function queryBreakdown(db: Database, params: BreakdownParams): BreakdownEntry[] {
   const column = VALID_BY_COLUMNS[params.by];
   if (!column) return [];
 
@@ -492,7 +504,19 @@ export function queryBreakdown(
   // Validate sort field against known aggregate fields
   // Fields available in SQL: count, total_tokens, input_tokens, output_tokens, cache_read_tokens, avg_latency_ms, error_count, error_rate, avg_ttft_ms, last_seen, first_seen
   // Fields computed in JS post-query: p95_latency_ms (requires JS sort after query)
-  const sqlSortable = ["count", "total_tokens", "input_tokens", "output_tokens", "cache_read_tokens", "avg_latency_ms", "error_count", "error_rate", "avg_ttft_ms", "last_seen", "first_seen"];
+  const sqlSortable = [
+    "count",
+    "total_tokens",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "avg_latency_ms",
+    "error_count",
+    "error_rate",
+    "avg_ttft_ms",
+    "last_seen",
+    "first_seen",
+  ];
   const jsSortable = ["p95_latency_ms"];
   const allSorts = [...sqlSortable, ...jsSortable];
   const safeSort = allSorts.includes(sortField) ? sortField : "count";
@@ -549,7 +573,13 @@ export function queryBreakdown(
   ${useJsSort ? "ORDER BY count DESC" : `ORDER BY ${safeSort} ${order}`}
   ${useJsSort ? "" : "LIMIT $limit"}`;
 
-  const rows = db.query(sql).all(useJsSort ? Object.fromEntries(Object.entries(namedBindings).filter(([k]) => k !== "$limit")) : namedBindings) as Array<{
+  const rows = db
+    .query(sql)
+    .all(
+      useJsSort
+        ? Object.fromEntries(Object.entries(namedBindings).filter(([k]) => k !== "$limit"))
+        : namedBindings,
+    ) as Array<{
     key: string;
     count: number;
     input_tokens: number;
@@ -590,7 +620,10 @@ export function queryBreakdown(
       observed_input_tokens: row.observed_input_tokens,
       total_tokens: row.total_tokens,
       avg_latency_ms: row.avg_latency_ms,
-      p95_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.95),
+      p95_latency_ms: percentile(
+        latencies.map((l) => l.latency_ms),
+        0.95,
+      ),
       avg_ttft_ms: row.avg_ttft_ms,
       error_count: row.error_count,
       error_rate: row.error_rate,
@@ -652,9 +685,7 @@ export function queryPercentiles(
 
   // Nullable metrics need IS NOT NULL filter
   const nullableMetrics = ["ttft_ms", "processing_ms"];
-  const nullFilter = nullableMetrics.includes(metric)
-    ? `${column} IS NOT NULL`
-    : "";
+  const nullFilter = nullableMetrics.includes(metric) ? `${column} IS NOT NULL` : "";
 
   // Combine WHERE conditions
   const conditions: string[] = [];
@@ -689,9 +720,9 @@ export function queryPercentiles(
 
   const vals = rows.map((r) => r.val);
   return {
-    p50: percentile(vals, 0.50),
+    p50: percentile(vals, 0.5),
     p75: percentile(vals, 0.75),
-    p90: percentile(vals, 0.90),
+    p90: percentile(vals, 0.9),
     p95: percentile(vals, 0.95),
     p99: percentile(vals, 0.99),
     min: vals[0] ?? 0,
@@ -814,22 +845,22 @@ export function queryTimeseries(
       ORDER BY bucket ASC`,
     )
     .all(namedBindings) as Array<{
-      bucket: number;
-      count: number;
-      success_count: number;
-      error_count: number;
-      stream_count: number;
-      sync_count: number;
-      total_tokens: number;
-      input_tokens: number;
-      output_tokens: number;
-      cache_read_tokens: number;
-      cache_write_tokens: number;
-      observed_input_tokens: number;
-      avg_latency_ms: number;
-      avg_ttft_ms: number | null;
-      avg_processing_ms: number | null;
-    }>;
+    bucket: number;
+    count: number;
+    success_count: number;
+    error_count: number;
+    stream_count: number;
+    sync_count: number;
+    total_tokens: number;
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_tokens: number;
+    cache_write_tokens: number;
+    observed_input_tokens: number;
+    avg_latency_ms: number;
+    avg_ttft_ms: number | null;
+    avg_processing_ms: number | null;
+  }>;
 
   // Compute percentiles and status codes per bucket
   return rows.map((row) => {
@@ -851,7 +882,10 @@ export function queryTimeseries(
       .query(
         `SELECT status_code, COUNT(*) as cnt FROM requests ${adjustedWhere} AND (timestamp / $interval) * $interval = $bucket GROUP BY status_code`,
       )
-      .all({ ...namedBindings, $bucket: row.bucket }) as Array<{ status_code: number; cnt: number }>;
+      .all({ ...namedBindings, $bucket: row.bucket }) as Array<{
+      status_code: number;
+      cnt: number;
+    }>;
 
     const statusCodes: Record<string, number> = {};
     for (const sr of statusRows) {
@@ -872,10 +906,22 @@ export function queryTimeseries(
       cache_write_tokens: row.cache_write_tokens,
       observed_input_tokens: row.observed_input_tokens,
       avg_latency_ms: row.avg_latency_ms,
-      p95_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.95),
-      p99_latency_ms: percentile(latencies.map((l) => l.latency_ms), 0.99),
+      p95_latency_ms: percentile(
+        latencies.map((l) => l.latency_ms),
+        0.95,
+      ),
+      p99_latency_ms: percentile(
+        latencies.map((l) => l.latency_ms),
+        0.99,
+      ),
       avg_ttft_ms: row.avg_ttft_ms,
-      p95_ttft_ms: ttfts.length > 0 ? percentile(ttfts.map((t) => t.ttft_ms), 0.95) : null,
+      p95_ttft_ms:
+        ttfts.length > 0
+          ? percentile(
+              ttfts.map((t) => t.ttft_ms),
+              0.95,
+            )
+          : null,
       avg_processing_ms: row.avg_processing_ms,
       status_codes: statusCodes,
     };
@@ -998,14 +1044,9 @@ export function queryModels(db: Database): ModelStats[] {
 // queryRecent
 // ---------------------------------------------------------------------------
 
-export function queryRecent(
-  db: Database,
-  limit = 50,
-): RequestRecord[] {
+export function queryRecent(db: Database, limit = 50): RequestRecord[] {
   return db
-    .query(
-      `SELECT * FROM requests ORDER BY timestamp DESC LIMIT $limit`,
-    )
+    .query(`SELECT * FROM requests ORDER BY timestamp DESC LIMIT $limit`)
     .all({ $limit: Math.min(limit, 200) }) as RequestRecord[];
 }
 
@@ -1040,10 +1081,17 @@ export function queryRequests(
   } = params;
 
   const limit = Math.min(rawLimit ?? 50, 200);
-  const validSortColumns = ["timestamp", "latency_ms", "total_tokens", "ttft_ms", "processing_ms", "input_tokens", "output_tokens"];
-  const validSort = (sort !== null && sort !== undefined && validSortColumns.includes(sort))
-    ? sort
-    : "timestamp";
+  const validSortColumns = [
+    "timestamp",
+    "latency_ms",
+    "total_tokens",
+    "ttft_ms",
+    "processing_ms",
+    "input_tokens",
+    "output_tokens",
+  ];
+  const validSort =
+    sort !== null && sort !== undefined && validSortColumns.includes(sort) ? sort : "timestamp";
   const validOrder = order === "asc" ? "ASC" : "DESC";
 
   // Build WHERE clause
@@ -1085,8 +1133,7 @@ export function queryRequests(
     }
   }
 
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   // Merge named bindings with positional extra bindings
   // SQLite doesn't mix $named and ? well in bun:sqlite, so we convert
@@ -1103,7 +1150,10 @@ export function queryRequests(
     });
   }
 
-  const allBindings: Record<string, string | number | null> = { ...bindings, ...extraNamedBindings };
+  const allBindings: Record<string, string | number | null> = {
+    ...bindings,
+    ...extraNamedBindings,
+  };
 
   // For offset pagination, get total count
   let total: number | null = null;
@@ -1132,8 +1182,11 @@ export function queryRequests(
   const hasMore = rows.length > limit;
   const data = (hasMore ? rows.slice(0, limit) : rows).map(({ routing_details, ...row }) => {
     if (!routing_details) return row;
-    try { return { ...row, routing: JSON.parse(routing_details) as RequestRoutingDetails }; }
-    catch { return row; }
+    try {
+      return { ...row, routing: JSON.parse(routing_details) as RequestRoutingDetails };
+    } catch {
+      return row;
+    }
   });
 
   const result: QueryResult = {
@@ -1145,7 +1198,7 @@ export function queryRequests(
 
   // Cursor for next page
   if (sort === "timestamp" && hasMore && data.length > 0) {
-    const last = data[data.length - 1]
+    const last = data[data.length - 1];
     if (last) result.next_cursor = last.id;
   }
 

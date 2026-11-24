@@ -1,19 +1,11 @@
 "use client";
 
-
-
-
 import type { CorsInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Globe } from "@nocoo/basalt/icons";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch } from "@nocoo/basalt";
-import {
-  SettingAddRow,
-  SettingListItem,
-  SettingNote,
-  SettingsCard,
-} from "./settings-ui";
+import { SettingAddRow, SettingListItem, SettingNote, SettingsCard } from "./settings-ui";
 
 interface CorsContentProps {
   data: CorsInfo;
@@ -55,7 +47,7 @@ export function CorsContent({ data }: CorsContentProps) {
         setSaving(false);
       }
     },
-    [router]
+    [router],
   );
 
   const saveOrigins = useCallback(
@@ -84,7 +76,7 @@ export function CorsContent({ data }: CorsContentProps) {
         setSaving(false);
       }
     },
-    [router]
+    [router],
   );
 
   const handleAddOrigin = useCallback(() => {
@@ -115,48 +107,61 @@ export function CorsContent({ data }: CorsContentProps) {
       const newOrigins = origins.filter((_, i) => i !== index);
       saveOrigins(newOrigins);
     },
-    [origins, saveOrigins]
+    [origins, saveOrigins],
   );
 
   return (
-      <SettingsCard
-        title="CORS"
-        icon={Globe}
-        tone="blue"
-        action={<Switch aria-label="Restrict browser origins" checked={enabled} onCheckedChange={handleToggle} disabled={saving} />}
-      >
-        <Collapsible open={expanded} onOpenChange={setExpanded}>
-          <CollapsibleTrigger className="w-full justify-between text-xs">Allowed origins · {origins.length}</CollapsibleTrigger>
-          <CollapsibleContent unstyled><div className="space-y-3 pt-3">
-        <div className="space-y-2">
-          <SettingNote>
-            Add an http:// or https:// origin.
-          </SettingNote>
-          {origins.length > 0 && (
-            <div className="space-y-1.5">
-              {origins.map((origin, index) => (
-                <SettingListItem
-                  key={origin}
-                  value={origin}
-                  onRemove={() => handleRemoveOrigin(index)}
-                  disabled={saving}
-                />
-              ))}
+    <SettingsCard
+      title="CORS"
+      icon={Globe}
+      tone="blue"
+      action={
+        <Switch
+          aria-label="Restrict browser origins"
+          checked={enabled}
+          onCheckedChange={handleToggle}
+          disabled={saving}
+        />
+      }
+    >
+      <Collapsible open={expanded} onOpenChange={setExpanded}>
+        <CollapsibleTrigger className="w-full justify-between text-xs">
+          Allowed origins · {origins.length}
+        </CollapsibleTrigger>
+        <CollapsibleContent unstyled>
+          <div className="space-y-3 pt-3">
+            <div className="space-y-2">
+              <SettingNote>Add an http:// or https:// origin.</SettingNote>
+              {origins.length > 0 && (
+                <div className="space-y-1.5">
+                  {origins.map((origin, index) => (
+                    <SettingListItem
+                      key={origin}
+                      value={origin}
+                      onRemove={() => handleRemoveOrigin(index)}
+                      disabled={saving}
+                    />
+                  ))}
+                </div>
+              )}
+              <SettingAddRow
+                value={newOrigin}
+                onChange={setNewOrigin}
+                onAdd={handleAddOrigin}
+                placeholder="e.g., http://localhost:3000"
+                disabled={saving}
+                saving={saving}
+              />
             </div>
-          )}
-          <SettingAddRow
-            value={newOrigin}
-            onChange={setNewOrigin}
-            onAdd={handleAddOrigin}
-            placeholder="e.g., http://localhost:3000"
-            disabled={saving}
-            saving={saving}
-          />
-        </div>
-          </div></CollapsibleContent>
-        </Collapsible>
-        {enabled && origins.length === 0 && <SettingNote>Empty list allows all origins.</SettingNote>}
-        {error ? <p role="alert" className="text-xs text-basalt-destructive">{error}</p> : null}
-      </SettingsCard>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+      {enabled && origins.length === 0 && <SettingNote>Empty list allows all origins.</SettingNote>}
+      {error ? (
+        <p role="alert" className="text-xs text-basalt-destructive">
+          {error}
+        </p>
+      ) : null}
+    </SettingsCard>
   );
 }

@@ -9,56 +9,62 @@
 // 4xx JSON-parse errors with full identity logging in later phases).
 // ---------------------------------------------------------------------------
 
-import type { Context } from "hono"
+import type { Context } from "hono";
 
-import { deriveClientIdentity } from "../util/client-identity"
-import { generateRequestId } from "../util/id"
-import type { RoutingSelection } from "./routing-types"
+import { deriveClientIdentity } from "../util/client-identity";
+import { generateRequestId } from "../util/id";
+import type { RoutingSelection } from "./routing-types";
 
-export type RequestFormat = "openai" | "anthropic" | "responses" | "systemone" | "decisions" | "images"
+export type RequestFormat =
+  | "openai"
+  | "anthropic"
+  | "responses"
+  | "systemone"
+  | "decisions"
+  | "images";
 
 export interface RequestContext {
-  clientIP?: string | null
-  peerIP?: string | null
-  ipSource?: string | null
-  signal?: AbortSignal
-  ruleId?: string
-  admittedAt?: number
-  routing?: RoutingSelection
-  quotaUsage?: { weighted_tokens: number; complete: boolean; healthy: boolean }
-  diagnostic?: boolean
-  upstreamProtocol?: RequestFormat
+  clientIP?: string | null;
+  peerIP?: string | null;
+  ipSource?: string | null;
+  signal?: AbortSignal;
+  ruleId?: string;
+  admittedAt?: number;
+  routing?: RoutingSelection;
+  quotaUsage?: { weighted_tokens: number; complete: boolean; healthy: boolean };
+  diagnostic?: boolean;
+  upstreamProtocol?: RequestFormat;
   /** ULID-like; set once per request and reused as DB key + log correlation key. */
-  requestId: string
+  requestId: string;
   /** `performance.now()` at handler entry; used for TTFT / total latency. */
-  startTime: number
+  startTime: number;
   /** Stable client-protocol classifier — drives router and end-log `format`. */
-  format: RequestFormat
+  format: RequestFormat;
   /** Canonical request path (e.g. `/v1/chat/completions`); written to `request_end.data.path`. */
-  path: string
+  path: string;
   /** Whether the client requested SSE streaming (`payload.stream === true`). Drives `request_end.data.stream` even on pre-stream failures. */
-  stream: boolean
+  stream: boolean;
   /** API key name from auth middleware, defaults to `"default"`. */
-  accountName: string
+  accountName: string;
   /** Stable api_keys.id (or fixed env/internal identity) from auth middleware; display names can repeat across keys. */
-  keyId: string
+  keyId: string;
   /** `User-Agent` header verbatim (may be `null`). */
-  userAgent: string | null
+  userAgent: string | null;
   /** `anthropic-beta` header verbatim — only meaningful when `format === "anthropic"`. */
-  anthropicBeta: string | null
+  anthropicBeta: string | null;
   /** Composite session key (Anthropic user_id, OpenAI user, or `clientName::accountName`). */
-  sessionId: string
+  sessionId: string;
   /** Parsed UA name; `"Unknown"` when UA is absent or unrecognised. */
-  clientName: string
+  clientName: string;
   /** Parsed UA version; `null` when not derivable. */
-  clientVersion: string | null
+  clientVersion: string | null;
 }
 
 export interface IdentitySignals {
   /** Anthropic `metadata.user_id` — exact per-session UUID when present. */
-  anthropicUserId?: string | null
+  anthropicUserId?: string | null;
   /** OpenAI `payload.user` — heuristic, combined with name + accountName. */
-  openaiUser?: string | null
+  openaiUser?: string | null;
 }
 
 /**
@@ -73,17 +79,17 @@ export function buildContext(
   signals: IdentitySignals = {},
   stream = false,
 ): RequestContext {
-  const accountName = c.get("keyName") ?? "default"
-  const keyId = c.get("keyId") ?? "default"
-  const userAgent = c.req.header("user-agent") ?? null
-  const anthropicBeta = c.req.header("anthropic-beta") ?? null
+  const accountName = c.get("keyName") ?? "default";
+  const keyId = c.get("keyId") ?? "default";
+  const userAgent = c.req.header("user-agent") ?? null;
+  const anthropicBeta = c.req.header("anthropic-beta") ?? null;
 
   const { sessionId, clientName, clientVersion } = deriveClientIdentity(
     signals.anthropicUserId ?? null,
     userAgent,
     accountName,
     signals.openaiUser ?? null,
-  )
+  );
 
   return {
     clientIP: c.get("clientIP") ?? null,
@@ -102,5 +108,5 @@ export function buildContext(
     sessionId,
     clientName,
     clientVersion,
-  }
+  };
 }

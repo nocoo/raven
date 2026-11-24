@@ -12,7 +12,10 @@ describe("preserveLockfileSources", () => {
 }`;
     const after = before
       .replace("3.0.7", "3.0.8")
-      .replace('"@scope/pkg@1.0.0", ""', '"@scope/pkg@1.0.0", "https://mirror.example/@scope/pkg/-/pkg-1.0.0.tgz"')
+      .replace(
+        '"@scope/pkg@1.0.0", ""',
+        '"@scope/pkg@1.0.0", "https://mirror.example/@scope/pkg/-/pkg-1.0.0.tgz"',
+      )
       .replace('"pkg@2.0.0", ""', '"pkg@2.0.0", "https://mirror.example/pkg/-/pkg-2.0.0.tgz"');
 
     expect(preserveLockfileSources(before, after)).toBe(before.replace("3.0.7", "3.0.8"));

@@ -5,11 +5,7 @@ import { NextResponse } from "next/server";
 // Mock @/auth — capture the handler function passed to auth()
 // ---------------------------------------------------------------------------
 
-type AuthHandler = (req: {
-  nextUrl: URL;
-  url: string;
-  auth: unknown;
-}) => NextResponse | Response;
+type AuthHandler = (req: { nextUrl: URL; url: string; auth: unknown }) => NextResponse | Response;
 
 let capturedHandler: AuthHandler;
 let mockIsAuthEnabled = true;

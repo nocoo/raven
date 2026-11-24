@@ -12,70 +12,70 @@ import type {
   ChatCompletionChunk,
   ChatCompletionResponse,
   ToolCall,
-} from "../../upstream/copilot-openai"
-import type { ServerSentEvent } from "../../util/sse"
+} from "../../upstream/copilot-openai";
+import type { ServerSentEvent } from "../../util/sse";
 
 export async function consumeStreamToResponse(
   stream: AsyncGenerator<ServerSentEvent>,
 ): Promise<ChatCompletionResponse> {
-  let id = ""
-  let model = ""
-  let created = 0
-  let content = ""
-  let refusal = ""
-  let finishReason: "stop" | "length" | "tool_calls" | "content_filter" = "stop"
+  let id = "";
+  let model = "";
+  let created = 0;
+  let content = "";
+  let refusal = "";
+  let finishReason: "stop" | "length" | "tool_calls" | "content_filter" = "stop";
 
-  const toolCallMap = new Map<number, { id: string; name: string; arguments: string }>()
+  const toolCallMap = new Map<number, { id: string; name: string; arguments: string }>();
 
-  let promptTokens = 0
-  let completionTokens = 0
-  let totalTokens = 0
-  let cachedTokens = 0
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let totalTokens = 0;
+  let cachedTokens = 0;
 
   for await (const event of stream) {
-    if (event.data === "[DONE]") break
-    if (!event.data) continue
+    if (event.data === "[DONE]") break;
+    if (!event.data) continue;
 
-    const chunk = JSON.parse(event.data) as ChatCompletionChunk
+    const chunk = JSON.parse(event.data) as ChatCompletionChunk;
 
-    if (!id && chunk.id) id = chunk.id
-    if (!model && chunk.model) model = chunk.model
-    if (!created && chunk.created) created = chunk.created
+    if (!id && chunk.id) id = chunk.id;
+    if (!model && chunk.model) model = chunk.model;
+    if (!created && chunk.created) created = chunk.created;
 
     if (chunk.usage) {
-      promptTokens = chunk.usage.prompt_tokens ?? 0
-      completionTokens = chunk.usage.completion_tokens ?? 0
-      totalTokens = chunk.usage.total_tokens ?? 0
-      cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
+      promptTokens = chunk.usage.prompt_tokens ?? 0;
+      completionTokens = chunk.usage.completion_tokens ?? 0;
+      totalTokens = chunk.usage.total_tokens ?? 0;
+      cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0;
     }
 
-    const choice = chunk.choices[0]
-    if (!choice) continue
+    const choice = chunk.choices[0];
+    if (!choice) continue;
 
     if (choice.delta?.content) {
-      content += choice.delta.content
+      content += choice.delta.content;
     }
 
-    if (typeof choice.delta?.refusal === "string") refusal += choice.delta.refusal
+    if (typeof choice.delta?.refusal === "string") refusal += choice.delta.refusal;
 
     if (choice.delta?.tool_calls) {
       for (const tc of choice.delta.tool_calls) {
-        if (!tc) continue
-        const existing = toolCallMap.get(tc.index)
+        if (!tc) continue;
+        const existing = toolCallMap.get(tc.index);
         if (tc.id && tc.function?.name) {
           toolCallMap.set(tc.index, {
             id: tc.id,
             name: tc.function.name,
             arguments: tc.function.arguments ?? "",
-          })
+          });
         } else if (existing && tc.function?.arguments) {
-          existing.arguments += tc.function.arguments
+          existing.arguments += tc.function.arguments;
         }
       }
     }
 
     if (choice.finish_reason) {
-      finishReason = choice.finish_reason
+      finishReason = choice.finish_reason;
     }
   }
 
@@ -88,7 +88,7 @@ export async function consumeStreamToResponse(
         name: tc.name,
         arguments: tc.arguments,
       },
-    }))
+    }));
 
   return {
     id: id || `chatcmpl-${Date.now()}`,
@@ -115,5 +115,5 @@ export async function consumeStreamToResponse(
       total_tokens: totalTokens,
       prompt_tokens_details: { cached_tokens: cachedTokens },
     },
-  }
+  };
 }

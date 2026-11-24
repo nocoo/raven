@@ -17,22 +17,26 @@
  * `handlePureServerSideTools`.
  */
 
-import type { Context } from "hono"
-import { streamSSE, type SSEMessage } from "hono/streaming"
-import { RequestCancelledError } from "../../lib/error"
-import type { AnthropicResponse } from "../../protocols/anthropic/types"
+import type { Context } from "hono";
+import { streamSSE, type SSEMessage } from "hono/streaming";
+import { RequestCancelledError } from "../../lib/error";
+import type { AnthropicResponse } from "../../protocols/anthropic/types";
 
-export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onEnd: (error: unknown | null) => void) {
+export function streamAnthropicResponse(
+  c: Context,
+  resp: AnthropicResponse,
+  onEnd: (error: unknown | null) => void,
+) {
   return streamSSE(c, async (sseStream) => {
-    let error: unknown | null = null
-    const signal = c.req.raw.signal
-    const onAbort = () => sseStream.abort()
+    let error: unknown | null = null;
+    const signal = c.req.raw.signal;
+    const onAbort = () => sseStream.abort();
     const write = async (event: SSEMessage) => {
-      if (signal.aborted || sseStream.aborted) throw new RequestCancelledError(signal.reason)
-      await sseStream.writeSSE(event)
-      if (signal.aborted || sseStream.aborted) throw new RequestCancelledError(signal.reason)
-    }
-    signal.addEventListener("abort", onAbort, { once: true })
+      if (signal.aborted || sseStream.aborted) throw new RequestCancelledError(signal.reason);
+      await sseStream.writeSSE(event);
+      if (signal.aborted || sseStream.aborted) throw new RequestCancelledError(signal.reason);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
     try {
       await write({
         event: "message_start",
@@ -49,10 +53,9 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
             usage: resp.usage,
           },
         }),
-      })
+      });
 
       for (const [i, block] of resp.content.entries()) {
-
         if (block.type === "server_tool_use") {
           await write({
             event: "content_block_start",
@@ -65,7 +68,7 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
                 name: block.name,
               },
             }),
-          })
+          });
 
           await write({
             event: "content_block_delta",
@@ -77,7 +80,7 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
                 partial_json: JSON.stringify(block.input),
               },
             }),
-          })
+          });
         } else if (block.type === "web_search_tool_result") {
           await write({
             event: "content_block_start",
@@ -90,7 +93,7 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
                 content: block.content,
               },
             }),
-          })
+          });
         } else if (block.type === "text") {
           await write({
             event: "content_block_start",
@@ -99,7 +102,7 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
               index: i,
               content_block: { type: "text", text: "" },
             }),
-          })
+          });
 
           if (block.text) {
             await write({
@@ -109,14 +112,14 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
                 index: i,
                 delta: { type: "text_delta", text: block.text },
               }),
-            })
+            });
           }
         }
 
         await write({
           event: "content_block_stop",
           data: JSON.stringify({ type: "content_block_stop", index: i }),
-        })
+        });
       }
 
       await write({
@@ -134,17 +137,17 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
             cache_read_input_tokens: resp.usage.cache_read_input_tokens,
           },
         }),
-      })
+      });
 
       await write({
         event: "message_stop",
         data: JSON.stringify({ type: "message_stop" }),
-      })
+      });
     } catch (err) {
-      error = err
+      error = err;
     } finally {
-      signal.removeEventListener("abort", onAbort)
-      onEnd(error)
+      signal.removeEventListener("abort", onAbort);
+      onEnd(error);
     }
-  })
+  });
 }

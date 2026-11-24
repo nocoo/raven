@@ -3,10 +3,7 @@ import { proxyFetch, ProxyError } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ path: string[] }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
   const subPath = path.join("/");
 

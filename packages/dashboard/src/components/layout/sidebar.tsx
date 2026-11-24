@@ -17,11 +17,7 @@ import {
   SidebarUser,
 } from "@nocoo/basalt";
 import { useSidebar } from "@nocoo/basalt/components/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@nocoo/basalt/components/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt/components/tooltip";
 import {
   Boxes,
   Cable,
@@ -83,9 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Tools",
-    items: [
-      { href: "/settings/server-tools", label: "Server Tools", icon: Wrench },
-    ],
+    items: [{ href: "/settings/server-tools", label: "Server Tools", icon: Wrench }],
   },
   {
     label: "Settings",
@@ -189,9 +183,11 @@ function RavenSidebarBody({
 
   const go = (href: string) => {
     const monitorRoutes = ["/", "/models", "/keys", "/requests"];
-    router.push(monitorRoutes.includes(href) && monitorRoutes.includes(pathname)
-      ? monitorHref(href, searchParamsToFilters(new URLSearchParams(window.location.search)))
-      : href);
+    router.push(
+      monitorRoutes.includes(href) && monitorRoutes.includes(pathname)
+        ? monitorHref(href, searchParamsToFilters(new URLSearchParams(window.location.search)))
+        : href,
+    );
     onNavigate?.();
   };
 
@@ -251,11 +247,7 @@ function RavenSidebarBody({
                   const Icon = item.icon;
                   const active = navActive(pathname, item.href);
                   return (
-                    <SidebarItem
-                      key={item.href}
-                      active={active}
-                      onClick={() => go(item.href)}
-                    >
+                    <SidebarItem key={item.href} active={active} onClick={() => go(item.href)}>
                       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} aria-hidden="true" />
                       <span className="flex-1 truncate text-left">{item.label}</span>
                     </SidebarItem>

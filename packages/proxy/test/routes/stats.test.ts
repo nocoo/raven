@@ -3,11 +3,7 @@ import { Database } from "bun:sqlite";
 import { Hono } from "hono";
 import { createStatsRoute } from "../../src/routes/stats.ts";
 import { createRequestsRoute } from "../../src/routes/requests.ts";
-import {
-  initDatabase,
-  insertRequest,
-  type RequestRecord,
-} from "../../src/db/requests.ts";
+import { initDatabase, insertRequest, type RequestRecord } from "../../src/db/requests.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -58,10 +54,29 @@ function makeRecord(overrides: Partial<RequestRecord> = {}): RequestRecord {
 }
 
 function seedDb(db: Database): void {
-  insertRequest(db, makeRecord({ model: "claude-sonnet-4", latency_ms: 100, input_tokens: 50, output_tokens: 25 }));
-  insertRequest(db, makeRecord({ model: "claude-sonnet-4", latency_ms: 200, input_tokens: 100, output_tokens: 50 }));
-  insertRequest(db, makeRecord({ model: "gpt-4o", latency_ms: 150, input_tokens: 80, output_tokens: 40 }));
-  insertRequest(db, makeRecord({ model: "gpt-4o", status: "error", status_code: 429, latency_ms: 50, input_tokens: 0, output_tokens: 0 }));
+  insertRequest(
+    db,
+    makeRecord({ model: "claude-sonnet-4", latency_ms: 100, input_tokens: 50, output_tokens: 25 }),
+  );
+  insertRequest(
+    db,
+    makeRecord({ model: "claude-sonnet-4", latency_ms: 200, input_tokens: 100, output_tokens: 50 }),
+  );
+  insertRequest(
+    db,
+    makeRecord({ model: "gpt-4o", latency_ms: 150, input_tokens: 80, output_tokens: 40 }),
+  );
+  insertRequest(
+    db,
+    makeRecord({
+      model: "gpt-4o",
+      status: "error",
+      status_code: 429,
+      latency_ms: 50,
+      input_tokens: 0,
+      output_tokens: 0,
+    }),
+  );
 }
 
 let db: Database;
@@ -79,12 +94,15 @@ afterEach(() => {
 // ===========================================================================
 
 describe("analytics request boundaries with an isolated SQLite database", () => {
-  test.each(["timeseries-group", "breakdown"])("rejects %s without a grouping field", async (endpoint) => {
-    const app = new Hono().route("/api", createStatsRoute(db))
-    const response = await app.request(`/api/stats/${endpoint}`)
-    expect(response.status).toBe(400)
-    expect(await response.json()).toEqual({ error: "missing 'by' parameter" })
-  })
+  test.each(["timeseries-group", "breakdown"])(
+    "rejects %s without a grouping field",
+    async (endpoint) => {
+      const app = new Hono().route("/api", createStatsRoute(db));
+      const response = await app.request(`/api/stats/${endpoint}`);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "missing 'by' parameter" });
+    },
+  );
 
   test.each([
     "/api/stats/timeseries-group?by=model&from=1&interval=minute&limit=bad",
@@ -92,21 +110,21 @@ describe("analytics request boundaries with an isolated SQLite database", () => 
     "/api/stats/breakdown?by=model&order=asc&sort=unsupported&limit=bad",
     "/api/stats/breakdown?by=model&order=asc&from=1&limit=2",
   ])("uses safe query defaults and preserves schema for %s", async (url) => {
-    seedDb(db)
-    const app = new Hono().route("/api", createStatsRoute(db))
-    const response = await app.request(url)
-    expect(response.status).toBe(200)
-    const body = await response.json()
+    seedDb(db);
+    const app = new Hono().route("/api", createStatsRoute(db));
+    const response = await app.request(url);
+    expect(response.status).toBe(200);
+    const body = await response.json();
     if (url.includes("/breakdown")) {
-      expect(body).toHaveLength(2)
-      expect(body.map((item: { count: number }) => item.count)).toEqual([2, 2])
+      expect(body).toHaveLength(2);
+      expect(body.map((item: { count: number }) => item.count)).toEqual([2, 2]);
     } else {
-      expect(body.keys.sort()).toEqual(["claude-sonnet-4", "gpt-4o"])
-      expect(body.points.length).toBeGreaterThan(0)
+      expect(body.keys.sort()).toEqual(["claude-sonnet-4", "gpt-4o"]);
+      expect(body.points.length).toBeGreaterThan(0);
     }
-    expect(db.query("SELECT COUNT(*) AS n FROM requests").get()).toEqual({ n: 4 })
-  })
-})
+    expect(db.query("SELECT COUNT(*) AS n FROM requests").get()).toEqual({ n: 4 });
+  });
+});
 
 describe("GET /api/stats/overview", () => {
   test("returns aggregate stats", async () => {
@@ -299,7 +317,9 @@ describe("GET /api/stats/timeseries-group", () => {
     const app = new Hono();
     app.route("/api", createStatsRoute(db));
 
-    const res = await app.request("/api/stats/timeseries-group?by=account_name&interval=hour&range=24h");
+    const res = await app.request(
+      "/api/stats/timeseries-group?by=account_name&interval=hour&range=24h",
+    );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.keys).toEqual(expect.arrayContaining(["claude-code", "cursor"]));
@@ -426,7 +446,9 @@ describe("GET /api/requests", () => {
     expect(body1.has_more).toBe(true);
     expect(body1.next_cursor).toBeDefined();
 
-    const res2 = await app.request(`/api/requests?limit=3&sort=timestamp&order=desc&cursor=${body1.next_cursor}`);
+    const res2 = await app.request(
+      `/api/requests?limit=3&sort=timestamp&order=desc&cursor=${body1.next_cursor}`,
+    );
     const body2 = await res2.json();
     expect(body2.data.length).toBe(3);
     // No overlap
@@ -536,7 +558,7 @@ describe("breakdown sort=error_rate", () => {
 
     const res = await app.request("/api/stats/breakdown?by=model&sort=error_rate&order=desc");
     expect(res.status).toBe(200);
-    const body = await res.json() as Array<{ key: string; error_rate: number }>;
+    const body = (await res.json()) as Array<{ key: string; error_rate: number }>;
     expect(body.length).toBeGreaterThan(0);
     // gpt-4o has 50% error rate (1/2 is error), should be first when sorting by error_rate desc
     expect(body[0]!.key).toBe("gpt-4o");
@@ -550,7 +572,7 @@ describe("breakdown sort=error_rate", () => {
 
     const res = await app.request("/api/stats/breakdown?by=model&sort=p95_latency_ms&order=desc");
     expect(res.status).toBe(200);
-    const body = await res.json() as Array<{ key: string; p95_latency_ms: number }>;
+    const body = (await res.json()) as Array<{ key: string; p95_latency_ms: number }>;
     expect(body.length).toBeGreaterThan(0);
     // p95 should be defined for all entries
     for (const entry of body) {
@@ -569,7 +591,7 @@ describe("breakdown sort=error_rate", () => {
 
     const res = await app.request("/api/stats/breakdown?by=model&sort=avg_ttft_ms&order=desc");
     expect(res.status).toBe(200);
-    const body = await res.json() as Array<{ key: string }>;
+    const body = (await res.json()) as Array<{ key: string }>;
     expect(body.length).toBeGreaterThan(0);
   });
 });
@@ -585,17 +607,23 @@ describe("timeseries explicit from/to range", () => {
     const twoDaysAgo = now - 2 * 24 * 60 * 60_000;
 
     // Insert a request 2 days ago
-    insertRequest(db2, makeRecord({
-      timestamp: twoDaysAgo,
-      model: "old-model",
-      latency_ms: 500,
-    }));
+    insertRequest(
+      db2,
+      makeRecord({
+        timestamp: twoDaysAgo,
+        model: "old-model",
+        latency_ms: 500,
+      }),
+    );
     // And one now
-    insertRequest(db2, makeRecord({
-      timestamp: now - 1000,
-      model: "new-model",
-      latency_ms: 200,
-    }));
+    insertRequest(
+      db2,
+      makeRecord({
+        timestamp: now - 1000,
+        model: "new-model",
+        latency_ms: 200,
+      }),
+    );
 
     const app = new Hono();
     app.route("/api", createStatsRoute(db2));
@@ -605,7 +633,7 @@ describe("timeseries explicit from/to range", () => {
     const to = now;
     const res = await app.request(`/api/stats/timeseries?interval=day&from=${from}&to=${to}`);
     expect(res.status).toBe(200);
-    const body = await res.json() as Array<{ bucket: number; count: number }>;
+    const body = (await res.json()) as Array<{ bucket: number; count: number }>;
 
     // Should find both records (spanning multiple day buckets)
     const totalCount = body.reduce((sum, b) => sum + b.count, 0);
@@ -620,15 +648,21 @@ describe("timeseries explicit from/to range", () => {
     const twoDaysAgo = now - 2 * 24 * 60 * 60_000;
 
     // Insert a request 2 days ago (outside 1h window)
-    insertRequest(db2, makeRecord({
-      timestamp: twoDaysAgo,
-      model: "old-model",
-    }));
+    insertRequest(
+      db2,
+      makeRecord({
+        timestamp: twoDaysAgo,
+        model: "old-model",
+      }),
+    );
     // And one 30 minutes ago (inside 1h window)
-    insertRequest(db2, makeRecord({
-      timestamp: now - 30 * 60_000,
-      model: "new-model",
-    }));
+    insertRequest(
+      db2,
+      makeRecord({
+        timestamp: now - 30 * 60_000,
+        model: "new-model",
+      }),
+    );
 
     const app = new Hono();
     app.route("/api", createStatsRoute(db2));
@@ -636,7 +670,7 @@ describe("timeseries explicit from/to range", () => {
     // Request only last 1h
     const res = await app.request("/api/stats/timeseries?interval=minute&range=1h");
     expect(res.status).toBe(200);
-    const body = await res.json() as Array<{ bucket: number; count: number }>;
+    const body = (await res.json()) as Array<{ bucket: number; count: number }>;
 
     // Should only find the recent record
     const totalCount = body.reduce((sum, b) => sum + b.count, 0);
@@ -653,29 +687,68 @@ describe("timeseries explicit from/to range", () => {
 describe("key_id and protocol_mode endpoints", () => {
   function seedMixed(db: Database): void {
     // Same display name, two distinct key ids — must stay separable
-    insertRequest(db, makeRecord({
-      id: "k1a", account_name: "claude-code", api_key_id: "K1",
-      strategy: "copilot-native", model: "claude-sonnet-4", timestamp: 2000,
-    }));
-    insertRequest(db, makeRecord({
-      id: "k1b", account_name: "claude-code", api_key_id: "K1",
-      strategy: "copilot-translated", translated_model: "gpt-4o", model: "gpt-4o", timestamp: 3000,
-    }));
-    insertRequest(db, makeRecord({
-      id: "k2", account_name: "claude-code", api_key_id: "K2",
-      strategy: "custom-openai", client_format: "openai", model: "gpt-5-mini", timestamp: 4000,
-    }));
+    insertRequest(
+      db,
+      makeRecord({
+        id: "k1a",
+        account_name: "claude-code",
+        api_key_id: "K1",
+        strategy: "copilot-native",
+        model: "claude-sonnet-4",
+        timestamp: 2000,
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        id: "k1b",
+        account_name: "claude-code",
+        api_key_id: "K1",
+        strategy: "copilot-translated",
+        translated_model: "gpt-4o",
+        model: "gpt-4o",
+        timestamp: 3000,
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        id: "k2",
+        account_name: "claude-code",
+        api_key_id: "K2",
+        strategy: "custom-openai",
+        client_format: "openai",
+        model: "gpt-5-mini",
+        timestamp: 4000,
+      }),
+    );
     // Legacy row predating api_key_id
-    insertRequest(db, makeRecord({
-      id: "legacy", account_name: "claude-code", api_key_id: "",
-      strategy: "", routing_path: "", model: "claude-sonnet-4", timestamp: 1000,
-    }));
+    insertRequest(
+      db,
+      makeRecord({
+        id: "legacy",
+        account_name: "claude-code",
+        api_key_id: "",
+        strategy: "",
+        routing_path: "",
+        model: "claude-sonnet-4",
+        timestamp: 1000,
+      }),
+    );
     // server-tools row: no strategy, explicit routing_path, flag set
-    insertRequest(db, makeRecord({
-      id: "st", account_name: "claude-code", api_key_id: "K1",
-      strategy: "", routing_path: "native", server_tools_used: 1,
-      model: "claude-sonnet-4", timestamp: 5000,
-    }));
+    insertRequest(
+      db,
+      makeRecord({
+        id: "st",
+        account_name: "claude-code",
+        api_key_id: "K1",
+        strategy: "",
+        routing_path: "native",
+        server_tools_used: 1,
+        model: "claude-sonnet-4",
+        timestamp: 5000,
+      }),
+    );
   }
 
   function makeApp(): Hono {
@@ -687,14 +760,36 @@ describe("key_id and protocol_mode endpoints", () => {
     const app = makeApp();
     const res = await app.request("/api/requests?sort=timestamp&order=asc");
     expect(res.status).toBe(200);
-    const body = await res.json() as { data: Array<{ id: string; key_id: string; protocol_mode: string; server_tools_used: number }> };
+    const body = (await res.json()) as {
+      data: Array<{ id: string; key_id: string; protocol_mode: string; server_tools_used: number }>;
+    };
 
     const byId = new Map(body.data.map((r) => [r.id, r]));
-    expect(byId.get("k1a")).toMatchObject({ key_id: "K1", protocol_mode: "native", server_tools_used: 0 });
-    expect(byId.get("k1b")).toMatchObject({ key_id: "K1", protocol_mode: "translated", server_tools_used: 0 });
-    expect(byId.get("k2")).toMatchObject({ key_id: "K2", protocol_mode: "native", server_tools_used: 0 });
-    expect(byId.get("legacy")).toMatchObject({ key_id: "legacy:claude-code", protocol_mode: "unknown", server_tools_used: 0 });
-    expect(byId.get("st")).toMatchObject({ key_id: "K1", protocol_mode: "native", server_tools_used: 1 });
+    expect(byId.get("k1a")).toMatchObject({
+      key_id: "K1",
+      protocol_mode: "native",
+      server_tools_used: 0,
+    });
+    expect(byId.get("k1b")).toMatchObject({
+      key_id: "K1",
+      protocol_mode: "translated",
+      server_tools_used: 0,
+    });
+    expect(byId.get("k2")).toMatchObject({
+      key_id: "K2",
+      protocol_mode: "native",
+      server_tools_used: 0,
+    });
+    expect(byId.get("legacy")).toMatchObject({
+      key_id: "legacy:claude-code",
+      protocol_mode: "unknown",
+      server_tools_used: 0,
+    });
+    expect(byId.get("st")).toMatchObject({
+      key_id: "K1",
+      protocol_mode: "native",
+      server_tools_used: 1,
+    });
   });
 
   test("breakdown by=key_id separates same-name keys and returns account_name label", async () => {
@@ -702,7 +797,7 @@ describe("key_id and protocol_mode endpoints", () => {
     const app = makeApp();
     const res = await app.request("/api/stats/breakdown?by=key_id");
     expect(res.status).toBe(200);
-    const body = await res.json() as Array<{ key: string; count: number; account_name: string }>;
+    const body = (await res.json()) as Array<{ key: string; count: number; account_name: string }>;
 
     const k1 = body.find((e) => e.key === "K1");
     const k2 = body.find((e) => e.key === "K2");
@@ -716,26 +811,35 @@ describe("key_id and protocol_mode endpoints", () => {
     seedMixed(db);
     const app = makeApp();
     const res = await app.request("/api/stats/summary");
-    const body = await res.json() as {
-      total_requests: number; native_count: number; translated_count: number; unknown_count: number;
+    const body = (await res.json()) as {
+      total_requests: number;
+      native_count: number;
+      translated_count: number;
+      unknown_count: number;
     };
     expect(body.total_requests).toBe(5);
     expect(body.native_count).toBe(3); // k1a + k2 + st
     expect(body.translated_count).toBe(1); // k1b
     expect(body.unknown_count).toBe(1); // legacy
-    expect(body.native_count + body.translated_count + body.unknown_count).toBe(body.total_requests);
+    expect(body.native_count + body.translated_count + body.unknown_count).toBe(
+      body.total_requests,
+    );
   });
 
   test("breakdown by=protocol_mode groups and timeseries-group stacks", async () => {
     seedMixed(db);
     const app = makeApp();
 
-    const bd = await (await app.request("/api/stats/breakdown?by=protocol_mode")).json() as Array<{ key: string; count: number }>;
+    const bd = (await (
+      await app.request("/api/stats/breakdown?by=protocol_mode")
+    ).json()) as Array<{ key: string; count: number }>;
     expect(bd.find((e) => e.key === "native")!.count).toBe(3);
     expect(bd.find((e) => e.key === "translated")!.count).toBe(1);
     expect(bd.find((e) => e.key === "unknown")!.count).toBe(1);
 
-    const tg = await (await app.request("/api/stats/timeseries-group?by=protocol_mode&from=0")).json() as { keys: string[] };
+    const tg = (await (
+      await app.request("/api/stats/timeseries-group?by=protocol_mode&from=0")
+    ).json()) as { keys: string[] };
     expect(tg.keys.sort()).toEqual(["native", "translated", "unknown"]);
   });
 
@@ -747,7 +851,7 @@ describe("key_id and protocol_mode endpoints", () => {
     const url = "/api/requests?key_id=K1&model=claude-sonnet-4&protocol_mode=native&from=1500";
     const res = await app.request(url);
     expect(res.status).toBe(200);
-    const body = await res.json() as { data: Array<{ id: string }> };
+    const body = (await res.json()) as { data: Array<{ id: string }> };
     // k1a (native, ts 2000) and st (native, ts 5000); legacy excluded by key_id, k1b by model+mode
     expect(body.data.map((r) => r.id).sort()).toEqual(["k1a", "st"]);
   });
@@ -756,7 +860,7 @@ describe("key_id and protocol_mode endpoints", () => {
     seedMixed(db);
     const app = makeApp();
     const res = await app.request("/api/requests?key_id=legacy:claude-code");
-    const body = await res.json() as { data: Array<{ id: string }> };
+    const body = (await res.json()) as { data: Array<{ id: string }> };
     expect(body.data.map((r) => r.id)).toEqual(["legacy"]);
   });
 });

@@ -2,7 +2,6 @@ import { managementConfig } from "@/lib/management-config";
 import { NextResponse } from "next/server";
 import { proxyFetch, ProxyError } from "@/lib/proxy";
 
-
 export const dynamic = "force-dynamic";
 
 function proxyHeaders(): Record<string, string> {
@@ -32,7 +31,8 @@ export async function PUT(request: Request) {
       method: "PUT",
       headers: proxyHeaders(),
       body: JSON.stringify(body),
-      cache: "no-store", redirect: "error",
+      cache: "no-store",
+      redirect: "error",
     });
 
     // Forward proxy's JSON body as-is (preserves structured validation/bridge errors)

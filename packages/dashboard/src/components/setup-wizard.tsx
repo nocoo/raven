@@ -1,13 +1,20 @@
 "use client";
 
-
-
-
 import { CodeBlock } from "@/components/code-block";
 import { useAuthConfig } from "@/hooks/use-auth-config";
 import { useState, useEffect } from "react";
 import {
-  Monitor, Shield, Terminal, Key, Cable, ChevronRight, ChevronLeft, Rocket, ExternalLink, X, } from "@nocoo/basalt/icons";
+  Monitor,
+  Shield,
+  Terminal,
+  Key,
+  Cable,
+  ChevronRight,
+  ChevronLeft,
+  Rocket,
+  ExternalLink,
+  X,
+} from "@nocoo/basalt/icons";
 import { Github } from "@/components/icons/github";
 import {
   Badge,
@@ -29,13 +36,7 @@ const TOTAL_STEPS = 3;
 // Step indicator — numbered circles with connecting lines
 // ---------------------------------------------------------------------------
 
-function StepIndicator({
-  current,
-  total,
-}: {
-  current: number;
-  total: number;
-}) {
+function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex items-center justify-center gap-0 py-2">
       {Array.from({ length: total }, (_, i) => {
@@ -90,8 +91,10 @@ function StepDashboard() {
         </div>
 
         <p className="text-sm text-basalt-muted-foreground">
-          Raven runs locally on your machine. By default, the dashboard is open to
-          anyone who can reach <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
+          Raven runs locally on your machine. By default, the dashboard is open to anyone who can
+          reach{" "}
+          <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">localhost:7023</code>{" "}
+          — no login required.
         </p>
 
         <LayerCard className="space-y-3">
@@ -129,8 +132,10 @@ function StepDashboard() {
       </div>
 
       <p className="text-sm text-basalt-muted-foreground">
-        Raven runs locally on your machine. By default, the dashboard is open to
-        anyone who can reach <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> — no login required.
+        Raven runs locally on your machine. By default, the dashboard is open to anyone who can
+        reach{" "}
+        <code className="text-xs bg-basalt-secondary/70 px-1 py-0.5 rounded">localhost:7023</code> —
+        no login required.
       </p>
 
       <LayerCard className="space-y-3">
@@ -152,8 +157,8 @@ function StepDashboard() {
         {!authEnabled && (
           <div className="space-y-2">
             <p className="text-xs text-basalt-muted-foreground">
-              To enable Google OAuth login, set these environment variables
-              before starting the dashboard:
+              To enable Google OAuth login, set these environment variables before starting the
+              dashboard:
             </p>
             <CodeBlock
               code={`GOOGLE_CLIENT_ID=your-client-id
@@ -165,8 +170,7 @@ NEXTAUTH_SECRET=your-random-secret`}
 
         {authEnabled && (
           <p className="text-xs text-basalt-muted-foreground">
-            Google OAuth is configured. Only authenticated users can access the
-            dashboard.
+            Google OAuth is configured. Only authenticated users can access the dashboard.
           </p>
         )}
       </LayerCard>
@@ -187,9 +191,8 @@ function StepCopilot() {
       </div>
 
       <p className="text-sm text-basalt-muted-foreground">
-        Raven proxies requests through your GitHub Copilot subscription. You
-        need to authenticate via GitHub&apos;s Device Flow — this happens in
-        your terminal, not in the browser.
+        Raven proxies requests through your GitHub Copilot subscription. You need to authenticate
+        via GitHub&apos;s Device Flow — this happens in your terminal, not in the browser.
       </p>
 
       <LayerCard className="space-y-3">
@@ -197,8 +200,8 @@ function StepCopilot() {
         <ol className="space-y-2 text-sm text-basalt-muted-foreground list-decimal list-inside">
           <li>Start the proxy server</li>
           <li>
-            The proxy prints a <strong>device code</strong> and a{" "}
-            <strong>URL</strong> in your terminal
+            The proxy prints a <strong>device code</strong> and a <strong>URL</strong> in your
+            terminal
           </li>
           <li>Open the URL in your browser and enter the code</li>
           <li>Authorize the GitHub Copilot app</li>
@@ -250,7 +253,9 @@ function StepApiKey() {
           <p className="text-sm font-medium">Claude Code config</p>
         </div>
         <p className="text-xs text-basalt-muted-foreground">
-          Add this to your Claude Code <code className="bg-basalt-secondary/70 px-1 py-0.5 rounded">settings.json</code> env block:
+          Add this to your Claude Code{" "}
+          <code className="bg-basalt-secondary/70 px-1 py-0.5 rounded">settings.json</code> env
+          block:
         </p>
         <CodeBlock
           code={`"env": {
@@ -283,10 +288,8 @@ function StepApiKey() {
       </LayerCard>
 
       <p className="text-xs text-basalt-muted-foreground">
-        Head to the{" "}
-        <strong>Connect</strong>{" "}
-        page from the sidebar to create your first API key and see examples for
-        other tools (curl, Python, TypeScript).
+        Head to the <strong>Connect</strong> page from the sidebar to create your first API key and
+        see examples for other tools (curl, Python, TypeScript).
       </p>
     </div>
   );
@@ -352,9 +355,7 @@ export function SetupWizard() {
             <Rocket className="h-5 w-5 text-basalt-primary" strokeWidth={1.5} />
             Welcome to Raven
           </DialogTitle>
-          <DialogDescription>
-            Let&apos;s get you set up in a few quick steps.
-          </DialogDescription>
+          <DialogDescription>Let&apos;s get you set up in a few quick steps.</DialogDescription>
         </DialogHeader>
 
         {/* Step indicator */}
@@ -383,11 +384,7 @@ export function SetupWizard() {
           {/* Navigation — right side */}
           <div className="flex items-center gap-2">
             {!isFirst && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStep((s) => s - 1)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setStep((s) => s - 1)}>
                 <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
                 Back
               </Button>
@@ -398,10 +395,7 @@ export function SetupWizard() {
                 <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
               </Button>
             ) : (
-              <Button
-                size="sm"
-                onClick={() => handleClose(false)}
-              >
+              <Button size="sm" onClick={() => handleClose(false)}>
                 Get Started
                 <Rocket className="h-4 w-4" strokeWidth={1.5} />
               </Button>

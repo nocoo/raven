@@ -1,6 +1,5 @@
 "use client";
 
-
 import { cn } from "@/lib/utils";
 import { formatCompact } from "@/lib/chart-config";
 import type { SessionInfo } from "./types";
@@ -13,10 +12,7 @@ function formatPercent(v: number): string {
 
 function SessionRow({ session }: { session: SessionInfo }) {
   const isActive = session.activeRequests.size > 0;
-  const errorRate =
-    session.totalRequests > 0
-      ? session.errorCount / session.totalRequests
-      : 0;
+  const errorRate = session.totalRequests > 0 ? session.errorCount / session.totalRequests : 0;
 
   return (
     <LayerCard.Well
@@ -44,9 +40,7 @@ function SessionRow({ session }: { session: SessionInfo }) {
           <span>{session.totalRequests} req</span>
           <span>{formatCompact(session.totalTokens)} tok</span>
           {errorRate > 0 && (
-            <span className="text-basalt-destructive">
-              {formatPercent(errorRate)} err
-            </span>
+            <span className="text-basalt-destructive">{formatPercent(errorRate)} err</span>
           )}
           {isActive && (
             <span className="text-basalt-chart-5 font-medium">
@@ -55,15 +49,11 @@ function SessionRow({ session }: { session: SessionInfo }) {
           )}
         </div>
       </div>
-      {session.accountName !== "default" &&
-        session.accountName !== "dev" && (
-          <Badge
-            variant="outline"
-            className="px-1 py-0 text-[9px] shrink-0"
-          >
-            {session.accountName}
-          </Badge>
-        )}
+      {session.accountName !== "default" && session.accountName !== "dev" && (
+        <Badge variant="outline" className="px-1 py-0 text-[9px] shrink-0">
+          {session.accountName}
+        </Badge>
+      )}
     </LayerCard.Well>
   );
 }

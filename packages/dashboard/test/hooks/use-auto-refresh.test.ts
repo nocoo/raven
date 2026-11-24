@@ -4,23 +4,26 @@ import { describe, expect, it, vi } from "vitest";
 import { useAutoRefresh } from "@/hooks/use-auto-refresh";
 
 describe("useAutoRefresh", () => {
-  it.each([1000, 3000, 5000])("refreshes at %ims and releases its timer on unmount", (intervalMs) => {
-    vi.useFakeTimers();
-    try {
-      const refresh = vi.fn();
-      const { unmount } = renderHook(() => useAutoRefresh(intervalMs, refresh, false));
-      act(() => vi.advanceTimersByTime(intervalMs - 1));
-      expect(refresh).not.toHaveBeenCalled();
-      act(() => vi.advanceTimersByTime(1));
-      expect(refresh).toHaveBeenCalledOnce();
-      unmount();
-      act(() => vi.advanceTimersByTime(intervalMs * 2));
-      expect(refresh).toHaveBeenCalledOnce();
-      expect(vi.getTimerCount()).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+  it.each([1000, 3000, 5000])(
+    "refreshes at %ims and releases its timer on unmount",
+    (intervalMs) => {
+      vi.useFakeTimers();
+      try {
+        const refresh = vi.fn();
+        const { unmount } = renderHook(() => useAutoRefresh(intervalMs, refresh, false));
+        act(() => vi.advanceTimersByTime(intervalMs - 1));
+        expect(refresh).not.toHaveBeenCalled();
+        act(() => vi.advanceTimersByTime(1));
+        expect(refresh).toHaveBeenCalledOnce();
+        unmount();
+        act(() => vi.advanceTimersByTime(intervalMs * 2));
+        expect(refresh).toHaveBeenCalledOnce();
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it("pauses pending and hidden-page refreshes, reschedules intervals and supports off", () => {
     vi.useFakeTimers();

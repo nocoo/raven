@@ -1,6 +1,11 @@
 import type { UpstreamDiagnostic, UpstreamOperationDetails } from "./routing-types";
 
-export interface ApiErrorDetail { message: string; type?: string; references?: unknown; details?: UpstreamOperationDetails }
+export interface ApiErrorDetail {
+  message: string;
+  type?: string;
+  references?: unknown;
+  details?: UpstreamOperationDetails;
+}
 
 export interface FailedRequest {
   method: string;
@@ -12,7 +17,11 @@ export interface FailedRequest {
 }
 
 export class RoutingRequestError extends Error {
-  constructor(message: string, public readonly request: FailedRequest, public readonly detail?: ApiErrorDetail) {
+  constructor(
+    message: string,
+    public readonly request: FailedRequest,
+    public readonly detail?: ApiErrorDetail,
+  ) {
     super(message);
     this.name = "RoutingRequestError";
   }
@@ -27,7 +36,8 @@ export function apiErrorDetail(body: unknown): ApiErrorDetail | undefined {
   if (!body || typeof body !== "object" || !("error" in body)) return undefined;
   const error = body.error;
   if (typeof error === "string") return { message: error };
-  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error as ApiErrorDetail;
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string")
+    return error as ApiErrorDetail;
   return undefined;
 }
 
@@ -46,7 +56,11 @@ export async function routingRequest<T>(path: string, init?: RequestInit): Promi
     throw new RoutingRequestError(errorMessage(cause), request);
   }
   let body: unknown = null;
-  try { body = JSON.parse(raw); } catch { /* An HTML or empty error response is still useful diagnostic evidence. */ }
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    /* An HTML or empty error response is still useful diagnostic evidence. */
+  }
   if (!response.ok) {
     const detail = apiErrorDetail(body);
     let message = detail?.message ?? `Request failed (${response.status}).`;
@@ -61,10 +75,18 @@ export async function routingRequest<T>(path: string, init?: RequestInit): Promi
       });
       message += ` Referenced by: ${names.join(", ")}.`;
     }
-    throw new RoutingRequestError(message, {
-      ...request, status: response.status, content_type: response.headers.get("content-type") ?? "Unknown",
-      ...(!detail ? { response_body: raw.slice(0, 8192), response_body_truncated: raw.length > 8192 } : {}),
-    }, detail);
+    throw new RoutingRequestError(
+      message,
+      {
+        ...request,
+        status: response.status,
+        content_type: response.headers.get("content-type") ?? "Unknown",
+        ...(!detail
+          ? { response_body: raw.slice(0, 8192), response_body_truncated: raw.length > 8192 }
+          : {}),
+      },
+      detail,
+    );
   }
   return body as T;
 }

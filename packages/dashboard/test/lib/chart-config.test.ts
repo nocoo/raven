@@ -1,12 +1,7 @@
 // Unit tests for lib/chart-config.ts formatting + derived metrics.
 import { describe, expect, it } from "vitest";
 
-import {
-  cacheHitRate,
-  formatPercent,
-  formatCompact,
-  formatLatency,
-} from "@/lib/chart-config";
+import { cacheHitRate, formatPercent, formatCompact, formatLatency } from "@/lib/chart-config";
 
 describe("cacheHitRate", () => {
   it("divides reads by reads + write + input", () => {

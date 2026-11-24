@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Settings2, Check } from "@nocoo/basalt/icons";
 import { Button } from "@nocoo/basalt";
 
-
 export interface ColumnDef {
   key: string;
   label: string;
@@ -66,18 +65,15 @@ export function ColumnConfig({ visibleColumns, onToggle }: ColumnConfigProps) {
       {open && (
         <>
           {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />
           {/* Dropdown */}
           <div className="absolute right-0 top-full mt-1 z-50 w-56 rounded-md border bg-basalt-popover p-1 shadow-md">
             <div className="px-2 py-1.5 text-xs font-medium text-basalt-muted-foreground">
               Toggle columns
             </div>
             {ALL_COLUMNS.map((col) => (
-              <button type="button"
+              <button
+                type="button"
                 key={col.key}
                 onClick={() => onToggle(col.key)}
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-basalt-accent transition-colors"

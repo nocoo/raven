@@ -32,8 +32,8 @@ function responseFrom(chunks: string[]): Response {
 describe("SSE Parser", () => {
   describe("parseSSELine", () => {
     test("parses data line", () => {
-      const result = parseSSELine("data: {\"hello\":\"world\"}");
-      expect(result).toEqual({ type: "data", value: "{\"hello\":\"world\"}" });
+      const result = parseSSELine('data: {"hello":"world"}');
+      expect(result).toEqual({ type: "data", value: '{"hello":"world"}' });
     });
 
     test("parses [DONE] marker", () => {
@@ -60,8 +60,8 @@ describe("SSE Parser", () => {
     });
 
     test("handles data with no space after colon", () => {
-      const result = parseSSELine("data:{\"no\":\"space\"}");
-      expect(result).toEqual({ type: "data", value: "{\"no\":\"space\"}" });
+      const result = parseSSELine('data:{"no":"space"}');
+      expect(result).toEqual({ type: "data", value: '{"no":"space"}' });
     });
 
     test("parses event line without space after colon", () => {
@@ -85,11 +85,7 @@ describe("SSE Parser", () => {
 
   describe("parseSSEStream", () => {
     test("parses complete SSE chunks", async () => {
-      const chunks = [
-        "data: {\"id\":1}\n\n",
-        "data: {\"id\":2}\n\n",
-        "data: [DONE]\n\n",
-      ];
+      const chunks = ['data: {"id":1}\n\n', 'data: {"id":2}\n\n', "data: [DONE]\n\n"];
 
       const results: string[] = [];
       let done = false;
@@ -102,16 +98,16 @@ describe("SSE Parser", () => {
         }
       }
 
-      expect(results).toEqual(["{\"id\":1}", "{\"id\":2}"]);
+      expect(results).toEqual(['{"id":1}', '{"id":2}']);
       expect(done).toBe(true);
     });
 
     test("handles chunks split across boundaries", async () => {
-      const fullData = "data: {\"id\":1}\n\ndata: {\"id\":2}\n\ndata: [DONE]\n\n";
+      const fullData = 'data: {"id":1}\n\ndata: {"id":2}\n\ndata: [DONE]\n\n';
       const chunks = [
-        fullData.slice(0, 8),    // "data: {\"i"
-        fullData.slice(8, 20),   // "d\":1}\n\ndata"
-        fullData.slice(20),      // rest
+        fullData.slice(0, 8), // "data: {\"i"
+        fullData.slice(8, 20), // "d\":1}\n\ndata"
+        fullData.slice(20), // rest
       ];
 
       const results: string[] = [];
@@ -125,7 +121,7 @@ describe("SSE Parser", () => {
         }
       }
 
-      expect(results).toEqual(["{\"id\":1}", "{\"id\":2}"]);
+      expect(results).toEqual(['{"id":1}', '{"id":2}']);
       expect(done).toBe(true);
     });
 
@@ -140,39 +136,37 @@ describe("SSE Parser", () => {
 
     test("flushes remaining buffer data when stream ends without trailing newline", async () => {
       // Stream ends with data still in buffer (no \n\n terminator)
-      const chunks = [
-        "data: {\"id\":1}\n\ndata: {\"id\":2}",
-      ];
+      const chunks = ['data: {"id":1}\n\ndata: {"id":2}'];
 
       const results: string[] = [];
       for await (const event of parseSSEStream(streamFrom(chunks))) {
         if (event !== null) results.push(event);
       }
 
-      expect(results).toEqual(["{\"id\":1}", "{\"id\":2}"]);
+      expect(results).toEqual(['{"id":1}', '{"id":2}']);
     });
 
     test("flushes [DONE] in buffer at stream end", async () => {
       // Stream ends with [DONE] in buffer, no trailing \n\n
-      const chunks = ["data: {\"id\":1}\n\ndata: [DONE]"];
+      const chunks = ['data: {"id":1}\n\ndata: [DONE]'];
 
       const results: (string | null)[] = [];
       for await (const event of parseSSEStream(streamFrom(chunks))) {
         results.push(event);
       }
 
-      expect(results).toEqual(["{\"id\":1}", null]);
+      expect(results).toEqual(['{"id":1}', null]);
     });
 
     test("skips comment and event lines", async () => {
-      const data = ": comment\nevent: msg\ndata: {\"real\":true}\n\ndata: [DONE]\n\n";
+      const data = ': comment\nevent: msg\ndata: {"real":true}\n\ndata: [DONE]\n\n';
 
       const results: string[] = [];
       for await (const event of parseSSEStream(streamFrom([data]))) {
         if (event !== null) results.push(event);
       }
 
-      expect(results).toEqual(["{\"real\":true}"]);
+      expect(results).toEqual(['{"real":true}']);
     });
   });
 
@@ -182,10 +176,7 @@ describe("SSE Parser", () => {
 
   describe("events", () => {
     test("yields data-only events", async () => {
-      const res = responseFrom([
-        "data: {\"id\":1}\n\n",
-        "data: {\"id\":2}\n\n",
-      ]);
+      const res = responseFrom(['data: {"id":1}\n\n', 'data: {"id":2}\n\n']);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
@@ -193,15 +184,15 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"id\":1}", event: null, id: null, retry: null },
-        { data: "{\"id\":2}", event: null, id: null, retry: null },
+        { data: '{"id":1}', event: null, id: null, retry: null },
+        { data: '{"id":2}', event: null, id: null, retry: null },
       ]);
     });
 
     test("yields events with event type", async () => {
       const res = responseFrom([
-        "event: message_start\ndata: {\"type\":\"message_start\"}\n\n",
-        "event: content_block_delta\ndata: {\"delta\":\"hi\"}\n\n",
+        'event: message_start\ndata: {"type":"message_start"}\n\n',
+        'event: content_block_delta\ndata: {"delta":"hi"}\n\n',
       ]);
 
       const result: ServerSentEvent[] = [];
@@ -210,8 +201,8 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"type\":\"message_start\"}", event: "message_start", id: null, retry: null },
-        { data: "{\"delta\":\"hi\"}", event: "content_block_delta", id: null, retry: null },
+        { data: '{"type":"message_start"}', event: "message_start", id: null, retry: null },
+        { data: '{"delta":"hi"}', event: "content_block_delta", id: null, retry: null },
       ]);
     });
 
@@ -223,9 +214,7 @@ describe("SSE Parser", () => {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "hello", event: null, id: "42", retry: null },
-      ]);
+      expect(result).toEqual([{ data: "hello", event: null, id: "42", retry: null }]);
     });
 
     test("yields events with retry field", async () => {
@@ -236,9 +225,7 @@ describe("SSE Parser", () => {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "reconnect", event: null, id: null, retry: 5000 },
-      ]);
+      expect(result).toEqual([{ data: "reconnect", event: null, id: null, retry: 5000 }]);
     });
 
     test("ignores invalid retry values", async () => {
@@ -253,56 +240,44 @@ describe("SSE Parser", () => {
     });
 
     test("concatenates multiple data lines with newlines", async () => {
-      const res = responseFrom([
-        "data: line1\ndata: line2\ndata: line3\n\n",
-      ]);
+      const res = responseFrom(["data: line1\ndata: line2\ndata: line3\n\n"]);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "line1\nline2\nline3", event: null, id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: "line1\nline2\nline3", event: null, id: null, retry: null }]);
     });
 
     test("skips comment lines", async () => {
-      const res = responseFrom([
-        ": this is a comment\ndata: real data\n\n",
-      ]);
+      const res = responseFrom([": this is a comment\ndata: real data\n\n"]);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "real data", event: null, id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: "real data", event: null, id: null, retry: null }]);
     });
 
     test("skips empty events (blank line with no preceding fields)", async () => {
-      const res = responseFrom([
-        "\n\ndata: after blanks\n\n",
-      ]);
+      const res = responseFrom(["\n\ndata: after blanks\n\n"]);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "after blanks", event: null, id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: "after blanks", event: null, id: null, retry: null }]);
     });
 
     test("handles chunks split across boundaries", async () => {
-      const full = "event: delta\ndata: {\"id\":1}\n\nevent: delta\ndata: {\"id\":2}\n\n";
+      const full = 'event: delta\ndata: {"id":1}\n\nevent: delta\ndata: {"id":2}\n\n';
       const res = responseFrom([
-        full.slice(0, 10),    // "event: del"
-        full.slice(10, 30),   // "ta\ndata: {\"id\":1}\n"
-        full.slice(30),       // rest
+        full.slice(0, 10), // "event: del"
+        full.slice(10, 30), // "ta\ndata: {\"id\":1}\n"
+        full.slice(30), // rest
       ]);
 
       const result: ServerSentEvent[] = [];
@@ -311,39 +286,31 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"id\":1}", event: "delta", id: null, retry: null },
-        { data: "{\"id\":2}", event: "delta", id: null, retry: null },
+        { data: '{"id":1}', event: "delta", id: null, retry: null },
+        { data: '{"id":2}', event: "delta", id: null, retry: null },
       ]);
     });
 
     test("handles CRLF line endings", async () => {
-      const res = responseFrom([
-        "data: crlf\r\n\r\n",
-      ]);
+      const res = responseFrom(["data: crlf\r\n\r\n"]);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "crlf", event: null, id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: "crlf", event: null, id: null, retry: null }]);
     });
 
     test("handles CR-only line endings", async () => {
-      const res = responseFrom([
-        "data: cr\r\r",
-      ]);
+      const res = responseFrom(["data: cr\r\r"]);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "cr", event: null, id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: "cr", event: null, id: null, retry: null }]);
     });
 
     test("handles empty response body", async () => {
@@ -377,9 +344,7 @@ describe("SSE Parser", () => {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "last", event: null, id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: "last", event: null, id: null, retry: null }]);
     });
 
     test("flushes buffer with multiple lines at stream end", async () => {
@@ -391,19 +356,14 @@ describe("SSE Parser", () => {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "tail", event: "delta", id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: "tail", event: "delta", id: null, retry: null }]);
     });
 
     test("handles OpenAI-style [DONE] as regular data", async () => {
       // events() is protocol-level — it yields raw SSE events.
       // [DONE] is application-level convention, not SSE spec.
       // The consumer decides how to handle it.
-      const res = responseFrom([
-        "data: {\"id\":1}\n\n",
-        "data: [DONE]\n\n",
-      ]);
+      const res = responseFrom(['data: {"id":1}\n\n', "data: [DONE]\n\n"]);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
@@ -411,29 +371,25 @@ describe("SSE Parser", () => {
       }
 
       expect(result).toEqual([
-        { data: "{\"id\":1}", event: null, id: null, retry: null },
+        { data: '{"id":1}', event: null, id: null, retry: null },
         { data: "[DONE]", event: null, id: null, retry: null },
       ]);
     });
 
     test("handles data with no space after colon (SSE spec)", async () => {
-      const res = responseFrom(["data:{\"compact\":true}\n\n"]);
+      const res = responseFrom(['data:{"compact":true}\n\n']);
 
       const result: ServerSentEvent[] = [];
       for await (const event of events(res)) {
         result.push(event);
       }
 
-      expect(result).toEqual([
-        { data: "{\"compact\":true}", event: null, id: null, retry: null },
-      ]);
+      expect(result).toEqual([{ data: '{"compact":true}', event: null, id: null, retry: null }]);
     });
 
     test("works with Hono SSEMessage shape (data + event)", async () => {
       // Verify the yielded object is compatible with Hono's writeSSE
-      const res = responseFrom([
-        "event: chunk\ndata: hello\n\n",
-      ]);
+      const res = responseFrom(["event: chunk\ndata: hello\n\n"]);
 
       for await (const event of events(res)) {
         // These are the fields Hono SSEMessage expects

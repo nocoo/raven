@@ -3,13 +3,13 @@ import {
   GITHUB_BASE_URL,
   GITHUB_CLIENT_ID,
   standardHeaders,
-} from "./../../lib/api-config"
-import { HTTPError } from "./../../lib/error"
-import { getProxyUrl } from "./../../lib/socks5-bridge"
-import { state } from "./../../lib/state"
+} from "./../../lib/api-config";
+import { HTTPError } from "./../../lib/error";
+import { getProxyUrl } from "./../../lib/socks5-bridge";
+import { state } from "./../../lib/state";
 
 export async function getDeviceCode(): Promise<DeviceCodeResponse> {
-  const proxyUrl = getProxyUrl("github", state)
+  const proxyUrl = getProxyUrl("github", state);
   const response = await fetch(`${GITHUB_BASE_URL}/login/device/code`, {
     method: "POST",
     headers: standardHeaders(),
@@ -18,17 +18,17 @@ export async function getDeviceCode(): Promise<DeviceCodeResponse> {
       scope: GITHUB_APP_SCOPES,
     }),
     ...(proxyUrl ? { proxy: proxyUrl } : {}),
-  } as RequestInit)
+  } as RequestInit);
 
-  if (!response.ok) throw await HTTPError.fromResponse("Failed to get device code", response)
+  if (!response.ok) throw await HTTPError.fromResponse("Failed to get device code", response);
 
-  return (await response.json()) as DeviceCodeResponse
+  return (await response.json()) as DeviceCodeResponse;
 }
 
 export interface DeviceCodeResponse {
-  device_code: string
-  user_code: string
-  verification_uri: string
-  expires_in: number
-  interval: number
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
 }

@@ -8,34 +8,73 @@ describe("live log protocol classification", () => {
         const result = logProtocol({ format, upstreamFormat }, true);
         expect(result.label).toBe(format === upstreamFormat ? "Native" : "Translated");
         expect(result.variant).toBe(format === upstreamFormat ? "success" : "warning");
-        expect(result.title).toContain(format === upstreamFormat ? "No protocol translation" : "Prefer");
+        expect(result.title).toContain(
+          format === upstreamFormat ? "No protocol translation" : "Prefer",
+        );
       });
     }
   }
 
   it("marks Codex Responses requests native without relying on model or strategy names", () => {
-    expect(logProtocol({ format: "responses", upstreamFormat: "responses", model: "gpt-5.6-sol", strategy: "copilot-responses" }, true))
-      .toEqual({ label: "Native", variant: "success", title: "Responses → Responses · No protocol translation" });
+    expect(
+      logProtocol(
+        {
+          format: "responses",
+          upstreamFormat: "responses",
+          model: "gpt-5.6-sol",
+          strategy: "copilot-responses",
+        },
+        true,
+      ),
+    ).toEqual({
+      label: "Native",
+      variant: "success",
+      title: "Responses → Responses · No protocol translation",
+    });
   });
 
   it("identifies native decisions without classifying them as chat", () => {
-    expect(logProtocol({ format: "systemone", upstreamFormat: "systemone" }, true))
-      .toEqual({ label: "Native", variant: "success", title: "Systemone → Systemone · No protocol translation" });
+    expect(logProtocol({ format: "systemone", upstreamFormat: "systemone" }, true)).toEqual({
+      label: "Native",
+      variant: "success",
+      title: "Systemone → Systemone · No protocol translation",
+    });
   });
 
   it("identifies native Luna decisions and image generations", () => {
-    expect(logProtocol({ format: "decisions", upstreamFormat: "decisions" }, true))
-      .toEqual({ label: "Native", variant: "success", title: "Decisions → Decisions · No protocol translation" });
-    expect(logProtocol({ format: "images", upstreamFormat: "images", path: "/v1/images/generations" }, true))
-      .toEqual({ label: "Native", variant: "success", title: "Image Generations → Image Generations · No protocol translation" });
+    expect(logProtocol({ format: "decisions", upstreamFormat: "decisions" }, true)).toEqual({
+      label: "Native",
+      variant: "success",
+      title: "Decisions → Decisions · No protocol translation",
+    });
+    expect(
+      logProtocol(
+        { format: "images", upstreamFormat: "images", path: "/v1/images/generations" },
+        true,
+      ),
+    ).toEqual({
+      label: "Native",
+      variant: "success",
+      title: "Image Generations → Image Generations · No protocol translation",
+    });
   });
 
   it("labels native image edits from the existing request path", () => {
-    expect(logProtocol({ format: "images", upstreamFormat: "images", path: "/v1/images/edits" }, true))
-      .toEqual({ label: "Native", variant: "success", title: "Image Edits → Image Edits · No protocol translation" });
+    expect(
+      logProtocol({ format: "images", upstreamFormat: "images", path: "/v1/images/edits" }, true),
+    ).toEqual({
+      label: "Native",
+      variant: "success",
+      title: "Image Edits → Image Edits · No protocol translation",
+    });
   });
 
-  it.each([{}, { format: "responses" }, { format: "invalid", upstreamFormat: "responses" }, { format: "openai", upstreamFormat: "toString" }])("does not guess when protocol evidence is missing: %j", data => {
+  it.each([
+    {},
+    { format: "responses" },
+    { format: "invalid", upstreamFormat: "responses" },
+    { format: "openai", upstreamFormat: "toString" },
+  ])("does not guess when protocol evidence is missing: %j", (data) => {
     expect(logProtocol(data, false).label).toBe("Pending path");
     expect(logProtocol(data, true).label).toBe("Unknown path");
   });

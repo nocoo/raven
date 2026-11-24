@@ -1,6 +1,6 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect, test } from "vitest";
 
-import { STRATEGY_NAMES, isStrategyName } from "../../src/core/strategy"
+import { STRATEGY_NAMES, isStrategyName } from "../../src/core/strategy";
 
 describe("core/strategy", () => {
   test("STRATEGY_NAMES enumerates every shipped strategy (§3.2)", () => {
@@ -16,14 +16,14 @@ describe("core/strategy", () => {
       "custom-anthropic",
       "custom-openai",
       "protocol-converted",
-    ])
-    expect(STRATEGY_NAMES.length).toBe(11)
-  })
+    ]);
+    expect(STRATEGY_NAMES.length).toBe(11);
+  });
 
   test("isStrategyName accepts known + rejects unknown", () => {
-    for (const n of STRATEGY_NAMES) expect(isStrategyName(n)).toBe(true)
-    expect(isStrategyName("not-a-strategy")).toBe(false)
-    expect(isStrategyName("")).toBe(false)
-    expect(isStrategyName("copilot-translated ")).toBe(false)
-  })
-})
+    for (const n of STRATEGY_NAMES) expect(isStrategyName(n)).toBe(true);
+    expect(isStrategyName("not-a-strategy")).toBe(false);
+    expect(isStrategyName("")).toBe(false);
+    expect(isStrategyName("copilot-translated ")).toBe(false);
+  });
+});

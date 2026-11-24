@@ -40,7 +40,13 @@ export function createStatsRoute(db: Database): Hono {
     // Only apply implicit range if no explicit from/to was provided
     const hasExplicitTimeRange = filters.from !== undefined;
     const range = hasExplicitTimeRange ? undefined : (c.req.query("range") ?? "24h");
-    const result = queryTimeseries(db, interval, range, where, bindings as (string | number | null)[]);
+    const result = queryTimeseries(
+      db,
+      interval,
+      range,
+      where,
+      bindings as (string | number | null)[],
+    );
     return c.json(result);
   });
 
@@ -60,7 +66,7 @@ export function createStatsRoute(db: Database): Hono {
     const hasExplicitTimeRange = filters.from !== undefined;
     const range = hasExplicitTimeRange ? undefined : (c.req.query("range") ?? "24h");
     const limitStr = c.req.query("limit");
-    const topN = limitStr ? safeParseInt(limitStr) ?? 8 : 8;
+    const topN = limitStr ? (safeParseInt(limitStr) ?? 8) : 8;
 
     const result = queryGroupedTimeseries(
       db,
@@ -85,12 +91,12 @@ export function createStatsRoute(db: Database): Hono {
     const sort = c.req.query("sort") ?? "count";
     const order = (c.req.query("order") === "asc" ? "asc" : "desc") as "asc" | "desc";
     const limitStr = c.req.query("limit");
-    const limit = limitStr ? safeParseInt(limitStr) ?? 20 : 20;
+    const limit = limitStr ? (safeParseInt(limitStr) ?? 20) : 20;
 
     const result = queryBreakdown(db, {
       by,
       whereClause: where || undefined,
-      bindings: where ? bindings as (string | number | null)[] : undefined,
+      bindings: where ? (bindings as (string | number | null)[]) : undefined,
       sort,
       order,
       limit,

@@ -1,15 +1,12 @@
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { ServerSentEvent } from "../../util/sse"
-import {
-  extractResolvedModel,
-  extractUsage,
-} from "../responses/stream-state"
-import type { ChatFinishReason, ChatViaResponsesStreamState } from "./types"
+import type { ServerSentEvent } from "../../util/sse";
+import { extractResolvedModel, extractUsage } from "../responses/stream-state";
+import type { ChatFinishReason, ChatViaResponsesStreamState } from "./types";
 
 export function initChatViaResponsesStreamState(opts: {
-  model: string
-  includeUsage: boolean
+  model: string;
+  includeUsage: boolean;
 }): ChatViaResponsesStreamState {
   return {
     id: "",
@@ -27,13 +24,13 @@ export function initChatViaResponsesStreamState(opts: {
     cacheReadTokens: 0,
     done: false,
     failed: false,
-  }
+  };
 }
 
 export class ResponsesStreamFailedError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = "ResponsesStreamFailedError"
+    super(message);
+    this.name = "ResponsesStreamFailedError";
   }
 }
 
@@ -45,118 +42,100 @@ export function adaptResponsesEventToChatChunks(
   chunk: ServerSentEvent,
   st: ChatViaResponsesStreamState,
 ): SSEMessage[] {
-  if (st.done || st.failed) return []
+  if (st.done || st.failed) return [];
 
-  const eventName = chunk.event ?? parseType(chunk.data)
-  const data = chunk.data ?? ""
+  const eventName = chunk.event ?? parseType(chunk.data);
+  const data = chunk.data ?? "";
 
   if (eventName === "error" || eventName === "response.failed") {
-    st.failed = true
-    const msg = extractErrorMessage(data) || "Responses stream failed"
-    throw new ResponsesStreamFailedError(msg)
+    st.failed = true;
+    const msg = extractErrorMessage(data) || "Responses stream failed";
+    throw new ResponsesStreamFailedError(msg);
   }
 
   // Also treat typed failed inside data without event field
-  const typed = parseType(data)
+  const typed = parseType(data);
   if (typed === "response.failed" || typed === "error") {
-    st.failed = true
-    throw new ResponsesStreamFailedError(
-      extractErrorMessage(data) || "Responses stream failed",
-    )
+    st.failed = true;
+    throw new ResponsesStreamFailedError(extractErrorMessage(data) || "Responses stream failed");
   }
 
-  const out: SSEMessage[] = []
+  const out: SSEMessage[] = [];
 
   if (eventName === "response.created" || typed === "response.created") {
-    applyCreated(data, st)
+    applyCreated(data, st);
     if (!st.roleSent) {
-      out.push(...emitRoleChunk(st))
+      out.push(...emitRoleChunk(st));
     }
-    return out
+    return out;
   }
 
-  if (
-    eventName === "response.output_text.delta" ||
-    typed === "response.output_text.delta"
-  ) {
-    ensureMeta(st, data)
-    if (!st.roleSent) out.push(...emitRoleChunk(st))
-    const delta = extractDeltaText(data)
+  if (eventName === "response.output_text.delta" || typed === "response.output_text.delta") {
+    ensureMeta(st, data);
+    if (!st.roleSent) out.push(...emitRoleChunk(st));
+    const delta = extractDeltaText(data);
     if (delta) {
-      out.push(chatChunk(st, { content: delta }))
+      out.push(chatChunk(st, { content: delta }));
     }
-    return out
+    return out;
   }
 
-  if (
-    eventName === "response.output_item.added" ||
-    typed === "response.output_item.added"
-  ) {
-    ensureMeta(st, data)
-    const item = extractItem(data)
+  if (eventName === "response.output_item.added" || typed === "response.output_item.added") {
+    ensureMeta(st, data);
+    const item = extractItem(data);
     if (item?.type === "function_call") {
-      if (!st.roleSent) out.push(...emitRoleChunk(st))
-      const itemId = realItemId(item.id)
-      const outputIndex = extractOutputIndex(data)
-      const callId = item.call_id
-      const name = item.name
+      if (!st.roleSent) out.push(...emitRoleChunk(st));
+      const itemId = realItemId(item.id);
+      const outputIndex = extractOutputIndex(data);
+      const callId = item.call_id;
+      const name = item.name;
       if (!callId) {
-        st.failed = true
-        throw new ResponsesStreamFailedError(
-          "function_call item missing call_id",
-        )
+        st.failed = true;
+        throw new ResponsesStreamFailedError("function_call item missing call_id");
       }
       if (!name) {
-        st.failed = true
-        throw new ResponsesStreamFailedError(
-          "function_call item missing name",
-        )
+        st.failed = true;
+        throw new ResponsesStreamFailedError("function_call item missing name");
       }
       if (!itemId && outputIndex === null) {
-        st.failed = true
-        throw new ResponsesStreamFailedError(
-          "function_call item missing item.id and output_index",
-        )
+        st.failed = true;
+        throw new ResponsesStreamFailedError("function_call item missing item.id and output_index");
       }
-      const existingByItem = itemId
-        ? st.toolCallIndexByItemId.get(itemId)
-        : undefined
+      const existingByItem = itemId ? st.toolCallIndexByItemId.get(itemId) : undefined;
       const existingByOutput =
-        outputIndex === null
-          ? undefined
-          : st.toolCallIndexByOutputIndex.get(outputIndex)
+        outputIndex === null ? undefined : st.toolCallIndexByOutputIndex.get(outputIndex);
       if (
         existingByItem !== undefined &&
         existingByOutput !== undefined &&
         existingByItem !== existingByOutput
       ) {
-        st.failed = true
+        st.failed = true;
         throw new ResponsesStreamFailedError(
           "function_call item.id and output_index map to different tool indexes",
-        )
+        );
       }
-      const reuse = existingByItem ?? existingByOutput
+      const reuse = existingByItem ?? existingByOutput;
       if (reuse !== undefined) {
-        const meta = st.toolMetaByIndex.get(reuse)
+        const meta = st.toolMetaByIndex.get(reuse);
         if (!meta || meta.callId !== callId || meta.name !== name) {
-          st.failed = true
+          st.failed = true;
           throw new ResponsesStreamFailedError(
             "function_call replay metadata does not match prior call_id/name",
-          )
+          );
         }
-        if (itemId) st.toolCallIndexByItemId.set(itemId, reuse)
+        if (itemId) st.toolCallIndexByItemId.set(itemId, reuse);
         if (outputIndex !== null) {
-          st.toolCallIndexByOutputIndex.set(outputIndex, reuse)
+          st.toolCallIndexByOutputIndex.set(outputIndex, reuse);
         }
-        return out
+        return out;
       }
-      const index = st.nextToolIndex++
-      if (itemId) st.toolCallIndexByItemId.set(itemId, index)
+      const index = st.nextToolIndex++;
+      if (itemId) st.toolCallIndexByItemId.set(itemId, index);
       if (outputIndex !== null) {
-        st.toolCallIndexByOutputIndex.set(outputIndex, index)
+        st.toolCallIndexByOutputIndex.set(outputIndex, index);
       }
-      st.toolMetaByIndex.set(index, { callId, name })
-      st.finishReason = "tool_calls"
+      st.toolMetaByIndex.set(index, { callId, name });
+      st.finishReason = "tool_calls";
       out.push(
         chatChunk(st, {
           tool_calls: [
@@ -171,53 +150,45 @@ export function adaptResponsesEventToChatChunks(
             },
           ],
         }),
-      )
+      );
     }
-    return out
+    return out;
   }
 
   if (
     eventName === "response.function_call_arguments.delta" ||
     typed === "response.function_call_arguments.delta"
   ) {
-    ensureMeta(st, data)
-    const itemId = extractItemId(data)
-    const delta = extractDeltaText(data) || extractArgsDelta(data)
+    ensureMeta(st, data);
+    const itemId = extractItemId(data);
+    const delta = extractDeltaText(data) || extractArgsDelta(data);
     if (!itemId) {
-      st.failed = true
-      throw new ResponsesStreamFailedError(
-        "function_call_arguments.delta missing item_id",
-      )
+      st.failed = true;
+      throw new ResponsesStreamFailedError("function_call_arguments.delta missing item_id");
     }
     if (!delta) {
       // Empty delta is a no-op once item is known
-      return out
+      return out;
     }
-    const byItemId = st.toolCallIndexByItemId.get(itemId)
-    const outputIndex = extractOutputIndex(data)
+    const byItemId = st.toolCallIndexByItemId.get(itemId);
+    const outputIndex = extractOutputIndex(data);
     const byOutputIndex =
-      outputIndex === null
-        ? undefined
-        : st.toolCallIndexByOutputIndex.get(outputIndex)
-    if (
-      byItemId !== undefined &&
-      byOutputIndex !== undefined &&
-      byItemId !== byOutputIndex
-    ) {
-      st.failed = true
+      outputIndex === null ? undefined : st.toolCallIndexByOutputIndex.get(outputIndex);
+    if (byItemId !== undefined && byOutputIndex !== undefined && byItemId !== byOutputIndex) {
+      st.failed = true;
       throw new ResponsesStreamFailedError(
         "function_call_arguments.delta item_id and output_index map to different tool indexes",
-      )
+      );
     }
-    const index = byItemId ?? byOutputIndex
+    const index = byItemId ?? byOutputIndex;
     if (index === undefined) {
-      st.failed = true
+      st.failed = true;
       throw new ResponsesStreamFailedError(
         "function_call_arguments.delta has no matching prior function_call by item_id or output_index",
-      )
+      );
     }
-    st.finishReason = "tool_calls"
-    if (!st.roleSent) out.push(...emitRoleChunk(st))
+    st.finishReason = "tool_calls";
+    if (!st.roleSent) out.push(...emitRoleChunk(st));
     out.push(
       chatChunk(st, {
         tool_calls: [
@@ -227,21 +198,18 @@ export function adaptResponsesEventToChatChunks(
           },
         ],
       }),
-    )
-    return out
+    );
+    return out;
   }
 
-  if (
-    eventName === "response.refusal.delta" ||
-    typed === "response.refusal.delta"
-  ) {
-    ensureMeta(st, data)
-    if (!st.roleSent) out.push(...emitRoleChunk(st))
-    const delta = extractDeltaText(data)
+  if (eventName === "response.refusal.delta" || typed === "response.refusal.delta") {
+    ensureMeta(st, data);
+    if (!st.roleSent) out.push(...emitRoleChunk(st));
+    const delta = extractDeltaText(data);
     if (delta) {
-      out.push(chatChunk(st, { refusal: delta }))
+      out.push(chatChunk(st, { refusal: delta }));
     }
-    return out
+    return out;
   }
 
   if (
@@ -252,26 +220,26 @@ export function adaptResponsesEventToChatChunks(
     typed === "response.incomplete" ||
     typed === "response.done"
   ) {
-    ensureMeta(st, data)
-    applyUsage(data, st)
-    applyTerminalFinishReason(eventName || typed || "", data, st)
-    if (!st.roleSent) out.push(...emitRoleChunk(st))
-    out.push(chatChunk(st, {}, st.finishReason ?? "stop"))
+    ensureMeta(st, data);
+    applyUsage(data, st);
+    applyTerminalFinishReason(eventName || typed || "", data, st);
+    if (!st.roleSent) out.push(...emitRoleChunk(st));
+    out.push(chatChunk(st, {}, st.finishReason ?? "stop"));
     if (st.includeUsage) {
-      out.push(usageChunk(st))
+      out.push(usageChunk(st));
     }
-    out.push({ data: "[DONE]" })
-    st.done = true
-    return out
+    out.push({ data: "[DONE]" });
+    st.done = true;
+    return out;
   }
 
   // Ignore other events (reasoning, etc.)
-  return out
+  return out;
 }
 
 function emitRoleChunk(st: ChatViaResponsesStreamState): SSEMessage[] {
-  st.roleSent = true
-  return [chatChunk(st, { role: "assistant", content: "" })]
+  st.roleSent = true;
+  return [chatChunk(st, { role: "assistant", content: "" })];
 }
 
 function chatChunk(
@@ -295,12 +263,12 @@ function chatChunk(
         },
       ],
     }),
-  }
+  };
 }
 
 function usageChunk(st: ChatViaResponsesStreamState): SSEMessage {
-  const prompt_tokens = st.inputTokens
-  const completion_tokens = st.outputTokens
+  const prompt_tokens = st.inputTokens;
+  const completion_tokens = st.outputTokens;
   return {
     data: JSON.stringify({
       id: st.id || "chatcmpl-pending",
@@ -317,156 +285,155 @@ function usageChunk(st: ChatViaResponsesStreamState): SSEMessage {
         completion_tokens_details: null,
       },
     }),
-  }
+  };
 }
 
 function parseType(data: string): string | null {
-  if (!data || data === "[DONE]") return null
+  if (!data || data === "[DONE]") return null;
   try {
-    const parsed = JSON.parse(data) as { type?: unknown }
-    return typeof parsed.type === "string" ? parsed.type : null
+    const parsed = JSON.parse(data) as { type?: unknown };
+    return typeof parsed.type === "string" ? parsed.type : null;
   } catch {
-    return null
+    return null;
   }
 }
 
 function applyCreated(data: string, st: ChatViaResponsesStreamState): void {
   try {
     const parsed = JSON.parse(data) as {
-      response?: { id?: string; model?: string; created_at?: number }
-      id?: string
-      model?: string
-      created_at?: number
-    }
-    const resp = parsed.response ?? parsed
-    if (typeof resp.id === "string") st.id = resp.id
-    if (typeof resp.model === "string") st.model = resp.model
-    if (typeof resp.created_at === "number") st.created = Math.floor(resp.created_at)
+      response?: { id?: string; model?: string; created_at?: number };
+      id?: string;
+      model?: string;
+      created_at?: number;
+    };
+    const resp = parsed.response ?? parsed;
+    if (typeof resp.id === "string") st.id = resp.id;
+    if (typeof resp.model === "string") st.model = resp.model;
+    if (typeof resp.created_at === "number") st.created = Math.floor(resp.created_at);
   } catch {
     // ignore
   }
-  const m = extractResolvedModel(data)
-  if (m) st.model = m
+  const m = extractResolvedModel(data);
+  if (m) st.model = m;
 }
 
 function ensureMeta(st: ChatViaResponsesStreamState, data: string): void {
   if (!st.id) {
     try {
       const parsed = JSON.parse(data) as {
-        response?: { id?: string; model?: string }
-        item_id?: string
-      }
-      if (parsed.response?.id) st.id = parsed.response.id
-      if (parsed.response?.model) st.model = parsed.response.model
+        response?: { id?: string; model?: string };
+        item_id?: string;
+      };
+      if (parsed.response?.id) st.id = parsed.response.id;
+      if (parsed.response?.model) st.model = parsed.response.model;
     } catch {
       // ignore
     }
   }
-  const m = extractResolvedModel(data)
-  if (m) st.model = m
+  const m = extractResolvedModel(data);
+  if (m) st.model = m;
 }
 
 function extractDeltaText(data: string): string {
   try {
-    const parsed = JSON.parse(data) as { delta?: unknown }
-    return typeof parsed.delta === "string" ? parsed.delta : ""
+    const parsed = JSON.parse(data) as { delta?: unknown };
+    return typeof parsed.delta === "string" ? parsed.delta : "";
   } catch {
-    return ""
+    return "";
   }
 }
 
 function extractArgsDelta(data: string): string {
   try {
-    const parsed = JSON.parse(data) as { delta?: unknown; arguments?: unknown }
-    if (typeof parsed.delta === "string") return parsed.delta
-    if (typeof parsed.arguments === "string") return parsed.arguments
-    return ""
+    const parsed = JSON.parse(data) as { delta?: unknown; arguments?: unknown };
+    if (typeof parsed.delta === "string") return parsed.delta;
+    if (typeof parsed.arguments === "string") return parsed.arguments;
+    return "";
   } catch {
-    return ""
+    return "";
   }
 }
 
 function realItemId(id: string | undefined): string | null {
-  return typeof id === "string" && id.length > 0 ? id : null
+  return typeof id === "string" && id.length > 0 ? id : null;
 }
 
 function extractOutputIndex(data: string): number | null {
   try {
-    const parsed = JSON.parse(data) as { output_index?: unknown }
-    const n = parsed.output_index
-    if (typeof n === "number" && Number.isSafeInteger(n) && n >= 0) return n
-    return null
+    const parsed = JSON.parse(data) as { output_index?: unknown };
+    const n = parsed.output_index;
+    if (typeof n === "number" && Number.isSafeInteger(n) && n >= 0) return n;
+    return null;
   } catch {
-    return null
+    return null;
   }
 }
 
 function extractItem(data: string): {
-  type?: string
-  id?: string
-  call_id?: string
-  name?: string
+  type?: string;
+  id?: string;
+  call_id?: string;
+  name?: string;
 } | null {
   try {
-    const parsed = JSON.parse(data) as { item?: Record<string, unknown> }
-    const item = parsed.item
-    if (!item || typeof item !== "object") return null
+    const parsed = JSON.parse(data) as { item?: Record<string, unknown> };
+    const item = parsed.item;
+    if (!item || typeof item !== "object") return null;
     const out: {
-      type?: string
-      id?: string
-      call_id?: string
-      name?: string
-    } = {}
-    if (typeof item.type === "string") out.type = item.type
-    if (typeof item.id === "string") out.id = item.id
-    if (typeof item.call_id === "string") out.call_id = item.call_id
-    if (typeof item.name === "string") out.name = item.name
-    return out
+      type?: string;
+      id?: string;
+      call_id?: string;
+      name?: string;
+    } = {};
+    if (typeof item.type === "string") out.type = item.type;
+    if (typeof item.id === "string") out.id = item.id;
+    if (typeof item.call_id === "string") out.call_id = item.call_id;
+    if (typeof item.name === "string") out.name = item.name;
+    return out;
   } catch {
-    return null
+    return null;
   }
 }
 
 function extractItemId(data: string): string | null {
   try {
-    const parsed = JSON.parse(data) as { item_id?: unknown; item?: { id?: string } }
-    if (typeof parsed.item_id === "string") return parsed.item_id
-    if (typeof parsed.item?.id === "string") return parsed.item.id
-    return null
+    const parsed = JSON.parse(data) as { item_id?: unknown; item?: { id?: string } };
+    if (typeof parsed.item_id === "string") return parsed.item_id;
+    if (typeof parsed.item?.id === "string") return parsed.item.id;
+    return null;
   } catch {
-    return null
+    return null;
   }
 }
 
-
 function applyUsage(data: string, st: ChatViaResponsesStreamState): void {
-  const usage = extractUsage(data)
+  const usage = extractUsage(data);
   if (usage) {
-    st.inputTokens = usage.inputTokens
-    st.outputTokens = usage.outputTokens
-    st.cacheReadTokens = usage.cachedInputTokens
-    return
+    st.inputTokens = usage.inputTokens;
+    st.outputTokens = usage.outputTokens;
+    st.cacheReadTokens = usage.cachedInputTokens;
+    return;
   }
   try {
     const parsed = JSON.parse(data) as {
       response?: {
         usage?: {
-          input_tokens?: number
-          output_tokens?: number
-          input_tokens_details?: { cached_tokens?: number }
-        }
-      }
+          input_tokens?: number;
+          output_tokens?: number;
+          input_tokens_details?: { cached_tokens?: number };
+        };
+      };
       usage?: {
-        input_tokens?: number
-        output_tokens?: number
-        input_tokens_details?: { cached_tokens?: number }
-      }
-    }
-    const u = parsed.response?.usage ?? parsed.usage
+        input_tokens?: number;
+        output_tokens?: number;
+        input_tokens_details?: { cached_tokens?: number };
+      };
+    };
+    const u = parsed.response?.usage ?? parsed.usage;
     if (u) {
-      st.inputTokens = u.input_tokens ?? st.inputTokens
-      st.outputTokens = u.output_tokens ?? st.outputTokens
-      st.cacheReadTokens = u.input_tokens_details?.cached_tokens ?? st.cacheReadTokens
+      st.inputTokens = u.input_tokens ?? st.inputTokens;
+      st.outputTokens = u.output_tokens ?? st.outputTokens;
+      st.cacheReadTokens = u.input_tokens_details?.cached_tokens ?? st.cacheReadTokens;
     }
   } catch {
     // ignore
@@ -478,50 +445,50 @@ function applyTerminalFinishReason(
   data: string,
   st: ChatViaResponsesStreamState,
 ): void {
-  if (st.finishReason === "tool_calls") return
+  if (st.finishReason === "tool_calls") return;
   if (eventName.includes("incomplete") || parseType(data) === "response.incomplete") {
     try {
       const parsed = JSON.parse(data) as {
-        response?: { incomplete_details?: { reason?: string } }
-        incomplete_details?: { reason?: string }
-      }
+        response?: { incomplete_details?: { reason?: string } };
+        incomplete_details?: { reason?: string };
+      };
       const reason = (
         parsed.response?.incomplete_details?.reason ??
         parsed.incomplete_details?.reason ??
         ""
-      ).toLowerCase()
+      ).toLowerCase();
       if (reason.includes("max_output") || reason.includes("max_token") || reason === "length") {
-        st.finishReason = "length"
-        return
+        st.finishReason = "length";
+        return;
       }
       if (reason.includes("content_filter")) {
-        st.finishReason = "content_filter"
-        return
+        st.finishReason = "content_filter";
+        return;
       }
     } catch {
       // ignore
     }
-    st.finishReason = "length"
-    return
+    st.finishReason = "length";
+    return;
   }
-  st.finishReason = st.finishReason ?? "stop"
+  st.finishReason = st.finishReason ?? "stop";
 }
 
 function extractErrorMessage(data: string): string {
   try {
     const parsed = JSON.parse(data) as {
-      error?: { message?: string } | string
-      message?: string
-      response?: { error?: { message?: string } }
-    }
-    if (typeof parsed.error === "string") return parsed.error
+      error?: { message?: string } | string;
+      message?: string;
+      response?: { error?: { message?: string } };
+    };
+    if (typeof parsed.error === "string") return parsed.error;
     if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
-      return parsed.error.message
+      return parsed.error.message;
     }
-    if (parsed.response?.error?.message) return parsed.response.error.message
-    if (typeof parsed.message === "string") return parsed.message
+    if (parsed.response?.error?.message) return parsed.response.error.message;
+    if (typeof parsed.message === "string") return parsed.message;
   } catch {
     // ignore
   }
-  return ""
+  return "";
 }

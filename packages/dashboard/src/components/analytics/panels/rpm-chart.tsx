@@ -69,30 +69,34 @@ export function RpmChart({ data, gradientId = "rpmFill" }: RpmChartProps) {
         <span className="text-sm font-semibold text-basalt-foreground">Requests / min</span>
       </LayerCard.Header>
       <LayerCard.Body>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="minute" tickFormatter={formatMinute} {...AXIS_CONFIG} />
-            <YAxis allowDecimals={false} {...AXIS_CONFIG} width={30} />
-            <Tooltip content={<RpmTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="count"
-              stroke={CHART_COLORS.primary}
-              fill={`url(#${gradientId})`}
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+        <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
+          <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={CHART_COLORS.muted}
+                strokeOpacity={0.3}
+              />
+              <XAxis dataKey="minute" tickFormatter={formatMinute} {...AXIS_CONFIG} />
+              <YAxis allowDecimals={false} {...AXIS_CONFIG} width={30} />
+              <Tooltip content={<RpmTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke={CHART_COLORS.primary}
+                fill={`url(#${gradientId})`}
+                strokeWidth={2}
+                {...ANIMATION_PROPS}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </LayerCard.Body>
     </LayerCard>
   );

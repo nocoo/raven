@@ -13,7 +13,7 @@
  * every event, and request_start pins it to the caller's path+model.
  */
 
-import type { Subprocess } from "bun"
+import type { Subprocess } from "bun";
 import {
   parseGoldenFixture,
   serialiseGoldenFixture,
@@ -21,45 +21,49 @@ import {
   type FixtureRequest,
   type GoldenFixture,
   type RawSseEvent,
-} from "./fixture-format"
-import { consumeSSE, normaliseEvents, PROXY, API_KEY, type SseEvent } from "./helpers"
+} from "./fixture-format";
+import { consumeSSE, normaliseEvents, PROXY, API_KEY, type SseEvent } from "./helpers";
 
 export interface CaptureScenarioRef {
   /** Pre-resolved path under `__golden__/` (matches scenarios.json). */
-  goldenPath: string
+  goldenPath: string;
   /** Model id that will appear in request_start.data.model. */
-  model: string
+  model: string;
 }
 
 export interface CaptureResult {
   /** Whether the fixture was written to disk (capture mode) or compared. */
-  mode: "capture" | "diff"
+  mode: "capture" | "diff";
   /** The assembled fixture (live). */
-  live: GoldenFixture
+  live: GoldenFixture;
   /** The on-disk fixture in diff mode; null in capture mode. */
-  stored: GoldenFixture | null
+  stored: GoldenFixture | null;
 }
 
 /** Subset of fields we read from the proxy log stream. */
 interface StreamedLogEvent {
-  ts: number
-  type: string
-  requestId: string | null
-  data?: Record<string, unknown> | null
+  ts: number;
+  type: string;
+  requestId: string | null;
+  data?: Record<string, unknown> | null;
 }
 
 interface CorrelatedEvents {
-  requestId: string
-  requestStart: StreamedLogEvent
-  upstreamRaw: StreamedLogEvent[]
-  requestEnd: StreamedLogEvent
+  requestId: string;
+  requestStart: StreamedLogEvent;
+  upstreamRaw: StreamedLogEvent[];
+  requestEnd: StreamedLogEvent;
 }
 
 const VOLATILE_END_LOG_KEYS = new Set([
-  "latencyMs", "ttftMs", "processingMs",
-  "sessionId", "clientVersion",
-  "accountName", "clientName",
-])
+  "latencyMs",
+  "ttftMs",
+  "processingMs",
+  "sessionId",
+  "clientVersion",
+  "accountName",
+  "clientName",
+]);
 
 /** Build the B.5 expected_end_log from a raw request_end log event,
  *  keeping only the refactor-invariant fields plus a scrubbed extras
@@ -67,36 +71,43 @@ const VOLATILE_END_LOG_KEYS = new Set([
  *  surface only structural regressions. */
 export function buildEndLog(raw: Record<string, unknown>): FixtureEndLog {
   const {
-    path, format, model, stream, status, statusCode, upstreamStatus,
-    inputTokens, outputTokens,
+    path,
+    format,
+    model,
+    stream,
+    status,
+    statusCode,
+    upstreamStatus,
+    inputTokens,
+    outputTokens,
     ...rest
-  } = raw
-  const extras: Record<string, unknown> = {}
+  } = raw;
+  const extras: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(rest)) {
-    if (VOLATILE_END_LOG_KEYS.has(k)) continue
-    extras[k] = v
+    if (VOLATILE_END_LOG_KEYS.has(k)) continue;
+    extras[k] = v;
   }
   return {
     path: String(path),
     format: String(format),
     model: String(model),
     stream: Boolean(stream),
-    status: (status === "error" ? "error" : "success"),
+    status: status === "error" ? "error" : "success",
     statusCode: Number(statusCode),
     upstreamStatus: typeof upstreamStatus === "number" ? upstreamStatus : null,
     inputTokens: typeof inputTokens === "number" ? inputTokens : 0,
     outputTokens: typeof outputTokens === "number" ? outputTokens : 0,
     extras,
-  }
+  };
 }
 
 /** Convert a streamed `upstream_raw_sse` event into the fixture form. */
 export function rawEventFromLog(data: Record<string, unknown>): RawSseEvent {
-  const ev = data.event
-  const body = data.data
-  const out: RawSseEvent = { data: typeof body === "string" ? body : "" }
-  if (typeof ev === "string" && ev.length > 0) out.event = ev
-  return out
+  const ev = data.event;
+  const body = data.data;
+  const out: RawSseEvent = { data: typeof body === "string" ? body : "" };
+  if (typeof ev === "string" && ev.length > 0) out.event = ev;
+  return out;
 }
 
 /**
@@ -105,76 +116,80 @@ export function rawEventFromLog(data: Record<string, unknown>): RawSseEvent {
  * request_end. Returns the correlated events or rejects on timeout.
  */
 export async function waitForRequest(opts: {
-  cutoffTs: number
-  path: string
-  model: string
-  timeoutMs?: number
+  cutoffTs: number;
+  path: string;
+  model: string;
+  timeoutMs?: number;
   /** Resolved once the WS is open — caller awaits this before firing
    *  the HTTP request so request_start isn't missed. */
-  onOpen?: () => void
+  onOpen?: () => void;
 }): Promise<CorrelatedEvents> {
-  const timeoutMs = opts.timeoutMs ?? 120_000
-  const wsUrl = buildWsUrl()
-  const ws = new WebSocket(wsUrl)
+  const timeoutMs = opts.timeoutMs ?? 120_000;
+  const wsUrl = buildWsUrl();
+  const ws = new WebSocket(wsUrl);
 
   return await new Promise<CorrelatedEvents>((resolve, reject) => {
-    ws.addEventListener("open", () => { opts.onOpen?.() })
-    let requestId: string | null = null
-    const upstreamRaw: StreamedLogEvent[] = []
-    let requestStart: StreamedLogEvent | null = null
+    ws.addEventListener("open", () => {
+      opts.onOpen?.();
+    });
+    let requestId: string | null = null;
+    const upstreamRaw: StreamedLogEvent[] = [];
+    let requestStart: StreamedLogEvent | null = null;
     const timer = setTimeout(() => {
-      ws.close()
-      reject(new Error(
-        `timed out after ${String(timeoutMs)}ms waiting for request_end `
-        + `(path=${opts.path} model=${opts.model})`,
-      ))
-    }, timeoutMs)
+      ws.close();
+      reject(
+        new Error(
+          `timed out after ${String(timeoutMs)}ms waiting for request_end ` +
+            `(path=${opts.path} model=${opts.model})`,
+        ),
+      );
+    }, timeoutMs);
 
     ws.addEventListener("message", (m: MessageEvent) => {
-      let ev: StreamedLogEvent
+      let ev: StreamedLogEvent;
       try {
-        ev = JSON.parse(String(m.data)) as StreamedLogEvent
+        ev = JSON.parse(String(m.data)) as StreamedLogEvent;
       } catch {
-        return
+        return;
       }
       // Match the request on its request_start; after that, filter by requestId.
       if (requestId === null) {
         if (
-          ev.type === "request_start"
-          && ev.ts >= opts.cutoffTs
-          && (ev.data?.path === opts.path)
-          && (ev.data?.model === opts.model)
+          ev.type === "request_start" &&
+          ev.ts >= opts.cutoffTs &&
+          ev.data?.path === opts.path &&
+          ev.data?.model === opts.model
         ) {
-          requestId = ev.requestId
-          requestStart = ev
+          requestId = ev.requestId;
+          requestStart = ev;
         }
-        return
+        return;
       }
-      if (ev.requestId !== requestId) return
+      if (ev.requestId !== requestId) return;
       if (ev.type === "upstream_raw_sse") {
-        upstreamRaw.push(ev)
-        return
+        upstreamRaw.push(ev);
+        return;
       }
       if (ev.type === "request_end" && requestStart) {
-        clearTimeout(timer)
-        ws.close()
-        resolve({ requestId, requestStart, upstreamRaw, requestEnd: ev })
+        clearTimeout(timer);
+        ws.close();
+        resolve({ requestId, requestStart, upstreamRaw, requestEnd: ev });
       }
-    })
+    });
     ws.addEventListener("error", () => {
-      clearTimeout(timer)
-      reject(new Error(`WS error on ${wsUrl}`))
-    })
-  })
+      clearTimeout(timer);
+      reject(new Error(`WS error on ${wsUrl}`));
+    });
+  });
 }
 
 function buildWsUrl(): string {
-  const proxyUrl = new URL(PROXY)
-  const ws = new URL(proxyUrl.toString())
-  ws.protocol = proxyUrl.protocol === "https:" ? "wss:" : "ws:"
-  ws.pathname = "/ws/logs"
-  ws.search = `?level=debug${API_KEY ? `&token=${encodeURIComponent(API_KEY)}` : ""}`
-  return ws.toString()
+  const proxyUrl = new URL(PROXY);
+  const ws = new URL(proxyUrl.toString());
+  ws.protocol = proxyUrl.protocol === "https:" ? "wss:" : "ws:";
+  ws.pathname = "/ws/logs";
+  ws.search = `?level=debug${API_KEY ? `&token=${encodeURIComponent(API_KEY)}` : ""}`;
+  return ws.toString();
 }
 
 /**
@@ -183,39 +198,40 @@ function buildWsUrl(): string {
  * can cover it without touching WebSockets or the filesystem.
  */
 export function assembleFixture(input: {
-  request: FixtureRequest
-  upstreamRaw: StreamedLogEvent[]
-  clientEvents: SseEvent[]
-  requestEnd: StreamedLogEvent
+  request: FixtureRequest;
+  upstreamRaw: StreamedLogEvent[];
+  clientEvents: SseEvent[];
+  requestEnd: StreamedLogEvent;
 }): GoldenFixture {
-  const upstream_raw_chunks: RawSseEvent[] = input.upstreamRaw
-    .map((ev) => rawEventFromLog(ev.data ?? {}))
-  const expected_client_events = normaliseEvents(input.clientEvents).map(
-    (ev) => ev.event !== undefined ? { event: ev.event, data: ev.data } : { data: ev.data },
-  )
-  const expected_end_log = buildEndLog(input.requestEnd.data ?? {})
+  const upstream_raw_chunks: RawSseEvent[] = input.upstreamRaw.map((ev) =>
+    rawEventFromLog(ev.data ?? {}),
+  );
+  const expected_client_events = normaliseEvents(input.clientEvents).map((ev) =>
+    ev.event !== undefined ? { event: ev.event, data: ev.data } : { data: ev.data },
+  );
+  const expected_end_log = buildEndLog(input.requestEnd.data ?? {});
   return {
     fixtureVersion: 1,
     request: input.request,
     upstream_raw_chunks,
     expected_client_events,
     expected_end_log,
-  }
+  };
 }
 
 export interface CaptureOrDiffOpts {
-  scenario: CaptureScenarioRef
-  request: FixtureRequest
+  scenario: CaptureScenarioRef;
+  request: FixtureRequest;
   /**
    * Perform the actual HTTP POST to the proxy and return the response.
    * Kept as a callback so callers can tune headers/body per scenario.
    */
-  fetchResponse: () => Promise<Response>
+  fetchResponse: () => Promise<Response>;
   /**
    * Resolves paths of the form `__golden__/<goldenPath>` under
    * packages/proxy/test/e2e/refactor/. Overridable for unit testing.
    */
-  goldenRoot?: string
+  goldenRoot?: string;
 }
 
 /**
@@ -227,58 +243,65 @@ export async function captureOrDiffFixture(
   opts: CaptureOrDiffOpts,
   /** Injected to keep this function testable without hitting a proxy. */
   deps: {
-    waitForRequest?: typeof waitForRequest
-    write?: (path: string, body: string) => Promise<void>
-    readIfExists?: (path: string) => Promise<string | null>
+    waitForRequest?: typeof waitForRequest;
+    write?: (path: string, body: string) => Promise<void>;
+    readIfExists?: (path: string) => Promise<string | null>;
   } = {},
 ): Promise<CaptureResult> {
-  const wait = deps.waitForRequest ?? waitForRequest
-  const write = deps.write ?? (async (p, body) => { await Bun.write(p, body) })
-  const readIfExists = deps.readIfExists ?? (async (p) => {
-    const f = Bun.file(p)
-    return (await f.exists()) ? await f.text() : null
-  })
-  const goldenRoot = opts.goldenRoot
-    ?? `${import.meta.dir}/__golden__`
+  const wait = deps.waitForRequest ?? waitForRequest;
+  const write =
+    deps.write ??
+    (async (p, body) => {
+      await Bun.write(p, body);
+    });
+  const readIfExists =
+    deps.readIfExists ??
+    (async (p) => {
+      const f = Bun.file(p);
+      return (await f.exists()) ? await f.text() : null;
+    });
+  const goldenRoot = opts.goldenRoot ?? `${import.meta.dir}/__golden__`;
 
-  const cutoffTs = Date.now()
-  let openResolve!: () => void
-  const opened = new Promise<void>((r) => { openResolve = r })
+  const cutoffTs = Date.now();
+  let openResolve!: () => void;
+  const opened = new Promise<void>((r) => {
+    openResolve = r;
+  });
   const waitPromise = wait({
     cutoffTs,
     path: opts.request.path,
     model: extractModel(opts.request.body),
     onOpen: openResolve,
-  })
-  await opened
-  const response = await opts.fetchResponse()
-  const clientEvents = await consumeSSE(response.clone())
-  const correlated = await waitPromise
+  });
+  await opened;
+  const response = await opts.fetchResponse();
+  const clientEvents = await consumeSSE(response.clone());
+  const correlated = await waitPromise;
 
   const live = assembleFixture({
     request: opts.request,
     upstreamRaw: correlated.upstreamRaw,
     clientEvents,
     requestEnd: correlated.requestEnd,
-  })
+  });
 
-  const fullPath = `${goldenRoot}/${opts.scenario.goldenPath}`
-  const capture = process.env.RAVEN_CAPTURE_GOLDENS === "1"
+  const fullPath = `${goldenRoot}/${opts.scenario.goldenPath}`;
+  const capture = process.env.RAVEN_CAPTURE_GOLDENS === "1";
   if (capture) {
-    await write(fullPath, serialiseGoldenFixture(live))
-    return { mode: "capture", live, stored: live }
+    await write(fullPath, serialiseGoldenFixture(live));
+    return { mode: "capture", live, stored: live };
   }
-  const raw = await readIfExists(fullPath)
-  const stored = raw === null ? null : parseGoldenFixture(raw)
-  return { mode: "diff", live, stored }
+  const raw = await readIfExists(fullPath);
+  const stored = raw === null ? null : parseGoldenFixture(raw);
+  return { mode: "diff", live, stored };
 }
 
 function extractModel(body: unknown): string {
   if (body && typeof body === "object" && "model" in body) {
-    const m = (body as { model: unknown }).model
-    if (typeof m === "string") return m
+    const m = (body as { model: unknown }).model;
+    if (typeof m === "string") return m;
   }
-  return ""
+  return "";
 }
 
 /**
@@ -287,4 +310,4 @@ function extractModel(body: unknown): string {
  * up a proxy without duplicating boilerplate. Kept here to keep the
  * capture surface area in one file.
  */
-export type ProxyProcess = Subprocess
+export type ProxyProcess = Subprocess;

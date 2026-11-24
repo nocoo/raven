@@ -11,7 +11,10 @@ export type SectionIconTone = keyof typeof tones;
 
 export function SectionIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: SectionIconTone }) {
   return (
-    <span aria-hidden="true" className={`inline-flex size-7 shrink-0 items-center justify-center rounded-widget ${tones[tone]}`}>
+    <span
+      aria-hidden="true"
+      className={`inline-flex size-7 shrink-0 items-center justify-center rounded-widget ${tones[tone]}`}
+    >
       <Icon className="size-4" strokeWidth={1.5} />
     </span>
   );

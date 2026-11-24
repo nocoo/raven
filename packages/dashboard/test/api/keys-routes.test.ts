@@ -8,7 +8,10 @@ const mockProxyFetch = vi.fn();
 
 vi.mock("@/lib/proxy", () => {
   class ProxyError extends Error {
-    constructor(message: string, public readonly statusCode?: number | undefined) {
+    constructor(
+      message: string,
+      public readonly statusCode?: number | undefined,
+    ) {
       super(message);
       this.name = "ProxyError";
     }

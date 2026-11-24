@@ -1,18 +1,18 @@
 // H.9 — strategies/copilot-responses.ts unit tests.
-import { describe, expect, test, beforeEach, afterEach } from "vitest"
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 
 import {
   makeCopilotResponses,
   type CopilotResponsesStreamState,
-} from "../../src/strategies/copilot-responses"
-import type { RequestContext } from "../../src/core/context"
+} from "../../src/strategies/copilot-responses";
+import type { RequestContext } from "../../src/core/context";
 import type {
   CopilotResponsesClient,
   ResponsesPayload,
-} from "../../src/upstream/copilot-responses"
-import type { ServerSentEvent } from "../../src/util/sse"
-import { logEmitter } from "../../src/util/log-emitter"
-import type { LogEvent } from "../../src/util/log-event"
+} from "../../src/upstream/copilot-responses";
+import type { ServerSentEvent } from "../../src/util/sse";
+import { logEmitter } from "../../src/util/log-emitter";
+import type { LogEvent } from "../../src/util/log-event";
 
 function makeCtx(): RequestContext {
   return {
@@ -28,7 +28,7 @@ function makeCtx(): RequestContext {
     sessionId: "sess",
     clientName: "Unknown",
     clientVersion: null,
-  }
+  };
 }
 
 function fakeClient(
@@ -36,177 +36,228 @@ function fakeClient(
 ): CopilotResponsesClient {
   return {
     send: async (p: ResponsesPayload) => impl(p),
-  } as CopilotResponsesClient
+  } as CopilotResponsesClient;
 }
 
 function makeReq(stream = false): ResponsesPayload {
-  return { model: "gpt-4o", stream } as unknown as ResponsesPayload
+  return { model: "gpt-4o", stream } as unknown as ResponsesPayload;
 }
 
 describe("strategies/copilot-responses", () => {
   test("drops malformed tool declarations while preserving valid namespaced functions", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const req = { model: "fixture", input: [], tools: [
-      null, 3, { type: "namespace", name: 3, tools: [] },
-      { type: "namespace", name: "ignored", tools: false },
-      { type: "namespace", name: "mcp__", tools: [null, 3, {}, { type: "function", name: 4 }, { type: "function", name: "read" }] },
-    ] } as unknown as ResponsesPayload
-    const prepared = s.prepare(req, makeCtx())
-    expect(prepared.tools).toEqual([{ type: "function", name: "mcp__read" }])
-    expect(req.tools).toHaveLength(5)
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const req = {
+      model: "fixture",
+      input: [],
+      tools: [
+        null,
+        3,
+        { type: "namespace", name: 3, tools: [] },
+        { type: "namespace", name: "ignored", tools: false },
+        {
+          type: "namespace",
+          name: "mcp__",
+          tools: [null, 3, {}, { type: "function", name: 4 }, { type: "function", name: "read" }],
+        },
+      ],
+    } as unknown as ResponsesPayload;
+    const prepared = s.prepare(req, makeCtx());
+    expect(prepared.tools).toEqual([{ type: "function", name: "mcp__read" }]);
+    expect(req.tools).toHaveLength(5);
+  });
 
   test("flattens an already-prefixed historical call even when all supplied tools were discarded", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const req = { model: "fixture", input: [{ type: "function_call", namespace: "mcp__", name: "mcp__read" }], tools: [null] } as unknown as ResponsesPayload
-    const prepared = s.prepare(req, makeCtx())
-    expect(prepared).not.toHaveProperty("tools")
-    expect(prepared.input).toEqual([{ type: "function_call", name: "mcp__read" }])
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const req = {
+      model: "fixture",
+      input: [{ type: "function_call", namespace: "mcp__", name: "mcp__read" }],
+      tools: [null],
+    } as unknown as ResponsesPayload;
+    const prepared = s.prepare(req, makeCtx());
+    expect(prepared).not.toHaveProperty("tools");
+    expect(prepared.input).toEqual([{ type: "function_call", name: "mcp__read" }]);
+  });
 
   test("keeps unrelated and deeply nested output stable instead of rewriting arbitrary data", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const tools = [{ type: "namespace", name: "mcp__", tools: [{ type: "function", name: "read" }] }]
-    let deep: unknown = { type: "function_call", name: "mcp__read" }
-    for (let i = 0; i < 24; i++) deep = { nested: deep }
-    const req = s.prepare({ model: "fixture", input: [deep], tools } as unknown as ResponsesPayload, makeCtx())
-    const output = { unrelated: [null, 3, { type: "function_call", name: "other" }], deep }
-    expect(s.adaptJson(output, req, makeCtx())).toBe(output)
-    const st = s.initStreamState(req, makeCtx())
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const tools = [
+      { type: "namespace", name: "mcp__", tools: [{ type: "function", name: "read" }] },
+    ];
+    let deep: unknown = { type: "function_call", name: "mcp__read" };
+    for (let i = 0; i < 24; i++) deep = { nested: deep };
+    const req = s.prepare(
+      { model: "fixture", input: [deep], tools } as unknown as ResponsesPayload,
+      makeCtx(),
+    );
+    const output = { unrelated: [null, 3, { type: "function_call", name: "other" }], deep };
+    expect(s.adaptJson(output, req, makeCtx())).toBe(output);
+    const st = s.initStreamState(req, makeCtx());
     for (const data of ['{ "type": "reasoning", "values": [] }', "{"]) {
-      const chunk = { event: null, data, id: null, retry: null }
-      expect(s.adaptChunk(chunk, st, makeCtx())[0]?.data).toBe(data)
+      const chunk = { event: null, data, id: null, retry: null };
+      expect(s.adaptChunk(chunk, st, makeCtx())[0]?.data).toBe(data);
     }
-  })
+  });
 
   test("restores nested tool names without mutating unrelated response fields", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const req = s.prepare({ model: "fixture", input: [], tools: [{ type: "namespace", name: "mcp__", tools: [{ type: "function", name: "read" }] }] } as unknown as ResponsesPayload, makeCtx())
-    const response = { wrapper: { output: [{ type: "function_call", name: "mcp__read" }] }, untouched: [1, null] }
-    const restored = s.adaptJson(response, req, makeCtx())
-    expect(restored).toEqual({ wrapper: { output: [{ type: "function_call", name: "read", namespace: "mcp__" }] }, untouched: [1, null] })
-    expect(response.wrapper.output[0]?.name).toBe("mcp__read")
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const req = s.prepare(
+      {
+        model: "fixture",
+        input: [],
+        tools: [{ type: "namespace", name: "mcp__", tools: [{ type: "function", name: "read" }] }],
+      } as unknown as ResponsesPayload,
+      makeCtx(),
+    );
+    const response = {
+      wrapper: { output: [{ type: "function_call", name: "mcp__read" }] },
+      untouched: [1, null],
+    };
+    const restored = s.adaptJson(response, req, makeCtx());
+    expect(restored).toEqual({
+      wrapper: { output: [{ type: "function_call", name: "read", namespace: "mcp__" }] },
+      untouched: [1, null],
+    });
+    expect(response.wrapper.output[0]?.name).toBe("mcp__read");
+  });
 
   test("handles an empty non-iterable streaming response without starting any network activity", async () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => null) })
-    expect(await s.dispatch(makeReq(true), makeCtx())).toEqual({ kind: "json", body: null })
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => null) });
+    expect(await s.dispatch(makeReq(true), makeCtx())).toEqual({ kind: "json", body: null });
+  });
 
-  let captured: LogEvent[]
-  let off: () => void
+  let captured: LogEvent[];
+  let off: () => void;
   beforeEach(() => {
-    captured = []
-    const h = (e: LogEvent) => { captured.push(e) }
-    logEmitter.on("log", h)
-    off = () => logEmitter.off("log", h)
-  })
-  afterEach(() => { off() })
+    captured = [];
+    const h = (e: LogEvent) => {
+      captured.push(e);
+    };
+    logEmitter.on("log", h);
+    off = () => logEmitter.off("log", h);
+  });
+  afterEach(() => {
+    off();
+  });
 
   test("name is 'copilot-responses'", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    expect(s.name).toBe("copilot-responses")
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    expect(s.name).toBe("copilot-responses");
+  });
 
   test("prepare is identity", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const req = makeReq()
-    expect(s.prepare(req, makeCtx())).toBe(req)
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const req = makeReq();
+    expect(s.prepare(req, makeCtx())).toBe(req);
+  });
 
   test("dispatch returns json kind for non-streaming", async () => {
-    const resp = { id: "resp-1", model: "gpt-4o", usage: { input_tokens: 5, output_tokens: 3 } }
-    const s = makeCopilotResponses({ client: fakeClient(() => resp) })
-    const out = await s.dispatch(makeReq(false), makeCtx())
-    expect(out.kind).toBe("json")
-    if (out.kind === "json") expect(out.body).toBe(resp)
-  })
+    const resp = { id: "resp-1", model: "gpt-4o", usage: { input_tokens: 5, output_tokens: 3 } };
+    const s = makeCopilotResponses({ client: fakeClient(() => resp) });
+    const out = await s.dispatch(makeReq(false), makeCtx());
+    expect(out.kind).toBe("json");
+    if (out.kind === "json") expect(out.body).toBe(resp);
+  });
 
   test("dispatch returns stream kind for stream=true + async iterable", async () => {
     async function* gen(): AsyncGenerator<ServerSentEvent> {
-      yield { event: "response.created", data: '{"response":{"model":"gpt-4o"}}', id: null, retry: null }
+      yield {
+        event: "response.created",
+        data: '{"response":{"model":"gpt-4o"}}',
+        id: null,
+        retry: null,
+      };
     }
-    const s = makeCopilotResponses({ client: fakeClient(() => gen()) })
-    const out = await s.dispatch(makeReq(true), makeCtx())
-    expect(out.kind).toBe("stream")
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => gen()) });
+    const out = await s.dispatch(makeReq(true), makeCtx());
+    expect(out.kind).toBe("stream");
+  });
 
   test("dispatch returns json when stream=true but response not iterable", async () => {
-    const resp = { id: "resp-2" }
-    const s = makeCopilotResponses({ client: fakeClient(() => resp) })
-    const out = await s.dispatch(makeReq(true), makeCtx())
-    expect(out.kind).toBe("json")
-  })
+    const resp = { id: "resp-2" };
+    const s = makeCopilotResponses({ client: fakeClient(() => resp) });
+    const out = await s.dispatch(makeReq(true), makeCtx());
+    expect(out.kind).toBe("json");
+  });
 
   test("adaptJson is identity", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const resp = { id: "x" }
-    expect(s.adaptJson(resp, makeReq(), makeCtx())).toBe(resp)
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const resp = { id: "x" };
+    expect(s.adaptJson(resp, makeReq(), makeCtx())).toBe(resp);
+  });
 
   test("initStreamState seeds resolvedModel from request model", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const st = s.initStreamState(makeReq(), makeCtx())
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const st = s.initStreamState(makeReq(), makeCtx());
     expect(st).toEqual({
-      resolvedModel: "gpt-4o", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0,
+      resolvedModel: "gpt-4o",
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
       itemIdsByOutputIndex: new Map(),
-    })
-  })
+    });
+  });
 
   test("adaptChunk emits upstream raw SSE", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const st = s.initStreamState(makeReq(), makeCtx())
-    const chunk: ServerSentEvent = { event: "response.in_progress", data: "{}", id: null, retry: null }
-    const out = s.adaptChunk(chunk, st, makeCtx())
-    expect(out).toHaveLength(1)
-    expect(captured.filter((e) => e.type === "upstream_raw_sse")).toHaveLength(1)
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const st = s.initStreamState(makeReq(), makeCtx());
+    const chunk: ServerSentEvent = {
+      event: "response.in_progress",
+      data: "{}",
+      id: null,
+      retry: null,
+    };
+    const out = s.adaptChunk(chunk, st, makeCtx());
+    expect(out).toHaveLength(1);
+    expect(captured.filter((e) => e.type === "upstream_raw_sse")).toHaveLength(1);
+  });
 
   test("adaptChunk extracts resolvedModel from response.created", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const st = s.initStreamState(makeReq(), makeCtx())
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const st = s.initStreamState(makeReq(), makeCtx());
     const chunk: ServerSentEvent = {
       event: "response.created",
       data: JSON.stringify({ response: { model: "gpt-4o-resolved" } }),
-      id: null, retry: null,
-    }
-    s.adaptChunk(chunk, st, makeCtx())
-    expect(st.resolvedModel).toBe("gpt-4o-resolved")
-  })
+      id: null,
+      retry: null,
+    };
+    s.adaptChunk(chunk, st, makeCtx());
+    expect(st.resolvedModel).toBe("gpt-4o-resolved");
+  });
 
   test("adaptChunk extracts usage from terminal event", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const st = s.initStreamState(makeReq(), makeCtx())
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const st = s.initStreamState(makeReq(), makeCtx());
     const chunk: ServerSentEvent = {
       event: "response.completed",
       data: JSON.stringify({ response: { usage: { input_tokens: 17, output_tokens: 9 } } }),
-      id: null, retry: null,
-    }
-    s.adaptChunk(chunk, st, makeCtx())
-    expect(st.inputTokens).toBe(17)
-    expect(st.outputTokens).toBe(9)
-  })
+      id: null,
+      retry: null,
+    };
+    s.adaptChunk(chunk, st, makeCtx());
+    expect(st.inputTokens).toBe(17);
+    expect(st.outputTokens).toBe(9);
+  });
 
   test("adaptChunk preserves event/id/retry on SSE message", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const st = s.initStreamState(makeReq(), makeCtx())
-    const chunk: ServerSentEvent = { event: "x", data: "y", id: "abc", retry: 1500 }
-    const out = s.adaptChunk(chunk, st, makeCtx())
-    expect(out[0]).toEqual({ event: "x", data: "y", id: "abc", retry: 1500 })
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const st = s.initStreamState(makeReq(), makeCtx());
+    const chunk: ServerSentEvent = { event: "x", data: "y", id: "abc", retry: 1500 };
+    const out = s.adaptChunk(chunk, st, makeCtx());
+    expect(out[0]).toEqual({ event: "x", data: "y", id: "abc", retry: 1500 });
+  });
 
   test("adaptStreamError returns server_error event", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const st = s.initStreamState(makeReq(), makeCtx())
-    const out = s.adaptStreamError(new Error("boom"), st, makeCtx())
-    expect(out).toHaveLength(1)
-    expect(out[0]!.event).toBe("error")
-    const parsed = JSON.parse(String(out[0]!.data))
-    expect(parsed.error.code).toBe("stream_error")
-  })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const st = s.initStreamState(makeReq(), makeCtx());
+    const out = s.adaptStreamError(new Error("boom"), st, makeCtx());
+    expect(out).toHaveLength(1);
+    expect(out[0]!.event).toBe("error");
+    const parsed = JSON.parse(String(out[0]!.data));
+    expect(parsed.error.code).toBe("stream_error");
+  });
 
   test("describeEndLog json arm uses extractNonStreamingMeta", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
     const resp = {
       model: "gpt-4o-resp",
       usage: {
@@ -214,62 +265,68 @@ describe("strategies/copilot-responses", () => {
         output_tokens: 7,
         input_tokens_details: { cached_tokens: 6 },
       },
-    }
-    const out = s.describeEndLog({ kind: "json", req: makeReq(), resp }, makeCtx())
+    };
+    const out = s.describeEndLog({ kind: "json", req: makeReq(), resp }, makeCtx());
     expect(out).toEqual({
       model: "gpt-4o",
       resolvedModel: "gpt-4o-resp",
       inputTokens: 5,
       outputTokens: 7,
       cacheReadTokens: 6,
-    })
-  })
+    });
+  });
 
   test("describeEndLog stream arm reads from state", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
     const st: CopilotResponsesStreamState = {
-      resolvedModel: "gpt-4o-resolved", inputTokens: 22, outputTokens: 13,
+      resolvedModel: "gpt-4o-resolved",
+      inputTokens: 22,
+      outputTokens: 13,
       cacheReadTokens: 11,
       itemIdsByOutputIndex: new Map(),
-    }
-    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
+    };
+    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx());
     expect(out).toEqual({
       model: "gpt-4o",
       resolvedModel: "gpt-4o-resolved",
       inputTokens: 11,
       outputTokens: 13,
       cacheReadTokens: 11,
-    })
-  })
+    });
+  });
 
   test("describeEndLog subtracts cached tokens so input means non-cached input", () => {
     // Responses usage counts cached tokens inside input_tokens; persisted
     // input_tokens must be the non-cached remainder (Anthropic convention).
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
     const st: CopilotResponsesStreamState = {
-      resolvedModel: "gpt-4o-resolved", inputTokens: 100, outputTokens: 5,
+      resolvedModel: "gpt-4o-resolved",
+      inputTokens: 100,
+      outputTokens: 5,
       cacheReadTokens: 90,
       itemIdsByOutputIndex: new Map(),
-    }
-    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
-    expect(out.inputTokens).toBe(10)
-    expect(out.cacheReadTokens).toBe(90)
-  })
+    };
+    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx());
+    expect(out.inputTokens).toBe(10);
+    expect(out.cacheReadTokens).toBe(90);
+  });
 
   test("describeEndLog clamps at zero when cached exceeds input", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
     const st: CopilotResponsesStreamState = {
-      resolvedModel: "gpt-4o-resolved", inputTokens: 5, outputTokens: 1,
+      resolvedModel: "gpt-4o-resolved",
+      inputTokens: 5,
+      outputTokens: 1,
       cacheReadTokens: 40,
       itemIdsByOutputIndex: new Map(),
-    }
-    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx())
-    expect(out.inputTokens).toBe(0)
-  })
+    };
+    const out = s.describeEndLog({ kind: "stream", req: makeReq(), state: st }, makeCtx());
+    expect(out.inputTokens).toBe(0);
+  });
 
   test("describeEndLog error arm carries model from request", () => {
-    const s = makeCopilotResponses({ client: fakeClient(() => ({})) })
-    const out = s.describeEndLog({ kind: "error", req: makeReq(), err: new Error("x") }, makeCtx())
-    expect(out).toEqual({ model: "gpt-4o" })
-  })
-})
+    const s = makeCopilotResponses({ client: fakeClient(() => ({})) });
+    const out = s.describeEndLog({ kind: "error", req: makeReq(), err: new Error("x") }, makeCtx());
+    expect(out).toEqual({ model: "gpt-4o" });
+  });
+});

@@ -87,20 +87,22 @@ describe("formatTimestamp", () => {
   it("shows request times in the browser timezone", () => {
     const formatter = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(240);
     try {
-      render(<RequestTable data={[makeRecord({ timestamp: Date.UTC(2026, 8, 22, 12, 34, 56) })]} hasMore={false} />);
-      expect(screen.getByRole("button", { name: "Inspect request req-1" })).toHaveTextContent("2026-09-22 08:34:56");
+      render(
+        <RequestTable
+          data={[makeRecord({ timestamp: Date.UTC(2026, 8, 22, 12, 34, 56) })]}
+          hasMore={false}
+        />,
+      );
+      expect(screen.getByRole("button", { name: "Inspect request req-1" })).toHaveTextContent(
+        "2026-09-22 08:34:56",
+      );
     } finally {
       formatter.mockRestore();
     }
   });
 
   it("formats epoch ms to readable string", () => {
-    render(
-      <RequestTable
-        data={[makeRecord({ timestamp: 1710600000000 })]}
-        hasMore={false}
-      />,
-    );
+    render(<RequestTable data={[makeRecord({ timestamp: 1710600000000 })]} hasMore={false} />);
     const cells = screen.getAllByRole("cell");
     const timeCell = cells[0]!;
     expect(timeCell.textContent).toMatch(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
@@ -109,22 +111,12 @@ describe("formatTimestamp", () => {
 
 describe("formatLatency", () => {
   it('ms < 1000 → "123ms"', () => {
-    render(
-      <RequestTable
-        data={[makeRecord({ latency_ms: 123 })]}
-        hasMore={false}
-      />,
-    );
+    render(<RequestTable data={[makeRecord({ latency_ms: 123 })]} hasMore={false} />);
     expect(screen.getByText("123ms")).toBeDefined();
   });
 
   it('ms >= 1000 → "1.2s"', () => {
-    render(
-      <RequestTable
-        data={[makeRecord({ latency_ms: 1234 })]}
-        hasMore={false}
-      />,
-    );
+    render(<RequestTable data={[makeRecord({ latency_ms: 1234 })]} hasMore={false} />);
     expect(screen.getByText("1.2s")).toBeDefined();
   });
 });
@@ -197,13 +189,7 @@ describe("toggleSort", () => {
 describe("pagination — cursor mode (sort=timestamp)", () => {
   it("next page → pushes current cursor to prevCursors, sets nextCursor", async () => {
     mockSearchParams = new URLSearchParams("cursor=cur-1");
-    render(
-      <RequestTable
-        data={[makeRecord()]}
-        hasMore={true}
-        nextCursor="cur-2"
-      />,
-    );
+    render(<RequestTable data={[makeRecord()]} hasMore={true} nextCursor="cur-2" />);
 
     const user = userEvent.setup();
     const nextButton = screen.getByRole("button", { name: /Next/i });
@@ -299,13 +285,7 @@ describe("pagination — offset mode (sort=latency_ms)", () => {
 describe("column visibility", () => {
   it("hides columns not in visibleColumns", () => {
     const visible = new Set(["timestamp", "model", "status"]);
-    render(
-      <RequestTable
-        data={[makeRecord()]}
-        hasMore={false}
-        visibleColumns={visible}
-      />,
-    );
+    render(<RequestTable data={[makeRecord()]} hasMore={false} visibleColumns={visible} />);
     const headers = screen.getAllByRole("columnheader");
     const headerTexts = headers.map((h) => h.textContent?.trim());
     expect(headerTexts).toContain("Model");
@@ -327,9 +307,7 @@ describe("row click", () => {
   it("calls onRowClick when row is clicked", async () => {
     const handler = vi.fn();
     const record = makeRecord();
-    render(
-      <RequestTable data={[record]} hasMore={false} onRowClick={handler} />,
-    );
+    render(<RequestTable data={[record]} hasMore={false} onRowClick={handler} />);
 
     const user = userEvent.setup();
     const rows = screen.getAllByRole("row");
@@ -339,9 +317,7 @@ describe("row click", () => {
   });
 
   it("rows have cursor-pointer class when onRowClick is provided", () => {
-    render(
-      <RequestTable data={[makeRecord()]} hasMore={false} onRowClick={() => {}} />,
-    );
+    render(<RequestTable data={[makeRecord()]} hasMore={false} onRowClick={() => {}} />);
     const rows = screen.getAllByRole("row");
     expect(rows[1]!.className).toContain("cursor-pointer");
   });
@@ -349,15 +325,23 @@ describe("row click", () => {
 
 describe("cancelled status", () => {
   it("uses a neutral badge for cancelled and a destructive badge for errors", () => {
-    render(<RequestTable data={[
-      makeRecord({ id: "ok", status: "success" }),
-      makeRecord({ id: "gone", status: "cancelled", status_code: 499 }),
-      makeRecord({ id: "bad", status: "error", status_code: 502 }),
-    ]} hasMore={false} />);
+    render(
+      <RequestTable
+        data={[
+          makeRecord({ id: "ok", status: "success" }),
+          makeRecord({ id: "gone", status: "cancelled", status_code: 499 }),
+          makeRecord({ id: "bad", status: "error", status_code: 502 }),
+        ]}
+        hasMore={false}
+      />,
+    );
     expect(screen.getByText("cancelled").className).toContain("bg-basalt-foreground/6");
     expect(screen.getByText("cancelled").className).not.toContain("bg-basalt-danger");
     expect(screen.getByText("error").className).toContain("bg-basalt-danger-solid");
-    expect(screen.getByText("success")).toHaveClass("bg-basalt-success-tint", "text-basalt-success");
+    expect(screen.getByText("success")).toHaveClass(
+      "bg-basalt-success-tint",
+      "text-basalt-success",
+    );
   });
 });
 
@@ -387,15 +371,43 @@ describe("request metadata and navigation boundaries", () => {
   it("shows optional diagnostics and non-streaming failures when all columns are enabled", () => {
     const record = makeRecord({
       path: "/v1/a-very-long-request-endpoint",
-      status: "error", status_code: 429, stream: 0,
-      ttft_ms: 12, processing_ms: 34, strategy: "fixture-strategy",
-      upstream: "fixture-upstream", account_name: "fixture-account",
-      client_name: "fixture-client", session_id: "short-session",
-      stop_reason: "length", tool_call_count: 3, routing_path: "fallback",
-      translated_model: "mapped-model", error_message: "fixture error",
+      status: "error",
+      status_code: 429,
+      stream: 0,
+      ttft_ms: 12,
+      processing_ms: 34,
+      strategy: "fixture-strategy",
+      upstream: "fixture-upstream",
+      account_name: "fixture-account",
+      client_name: "fixture-client",
+      session_id: "short-session",
+      stop_reason: "length",
+      tool_call_count: 3,
+      routing_path: "fallback",
+      translated_model: "mapped-model",
+      error_message: "fixture error",
     });
-    render(<RequestTable data={[record]} hasMore={false} total={1200} visibleColumns={allColumns} />);
-    for (const text of ["Format", "Processing", "Strategy", "Session", "12ms", "34ms", "fixture-strategy", "fixture-upstream", "fixture-account", "fixture-client", "length", "fallback", "mapped-model", "fixture error", "no", "1,200 total"]) {
+    render(
+      <RequestTable data={[record]} hasMore={false} total={1200} visibleColumns={allColumns} />,
+    );
+    for (const text of [
+      "Format",
+      "Processing",
+      "Strategy",
+      "Session",
+      "12ms",
+      "34ms",
+      "fixture-strategy",
+      "fixture-upstream",
+      "fixture-account",
+      "fixture-client",
+      "length",
+      "fallback",
+      "mapped-model",
+      "fixture error",
+      "no",
+      "1,200 total",
+    ]) {
       expect(screen.getByText(text)).toBeDefined();
     }
     expect(screen.getByText(/\/v1\/a-very-long-request.*…/)).toBeDefined();
@@ -404,11 +416,28 @@ describe("request metadata and navigation boundaries", () => {
   });
 
   it("keeps missing optional diagnostic fields distinguishable from measured zero values", () => {
-    render(<RequestTable data={[makeRecord({
-      strategy: "", upstream: "", account_name: "", client_name: "",
-      session_id: "", stop_reason: "", routing_path: "", translated_model: "",
-      error_message: null, processing_ms: null, ttft_ms: 0, tool_call_count: 0,
-    })]} hasMore={false} visibleColumns={allColumns} />);
+    render(
+      <RequestTable
+        data={[
+          makeRecord({
+            strategy: "",
+            upstream: "",
+            account_name: "",
+            client_name: "",
+            session_id: "",
+            stop_reason: "",
+            routing_path: "",
+            translated_model: "",
+            error_message: null,
+            processing_ms: null,
+            ttft_ms: 0,
+            tool_call_count: 0,
+          }),
+        ]}
+        hasMore={false}
+        visibleColumns={allColumns}
+      />,
+    );
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(8);
     expect(screen.getByText("0ms")).toBeDefined();
   });

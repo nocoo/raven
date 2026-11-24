@@ -1,10 +1,14 @@
-import { initIPPolicies } from "./ip-policy"
-import type { Database } from "bun:sqlite"
-import { COPILOT_RULE_ID, COPILOT_UPSTREAM_ID, type RoutingMigrationSummary } from "../core/routing-types.ts"
-import { getSetting, initSettings, setSetting } from "./settings.ts"
+import { initIPPolicies } from "./ip-policy";
+import type { Database } from "bun:sqlite";
+import {
+  COPILOT_RULE_ID,
+  COPILOT_UPSTREAM_ID,
+  type RoutingMigrationSummary,
+} from "../core/routing-types.ts";
+import { getSetting, initSettings, setSetting } from "./settings.ts";
 
-export const ROUTING_SCHEMA_VERSION = 1
-const SUMMARY_KEY = "routing:r3:migration"
+export const ROUTING_SCHEMA_VERSION = 1;
+const SUMMARY_KEY = "routing:r3:migration";
 
 const SCHEMA = `
 CREATE TABLE providers (
@@ -84,100 +88,140 @@ CREATE TRIGGER protect_copilot_rule_delete BEFORE DELETE ON routing_rules
 WHEN OLD.is_builtin = 1 BEGIN SELECT RAISE(ABORT, 'Built-in Copilot rule is protected'); END;
 CREATE TRIGGER protect_copilot_rule_identity BEFORE UPDATE OF id, is_builtin ON routing_rules
 WHEN OLD.is_builtin = 1 BEGIN SELECT RAISE(ABORT, 'Built-in Copilot rule is protected'); END;
-`
+`;
 
 interface LegacyProvider {
-  id: string
-  name: string
-  base_url: string
-  format: string
-  api_key: string
-  model_patterns: string
-  enabled: number
-  supports_reasoning?: number
-  auth_style?: string | null
-  use_socks5?: number | null
-  created_at: number
-  updated_at: number
+  id: string;
+  name: string;
+  base_url: string;
+  format: string;
+  api_key: string;
+  model_patterns: string;
+  enabled: number;
+  supports_reasoning?: number;
+  auth_style?: string | null;
+  use_socks5?: number | null;
+  created_at: number;
+  updated_at: number;
 }
 
 function tableExists(db: Database, name: string): boolean {
-  return db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== null
+  return (
+    db.query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== null
+  );
 }
 
 function legacyPatterns(value: string): string[] {
   try {
-    const patterns: unknown = JSON.parse(value)
-    return Array.isArray(patterns) ? patterns.filter((pattern): pattern is string => typeof pattern === "string" && pattern.trim().length > 0) : []
+    const patterns: unknown = JSON.parse(value);
+    return Array.isArray(patterns)
+      ? patterns.filter(
+          (pattern): pattern is string => typeof pattern === "string" && pattern.trim().length > 0,
+        )
+      : [];
   } catch {
-    return []
+    return [];
   }
 }
 
 function verifyForeignKeys(db: Database): void {
-  if (db.query("PRAGMA foreign_key_check").all().length) throw new Error("Routing database has invalid foreign keys")
+  if (db.query("PRAGMA foreign_key_check").all().length)
+    throw new Error("Routing database has invalid foreign keys");
 }
 
 export function initRouting(db: Database, now = Date.now()): void {
-  db.exec("PRAGMA foreign_keys = ON")
-  const foreignKeys = db.query("PRAGMA foreign_keys").get() as { foreign_keys: number }
-  if (foreignKeys.foreign_keys !== 1) throw new Error("Routing database requires foreign keys before migration")
-  const version = (db.query("PRAGMA user_version").get() as { user_version: number }).user_version
-  if (version > ROUTING_SCHEMA_VERSION) throw new Error(`Unsupported routing schema version ${version}`)
+  db.exec("PRAGMA foreign_keys = ON");
+  const foreignKeys = db.query("PRAGMA foreign_keys").get() as { foreign_keys: number };
+  if (foreignKeys.foreign_keys !== 1)
+    throw new Error("Routing database requires foreign keys before migration");
+  const version = (db.query("PRAGMA user_version").get() as { user_version: number }).user_version;
+  if (version > ROUTING_SCHEMA_VERSION)
+    throw new Error(`Unsupported routing schema version ${version}`);
   if (version === ROUTING_SCHEMA_VERSION) {
-    verifyForeignKeys(db)
-    initIPPolicies(db)
-    return
+    verifyForeignKeys(db);
+    initIPPolicies(db);
+    return;
   }
   db.transaction(() => {
-    const hasProviders = tableExists(db, "providers")
-    const hasKeys = tableExists(db, "api_keys")
-    const providers = hasProviders ? db.query("SELECT * FROM providers ORDER BY created_at, id").all() as LegacyProvider[] : []
-    const keys = hasKeys ? db.query("SELECT id, name FROM api_keys ORDER BY created_at, id").all() as { id: string; name: string }[] : []
-    if (hasProviders) db.exec("ALTER TABLE providers RENAME TO providers_legacy_r3")
-    if (hasKeys) db.exec("ALTER TABLE api_keys RENAME TO api_keys_legacy_r3")
-    db.exec(SCHEMA)
-    initSettings(db)
+    const hasProviders = tableExists(db, "providers");
+    const hasKeys = tableExists(db, "api_keys");
+    const providers = hasProviders
+      ? (db.query("SELECT * FROM providers ORDER BY created_at, id").all() as LegacyProvider[])
+      : [];
+    const keys = hasKeys
+      ? (db.query("SELECT id, name FROM api_keys ORDER BY created_at, id").all() as {
+          id: string;
+          name: string;
+        }[])
+      : [];
+    if (hasProviders) db.exec("ALTER TABLE providers RENAME TO providers_legacy_r3");
+    if (hasKeys) db.exec("ALTER TABLE api_keys RENAME TO api_keys_legacy_r3");
+    db.exec(SCHEMA);
+    initSettings(db);
     db.query(`INSERT INTO providers (id, name, kind, base_url, api_key, created_at, updated_at)
-      VALUES (?, 'GitHub Copilot', 'copilot', '', '', ?, ?)`).run(COPILOT_UPSTREAM_ID, now, now)
+      VALUES (?, 'GitHub Copilot', 'copilot', '', '', ?, ?)`).run(COPILOT_UPSTREAM_ID, now, now);
     db.query(`INSERT INTO routing_rules (id, name, allow_conversion, mode, default_chain, periods, is_builtin, created_at, updated_at)
       VALUES (?, 'GitHub Copilot', 1, 'all_day', ?, '[]', 1, ?, ?)`).run(
-      COPILOT_RULE_ID, JSON.stringify([{ upstream_id: COPILOT_UPSTREAM_ID, model: "gpt-5.6-sol" }]), now, now,
-    )
+      COPILOT_RULE_ID,
+      JSON.stringify([{ upstream_id: COPILOT_UPSTREAM_ID, model: "gpt-5.6-sol" }]),
+      now,
+      now,
+    );
     const summary: RoutingMigrationSummary = {
       migrated_at: now,
       upstreams: [],
       keys: keys.map((key) => ({ ...key, rule_id: COPILOT_RULE_ID })),
-    }
+    };
     for (const provider of providers) {
-      const patterns = legacyPatterns(provider.model_patterns)
-      const retained = [...new Set(patterns.filter((pattern) => !pattern.includes("*")))]
-      const format = provider.format === "openai" ? "chat_completions" : provider.format === "anthropic" ? "anthropic_messages" : provider.format
+      const patterns = legacyPatterns(provider.model_patterns);
+      const retained = [...new Set(patterns.filter((pattern) => !pattern.includes("*")))];
+      const format =
+        provider.format === "openai"
+          ? "chat_completions"
+          : provider.format === "anthropic"
+            ? "anthropic_messages"
+            : provider.format;
       db.query(`INSERT INTO providers
         (id, name, kind, format, base_url, api_key, enabled, supports_reasoning, auth_style, use_socks5, manual_models, created_at, updated_at)
         VALUES (?, ?, 'custom', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-        provider.id, provider.name, format, provider.base_url, provider.api_key, provider.enabled,
-        provider.supports_reasoning ?? 0, provider.auth_style ?? null, provider.use_socks5 ?? null,
-        JSON.stringify(retained), provider.created_at, provider.updated_at,
-      )
-      summary.upstreams.push({ id: provider.id, name: provider.name, retained_models: retained, discarded_patterns: patterns.filter((pattern) => pattern.includes("*")) })
+        provider.id,
+        provider.name,
+        format,
+        provider.base_url,
+        provider.api_key,
+        provider.enabled,
+        provider.supports_reasoning ?? 0,
+        provider.auth_style ?? null,
+        provider.use_socks5 ?? null,
+        JSON.stringify(retained),
+        provider.created_at,
+        provider.updated_at,
+      );
+      summary.upstreams.push({
+        id: provider.id,
+        name: provider.name,
+        retained_models: retained,
+        discarded_patterns: patterns.filter((pattern) => pattern.includes("*")),
+      });
     }
     if (hasKeys) {
       db.query(`INSERT INTO api_keys (id, name, key_hash, key_prefix, rule_id, created_at, last_used_at, revoked_at)
-        SELECT id, name, key_hash, key_prefix, ?, created_at, last_used_at, revoked_at FROM api_keys_legacy_r3`).run(COPILOT_RULE_ID)
-      db.exec("DROP TABLE api_keys_legacy_r3")
+        SELECT id, name, key_hash, key_prefix, ?, created_at, last_used_at, revoked_at FROM api_keys_legacy_r3`).run(
+        COPILOT_RULE_ID,
+      );
+      db.exec("DROP TABLE api_keys_legacy_r3");
     }
-    if (hasProviders) db.exec("DROP TABLE providers_legacy_r3")
-    db.exec("CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash)")
-    db.exec("CREATE INDEX idx_api_keys_rule_id ON api_keys(rule_id)")
-    if (hasProviders || hasKeys) setSetting(db, SUMMARY_KEY, JSON.stringify(summary))
-    verifyForeignKeys(db)
-    db.exec(`PRAGMA user_version = ${ROUTING_SCHEMA_VERSION}`)
-  }).immediate()
-  initIPPolicies(db)
+    if (hasProviders) db.exec("DROP TABLE providers_legacy_r3");
+    db.exec("CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash)");
+    db.exec("CREATE INDEX idx_api_keys_rule_id ON api_keys(rule_id)");
+    if (hasProviders || hasKeys) setSetting(db, SUMMARY_KEY, JSON.stringify(summary));
+    verifyForeignKeys(db);
+    db.exec(`PRAGMA user_version = ${ROUTING_SCHEMA_VERSION}`);
+  }).immediate();
+  initIPPolicies(db);
 }
 
 export function getRoutingMigrationSummary(db: Database): RoutingMigrationSummary | null {
-  const summary = getSetting(db, SUMMARY_KEY)
-  return summary === null ? null : JSON.parse(summary) as RoutingMigrationSummary
+  const summary = getSetting(db, SUMMARY_KEY);
+  return summary === null ? null : (JSON.parse(summary) as RoutingMigrationSummary);
 }

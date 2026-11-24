@@ -5,132 +5,126 @@
  * by tests and adjacent modules.
  */
 
-import { events, type ServerSentEvent } from "../util/sse"
-import {
-  copilotBaseUrl,
-  copilotHeaders,
-  copilotHeadersForToken,
-} from "../lib/api-config"
-import { HTTPError } from "../lib/error"
-import { getProxyUrl } from "../lib/socks5-bridge"
-import { state } from "../lib/state"
-import { refreshNow, noteLlm401 } from "../lib/token-sentinel"
-import { tokenSignal, isTokenExpiredBody } from "../lib/token-signal"
-import type { UpstreamClient, UpstreamResult } from "./interface"
-import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http"
+import { events, type ServerSentEvent } from "../util/sse";
+import { copilotBaseUrl, copilotHeaders, copilotHeadersForToken } from "../lib/api-config";
+import { HTTPError } from "../lib/error";
+import { getProxyUrl } from "../lib/socks5-bridge";
+import { state } from "../lib/state";
+import { refreshNow, noteLlm401 } from "../lib/token-sentinel";
+import { tokenSignal, isTokenExpiredBody } from "../lib/token-signal";
+import type { UpstreamClient, UpstreamResult } from "./interface";
+import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http";
 
 export interface ResponsesPayload {
-  model: string
-  input: unknown
-  stream?: boolean
-  [key: string]: unknown
+  model: string;
+  input: unknown;
+  stream?: boolean;
+  [key: string]: unknown;
 }
 
 export interface CopilotResponsesSnapshotOptions {
-  enableVision: boolean
-  isAgentCall: boolean
+  enableVision: boolean;
+  isAgentCall: boolean;
 }
 
 export interface CopilotResponsesConfig extends ModelHttpConfig {
-  getToken(): string
-  getBaseUrl(): string
-  getHeaders(vision: boolean): Record<string, string>
-  getProxyUrl(): string | undefined
+  getToken(): string;
+  getBaseUrl(): string;
+  getHeaders(vision: boolean): Record<string, string>;
+  getProxyUrl(): string | undefined;
   snapshotAuth(opts: CopilotResponsesSnapshotOptions): {
-    token: string
-    headers: Record<string, string>
-  }
+    token: string;
+    headers: Record<string, string>;
+  };
 }
 
-export class CopilotResponsesClient
-  implements UpstreamClient<ResponsesPayload, unknown>
-{
+export class CopilotResponsesClient implements UpstreamClient<ResponsesPayload, unknown> {
   constructor(private readonly config: CopilotResponsesConfig) {}
 
   async send(payload: ResponsesPayload, signal?: AbortSignal): Promise<UpstreamResult<unknown>> {
-    signal?.throwIfAborted()
-    this.config.getToken()
+    signal?.throwIfAborted();
+    this.config.getToken();
 
-    const enableVision = hasVisionContent(payload)
-    const isAgentCall = hasAgentHistory(payload)
+    const enableVision = hasVisionContent(payload);
+    const isAgentCall = hasAgentHistory(payload);
 
-    const proxyUrl = this.config.getProxyUrl()
-    const body = JSON.stringify(payload)
+    const proxyUrl = this.config.getProxyUrl();
+    const body = JSON.stringify(payload);
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
-      signal?.throwIfAborted()
-      const { token, headers } = this.config.snapshotAuth({ enableVision, isAgentCall })
-      const url = `${this.config.getBaseUrl()}/responses`
+      signal?.throwIfAborted();
+      const { token, headers } = this.config.snapshotAuth({ enableVision, isAgentCall });
+      const url = `${this.config.getBaseUrl()}/responses`;
       const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,
         headers,
         body,
         ...(proxyUrl ? { proxy: proxyUrl } : {}),
-      } as RequestInit)
-      return { response, usedToken: token }
-    }
+      } as RequestInit);
+      return { response, usedToken: token };
+    };
 
-    const first = await callOnce()
-    let response = first.response
+    const first = await callOnce();
+    let response = first.response;
 
     if (response.status === 401 && replayAllowed(this.config)) {
-      const respBody = await response.text().catch(() => "")
-      signal?.throwIfAborted()
-      const tokenExpired = isTokenExpiredBody(401, respBody)
-      tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401")
-      noteLlm401(tokenExpired ? "token-expired" : "other-401")
+      const respBody = await response.text().catch(() => "");
+      signal?.throwIfAborted();
+      const tokenExpired = isTokenExpiredBody(401, respBody);
+      tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401");
+      noteLlm401(tokenExpired ? "token-expired" : "other-401");
 
       if (!tokenExpired) {
-        throw new HTTPError("Failed to create responses", 401, respBody)
+        throw new HTTPError("Failed to create responses", 401, respBody);
       }
 
-      const result = await refreshNow("llm-401", first.usedToken)
-      signal?.throwIfAborted()
+      const result = await refreshNow("llm-401", first.usedToken);
+      signal?.throwIfAborted();
       if (!result.ok || !result.tokenWasUpdated) {
-        throw new HTTPError("Failed to create responses", 401, respBody)
+        throw new HTTPError("Failed to create responses", 401, respBody);
       }
 
-      response = (await callOnce()).response
+      response = (await callOnce()).response;
     }
 
     if (!response.ok) {
-      throw await HTTPError.fromResponse("Failed to create responses", response)
+      throw await HTTPError.fromResponse("Failed to create responses", response);
     }
 
     if (payload.stream) {
-      return events(response, signal) as AsyncGenerator<ServerSentEvent>
+      return events(response, signal) as AsyncGenerator<ServerSentEvent>;
     }
 
-    return await response.json()
+    return await response.json();
   }
 }
 
 export function defaultCopilotResponsesConfig(): CopilotResponsesConfig {
   return {
     getToken: () => {
-      if (!state.copilotToken) throw new Error("Copilot token not found")
-      return state.copilotToken
+      if (!state.copilotToken) throw new Error("Copilot token not found");
+      return state.copilotToken;
     },
     getBaseUrl: () => copilotBaseUrl(state),
     getHeaders: (vision: boolean) => copilotHeaders(state, vision),
     getProxyUrl: () => getProxyUrl("copilot", state),
     snapshotAuth: ({ enableVision, isAgentCall }) => {
-      const token = state.copilotToken
-      if (!token) throw new Error("Copilot token not found")
+      const token = state.copilotToken;
+      if (!token) throw new Error("Copilot token not found");
       return {
         token,
         headers: {
           ...copilotHeadersForToken(state, token, enableVision),
           "X-Initiator": isAgentCall ? "agent" : "user",
         },
-      }
+      };
     },
-  }
+  };
 }
 
 export function createDefaultCopilotResponsesClient(): CopilotResponsesClient {
-  return new CopilotResponsesClient(defaultCopilotResponsesConfig())
+  return new CopilotResponsesClient(defaultCopilotResponsesConfig());
 }
 
 // ---------------------------------------------------------------------------
@@ -138,24 +132,24 @@ export function createDefaultCopilotResponsesClient(): CopilotResponsesClient {
 // ---------------------------------------------------------------------------
 
 export function hasVisionContent(payload: ResponsesPayload): boolean {
-  if (!Array.isArray(payload.input)) return false
+  if (!Array.isArray(payload.input)) return false;
   return payload.input.some((item: unknown) => {
-    if (typeof item !== "object" || item === null) return false
-    const content = (item as Record<string, unknown>).content
-    if (!Array.isArray(content)) return false
+    if (typeof item !== "object" || item === null) return false;
+    const content = (item as Record<string, unknown>).content;
+    if (!Array.isArray(content)) return false;
     return content.some((part: unknown) => {
-      if (typeof part !== "object" || part === null) return false
-      return (part as Record<string, unknown>).type === "input_image"
-    })
-  })
+      if (typeof part !== "object" || part === null) return false;
+      return (part as Record<string, unknown>).type === "input_image";
+    });
+  });
 }
 
 export function hasAgentHistory(payload: ResponsesPayload): boolean {
-  if (!Array.isArray(payload.input)) return false
+  if (!Array.isArray(payload.input)) return false;
   return payload.input.some((item: unknown) => {
-    if (typeof item !== "object" || item === null) return false
-    const role = (item as Record<string, unknown>).role
-    const type = (item as Record<string, unknown>).type
-    return role === "assistant" || type === "function_call" || type === "function_call_output"
-  })
+    if (typeof item !== "object" || item === null) return false;
+    const role = (item as Record<string, unknown>).role;
+    const type = (item as Record<string, unknown>).type;
+    return role === "assistant" || type === "function_call" || type === "function_call_output";
+  });
 }

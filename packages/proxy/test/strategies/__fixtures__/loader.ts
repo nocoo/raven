@@ -8,34 +8,32 @@
 // the B.5 names so Phase H tests can read either source unchanged.
 // ---------------------------------------------------------------------------
 
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 export interface StrategyFixture {
-  request: { body: Record<string, unknown> }
+  request: { body: Record<string, unknown> };
   /** Raw upstream SSE bytes, one entry per network read. */
-  upstreamChunks: string[]
+  upstreamChunks: string[];
   /** Concatenated SSE bytes the client should ultimately observe. */
-  expectedClientBody: string
+  expectedClientBody: string;
   /** Field bag merged into Runner's request_end log payload. */
-  expectedEndLog: Record<string, unknown>
+  expectedEndLog: Record<string, unknown>;
 }
 
 export function loadFixture(name: string): StrategyFixture {
-  const raw = JSON.parse(
-    readFileSync(join(__dirname, `${name}.json`), "utf8"),
-  ) as {
-    request: { body: Record<string, unknown> }
-    upstreamChunks: string[]
-    responseBody: string
-    endLog: Record<string, unknown>
-  }
+  const raw = JSON.parse(readFileSync(join(__dirname, `${name}.json`), "utf8")) as {
+    request: { body: Record<string, unknown> };
+    upstreamChunks: string[];
+    responseBody: string;
+    endLog: Record<string, unknown>;
+  };
   return {
     request: raw.request,
     upstreamChunks: raw.upstreamChunks,
     expectedClientBody: raw.responseBody,
     expectedEndLog: raw.endLog,
-  }
+  };
 }
 
 export const FIXTURE_NAMES = [
@@ -45,4 +43,4 @@ export const FIXTURE_NAMES = [
   "custom-anthropic",
   "custom-openai-from-anthropic-client",
   "custom-openai-from-openai-client",
-] as const
+] as const;

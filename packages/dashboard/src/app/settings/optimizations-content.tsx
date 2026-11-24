@@ -1,7 +1,5 @@
 "use client";
 
-
-
 import type { OptimizationInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -37,13 +35,13 @@ interface OptimizationsContentProps {
 
 export function OptimizationsContent({ data }: OptimizationsContentProps) {
   return (
-      <SettingsCard title="Request optimizations" icon={Zap} tone="orange">
-        {OPTIMIZATION_ITEMS.map((item) => {
-          const info = data[item.id];
-          if (!info) return null;
-          return <OptimizationRow key={item.id} item={item} info={info} />;
-        })}
-      </SettingsCard>
+    <SettingsCard title="Request optimizations" icon={Zap} tone="orange">
+      {OPTIMIZATION_ITEMS.map((item) => {
+        const info = data[item.id];
+        if (!info) return null;
+        return <OptimizationRow key={item.id} item={item} info={info} />;
+      })}
+    </SettingsCard>
   );
 }
 
@@ -81,10 +79,7 @@ function OptimizationRow({
           // Revert on failure
           setEnabled(!checked);
           const body = await res.json().catch(() => null);
-          const msg =
-            body?.error?.message ??
-            body?.error ??
-            `Save failed (${res.status})`;
+          const msg = body?.error?.message ?? body?.error ?? `Save failed (${res.status})`;
           setError(msg);
         }
       } catch (err) {

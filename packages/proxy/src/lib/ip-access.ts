@@ -7,7 +7,10 @@ export function normalizeIP(value: string | null): string | null {
   if (family === 4) return value;
   const canonical = new URL(`http://[${value}]`).hostname.slice(1, -1);
   if (!/^::ffff:[0-9a-f]+:[0-9a-f]+$/.test(canonical)) return canonical;
-  const parts = canonical.slice(7).split(":").map(part => Number.parseInt(part, 16));
+  const parts = canonical
+    .slice(7)
+    .split(":")
+    .map((part) => Number.parseInt(part, 16));
   const [high, low] = parts;
   if (high === undefined || low === undefined) return canonical;
   return `${high >>> 8}.${high & 255}.${low >>> 8}.${low & 255}`;
@@ -20,8 +23,13 @@ export interface IPRule {
 }
 
 export function parseRules(input: unknown): IPRule[] {
-  if (!Array.isArray(input) || input.length > 256 || input.some(value => typeof value !== "string")) throw new Error("Expected at most 256 IP rules");
-  return [...new Set((input as string[]).map(value => value.trim()))].map(original => {
+  if (
+    !Array.isArray(input) ||
+    input.length > 256 ||
+    input.some((value) => typeof value !== "string")
+  )
+    throw new Error("Expected at most 256 IP rules");
+  return [...new Set((input as string[]).map((value) => value.trim()))].map((original) => {
     const block = new BlockList();
     const parts = original.split(original.includes("/") ? "/" : "-");
     const [rawHead = "", rawTail = ""] = parts;
@@ -51,16 +59,22 @@ export function allowsIP(enabled: boolean, rules: IPRule[], value: string | null
   const ip = normalizeIP(value);
   if (!ip) return false;
   const family = isIP(ip);
-  return rules.some(rule => rule.family === family && rule.block.check(ip, family === 4 ? "ipv4" : "ipv6"));
+  return rules.some(
+    (rule) => rule.family === family && rule.block.check(ip, family === 4 ? "ipv4" : "ipv6"),
+  );
 }
 
-export function resolveClientIP(headers: Headers, peer: string | null, trusted: IPRule[]): { ip: string | null; source: "socket" | "forwarded" | "unknown" } {
+export function resolveClientIP(
+  headers: Headers,
+  peer: string | null,
+  trusted: IPRule[],
+): { ip: string | null; source: "socket" | "forwarded" | "unknown" } {
   const ip = normalizeIP(peer);
   if (!ip) return { ip: null, source: "unknown" };
   const forwarded = headers.get("x-forwarded-for");
   if (!forwarded || !allowsIP(true, trusted, ip)) return { ip, source: "socket" };
-  const chain = forwarded.split(",").map(value => normalizeIP(value.trim()));
-  if (chain.length > 32 || chain.some(value => !value)) return { ip: null, source: "unknown" };
+  const chain = forwarded.split(",").map((value) => normalizeIP(value.trim()));
+  if (chain.length > 32 || chain.some((value) => !value)) return { ip: null, source: "unknown" };
   let candidate = ip;
   for (let index = chain.length - 1; index >= 0 && allowsIP(true, trusted, candidate); index--) {
     const entry = chain[index];
@@ -71,9 +85,27 @@ export function resolveClientIP(headers: Headers, peer: string | null, trusted: 
 
 const LOOPBACK = parseRules(["127.0.0.0/8", "::1"]);
 const NONPUBLIC = parseRules([
-  "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
-  "192.0.0.0/24", "192.0.2.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/3",
-  "::/96", "64:ff9b::/96", "64:ff9b:1::/48", "100::/64", "2001:db8::/32", "fc00::/7", "fe80::/10", "ff00::/8",
+  "0.0.0.0/8",
+  "10.0.0.0/8",
+  "100.64.0.0/10",
+  "127.0.0.0/8",
+  "169.254.0.0/16",
+  "172.16.0.0/12",
+  "192.0.0.0/24",
+  "192.0.2.0/24",
+  "192.168.0.0/16",
+  "198.18.0.0/15",
+  "198.51.100.0/24",
+  "203.0.113.0/24",
+  "224.0.0.0/3",
+  "::/96",
+  "64:ff9b::/96",
+  "64:ff9b:1::/48",
+  "100::/64",
+  "2001:db8::/32",
+  "fc00::/7",
+  "fe80::/10",
+  "ff00::/8",
 ]);
 
 export function isLoopback(ip: string | null): boolean {

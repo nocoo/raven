@@ -32,9 +32,7 @@ export interface Keepalive {
  * }
  * ```
  */
-export function startKeepalive(
-  controller: ReadableStreamDefaultController<Uint8Array>,
-): Keepalive {
+export function startKeepalive(controller: ReadableStreamDefaultController<Uint8Array>): Keepalive {
   let timer: ReturnType<typeof setInterval> | null = null;
 
   const schedule = () => {

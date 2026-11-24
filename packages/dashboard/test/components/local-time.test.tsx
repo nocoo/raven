@@ -10,8 +10,13 @@ afterEach(() => vi.restoreAllMocks());
 describe("local timestamps", () => {
   it("shows browser time while retaining an unambiguous machine-readable instant", () => {
     vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(-345);
-    render(<LocalTime timestamp={Date.UTC(2026, 8, 22, 21, 15, 30, 125)} precision="millisecond" />);
-    expect(screen.getByText("2026-09-23 03:00:30.125")).toHaveAttribute("dateTime", "2026-09-22T21:15:30.125Z");
+    render(
+      <LocalTime timestamp={Date.UTC(2026, 8, 22, 21, 15, 30, 125)} precision="millisecond" />,
+    );
+    expect(screen.getByText("2026-09-23 03:00:30.125")).toHaveAttribute(
+      "dateTime",
+      "2026-09-22T21:15:30.125Z",
+    );
   });
 
   it("hydrates browser-local time without exposing server time or hydration errors", async () => {
@@ -24,7 +29,9 @@ describe("local timestamps", () => {
     document.body.append(container);
     offset.mockReturnValue(240);
     let root!: Root;
-    await act(async () => { root = hydrateRoot(container, ui, { onRecoverableError: errors }); });
+    await act(async () => {
+      root = hydrateRoot(container, ui, { onRecoverableError: errors });
+    });
     expect(container.textContent).toBe("2026-09-21 20:30");
     expect(errors).not.toHaveBeenCalled();
     await act(async () => root.unmount());

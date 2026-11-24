@@ -147,10 +147,7 @@ interface LineScanState {
   skipLF: boolean;
 }
 
-function takeLines(
-  chunk: string,
-  state: LineScanState,
-): string[] {
+function takeLines(chunk: string, state: LineScanState): string[] {
   const lines: string[] = [];
   let start = 0;
   for (let i = 0; i < chunk.length; i++) {

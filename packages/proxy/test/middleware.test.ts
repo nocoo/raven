@@ -1,9 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import type { Database } from "bun:sqlite";
 import { Hono } from "hono";
-import {
-  apiKeyAuth,
-} from "../src/middleware.ts";
+import { apiKeyAuth } from "../src/middleware.ts";
 import { createApiKey, updateApiKeyRule } from "../src/db/keys.ts";
 import { COPILOT_RULE_ID, COPILOT_UPSTREAM_ID } from "../src/core/routing-types.ts";
 import { getCatalog, replaceCatalog } from "../src/db/catalog.ts";
@@ -18,7 +16,12 @@ function createAiApp(db: Database, envApiKey: string | null = null) {
   app.get("/v1/models", (c) => {
     const keyName = c.get("keyName");
     const keyId = c.get("keyId");
-    return c.json({ keyName, keyId, ruleId: c.get("ruleId"), usesRoutingDb: c.get("routingDb") === db });
+    return c.json({
+      keyName,
+      keyId,
+      ruleId: c.get("ruleId"),
+      usesRoutingDb: c.get("routingDb") === db,
+    });
   });
   app.post("/v1/chat/completions", (c) => c.json({ ok: true }));
   return app;
@@ -32,7 +35,9 @@ beforeEach(() => {
   vi.setSystemTime(NOW);
   fixture = routingFixture();
   db = fixture.db;
-  vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Authentication must not call upstreams"));
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(
+    new Error("Authentication must not call upstreams"),
+  );
 });
 
 afterEach(() => {
@@ -118,7 +123,10 @@ describe("apiKeyAuth middleware", () => {
     test("rejects invalid rk- key (no fallback to env)", async () => {
       const app = createAiApp(db, "sk-raven-secret");
       const res = await app.request("/v1/models", {
-        headers: { Authorization: "Bearer rk-0000000000000000000000000000000000000000000000000000000000000000" },
+        headers: {
+          Authorization:
+            "Bearer rk-0000000000000000000000000000000000000000000000000000000000000000",
+        },
       });
       expect(res.status).toBe(401);
     });
@@ -162,8 +170,12 @@ describe("apiKeyAuth middleware", () => {
     const replacement = createRoutingRule(db, ruleInput());
     let entered!: () => void;
     let release!: () => void;
-    const admitted = new Promise<void>((resolve) => { entered = resolve; });
-    const completion = new Promise<void>((resolve) => { release = resolve; });
+    const admitted = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const completion = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const pendingApp = new Hono();
     pendingApp.use("*", apiKeyAuth({ db, envApiKey: null }));
     pendingApp.get("/pending", async (c) => {
@@ -180,16 +192,25 @@ describe("apiKeyAuth middleware", () => {
     const unchanged = await app.request("/v1/models", { headers: { "x-api-key": other.key } });
     release();
     expect(await (await pending).json()).toEqual({ ruleId: COPILOT_RULE_ID, usesRoutingDb: true });
-    expect(await later.json()).toMatchObject({ keyId: key.id, ruleId: replacement.id, usesRoutingDb: true });
+    expect(await later.json()).toMatchObject({
+      keyId: key.id,
+      ruleId: replacement.id,
+      usesRoutingDb: true,
+    });
     expect(await unchanged.json()).toMatchObject({ keyId: other.id, ruleId: COPILOT_RULE_ID });
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  test.each([{ models: [] }, { models: [{ id: "stale-model", supported_endpoints: ["/responses"] }] }])("authentication never refreshes catalog $models", async ({ models }) => {
+  test.each([
+    { models: [] },
+    { models: [{ id: "stale-model", supported_endpoints: ["/responses"] }] },
+  ])("authentication never refreshes catalog $models", async ({ models }) => {
     replaceCatalog(db, COPILOT_UPSTREAM_ID, models, NOW - 7200000);
     const key = createApiKey(db, "cached", COPILOT_RULE_ID);
     const app = createAiApp(db);
-    expect((await app.request("/v1/models", { headers: { "x-api-key": key.key } })).status).toBe(200);
+    expect((await app.request("/v1/models", { headers: { "x-api-key": key.key } })).status).toBe(
+      200,
+    );
     expect(getCatalog(db, COPILOT_UPSTREAM_ID)).toEqual(models);
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });

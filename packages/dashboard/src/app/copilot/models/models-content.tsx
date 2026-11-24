@@ -1,8 +1,5 @@
 "use client";
 
-
-
-
 import { routingRequest } from "@/lib/routing-client";
 import { COPILOT_UPSTREAM_ID } from "@/lib/routing-model";
 import { SectionIcon } from "@/components/section-icon";
@@ -16,7 +13,13 @@ import { TagBadge } from "@nocoo/basalt/components/tag-badge";
 import { StatCard } from "@/components/stats/stat-card";
 import { formatCompact } from "@/lib/chart-config";
 import {
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@nocoo/basalt/components/table";
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@nocoo/basalt/components/table";
 
 interface CopilotModelsContentProps {
   data: CopilotModel[];
@@ -36,16 +39,13 @@ function CopyButton({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <button type="button"
+    <button
+      type="button"
       onClick={handleCopy}
       className="inline-flex h-5 w-5 items-center justify-center rounded text-basalt-muted-foreground hover:text-basalt-foreground hover:bg-basalt-accent transition-colors"
       aria-label={`Copy ${text}`}
     >
-      {copied ? (
-        <Check className="h-3 w-3 text-basalt-chart-5" />
-      ) : (
-        <Copy className="h-3 w-3" />
-      )}
+      {copied ? <Check className="h-3 w-3 text-basalt-chart-5" /> : <Copy className="h-3 w-3" />}
     </button>
   );
 }
@@ -111,7 +111,10 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
     setIsRefreshing(true);
     setRefreshError(null);
     try {
-      await routingRequest(`/api/upstreams/${encodeURIComponent(COPILOT_UPSTREAM_ID)}/models/refresh`, { method: "POST" });
+      await routingRequest(
+        `/api/upstreams/${encodeURIComponent(COPILOT_UPSTREAM_ID)}/models/refresh`,
+        { method: "POST" },
+      );
       startTransition(() => router.refresh());
     } catch (err) {
       setRefreshError(err instanceof Error ? err.message : "Refresh failed");
@@ -128,42 +131,25 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
           <>
             Copilot models, capabilities and limits.{" "}
             <span className="text-basalt-muted-foreground">
-              {data.length} model{data.length !== 1 ? "s" : ""} across{" "}
-              {groups.length} vendor{groups.length !== 1 ? "s" : ""}.
+              {data.length} model{data.length !== 1 ? "s" : ""} across {groups.length} vendor
+              {groups.length !== 1 ? "s" : ""}.
             </span>
           </>
         }
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-            />
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         }
       />
 
-      {refreshError && (
-        <p className="text-xs text-basalt-destructive">{refreshError}</p>
-      )}
+      {refreshError && <p className="text-xs text-basalt-destructive">{refreshError}</p>}
 
       {/* Summary tiles */}
       <div className="grid grid-cols-2 @min-[48rem]/page:grid-cols-4 gap-3">
-        <StatCard
-          icon={Boxes}
-          label="Models"
-          value={data.length.toLocaleString()}
-        />
-        <StatCard
-          icon={Building2}
-          label="Vendors"
-          value={groups.length.toLocaleString()}
-        />
+        <StatCard icon={Boxes} label="Models" value={data.length.toLocaleString()} />
+        <StatCard icon={Building2} label="Vendors" value={groups.length.toLocaleString()} />
         <StatCard
           icon={Brain}
           label="Max Context"
@@ -178,9 +164,15 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
       </div>
 
       {groups.map(({ vendor, models }) => (
-          <LayerCard key={vendor} padding="none" className="overflow-hidden">
-            <LayerCard.Header className="items-center"><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Boxes} tone="purple" />{vendor}</h2><Badge tone="neutral">{models.length}</Badge></LayerCard.Header>
-            <div className="overflow-x-auto">
+        <LayerCard key={vendor} padding="none" className="overflow-hidden">
+          <LayerCard.Header className="items-center">
+            <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground">
+              <SectionIcon icon={Boxes} tone="purple" />
+              {vendor}
+            </h2>
+            <Badge tone="neutral">{models.length}</Badge>
+          </LayerCard.Header>
+          <div className="overflow-x-auto">
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
@@ -190,7 +182,9 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                   <TableHead className="hidden xl:table-cell w-[10%]">Family</TableHead>
                   <TableHead className="hidden md:table-cell w-[10%]">Type</TableHead>
                   <TableHead className="w-[11%] text-right">Context</TableHead>
-                  <TableHead className="hidden sm:table-cell w-[10%] text-right">Max Output</TableHead>
+                  <TableHead className="hidden sm:table-cell w-[10%] text-right">
+                    Max Output
+                  </TableHead>
                   <TableHead className="hidden lg:table-cell w-[8%]">Picker</TableHead>
                   <TableHead className="hidden lg:table-cell w-[8%]">Preview</TableHead>
                 </TableRow>
@@ -204,11 +198,15 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                         <CopyButton text={model.id} />
                       </span>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell font-medium truncate">{model.name ?? "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell font-medium truncate">
+                      {model.name ?? "—"}
+                    </TableCell>
                     <TableCell className="hidden xl:table-cell text-basalt-muted-foreground truncate">
                       {model.version ?? "—"}
                     </TableCell>
-                    <TableCell className="hidden xl:table-cell truncate">{model.capabilities?.family ?? "—"}</TableCell>
+                    <TableCell className="hidden xl:table-cell truncate">
+                      {model.capabilities?.family ?? "—"}
+                    </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <TagBadge name={modelTypeLabel(model)} size="sm" />
                     </TableCell>
@@ -217,11 +215,12 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                         "—"}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-right font-mono text-xs">
-                      {model.capabilities?.limits?.max_output_tokens?.toLocaleString() ??
-                        "—"}
+                      {model.capabilities?.limits?.max_output_tokens?.toLocaleString() ?? "—"}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {model.model_picker_enabled === undefined ? <span className="text-basalt-muted-foreground">Unknown</span> : model.model_picker_enabled ? (
+                      {model.model_picker_enabled === undefined ? (
+                        <span className="text-basalt-muted-foreground">Unknown</span>
+                      ) : model.model_picker_enabled ? (
                         <Badge tone="success">Yes</Badge>
                       ) : (
                         <Badge tone="neutral">No</Badge>
@@ -238,8 +237,8 @@ export function CopilotModelsContent({ data }: CopilotModelsContentProps) {
                 ))}
               </TableBody>
             </Table>
-            </div>
-          </LayerCard>
+          </div>
+        </LayerCard>
       ))}
     </>
   );

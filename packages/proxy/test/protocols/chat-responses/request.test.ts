@@ -1,28 +1,26 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect, test } from "vitest";
 
-import { ClientInputError } from "../../../src/lib/error"
+import { ClientInputError } from "../../../src/lib/error";
 import {
   assertChatViaResponsesSupported,
   chatRequestToResponses,
-} from "../../../src/protocols/chat-responses/request"
-import type { ChatViaResponsesClientReq } from "../../../src/protocols/chat-responses/types"
+} from "../../../src/protocols/chat-responses/request";
+import type { ChatViaResponsesClientReq } from "../../../src/protocols/chat-responses/types";
 
 const base = (over: Partial<ChatViaResponsesClientReq> = {}): ChatViaResponsesClientReq => ({
   model: "grok-4.5",
   messages: [{ role: "user", content: "hi" }],
   ...over,
-})
+});
 
 describe("chatRequestToResponses", () => {
   test("maps messages, max_tokens, stream", () => {
-    const payload = chatRequestToResponses(
-      base({ max_completion_tokens: 100, stream: true }),
-    )
-    expect(payload.model).toBe("grok-4.5")
-    expect(payload.stream).toBe(true)
-    expect(payload.max_output_tokens).toBe(100)
-    expect(payload.input).toEqual([{ role: "user", content: "hi" }])
-  })
+    const payload = chatRequestToResponses(base({ max_completion_tokens: 100, stream: true }));
+    expect(payload.model).toBe("grok-4.5");
+    expect(payload.stream).toBe(true);
+    expect(payload.max_output_tokens).toBe(100);
+    expect(payload.input).toEqual([{ role: "user", content: "hi" }]);
+  });
 
   test("preserves developer role (not system)", () => {
     const payload = chatRequestToResponses(
@@ -33,10 +31,10 @@ describe("chatRequestToResponses", () => {
           { role: "user", content: "u" },
         ],
       }),
-    )
-    const input = payload.input as Array<{ role: string }>
-    expect(input.map((i) => i.role)).toEqual(["developer", "system", "user"])
-  })
+    );
+    const input = payload.input as Array<{ role: string }>;
+    expect(input.map((i) => i.role)).toEqual(["developer", "system", "user"]);
+  });
 
   test("tools map with strict default false and call_id from tool_call.id", () => {
     const payload = chatRequestToResponses(
@@ -50,7 +48,7 @@ describe("chatRequestToResponses", () => {
               {
                 id: "call_abc",
                 type: "function",
-                function: { name: "get_weather", arguments: "{\"city\":\"SF\"}" },
+                function: { name: "get_weather", arguments: '{"city":"SF"}' },
               },
             ],
           },
@@ -67,16 +65,16 @@ describe("chatRequestToResponses", () => {
           },
         ],
       }),
-    )
-    const tools = payload.tools as Array<{ strict?: boolean; name: string }>
-    expect(tools[0]!.strict).toBe(false)
-    expect(tools[0]!.name).toBe("get_weather")
-    const input = payload.input as Array<Record<string, unknown>>
-    const fc = input.find((i) => i.type === "function_call")
-    expect(fc).toMatchObject({ call_id: "call_abc", name: "get_weather" })
-    const out = input.find((i) => i.type === "function_call_output")
-    expect(out).toMatchObject({ call_id: "call_abc", output: "sunny" })
-  })
+    );
+    const tools = payload.tools as Array<{ strict?: boolean; name: string }>;
+    expect(tools[0]!.strict).toBe(false);
+    expect(tools[0]!.name).toBe("get_weather");
+    const input = payload.input as Array<Record<string, unknown>>;
+    const fc = input.find((i) => i.type === "function_call");
+    expect(fc).toMatchObject({ call_id: "call_abc", name: "get_weather" });
+    const out = input.find((i) => i.type === "function_call_output");
+    expect(out).toMatchObject({ call_id: "call_abc", output: "sunny" });
+  });
 
   test("strict true is preserved", () => {
     const payload = chatRequestToResponses(
@@ -92,9 +90,9 @@ describe("chatRequestToResponses", () => {
           },
         ],
       }),
-    )
-    expect((payload.tools as Array<{ strict: boolean }>)[0]!.strict).toBe(true)
-  })
+    );
+    expect((payload.tools as Array<{ strict: boolean }>)[0]!.strict).toBe(true);
+  });
 
   test("response_format and reasoning_effort map", () => {
     const payload = chatRequestToResponses(
@@ -102,39 +100,35 @@ describe("chatRequestToResponses", () => {
         response_format: { type: "json_object" },
         reasoning_effort: "high",
       }),
-    )
-    expect(payload.text).toEqual({ format: { type: "json_object" } })
-    expect(payload.reasoning).toEqual({ effort: "high" })
-  })
+    );
+    expect(payload.text).toEqual({ format: { type: "json_object" } });
+    expect(payload.reasoning).toEqual({ effort: "high" });
+  });
 
   test("does not include stream_options in body", () => {
     const payload = chatRequestToResponses(
       base({ stream_options: { include_usage: true }, stream: true }),
-    )
-    expect(payload).not.toHaveProperty("stream_options")
-    expect(payload).not.toHaveProperty("includeUsage")
-    expect(JSON.stringify(payload)).not.toContain("include_usage")
-  })
-})
+    );
+    expect(payload).not.toHaveProperty("stream_options");
+    expect(payload).not.toHaveProperty("includeUsage");
+    expect(JSON.stringify(payload)).not.toContain("include_usage");
+  });
+});
 
 describe("assertChatViaResponsesSupported", () => {
   test("rejects n !== 1 with ClientInputError", () => {
-    expect(() => assertChatViaResponsesSupported(base({ n: 2 }))).toThrow(
-      ClientInputError,
-    )
-  })
+    expect(() => assertChatViaResponsesSupported(base({ n: 2 }))).toThrow(ClientInputError);
+  });
 
   test("rejects non-empty stop", () => {
-    expect(() => assertChatViaResponsesSupported(base({ stop: "END" }))).toThrow(
-      ClientInputError,
-    )
-  })
+    expect(() => assertChatViaResponsesSupported(base({ stop: "END" }))).toThrow(ClientInputError);
+  });
 
   test("allows n=1 and missing stop", () => {
-    expect(() => assertChatViaResponsesSupported(base({ n: 1 }))).not.toThrow()
-    expect(() => assertChatViaResponsesSupported(base())).not.toThrow()
-  })
-})
+    expect(() => assertChatViaResponsesSupported(base({ n: 1 }))).not.toThrow();
+    expect(() => assertChatViaResponsesSupported(base())).not.toThrow();
+  });
+});
 
 describe("chatRequestToResponses content edge cases", () => {
   test("maps tool_choice function object", () => {
@@ -142,9 +136,9 @@ describe("chatRequestToResponses content edge cases", () => {
       base({
         tool_choice: { type: "function", function: { name: "fn" } },
       }),
-    )
-    expect(payload.tool_choice).toEqual({ type: "function", name: "fn" })
-  })
+    );
+    expect(payload.tool_choice).toEqual({ type: "function", name: "fn" });
+  });
 
   test("maps json_schema response_format", () => {
     const payload = chatRequestToResponses(
@@ -154,15 +148,15 @@ describe("chatRequestToResponses content edge cases", () => {
           json_schema: { name: "x", schema: { type: "object" } },
         },
       }),
-    )
+    );
     expect(payload.text).toEqual({
       format: {
         type: "json_schema",
         name: "x",
         schema: { type: "object" },
       },
-    })
-  })
+    });
+  });
 
   test("maps multimodal user content parts", () => {
     const payload = chatRequestToResponses(
@@ -177,39 +171,37 @@ describe("chatRequestToResponses content edge cases", () => {
           },
         ],
       }),
-    )
-    const input = payload.input as Array<{ content: unknown }>
-    expect(Array.isArray(input[0]!.content)).toBe(true)
-    const parts = input[0]!.content as Array<{ type: string }>
-    expect(parts.some((p) => p.type === "input_image")).toBe(true)
-  })
+    );
+    const input = payload.input as Array<{ content: unknown }>;
+    expect(Array.isArray(input[0]!.content)).toBe(true);
+    const parts = input[0]!.content as Array<{ type: string }>;
+    expect(parts.some((p) => p.type === "input_image")).toBe(true);
+  });
 
   test("max_tokens fallback when max_completion_tokens absent", () => {
-    const payload = chatRequestToResponses(base({ max_tokens: 33 }))
-    expect(payload.max_output_tokens).toBe(33)
-  })
+    const payload = chatRequestToResponses(base({ max_tokens: 33 }));
+    expect(payload.max_output_tokens).toBe(33);
+  });
 
   test("passthrough temperature top_p user", () => {
-    const payload = chatRequestToResponses(
-      base({ temperature: 0.2, top_p: 0.9, user: "u1" }),
-    )
-    expect(payload.temperature).toBe(0.2)
-    expect(payload.top_p).toBe(0.9)
-    expect(payload.user).toBe("u1")
-  })
+    const payload = chatRequestToResponses(base({ temperature: 0.2, top_p: 0.9, user: "u1" }));
+    expect(payload.temperature).toBe(0.2);
+    expect(payload.top_p).toBe(0.9);
+    expect(payload.user).toBe("u1");
+  });
 
   test("drops gpt-5 sampling unless effort none or temperature=1", () => {
     const dropped = chatRequestToResponses(
       base({ model: "gpt-5.6-sol", temperature: 0.7, top_p: 0.9 }),
-    )
-    expect(dropped.temperature).toBeUndefined()
-    expect(dropped.top_p).toBeUndefined()
+    );
+    expect(dropped.temperature).toBeUndefined();
+    expect(dropped.top_p).toBeUndefined();
 
     const tempOne = chatRequestToResponses(
       base({ model: "gpt-5.6-sol", temperature: 1, top_p: 0.9 }),
-    )
-    expect(tempOne.temperature).toBe(1)
-    expect(tempOne.top_p).toBeUndefined()
+    );
+    expect(tempOne.temperature).toBe(1);
+    expect(tempOne.top_p).toBeUndefined();
 
     const none = chatRequestToResponses(
       base({
@@ -218,22 +210,22 @@ describe("chatRequestToResponses content edge cases", () => {
         top_p: 0.9,
         reasoning_effort: "none",
       }),
-    )
-    expect(none.temperature).toBe(0.7)
-    expect(none.top_p).toBe(0.9)
-    expect(none.reasoning).toEqual({ effort: "none" })
-  })
+    );
+    expect(none.temperature).toBe(0.7);
+    expect(none.top_p).toBe(0.9);
+    expect(none.reasoning).toEqual({ effort: "none" });
+  });
 
   test("empty stop array is allowed", () => {
-    expect(() => assertChatViaResponsesSupported(base({ stop: [] }))).not.toThrow()
-  })
-})
+    expect(() => assertChatViaResponsesSupported(base({ stop: [] }))).not.toThrow();
+  });
+});
 
 describe("request more branches", () => {
   test("tool_choice string auto", () => {
-    const p = chatRequestToResponses(base({ tool_choice: "auto" }))
-    expect(p.tool_choice).toBe("auto")
-  })
+    const p = chatRequestToResponses(base({ tool_choice: "auto" }));
+    expect(p.tool_choice).toBe("auto");
+  });
 
   test("assistant content string with tool_calls", () => {
     const p = chatRequestToResponses(
@@ -252,11 +244,11 @@ describe("request more branches", () => {
           },
         ],
       }),
-    )
-    const input = p.input as Array<Record<string, unknown>>
-    expect(input.some((i) => i.role === "assistant")).toBe(true)
-    expect(input.some((i) => i.type === "function_call")).toBe(true)
-  })
+    );
+    const input = p.input as Array<Record<string, unknown>>;
+    expect(input.some((i) => i.role === "assistant")).toBe(true);
+    expect(input.some((i) => i.type === "function_call")).toBe(true);
+  });
 
   test("image_url as string", () => {
     const p = chatRequestToResponses(
@@ -272,10 +264,10 @@ describe("request more branches", () => {
           },
         ],
       }),
-    )
-    const parts = (p.input as Array<{ content: unknown[] }>)[0]!.content
-    expect(parts.some((x) => (x as { type: string }).type === "input_image")).toBe(true)
-  })
+    );
+    const parts = (p.input as Array<{ content: unknown[] }>)[0]!.content;
+    expect(parts.some((x) => (x as { type: string }).type === "input_image")).toBe(true);
+  });
 
   test("single text part collapses to string", () => {
     const p = chatRequestToResponses(
@@ -287,15 +279,15 @@ describe("request more branches", () => {
           },
         ],
       }),
-    )
-    expect((p.input as Array<{ content: string }>)[0]!.content).toBe("only")
-  })
+    );
+    expect((p.input as Array<{ content: string }>)[0]!.content).toBe("only");
+  });
 
   test("response_format text type", () => {
-    const p = chatRequestToResponses(base({ response_format: { type: "text" } }))
-    expect(p.text).toEqual({ format: { type: "text" } })
-  })
-})
+    const p = chatRequestToResponses(base({ response_format: { type: "text" } }));
+    expect(p.text).toEqual({ format: { type: "text" } });
+  });
+});
 
 describe("assistant multipart EasyInputMessage", () => {
   test("multi text parts use input_text not output_text", () => {
@@ -311,26 +303,29 @@ describe("assistant multipart EasyInputMessage", () => {
           },
         ],
       }),
-    )
-    const input = p.input as Array<{ role: string; content: Array<{ type: string; text: string }> }>
-    expect(input[0]!.role).toBe("assistant")
-    expect(Array.isArray(input[0]!.content)).toBe(true)
-    expect(input[0]!.content.every((c) => c.type === "input_text")).toBe(true)
-    expect(input[0]!.content.map((c) => c.text)).toEqual(["a", "b"])
-  })
-})
+    );
+    const input = p.input as Array<{
+      role: string;
+      content: Array<{ type: string; text: string }>;
+    }>;
+    expect(input[0]!.role).toBe("assistant");
+    expect(Array.isArray(input[0]!.content)).toBe(true);
+    expect(input[0]!.content.every((c) => c.type === "input_text")).toBe(true);
+    expect(input[0]!.content.map((c) => c.text)).toEqual(["a", "b"]);
+  });
+});
 
 describe("unknown field discard", () => {
   test("seed is not forwarded to Responses payload", () => {
     const p = chatRequestToResponses(
       base({ seed: 42 } as Parameters<typeof chatRequestToResponses>[0] & {
-        seed: number
+        seed: number;
       }),
-    )
-    expect(p).not.toHaveProperty("seed")
-    expect(JSON.stringify(p)).not.toContain('"seed"')
-  })
-})
+    );
+    expect(p).not.toHaveProperty("seed");
+    expect(JSON.stringify(p)).not.toContain('"seed"');
+  });
+});
 
 describe("mapToolChoice fallback", () => {
   test("unknown tool_choice object is returned as-is", () => {
@@ -338,7 +333,7 @@ describe("mapToolChoice fallback", () => {
       base({
         tool_choice: { type: "unknown" } as unknown as "auto",
       }),
-    )
-    expect(p.tool_choice).toEqual({ type: "unknown" })
-  })
-})
+    );
+    expect(p.tool_choice).toEqual({ type: "unknown" });
+  });
+});

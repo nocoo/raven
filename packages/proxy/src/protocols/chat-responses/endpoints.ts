@@ -4,11 +4,11 @@
  */
 
 export function isChatEndpoint(ep: string): boolean {
-  return ep === "/chat/completions" || ep === "/v1/chat/completions"
+  return ep === "/chat/completions" || ep === "/v1/chat/completions";
 }
 
 export function isResponsesEndpoint(ep: string): boolean {
-  return ep === "/responses" || ep === "/v1/responses"
+  return ep === "/responses" || ep === "/v1/responses";
 }
 
 /**
@@ -17,8 +17,8 @@ export function isResponsesEndpoint(ep: string): boolean {
  * `ws:/responses` alone does not count as HTTP responses support.
  */
 export function isResponsesOnly(endpoints: string[] | undefined | null): boolean {
-  if (!endpoints || endpoints.length === 0) return false
-  const hasChat = endpoints.some(isChatEndpoint)
-  const hasResponses = endpoints.some(isResponsesEndpoint)
-  return hasResponses && !hasChat
+  if (!endpoints || endpoints.length === 0) return false;
+  const hasChat = endpoints.some(isChatEndpoint);
+  const hasResponses = endpoints.some(isResponsesEndpoint);
+  return hasResponses && !hasChat;
 }

@@ -1,6 +1,6 @@
-import { Hono } from "hono"
+import { Hono } from "hono";
 
-import { getSentinelStatus } from "../lib/token-sentinel"
+import { getSentinelStatus } from "../lib/token-sentinel";
 
 /**
  * GET /api/sentinel-status — observability snapshot of the token-refresh
@@ -14,11 +14,11 @@ import { getSentinelStatus } from "../lib/token-sentinel"
  * Authenticated via the same /api/* policy as other dashboard endpoints.
  */
 export function createSentinelStatusRoute(): Hono {
-  const app = new Hono()
+  const app = new Hono();
 
   app.get("/sentinel-status", (c) => {
-    return c.json(getSentinelStatus())
-  })
+    return c.json(getSentinelStatus());
+  });
 
-  return app
+  return app;
 }

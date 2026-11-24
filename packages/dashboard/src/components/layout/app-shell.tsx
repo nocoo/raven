@@ -2,11 +2,7 @@
 
 import { ContentIsland, SidebarDrawer } from "@nocoo/basalt";
 import { AppHeader, AppHeaderMenuButton } from "@nocoo/basalt/components/app-header";
-import {
-  AppMain,
-  AppSkipLink,
-  AppShell as Shell,
-} from "@nocoo/basalt/components/app-shell";
+import { AppMain, AppSkipLink, AppShell as Shell } from "@nocoo/basalt/components/app-shell";
 import { useEffect, useId, useRef } from "react";
 import { useAppPathname } from "@/lib/app-navigation";
 import { LogsDock } from "@/components/logs/logs-dock";
@@ -28,10 +24,7 @@ function AppShellInner({ children }: AppShellProps) {
   const drawerId = useId();
   const group = NAV_GROUPS.find((g) => g.items.some((item) => item.href === pathname));
   const item = group?.items.find((i) => i.href === pathname);
-  const allBreadcrumbs = [
-    { label: "Home", href: "/" },
-    ...(group ? [{ label: group.label }] : []),
-  ];
+  const allBreadcrumbs = [{ label: "Home", href: "/" }, ...(group ? [{ label: group.label }] : [])];
   const breadcrumbs = isMobile ? allBreadcrumbs.slice(-1) : allBreadcrumbs;
 
   useEffect(() => {

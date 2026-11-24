@@ -28,7 +28,9 @@ vi.mock("node:net", async (importOriginal) => {
     createServer: ((...args: unknown[]) =>
       netMocks.createServerImpl
         ? netMocks.createServerImpl(...args)
-        : (actual.createServer as (...a: unknown[]) => unknown)(...args)) as typeof actual.createServer,
+        : (actual.createServer as (...a: unknown[]) => unknown)(
+            ...args,
+          )) as typeof actual.createServer,
   };
 });
 
@@ -59,11 +61,7 @@ function sendTunnelRequest(proxy: string, request: string): Promise<string> {
   });
 }
 
-function insertProvider(
-  id: string,
-  name: string,
-  useSocks5: number | null = null,
-) {
+function insertProvider(id: string, name: string, useSocks5: number | null = null) {
   const now = Date.now();
   db.query(
     `INSERT INTO providers (id, name, kind, base_url, format, api_key, enabled, supports_reasoning, manual_models, use_socks5, created_at, updated_at)
@@ -78,7 +76,9 @@ beforeEach(() => {
   db = new Database(":memory:");
   initSettings(db);
   initProviders(db);
-  outboundFetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected outbound HTTP request"));
+  outboundFetch = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected outbound HTTP request"));
 
   // Reset SOCKS5 state
   state.socks5Enabled = false;
@@ -280,9 +280,9 @@ describe("PUT /api/settings/socks5", () => {
   });
 
   test("returns bridge_error when startBridge fails with Error", async () => {
-    const startSpy = vi.spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
-      new Error("EADDRINUSE"),
-    );
+    const startSpy = vi
+      .spyOn(socks5Bridge, "startBridge")
+      .mockRejectedValueOnce(new Error("EADDRINUSE"));
     try {
       const res = await createApp().request("/api/settings/socks5", {
         method: "PUT",
@@ -303,9 +303,7 @@ describe("PUT /api/settings/socks5", () => {
   });
 
   test("returns bridge_error when startBridge fails with non-Error", async () => {
-    const startSpy = vi.spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce(
-      "string error",
-    );
+    const startSpy = vi.spyOn(socks5Bridge, "startBridge").mockRejectedValueOnce("string error");
     try {
       const res = await createApp().request("/api/settings/socks5", {
         method: "PUT",
@@ -382,14 +380,14 @@ describe("PUT /api/settings/socks5", () => {
       }),
     });
 
-    const row1 = db
-      .query("SELECT use_socks5 FROM providers WHERE id = 'p1'")
-      .get() as { use_socks5: number | null };
+    const row1 = db.query("SELECT use_socks5 FROM providers WHERE id = 'p1'").get() as {
+      use_socks5: number | null;
+    };
     expect(row1.use_socks5).toBe(1);
 
-    const row2 = db
-      .query("SELECT use_socks5 FROM providers WHERE id = 'p2'")
-      .get() as { use_socks5: number | null };
+    const row2 = db.query("SELECT use_socks5 FROM providers WHERE id = 'p2'").get() as {
+      use_socks5: number | null;
+    };
     expect(row2.use_socks5).toBe(0);
   });
 
@@ -406,9 +404,9 @@ describe("PUT /api/settings/socks5", () => {
       }),
     });
     expect(res.status).toBe(200);
-    const row = db
-      .query("SELECT use_socks5 FROM providers WHERE id = 'p1'")
-      .get() as { use_socks5: number | null };
+    const row = db.query("SELECT use_socks5 FROM providers WHERE id = 'p1'").get() as {
+      use_socks5: number | null;
+    };
     expect(row.use_socks5).toBe(1);
   });
 
@@ -421,9 +419,9 @@ describe("PUT /api/settings/socks5", () => {
         providerPolicies: [{ id: "p1", use_socks5: null }],
       }),
     });
-    const row = db
-      .query("SELECT use_socks5 FROM providers WHERE id = 'p1'")
-      .get() as { use_socks5: number | null };
+    const row = db.query("SELECT use_socks5 FROM providers WHERE id = 'p1'").get() as {
+      use_socks5: number | null;
+    };
     expect(row.use_socks5).toBeNull();
   });
 
@@ -527,64 +525,112 @@ describe("POST /api/settings/socks5/test", () => {
       await once(socket, "connect");
       return { socket };
     });
-    outboundFetch.mockImplementationOnce(async (_url: string | URL | Request, init?: RequestInit) => {
-      const wire = await sendTunnelRequest((init as RequestInit & { proxy: string }).proxy, "CONNECT fixture.invalid:443 HTTP/1.1\r\n\r\n");
-      expect(wire).toBe('HTTP/1.1 200 Connection Established\r\n\r\n{"ip":"203.0.113.42"}');
-      return new Response(wire.split("\r\n\r\n")[1], { headers: { "Content-Type": "application/json" } });
-    });
+    outboundFetch.mockImplementationOnce(
+      async (_url: string | URL | Request, init?: RequestInit) => {
+        const wire = await sendTunnelRequest(
+          (init as RequestInit & { proxy: string }).proxy,
+          "CONNECT fixture.invalid:443 HTTP/1.1\r\n\r\n",
+        );
+        expect(wire).toBe('HTTP/1.1 200 Connection Established\r\n\r\n{"ip":"203.0.113.42"}');
+        return new Response(wire.split("\r\n\r\n")[1], {
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    );
 
     try {
       const res = await createApp().request("/api/settings/socks5/test", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host: "127.0.0.1", port: 1080, username: "fixture-user", password: "fixture-password" }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host: "127.0.0.1",
+          port: 1080,
+          username: "fixture-user",
+          password: "fixture-password",
+        }),
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toMatchObject({ success: true, ip: "203.0.113.42" });
       expect(outboundFetch).toHaveBeenCalledTimes(1);
       expect(connect).toHaveBeenCalledWith({
-        proxy: { host: "127.0.0.1", port: 1080, type: 5, userId: "fixture-user", password: "fixture-password" },
-        command: "connect", destination: { host: "fixture.invalid", port: 443 }, timeout: 10000,
+        proxy: {
+          host: "127.0.0.1",
+          port: 1080,
+          type: 5,
+          userId: "fixture-user",
+          password: "fixture-password",
+        },
+        command: "connect",
+        destination: { host: "fixture.invalid", port: 443 },
+        timeout: 10000,
       });
       expect(getBridgePort()).toBeNull();
     } finally {
-      await new Promise<void>((resolve, reject) => echo.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) =>
+        echo.close((error) => (error ? reject(error) : resolve())),
+      );
     }
   });
 
   test("malformed CONNECT requests receive 400 and close without opening a SOCKS connection", async () => {
-    const connect = vi.spyOn(SocksClient, "createConnection").mockRejectedValue(new Error("Unexpected SOCKS connection"));
+    const connect = vi
+      .spyOn(SocksClient, "createConnection")
+      .mockRejectedValue(new Error("Unexpected SOCKS connection"));
     const replies: string[] = [];
     outboundFetch.mockImplementation(async (_url: string | URL | Request, init?: RequestInit) => {
-      replies.push(await sendTunnelRequest((init as RequestInit & { proxy: string }).proxy, "GET / HTTP/1.1\r\nHost: fixture.invalid\r\n\r\n"));
+      replies.push(
+        await sendTunnelRequest(
+          (init as RequestInit & { proxy: string }).proxy,
+          "GET / HTTP/1.1\r\nHost: fixture.invalid\r\n\r\n",
+        ),
+      );
       throw new Error("Tunnel rejected the request");
     });
 
     const res = await createApp().request("/api/settings/socks5/test", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ host: "127.0.0.1", port: 1080 }),
     });
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ success: false, error: expect.stringContaining("could not verify egress IP") });
-    expect(replies).toEqual(["HTTP/1.1 400 Bad Request\r\n\r\n", "HTTP/1.1 400 Bad Request\r\n\r\n"]);
+    expect(await res.json()).toMatchObject({
+      success: false,
+      error: expect.stringContaining("could not verify egress IP"),
+    });
+    expect(replies).toEqual([
+      "HTTP/1.1 400 Bad Request\r\n\r\n",
+      "HTTP/1.1 400 Bad Request\r\n\r\n",
+    ]);
     expect(connect).not.toHaveBeenCalled();
     expect(getBridgePort()).toBeNull();
   });
 
   test("a failed SOCKS connection sends 502 and closes the temporary tunnel", async () => {
-    const connect = vi.spyOn(SocksClient, "createConnection").mockRejectedValue(new Error("Fixture connection refused"));
+    const connect = vi
+      .spyOn(SocksClient, "createConnection")
+      .mockRejectedValue(new Error("Fixture connection refused"));
     const replies: string[] = [];
     outboundFetch.mockImplementation(async (_url: string | URL | Request, init?: RequestInit) => {
-      replies.push(await sendTunnelRequest((init as RequestInit & { proxy: string }).proxy, "CONNECT fixture.invalid:443 HTTP/1.1\r\n\r\n"));
+      replies.push(
+        await sendTunnelRequest(
+          (init as RequestInit & { proxy: string }).proxy,
+          "CONNECT fixture.invalid:443 HTTP/1.1\r\n\r\n",
+        ),
+      );
       throw new Error("Tunnel connection failed");
     });
 
     const res = await createApp().request("/api/settings/socks5/test", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ host: "127.0.0.1", port: 1080 }),
     });
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ success: false });
-    expect(replies).toEqual(["HTTP/1.1 502 Bad Gateway\r\n\r\n", "HTTP/1.1 502 Bad Gateway\r\n\r\n"]);
+    expect(replies).toEqual([
+      "HTTP/1.1 502 Bad Gateway\r\n\r\n",
+      "HTTP/1.1 502 Bad Gateway\r\n\r\n",
+    ]);
     expect(connect).toHaveBeenCalledTimes(2);
   });
 

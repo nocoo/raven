@@ -44,11 +44,7 @@ async function ensureDir(dirPath: string): Promise<void> {
 /**
  * Migrate a single file from legacy to new location.
  */
-async function migrateFile(
-  source: string,
-  dest: string,
-  description: string,
-): Promise<boolean> {
+async function migrateFile(source: string, dest: string, description: string): Promise<boolean> {
   const sourceExists = await exists(source);
   const destExists = await exists(dest);
 

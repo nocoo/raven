@@ -1,8 +1,5 @@
 "use client";
 
-
-
-
 import { IPLookup } from "@/components/analytics/panels/ip-management";
 import { JsonBlock } from "@/components/requests/json-block";
 import type { ExtendedRequestRecord } from "@/lib/types";
@@ -23,7 +20,15 @@ import {
 import { useLogDock } from "@/components/logs/log-dock-context";
 import Link from "next/link";
 import { DEFAULT_FILTERS, type AnalyticsFilters } from "@/lib/analytics-filters";
-import { dimensionHref, keyIdentity, monitorHref, PROTOCOL_META, protocolLabel, requestProtocolRoute, requestTranslationWarning } from "@/lib/monitor";
+import {
+  dimensionHref,
+  keyIdentity,
+  monitorHref,
+  PROTOCOL_META,
+  protocolLabel,
+  requestProtocolRoute,
+  requestTranslationWarning,
+} from "@/lib/monitor";
 import { LocalTime } from "@/components/local-time";
 import { IdentityHint } from "@/components/identity-hint";
 
@@ -47,17 +52,32 @@ function isJsonLike(value: string): boolean {
   return trimmed.startsWith("{") || trimmed.startsWith("[");
 }
 
-function DetailRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+function DetailRow({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+}) {
   if (value === null || value === undefined || value === "") return null;
   return (
     <div className="flex justify-between items-start gap-4 py-1.5 border-b border-basalt-border/30 last:border-0">
       <span className="text-xs text-basalt-muted-foreground shrink-0">{label}</span>
-      <span className={`min-w-0 break-words text-xs text-right ${mono ? "font-mono" : ""}`}>{value}</span>
+      <span className={`min-w-0 break-words text-xs text-right ${mono ? "font-mono" : ""}`}>
+        {value}
+      </span>
     </div>
   );
 }
 
-export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEFAULT_FILTERS }: RequestDetailDrawerProps) {
+export function RequestDetailDrawer({
+  request,
+  open,
+  onOpenChange,
+  filters = DEFAULT_FILTERS,
+}: RequestDetailDrawerProps) {
   const { openLogs } = useLogDock();
   if (!request) return null;
 
@@ -69,7 +89,10 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
 
   // Clamp TTFT + processing to not exceed 100%
   const ttftPct = ttft != null && ttft > 0 ? Math.min((ttft / safeLatency) * 100, 100) : 0;
-  const procPct = processing != null && processing > 0 ? Math.min((processing / safeLatency) * 100, 100 - ttftPct) : 0;
+  const procPct =
+    processing != null && processing > 0
+      ? Math.min((processing / safeLatency) * 100, 100 - ttftPct)
+      : 0;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -82,10 +105,20 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
         </SheetClose>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2 pr-8">
-            <Badge tone={request.status === "success" ? "success" : request.status === "cancelled" ? "neutral" : "danger"} variant={request.status !== "success" && request.status !== "cancelled" ? "solid" : "soft"}>
+            <Badge
+              tone={
+                request.status === "success"
+                  ? "success"
+                  : request.status === "cancelled"
+                    ? "neutral"
+                    : "danger"
+              }
+              variant={
+                request.status !== "success" && request.status !== "cancelled" ? "solid" : "soft"
+              }
+            >
               {request.status}
-            </Badge>
-            {" "}
+            </Badge>{" "}
             <span className="truncate font-mono text-sm">{request.model}</span>
           </SheetTitle>
           <SheetDescription>
@@ -95,28 +128,90 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
 
         <div className="px-4 pb-4 space-y-4">
           <LayerCard padding="sm" className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2"><Badge tone={request.protocol_mode === "native" ? "success" : request.protocol_mode === "translated" ? "warning" : "neutral"}>{protocolLabel(request.protocol_mode)}</Badge>{request.server_tools_used > 0 && <Badge tone="neutral">Server tools</Badge>}</div>
-            {warning ? <Banner tone="warning" size="sm" icon={<TriangleAlert className="size-4" aria-hidden="true" />} {...warning} /> : <>
-              <p className="text-sm font-medium">{requestProtocolRoute(request)}</p>
-              <p className="text-xs leading-relaxed text-basalt-muted-foreground">{PROTOCOL_META[request.protocol_mode].description}</p>
-            </>}
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                tone={
+                  request.protocol_mode === "native"
+                    ? "success"
+                    : request.protocol_mode === "translated"
+                      ? "warning"
+                      : "neutral"
+                }
+              >
+                {protocolLabel(request.protocol_mode)}
+              </Badge>
+              {request.server_tools_used > 0 && <Badge tone="neutral">Server tools</Badge>}
+            </div>
+            {warning ? (
+              <Banner
+                tone="warning"
+                size="sm"
+                icon={<TriangleAlert className="size-4" aria-hidden="true" />}
+                {...warning}
+              />
+            ) : (
+              <>
+                <p className="text-sm font-medium">{requestProtocolRoute(request)}</p>
+                <p className="text-xs leading-relaxed text-basalt-muted-foreground">
+                  {PROTOCOL_META[request.protocol_mode].description}
+                </p>
+              </>
+            )}
           </LayerCard>
-          {request.routing && <section aria-label="Routing details" className="rounded-widget border border-basalt-border p-3">
-            <div className="mb-2 flex items-center gap-2"><h4 className="text-sm font-medium">Routing</h4>{request.routing.diagnostic && <Badge tone="info" className="text-xs">Diagnostic · quota accounted</Badge>}</div>
-            <DetailRow label="Chosen target" value={request.routing.upstream_name} />
-            <DetailRow label="Upstream ID" value={request.routing.upstream_id} mono />
-            <DetailRow label="Rule ID" value={request.routing.rule_id} mono />
-            <DetailRow label="Period" value={request.routing.period_id ?? "Default chain"} mono />
-            <DetailRow label="Requested model" value={request.routing.requested_model} mono />
-            <DetailRow label="Resolved model" value={request.routing.resolved_model} mono />
-            <DetailRow label="Quota window" value={request.routing.quota_window_id ?? "No quota"} mono />
-            <DetailRow label="Multiplier" value={`${request.routing.multiplier}×`} mono />
-            <DetailRow label="Weighted usage" value={`${request.routing.weighted_tokens.toLocaleString(undefined, { maximumFractionDigits: 6 })} tokens`} mono />
-            <DetailRow label="Usage completeness" value={request.routing.usage_complete ? "Complete" : "Incomplete"} />
-            <DetailRow label="Accounting" value={request.routing.accounting_healthy ? "Healthy" : "Blocked"} />
-            <DetailRow label="Admitted at" value={<LocalTime timestamp={request.routing.admitted_at} precision="millisecond" />} mono />
-            <DetailRow label="Skipped candidates" value={request.routing.skipped.map(skip => `${skip.upstream_id} · ${skip.reason}`).join("; ")} mono />
-          </section>}
+          {request.routing && (
+            <section
+              aria-label="Routing details"
+              className="rounded-widget border border-basalt-border p-3"
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <h4 className="text-sm font-medium">Routing</h4>
+                {request.routing.diagnostic && (
+                  <Badge tone="info" className="text-xs">
+                    Diagnostic · quota accounted
+                  </Badge>
+                )}
+              </div>
+              <DetailRow label="Chosen target" value={request.routing.upstream_name} />
+              <DetailRow label="Upstream ID" value={request.routing.upstream_id} mono />
+              <DetailRow label="Rule ID" value={request.routing.rule_id} mono />
+              <DetailRow label="Period" value={request.routing.period_id ?? "Default chain"} mono />
+              <DetailRow label="Requested model" value={request.routing.requested_model} mono />
+              <DetailRow label="Resolved model" value={request.routing.resolved_model} mono />
+              <DetailRow
+                label="Quota window"
+                value={request.routing.quota_window_id ?? "No quota"}
+                mono
+              />
+              <DetailRow label="Multiplier" value={`${request.routing.multiplier}×`} mono />
+              <DetailRow
+                label="Weighted usage"
+                value={`${request.routing.weighted_tokens.toLocaleString(undefined, { maximumFractionDigits: 6 })} tokens`}
+                mono
+              />
+              <DetailRow
+                label="Usage completeness"
+                value={request.routing.usage_complete ? "Complete" : "Incomplete"}
+              />
+              <DetailRow
+                label="Accounting"
+                value={request.routing.accounting_healthy ? "Healthy" : "Blocked"}
+              />
+              <DetailRow
+                label="Admitted at"
+                value={
+                  <LocalTime timestamp={request.routing.admitted_at} precision="millisecond" />
+                }
+                mono
+              />
+              <DetailRow
+                label="Skipped candidates"
+                value={request.routing.skipped
+                  .map((skip) => `${skip.upstream_id} · ${skip.reason}`)
+                  .join("; ")}
+                mono
+              />
+            </section>
+          )}
           {/* Request ID */}
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs text-basalt-muted-foreground truncate flex-1">
@@ -165,7 +260,9 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
               </div>
               <DetailRow label="Total Latency" value={formatLatency(totalLatency)} mono />
               {ttft != null && <DetailRow label="TTFT" value={formatLatency(ttft)} mono />}
-              {processing != null && <DetailRow label="Processing" value={formatLatency(processing)} mono />}
+              {processing != null && (
+                <DetailRow label="Processing" value={formatLatency(processing)} mono />
+              )}
             </div>
           </section>
 
@@ -173,8 +270,23 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
           <section>
             <h4 className="text-xs font-medium text-basalt-foreground mb-2">Request</h4>
             <DetailRow label="Path" value={request.path} mono />
-            <DetailRow label="Model" value={<Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("model", request.model, filters)}>Analyze {request.model}</Link>} mono />
-            <DetailRow label="Resolved Model" value={request.routing?.resolved_model ?? request.resolved_model} mono />
+            <DetailRow
+              label="Model"
+              value={
+                <Link
+                  className="text-basalt-primary underline underline-offset-2"
+                  href={dimensionHref("model", request.model, filters)}
+                >
+                  Analyze {request.model}
+                </Link>
+              }
+              mono
+            />
+            <DetailRow
+              label="Resolved Model"
+              value={request.routing?.resolved_model ?? request.resolved_model}
+              mono
+            />
             <DetailRow label="Translated Model" value={request.translated_model || null} mono />
             <DetailRow label="Format" value={request.client_format} />
             <DetailRow label="Stream" value={request.stream ? "Yes" : "No"} />
@@ -206,12 +318,18 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
             />
             <DetailRow
               label="Cache Read"
-              value={request.cache_read_tokens != null ? request.cache_read_tokens.toLocaleString() : "—"}
+              value={
+                request.cache_read_tokens != null ? request.cache_read_tokens.toLocaleString() : "—"
+              }
               mono
             />
             <DetailRow
               label="Cache Write"
-              value={request.cache_write_tokens != null ? request.cache_write_tokens.toLocaleString() : "—"}
+              value={
+                request.cache_write_tokens != null
+                  ? request.cache_write_tokens.toLocaleString()
+                  : "—"
+              }
               mono
             />
           </section>
@@ -232,19 +350,53 @@ export function RequestDetailDrawer({ request, open, onOpenChange, filters = DEF
             <IPLookup ip={request.client_ip ?? ""} />
             <DetailRow label="Peer IP" value={request.peer_ip} mono />
             <DetailRow label="IP source" value={request.ip_source} />
-            <DetailRow label="API Key" value={<IdentityHint identity={keyIdentity(request.key_id)}><Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("key_id", request.key_id, filters)}>{request.account_name || "Unattributed"}</Link></IdentityHint>} />
-            <DetailRow label="Client" value={request.client_name ? <Link className="text-basalt-primary underline underline-offset-2" href={dimensionHref("client", request.client_name, filters)}>{request.client_name}</Link> : null} />
+            <DetailRow
+              label="API Key"
+              value={
+                <IdentityHint identity={keyIdentity(request.key_id)}>
+                  <Link
+                    className="text-basalt-primary underline underline-offset-2"
+                    href={dimensionHref("key_id", request.key_id, filters)}
+                  >
+                    {request.account_name || "Unattributed"}
+                  </Link>
+                </IdentityHint>
+              }
+            />
+            <DetailRow
+              label="Client"
+              value={
+                request.client_name ? (
+                  <Link
+                    className="text-basalt-primary underline underline-offset-2"
+                    href={dimensionHref("client", request.client_name, filters)}
+                  >
+                    {request.client_name}
+                  </Link>
+                ) : null
+              }
+            />
             <DetailRow label="Version" value={request.client_version} />
-            {request.session_id && (
-              isJsonLike(request.session_id) ? (
+            {request.session_id &&
+              (isJsonLike(request.session_id) ? (
                 <div className="py-1.5">
                   <div className="text-xs text-basalt-muted-foreground mb-1">Session</div>
                   <JsonBlock value={request.session_id} />
                 </div>
               ) : (
-                <DetailRow label="Session" value={<Link className="text-basalt-primary underline underline-offset-2 break-all" href={monitorHref("/requests", filters, { session: request.session_id })}>{request.session_id}</Link>} mono />
-              )
-            )}
+                <DetailRow
+                  label="Session"
+                  value={
+                    <Link
+                      className="text-basalt-primary underline underline-offset-2 break-all"
+                      href={monitorHref("/requests", filters, { session: request.session_id })}
+                    >
+                      {request.session_id}
+                    </Link>
+                  }
+                  mono
+                />
+              ))}
           </section>
 
           {/* Response Metadata */}

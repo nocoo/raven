@@ -1,79 +1,86 @@
-import { mkdirSync } from "node:fs"
-import type { Server } from "bun"
-import { Database } from "bun:sqlite"
-import { loadConfig } from "./config"
-import { logger, setLogLevel } from "./util/logger"
-import { createApp } from "./app"
-import { ensurePaths } from "./lib/paths"
-import { runMigrations } from "./lib/migration"
-import { DIR_MODE } from "./lib/app-dirs"
-import { state } from "./lib/state"
-import { setupGitHubToken, setupCopilotToken } from "./lib/token"
-import { cacheVersions, cacheOptimizations, cacheServerTools, cacheIPWhitelist, cacheCorsSettings, cacheSocks5Settings } from "./lib/utils"
-import { startBridge, stopBridge } from "./lib/socks5-bridge"
-import { initDatabase } from "./db/requests"
-import { startRequestSink } from "./db/request-sink"
-import { initSettings } from "./db/settings"
-import { startHistoryRetention } from "./services/history-retention"
-import { initRouting } from "./db/routing-migration"
-import { restoreCopilotCatalog, startCopilotCatalogRefresh } from "./composition/catalog"
-import { checkManagementAccess } from "./middleware"
-import { wsHandler, type WsData } from "./ws/logs"
-import type { LogLevel } from "./util/log-event"
-import { LEVEL_ORDER } from "./util/log-event"
+import { mkdirSync } from "node:fs";
+import type { Server } from "bun";
+import { Database } from "bun:sqlite";
+import { loadConfig } from "./config";
+import { logger, setLogLevel } from "./util/logger";
+import { createApp } from "./app";
+import { ensurePaths } from "./lib/paths";
+import { runMigrations } from "./lib/migration";
+import { DIR_MODE } from "./lib/app-dirs";
+import { state } from "./lib/state";
+import { setupGitHubToken, setupCopilotToken } from "./lib/token";
+import {
+  cacheVersions,
+  cacheOptimizations,
+  cacheServerTools,
+  cacheIPWhitelist,
+  cacheCorsSettings,
+  cacheSocks5Settings,
+} from "./lib/utils";
+import { startBridge, stopBridge } from "./lib/socks5-bridge";
+import { initDatabase } from "./db/requests";
+import { startRequestSink } from "./db/request-sink";
+import { initSettings } from "./db/settings";
+import { startHistoryRetention } from "./services/history-retention";
+import { initRouting } from "./db/routing-migration";
+import { restoreCopilotCatalog, startCopilotCatalogRefresh } from "./composition/catalog";
+import { checkManagementAccess } from "./middleware";
+import { wsHandler, type WsData } from "./ws/logs";
+import type { LogLevel } from "./util/log-event";
+import { LEVEL_ORDER } from "./util/log-event";
 
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
-const config = loadConfig()
-setLogLevel(config.logLevel)
+const config = loadConfig();
+setLogLevel(config.logLevel);
 
 // 0. Migrate legacy ./data/ files to platform-aware user directories
-await runMigrations()
+await runMigrations();
 
 // 1. Ensure config dir + token file exist before anything reads them
-await ensurePaths()
+await ensurePaths();
 
 // 2. Database
-const dbDir = config.dbPath.substring(0, config.dbPath.lastIndexOf("/"))
-mkdirSync(dbDir || "data", { recursive: true, mode: DIR_MODE })
-const db = new Database(config.dbPath)
-logger.info(`Database opened: ${config.dbPath}`)
-initDatabase(db)
-initRouting(db)
-initSettings(db)
-const stopHistoryRetention = startHistoryRetention(db)
-startRequestSink(db)
-logger.info("Database ready (WAL mode)")
+const dbDir = config.dbPath.substring(0, config.dbPath.lastIndexOf("/"));
+mkdirSync(dbDir || "data", { recursive: true, mode: DIR_MODE });
+const db = new Database(config.dbPath);
+logger.info(`Database opened: ${config.dbPath}`);
+initDatabase(db);
+initRouting(db);
+initSettings(db);
+const stopHistoryRetention = startHistoryRetention(db);
+startRequestSink(db);
+logger.info("Database ready (WAL mode)");
 
 // 3. Cache versions (VS Code + Copilot Chat, for Copilot API headers)
-await cacheVersions(db)
+await cacheVersions(db);
 
 // 3b. Load optimization flags from DB
-cacheOptimizations(db)
+cacheOptimizations(db);
 
 // Restore the durable catalog before admitting any request.
-restoreCopilotCatalog(db)
+restoreCopilotCatalog(db);
 
 // 3d. Load server tool settings from DB
-cacheServerTools(db)
+cacheServerTools(db);
 
 // 3e. Load IP whitelist settings from DB
-cacheIPWhitelist(db)
+cacheIPWhitelist(db);
 
 // 3g. Load CORS settings from DB
-cacheCorsSettings(db)
+cacheCorsSettings(db);
 
 // 3h. Load SOCKS5 proxy settings from DB
-cacheSocks5Settings(db)
+cacheSocks5Settings(db);
 
 // 3i. Start SOCKS5 bridge if enabled (fail-hard: exits process on failure)
 // Must be before token init — setupCopilotToken needs proxy for api.github.com
 if (state.socks5Enabled) {
   if (!state.socks5Host || !state.socks5Port) {
-    logger.error("SOCKS5 is enabled but host/port not configured. Exiting.")
-    process.exit(1)
+    logger.error("SOCKS5 is enabled but host/port not configured. Exiting.");
+    process.exit(1);
   }
   try {
     const bridgePort = await startBridge({
@@ -81,29 +88,31 @@ if (state.socks5Enabled) {
       port: state.socks5Port,
       ...(state.socks5Username ? { userId: state.socks5Username } : {}),
       ...(state.socks5Password ? { password: state.socks5Password } : {}),
-    })
-    state.socks5BridgePort = bridgePort
-    logger.info(`SOCKS5 bridge started on 127.0.0.1:${bridgePort}`)
+    });
+    state.socks5BridgePort = bridgePort;
+    logger.info(`SOCKS5 bridge started on 127.0.0.1:${bridgePort}`);
   } catch (err) {
-    logger.error(`Failed to start SOCKS5 bridge: ${err instanceof Error ? err.message : String(err)}`)
-    logger.error("SOCKS5 is enabled but bridge cannot start. Exiting.")
-    process.exit(1)
+    logger.error(
+      `Failed to start SOCKS5 bridge: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    logger.error("SOCKS5 is enabled but bridge cannot start. Exiting.");
+    process.exit(1);
   }
 }
 
 // 4. GitHub OAuth (loads from disk or runs device flow)
-await setupGitHubToken()
-const githubToken = state.githubToken
+await setupGitHubToken();
+const githubToken = state.githubToken;
 if (!githubToken) {
-  throw new Error("GitHub token missing after setupGitHubToken()")
+  throw new Error("GitHub token missing after setupGitHubToken()");
 }
-logger.info("GitHub token loaded")
+logger.info("GitHub token loaded");
 
 // 5. Copilot JWT (initial fetch + auto-refresh via setInterval)
-await setupCopilotToken()
-logger.info("Copilot JWT acquired, auto-refresh started")
+await setupCopilotToken();
+logger.info("Copilot JWT acquired, auto-refresh started");
 
-const stopCatalogRefresh = startCopilotCatalogRefresh(db)
+const stopCatalogRefresh = startCopilotCatalogRefresh(db);
 
 // 7. Build app with all dependencies wired
 const app = createApp({
@@ -113,15 +122,15 @@ const app = createApp({
   githubToken,
   port: config.port ?? null,
   baseUrl: config.baseUrl ?? null,
-})
+});
 
-logger.info(`Raven proxy listening on port ${config.port}`)
+logger.info(`Raven proxy listening on port ${config.port}`);
 
 // ---------------------------------------------------------------------------
 // WebSocket management uses the same local-only admission as HTTP.
 // ---------------------------------------------------------------------------
 
-const envInternalKey = config.internalKey ?? null
+const envInternalKey = config.internalKey ?? null;
 
 // ---------------------------------------------------------------------------
 // Bun.serve — handles both HTTP (Hono) and WebSocket upgrades
@@ -130,51 +139,53 @@ const envInternalKey = config.internalKey ?? null
 export default {
   port: config.port,
   fetch(req: Request, server: Server<WsData>) {
-    const url = new URL(req.url)
+    const url = new URL(req.url);
 
     // WebSocket upgrade for /ws/logs
     if (url.pathname === "/ws/logs") {
-      const denied = checkManagementAccess(server.requestIP(req)?.address ?? null, url.searchParams.get("token"), envInternalKey)
-      if (denied) return denied
+      const denied = checkManagementAccess(
+        server.requestIP(req)?.address ?? null,
+        url.searchParams.get("token"),
+        envInternalKey,
+      );
+      if (denied) return denied;
 
-      const levelParam = url.searchParams.get("level") ?? "info"
-      const minLevel: LogLevel = levelParam in LEVEL_ORDER
-        ? (levelParam as LogLevel)
-        : "info"
+      const levelParam = url.searchParams.get("level") ?? "info";
+      const minLevel: LogLevel = levelParam in LEVEL_ORDER ? (levelParam as LogLevel) : "info";
 
-      const requestIdParam = url.searchParams.get("requestId")
+      const requestIdParam = url.searchParams.get("requestId");
       const upgraded = server.upgrade(req, {
         data: {
           minLevel,
           filterRequestId: requestIdParam,
         },
-      })
-      if (upgraded) return undefined
-      return new Response("WebSocket upgrade failed", { status: 400 })
+      });
+      if (upgraded) return undefined;
+      return new Response("WebSocket upgrade failed", { status: 400 });
     }
 
     // Regular HTTP → Hono
-    return app.fetch(req, { remoteAddress: server.requestIP(req)?.address ?? null })
+    return app.fetch(req, { remoteAddress: server.requestIP(req)?.address ?? null });
   },
   websocket: wsHandler,
   idleTimeout: 255,
-}
+};
 
-export { app, config }
+export { app, config };
 
 // ---------------------------------------------------------------------------
 // Graceful shutdown — stop SOCKS5 bridge
 // ---------------------------------------------------------------------------
 
 process.on("SIGINT", async () => {
-  stopHistoryRetention()
-  stopCatalogRefresh()
-  await stopBridge()
-  process.exit(0)
-})
+  stopHistoryRetention();
+  stopCatalogRefresh();
+  await stopBridge();
+  process.exit(0);
+});
 process.on("SIGTERM", async () => {
-  stopHistoryRetention()
-  stopCatalogRefresh()
-  await stopBridge()
-  process.exit(0)
-})
+  stopHistoryRetention();
+  stopCatalogRefresh();
+  await stopBridge();
+  process.exit(0);
+});

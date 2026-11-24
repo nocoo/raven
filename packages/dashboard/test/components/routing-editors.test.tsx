@@ -14,19 +14,40 @@ import { selectOption } from "../helpers/routing-interactions";
 const custom = { upstream_id: "custom:research", model: "research-large" };
 const copilot = { upstream_id: "builtin:copilot", model: "gpt-5.6-sol" };
 
-function ChainHarness({ initial = [custom, copilot], onChange = vi.fn() }: { initial?: RoutingTarget[]; onChange?: (value: RoutingTarget[]) => void }) {
+function ChainHarness({
+  initial = [custom, copilot],
+  onChange = vi.fn(),
+}: {
+  initial?: RoutingTarget[];
+  onChange?: (value: RoutingTarget[]) => void;
+}) {
   const [chain, setChain] = useState(initial);
-  return <ChainEditor label="Test chain" value={chain} upstreams={fixtureUpstreams} conversion={false} onChange={next => { setChain(next); onChange(next); }} />;
+  return (
+    <ChainEditor
+      label="Test chain"
+      value={chain}
+      upstreams={fixtureUpstreams}
+      conversion={false}
+      onChange={(next) => {
+        setChain(next);
+        onChange(next);
+      }}
+    />
+  );
 }
 
 describe("ordered target controls", () => {
   it("exposes terminal semantics and keeps the native/blocked protocol preview available on demand", async () => {
     render(<ChainHarness />);
-    const rows = within(screen.getByRole("list", { name: "Test chain targets" })).getAllByRole("listitem");
+    const rows = within(screen.getByRole("list", { name: "Test chain targets" })).getAllByRole(
+      "listitem",
+    );
     expect(within(rows[0]!).getByText("Quota candidate")).toBeVisible();
     expect(within(rows[1]!).getByText("Terminal fallback")).toBeVisible();
     expect(screen.queryByRole("region", { name: "Target 1 protocol preview" })).toBeNull();
-    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: "Protocol preview" }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole("button", { name: "Protocol preview" }));
     const preview = within(screen.getByRole("region", { name: "Target 1 protocol preview" }));
     expect(preview.getByText("Chat:", { exact: false })).toHaveTextContent("Native");
     expect(preview.getByText("Responses:", { exact: false })).toHaveTextContent("Blocked");
@@ -41,8 +62,13 @@ describe("ordered target controls", () => {
     const model = screen.getByRole("combobox", { name: "Model 1" });
     expect(model).toHaveValue("gpt-5.6-sol");
     const user = userEvent.setup({ delay: null });
-    await user.clear(model); await user.type(model, "vendor/raw-model"); await user.tab();
-    expect(changes.mock.lastCall?.[0][0]).toEqual({ upstream_id: "builtin:copilot", model: "vendor/raw-model" });
+    await user.clear(model);
+    await user.type(model, "vendor/raw-model");
+    await user.tab();
+    expect(changes.mock.lastCall?.[0][0]).toEqual({
+      upstream_id: "builtin:copilot",
+      model: "vendor/raw-model",
+    });
     await user.click(screen.getByRole("button", { name: "Protocol preview" }));
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
     expect(screen.getByText(/unreachable/)).toBeVisible();
@@ -77,7 +103,9 @@ describe("ordered target controls", () => {
     expect(changes).toHaveBeenLastCalledWith([copilot, custom]);
     expect(screen.getByRole("combobox", { name: "Model 2" })).toHaveValue("research-large");
     fireEvent.dragEnd(handle);
-    expect(screen.getAllByRole("listitem").every(row => row.getAttribute("data-dragging") === "false")).toBe(true);
+    expect(
+      screen.getAllByRole("listitem").every((row) => row.getAttribute("data-dragging") === "false"),
+    ).toBe(true);
   });
 
   it("supports keyboard and visible button reordering with retained focus", async () => {
@@ -103,35 +131,98 @@ describe("ordered target controls", () => {
 
   it("allows configuring a disabled upstream and accurately marks unavailable catalogs", async () => {
     const changes = vi.fn();
-    const upstreams = [makeUpstream({ is_enabled: false, models: [], manual_models: [] }), makeCopilot()];
-    const { rerender } = render(<ChainEditor label="Empty cache" value={[custom]} upstreams={upstreams} conversion onChange={changes} />);
+    const upstreams = [
+      makeUpstream({ is_enabled: false, models: [], manual_models: [] }),
+      makeCopilot(),
+    ];
+    const { rerender } = render(
+      <ChainEditor
+        label="Empty cache"
+        value={[custom]}
+        upstreams={upstreams}
+        conversion
+        onChange={changes}
+      />,
+    );
     expect(screen.getByText("Disabled · request stops")).toBeInTheDocument();
-    rerender(<ChainEditor label="Empty cache" value={[copilot]} upstreams={upstreams} conversion onChange={changes} />);
+    rerender(
+      <ChainEditor
+        label="Empty cache"
+        value={[copilot]}
+        upstreams={upstreams}
+        conversion
+        onChange={changes}
+      />,
+    );
     await selectOption("Upstream 1", "Research gateway · disabled");
     expect(changes).toHaveBeenCalledWith([{ ...custom, model: "" }]);
   });
 
   it("keeps an editable placeholder if all upstreams have disappeared", async () => {
     const changes = vi.fn();
-    render(<ChainEditor label="Missing" value={[custom]} upstreams={[]} conversion={false} onChange={changes} />);
+    render(
+      <ChainEditor
+        label="Missing"
+        value={[custom]}
+        upstreams={[]}
+        conversion={false}
+        onChange={changes}
+      />,
+    );
     expect(screen.getByText("Missing upstream")).toBeInTheDocument();
-    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: "Add quota candidate" }));
+    await userEvent
+      .setup({ delay: null })
+      .click(screen.getByRole("button", { name: "Add quota candidate" }));
     expect(changes).toHaveBeenCalledWith([{ upstream_id: "", model: "" }, custom]);
   });
 });
 
-function ScheduleHarness({ initialMode = "all_day", initial = [], onChange = vi.fn() }: { initialMode?: ScheduleMode; initial?: LocalWindow<number>[]; onChange?: (mode: ScheduleMode, windows: LocalWindow<number>[]) => void }) {
+function ScheduleHarness({
+  initialMode = "all_day",
+  initial = [],
+  onChange = vi.fn(),
+}: {
+  initialMode?: ScheduleMode;
+  initial?: LocalWindow<number>[];
+  onChange?: (mode: ScheduleMode, windows: LocalWindow<number>[]) => void;
+}) {
   const [mode, setMode] = useState(initialMode);
   const [windows, setWindows] = useState(initial);
-  return <ScheduleEditor mode={mode} windows={windows} offset={0} onChange={(nextMode, nextWindows) => { setMode(nextMode); setWindows(nextWindows); onChange(nextMode, nextWindows); }} newValue={() => 1} summarize={value => `${value}×`}
-    renderValue={(value, change) => <Input aria-label="Period value" value={value} onChange={event => change(Number(event.target.value))} />} emptyLabel="Default covers all day" />;
+  return (
+    <ScheduleEditor
+      mode={mode}
+      windows={windows}
+      offset={0}
+      onChange={(nextMode, nextWindows) => {
+        setMode(nextMode);
+        setWindows(nextWindows);
+        onChange(nextMode, nextWindows);
+      }}
+      newValue={() => 1}
+      summarize={(value) => `${value}×`}
+      renderValue={(value, change) => (
+        <Input
+          aria-label="Period value"
+          value={value}
+          onChange={(event) => change(Number(event.target.value))}
+        />
+      )}
+      emptyLabel="Default covers all day"
+    />
+  );
 }
 const morning = { id: "morning", day: 0, start: 540, end: 600, value: 1 };
 
 describe("visual schedule workbench", () => {
   it("bounds the 49-option time popup and supports keyboard selection across midnight", async () => {
     const changes = vi.fn();
-    render(<ScheduleHarness initialMode="weekly" initial={[{ ...morning, start: 1410, end: 1440 }]} onChange={changes} />);
+    render(
+      <ScheduleHarness
+        initialMode="weekly"
+        initial={[{ ...morning, start: 1410, end: 1440 }]}
+        onChange={changes}
+      />,
+    );
     const user = userEvent.setup({ delay: null });
     const trigger = screen.getByRole("combobox", { name: "End time" });
     trigger.focus();
@@ -142,7 +233,9 @@ describe("visual schedule workbench", () => {
     expect(popup).toBeVisible();
     expect(options).toHaveLength(49);
     expect(popup.style.maxHeight).toBe("min(20rem, var(--radix-select-content-available-height))");
-    expect(popup.querySelector("[data-radix-select-viewport]")).toHaveStyle({ overflow: "hidden auto" });
+    expect(popup.querySelector("[data-radix-select-viewport]")).toHaveStyle({
+      overflow: "hidden auto",
+    });
     expect(options[48]).toHaveTextContent("24:00");
     await waitFor(() => expect(options[48]).toHaveFocus());
     await user.keyboard("{Home}");
@@ -176,7 +269,9 @@ describe("visual schedule workbench", () => {
     expect(screen.getByRole("button", { name: "23:00–01:00" })).toBeVisible();
     expect(screen.queryByText(/UTC/)).toBeNull();
     expect(changes.mock.lastCall?.[1][0]).toMatchObject({ day: 0, start: 1380, end: 1500 });
-    fireEvent.change(screen.getByRole("textbox", { name: "Period value" }), { target: { value: "0.5" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Period value" }), {
+      target: { value: "0.5" },
+    });
     expect(changes.mock.lastCall?.[1][0].value).toBe(0.5);
     await user.click(screen.getByRole("button", { name: /overnight continuation/ }));
     expect(screen.getByText("Ends next day")).toBeVisible();
@@ -196,7 +291,7 @@ describe("visual schedule workbench", () => {
     await user.click(friday);
     await user.click(dialog.getByRole("button", { name: "Apply copy" }));
     const copied = changes.mock.lastCall?.[1] as LocalWindow<number>[];
-    expect(copied.map(window => window.day)).toEqual([1, 3]);
+    expect(copied.map((window) => window.day)).toEqual([1, 3]);
     expect(copied[1]!.id).not.toBe(morning.id);
     expect(copied[1]).toMatchObject({ day: 3, start: 540, end: 600, value: 1 });
     await user.click(screen.getByRole("button", { name: "Thu" }));
@@ -224,11 +319,17 @@ describe("visual schedule workbench", () => {
     const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Wed" }));
     await user.click(screen.getByRole("button", { name: "Add a period" }));
-    expect(changes).toHaveBeenCalledExactlyOnceWith("weekly", [...initial, { id: expect.any(String), day: 2, start: 540, end: 600, value: 1 }]);
+    expect(changes).toHaveBeenCalledExactlyOnceWith("weekly", [
+      ...initial,
+      { id: expect.any(String), day: 2, start: 540, end: 600, value: 1 },
+    ]);
   });
 
   it("refuses the complete copy on overlap with an overnight tail", async () => {
-    const initial = [{ ...morning, start: 30, end: 120 }, { ...morning, id: "late", start: 1380, end: 1530 }];
+    const initial = [
+      { ...morning, start: 30, end: 120 },
+      { ...morning, id: "late", start: 1380, end: 1530 },
+    ];
     const changes = vi.fn();
     render(<ScheduleHarness initialMode="weekly" initial={initial} onChange={changes} />);
     const user = userEvent.setup({ delay: null });
@@ -272,7 +373,13 @@ describe("visual schedule workbench", () => {
 
   it("retains a malformed draft instead of silently saving overlapping weekly copies", async () => {
     const changes = vi.fn();
-    render(<ScheduleHarness initialMode="daily" initial={[morning, { ...morning, id: "overlap", start: 570, end: 630 }]} onChange={changes} />);
+    render(
+      <ScheduleHarness
+        initialMode="daily"
+        initial={[morning, { ...morning, id: "overlap", start: 570, end: 630 }]}
+        onChange={changes}
+      />,
+    );
     await userEvent.setup({ delay: null }).click(screen.getByRole("radio", { name: "Weekly" }));
     expect(screen.getByRole("alert")).toHaveTextContent("overlap");
     expect(changes).not.toHaveBeenCalled();
@@ -281,7 +388,18 @@ describe("visual schedule workbench", () => {
   it("preserves offset minutes while offering half-hour edits in a fractional timezone", async () => {
     const changes = vi.fn();
     const initial = [{ ...morning, start: 555, end: 615 }];
-    render(<ScheduleEditor mode="daily" windows={initial} offset={-345} onChange={changes} newValue={() => 1} summarize={value => `${value}×`} renderValue={() => null} emptyLabel="Default" />);
+    render(
+      <ScheduleEditor
+        mode="daily"
+        windows={initial}
+        offset={-345}
+        onChange={changes}
+        newValue={() => 1}
+        summarize={(value) => `${value}×`}
+        renderValue={() => null}
+        emptyLabel="Default"
+      />,
+    );
     expect(screen.getByRole("combobox", { name: "Start time" })).toHaveTextContent("09:15");
     expect(screen.getByRole("button", { name: "09:15–10:15" })).toBeVisible();
     expect(screen.queryByText(/UTC/)).toBeNull();

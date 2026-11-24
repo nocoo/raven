@@ -10,20 +10,20 @@
  * to assert the normalization landed.
  */
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
-import { state } from "../../src/lib/state"
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { state } from "../../src/lib/state";
 import {
   CopilotNativeClient,
   defaultCopilotNativeConfig,
   type CopilotNativeRequest,
-} from "../../src/upstream/copilot-native"
-import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
-import type { ModelsResponse } from "../../src/services/copilot/get-models"
+} from "../../src/upstream/copilot-native";
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types";
+import type { ModelsResponse } from "../../src/services/copilot/get-models";
 
 interface CapturedRequest {
-  url: string
-  headers: Headers
-  body: { model?: string; thinking?: { type: string }; output_config?: { effort?: string } | null }
+  url: string;
+  headers: Headers;
+  body: { model?: string; thinking?: { type: string }; output_config?: { effort?: string } | null };
 }
 
 function makePayload(overrides: Partial<AnthropicMessagesPayload> = {}): AnthropicMessagesPayload {
@@ -32,28 +32,32 @@ function makePayload(overrides: Partial<AnthropicMessagesPayload> = {}): Anthrop
     messages: [{ role: "user", content: "hi" }],
     max_tokens: 4096,
     ...overrides,
-  } as AnthropicMessagesPayload
+  } as AnthropicMessagesPayload;
 }
 
 function captureFetch(): { spy: ReturnType<typeof vi.spyOn>; captured: CapturedRequest[] } {
-  const captured: CapturedRequest[] = []
+  const captured: CapturedRequest[] = [];
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(((
     input: string | URL | Request,
     init?: RequestInit,
   ) => {
-    const url = typeof input === "string" ? input : input.toString()
-    const bodyText = typeof init?.body === "string" ? init.body : ""
-    captured.push({ url, headers: new Headers(init?.headers), body: bodyText ? JSON.parse(bodyText) : {} })
+    const url = typeof input === "string" ? input : input.toString();
+    const bodyText = typeof init?.body === "string" ? init.body : "";
+    captured.push({
+      url,
+      headers: new Headers(init?.headers),
+      body: bodyText ? JSON.parse(bodyText) : {},
+    });
     return Promise.resolve(
       new Response("{}", { status: 200, headers: { "content-type": "application/json" } }),
-    )
-  }) as unknown as typeof fetch)
-  return { spy, captured }
+    );
+  }) as unknown as typeof fetch);
+  return { spy, captured };
 }
 
 function modelsWith(opts: {
-  reasoning_effort?: string[]
-  adaptive_thinking?: boolean
+  reasoning_effort?: string[];
+  adaptive_thinking?: boolean;
 }): ModelsResponse {
   return {
     object: "list",
@@ -89,7 +93,7 @@ function modelsWith(opts: {
         supported_endpoints: ["/v1/messages"],
       },
     ],
-  }
+  };
 }
 
 const SAVED = {
@@ -98,208 +102,221 @@ const SAVED = {
   accountType: state.accountType,
   copilotChatVersion: state.copilotChatVersion,
   models: state.models,
-}
+};
 
-let spy: ReturnType<typeof vi.spyOn>
-let captured: CapturedRequest[]
+let spy: ReturnType<typeof vi.spyOn>;
+let captured: CapturedRequest[];
 
 beforeEach(() => {
-  state.copilotToken = "tok"
-  state.vsCodeVersion = "1.90.0"
-  state.accountType = "individual"
-  state.copilotChatVersion = "0.45.1"
-  ;({ spy, captured } = captureFetch())
-})
+  state.copilotToken = "tok";
+  state.vsCodeVersion = "1.90.0";
+  state.accountType = "individual";
+  state.copilotChatVersion = "0.45.1";
+  ({ spy, captured } = captureFetch());
+});
 
 afterEach(() => {
-  spy.mockRestore()
-  state.copilotToken = SAVED.copilotToken
-  state.vsCodeVersion = SAVED.vsCodeVersion
-  state.accountType = SAVED.accountType
-  state.copilotChatVersion = SAVED.copilotChatVersion
-  state.models = SAVED.models
-})
+  spy.mockRestore();
+  state.copilotToken = SAVED.copilotToken;
+  state.vsCodeVersion = SAVED.vsCodeVersion;
+  state.accountType = SAVED.accountType;
+  state.copilotChatVersion = SAVED.copilotChatVersion;
+  state.models = SAVED.models;
+});
 
 async function send(payload: AnthropicMessagesPayload, copilotModel = "claude-opus-4-6") {
-  const client = new CopilotNativeClient(defaultCopilotNativeConfig())
+  const client = new CopilotNativeClient(defaultCopilotNativeConfig());
   await client.send({
     payload,
     options: { copilotModel },
-  } as CopilotNativeRequest)
+  } as CopilotNativeRequest);
 }
 
 describe("copilot-native normalizeNativeThinkingPayload", () => {
-  test.each([true, false])("Opus 5.5 disabled thinking becomes adaptive with low effort (catalog: %s)", async (withCatalog) => {
-    state.models = withCatalog ? modelsWith({ reasoning_effort: ["low", "medium", "high", "xhigh", "max"] }) : null
-    if (state.models) state.models.data[0]!.id = "claude-opus-5.5"
-    await send(makePayload({ model: "claude-opus-5.5", thinking: { type: "disabled" } }), "claude-opus-5.5")
-    expect(captured).toHaveLength(1)
-    expect(captured[0]!.body).toMatchObject({
-      model: "claude-opus-5.5",
-      thinking: { type: "adaptive" },
-      output_config: { effort: "low" },
-    })
-    expect(captured[0]!.headers.get("anthropic-beta")).toBeNull()
-  })
+  test.each([true, false])(
+    "Opus 5.5 disabled thinking becomes adaptive with low effort (catalog: %s)",
+    async (withCatalog) => {
+      state.models = withCatalog
+        ? modelsWith({ reasoning_effort: ["low", "medium", "high", "xhigh", "max"] })
+        : null;
+      if (state.models) state.models.data[0]!.id = "claude-opus-5.5";
+      await send(
+        makePayload({ model: "claude-opus-5.5", thinking: { type: "disabled" } }),
+        "claude-opus-5.5",
+      );
+      expect(captured).toHaveLength(1);
+      expect(captured[0]!.body).toMatchObject({
+        model: "claude-opus-5.5",
+        thinking: { type: "adaptive" },
+        output_config: { effort: "low" },
+      });
+      expect(captured[0]!.headers.get("anthropic-beta")).toBeNull();
+    },
+  );
 
   test("Opus 5.5 preserves an explicit effort when replacing disabled thinking", async () => {
-    state.models = modelsWith({ reasoning_effort: ["low", "medium", "high", "xhigh", "max"] })
-    state.models.data[0]!.id = "claude-opus-5.5"
-    await send(makePayload({ thinking: { type: "disabled" }, output_config: { effort: "high" } }), "claude-opus-5.5")
-    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" })
-    expect(captured[0]!.body.output_config).toEqual({ effort: "high" })
-  })
+    state.models = modelsWith({ reasoning_effort: ["low", "medium", "high", "xhigh", "max"] });
+    state.models.data[0]!.id = "claude-opus-5.5";
+    await send(
+      makePayload({ thinking: { type: "disabled" }, output_config: { effort: "high" } }),
+      "claude-opus-5.5",
+    );
+    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" });
+    expect(captured[0]!.body.output_config).toEqual({ effort: "high" });
+  });
 
   test("a stale Opus 5.5 effort catalog cannot turn disabled thinking into high effort", async () => {
-    state.models = modelsWith({ reasoning_effort: ["max"], adaptive_thinking: false })
-    state.models.data[0]!.id = "claude-opus-5.5"
-    await send(makePayload({ thinking: { type: "disabled" } }), "claude-opus-5.5")
-    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" })
-    expect(captured[0]!.body.output_config).toEqual({ effort: "low" })
-  })
+    state.models = modelsWith({ reasoning_effort: ["max"], adaptive_thinking: false });
+    state.models.data[0]!.id = "claude-opus-5.5";
+    await send(makePayload({ thinking: { type: "disabled" } }), "claude-opus-5.5");
+    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" });
+    expect(captured[0]!.body.output_config).toEqual({ effort: "low" });
+  });
 
   test("adaptive support alone does not rewrite disabled thinking for other models", async () => {
-    state.models = modelsWith({})
-    await send(makePayload({ thinking: { type: "disabled" } }))
-    expect(captured[0]!.body.thinking).toEqual({ type: "disabled" })
-    expect(captured[0]!.body.output_config).toBeUndefined()
-  })
+    state.models = modelsWith({});
+    await send(makePayload({ thinking: { type: "disabled" } }));
+    expect(captured[0]!.body.thinking).toEqual({ type: "disabled" });
+    expect(captured[0]!.body.output_config).toBeUndefined();
+  });
 
   test("non-thinking payload passes through unchanged", async () => {
-    state.models = modelsWith({})
-    await send(makePayload())
-    expect(captured[0]!.body.thinking).toBeUndefined()
-    expect(captured[0]!.body.output_config).toBeUndefined()
-  })
+    state.models = modelsWith({});
+    await send(makePayload());
+    expect(captured[0]!.body.thinking).toBeUndefined();
+    expect(captured[0]!.body.output_config).toBeUndefined();
+  });
 
   test("thinking + adaptive_thinking=false: payload unchanged", async () => {
-    state.models = modelsWith({ adaptive_thinking: false })
+    state.models = modelsWith({ adaptive_thinking: false });
     await send(
-      makePayload({ thinking: { type: "enabled", budget_tokens: 1024 } } as Partial<
-        AnthropicMessagesPayload
-      >),
-    )
-    expect(captured[0]!.body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 })
-  })
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 1024 },
+      } as Partial<AnthropicMessagesPayload>),
+    );
+    expect(captured[0]!.body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 });
+  });
 
   test("thinking + adaptive + no model capabilities found: passes through", async () => {
-    state.models = { object: "list", data: [] }
+    state.models = { object: "list", data: [] };
     await send(
-      makePayload({ thinking: { type: "enabled", budget_tokens: 1024 } } as Partial<
-        AnthropicMessagesPayload
-      >),
-    )
-    expect(captured[0]!.body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 })
-  })
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 1024 },
+      } as Partial<AnthropicMessagesPayload>),
+    );
+    expect(captured[0]!.body.thinking).toEqual({ type: "enabled", budget_tokens: 1024 });
+  });
 
   test("budget 0/null → effort 'high'; rewrites to adaptive", async () => {
-    state.models = modelsWith({})
+    state.models = modelsWith({});
     await send(
-      makePayload({ thinking: { type: "enabled", budget_tokens: 0 } } as Partial<
-        AnthropicMessagesPayload
-      >),
-    )
-    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" })
-    expect(captured[0]!.body.output_config).toEqual({ effort: "high" })
-  })
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 0 },
+      } as Partial<AnthropicMessagesPayload>),
+    );
+    expect(captured[0]!.body.thinking).toEqual({ type: "adaptive" });
+    expect(captured[0]!.body.output_config).toEqual({ effort: "high" });
+  });
 
   test("budget ≤2048 → effort 'low'", async () => {
-    state.models = modelsWith({})
+    state.models = modelsWith({});
     await send(
-      makePayload({ thinking: { type: "enabled", budget_tokens: 1024 } } as Partial<
-        AnthropicMessagesPayload
-      >),
-    )
-    expect(captured[0]!.body.output_config).toEqual({ effort: "low" })
-  })
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 1024 },
+      } as Partial<AnthropicMessagesPayload>),
+    );
+    expect(captured[0]!.body.output_config).toEqual({ effort: "low" });
+  });
 
   test("budget ≤8192 → effort 'medium'", async () => {
-    state.models = modelsWith({})
+    state.models = modelsWith({});
     await send(
-      makePayload({ thinking: { type: "enabled", budget_tokens: 4096 } } as Partial<
-        AnthropicMessagesPayload
-      >),
-    )
-    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" })
-  })
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 4096 },
+      } as Partial<AnthropicMessagesPayload>),
+    );
+    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" });
+  });
 
   test("budget >8192 → effort 'high'", async () => {
-    state.models = modelsWith({})
+    state.models = modelsWith({});
     await send(
-      makePayload({ thinking: { type: "enabled", budget_tokens: 16000 } } as Partial<
-        AnthropicMessagesPayload
-      >),
-    )
-    expect(captured[0]!.body.output_config).toEqual({ effort: "high" })
-  })
+      makePayload({
+        thinking: { type: "enabled", budget_tokens: 16000 },
+      } as Partial<AnthropicMessagesPayload>),
+    );
+    expect(captured[0]!.body.output_config).toEqual({ effort: "high" });
+  });
 
   test("requested effort included in supported list passes through", async () => {
-    state.models = modelsWith({ reasoning_effort: ["low", "medium", "high"] })
+    state.models = modelsWith({ reasoning_effort: ["low", "medium", "high"] });
     await send(
       makePayload({
         thinking: { type: "enabled", budget_tokens: 4096 },
         output_config: { effort: "medium" },
       } as Partial<AnthropicMessagesPayload>),
-    )
-    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" })
-  })
+    );
+    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" });
+  });
 
   test("requested effort missing → picks closest supported (lower)", async () => {
-    state.models = modelsWith({ reasoning_effort: ["low", "high"] })
+    state.models = modelsWith({ reasoning_effort: ["low", "high"] });
     await send(
       makePayload({
         thinking: { type: "enabled", budget_tokens: 4096 },
         output_config: { effort: "medium" },
       } as Partial<AnthropicMessagesPayload>),
-    )
+    );
     // EFFORT_PRIORITY = ["max","xhigh","high","medium","low"]
     // medium idx=3; supported indices: high=2 (|3-2|=1), low=4 (|3-4|=1).
     // Tie-break prefers the higher PRIORITY index → "low".
-    expect(captured[0]!.body.output_config).toEqual({ effort: "low" })
-  })
+    expect(captured[0]!.body.output_config).toEqual({ effort: "low" });
+  });
 
   test("non-array message content does not count as vision or a tool result", async () => {
-    state.models = modelsWith({})
-    await send(makePayload({
-      messages: [
-        { role: "user", content: null as never },
-        { role: "assistant", content: null as never },
-      ],
-    }))
-    expect(captured[0]!.url).toContain("/v1/messages")
-  })
+    state.models = modelsWith({});
+    await send(
+      makePayload({
+        messages: [
+          { role: "user", content: null as never },
+          { role: "assistant", content: null as never },
+        ],
+      }),
+    );
+    expect(captured[0]!.url).toContain("/v1/messages");
+  });
 
   test("equal distance updates the choice when the later effort is lower priority", async () => {
-    state.models = modelsWith({ reasoning_effort: ["high", "low"] })
+    state.models = modelsWith({ reasoning_effort: ["high", "low"] });
     await send(
       makePayload({
         thinking: { type: "enabled", budget_tokens: 4096 },
         output_config: { effort: "medium" },
       } as Partial<AnthropicMessagesPayload>),
-    )
-    expect(captured[0]!.body.output_config).toEqual({ effort: "low" })
-  })
+    );
+    expect(captured[0]!.body.output_config).toEqual({ effort: "low" });
+  });
 
   test("supported list empty filtered → returns requested", async () => {
-    state.models = modelsWith({ reasoning_effort: ["unknown-effort"] })
+    state.models = modelsWith({ reasoning_effort: ["unknown-effort"] });
     await send(
       makePayload({
         thinking: { type: "enabled", budget_tokens: 4096 },
         output_config: { effort: "medium" },
       } as Partial<AnthropicMessagesPayload>),
-    )
-    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" })
-  })
+    );
+    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" });
+  });
 
   test("output_config without effort sanitizes to null", async () => {
-    state.models = modelsWith({})
+    state.models = modelsWith({});
     await send(
       makePayload({
         thinking: { type: "enabled", budget_tokens: 4096 },
         output_config: {} as Exclude<AnthropicMessagesPayload["output_config"], undefined>,
       } as Partial<AnthropicMessagesPayload>),
-    )
+    );
     // sanitizeOutputConfig({}) → null; supportedEffort=medium → output_config: { effort: "medium" }
-    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" })
-  })
-})
+    expect(captured[0]!.body.output_config).toEqual({ effort: "medium" });
+  });
+});

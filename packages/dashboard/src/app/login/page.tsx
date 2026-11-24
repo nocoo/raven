@@ -28,7 +28,13 @@ function Barcode() {
 function LoginMark() {
   return (
     // biome-ignore lint/performance/noImgElement: static local logo, next/image adds no measurable benefit for a 96px asset
-    <img src="/logo-80.png" alt="Raven" width={96} height={96} className="h-10 w-10 object-contain" />
+    <img
+      src="/logo-80.png"
+      alt="Raven"
+      width={96}
+      height={96}
+      className="h-10 w-10 object-contain"
+    />
   );
 }
 

@@ -14,8 +14,5 @@ export function useAppPathname(): string {
 /** Mutable URLSearchParams snapshot when the router hook is temporarily null. */
 export function useAppSearchParams(): URLSearchParams {
   const params = useSearchParams();
-  return useMemo(
-    () => new URLSearchParams(params?.toString() ?? ""),
-    [params],
-  );
+  return useMemo(() => new URLSearchParams(params?.toString() ?? ""), [params]);
 }

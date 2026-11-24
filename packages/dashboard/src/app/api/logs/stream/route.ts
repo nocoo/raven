@@ -16,10 +16,16 @@ import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-
 export async function GET(req: NextRequest) {
   let config: ReturnType<typeof managementConfig>;
-  try { config = managementConfig(); } catch { return Response.json({ error: "Local management connection is not configured" }, { status: 503 }); }
+  try {
+    config = managementConfig();
+  } catch {
+    return Response.json(
+      { error: "Local management connection is not configured" },
+      { status: 503 },
+    );
+  }
   const { url: PROXY_URL, key: API_KEY } = config;
   const level = req.nextUrl.searchParams.get("level") ?? "info";
   const requestId = req.nextUrl.searchParams.get("requestId");
@@ -50,9 +56,7 @@ export async function GET(req: NextRequest) {
 
       upstreamWs.onopen = () => {
         controller.enqueue(
-          encoder.encode(
-            `event: connected\ndata: ${JSON.stringify({ status: "connected" })}\n\n`,
-          ),
+          encoder.encode(`event: connected\ndata: ${JSON.stringify({ status: "connected" })}\n\n`),
         );
       };
 

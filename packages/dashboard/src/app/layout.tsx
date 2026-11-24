@@ -19,9 +19,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXTAUTH_URL || "http://localhost:7023"
-  ),
+  metadataBase: new URL(process.env.NEXTAUTH_URL || "http://localhost:7023"),
   title: {
     default: "raven - Copilot Proxy Dashboard",
     template: "%s - raven",
@@ -52,10 +50,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body
-        className={`${inter.variable} ${dmSans.variable} antialiased`}
-      >
-        <AppProviders><AppShell>{children}</AppShell></AppProviders>
+      <body className={`${inter.variable} ${dmSans.variable} antialiased`}>
+        <AppProviders>
+          <AppShell>{children}</AppShell>
+        </AppProviders>
       </body>
     </html>
   );

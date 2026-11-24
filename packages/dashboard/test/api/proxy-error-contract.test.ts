@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const proxyFetch = vi.fn();
 vi.mock("@/lib/proxy", () => {
   class ProxyError extends Error {
-    constructor(message: string, public readonly statusCode?: number) { super(message); }
+    constructor(
+      message: string,
+      public readonly statusCode?: number,
+    ) {
+      super(message);
+    }
   }
   return { proxyFetch, ProxyError };
 });
@@ -22,7 +27,8 @@ const stats = await import("@/app/api/stats/[...path]/route");
 const copilot = await import("@/app/api/copilot/[...path]/route");
 const connection = await import("@/app/api/connection-info/route");
 
-const request = () => new Request("http://dashboard.test/api/fixture", { method: "POST", body: "{}" });
+const request = () =>
+  new Request("http://dashboard.test/api/fixture", { method: "POST", body: "{}" });
 const context = () => ({ params: Promise.resolve({ id: "fixture-id" }) });
 const routes: [string, () => Promise<Response>][] = [
   ["list providers", () => upstreams.GET()],
@@ -37,10 +43,16 @@ const routes: [string, () => Promise<Response>][] = [
   ["revoke key", () => revoke.POST(request(), context())],
   ["read settings", () => settings.GET()],
   ["write settings", () => settings.PUT(request())],
-  ["delete setting", () => setting.DELETE(request(), { params: Promise.resolve({ key: "fixture" }) })],
+  [
+    "delete setting",
+    () => setting.DELETE(request(), { params: Promise.resolve({ key: "fixture" }) }),
+  ],
   ["requests", () => requests.GET(request())],
   ["statistics", () => stats.GET(request(), { params: Promise.resolve({ path: ["summary"] }) })],
-  ["copilot metadata", () => copilot.GET(request(), { params: Promise.resolve({ path: ["user"] }) })],
+  [
+    "copilot metadata",
+    () => copilot.GET(request(), { params: Promise.resolve({ path: ["user"] }) }),
+  ],
   ["connection metadata", () => connection.GET()],
 ];
 
@@ -52,13 +64,16 @@ describe.each(routes)("Dashboard proxy failure contract: %s", (_label, invoke) =
     [new ProxyError("fixture failure", 429), 429, "fixture failure"],
     [new Error("fixture failure"), 502, "fixture failure"],
     ["untrusted non-Error rejection", 502, "Failed to reach proxy"],
-  ])("normalizes rejection %# without returning success or raw unknown data", async (error, status, message) => {
-    proxyFetch.mockRejectedValueOnce(error);
-    const response = await invoke();
-    expect(response.status).toBe(status);
-    const body = await response.json();
-    expect(JSON.stringify(body)).toContain(message);
-    expect(JSON.stringify(body)).not.toContain("untrusted non-Error rejection");
-    expect(proxyFetch).toHaveBeenCalledOnce();
-  });
+  ])(
+    "normalizes rejection %# without returning success or raw unknown data",
+    async (error, status, message) => {
+      proxyFetch.mockRejectedValueOnce(error);
+      const response = await invoke();
+      expect(response.status).toBe(status);
+      const body = await response.json();
+      expect(JSON.stringify(body)).toContain(message);
+      expect(JSON.stringify(body)).not.toContain("untrusted non-Error rejection");
+      expect(proxyFetch).toHaveBeenCalledOnce();
+    },
+  );
 });

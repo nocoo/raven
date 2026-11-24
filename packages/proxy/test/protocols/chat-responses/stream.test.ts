@@ -1,21 +1,21 @@
-import { describe, expect, test } from "vitest"
-import type { SSEMessage } from "hono/streaming"
+import { describe, expect, test } from "vitest";
+import type { SSEMessage } from "hono/streaming";
 
 import {
   ResponsesStreamFailedError,
   adaptResponsesEventToChatChunks,
   initChatViaResponsesStreamState,
-} from "../../../src/protocols/chat-responses/stream"
-import type { ServerSentEvent } from "../../../src/util/sse"
+} from "../../../src/protocols/chat-responses/stream";
+import type { ServerSentEvent } from "../../../src/util/sse";
 
 function sse(event: string, data: string): ServerSentEvent {
-  return { event, data, id: "", retry: null }
+  return { event, data, id: "", retry: null };
 }
 
 function parseData(msg: SSEMessage) {
-  const data = typeof msg.data === "string" ? msg.data : undefined
-  if (!data || data === "[DONE]") return data
-  return JSON.parse(data)
+  const data = typeof msg.data === "string" ? msg.data : undefined;
+  if (!data || data === "[DONE]") return data;
+  return JSON.parse(data);
 }
 
 describe("adaptResponsesEventToChatChunks", () => {
@@ -23,7 +23,7 @@ describe("adaptResponsesEventToChatChunks", () => {
     const st = initChatViaResponsesStreamState({
       model: "grok-4.5",
       includeUsage: false,
-    })
+    });
     const c1 = adaptResponsesEventToChatChunks(
       sse(
         "response.created",
@@ -33,10 +33,10 @@ describe("adaptResponsesEventToChatChunks", () => {
         }),
       ),
       st,
-    )
+    );
     expect(parseData(c1[0]!)).toMatchObject({
       choices: [{ delta: { role: "assistant" } }],
-    })
+    });
 
     const c2 = adaptResponsesEventToChatChunks(
       sse(
@@ -44,10 +44,10 @@ describe("adaptResponsesEventToChatChunks", () => {
         JSON.stringify({ type: "response.output_text.delta", delta: "hi" }),
       ),
       st,
-    )
+    );
     expect(parseData(c2[0]!)).toMatchObject({
       choices: [{ delta: { content: "hi" } }],
-    })
+    });
 
     const c3 = adaptResponsesEventToChatChunks(
       sse(
@@ -60,19 +60,19 @@ describe("adaptResponsesEventToChatChunks", () => {
         }),
       ),
       st,
-    )
-    expect(c3.map((m) => m.data)).toContain("[DONE]")
-    const finish = c3.map(parseData).find(
-      (d) => d && typeof d === "object" && d.choices?.[0]?.finish_reason === "stop",
-    )
-    expect(finish).toBeTruthy()
-  })
+    );
+    expect(c3.map((m) => m.data)).toContain("[DONE]");
+    const finish = c3
+      .map(parseData)
+      .find((d) => d && typeof d === "object" && d.choices?.[0]?.finish_reason === "stop");
+    expect(finish).toBeTruthy();
+  });
 
   test("includeUsage emits choices:[] usage chunk", () => {
     const st = initChatViaResponsesStreamState({
       model: "m",
       includeUsage: true,
-    })
+    });
     adaptResponsesEventToChatChunks(
       sse(
         "response.created",
@@ -81,7 +81,7 @@ describe("adaptResponsesEventToChatChunks", () => {
         }),
       ),
       st,
-    )
+    );
     const terminal = adaptResponsesEventToChatChunks(
       sse(
         "response.completed",
@@ -91,30 +91,29 @@ describe("adaptResponsesEventToChatChunks", () => {
         }),
       ),
       st,
-    )
-    const usage = terminal.map(parseData).find(
-      (d) =>
-        d &&
-        typeof d === "object" &&
-        d.usage &&
-        Array.isArray(d.choices) &&
-        d.choices.length === 0,
-    )
+    );
+    const usage = terminal
+      .map(parseData)
+      .find(
+        (d) =>
+          d &&
+          typeof d === "object" &&
+          d.usage &&
+          Array.isArray(d.choices) &&
+          d.choices.length === 0,
+      );
     expect(usage).toMatchObject({
       choices: [],
       usage: { prompt_tokens: 4, completion_tokens: 5, total_tokens: 9 },
-    })
-  })
+    });
+  });
 
   test("function_call uses call_id not item id", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     const added = adaptResponsesEventToChatChunks(
       sse(
         "response.output_item.added",
@@ -129,10 +128,10 @@ describe("adaptResponsesEventToChatChunks", () => {
         }),
       ),
       st,
-    )
-    const delta = parseData(added.find((m) => m.data !== undefined)!)
-    expect(delta.choices[0].delta.tool_calls[0].id).toBe("call_99")
-    expect(delta.choices[0].delta.tool_calls[0].id).not.toBe("fc_item")
+    );
+    const delta = parseData(added.find((m) => m.data !== undefined)!);
+    expect(delta.choices[0].delta.tool_calls[0].id).toBe("call_99");
+    expect(delta.choices[0].delta.tool_calls[0].id).not.toBe("fc_item");
 
     const args = adaptResponsesEventToChatChunks(
       sse(
@@ -140,18 +139,16 @@ describe("adaptResponsesEventToChatChunks", () => {
         JSON.stringify({
           type: "response.function_call_arguments.delta",
           item_id: "fc_item",
-          delta: "{\"a\":1}",
+          delta: '{"a":1}',
         }),
       ),
       st,
-    )
-    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
-      "{\"a\":1}",
-    )
-  })
+    );
+    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe('{"a":1}');
+  });
 
   test("response.failed throws and does not emit DONE", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse(
@@ -163,32 +160,29 @@ describe("adaptResponsesEventToChatChunks", () => {
         ),
         st,
       ),
-    ).toThrow(ResponsesStreamFailedError)
-    expect(st.failed).toBe(true)
-    expect(st.done).toBe(false)
-  })
-})
+    ).toThrow(ResponsesStreamFailedError);
+    expect(st.failed).toBe(true);
+    expect(st.done).toBe(false);
+  });
+});
 
 describe("stream edges", () => {
   test("event error throws", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse("error", JSON.stringify({ error: { message: "e" } })),
         st,
       ),
-    ).toThrow(ResponsesStreamFailedError)
-  })
+    ).toThrow(ResponsesStreamFailedError);
+  });
 
   test("incomplete terminal maps length finish_reason", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     const terminal = adaptResponsesEventToChatChunks(
       sse(
         "response.incomplete",
@@ -198,16 +192,16 @@ describe("stream edges", () => {
         }),
       ),
       st,
-    )
-    const finish = terminal.map(parseData).find(
-      (d) => d && typeof d === "object" && d.choices?.[0]?.finish_reason === "length",
-    )
-    expect(finish).toBeTruthy()
-    expect(terminal.some((m) => m.data === "[DONE]")).toBe(true)
-  })
+    );
+    const finish = terminal
+      .map(parseData)
+      .find((d) => d && typeof d === "object" && d.choices?.[0]?.finish_reason === "length");
+    expect(finish).toBeTruthy();
+    expect(terminal.some((m) => m.data === "[DONE]")).toBe(true);
+  });
 
   test("function_call missing call_id throws", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse(
@@ -218,11 +212,11 @@ describe("stream edges", () => {
         ),
         st,
       ),
-    ).toThrow(/call_id/)
-  })
+    ).toThrow(/call_id/);
+  });
 
   test("ignores unknown events", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     const out = adaptResponsesEventToChatChunks(
       sse(
         "response.reasoning_summary_text.delta",
@@ -232,57 +226,45 @@ describe("stream edges", () => {
         }),
       ),
       st,
-    )
-    expect(out).toEqual([])
-  })
+    );
+    expect(out).toEqual([]);
+  });
 
   test("after done further events are no-ops", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.completed",
-        JSON.stringify({ type: "response.completed", response: {} }),
-      ),
+      sse("response.completed", JSON.stringify({ type: "response.completed", response: {} })),
       st,
-    )
+    );
     const more = adaptResponsesEventToChatChunks(
-      sse(
-        "response.output_text.delta",
-        JSON.stringify({ delta: "x" }),
-      ),
+      sse("response.output_text.delta", JSON.stringify({ delta: "x" })),
       st,
-    )
-    expect(more).toEqual([])
-  })
-})
+    );
+    expect(more).toEqual([]);
+  });
+});
 
 describe("stream uncovered branches", () => {
   test("typed response.failed in data without event field", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse("", JSON.stringify({ type: "response.failed", error: { message: "x" } })),
         st,
       ),
-    ).toThrow(ResponsesStreamFailedError)
-  })
+    ).toThrow(ResponsesStreamFailedError);
+  });
 
   test("args delta without prior item.added throws (no incomplete tool_calls)", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse(
@@ -296,57 +278,46 @@ describe("stream uncovered branches", () => {
         ),
         st,
       ),
-    ).toThrow(
-      /no matching prior function_call by item_id or output_index/,
-    )
-  })
+    ).toThrow(/no matching prior function_call by item_id or output_index/);
+  });
 
   test("refusal.delta maps to delta.refusal", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     const out = adaptResponsesEventToChatChunks(
       sse(
         "response.refusal.delta",
         JSON.stringify({ type: "response.refusal.delta", delta: "nope" }),
       ),
       st,
-    )
+    );
     expect(parseData(out[0]!)).toMatchObject({
       choices: [{ delta: { refusal: "nope" } }],
-    })
-  })
+    });
+  });
 
   test("response.done terminal", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     const t = adaptResponsesEventToChatChunks(
       sse("response.done", JSON.stringify({ type: "response.done", response: {} })),
       st,
-    )
-    expect(t.some((m) => m.data === "[DONE]")).toBe(true)
-  })
+    );
+    expect(t.some((m) => m.data === "[DONE]")).toBe(true);
+  });
 
   test("incomplete content_filter reason", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     const t = adaptResponsesEventToChatChunks(
       sse(
         "response.incomplete",
@@ -356,22 +327,21 @@ describe("stream uncovered branches", () => {
         }),
       ),
       st,
-    )
-    const finish = t.map(parseData).find(
-      (d) => d && typeof d === "object" && d.choices?.[0]?.finish_reason === "content_filter",
-    )
-    expect(finish).toBeTruthy()
-  })
+    );
+    const finish = t
+      .map(parseData)
+      .find(
+        (d) => d && typeof d === "object" && d.choices?.[0]?.finish_reason === "content_filter",
+      );
+    expect(finish).toBeTruthy();
+  });
 
   test("usage nested on event without response wrapper", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: true })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: true });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     const t = adaptResponsesEventToChatChunks(
       sse(
         "response.completed",
@@ -381,17 +351,17 @@ describe("stream uncovered branches", () => {
         }),
       ),
       st,
-    )
-    const usage = t.map(parseData).find(
-      (d) => d && typeof d === "object" && d.usage && d.choices?.length === 0,
-    )
-    expect(usage.usage.prompt_tokens).toBe(7)
-  })
-})
+    );
+    const usage = t
+      .map(parseData)
+      .find((d) => d && typeof d === "object" && d.usage && d.choices?.length === 0);
+    expect(usage.usage.prompt_tokens).toBe(7);
+  });
+});
 
 describe("function_call metadata completeness", () => {
   test("function_call item missing name throws", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse(
@@ -406,18 +376,15 @@ describe("function_call metadata completeness", () => {
         ),
         st,
       ),
-    ).toThrow(/missing name/)
-  })
+    ).toThrow(/missing name/);
+  });
 
   test("args delta missing item_id throws", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
-      sse(
-        "response.created",
-        JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-      ),
+      sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
       st,
-    )
+    );
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse(
@@ -429,13 +396,13 @@ describe("function_call metadata completeness", () => {
         ),
         st,
       ),
-    ).toThrow(/missing item_id/)
-  })
-})
+    ).toThrow(/missing item_id/);
+  });
+});
 
 describe("extra coverage edges", () => {
   test("empty args delta after item.added is no-op", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
       sse(
         "response.output_item.added",
@@ -449,7 +416,7 @@ describe("extra coverage edges", () => {
         }),
       ),
       st,
-    )
+    );
     const out = adaptResponsesEventToChatChunks(
       sse(
         "response.function_call_arguments.delta",
@@ -460,12 +427,12 @@ describe("extra coverage edges", () => {
         }),
       ),
       st,
-    )
-    expect(out).toEqual([])
-  })
+    );
+    expect(out).toEqual([]);
+  });
 
   test("args via arguments field when delta absent", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     adaptResponsesEventToChatChunks(
       sse(
         "response.output_item.added",
@@ -479,53 +446,45 @@ describe("extra coverage edges", () => {
         }),
       ),
       st,
-    )
+    );
     const out = adaptResponsesEventToChatChunks(
       sse(
         "response.function_call_arguments.delta",
         JSON.stringify({
           type: "response.function_call_arguments.delta",
           item_id: "fc1",
-          arguments: "{\"x\":1}",
+          arguments: '{"x":1}',
         }),
       ),
       st,
-    )
-    expect(parseData(out[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
-      "{\"x\":1}",
-    )
-  })
+    );
+    expect(parseData(out[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe('{"x":1}');
+  });
 
   test("error message from string error field", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
     expect(() =>
       adaptResponsesEventToChatChunks(
         sse("response.failed", JSON.stringify({ error: "plain-fail" })),
         st,
       ),
-    ).toThrow(/plain-fail/)
-  })
+    ).toThrow(/plain-fail/);
+  });
 
   test("malformed json deltas are ignored safely", () => {
-    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
-    const out = adaptResponsesEventToChatChunks(
-      sse("response.output_text.delta", "not-json"),
-      st,
-    )
-    expect(out.length).toBeLessThanOrEqual(1)
-  })
-})
+    const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
+    const out = adaptResponsesEventToChatChunks(sse("response.output_text.delta", "not-json"), st);
+    expect(out.length).toBeLessThanOrEqual(1);
+  });
+});
 
 function createdState() {
-  const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false })
+  const st = initChatViaResponsesStreamState({ model: "m", includeUsage: false });
   adaptResponsesEventToChatChunks(
-    sse(
-      "response.created",
-      JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } }),
-    ),
+    sse("response.created", JSON.stringify({ response: { id: "r", model: "m", created_at: 1 } })),
     st,
-  )
-  return st
+  );
+  return st;
 }
 
 function added(
@@ -536,12 +495,12 @@ function added(
   const payload: Record<string, unknown> = {
     type: "response.output_item.added",
     item,
-  }
-  if (output_index !== undefined) payload.output_index = output_index
+  };
+  if (output_index !== undefined) payload.output_index = output_index;
   return adaptResponsesEventToChatChunks(
     sse("response.output_item.added", JSON.stringify(payload)),
     st,
-  )
+  );
 }
 
 function argsDelta(
@@ -557,36 +516,36 @@ function argsDelta(
       }),
     ),
     st,
-  )
+  );
 }
 
 function toolStart(chunks: SSEMessage[]) {
   for (const msg of chunks) {
-    const parsed = parseData(msg)
-    const tc = parsed?.choices?.[0]?.delta?.tool_calls?.[0]
-    if (tc?.id) return tc
+    const parsed = parseData(msg);
+    const tc = parsed?.choices?.[0]?.delta?.tool_calls?.[0];
+    if (tc?.id) return tc;
   }
-  return null
+  return null;
 }
 
 function collectedArgs(chunks: SSEMessage[], index: number): string {
-  let out = ""
+  let out = "";
   for (const msg of chunks) {
-    const parsed = parseData(msg)
-    const tcs = parsed?.choices?.[0]?.delta?.tool_calls
-    if (!Array.isArray(tcs)) continue
+    const parsed = parseData(msg);
+    const tcs = parsed?.choices?.[0]?.delta?.tool_calls;
+    if (!Array.isArray(tcs)) continue;
     for (const tc of tcs) {
       if (tc.index === index && typeof tc.function?.arguments === "string") {
-        out += tc.function.arguments
+        out += tc.function.arguments;
       }
     }
   }
-  return out
+  return out;
 }
 
 describe("rotating Copilot item ids", () => {
   test("rotating item_id + stable output_index attaches args to same chat index", () => {
-    const st = createdState()
+    const st = createdState();
     const start = added(
       st,
       {
@@ -596,32 +555,30 @@ describe("rotating Copilot item ids", () => {
         name: "ping",
       },
       0,
-    )
-    expect(toolStart(start)?.id).toBe("call_x")
-    expect(toolStart(start)?.index).toBe(0)
+    );
+    expect(toolStart(start)?.id).toBe("call_x");
+    expect(toolStart(start)?.index).toBe(0);
 
     const d1 = argsDelta(st, {
       item_id: "enc_d1",
       output_index: 0,
       delta: '{"',
-    })
+    });
     const d2 = argsDelta(st, {
       item_id: "enc_d2",
       output_index: 0,
       delta: "host",
-    })
+    });
     const d3 = argsDelta(st, {
       item_id: "enc_d3",
       output_index: 0,
       delta: '":"example.com"}',
-    })
-    expect(collectedArgs([...d1, ...d2, ...d3], 0)).toBe(
-      '{"host":"example.com"}',
-    )
-  })
+    });
+    expect(collectedArgs([...d1, ...d2, ...d3], 0)).toBe('{"host":"example.com"}');
+  });
 
   test("parallel tools: output_index is not the chat tool index", () => {
-    const st = createdState()
+    const st = createdState();
     adaptResponsesEventToChatChunks(
       sse(
         "response.output_item.added",
@@ -632,95 +589,81 @@ describe("rotating Copilot item ids", () => {
         }),
       ),
       st,
-    )
+    );
     const a = added(
       st,
       { type: "function_call", id: "enc_a0", call_id: "call_a", name: "ping" },
       1,
-    )
+    );
     const b = added(
       st,
       { type: "function_call", id: "enc_b0", call_id: "call_b", name: "pong" },
       2,
-    )
-    expect(toolStart(a)).toMatchObject({ id: "call_a", index: 0 })
-    expect(toolStart(b)).toMatchObject({ id: "call_b", index: 1 })
+    );
+    expect(toolStart(a)).toMatchObject({ id: "call_a", index: 0 });
+    expect(toolStart(b)).toMatchObject({ id: "call_b", index: 1 });
 
-    const a1 = argsDelta(st, { item_id: "enc_a1", output_index: 1, delta: '{"h"' })
-    const b1 = argsDelta(st, { item_id: "enc_b1", output_index: 2, delta: '{"p"' })
-    const a2 = argsDelta(st, { item_id: "enc_a2", output_index: 1, delta: ':1}' })
-    const b2 = argsDelta(st, { item_id: "enc_b2", output_index: 2, delta: ':2}' })
-    expect(collectedArgs([...a1, ...a2], 0)).toBe('{"h":1}')
-    expect(collectedArgs([...b1, ...b2], 1)).toBe('{"p":2}')
-  })
+    const a1 = argsDelta(st, { item_id: "enc_a1", output_index: 1, delta: '{"h"' });
+    const b1 = argsDelta(st, { item_id: "enc_b1", output_index: 2, delta: '{"p"' });
+    const a2 = argsDelta(st, { item_id: "enc_a2", output_index: 1, delta: ":1}" });
+    const b2 = argsDelta(st, { item_id: "enc_b2", output_index: 2, delta: ":2}" });
+    expect(collectedArgs([...a1, ...a2], 0)).toBe('{"h":1}');
+    expect(collectedArgs([...b1, ...b2], 1)).toBe('{"p":2}');
+  });
 
   test("rotating item_id without output_index throws", () => {
-    const st = createdState()
-    added(
-      st,
-      { type: "function_call", id: "enc_added", call_id: "call_x", name: "ping" },
-    )
-    expect(() =>
-      argsDelta(st, { item_id: "enc_other", delta: "{" }),
-    ).toThrow(/no matching prior function_call by item_id or output_index/)
-  })
+    const st = createdState();
+    added(st, { type: "function_call", id: "enc_added", call_id: "call_x", name: "ping" });
+    expect(() => argsDelta(st, { item_id: "enc_other", delta: "{" })).toThrow(
+      /no matching prior function_call by item_id or output_index/,
+    );
+  });
 
   test("item_id and output_index mapping to different chat indexes throws", () => {
-    const st = createdState()
-    added(
-      st,
-      { type: "function_call", id: "fc_a", call_id: "call_a", name: "ping" },
-      1,
-    )
-    added(
-      st,
-      { type: "function_call", id: "fc_b", call_id: "call_b", name: "pong" },
-      2,
-    )
-    expect(() =>
-      argsDelta(st, { item_id: "fc_a", output_index: 2, delta: "{" }),
-    ).toThrow(/map to different tool indexes/)
-  })
+    const st = createdState();
+    added(st, { type: "function_call", id: "fc_a", call_id: "call_a", name: "ping" }, 1);
+    added(st, { type: "function_call", id: "fc_b", call_id: "call_b", name: "pong" }, 2);
+    expect(() => argsDelta(st, { item_id: "fc_a", output_index: 2, delta: "{" })).toThrow(
+      /map to different tool indexes/,
+    );
+  });
 
   test("added without real item.id and output_index throws", () => {
-    const st = createdState()
-    expect(() =>
-      added(st, { type: "function_call", call_id: "call_x", name: "ping" }),
-    ).toThrow(/missing item\.id and output_index/)
-  })
+    const st = createdState();
+    expect(() => added(st, { type: "function_call", call_id: "call_x", name: "ping" })).toThrow(
+      /missing item\.id and output_index/,
+    );
+  });
 
   test("stable item_id without output_index still works", () => {
-    const st = createdState()
-    added(
-      st,
-      { type: "function_call", id: "fc_stable", call_id: "call_s", name: "fn" },
-    )
-    const out = argsDelta(st, { item_id: "fc_stable", delta: '{"ok":true}' })
+    const st = createdState();
+    added(st, { type: "function_call", id: "fc_stable", call_id: "call_s", name: "fn" });
+    const out = argsDelta(st, { item_id: "fc_stable", delta: '{"ok":true}' });
     expect(parseData(out[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
       '{"ok":true}',
-    )
-  })
+    );
+  });
 
   test("replay of the same added event is idempotent", () => {
-    const st = createdState()
+    const st = createdState();
     const item = {
       type: "function_call",
       id: "fc_same",
       call_id: "call_same",
       name: "ping",
-    }
-    const first = added(st, item, 1)
-    expect(toolStart(first)?.index).toBe(0)
-    const second = added(st, item, 1)
-    expect(second).toEqual([])
-    expect(st.nextToolIndex).toBe(1)
+    };
+    const first = added(st, item, 1);
+    expect(toolStart(first)?.index).toBe(0);
+    const second = added(st, item, 1);
+    expect(second).toEqual([]);
+    expect(st.nextToolIndex).toBe(1);
     const args = argsDelta(st, {
       item_id: "enc_later",
       output_index: 1,
       delta: '{"ok":1}',
-    })
-    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].index).toBe(0)
-  })
+    });
+    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].index).toBe(0);
+  });
 
   test.each([
     {
@@ -734,7 +677,7 @@ describe("rotating Copilot item ids", () => {
       second: { id: "fc_same", call_id: "call_a", name: "pong", output_index: 2 },
     },
   ])("replay metadata conflict: $name", ({ first, second }) => {
-    const st = createdState()
+    const st = createdState();
     added(
       st,
       {
@@ -744,7 +687,7 @@ describe("rotating Copilot item ids", () => {
         name: first.name,
       },
       first.output_index,
-    )
+    );
     expect(() =>
       added(
         st,
@@ -756,58 +699,36 @@ describe("rotating Copilot item ids", () => {
         },
         second.output_index,
       ),
-    ).toThrow(/replay metadata does not match prior call_id\/name/)
-    expect(st.toolCallIndexByItemId.has("fc_2")).toBe(false)
-    expect(st.toolCallIndexByOutputIndex.has(2)).toBe(false)
-  })
+    ).toThrow(/replay metadata does not match prior call_id\/name/);
+    expect(st.toolCallIndexByItemId.has("fc_2")).toBe(false);
+    expect(st.toolCallIndexByOutputIndex.has(2)).toBe(false);
+  });
 
   test("added with only output_index succeeds", () => {
-    const st = createdState()
-    const start = added(
-      st,
-      { type: "function_call", call_id: "call_o", name: "ping" },
-      4,
-    )
-    expect(toolStart(start)).toMatchObject({ id: "call_o", index: 0 })
-    const args = argsDelta(st, { item_id: "enc_x", output_index: 4, delta: "{}" })
-    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe(
-      "{}",
-    )
-  })
+    const st = createdState();
+    const start = added(st, { type: "function_call", call_id: "call_o", name: "ping" }, 4);
+    expect(toolStart(start)).toMatchObject({ id: "call_o", index: 0 });
+    const args = argsDelta(st, { item_id: "enc_x", output_index: 4, delta: "{}" });
+    expect(parseData(args[0]!).choices[0].delta.tool_calls[0].function.arguments).toBe("{}");
+  });
 
   test.each([
     { name: "negative", output_index: -1 },
     { name: "non-integer", output_index: 1.5 },
     { name: "above max safe integer", output_index: Number.MAX_SAFE_INTEGER + 1 },
   ])("empty item.id plus $name output_index throws", ({ output_index }) => {
-    const st = createdState()
+    const st = createdState();
     expect(() =>
-      added(
-        st,
-        { type: "function_call", id: "", call_id: "call_x", name: "ping" },
-        output_index,
-      ),
-    ).toThrow(/missing item\.id and output_index/)
-  })
+      added(st, { type: "function_call", id: "", call_id: "call_x", name: "ping" }, output_index),
+    ).toThrow(/missing item\.id and output_index/);
+  });
 
   test("added joining keys from two tools throws", () => {
-    const st = createdState()
-    added(
-      st,
-      { type: "function_call", id: "fc_a", call_id: "call_a", name: "a" },
-      1,
-    )
-    added(
-      st,
-      { type: "function_call", id: "fc_b", call_id: "call_b", name: "b" },
-      2,
-    )
+    const st = createdState();
+    added(st, { type: "function_call", id: "fc_a", call_id: "call_a", name: "a" }, 1);
+    added(st, { type: "function_call", id: "fc_b", call_id: "call_b", name: "b" }, 2);
     expect(() =>
-      added(
-        st,
-        { type: "function_call", id: "fc_a", call_id: "call_x", name: "x" },
-        2,
-      ),
-    ).toThrow(/map to different tool indexes/)
-  })
-})
+      added(st, { type: "function_call", id: "fc_a", call_id: "call_x", name: "x" }, 2),
+    ).toThrow(/map to different tool indexes/);
+  });
+});

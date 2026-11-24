@@ -25,8 +25,8 @@ function ModeBadge({ mode }: ModeBadgeProps) {
     mode === "steady"
       ? { label: "STEADY", fg: "text-basalt-chart-5", bg: "bg-basalt-chart-5/10" }
       : mode === "probing"
-      ? { label: "PROBING", fg: "text-basalt-warning", bg: "bg-basalt-warning/10" }
-      : { label: "OFFLINE", fg: "text-basalt-destructive", bg: "bg-basalt-destructive/10" };
+        ? { label: "PROBING", fg: "text-basalt-warning", bg: "bg-basalt-warning/10" }
+        : { label: "OFFLINE", fg: "text-basalt-destructive", bg: "bg-basalt-destructive/10" };
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${fg} ${bg}`}
@@ -53,10 +53,7 @@ function SignalGauge({ score }: { score: number }) {
   const y2 = cy + r * Math.sin(endRad);
   const largeArc = clamped > SIGNAL_MAX / 2 ? 1 : 0;
   const bgPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
-  const fgPath =
-    clamped <= 0
-      ? ""
-      : `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+  const fgPath = clamped <= 0 ? "" : `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 
   // Threshold tick at score=5 → 90° (top of arc)
   const thresholdRad = Math.PI - (SIGNAL_THRESHOLD / SIGNAL_MAX) * Math.PI;
@@ -67,8 +64,7 @@ function SignalGauge({ score }: { score: number }) {
   const tx2 = cx + tickOuter * Math.cos(thresholdRad);
   const ty2 = cy + tickOuter * Math.sin(thresholdRad);
 
-  const color =
-    clamped >= SIGNAL_THRESHOLD ? CHART_COLORS.warning : CHART_COLORS.success;
+  const color = clamped >= SIGNAL_THRESHOLD ? CHART_COLORS.warning : CHART_COLORS.success;
 
   return (
     <div
@@ -87,13 +83,7 @@ function SignalGauge({ score }: { score: number }) {
           strokeLinecap="round"
         />
         {fgPath && (
-          <path
-            d={fgPath}
-            stroke={color}
-            strokeWidth={10}
-            fill="none"
-            strokeLinecap="round"
-          />
+          <path d={fgPath} stroke={color} strokeWidth={10} fill="none" strokeLinecap="round" />
         )}
         <line
           x1={tx1}
@@ -105,9 +95,7 @@ function SignalGauge({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center">
-        <span className="text-2xl font-semibold tabular-nums leading-none">
-          {clamped}
-        </span>
+        <span className="text-2xl font-semibold tabular-nums leading-none">{clamped}</span>
         <span className="text-[10px] uppercase tracking-wider text-basalt-muted-foreground mt-0.5">
           signal / {SIGNAL_MAX}
         </span>
@@ -137,9 +125,7 @@ function CooldownBar({ remainingMs }: { remainingMs: number }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-meta text-basalt-muted-foreground w-16 shrink-0">
-        Cooldown
-      </span>
+      <span className="text-meta text-basalt-muted-foreground w-16 shrink-0">Cooldown</span>
       <div
         className="flex-1 h-2 rounded-full bg-basalt-muted/40 overflow-hidden"
         role="progressbar"
@@ -152,14 +138,11 @@ function CooldownBar({ remainingMs }: { remainingMs: number }) {
           className="h-full rounded-full transition-all"
           style={{
             width: `${pct}%`,
-            background:
-              remainingMs > 0 ? CHART_COLORS.warning : "transparent",
+            background: remainingMs > 0 ? CHART_COLORS.warning : "transparent",
           }}
         />
       </div>
-      <span className="text-meta tabular-nums w-12 text-right">
-        {formatMs(remainingMs)}
-      </span>
+      <span className="text-meta tabular-nums w-12 text-right">{formatMs(remainingMs)}</span>
     </div>
   );
 }
@@ -177,14 +160,12 @@ function Cell({
     tone === "danger"
       ? "text-basalt-destructive"
       : tone === "warn"
-      ? "text-basalt-warning"
-      : "text-basalt-foreground";
+        ? "text-basalt-warning"
+        : "text-basalt-foreground";
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-meta text-basalt-muted-foreground">{label}</span>
-      <span className={`text-numeric font-medium tabular-nums ${toneClass}`}>
-        {value}
-      </span>
+      <span className={`text-numeric font-medium tabular-nums ${toneClass}`}>{value}</span>
     </div>
   );
 }

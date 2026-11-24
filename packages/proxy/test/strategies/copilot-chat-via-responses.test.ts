@@ -1,16 +1,16 @@
-import { Hono } from "hono"
-import { describe, expect, test, vi } from "vitest"
+import { Hono } from "hono";
+import { describe, expect, test, vi } from "vitest";
 
-import { makeCopilotChatViaResponses } from "../../src/strategies/copilot-chat-via-responses"
-import type { RequestContext } from "../../src/core/context"
-import { ClientInputError } from "../../src/lib/error"
-import { state } from "../../src/lib/state"
-import { handleCompletion } from "../../src/routes/chat-completions/handler"
-import type { CopilotResponsesClient } from "../../src/upstream/copilot-responses"
-import { logEmitter } from "../../src/util/log-emitter"
-import type { LogEvent } from "../../src/util/log-event"
-import type { ServerSentEvent } from "../../src/util/sse"
-import { installTestRouting, routingHarness } from "../helpers/routing"
+import { makeCopilotChatViaResponses } from "../../src/strategies/copilot-chat-via-responses";
+import type { RequestContext } from "../../src/core/context";
+import { ClientInputError } from "../../src/lib/error";
+import { state } from "../../src/lib/state";
+import { handleCompletion } from "../../src/routes/chat-completions/handler";
+import type { CopilotResponsesClient } from "../../src/upstream/copilot-responses";
+import { logEmitter } from "../../src/util/log-emitter";
+import type { LogEvent } from "../../src/util/log-event";
+import type { ServerSentEvent } from "../../src/util/sse";
+import { installTestRouting, routingHarness } from "../helpers/routing";
 
 const ctx: RequestContext = {
   requestId: "req_test",
@@ -25,10 +25,10 @@ const ctx: RequestContext = {
   sessionId: "s",
   clientName: "test",
   clientVersion: "0",
-}
+};
 
 function mockClient(send: CopilotResponsesClient["send"]): CopilotResponsesClient {
-  return { send } as CopilotResponsesClient
+  return { send } as CopilotResponsesClient;
 }
 
 describe("strategies/copilot-chat-via-responses", () => {
@@ -36,15 +36,15 @@ describe("strategies/copilot-chat-via-responses", () => {
     const s = makeCopilotChatViaResponses({
       client: mockClient(async () => ({})),
       toolCallDebug: false,
-    })
-    expect(s.name).toBe("copilot-chat-via-responses")
-  })
+    });
+    expect(s.name).toBe("copilot-chat-via-responses");
+  });
 
   test("prepare builds responses payload without includeUsage leak", () => {
     const s = makeCopilotChatViaResponses({
       client: mockClient(async () => ({})),
       toolCallDebug: false,
-    })
+    });
     const up = s.prepare(
       {
         model: "grok-4.5",
@@ -54,17 +54,17 @@ describe("strategies/copilot-chat-via-responses", () => {
         max_tokens: 50,
       },
       ctx,
-    )
-    expect(up.includeUsage).toBe(true)
-    expect(up.responsesPayload.max_output_tokens).toBe(50)
-    expect(up.responsesPayload).not.toHaveProperty("includeUsage")
-    expect(JSON.stringify(up.responsesPayload)).not.toContain("include_usage")
-  })
+    );
+    expect(up.includeUsage).toBe(true);
+    expect(up.responsesPayload.max_output_tokens).toBe(50);
+    expect(up.responsesPayload).not.toHaveProperty("includeUsage");
+    expect(JSON.stringify(up.responsesPayload)).not.toContain("include_usage");
+  });
 
   test("dispatch sends only responsesPayload and maps JSON", async () => {
     const send = vi.fn(async (payload: { model: string }) => {
-      expect(payload.model).toBe("grok-4.5")
-      expect(payload).not.toHaveProperty("originalChat")
+      expect(payload.model).toBe("grok-4.5");
+      expect(payload).not.toHaveProperty("originalChat");
       return {
         id: "resp_1",
         status: "completed",
@@ -78,33 +78,33 @@ describe("strategies/copilot-chat-via-responses", () => {
           },
         ],
         usage: { input_tokens: 1, output_tokens: 1 },
-      }
-    })
+      };
+    });
     const s = makeCopilotChatViaResponses({
       client: mockClient(send),
       toolCallDebug: false,
-    })
+    });
     const up = s.prepare(
       {
         model: "grok-4.5",
         messages: [{ role: "user", content: "hi" }],
       },
       ctx,
-    )
-    const dispatched = await s.dispatch(up, ctx)
-    expect(dispatched.kind).toBe("json")
-    if (dispatched.kind !== "json") return
-    const chat = s.adaptJson(dispatched.body, up, ctx)
-    expect(chat.choices[0]!.message.content).toBe("ok")
-    expect(send).toHaveBeenCalledTimes(1)
-  })
+    );
+    const dispatched = await s.dispatch(up, ctx);
+    expect(dispatched.kind).toBe("json");
+    if (dispatched.kind !== "json") return;
+    const chat = s.adaptJson(dispatched.body, up, ctx);
+    expect(chat.choices[0]!.message.content).toBe("ok");
+    expect(send).toHaveBeenCalledTimes(1);
+  });
 
   test("dispatch rejects n=2 with ClientInputError before send", async () => {
-    const send = vi.fn(async () => ({}))
+    const send = vi.fn(async () => ({}));
     const s = makeCopilotChatViaResponses({
       client: mockClient(send),
       toolCallDebug: false,
-    })
+    });
     const up = s.prepare(
       {
         model: "grok-4.5",
@@ -112,44 +112,48 @@ describe("strategies/copilot-chat-via-responses", () => {
         n: 2,
       },
       ctx,
-    )
-    await expect(s.dispatch(up, ctx)).rejects.toBeInstanceOf(ClientInputError)
-    expect(send).not.toHaveBeenCalled()
-  })
+    );
+    await expect(s.dispatch(up, ctx)).rejects.toBeInstanceOf(ClientInputError);
+    expect(send).not.toHaveBeenCalled();
+  });
 
   test("adaptJson throws on failed status", () => {
     const s = makeCopilotChatViaResponses({
       client: mockClient(async () => ({})),
       toolCallDebug: false,
-    })
-    const up = s.prepare(
-      { model: "m", messages: [{ role: "user", content: "x" }] },
-      ctx,
-    )
-    expect(() =>
-      s.adaptJson({ status: "failed", error: { message: "x" } }, up, ctx),
-    ).toThrow()
-  })
+    });
+    const up = s.prepare({ model: "m", messages: [{ role: "user", content: "x" }] }, ctx);
+    expect(() => s.adaptJson({ status: "failed", error: { message: "x" } }, up, ctx)).toThrow();
+  });
 
   test("stream path adapts chunks and describeEndLog has routingPath", async () => {
     async function* gen(): AsyncGenerator<ServerSentEvent> {
       const mk = (event: string, data: string): ServerSentEvent => ({
-        event, data, id: "", retry: null,
-      })
-      yield mk("response.created", JSON.stringify({
+        event,
+        data,
+        id: "",
+        retry: null,
+      });
+      yield mk(
+        "response.created",
+        JSON.stringify({
           response: { id: "r1", model: "grok-4.5", created_at: 1 },
-        }))
-      yield mk("response.output_text.delta", JSON.stringify({ delta: "a" }))
-      yield mk("response.completed", JSON.stringify({
+        }),
+      );
+      yield mk("response.output_text.delta", JSON.stringify({ delta: "a" }));
+      yield mk(
+        "response.completed",
+        JSON.stringify({
           type: "response.completed",
           response: { usage: { input_tokens: 2, output_tokens: 3 } },
-        }))
+        }),
+      );
     }
     const s = makeCopilotChatViaResponses({
       client: mockClient(async () => gen()),
       toolCallDebug: false,
-    })
-    const streamCtx = { ...ctx, stream: true }
+    });
+    const streamCtx = { ...ctx, stream: true };
     const up = s.prepare(
       {
         model: "grok-4.5",
@@ -157,38 +161,38 @@ describe("strategies/copilot-chat-via-responses", () => {
         stream: true,
       },
       streamCtx,
-    )
-    const dispatched = await s.dispatch(up, streamCtx)
-    expect(dispatched.kind).toBe("stream")
-    if (dispatched.kind !== "stream") return
-    const st = s.initStreamState(up, streamCtx)
-    const all: string[] = []
+    );
+    const dispatched = await s.dispatch(up, streamCtx);
+    expect(dispatched.kind).toBe("stream");
+    if (dispatched.kind !== "stream") return;
+    const st = s.initStreamState(up, streamCtx);
+    const all: string[] = [];
     for await (const chunk of dispatched.chunks) {
       for (const ev of s.adaptChunk(chunk, st, streamCtx)) {
-        if (typeof ev.data === "string") all.push(ev.data)
+        if (typeof ev.data === "string") all.push(ev.data);
       }
     }
-    expect(all).toContain("[DONE]")
-    const end = s.describeEndLog({ kind: "stream", req: up, state: st }, streamCtx)
-    expect(end.routingPath).toBe("chat-via-responses")
-    expect(end.inputTokens).toBe(2)
-    expect(end.outputTokens).toBe(3)
-  })
-})
+    expect(all).toContain("[DONE]");
+    const end = s.describeEndLog({ kind: "stream", req: up, state: st }, streamCtx);
+    expect(end.routingPath).toBe("chat-via-responses");
+    expect(end.inputTokens).toBe(2);
+    expect(end.outputTokens).toBe(3);
+  });
+});
 
 describe("strategy error and end-log arms", () => {
   test("adaptStreamError returns openai chat envelope", () => {
     const s = makeCopilotChatViaResponses({
       client: mockClient(async () => ({})),
       toolCallDebug: false,
-    })
+    });
     const st = s.initStreamState(
       s.prepare({ model: "m", messages: [{ role: "user", content: "x" }] }, ctx),
       ctx,
-    )
-    const evs = s.adaptStreamError(new Error("boom"), st, ctx)
-    expect(JSON.parse(String(evs[0]!.data)).error.message).toBe("boom")
-  })
+    );
+    const evs = s.adaptStreamError(new Error("boom"), st, ctx);
+    expect(JSON.parse(String(evs[0]!.data)).error.message).toBe("boom");
+  });
 
   test("describeEndLog json arm reads Responses usage (Runner UpResp path)", async () => {
     const upstreamBody = {
@@ -207,43 +211,40 @@ describe("strategy error and end-log arms", () => {
       ],
       // Responses wire shape — NOT chat prompt_tokens/completion_tokens
       usage: { input_tokens: 11, output_tokens: 22 },
-    }
+    };
     const s = makeCopilotChatViaResponses({
       client: mockClient(async () => upstreamBody),
       toolCallDebug: false,
-    })
-    const up = s.prepare({ model: "m", messages: [{ role: "user", content: "x" }] }, ctx)
-    const d = await s.dispatch(up, ctx)
-    if (d.kind !== "json") throw new Error("expected json")
+    });
+    const up = s.prepare({ model: "m", messages: [{ role: "user", content: "x" }] }, ctx);
+    const d = await s.dispatch(up, ctx);
+    if (d.kind !== "json") throw new Error("expected json");
     // Runner calls describeEndLog with dispatched.body (Responses), not adaptJson output
-    const jsonLog = s.describeEndLog({ kind: "json", req: up, resp: d.body }, ctx)
-    expect(jsonLog.routingPath).toBe("chat-via-responses")
-    expect(jsonLog.resolvedModel).toBe("grok-resolved")
-    expect(jsonLog.inputTokens).toBe(11)
-    expect(jsonLog.outputTokens).toBe(22)
-    expect(jsonLog.stopReason).toBe("tool_calls")
+    const jsonLog = s.describeEndLog({ kind: "json", req: up, resp: d.body }, ctx);
+    expect(jsonLog.routingPath).toBe("chat-via-responses");
+    expect(jsonLog.resolvedModel).toBe("grok-resolved");
+    expect(jsonLog.inputTokens).toBe(11);
+    expect(jsonLog.outputTokens).toBe(22);
+    expect(jsonLog.stopReason).toBe("tool_calls");
 
     // Theater guard: feeding Chat-shaped body must NOT be how we "prove" tokens
-    const chat = s.adaptJson(d.body, up, ctx)
-    expect(chat.usage?.prompt_tokens).toBe(11)
-    const wrong = s.describeEndLog({ kind: "json", req: up, resp: chat }, ctx)
+    const chat = s.adaptJson(d.body, up, ctx);
+    expect(chat.usage?.prompt_tokens).toBe(11);
+    const wrong = s.describeEndLog({ kind: "json", req: up, resp: chat }, ctx);
     // Chat body has prompt_tokens not input_tokens — extractNonStreamingMeta → 0
-    expect(wrong.inputTokens).toBe(0)
-    expect(wrong.outputTokens).toBe(0)
+    expect(wrong.inputTokens).toBe(0);
+    expect(wrong.outputTokens).toBe(0);
 
-    const errLog = s.describeEndLog(
-      { kind: "error", req: up, err: new Error("x") },
-      ctx,
-    )
-    expect(errLog).toMatchObject({ model: "m", routingPath: "chat-via-responses" })
-  })
+    const errLog = s.describeEndLog({ kind: "error", req: up, err: new Error("x") }, ctx);
+    expect(errLog).toMatchObject({ model: "m", routingPath: "chat-via-responses" });
+  });
 
   test("dispatch stop rejects without send", async () => {
-    const send = vi.fn(async () => ({}))
+    const send = vi.fn(async () => ({}));
     const s = makeCopilotChatViaResponses({
       client: mockClient(send),
       toolCallDebug: false,
-    })
+    });
     const up = s.prepare(
       {
         model: "m",
@@ -251,66 +252,71 @@ describe("strategy error and end-log arms", () => {
         stop: ["END"],
       },
       ctx,
-    )
-    await expect(s.dispatch(up, ctx)).rejects.toBeInstanceOf(ClientInputError)
-    expect(send).not.toHaveBeenCalled()
-  })
-})
+    );
+    await expect(s.dispatch(up, ctx)).rejects.toBeInstanceOf(ClientInputError);
+    expect(send).not.toHaveBeenCalled();
+  });
+});
 
 describe("integrated non-stream request_end tokens", () => {
   test("handler request_end carries Responses input/output tokens", async () => {
-    const savedToken = state.copilotToken
-    state.copilotToken = "test-token"
-    state.vsCodeVersion = "1.90.0"
-    state.accountType = "individual"
-    const harness = routingHarness()
-    harness.copilot([{ id: "grok-4.5", supported_endpoints: ["/responses"] }])
-    harness.bind("builtin:copilot", "grok-4.5")
+    const savedToken = state.copilotToken;
+    state.copilotToken = "test-token";
+    state.vsCodeVersion = "1.90.0";
+    state.accountType = "individual";
+    const harness = routingHarness();
+    harness.copilot([{ id: "grok-4.5", supported_endpoints: ["/responses"] }]);
+    harness.bind("builtin:copilot", "grok-4.5");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({
-        id: "resp_int",
-        status: "completed",
-        error: null,
-        model: "grok-4.5",
-        created_at: 100,
-        output: [{ type: "message", content: [{ type: "output_text", text: "ok" }] }],
-        usage: { input_tokens: 42, output_tokens: 7 },
-      }), { status: 200, headers: { "content-type": "application/json" } }),
-    )
-    const events: LogEvent[] = []
-    const listener = (event: LogEvent) => events.push(event)
-    logEmitter.on("log", listener)
-    try {
-      const app = new Hono()
-      installTestRouting(app, harness.db)
-      app.post("/v1/chat/completions", handleCompletion)
-      const res = await app.request(new Request("http://localhost/v1/chat/completions", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+      new Response(
+        JSON.stringify({
+          id: "resp_int",
+          status: "completed",
+          error: null,
           model: "grok-4.5",
-          stream: false,
-          messages: [{ role: "user", content: "hi" }],
+          created_at: 100,
+          output: [{ type: "message", content: [{ type: "output_text", text: "ok" }] }],
+          usage: { input_tokens: 42, output_tokens: 7 },
         }),
-      }))
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.choices[0].message.content).toBe("ok")
-      expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
-      await new Promise((resolve) => setTimeout(resolve, 15))
-      const end = events.find((event) => event.type === "request_end")
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const events: LogEvent[] = [];
+    const listener = (event: LogEvent) => events.push(event);
+    logEmitter.on("log", listener);
+    try {
+      const app = new Hono();
+      installTestRouting(app, harness.db);
+      app.post("/v1/chat/completions", handleCompletion);
+      const res = await app.request(
+        new Request("http://localhost/v1/chat/completions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            model: "grok-4.5",
+            stream: false,
+            messages: [{ role: "user", content: "hi" }],
+          }),
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.choices[0].message.content).toBe("ok");
+      expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      const end = events.find((event) => event.type === "request_end");
       expect(end?.data).toMatchObject({
         status: "success",
         strategy: "copilot-chat-via-responses",
         routingPath: "chat-via-responses",
         inputTokens: 42,
         outputTokens: 7,
-      })
+      });
     } finally {
-      logEmitter.off("log", listener)
-      fetchSpy.mockRestore()
-      harness.close()
-      state.copilotToken = savedToken
+      logEmitter.off("log", listener);
+      fetchSpy.mockRestore();
+      harness.close();
+      state.copilotToken = savedToken;
     }
-  })
-})
+  });
+});

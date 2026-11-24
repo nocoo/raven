@@ -29,11 +29,7 @@ export function rechartsMockFactory() {
   const ReactImpl: typeof React = require("react");
 
   const MockResponsiveContainer = ({ children }: AnyProps) =>
-    ReactImpl.createElement(
-      "div",
-      { "data-testid": "responsive-container" },
-      children,
-    );
+    ReactImpl.createElement("div", { "data-testid": "responsive-container" }, children);
 
   const MockChart = ({ children, data }: AnyProps & { data?: unknown[] }) =>
     ReactImpl.createElement(

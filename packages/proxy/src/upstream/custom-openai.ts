@@ -2,27 +2,24 @@
  * Custom OpenAI-compatible upstream client.
  */
 
-import type { UpstreamRecord } from "../core/routing-types"
-import type {
-  ChatCompletionsPayload,
-  ChatCompletionResponse,
-} from "./copilot-openai"
-import { events, type ServerSentEvent } from "../util/sse"
-import { HTTPError } from "../lib/error"
-import { buildProviderAuthHeaders } from "../lib/auth-headers"
-import { getProxyUrl } from "../lib/socks5-bridge"
-import { state } from "../lib/state"
-import type { UpstreamClient, UpstreamResult } from "./interface"
-import { joinCustomApiUrl } from "./api-url"
-import { modelFetch, withStreamingUsage, type ModelHttpConfig } from "./model-http"
+import type { UpstreamRecord } from "../core/routing-types";
+import type { ChatCompletionsPayload, ChatCompletionResponse } from "./copilot-openai";
+import { events, type ServerSentEvent } from "../util/sse";
+import { HTTPError } from "../lib/error";
+import { buildProviderAuthHeaders } from "../lib/auth-headers";
+import { getProxyUrl } from "../lib/socks5-bridge";
+import { state } from "../lib/state";
+import type { UpstreamClient, UpstreamResult } from "./interface";
+import { joinCustomApiUrl } from "./api-url";
+import { modelFetch, withStreamingUsage, type ModelHttpConfig } from "./model-http";
 
 export interface CustomOpenAIRequest {
-  provider: UpstreamRecord
-  payload: ChatCompletionsPayload
+  provider: UpstreamRecord;
+  payload: ChatCompletionsPayload;
 }
 
 export interface CustomOpenAIConfig extends ModelHttpConfig {
-  getProxyUrl(provider: UpstreamRecord): string | undefined
+  getProxyUrl(provider: UpstreamRecord): string | undefined;
 }
 
 export class CustomOpenAIClient
@@ -34,10 +31,10 @@ export class CustomOpenAIClient
     req: CustomOpenAIRequest,
     signal?: AbortSignal,
   ): Promise<UpstreamResult<ChatCompletionResponse>> {
-    signal?.throwIfAborted()
-    const { provider, payload } = req
-    const url = joinCustomApiUrl(provider.base_url, "chat/completions")
-    const proxyUrl = this.config.getProxyUrl(provider)
+    signal?.throwIfAborted();
+    const { provider, payload } = req;
+    const url = joinCustomApiUrl(provider.base_url, "chat/completions");
+    const proxyUrl = this.config.getProxyUrl(provider);
     const response = await modelFetch(this.config)(url, {
       method: "POST",
       signal,
@@ -48,27 +45,27 @@ export class CustomOpenAIClient
       }),
       body: JSON.stringify(withStreamingUsage(payload, this.config.requestUsage)),
       ...(proxyUrl ? { proxy: proxyUrl } : {}),
-    } as RequestInit)
+    } as RequestInit);
 
     if (!response.ok) {
       throw await HTTPError.fromResponse(
         `Upstream ${provider.name} returned ${response.status}`,
         response,
-      )
+      );
     }
 
     return payload.stream
       ? (events(response, signal) as AsyncGenerator<ServerSentEvent>)
-      : ((await response.json()) as ChatCompletionResponse)
+      : ((await response.json()) as ChatCompletionResponse);
   }
 }
 
 export function defaultCustomOpenAIConfig(): CustomOpenAIConfig {
   return {
     getProxyUrl: (provider) => getProxyUrl(provider, state),
-  }
+  };
 }
 
 export function createDefaultCustomOpenAIClient(): CustomOpenAIClient {
-  return new CustomOpenAIClient(defaultCustomOpenAIConfig())
+  return new CustomOpenAIClient(defaultCustomOpenAIConfig());
 }

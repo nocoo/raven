@@ -1,6 +1,5 @@
 "use client";
 
-
 import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Copy, Check } from "@nocoo/basalt/icons";
@@ -132,12 +131,15 @@ export function JsonBlock({ value, maxHeightClass = "max-h-48", className }: Jso
 
   const handleCopy = () => {
     if (!navigator.clipboard?.writeText) return;
-    void navigator.clipboard.writeText(pretty).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    }).catch(() => {
-      /* clipboard blocked — ignore */
-    });
+    void navigator.clipboard
+      .writeText(pretty)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {
+        /* clipboard blocked — ignore */
+      });
   };
 
   return (

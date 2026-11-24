@@ -123,7 +123,7 @@ describe("useAuthConfig hook", () => {
         revalidateOnFocus: false,
         revalidateOnReconnect: false,
         dedupingInterval: 60_000,
-      })
+      }),
     );
   });
 });
@@ -144,10 +144,13 @@ describe("useAuthConfig fetcher validation", () => {
   });
 
   it("returns valid auth config on successful response", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ authEnabled: true, provider: "google" }),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ authEnabled: true, provider: "google" }),
+      }),
+    );
 
     const { useAuthConfig } = await import("@/hooks/use-auth-config");
     renderHook(() => useAuthConfig());
@@ -159,65 +162,77 @@ describe("useAuthConfig fetcher validation", () => {
   });
 
   it("throws on non-ok response", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      json: () => Promise.resolve({}),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({}),
+      }),
+    );
 
     const { useAuthConfig } = await import("@/hooks/use-auth-config");
     renderHook(() => useAuthConfig());
 
     await expect(capturedFetcher("/api/auth/config")).rejects.toThrow(
-      "Auth config fetch failed: 500"
+      "Auth config fetch failed: 500",
     );
 
     vi.unstubAllGlobals();
   });
 
   it("throws on malformed response (missing authEnabled)", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ provider: "google" }), // missing authEnabled
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ provider: "google" }), // missing authEnabled
+      }),
+    );
 
     const { useAuthConfig } = await import("@/hooks/use-auth-config");
     renderHook(() => useAuthConfig());
 
     await expect(capturedFetcher("/api/auth/config")).rejects.toThrow(
-      "Auth config response malformed"
+      "Auth config response malformed",
     );
 
     vi.unstubAllGlobals();
   });
 
   it("throws on malformed response (invalid provider)", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ authEnabled: true, provider: "github" }), // invalid provider
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ authEnabled: true, provider: "github" }), // invalid provider
+      }),
+    );
 
     const { useAuthConfig } = await import("@/hooks/use-auth-config");
     renderHook(() => useAuthConfig());
 
     await expect(capturedFetcher("/api/auth/config")).rejects.toThrow(
-      "Auth config response malformed"
+      "Auth config response malformed",
     );
 
     vi.unstubAllGlobals();
   });
 
   it("throws on null response", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(null),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(null),
+      }),
+    );
 
     const { useAuthConfig } = await import("@/hooks/use-auth-config");
     renderHook(() => useAuthConfig());
 
     await expect(capturedFetcher("/api/auth/config")).rejects.toThrow(
-      "Auth config response malformed"
+      "Auth config response malformed",
     );
 
     vi.unstubAllGlobals();

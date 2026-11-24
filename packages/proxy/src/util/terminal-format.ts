@@ -127,16 +127,11 @@ function formatSystem(time: string, event: LogEvent): string {
   return `${time} ${levelTag}  ${event.msg}`;
 }
 
-function formatRequestStart(
-  time: string,
-  data: Record<string, unknown>,
-): string {
+function formatRequestStart(time: string, data: Record<string, unknown>): string {
   const model = cyan(bold(shortenModel(String(data.model ?? "unknown"))));
   const streamTag = data.stream ? "stream" : "sync";
   const client = dim(String(data.clientName ?? ""));
-  const session = data.sessionId
-    ? dim(`(${shortenSession(String(data.sessionId))})`)
-    : "";
+  const session = data.sessionId ? dim(`(${shortenSession(String(data.sessionId))})`) : "";
 
   const parts = [time, green("──▶"), model, dim(streamTag)];
   if (client) parts.push(client);
@@ -144,16 +139,15 @@ function formatRequestStart(
   return parts.join("  ");
 }
 
-function formatRequestEnd(
-  time: string,
-  data: Record<string, unknown>,
-): string {
+function formatRequestEnd(time: string, data: Record<string, unknown>): string {
   const statusCode = data.statusCode as number | null | undefined;
   const model = cyan(bold(shortenModel(String(data.resolvedModel ?? data.model ?? "unknown"))));
   if (data.status === "cancelled") {
     return formatRequestEndCancelled(time, data, model, statusCode ?? null);
   }
-  const isError = data.status === "error" || (statusCode !== null && statusCode !== undefined && statusCode >= 400);
+  const isError =
+    data.status === "error" ||
+    (statusCode !== null && statusCode !== undefined && statusCode >= 400);
 
   if (isError) {
     return formatRequestEndError(time, data, model, statusCode ?? null);
@@ -171,9 +165,7 @@ function formatRequestEndCancelled(
   const dur = formatDuration(Number(data.latencyMs ?? 0));
   const note = data.error ? dim(truncateError(String(data.error))) : "";
   const client = dim(String(data.clientName ?? ""));
-  const session = data.sessionId
-    ? dim(`(${shortenSession(String(data.sessionId))})`)
-    : "";
+  const session = data.sessionId ? dim(`(${shortenSession(String(data.sessionId))})`) : "";
   const parts = [time, dim("—"), model, status, dim(dur)];
   if (note) parts.push(note);
   if (client) parts.push(client);
@@ -189,15 +181,12 @@ function formatRequestEndSuccess(
 ): string {
   const status = green(String(statusCode ?? 200));
   const dur = formatDuration(Number(data.latencyMs ?? 0));
-  const ttft =
-    data.ttftMs != null ? `ttft ${formatDuration(Number(data.ttftMs))}` : "";
+  const ttft = data.ttftMs != null ? `ttft ${formatDuration(Number(data.ttftMs))}` : "";
   const inputTok = data.inputTokens ?? 0;
   const outputTok = data.outputTokens ?? 0;
   const tokens = dim(`${inputTok}→${outputTok} tok`);
   const client = dim(String(data.clientName ?? ""));
-  const session = data.sessionId
-    ? dim(`(${shortenSession(String(data.sessionId))})`)
-    : "";
+  const session = data.sessionId ? dim(`(${shortenSession(String(data.sessionId))})`) : "";
 
   const parts = [time, green("◀──"), model, status, dim(dur)];
   if (ttft) parts.push(dim(ttft));
@@ -256,9 +245,7 @@ function formatRequestEndError(
   const dur = formatDuration(Number(data.latencyMs ?? 0));
   const errorMsg = data.error ? dim(truncateError(String(data.error))) : "";
   const client = dim(String(data.clientName ?? ""));
-  const session = data.sessionId
-    ? dim(`(${shortenSession(String(data.sessionId))})`)
-    : "";
+  const session = data.sessionId ? dim(`(${shortenSession(String(data.sessionId))})`) : "";
 
   const parts = [time, red("✗──"), model, status, dim(dur)];
   if (errorMsg) parts.push(errorMsg);
@@ -267,11 +254,7 @@ function formatRequestEndError(
   return parts.join("  ");
 }
 
-function formatUpstreamError(
-  time: string,
-  event: LogEvent,
-  data: Record<string, unknown>,
-): string {
+function formatUpstreamError(time: string, event: LogEvent, data: Record<string, unknown>): string {
   const errorDetail = data.error ? `: ${data.error}` : "";
   return `${time} ${red("ERR")}  ${event.msg}${errorDetail}`;
 }

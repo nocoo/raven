@@ -43,12 +43,15 @@ export function StatCard({
         </div>
         <div className="min-w-0">
           <p className="truncate text-[10px] text-basalt-muted-foreground">{label}</p>
-          <p className={cn("text-base leading-tight font-semibold tabular-nums", accentColors[accent])}>
+          <p
+            className={cn(
+              "text-base leading-tight font-semibold tabular-nums",
+              accentColors[accent],
+            )}
+          >
             {value}
           </p>
-          {detail && (
-            <p className="truncate text-[10px] text-basalt-muted-foreground">{detail}</p>
-          )}
+          {detail && <p className="truncate text-[10px] text-basalt-muted-foreground">{detail}</p>}
         </div>
       </LayerCard>
     );
@@ -63,14 +66,17 @@ export function StatCard({
         <div className="min-w-0 flex-1">
           <p className="text-card-label">{label}</p>
           <div className="flex items-center gap-3">
-            <p className={cn("text-xl font-semibold tracking-tight tabular-nums", accentColors[accent])}>
+            <p
+              className={cn(
+                "text-xl font-semibold tracking-tight tabular-nums",
+                accentColors[accent],
+              )}
+            >
               {value}
             </p>
             {sparkline && <Sparkline data={sparkline} />}
           </div>
-          {detail && (
-            <p className="text-meta mt-0.5">{detail}</p>
-          )}
+          {detail && <p className="text-meta mt-0.5">{detail}</p>}
         </div>
       </div>
     </LayerCard>

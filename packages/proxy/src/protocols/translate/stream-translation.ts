@@ -1,10 +1,7 @@
-import type { ChatCompletionChunk } from "../../upstream/copilot-openai"
+import type { ChatCompletionChunk } from "../../upstream/copilot-openai";
 
-import type {
-  AnthropicStreamEventData,
-  AnthropicStreamState,
-} from "../anthropic/types"
-import { mapOpenAIStopReasonToAnthropic } from "./stop-reason"
+import type { AnthropicStreamEventData, AnthropicStreamState } from "../anthropic/types";
+import { mapOpenAIStopReasonToAnthropic } from "./stop-reason";
 
 export function createAnthropicStreamState(): AnthropicStreamState {
   return {
@@ -16,77 +13,71 @@ export function createAnthropicStreamState(): AnthropicStreamState {
     stopReason: null,
     messageStopSent: false,
     lastUsage: null,
-  }
+  };
 }
 
-function rememberUsage(
-  state: AnthropicStreamState,
-  usage: ChatCompletionChunk["usage"],
-): void {
-  if (!usage) return
+function rememberUsage(state: AnthropicStreamState, usage: ChatCompletionChunk["usage"]): void {
+  if (!usage) return;
   state.lastUsage = {
     prompt_tokens: usage.prompt_tokens,
     completion_tokens: usage.completion_tokens,
     cached_tokens: usage.prompt_tokens_details?.cached_tokens ?? null,
-  }
+  };
 }
 
 function usageFromState(state: AnthropicStreamState) {
-  const cached = state.lastUsage?.cached_tokens ?? null
+  const cached = state.lastUsage?.cached_tokens ?? null;
   return {
     input_tokens: (state.lastUsage?.prompt_tokens ?? 0) - (cached ?? 0),
     output_tokens: state.lastUsage?.completion_tokens ?? 0,
     cache_creation_input_tokens: null,
     cache_read_input_tokens: cached,
-  }
+  };
 }
 
 function recordToolFragment(
   state: AnthropicStreamState,
   toolCall: {
-    index: number
-    id: string | null
-    function: { name: string | null; arguments: string | null } | null
+    index: number;
+    id: string | null;
+    function: { name: string | null; arguments: string | null } | null;
   },
 ): void {
-  let entry = state.toolCalls[toolCall.index]
+  let entry = state.toolCalls[toolCall.index];
   if (!entry) {
-    entry = { id: "", name: "", anthropicBlockIndex: -1, fragments: [] }
-    state.toolCalls[toolCall.index] = entry
+    entry = { id: "", name: "", anthropicBlockIndex: -1, fragments: [] };
+    state.toolCalls[toolCall.index] = entry;
   }
-  if (toolCall.id && !entry.id) entry.id = toolCall.id
-  if (toolCall.function?.name && !entry.name) entry.name = toolCall.function.name
+  if (toolCall.id && !entry.id) entry.id = toolCall.id;
+  if (toolCall.function?.name && !entry.name) entry.name = toolCall.function.name;
   if (typeof toolCall.function?.arguments === "string") {
-    entry.fragments.push(toolCall.function.arguments)
+    entry.fragments.push(toolCall.function.arguments);
   }
 }
 
-function flushBufferedTools(
-  state: AnthropicStreamState,
-  events: AnthropicStreamEventData[],
-): void {
+function flushBufferedTools(state: AnthropicStreamState, events: AnthropicStreamEventData[]): void {
   const indices = Object.keys(state.toolCalls)
     .map(Number)
-    .sort((a, b) => a - b)
-  const pending: NonNullable<AnthropicStreamState["toolCalls"][number]>[] = []
+    .sort((a, b) => a - b);
+  const pending: NonNullable<AnthropicStreamState["toolCalls"][number]>[] = [];
   for (const openaiIndex of indices) {
-    const tool = state.toolCalls[openaiIndex]
-    if (!tool || tool.anthropicBlockIndex >= 0) continue
+    const tool = state.toolCalls[openaiIndex];
+    if (!tool || tool.anthropicBlockIndex >= 0) continue;
     if (!tool.id || !tool.name) {
-      throw new Error(`Incomplete tool_use metadata for OpenAI tool index ${openaiIndex}`)
+      throw new Error(`Incomplete tool_use metadata for OpenAI tool index ${openaiIndex}`);
     }
-    pending.push(tool)
+    pending.push(tool);
   }
   for (const tool of pending) {
     if (state.contentBlockOpen) {
       events.push({
         type: "content_block_stop",
         index: state.contentBlockIndex,
-      })
-      state.contentBlockIndex++
-      state.contentBlockOpen = false
+      });
+      state.contentBlockIndex++;
+      state.contentBlockOpen = false;
     }
-    tool.anthropicBlockIndex = state.contentBlockIndex
+    tool.anthropicBlockIndex = state.contentBlockIndex;
     events.push({
       type: "content_block_start",
       index: tool.anthropicBlockIndex,
@@ -96,8 +87,8 @@ function flushBufferedTools(
         name: tool.name,
         input: {},
       },
-    })
-    state.contentBlockOpen = true
+    });
+    state.contentBlockOpen = true;
     for (const fragment of tool.fragments) {
       events.push({
         type: "content_block_delta",
@@ -106,15 +97,15 @@ function flushBufferedTools(
           type: "input_json_delta",
           partial_json: fragment,
         },
-      })
+      });
     }
     events.push({
       type: "content_block_stop",
       index: tool.anthropicBlockIndex,
-    })
-    state.contentBlockIndex++
-    state.contentBlockOpen = false
-    tool.fragments = []
+    });
+    state.contentBlockIndex++;
+    state.contentBlockOpen = false;
+    tool.fragments = [];
   }
 }
 
@@ -123,23 +114,23 @@ export function translateChunkToAnthropicEvents(
   state: AnthropicStreamState,
   originalModel?: string,
 ): Array<AnthropicStreamEventData> {
-  const events: Array<AnthropicStreamEventData> = []
-  if (state.messageStopSent) return events
-  rememberUsage(state, chunk.usage)
+  const events: Array<AnthropicStreamEventData> = [];
+  if (state.messageStopSent) return events;
+  rememberUsage(state, chunk.usage);
 
   if (chunk.choices.length === 0) {
-    return events
+    return events;
   }
 
-  const choice = chunk.choices[0]
-  if (!choice) return events
-  if (state.stopReason !== null) return events
-  const { delta } = choice
-  if (!delta) return events
+  const choice = chunk.choices[0];
+  if (!choice) return events;
+  if (state.stopReason !== null) return events;
+  const { delta } = choice;
+  if (!delta) return events;
 
   if (!state.messageStartSent) {
-    const usage = chunk.usage
-    const cached = usage?.prompt_tokens_details?.cached_tokens ?? null
+    const usage = chunk.usage;
+    const cached = usage?.prompt_tokens_details?.cached_tokens ?? null;
     events.push({
       type: "message_start",
       message: {
@@ -158,13 +149,13 @@ export function translateChunkToAnthropicEvents(
           service_tier: null,
         },
       },
-    })
-    state.messageStartSent = true
+    });
+    state.messageStartSent = true;
   }
 
-  if (typeof delta.refusal === "string" && delta.refusal.length > 0) state.refusalSeen = true
+  if (typeof delta.refusal === "string" && delta.refusal.length > 0) state.refusalSeen = true;
   for (const text of [delta.content, delta.refusal]) {
-    if (typeof text !== "string" || text.length === 0) continue
+    if (typeof text !== "string" || text.length === 0) continue;
     if (!state.contentBlockOpen) {
       events.push({
         type: "content_block_start",
@@ -173,8 +164,8 @@ export function translateChunkToAnthropicEvents(
           type: "text",
           text: "",
         },
-      })
-      state.contentBlockOpen = true
+      });
+      state.contentBlockOpen = true;
     }
 
     events.push({
@@ -184,36 +175,40 @@ export function translateChunkToAnthropicEvents(
         type: "text_delta",
         text,
       },
-    })
+    });
   }
 
   if (delta.tool_calls) {
     for (const toolCall of delta.tool_calls) {
-      if (toolCall) recordToolFragment(state, toolCall)
+      if (toolCall) recordToolFragment(state, toolCall);
     }
   }
 
   if (choice.finish_reason) {
-    flushBufferedTools(state, events)
+    flushBufferedTools(state, events);
     if (state.contentBlockOpen) {
       events.push({
         type: "content_block_stop",
         index: state.contentBlockIndex,
-      })
-      state.contentBlockOpen = false
+      });
+      state.contentBlockOpen = false;
     }
-    state.stopReason = state.refusalSeen ? "refusal" : mapOpenAIStopReasonToAnthropic(choice.finish_reason)
+    state.stopReason = state.refusalSeen
+      ? "refusal"
+      : mapOpenAIStopReasonToAnthropic(choice.finish_reason);
   }
 
-  return events
+  return events;
 }
 
-export function finalizeAnthropicStream(state: AnthropicStreamState): Array<AnthropicStreamEventData> {
-  if (state.messageStopSent) return []
+export function finalizeAnthropicStream(
+  state: AnthropicStreamState,
+): Array<AnthropicStreamEventData> {
+  if (state.messageStopSent) return [];
   if (state.stopReason === null) {
-    throw new Error("Truncated stream: finish_reason was not received")
+    throw new Error("Truncated stream: finish_reason was not received");
   }
-  state.messageStopSent = true
+  state.messageStopSent = true;
   return [
     {
       type: "message_delta",
@@ -224,7 +219,7 @@ export function finalizeAnthropicStream(state: AnthropicStreamState): Array<Anth
       usage: usageFromState(state),
     },
     { type: "message_stop" },
-  ]
+  ];
 }
 
 export function translateErrorToAnthropicErrorEvent(): AnthropicStreamEventData {
@@ -234,5 +229,5 @@ export function translateErrorToAnthropicErrorEvent(): AnthropicStreamEventData 
       type: "api_error",
       message: "An unexpected error occurred during streaming.",
     },
-  }
+  };
 }

@@ -5,42 +5,42 @@
 // Local rejects (n/stop) throw ClientInputError from dispatch (Runner try).
 // ---------------------------------------------------------------------------
 
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { Strategy } from "../core/strategy"
-import type { ChatCompletionResponse } from "../upstream/copilot-openai"
-import type { CopilotResponsesClient } from "../upstream/copilot-responses"
-import type { ServerSentEvent } from "../util/sse"
-import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
+import type { Strategy } from "../core/strategy";
+import type { ChatCompletionResponse } from "../upstream/copilot-openai";
+import type { CopilotResponsesClient } from "../upstream/copilot-responses";
+import type { ServerSentEvent } from "../util/sse";
+import { emitUpstreamRawSse } from "../util/emit-upstream-raw";
 import {
   assertChatViaResponsesSupported,
   chatRequestToResponses,
-} from "../protocols/chat-responses/request"
+} from "../protocols/chat-responses/request";
 import {
   ResponsesProtocolError,
   responsesJsonToChatCompletion,
-} from "../protocols/chat-responses/response"
-import { mapResponsesFinishReason } from "../protocols/chat-responses/finish-reason"
+} from "../protocols/chat-responses/response";
+import { mapResponsesFinishReason } from "../protocols/chat-responses/finish-reason";
 import {
   ResponsesStreamFailedError,
   adaptResponsesEventToChatChunks,
   initChatViaResponsesStreamState,
-} from "../protocols/chat-responses/stream"
+} from "../protocols/chat-responses/stream";
 import type {
   ChatViaResponsesClientReq,
   ChatViaResponsesStreamState,
   ChatViaResponsesUpReq,
-} from "../protocols/chat-responses/types"
-import { extractNonStreamingMeta, nonCachedInputTokens } from "../protocols/responses/stream-state"
+} from "../protocols/chat-responses/types";
+import { extractNonStreamingMeta, nonCachedInputTokens } from "../protocols/responses/stream-state";
 
 export interface CopilotChatViaResponsesDeps {
-  client: Pick<CopilotResponsesClient, "send">
-  toolCallDebug: boolean
-  requestUsage?: boolean
+  client: Pick<CopilotResponsesClient, "send">;
+  toolCallDebug: boolean;
+  requestUsage?: boolean;
 }
 
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
-  return Boolean(value) && typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function"
+  return Boolean(value) && typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function";
 }
 
 export function makeCopilotChatViaResponses(
@@ -58,29 +58,28 @@ export function makeCopilotChatViaResponses(
     name: "copilot-chat-via-responses",
 
     prepare: (req) => {
-      const includeUsage = req.stream_options?.include_usage ?? deps.requestUsage ?? false
-      const responsesPayload = chatRequestToResponses(req)
+      const includeUsage = req.stream_options?.include_usage ?? deps.requestUsage ?? false;
+      const responsesPayload = chatRequestToResponses(req);
       // Belt-and-suspenders: never leak local fields
-      delete (responsesPayload as { stream_options?: unknown }).stream_options
-      delete (responsesPayload as { includeUsage?: unknown }).includeUsage
+      delete (responsesPayload as { stream_options?: unknown }).stream_options;
+      delete (responsesPayload as { includeUsage?: unknown }).includeUsage;
       return {
         originalChat: req,
         includeUsage,
         responsesPayload,
-      }
+      };
     },
 
     dispatch: async (up, ctx) => {
-      assertChatViaResponsesSupported(up.originalChat)
-      const response = await deps.client.send(up.responsesPayload, ctx.signal)
+      assertChatViaResponsesSupported(up.originalChat);
+      const response = await deps.client.send(up.responsesPayload, ctx.signal);
       if (up.responsesPayload.stream && isAsyncIterable<ServerSentEvent>(response)) {
-        return { kind: "stream", chunks: response }
+        return { kind: "stream", chunks: response };
       }
-      return { kind: "json", body: response }
+      return { kind: "json", body: response };
     },
 
-    adaptJson: (resp, req) =>
-      responsesJsonToChatCompletion(resp, req.originalChat.model),
+    adaptJson: (resp, req) => responsesJsonToChatCompletion(resp, req.originalChat.model),
 
     initStreamState: (req) =>
       initChatViaResponsesStreamState({
@@ -89,8 +88,8 @@ export function makeCopilotChatViaResponses(
       }),
 
     adaptChunk: (chunk, st, ctx) => {
-      emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
-      return adaptResponsesEventToChatChunks(chunk, st)
+      emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data });
+      return adaptResponsesEventToChatChunks(chunk, st);
     },
 
     isStreamTerminal: (_chunk, st) => st.done,
@@ -101,7 +100,7 @@ export function makeCopilotChatViaResponses(
         err instanceof ResponsesProtocolError ||
         err instanceof Error
           ? err.message
-          : "An upstream error occurred during streaming."
+          : "An upstream error occurred during streaming.";
       return [
         {
           data: JSON.stringify({
@@ -112,25 +111,22 @@ export function makeCopilotChatViaResponses(
             },
           }),
         },
-      ]
+      ];
     },
 
     describeEndLog: (result) => {
-      const routingPath = "chat-via-responses"
+      const routingPath = "chat-via-responses";
       if (result.kind === "json") {
         // Runner passes upstream Responses body here (not adaptJson output).
-        const meta = extractNonStreamingMeta(
-          result.resp,
-          result.req.originalChat.model,
-        )
+        const meta = extractNonStreamingMeta(result.resp, result.req.originalChat.model);
         const body =
           result.resp && typeof result.resp === "object"
             ? (result.resp as {
-                status?: unknown
-                incomplete_details?: { reason?: unknown } | null
-                output?: unknown
+                status?: unknown;
+                incomplete_details?: { reason?: unknown } | null;
+                output?: unknown;
               })
-            : {}
+            : {};
         return {
           model: result.req.originalChat.model,
           resolvedModel: meta.resolvedModel,
@@ -139,29 +135,26 @@ export function makeCopilotChatViaResponses(
           cacheReadTokens: meta.cachedInputTokens,
           routingPath,
           stopReason: mapResponsesFinishReason(body),
-        }
+        };
       }
       if (result.kind === "stream") {
         return {
           model: result.req.originalChat.model,
           resolvedModel: result.state.model,
-          inputTokens: nonCachedInputTokens(
-            result.state.inputTokens,
-            result.state.cacheReadTokens,
-          ),
+          inputTokens: nonCachedInputTokens(result.state.inputTokens, result.state.cacheReadTokens),
           outputTokens: result.state.outputTokens,
           cacheReadTokens: result.state.cacheReadTokens,
           routingPath,
           stopReason: result.state.finishReason,
-        }
+        };
       }
       if (result.kind === "error") {
         return {
           model: result.req.originalChat.model,
           routingPath,
-        }
+        };
       }
-      return { routingPath }
+      return { routingPath };
     },
-  }
+  };
 }

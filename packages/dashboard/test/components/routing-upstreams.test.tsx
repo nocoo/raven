@@ -6,14 +6,24 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { UpstreamsContent } from "@/app/routing/upstreams/upstreams-content";
 import { QuotaEditor, QuotaStatusView } from "@/components/routing/quota-editor";
 import { quotaDraft } from "@/lib/upstream-model";
-import { fixtureMigration, fixtureQuota, fixtureUpstreams, FIXTURE_NOW, makeCopilot, makeDiagnostic, makeUpstream } from "../helpers/routing-fixtures";
+import {
+  fixtureMigration,
+  fixtureQuota,
+  fixtureUpstreams,
+  FIXTURE_NOW,
+  makeCopilot,
+  makeDiagnostic,
+  makeUpstream,
+} from "../helpers/routing-fixtures";
 import { selectOption } from "../helpers/routing-interactions";
 
 let fetchSpy: MockInstance<typeof fetch>;
 let offsetSpy: MockInstance<() => number>;
 beforeEach(() => {
   vi.spyOn(toast, "success").mockReturnValue("fixture-toast");
-  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+  fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected fixture request"));
   offsetSpy = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(0);
   vi.spyOn(Date, "now").mockReturnValue(FIXTURE_NOW);
 });
@@ -22,7 +32,8 @@ afterEach(() => vi.restoreAllMocks());
 const user = () => userEvent.setup({ delay: null });
 const tab = (name: string) => user().click(screen.getByRole("tab", { name }));
 const click = (name: string) => user().click(screen.getByRole("button", { name }));
-const change = (label: string, value: string) => fireEvent.change(screen.getByLabelText(label, { exact: true }), { target: { value } });
+const change = (label: string, value: string) =>
+  fireEvent.change(screen.getByLabelText(label, { exact: true }), { target: { value } });
 const payload = () => JSON.parse(fetchSpy.mock.lastCall![1]!.body as string);
 
 describe("Upstreams workbench", () => {
@@ -34,7 +45,10 @@ describe("Upstreams workbench", () => {
     expect(screen.queryByText("No limit")).toBeNull();
     expect(screen.queryByText("Migration summary")).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    expect(screen.getByRole("link", { name: "Manage Copilot account" })).toHaveAttribute("href", "/copilot/account");
+    expect(screen.getByRole("link", { name: "Manage Copilot account" })).toHaveAttribute(
+      "href",
+      "/copilot/account",
+    );
     expect(screen.queryByRole("combobox", { name: "Native API format" })).toBeNull();
     expect(screen.queryByRole("switch", { name: "Enabled" })).toBeNull();
     await tab("Models");
@@ -50,8 +64,12 @@ describe("Upstreams workbench", () => {
     expect(screen.getByText("Discarded patterns: research-*")).toBeVisible();
     expect(screen.getByText("Work laptop · builtin:copilot")).toBeVisible();
     await tab("Models");
-    expect(screen.getByRole("textbox", { name: "Manual model IDs" })).toHaveValue("research-manual");
-    expect(screen.getByRole("list", { name: "Fetched models" })).not.toHaveTextContent("research-manual");
+    expect(screen.getByRole("textbox", { name: "Manual model IDs" })).toHaveValue(
+      "research-manual",
+    );
+    expect(screen.getByRole("list", { name: "Fetched models" })).not.toHaveTextContent(
+      "research-manual",
+    );
     await tab("Quota");
     expect(screen.getByText("18,420.5", { exact: false })).toBeVisible();
     expect(screen.getByText("81,579.5")).toBeVisible();
@@ -62,7 +80,11 @@ describe("Upstreams workbench", () => {
   it("creates one custom format with explicit auth/proxy options and no discovery side effect", async () => {
     render(<UpstreamsContent upstreams={[]} migration={null} />);
     expect(screen.getByRole("textbox", { name: "Upstream name" })).toHaveValue("");
-    expect(within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", { name: /Untitled upstream.*Draft/ })).toHaveAttribute("aria-current", "true");
+    expect(
+      within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", {
+        name: /Untitled upstream.*Draft/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
     change("Upstream name", "Responses lab");
     change("Base URL", "https://fixture.invalid/responses/v1/");
     change("API key", "synthetic-fixture-secret");
@@ -78,18 +100,48 @@ describe("Upstreams workbench", () => {
     expect(screen.getByText(/No fetched models yet/)).toBeVisible();
     await click("Manual model IDs");
     change("Manual model IDs", "lab-a, lab-b\nlab-a");
-    expect(within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", { name: /Responses lab.*Draft/ })).toHaveAttribute("aria-current", "true");
+    expect(
+      within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", {
+        name: /Responses lab.*Draft/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
     const configuration = within(screen.getByRole("region", { name: "Upstream configuration" }));
-    expect(configuration.getByRole("textbox", { name: "Upstream name" })).toHaveValue("Responses lab");
+    expect(configuration.getByRole("textbox", { name: "Upstream name" })).toHaveValue(
+      "Responses lab",
+    );
     expect(configuration.getByRole("button", { name: "Save changes" })).toBeEnabled();
-    fetchSpy.mockResolvedValueOnce(Response.json(makeUpstream({ id: "new:lab", name: "Responses lab", format: "responses", is_enabled: false, manual_models: ["lab-a", "lab-b"], quota: null })));
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(
+        makeUpstream({
+          id: "new:lab",
+          name: "Responses lab",
+          format: "responses",
+          is_enabled: false,
+          manual_models: ["lab-a", "lab-b"],
+          quota: null,
+        }),
+      ),
+    );
     await click("Save changes");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy.mock.calls[0]?.[0]).toBe("/api/upstreams");
-    expect(payload()).toEqual({ name: "Responses lab", base_url: "https://fixture.invalid/responses/v1", format: "responses", api_key: "synthetic-fixture-secret", is_enabled: false, supports_reasoning: true, auth_style: "x-api-key", use_socks5: true, manual_models: ["lab-a", "lab-b"], quota: null });
+    expect(payload()).toEqual({
+      name: "Responses lab",
+      base_url: "https://fixture.invalid/responses/v1",
+      format: "responses",
+      api_key: "synthetic-fixture-secret",
+      is_enabled: false,
+      supports_reasoning: true,
+      auth_style: "x-api-key",
+      use_socks5: true,
+      manual_models: ["lab-a", "lab-b"],
+      quota: null,
+    });
     expect(await screen.findByRole("status")).toHaveTextContent("Upstream saved.");
     expect(toast.success).not.toHaveBeenCalled();
-    expect(screen.getByRole("navigation", { name: "Upstreams" })).toHaveTextContent("Responses lab");
+    expect(screen.getByRole("navigation", { name: "Upstreams" })).toHaveTextContent(
+      "Responses lab",
+    );
   });
 
   it("keeps the saved secret when editing a connection and allows returning auth/proxy overrides to defaults", async () => {
@@ -97,81 +149,147 @@ describe("Upstreams workbench", () => {
     await tab("Connection");
     expect(screen.getByLabelText("Replace API key")).toHaveValue("");
     change("Upstream name", "Renamed research");
-    expect(screen.getByRole("button", { name: "Advanced connection settings" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Advanced connection settings" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     expect(screen.queryByRole("combobox", { name: "Authentication header" })).toBeNull();
     await click("Advanced connection settings");
     await selectOption("Authentication header", "Protocol default");
     await selectOption("SOCKS5 proxy", "Direct connection");
     await selectOption("SOCKS5 proxy", "Use Raven setting");
-    fetchSpy.mockResolvedValueOnce(Response.json(makeUpstream({ name: "Renamed research", auth_style: null, use_socks5: null })));
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(makeUpstream({ name: "Renamed research", auth_style: null, use_socks5: null })),
+    );
     await click("Save changes");
     expect(fetchSpy.mock.lastCall?.[0]).toBe("/api/upstreams/custom%3Aresearch");
     expect(payload()).not.toHaveProperty("api_key");
-    expect(payload()).toMatchObject({ name: "Renamed research", auth_style: null, use_socks5: null });
+    expect(payload()).toMatchObject({
+      name: "Renamed research",
+      auth_style: null,
+      use_socks5: null,
+    });
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
   });
 
   it("refreshes only on POST, adopts the enriched status and preserves manual IDs on failure", async () => {
     render(<UpstreamsContent upstreams={[makeUpstream()]} migration={null} />);
     await tab("Models");
-    const refreshed = makeUpstream({ models: [{ id: "new-fetched", supported_endpoints: ["/responses"] }], quota_status: { ...makeUpstream().quota_status, remaining_tokens: 12_345.5 } });
+    const refreshed = makeUpstream({
+      models: [{ id: "new-fetched", supported_endpoints: ["/responses"] }],
+      quota_status: { ...makeUpstream().quota_status, remaining_tokens: 12_345.5 },
+    });
     fetchSpy.mockResolvedValueOnce(Response.json(refreshed));
     await click("Refresh models");
-    expect(fetchSpy).toHaveBeenCalledExactlyOnceWith("/api/upstreams/custom%3Aresearch/models/refresh", { method: "POST" });
+    expect(fetchSpy).toHaveBeenCalledExactlyOnceWith(
+      "/api/upstreams/custom%3Aresearch/models/refresh",
+      { method: "POST" },
+    );
     expect(screen.getByRole("list", { name: "Fetched models" })).toHaveTextContent("new-fetched");
-    expect(screen.getByRole("textbox", { name: "Manual model IDs" })).toHaveValue("research-manual");
-    expect(within(screen.getByRole("region", { name: "Model catalog" })).getByRole("status")).toHaveTextContent("Models refreshed.");
-    expect(within(screen.getByRole("region", { name: "Test connection" })).queryByRole("status")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Manual model IDs" })).toHaveValue(
+      "research-manual",
+    );
+    expect(
+      within(screen.getByRole("region", { name: "Model catalog" })).getByRole("status"),
+    ).toHaveTextContent("Models refreshed.");
+    expect(
+      within(screen.getByRole("region", { name: "Test connection" })).queryByRole("status"),
+    ).toBeNull();
     await tab("Quota");
     expect(screen.getByText("12,345.5")).toBeVisible();
     await tab("Models");
-    fetchSpy.mockResolvedValueOnce(Response.json({ error: { message: "Catalog authentication failed", type: "upstream_error" } }, { status: 502 }));
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(
+        { error: { message: "Catalog authentication failed", type: "upstream_error" } },
+        { status: 502 },
+      ),
+    );
     await click("Refresh models");
-    expect(within(screen.getByRole("region", { name: "Model catalog" })).getByRole("alert")).toHaveTextContent("Catalog authentication failed");
+    expect(
+      within(screen.getByRole("region", { name: "Model catalog" })).getByRole("alert"),
+    ).toHaveTextContent("Catalog authentication failed");
     expect(screen.getByRole("list", { name: "Fetched models" })).toHaveTextContent("new-fetched");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it.each([true, false])("runs one quota-accounted diagnostic, independently reports expected_pong=%s, and reloads cached status only on demand", async expected => {
-    let finish!: (response: Response) => void;
-    render(<UpstreamsContent upstreams={[makeUpstream()]} migration={null} />);
-    await tab("Models");
-    const input = screen.getByRole("combobox", { name: "Test model" });
-    await user().clear(input); await user().type(input, "vendor/unlisted"); await user().tab();
-    fetchSpy.mockReturnValueOnce(new Promise<Response>(resolve => { finish = resolve; }));
-    await click("Send one test");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.lastCall?.[0]).toBe("/api/upstreams/custom%3Aresearch/test");
-    expect(payload()).toEqual({ model: "vendor/unlisted" });
-    expect(input).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Refresh models" })).toBeDisabled();
-    await click("Send one test");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    await act(async () => finish(Response.json(makeDiagnostic({ model: "vendor/unlisted", latency_ms: 42, answer: expected ? "pong" : "Hello from fixture", expected_pong: expected }))));
-    expect(screen.getByText(expected ? "Received pong" : "Request succeeded · unexpected answer")).toBeVisible();
-    expect(within(screen.getByRole("region", { name: "Test connection" })).getByRole("status")).toHaveTextContent(expected ? "Received pong" : "unexpected answer");
-    expect(within(screen.getByRole("region", { name: "Model catalog" })).queryByRole("status")).toBeNull();
-    expect(screen.getByText(/42 ms · openai/)).toBeVisible();
-    expect(screen.getByLabelText("Model reply")).toHaveTextContent(expected ? "pong" : "Hello from fixture");
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    fetchSpy.mockResolvedValueOnce(Response.json(makeUpstream({ quota_status: { ...makeUpstream().quota_status, used_tokens: 18_425.5 } })));
-    await tab("Quota");
-    await click("Reload status");
-    expect(within(screen.getByRole("region", { name: "Saved quota status" })).getByRole("status")).toHaveTextContent("Quota status updated.");
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy.mock.lastCall?.[0]).toBe("/api/upstreams/custom%3Aresearch");
-    expect(fetchSpy.mock.lastCall?.[1]?.method).toBeUndefined();
-  });
+  it.each([true, false])(
+    "runs one quota-accounted diagnostic, independently reports expected_pong=%s, and reloads cached status only on demand",
+    async (expected) => {
+      let finish!: (response: Response) => void;
+      render(<UpstreamsContent upstreams={[makeUpstream()]} migration={null} />);
+      await tab("Models");
+      const input = screen.getByRole("combobox", { name: "Test model" });
+      await user().clear(input);
+      await user().type(input, "vendor/unlisted");
+      await user().tab();
+      fetchSpy.mockReturnValueOnce(
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+      );
+      await click("Send one test");
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.lastCall?.[0]).toBe("/api/upstreams/custom%3Aresearch/test");
+      expect(payload()).toEqual({ model: "vendor/unlisted" });
+      expect(input).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Refresh models" })).toBeDisabled();
+      await click("Send one test");
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      await act(async () =>
+        finish(
+          Response.json(
+            makeDiagnostic({
+              model: "vendor/unlisted",
+              latency_ms: 42,
+              answer: expected ? "pong" : "Hello from fixture",
+              expected_pong: expected,
+            }),
+          ),
+        ),
+      );
+      expect(
+        screen.getByText(expected ? "Received pong" : "Request succeeded · unexpected answer"),
+      ).toBeVisible();
+      expect(
+        within(screen.getByRole("region", { name: "Test connection" })).getByRole("status"),
+      ).toHaveTextContent(expected ? "Received pong" : "unexpected answer");
+      expect(
+        within(screen.getByRole("region", { name: "Model catalog" })).queryByRole("status"),
+      ).toBeNull();
+      expect(screen.getByText(/42 ms · openai/)).toBeVisible();
+      expect(screen.getByLabelText("Model reply")).toHaveTextContent(
+        expected ? "pong" : "Hello from fixture",
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      fetchSpy.mockResolvedValueOnce(
+        Response.json(
+          makeUpstream({ quota_status: { ...makeUpstream().quota_status, used_tokens: 18_425.5 } }),
+        ),
+      );
+      await tab("Quota");
+      await click("Reload status");
+      expect(
+        within(screen.getByRole("region", { name: "Saved quota status" })).getByRole("status"),
+      ).toHaveTextContent("Quota status updated.");
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(fetchSpy.mock.lastCall?.[0]).toBe("/api/upstreams/custom%3Aresearch");
+      expect(fetchSpy.mock.lastCall?.[1]?.method).toBeUndefined();
+    },
+  );
 
   it("requires an explicit model and a saved configuration, and never retries a failed generation", async () => {
     render(<UpstreamsContent upstreams={[makeUpstream()]} migration={null} />);
     await tab("Models");
     const input = screen.getByRole("combobox", { name: "Test model" });
-    await user().clear(input); await user().type(input, "auto"); await user().tab();
+    await user().clear(input);
+    await user().type(input, "auto");
+    await user().tab();
     expect(screen.getByRole("button", { name: "Send one test" })).toBeDisabled();
-    await user().clear(input); await user().tab();
+    await user().clear(input);
+    await user().tab();
     expect(screen.getByRole("button", { name: "Send one test" })).toBeDisabled();
-    await user().type(input, "raw-id"); await user().tab();
+    await user().type(input, "raw-id");
+    await user().tab();
     change("Manual model IDs", "new-manual");
     expect(screen.getByRole("button", { name: "Send one test" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Refresh models" })).toBeDisabled();
@@ -182,7 +300,9 @@ describe("Upstreams workbench", () => {
     await click("Discard");
     fetchSpy.mockRejectedValueOnce(new Error("Generation connection lost"));
     await click("Send one test");
-    expect(within(screen.getByRole("region", { name: "Test connection" })).getByRole("alert")).toHaveTextContent("Generation connection lost");
+    expect(
+      within(screen.getByRole("region", { name: "Test connection" })).getByRole("alert"),
+    ).toHaveTextContent("Generation connection lost");
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Received pong")).toBeNull();
   });
@@ -200,7 +320,12 @@ describe("Upstreams workbench", () => {
     change("Next reset (local time)", "2026-09-22T17:00");
     expect(screen.getByText("2026-09-22 17:00")).toBeVisible();
     expect(screen.queryByText(/2026-09-22 09:00 UTC/)).toBeNull();
-    const quota = { ...fixtureQuota, limit_tokens: 20_000, window_minutes: 60, next_reset_at: Date.UTC(2026, 8, 22, 9) };
+    const quota = {
+      ...fixtureQuota,
+      limit_tokens: 20_000,
+      window_minutes: 60,
+      next_reset_at: Date.UTC(2026, 8, 22, 9),
+    };
     fetchSpy.mockResolvedValueOnce(Response.json(makeCopilot({ quota })));
     await click("Save changes");
     expect(payload()).toEqual({ manual_models: [], quota });
@@ -209,7 +334,12 @@ describe("Upstreams workbench", () => {
 
   it("saves the protected Copilot multiplier timetable in UTC", async () => {
     offsetSpy.mockReturnValue(-480);
-    const quota = { ...fixtureQuota, limit_tokens: 20_000, window_minutes: 60, next_reset_at: Date.UTC(2026, 8, 22, 9) };
+    const quota = {
+      ...fixtureQuota,
+      limit_tokens: 20_000,
+      window_minutes: 60,
+      next_reset_at: Date.UTC(2026, 8, 22, 9),
+    };
     render(<UpstreamsContent upstreams={[makeCopilot({ quota })]} migration={null} />);
     await tab("Quota");
     await user().click(screen.getByRole("radio", { name: "Every day" }));
@@ -218,21 +348,54 @@ describe("Upstreams workbench", () => {
     expect(screen.getByText("Gaps use 1×")).toBeVisible();
     await selectOption("End time", "09:30");
     change("Token multiplier", "0.5");
-    fetchSpy.mockResolvedValueOnce(Response.json(makeCopilot({ quota: { ...fixtureQuota, limit_tokens: 20_000, window_minutes: 60, mode: "daily", multipliers: [{ id: "saved-period", start_minute: 60, end_minute: 90, multiplier: 0.5 }] } })));
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(
+        makeCopilot({
+          quota: {
+            ...fixtureQuota,
+            limit_tokens: 20_000,
+            window_minutes: 60,
+            mode: "daily",
+            multipliers: [
+              { id: "saved-period", start_minute: 60, end_minute: 90, multiplier: 0.5 },
+            ],
+          },
+        }),
+      ),
+    );
     await click("Save changes");
-    expect(payload()).toEqual({ manual_models: [], quota: { limit_tokens: 20_000, window_minutes: 60, next_reset_at: Date.UTC(2026, 8, 22, 9), mode: "daily", multipliers: [{ id: expect.any(String), start_minute: 60, end_minute: 90, multiplier: 0.5 }] } });
+    expect(payload()).toEqual({
+      manual_models: [],
+      quota: {
+        limit_tokens: 20_000,
+        window_minutes: 60,
+        next_reset_at: Date.UTC(2026, 8, 22, 9),
+        mode: "daily",
+        multipliers: [
+          { id: expect.any(String), start_minute: 60, end_minute: 90, multiplier: 0.5 },
+        ],
+      },
+    });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it("returns a multiplier period to the fixed baseline without saving a 1x override", async () => {
-    const quota = { ...fixtureQuota, mode: "daily" as const, multipliers: [{ id: "peak", start_minute: 540, end_minute: 600, multiplier: 2 }] };
+    const quota = {
+      ...fixtureQuota,
+      mode: "daily" as const,
+      multipliers: [{ id: "peak", start_minute: 540, end_minute: 600, multiplier: 2 }],
+    };
     render(<UpstreamsContent upstreams={[makeCopilot({ quota })]} migration={null} />);
     await tab("Quota");
     await user().click(screen.getByRole("radio", { name: "1× all day" }));
-    expect(screen.getByText("Period overrides will be removed. 1× will apply all day.")).toBeVisible();
+    expect(
+      screen.getByText("Period overrides will be removed. 1× will apply all day."),
+    ).toBeVisible();
     await click("Cancel");
     change("Token multiplier", "1");
-    fetchSpy.mockResolvedValueOnce(Response.json(makeCopilot({ quota: { ...quota, multipliers: [] } })));
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(makeCopilot({ quota: { ...quota, multipliers: [] } })),
+    );
     await click("Save changes");
     expect(payload()).toMatchObject({ quota: { mode: "daily", multipliers: [] } });
     expect(screen.queryByRole("spinbutton", { name: "Token multiplier" })).toBeNull();
@@ -265,7 +428,11 @@ describe("Upstreams workbench", () => {
     await click("Save changes");
     expect(screen.getByRole("alert")).toHaveTextContent("Storage unavailable");
     expect(screen.getByRole("textbox", { name: "Manual model IDs" })).toHaveValue("keep-this");
-    await user().click(within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", { name: /Research gateway/ }));
+    await user().click(
+      within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", {
+        name: /Research gateway/,
+      }),
+    );
     await click("Cancel");
     expect(screen.getByRole("textbox", { name: "Manual model IDs" })).toHaveValue("keep-this");
     await click("New upstream");
@@ -295,28 +462,64 @@ describe("Upstreams workbench", () => {
     expect(screen.getByLabelText("Upstream name")).toHaveValue("Research gateway");
     expect(screen.getByLabelText("Manual model IDs")).toHaveValue("research-manual");
     expect(directory.queryByText("Draft")).toBeNull();
-    expect(directory.getByRole("button", { name: /Research gateway/ })).toHaveAttribute("aria-current", "true");
+    expect(directory.getByRole("button", { name: /Research gateway/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("preserves referenced upstreams on conflict and deletes only after explicit confirmation", async () => {
     render(<UpstreamsContent upstreams={[makeUpstream(), makeCopilot()]} migration={null} />);
-    await click("Delete"); await click("Cancel");
+    await click("Delete");
+    await click("Cancel");
     expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockResolvedValueOnce(Response.json({ error: { message: "Upstream is in use", references: [{ id: "rule:work", name: "Work rule" }] } }, { status: 409 }));
-    await click("Delete"); await click("Delete upstream");
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(
+        {
+          error: {
+            message: "Upstream is in use",
+            references: [{ id: "rule:work", name: "Work rule" }],
+          },
+        },
+        { status: 409 },
+      ),
+    );
+    await click("Delete");
+    await click("Delete upstream");
     expect(screen.getByRole("alert")).toHaveTextContent("Work rule");
-    expect(screen.getByRole("navigation", { name: "Upstreams" })).toHaveTextContent("Research gateway");
+    expect(screen.getByRole("navigation", { name: "Upstreams" })).toHaveTextContent(
+      "Research gateway",
+    );
     fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
-    await click("Delete"); await click("Delete upstream");
+    await click("Delete");
+    await click("Delete upstream");
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Upstream deleted."));
-    expect(screen.getByRole("navigation", { name: "Upstreams" })).not.toHaveTextContent("Research gateway");
+    expect(screen.getByRole("navigation", { name: "Upstreams" })).not.toHaveTextContent(
+      "Research gateway",
+    );
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
   it("starts a fresh form after deleting the last custom upstream and shows retained catalog failures", async () => {
-    const upstream = makeUpstream({ models: [], manual_models: [], last_refreshed_at: null, last_refresh_error: "Fixture timeout", is_enabled: false });
-    render(<UpstreamsContent upstreams={[upstream]} migration={{ ...fixtureMigration, upstreams: [{ ...fixtureMigration.upstreams[0]!, retained_models: [], discarded_patterns: [] }] }} />);
+    const upstream = makeUpstream({
+      models: [],
+      manual_models: [],
+      last_refreshed_at: null,
+      last_refresh_error: "Fixture timeout",
+      is_enabled: false,
+    });
+    render(
+      <UpstreamsContent
+        upstreams={[upstream]}
+        migration={{
+          ...fixtureMigration,
+          upstreams: [
+            { ...fixtureMigration.upstreams[0]!, retained_models: [], discarded_patterns: [] },
+          ],
+        }}
+      />,
+    );
     expect(screen.queryByRole("alert")).toBeNull();
     await tab("Models");
     expect(screen.getByText("Last refresh: Never")).toBeVisible();
@@ -325,15 +528,29 @@ describe("Upstreams workbench", () => {
     expect(screen.getByText("Retained IDs: None")).toBeVisible();
     expect(screen.getByText("Discarded patterns: None")).toBeVisible();
     fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
-    await click("Delete"); await click("Delete upstream");
-    expect(within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", { name: /Untitled upstream.*Draft/ })).toHaveAttribute("aria-current", "true");
+    await click("Delete");
+    await click("Delete upstream");
+    expect(
+      within(screen.getByRole("navigation", { name: "Upstreams" })).getByRole("button", {
+        name: /Untitled upstream.*Draft/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
     expect(screen.getByRole("textbox", { name: "Upstream name" })).toHaveValue("");
   });
 });
 
 describe("quota health presentation", () => {
-  it.each([true, false])("explains unhealthy accounting with quota enabled=%s", limited => {
-    const upstream = makeUpstream({ quota: limited ? fixtureQuota : null, quota_status: { ...makeUpstream().quota_status, healthy: false, usage_complete: false, remaining_tokens: 0, used_tokens: 100_001.5 } });
+  it.each([true, false])("explains unhealthy accounting with quota enabled=%s", (limited) => {
+    const upstream = makeUpstream({
+      quota: limited ? fixtureQuota : null,
+      quota_status: {
+        ...makeUpstream().quota_status,
+        healthy: false,
+        usage_complete: false,
+        remaining_tokens: 0,
+        used_tokens: 100_001.5,
+      },
+    });
     render(<QuotaStatusView upstream={upstream} />);
     expect(screen.getByText("Accounting blocked")).toBeVisible();
     expect(screen.getByText(/Usage incomplete/)).toBeVisible();
@@ -342,8 +559,18 @@ describe("quota health presentation", () => {
   });
 
   it("keeps an invalid multiplier draft editable", () => {
-    const draft = { ...quotaDraft(fixtureQuota, 0, FIXTURE_NOW), mode: "daily" as const, windows: [{ id: "bad", day: 0, start: 540, end: 570, value: Number.NaN }] };
-    render(<QuotaEditor value={draft} onChange={vi.fn()} clock={{ offset: 0, zone: "UTC", now: FIXTURE_NOW }} />);
+    const draft = {
+      ...quotaDraft(fixtureQuota, 0, FIXTURE_NOW),
+      mode: "daily" as const,
+      windows: [{ id: "bad", day: 0, start: 540, end: 570, value: Number.NaN }],
+    };
+    render(
+      <QuotaEditor
+        value={draft}
+        onChange={vi.fn()}
+        clock={{ offset: 0, zone: "UTC", now: FIXTURE_NOW }}
+      />,
+    );
     expect(screen.getByRole("spinbutton", { name: "Token multiplier" })).toHaveValue(null);
   });
 });

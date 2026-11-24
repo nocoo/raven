@@ -1,42 +1,44 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
-import { getVSCodeVersion } from "../../../src/services/get-vscode-version"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+import { getVSCodeVersion } from "../../../src/services/get-vscode-version";
 import {
   CopilotEmbeddingsClient,
   defaultCopilotEmbeddingsConfig,
   type EmbeddingRequest,
-} from "../../../src/upstream/copilot-embeddings"
-import { getCopilotUsage } from "../../../src/services/github/get-copilot-usage"
-import { state } from "../../../src/lib/state"
+} from "../../../src/upstream/copilot-embeddings";
+import { getCopilotUsage } from "../../../src/services/github/get-copilot-usage";
+import { state } from "../../../src/lib/state";
 
 const createEmbeddings = async (payload: EmbeddingRequest) => {
-  const result = await new CopilotEmbeddingsClient(defaultCopilotEmbeddingsConfig()).send(payload)
-  return result as { model: string; data: unknown[] }
-}
+  const result = await new CopilotEmbeddingsClient(defaultCopilotEmbeddingsConfig()).send(payload);
+  return result as { model: string; data: unknown[] };
+};
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-const savedToken = state.copilotToken
-const savedGithubToken = state.githubToken
-let fetchSpy: ReturnType<typeof vi.spyOn>
+const savedToken = state.copilotToken;
+const savedGithubToken = state.githubToken;
+let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  state.copilotToken = "test-jwt"
-  state.githubToken = "test-github-token"
-  state.vsCodeVersion = "1.90.0"
-  state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected outbound HTTP request"))
-})
+  state.copilotToken = "test-jwt";
+  state.githubToken = "test-github-token";
+  state.vsCodeVersion = "1.90.0";
+  state.accountType = "individual";
+  fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected outbound HTTP request"));
+});
 
 afterEach(() => {
-  if (savedToken !== undefined) state.copilotToken = savedToken
-  else state.copilotToken = null
-  if (savedGithubToken !== undefined) state.githubToken = savedGithubToken
-  else state.githubToken = null
-  fetchSpy.mockRestore()
-  vi.useRealTimers()
-})
+  if (savedToken !== undefined) state.copilotToken = savedToken;
+  else state.copilotToken = null;
+  if (savedGithubToken !== undefined) state.githubToken = savedGithubToken;
+  else state.githubToken = null;
+  fetchSpy.mockRestore();
+  vi.useRealTimers();
+});
 
 // ===========================================================================
 // getVSCodeVersion
@@ -48,55 +50,53 @@ describe("getVSCodeVersion", () => {
       new Response("pkgname=visual-studio-code-bin\npkgver=1.96.2\npkgrel=1", {
         status: 200,
       }),
-    )
+    );
 
-    const version = await getVSCodeVersion()
-    expect(version).toBe("1.96.2")
-  })
+    const version = await getVSCodeVersion();
+    expect(version).toBe("1.96.2");
+  });
 
   test("returns fallback when no match found", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      new Response("no version here", { status: 200 }),
-    )
+    fetchSpy.mockResolvedValueOnce(new Response("no version here", { status: 200 }));
 
-    const version = await getVSCodeVersion()
-    expect(version).toBe("1.117.0")
-  })
+    const version = await getVSCodeVersion();
+    expect(version).toBe("1.117.0");
+  });
 
   test("returns fallback on fetch error", async () => {
-    fetchSpy.mockRejectedValueOnce(new Error("network error"))
+    fetchSpy.mockRejectedValueOnce(new Error("network error"));
 
-    const version = await getVSCodeVersion()
-    expect(version).toBe("1.117.0")
-  })
+    const version = await getVSCodeVersion();
+    expect(version).toBe("1.117.0");
+  });
 
   test("returns fallback on abort/timeout", async () => {
-    fetchSpy.mockRejectedValueOnce(new DOMException("aborted", "AbortError"))
+    fetchSpy.mockRejectedValueOnce(new DOMException("aborted", "AbortError"));
 
-    const version = await getVSCodeVersion()
-    expect(version).toBe("1.117.0")
-  })
+    const version = await getVSCodeVersion();
+    expect(version).toBe("1.117.0");
+  });
 
   test("aborts a stalled version lookup at five seconds and clears its timer", async () => {
-    vi.useFakeTimers()
-    let signal: AbortSignal | null | undefined
+    vi.useFakeTimers();
+    let signal: AbortSignal | null | undefined;
     fetchSpy.mockImplementationOnce((_input: string | URL | Request, init?: RequestInit) => {
-      signal = init?.signal
+      signal = init?.signal;
       return new Promise<Response>((_resolve, reject) => {
-        signal!.addEventListener("abort", () => reject(signal!.reason), { once: true })
-      })
-    })
+        signal!.addEventListener("abort", () => reject(signal!.reason), { once: true });
+      });
+    });
 
-    const lookup = getVSCodeVersion()
-    await vi.advanceTimersByTimeAsync(4999)
-    expect(signal?.aborted).toBe(false)
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-    await vi.advanceTimersByTimeAsync(1)
-    expect(signal?.aborted).toBe(true)
-    expect(await lookup).toBe("1.117.0")
-    expect(vi.getTimerCount()).toBe(0)
-  })
-})
+    const lookup = getVSCodeVersion();
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(signal?.aborted).toBe(false);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signal?.aborted).toBe(true);
+    expect(await lookup).toBe("1.117.0");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
 
 // ===========================================================================
 // createEmbeddings
@@ -109,39 +109,40 @@ describe("createEmbeddings", () => {
       data: [{ object: "embedding", embedding: [0.1, 0.2], index: 0 }],
       model: "text-embedding-ada-002",
       usage: { prompt_tokens: 5, total_tokens: 5 },
-    }
+    };
     fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify(mockResp), { status: 200, headers: { "content-type": "application/json" } }),
-    )
+      new Response(JSON.stringify(mockResp), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
 
-    const result = await createEmbeddings({ input: "test", model: "text-embedding-ada-002" })
-    expect(result.model).toBe("text-embedding-ada-002")
-    expect(result.data).toHaveLength(1)
-  })
+    const result = await createEmbeddings({ input: "test", model: "text-embedding-ada-002" });
+    expect(result.model).toBe("text-embedding-ada-002");
+    expect(result.data).toHaveLength(1);
+  });
 
   test("throws when copilotToken is missing", async () => {
-    state.copilotToken = null
+    state.copilotToken = null;
     try {
-      await createEmbeddings({ input: "test", model: "m" })
-      expect(true).toBe(false)
+      await createEmbeddings({ input: "test", model: "m" });
+      expect(true).toBe(false);
     } catch (err) {
-      expect((err as Error).message).toBe("Copilot token not found")
+      expect((err as Error).message).toBe("Copilot token not found");
     }
-  })
+  });
 
   test("throws HTTPError on non-ok response", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      new Response("error", { status: 400 }),
-    )
+    fetchSpy.mockResolvedValueOnce(new Response("error", { status: 400 }));
 
     try {
-      await createEmbeddings({ input: "test", model: "m" })
-      expect(true).toBe(false)
+      await createEmbeddings({ input: "test", model: "m" });
+      expect(true).toBe(false);
     } catch (err) {
-      expect((err as Error).message).toBe("Failed to create embeddings")
+      expect((err as Error).message).toBe("Failed to create embeddings");
     }
-  })
-})
+  });
+});
 
 // ===========================================================================
 // getCopilotUsage
@@ -153,25 +154,26 @@ describe("getCopilotUsage", () => {
       access_type_sku: "pro",
       copilot_plan: "pro",
       chat_enabled: true,
-    }
+    };
     fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify(mockResp), { status: 200, headers: { "content-type": "application/json" } }),
-    )
+      new Response(JSON.stringify(mockResp), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
 
-    const result = await getCopilotUsage()
-    expect(result.copilot_plan).toBe("pro")
-  })
+    const result = await getCopilotUsage();
+    expect(result.copilot_plan).toBe("pro");
+  });
 
   test("throws HTTPError on non-ok response", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      new Response("unauthorized", { status: 401 }),
-    )
+    fetchSpy.mockResolvedValueOnce(new Response("unauthorized", { status: 401 }));
 
     try {
-      await getCopilotUsage()
-      expect(true).toBe(false)
+      await getCopilotUsage();
+      expect(true).toBe(false);
     } catch (err) {
-      expect((err as Error).message).toBe("Failed to get Copilot usage")
+      expect((err as Error).message).toBe("Failed to get Copilot usage");
     }
-  })
-})
+  });
+});

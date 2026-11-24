@@ -36,9 +36,7 @@ function TimingTooltip({
     <div className={TOOLTIP_STYLES.container}>
       <p className={TOOLTIP_STYLES.title}>{d.model}</p>
       <p className={TOOLTIP_STYLES.value}>Duration: {fmtLatency(d.latencyMs)}</p>
-      {d.ttftMs !== null && (
-        <p className={TOOLTIP_STYLES.value}>TTFT: {fmtLatency(d.ttftMs)}</p>
-      )}
+      {d.ttftMs !== null && <p className={TOOLTIP_STYLES.value}>TTFT: {fmtLatency(d.ttftMs)}</p>}
       {d.processingMs !== null && (
         <p className={TOOLTIP_STYLES.value}>Processing: {fmtLatency(d.processingMs)}</p>
       )}
@@ -71,49 +69,53 @@ export function TimingChart({ data }: TimingChartProps) {
         </span>
       </LayerCard.Header>
       <LayerCard.Body>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.muted} strokeOpacity={0.3} />
-            <XAxis dataKey="index" {...AXIS_CONFIG} tick={false} />
-            <YAxis tickFormatter={(v: number) => fmtLatency(v)} {...AXIS_CONFIG} width={40} />
-            <Tooltip content={<TimingTooltip />} />
-            <Line
-              type="monotone"
-              dataKey="latencyMs"
-              name="Duration"
-              stroke={CHART_COLORS.warning}
-              strokeWidth={2}
-              dot={{ r: 2, fill: CHART_COLORS.warning }}
-              activeDot={{ r: 4 }}
-              {...ANIMATION_PROPS}
-            />
-            <Line
-              type="monotone"
-              dataKey="ttftMs"
-              name="TTFT"
-              stroke={getChartColor(1)}
-              strokeWidth={1.5}
-              dot={{ r: 1.5, fill: getChartColor(1) }}
-              activeDot={{ r: 3 }}
-              connectNulls
-              {...ANIMATION_PROPS}
-            />
-            <Line
-              type="monotone"
-              dataKey="processingMs"
-              name="Processing"
-              stroke={getChartColor(3)}
-              strokeWidth={1.5}
-              dot={{ r: 1.5, fill: getChartColor(3) }}
-              activeDot={{ r: 3 }}
-              connectNulls
-              strokeDasharray="4 2"
-              {...ANIMATION_PROPS}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+        <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
+          <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
+            <LineChart data={data}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={CHART_COLORS.muted}
+                strokeOpacity={0.3}
+              />
+              <XAxis dataKey="index" {...AXIS_CONFIG} tick={false} />
+              <YAxis tickFormatter={(v: number) => fmtLatency(v)} {...AXIS_CONFIG} width={40} />
+              <Tooltip content={<TimingTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="latencyMs"
+                name="Duration"
+                stroke={CHART_COLORS.warning}
+                strokeWidth={2}
+                dot={{ r: 2, fill: CHART_COLORS.warning }}
+                activeDot={{ r: 4 }}
+                {...ANIMATION_PROPS}
+              />
+              <Line
+                type="monotone"
+                dataKey="ttftMs"
+                name="TTFT"
+                stroke={getChartColor(1)}
+                strokeWidth={1.5}
+                dot={{ r: 1.5, fill: getChartColor(1) }}
+                activeDot={{ r: 3 }}
+                connectNulls
+                {...ANIMATION_PROPS}
+              />
+              <Line
+                type="monotone"
+                dataKey="processingMs"
+                name="Processing"
+                stroke={getChartColor(3)}
+                strokeWidth={1.5}
+                dot={{ r: 1.5, fill: getChartColor(3) }}
+                activeDot={{ r: 3 }}
+                connectNulls
+                strokeDasharray="4 2"
+                {...ANIMATION_PROPS}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </LayerCard.Body>
     </LayerCard>
   );

@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render as baseRender, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render as baseRender,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { TooltipProvider } from "@nocoo/basalt";
 import type { ReactNode } from "react";
 import { userEvent } from "@testing-library/user-event";
@@ -53,9 +60,7 @@ function makeConnectionInfo(): ConnectionInfo {
       embeddings: "/v1/embeddings",
     },
     models: ["claude-sonnet-4"],
-    model_list: [
-      { id: "claude-sonnet-4", owned_by: "anthropic" },
-    ],
+    model_list: [{ id: "claude-sonnet-4", owned_by: "anthropic" }],
   };
 }
 
@@ -76,7 +81,9 @@ let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockRefresh.mockClear();
-  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+  fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected fixture request"));
 });
 
 afterEach(() => {
@@ -89,7 +96,13 @@ afterEach(() => {
 
 describe("ApiKeysSection", () => {
   it("links each key name to its own statistics even when names match", () => {
-    render(<ConnectContent rules={fixtureRules} keys={[makeKey(), makeKey({ id: "key/2?source=client" })]} connectionInfo={makeConnectionInfo()} />);
+    render(
+      <ConnectContent
+        rules={fixtureRules}
+        keys={[makeKey(), makeKey({ id: "key/2?source=client" })]}
+        connectionInfo={makeConnectionInfo()}
+      />,
+    );
     const links = screen.getAllByRole("link", { name: "test-key" });
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute("href", "/keys?key_id=key-1");
@@ -97,7 +110,13 @@ describe("ApiKeysSection", () => {
   });
 
   it("groups icon-only IP access, activity and revoke actions with hover hints", async () => {
-    render(<ConnectContent rules={fixtureRules} keys={[makeKey()]} connectionInfo={makeConnectionInfo()} />);
+    render(
+      <ConnectContent
+        rules={fixtureRules}
+        keys={[makeKey()]}
+        connectionInfo={makeConnectionInfo()}
+      />,
+    );
     const access = screen.getByRole("button", { name: "IP access" });
     const revoke = screen.getByRole("button", { name: "Revoke" });
     const activity = screen.getByRole("link", { name: "IP activity" });
@@ -120,22 +139,40 @@ describe("ApiKeysSection", () => {
     fetchSpy.mockResolvedValueOnce(Response.json({ enabled: false, ranges: [] }));
     await user.click(access);
     expect(await screen.findByRole("dialog")).toHaveTextContent("IP access · test-key");
-    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith("/api/keys/key-1/ip-policy", undefined));
+    await waitFor(() =>
+      expect(fetchSpy).toHaveBeenCalledWith("/api/keys/key-1/ip-policy", undefined),
+    );
   });
 
   it("hydrates key dates in the browser timezone when the server day differs", async () => {
     const offset = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(0);
-    const ui = <TooltipProvider><ConnectContent rules={fixtureRules} keys={[makeKey({ created_at: Date.UTC(2026, 8, 22, 21), last_used_at: 0 })]} connectionInfo={makeConnectionInfo()} /></TooltipProvider>;
+    const ui = (
+      <TooltipProvider>
+        <ConnectContent
+          rules={fixtureRules}
+          keys={[makeKey({ created_at: Date.UTC(2026, 8, 22, 21), last_used_at: 0 })]}
+          connectionInfo={makeConnectionInfo()}
+        />
+      </TooltipProvider>
+    );
     const container = document.createElement("div");
     const errors = vi.fn();
     let root: Root | undefined;
     try {
       container.innerHTML = renderToString(ui);
-      expect([...container.querySelectorAll("time")].map(time => time.textContent)).toEqual(["—", "—"]);
+      expect([...container.querySelectorAll("time")].map((time) => time.textContent)).toEqual([
+        "—",
+        "—",
+      ]);
       document.body.append(container);
       offset.mockReturnValue(-480);
-      await act(async () => { root = hydrateRoot(container, ui, { onRecoverableError: errors }); });
-      expect([...container.querySelectorAll("time")].map(time => time.textContent)).toEqual(["2026-09-23", "1970-01-01"]);
+      await act(async () => {
+        root = hydrateRoot(container, ui, { onRecoverableError: errors });
+      });
+      expect([...container.querySelectorAll("time")].map((time) => time.textContent)).toEqual([
+        "2026-09-23",
+        "1970-01-01",
+      ]);
       expect(errors).not.toHaveBeenCalled();
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
@@ -154,7 +191,6 @@ describe("ApiKeysSection", () => {
           rules={fixtureRules}
           keys={[makeKey({ id: "key-abc" })]}
           connectionInfo={makeConnectionInfo()}
-          
         />,
       );
 
@@ -175,7 +211,6 @@ describe("ApiKeysSection", () => {
           rules={fixtureRules}
           keys={[makeKey()]}
           connectionInfo={makeConnectionInfo()}
-          
         />,
       );
 
@@ -196,7 +231,6 @@ describe("ApiKeysSection", () => {
           rules={fixtureRules}
           keys={[makeKey()]}
           connectionInfo={makeConnectionInfo()}
-          
         />,
       );
 
@@ -220,7 +254,6 @@ describe("ApiKeysSection", () => {
           rules={fixtureRules}
           keys={[makeKey({ id: "key-xyz", revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
-          
         />,
       );
 
@@ -241,7 +274,6 @@ describe("ApiKeysSection", () => {
           rules={fixtureRules}
           keys={[makeKey({ revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
-          
         />,
       );
 
@@ -262,7 +294,6 @@ describe("ApiKeysSection", () => {
           rules={fixtureRules}
           keys={[makeKey({ revoked_at: 1704153600000 })]}
           connectionInfo={makeConnectionInfo()}
-          
         />,
       );
 
@@ -284,15 +315,27 @@ describe("ApiKeysSection", () => {
 
 describe("CreateKeyDialog", () => {
   it("shows each key binding and creates a key with the chosen non-default rule", async () => {
-    render(<ConnectContent rules={fixtureRules} keys={[makeKey()]} connectionInfo={makeConnectionInfo()} />);
-    expect(screen.getByRole("button", { name: "Change rule for test-key" })).toHaveTextContent("GitHub Copilot");
+    render(
+      <ConnectContent
+        rules={fixtureRules}
+        keys={[makeKey()]}
+        connectionInfo={makeConnectionInfo()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Change rule for test-key" })).toHaveTextContent(
+      "GitHub Copilot",
+    );
     const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("button", { name: "Create Key" }));
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Research laptop");
     await selectOption("Routing rule", "Working hours");
     fetchSpy.mockResolvedValueOnce(Response.json({ id: "new:key", key: "rk-fixture-once" }));
     await user.click(screen.getByRole("button", { name: "Create" }));
-    expect(fetchSpy).toHaveBeenCalledExactlyOnceWith("/api/keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Research laptop", rule_id: "rule:working-hours" }) });
+    expect(fetchSpy).toHaveBeenCalledExactlyOnceWith("/api/keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Research laptop", rule_id: "rule:working-hours" }),
+    });
     expect(screen.getByText("rk-fixture-once")).toBeVisible();
   });
 
@@ -307,12 +350,7 @@ describe("CreateKeyDialog", () => {
 
   function renderWithDialog() {
     return render(
-      <ConnectContent
-          rules={fixtureRules}
-        keys={[]}
-        connectionInfo={makeConnectionInfo()}
-        
-      />,
+      <ConnectContent rules={fixtureRules} keys={[]} connectionInfo={makeConnectionInfo()} />,
     );
   }
 
@@ -452,8 +490,12 @@ describe("routing-aware connection examples", () => {
     render(<ConnectContent rules={fixtureRules} keys={[]} connectionInfo={makeConnectionInfo()} />);
     const user = userEvent.setup({ delay: null });
     await user.click(screen.getByRole("tab", { name: "Code" }));
-    const endpoints = screen.getByRole("heading", { name: "Endpoints" }).closest<HTMLElement>("[data-basalt-surface]")!;
-    const examples = screen.getByRole("heading", { name: "Code examples" }).closest<HTMLElement>("[data-basalt-surface]")!;
+    const endpoints = screen
+      .getByRole("heading", { name: "Endpoints" })
+      .closest<HTMLElement>("[data-basalt-surface]")!;
+    const examples = screen
+      .getByRole("heading", { name: "Code examples" })
+      .closest<HTMLElement>("[data-basalt-surface]")!;
     expect(endpoints.parentElement).toBe(examples.parentElement);
     expect(endpoints.querySelectorAll("[data-basalt-surface]")).toHaveLength(0);
     expect(within(examples).getByRole("combobox", { name: "Model selection" })).toBeVisible();
@@ -471,19 +513,31 @@ describe("routing-aware connection examples", () => {
     await user.click(screen.getByRole("tab", { name: "Code" }));
     expect(screen.queryByText(/Embeddings currently require/)).toBeNull();
     await user.click(screen.getByRole("button", { name: "Routing and protocol details" }));
-    expect(screen.getByText(/same upstream selection/)).toHaveTextContent("Errors stop on that upstream");
-    expect(screen.getByText(/Embeddings currently require/)).toHaveTextContent("cached embedding capability");
+    expect(screen.getByText(/same upstream selection/)).toHaveTextContent(
+      "Errors stop on that upstream",
+    );
+    expect(screen.getByText(/Embeddings currently require/)).toHaveTextContent(
+      "cached embedding capability",
+    );
     expect(screen.getByText("http://localhost:7024/v1/responses")).toBeVisible();
     const curl = () => within(screen.getByRole("tabpanel", { name: "curl" })).getByRole("code");
     expect(curl()).toHaveTextContent('"model": "auto"');
     await selectOption("Model selection", "Explicit · preserve model ID");
-    fireEvent.change(screen.getByRole("textbox", { name: "Explicit model ID" }), { target: { value: "vendor/it's-model" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Explicit model ID" }), {
+      target: { value: "vendor/it's-model" },
+    });
     expect(curl()).toHaveTextContent('"model": "vendor/it\'\\\'\'s-model"');
     await user.click(screen.getByRole("tab", { name: "Python" }));
-    expect(screen.getByRole("tabpanel", { name: "Python" })).toHaveTextContent('model="vendor/it\'s-model"');
+    expect(screen.getByRole("tabpanel", { name: "Python" })).toHaveTextContent(
+      'model="vendor/it\'s-model"',
+    );
     await user.click(screen.getByRole("tab", { name: "TypeScript" }));
-    expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent('model: "vendor/it\'s-model"');
-    expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent('baseURL: "http://localhost:7024"');
+    expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent(
+      'model: "vendor/it\'s-model"',
+    );
+    expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent(
+      'baseURL: "http://localhost:7024"',
+    );
     await selectOption("Model selection", "auto · configured target model");
     expect(screen.queryByRole("textbox", { name: "Explicit model ID" })).toBeNull();
     expect(screen.getByRole("tabpanel", { name: "TypeScript" })).toHaveTextContent('model: "auto"');

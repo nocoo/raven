@@ -1,8 +1,17 @@
 import { describe, expect, test, afterAll } from "bun:test";
-import { translateToOpenAI, translateToAnthropic } from "../../src/protocols/translate/non-stream-translation.ts";
+import {
+  translateToOpenAI,
+  translateToAnthropic,
+} from "../../src/protocols/translate/non-stream-translation.ts";
 import { translateChunkToAnthropicEvents } from "../../src/protocols/translate/stream-translation.ts";
-import type { AnthropicMessagesPayload, AnthropicStreamState } from "../../src/protocols/anthropic/types.ts";
-import type { ChatCompletionResponse, ChatCompletionChunk } from "../../src/upstream/copilot-openai.ts";
+import type {
+  AnthropicMessagesPayload,
+  AnthropicStreamState,
+} from "../../src/protocols/anthropic/types.ts";
+import type {
+  ChatCompletionResponse,
+  ChatCompletionChunk,
+} from "../../src/upstream/copilot-openai.ts";
 
 // Metrics collector for autoresearch (per-operation latency in nanoseconds)
 const metrics: Record<string, number> = {};
@@ -86,8 +95,7 @@ function makeComplexRequest(): AnthropicMessagesPayload {
       },
       {
         role: "assistant",
-        content:
-          "The weather in San Francisco is 18°C and partly cloudy.",
+        content: "The weather in San Francisco is 18°C and partly cloudy.",
       },
       {
         role: "user",
@@ -159,8 +167,7 @@ function makeComplexResponse(): ChatCompletionResponse {
               type: "function",
               function: {
                 name: "get_weather",
-                arguments:
-                  '{"city":"San Francisco","units":"celsius"}',
+                arguments: '{"city":"San Francisco","units":"celsius"}',
               },
             },
             {
@@ -317,7 +324,14 @@ function makeStreamChunks(): ChatCompletionChunk[] {
     created: 1700000000,
     model: "claude-sonnet-4",
     system_fingerprint: null,
-    choices: [{ index: 0, delta: { content: null, role: null, tool_calls: [] }, finish_reason: "tool_calls", logprobs: null }],
+    choices: [
+      {
+        index: 0,
+        delta: { content: null, role: null, tool_calls: [] },
+        finish_reason: "tool_calls",
+        logprobs: null,
+      },
+    ],
     usage: {
       prompt_tokens: 100,
       completion_tokens: 200,

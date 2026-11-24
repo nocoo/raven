@@ -31,14 +31,7 @@ export function Sparkline({ data }: SparklineProps) {
   ].join(" ");
 
   return (
-    <svg
-      width={w}
-      height={h}
-      viewBox={`0 0 ${w} ${h}`}
-      className="shrink-0"
-      role="img"
-      aria-hidden
-    >
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="shrink-0" role="img" aria-hidden>
       <title>Sparkline</title>
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

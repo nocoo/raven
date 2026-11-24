@@ -1,8 +1,5 @@
 "use client";
 
-
-
-
 import { formatLatency } from "@/lib/chart-config";
 import { cn } from "@/lib/utils";
 import type { ExtendedRequestRecord } from "@/lib/types";
@@ -15,7 +12,13 @@ import { useCallback } from "react";
 import { useAppPathname, useAppSearchParams } from "@/lib/app-navigation";
 import { ArrowUpDown, ChevronLeft, ChevronRight } from "@nocoo/basalt/icons";
 import {
-  Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@nocoo/basalt/components/table";
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@nocoo/basalt/components/table";
 
 interface RequestTableProps {
   data: ExtendedRequestRecord[];
@@ -65,7 +68,14 @@ function SortButton({
 }
 
 const DEFAULT_VISIBLE = new Set([
-  "timestamp", "model", "status", "latency_ms", "ttft_ms", "tokens", "protocol_mode", "account_name",
+  "timestamp",
+  "model",
+  "status",
+  "latency_ms",
+  "ttft_ms",
+  "tokens",
+  "protocol_mode",
+  "account_name",
 ]);
 
 export function RequestTable({
@@ -154,9 +164,10 @@ export function RequestTable({
     pushUrl(params);
   }, [searchParams, currentSort, pushUrl]);
 
-  const canGoPrev = currentSort === "timestamp"
-    ? searchParams.has("cursor")
-    : parseInt(searchParams.get("offset") ?? "0", 10) > 0;
+  const canGoPrev =
+    currentSort === "timestamp"
+      ? searchParams.has("cursor")
+      : parseInt(searchParams.get("offset") ?? "0", 10) > 0;
 
   function getAriaSort(column: SortColumn): "ascending" | "descending" | "none" {
     if (currentSort !== column) return "none";
@@ -173,47 +184,148 @@ export function RequestTable({
             <TableHeader>
               <TableRow className="border-basalt-border hover:bg-transparent">
                 {isVisible("timestamp") && (
-                  <TableHead aria-sort={getAriaSort("timestamp")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="timestamp" currentSort={currentSort} onToggle={toggleSort}>Time</SortButton>
+                  <TableHead
+                    aria-sort={getAriaSort("timestamp")}
+                    className="px-3 py-2.5 h-auto text-card-label font-medium"
+                  >
+                    <SortButton column="timestamp" currentSort={currentSort} onToggle={toggleSort}>
+                      Time
+                    </SortButton>
                   </TableHead>
                 )}
-                {isVisible("model") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Model</TableHead>}
-                {isVisible("path") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Path</TableHead>}
-                {isVisible("client_format") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Format</TableHead>}
-                {isVisible("status") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Status</TableHead>}
+                {isVisible("model") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Model
+                  </TableHead>
+                )}
+                {isVisible("path") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Path
+                  </TableHead>
+                )}
+                {isVisible("client_format") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Format
+                  </TableHead>
+                )}
+                {isVisible("status") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Status
+                  </TableHead>
+                )}
                 {isVisible("latency_ms") && (
-                  <TableHead aria-sort={getAriaSort("latency_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="latency_ms" currentSort={currentSort} onToggle={toggleSort}>Latency</SortButton>
+                  <TableHead
+                    aria-sort={getAriaSort("latency_ms")}
+                    className="px-3 py-2.5 h-auto text-card-label font-medium"
+                  >
+                    <SortButton column="latency_ms" currentSort={currentSort} onToggle={toggleSort}>
+                      Latency
+                    </SortButton>
                   </TableHead>
                 )}
                 {isVisible("ttft_ms") && (
-                  <TableHead aria-sort={getAriaSort("ttft_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="ttft_ms" currentSort={currentSort} onToggle={toggleSort}>TTFT</SortButton>
+                  <TableHead
+                    aria-sort={getAriaSort("ttft_ms")}
+                    className="px-3 py-2.5 h-auto text-card-label font-medium"
+                  >
+                    <SortButton column="ttft_ms" currentSort={currentSort} onToggle={toggleSort}>
+                      TTFT
+                    </SortButton>
                   </TableHead>
                 )}
                 {isVisible("processing_ms") && (
-                  <TableHead aria-sort={getAriaSort("processing_ms")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="processing_ms" currentSort={currentSort} onToggle={toggleSort}>Processing</SortButton>
+                  <TableHead
+                    aria-sort={getAriaSort("processing_ms")}
+                    className="px-3 py-2.5 h-auto text-card-label font-medium"
+                  >
+                    <SortButton
+                      column="processing_ms"
+                      currentSort={currentSort}
+                      onToggle={toggleSort}
+                    >
+                      Processing
+                    </SortButton>
                   </TableHead>
                 )}
                 {isVisible("tokens") && (
-                  <TableHead aria-sort={getAriaSort("total_tokens")} className="px-3 py-2.5 h-auto text-card-label font-medium">
-                    <SortButton column="total_tokens" currentSort={currentSort} onToggle={toggleSort}>Tokens (in/out)</SortButton>
+                  <TableHead
+                    aria-sort={getAriaSort("total_tokens")}
+                    className="px-3 py-2.5 h-auto text-card-label font-medium"
+                  >
+                    <SortButton
+                      column="total_tokens"
+                      currentSort={currentSort}
+                      onToggle={toggleSort}
+                    >
+                      Tokens (in/out)
+                    </SortButton>
                   </TableHead>
                 )}
-                {isVisible("stream") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Stream</TableHead>}
-                {isVisible("strategy") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Strategy</TableHead>}
-                {isVisible("upstream") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Upstream</TableHead>}
-                {isVisible("protocol_mode") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Protocol</TableHead>}
-                {isVisible("account_name") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">API Key</TableHead>}
-                {isVisible("client_name") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Client</TableHead>}
-                {isVisible("session_id") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Session</TableHead>}
-                {isVisible("status_code") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Code</TableHead>}
-                {isVisible("stop_reason") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Stop Reason</TableHead>}
-                {isVisible("tool_call_count") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Tools</TableHead>}
-                {isVisible("routing_path") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Routing</TableHead>}
-                {isVisible("translated_model") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Translated</TableHead>}
-                {isVisible("error_message") && <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">Error</TableHead>}
+                {isVisible("stream") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Stream
+                  </TableHead>
+                )}
+                {isVisible("strategy") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Strategy
+                  </TableHead>
+                )}
+                {isVisible("upstream") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Upstream
+                  </TableHead>
+                )}
+                {isVisible("protocol_mode") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Protocol
+                  </TableHead>
+                )}
+                {isVisible("account_name") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    API Key
+                  </TableHead>
+                )}
+                {isVisible("client_name") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Client
+                  </TableHead>
+                )}
+                {isVisible("session_id") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Session
+                  </TableHead>
+                )}
+                {isVisible("status_code") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Code
+                  </TableHead>
+                )}
+                {isVisible("stop_reason") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Stop Reason
+                  </TableHead>
+                )}
+                {isVisible("tool_call_count") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Tools
+                  </TableHead>
+                )}
+                {isVisible("routing_path") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Routing
+                  </TableHead>
+                )}
+                {isVisible("translated_model") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Translated
+                  </TableHead>
+                )}
+                {isVisible("error_message") && (
+                  <TableHead className="px-3 py-2.5 h-auto text-card-label font-medium">
+                    Error
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -238,7 +350,14 @@ export function RequestTable({
                   >
                     {isVisible("timestamp") && (
                       <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground tabular-nums whitespace-nowrap">
-                        <Button variant="ghost" size="sm" className="h-auto p-0 text-xs" aria-label={`Inspect request ${req.id}`}><LocalTime timestamp={req.timestamp} precision="second" /></Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-auto p-0 text-xs"
+                          aria-label={`Inspect request ${req.id}`}
+                        >
+                          <LocalTime timestamp={req.timestamp} precision="second" />
+                        </Button>
                       </TableCell>
                     )}
                     {isVisible("model") && (
@@ -261,8 +380,18 @@ export function RequestTable({
                     {isVisible("status") && (
                       <TableCell className="px-3 py-2.5">
                         <Badge
-                          tone={req.status === "success" ? "success" : req.status === "cancelled" ? "neutral" : "danger"}
-                          variant={req.status !== "success" && req.status !== "cancelled" ? "solid" : "soft"}
+                          tone={
+                            req.status === "success"
+                              ? "success"
+                              : req.status === "cancelled"
+                                ? "neutral"
+                                : "danger"
+                          }
+                          variant={
+                            req.status !== "success" && req.status !== "cancelled"
+                              ? "solid"
+                              : "soft"
+                          }
                           className="text-xs"
                         >
                           {req.status}
@@ -295,17 +424,48 @@ export function RequestTable({
                       </TableCell>
                     )}
                     {isVisible("strategy") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.strategy || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">
+                        {req.strategy || "—"}
+                      </TableCell>
                     )}
                     {isVisible("upstream") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.upstream || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">
+                        {req.upstream || "—"}
+                      </TableCell>
                     )}
-                    {isVisible("protocol_mode") && <TableCell className="px-3 py-2.5"><Badge tone={req.protocol_mode === "native" ? "success" : req.protocol_mode === "translated" ? "warning" : "neutral"} className="text-xs">{protocolLabel(req.protocol_mode)}</Badge></TableCell>}
+                    {isVisible("protocol_mode") && (
+                      <TableCell className="px-3 py-2.5">
+                        <Badge
+                          tone={
+                            req.protocol_mode === "native"
+                              ? "success"
+                              : req.protocol_mode === "translated"
+                                ? "warning"
+                                : "neutral"
+                          }
+                          className="text-xs"
+                        >
+                          {protocolLabel(req.protocol_mode)}
+                        </Badge>
+                      </TableCell>
+                    )}
                     {isVisible("account_name") && (
-                      <TableCell className="max-w-44 px-3 py-2.5 text-xs"><IdentityHint identity={keyIdentity(req.key_id)}><Button variant="ghost" size="sm" className="h-auto max-w-full justify-start p-0 text-xs font-normal"><span className="truncate">{req.account_name || "Unattributed"}</span></Button></IdentityHint></TableCell>
+                      <TableCell className="max-w-44 px-3 py-2.5 text-xs">
+                        <IdentityHint identity={keyIdentity(req.key_id)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto max-w-full justify-start p-0 text-xs font-normal"
+                          >
+                            <span className="truncate">{req.account_name || "Unattributed"}</span>
+                          </Button>
+                        </IdentityHint>
+                      </TableCell>
                     )}
                     {isVisible("client_name") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.client_name || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">
+                        {req.client_name || "—"}
+                      </TableCell>
                     )}
                     {isVisible("session_id") && (
                       <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground max-w-[100px] truncate">
@@ -313,10 +473,14 @@ export function RequestTable({
                       </TableCell>
                     )}
                     {isVisible("status_code") && (
-                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">{req.status_code}</TableCell>
+                      <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">
+                        {req.status_code}
+                      </TableCell>
                     )}
                     {isVisible("stop_reason") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.stop_reason || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">
+                        {req.stop_reason || "—"}
+                      </TableCell>
                     )}
                     {isVisible("tool_call_count") && (
                       <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground tabular-nums">
@@ -324,7 +488,9 @@ export function RequestTable({
                       </TableCell>
                     )}
                     {isVisible("routing_path") && (
-                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">{req.routing_path || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 text-xs text-basalt-muted-foreground">
+                        {req.routing_path || "—"}
+                      </TableCell>
                     )}
                     {isVisible("translated_model") && (
                       <TableCell className="px-3 py-2.5 font-mono text-xs text-basalt-muted-foreground max-w-[120px] truncate">

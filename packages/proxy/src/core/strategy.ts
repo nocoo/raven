@@ -5,9 +5,9 @@
 // packages/proxy/src/composition/.
 // ---------------------------------------------------------------------------
 
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { RequestContext } from "./context"
+import type { RequestContext } from "./context";
 
 export type StrategyName =
   | "copilot-native"
@@ -20,7 +20,7 @@ export type StrategyName =
   | "copilot-chat-via-responses"
   | "custom-openai"
   | "custom-anthropic"
-  | "protocol-converted"
+  | "protocol-converted";
 
 /**
  * Enumerated runtime list of every legal `StrategyName`. Mirrors the
@@ -40,10 +40,10 @@ export const STRATEGY_NAMES = [
   "custom-openai",
   "custom-anthropic",
   "protocol-converted",
-] as const satisfies readonly StrategyName[]
+] as const satisfies readonly StrategyName[];
 
 export function isStrategyName(value: string): value is StrategyName {
-  return (STRATEGY_NAMES as readonly string[]).includes(value)
+  return (STRATEGY_NAMES as readonly string[]).includes(value);
 }
 
 /**
@@ -52,7 +52,7 @@ export function isStrategyName(value: string): value is StrategyName {
  */
 export type DispatchResult<UpResp, ChunkIn> =
   | { kind: "json"; body: UpResp }
-  | { kind: "stream"; chunks: AsyncIterable<ChunkIn> }
+  | { kind: "stream"; chunks: AsyncIterable<ChunkIn> };
 
 /**
  * End-log discriminator passed to `describeEndLog`. Mirrors the dispatch
@@ -67,7 +67,7 @@ export type DispatchResult<UpResp, ChunkIn> =
 export type EndLogResult<UpReq, UpResp, StreamState> =
   | { kind: "json"; req: UpReq; resp: UpResp }
   | { kind: "stream"; req: UpReq; state: StreamState }
-  | { kind: "error"; req: UpReq; err: unknown }
+  | { kind: "error"; req: UpReq; err: unknown };
 
 export interface Strategy<
   ClientReq,
@@ -78,54 +78,43 @@ export interface Strategy<
   EventOut extends SSEMessage,
   StreamState,
 > {
-  name: StrategyName
+  name: StrategyName;
 
   /** Pure: build the exact payload the upstream will see. */
-  prepare(req: ClientReq, ctx: RequestContext): UpstreamReq
+  prepare(req: ClientReq, ctx: RequestContext): UpstreamReq;
 
   /** Side-effecting: call the upstream via UpstreamClient. */
-  dispatch(
-    up: UpstreamReq,
-    ctx: RequestContext,
-  ): Promise<DispatchResult<UpstreamResp, ChunkIn>>
+  dispatch(up: UpstreamReq, ctx: RequestContext): Promise<DispatchResult<UpstreamResp, ChunkIn>>;
 
   /** Pure: convert one upstream JSON response to the client shape. */
-  adaptJson(resp: UpstreamResp, req: UpstreamReq, ctx: RequestContext): ClientResp
+  adaptJson(resp: UpstreamResp, req: UpstreamReq, ctx: RequestContext): ClientResp;
 
-  jsonOutcome?(resp: UpstreamResp): "success" | "error"
+  jsonOutcome?(resp: UpstreamResp): "success" | "error";
 
   /** Pure: convert one upstream chunk to zero or more client events. */
-  adaptChunk(
-    chunk: ChunkIn,
-    state: StreamState,
-    ctx: RequestContext,
-  ): EventOut[]
+  adaptChunk(chunk: ChunkIn, state: StreamState, ctx: RequestContext): EventOut[];
 
   /** Pure: produce protocol-correct terminal event(s) for a mid-flight error. */
-  adaptStreamError(
-    err: unknown,
-    state: StreamState,
-    ctx: RequestContext,
-  ): EventOut[]
+  adaptStreamError(err: unknown, state: StreamState, ctx: RequestContext): EventOut[];
 
   /** Pure: produce strategy-specific fields for the Runner's request_end log. */
   describeEndLog(
     result: EndLogResult<UpstreamReq, UpstreamResp, StreamState>,
     ctx: RequestContext,
-  ): Record<string, unknown>
+  ): Record<string, unknown>;
 
   /** Factory for per-request stream state (resolvedModel, usage, accumulators). */
-  initStreamState(req: UpstreamReq, ctx: RequestContext): StreamState
+  initStreamState(req: UpstreamReq, ctx: RequestContext): StreamState;
 
   /**
    * Optional: emit terminal events after a normal upstream stream ends.
    * Runner calls this only after the for-await loop completes without error.
    */
-  finalizeStream?(state: StreamState, ctx: RequestContext): EventOut[]
+  finalizeStream?(state: StreamState, ctx: RequestContext): EventOut[];
 
   /** Sticky outcome of forwarded inline events; an error has already reached the client. */
-  streamOutcome?(state: StreamState): "success" | "error"
+  streamOutcome?(state: StreamState): "success" | "error";
 
   /** True only at the upstream protocol terminator, after any usage trailer. */
-  isStreamTerminal?(chunk: ChunkIn, state: StreamState): boolean
+  isStreamTerminal?(chunk: ChunkIn, state: StreamState): boolean;
 }

@@ -19,9 +19,9 @@
  */
 
 export interface Task {
-  name: string
-  gate: string
-  cmd: string[]
+  name: string;
+  gate: string;
+  cmd: string[];
 }
 
 /** Exported for unit tests — must stay aligned with CI coverage job. */
@@ -32,49 +32,49 @@ export const tasks: Task[] = [
   { name: "coverage", gate: "L1", cmd: ["bun", "run", "gate:coverage"] },
   { name: "arch", gate: "G1", cmd: ["bun", "run", "gate:arch"] },
   { name: "lint", gate: "G1", cmd: ["bun", "run", "lint"] },
-]
+];
 
 async function runTask(task: Task): Promise<{ task: Task; ok: boolean; output: string }> {
   try {
-    const proc = Bun.spawn(task.cmd, { stdout: "pipe", stderr: "pipe" })
+    const proc = Bun.spawn(task.cmd, { stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
-    ])
-    const exitCode = await proc.exited
-    return { task, ok: exitCode === 0, output: stdout + stderr }
+    ]);
+    const exitCode = await proc.exited;
+    return { task, ok: exitCode === 0, output: stdout + stderr };
   } catch (err) {
-    return { task, ok: false, output: String(err) }
+    return { task, ok: false, output: String(err) };
   }
 }
 
 async function main(): Promise<void> {
-  const start = performance.now()
-  console.log("🚀 Pre-push (parallel)\n")
+  const start = performance.now();
+  console.log("🚀 Pre-push (parallel)\n");
 
-  const results = await Promise.all(tasks.map(runTask))
-  const elapsed = ((performance.now() - start) / 1000).toFixed(1)
+  const results = await Promise.all(tasks.map(runTask));
+  const elapsed = ((performance.now() - start) / 1000).toFixed(1);
 
-  const failed: string[] = []
+  const failed: string[] = [];
   for (const r of results) {
-    const icon = r.ok ? "✅" : "❌"
-    console.log(`${icon} [${r.task.gate}] ${r.task.name}`)
+    const icon = r.ok ? "✅" : "❌";
+    console.log(`${icon} [${r.task.gate}] ${r.task.name}`);
     if (!r.ok) {
-      console.log(r.output)
-      failed.push(r.task.name)
+      console.log(r.output);
+      failed.push(r.task.name);
     }
   }
 
-  console.log(`\n⏱  ${elapsed}s`)
+  console.log(`\n⏱  ${elapsed}s`);
 
   if (failed.length > 0) {
-    console.log(`\n❌ Failed: ${failed.join(", ")}`)
-    process.exit(1)
+    console.log(`\n❌ Failed: ${failed.join(", ")}`);
+    process.exit(1);
   }
 
-  console.log(`\n✅ All gates passed`)
+  console.log(`\n✅ All gates passed`);
 }
 
 if (import.meta.main) {
-  main()
+  main();
 }

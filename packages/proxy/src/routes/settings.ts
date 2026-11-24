@@ -1,9 +1,18 @@
 import { Hono } from "hono";
 import type { Database } from "bun:sqlite";
 import { getSetting, setSetting, deleteSetting } from "../db/settings";
-import { cacheVersions, cacheOptimizations, cacheServerTools, cacheCorsSettings } from "../lib/utils";
+import {
+  cacheVersions,
+  cacheOptimizations,
+  cacheServerTools,
+  cacheCorsSettings,
+} from "../lib/utils";
 import { state } from "../lib/state";
-import { parseRetentionDays, RETENTION_SETTING, type RetentionDays } from "../core/history-retention";
+import {
+  parseRetentionDays,
+  RETENTION_SETTING,
+  type RetentionDays,
+} from "../core/history-retention";
 import { getRetentionDays } from "../db/history-retention";
 
 // ---------------------------------------------------------------------------
@@ -21,14 +30,10 @@ const OPTIMIZATION_KEYS = [
 ] as const;
 
 /** Server tool setting keys. */
-const SERVER_TOOL_KEYS = [
-  "st_web_search_enabled",
-  "st_web_search_api_key",
-] as const;
+const SERVER_TOOL_KEYS = ["st_web_search_enabled", "st_web_search_api_key"] as const;
 
 /** Server tool boolean keys (for validation). */
 const SERVER_TOOL_BOOLEAN_KEYS = ["st_web_search_enabled"] as const;
-
 
 /** CORS setting keys. */
 const CORS_KEYS = ["cors_enabled", "cors_allowed_origins"] as const;
@@ -42,7 +47,13 @@ type ServerToolKey = (typeof SERVER_TOOL_KEYS)[number];
 type CorsKey = (typeof CORS_KEYS)[number];
 
 /** All known setting keys accepted by the API. */
-const KNOWN_KEYS = [...VERSION_KEYS, ...OPTIMIZATION_KEYS, ...SERVER_TOOL_KEYS, ...CORS_KEYS, RETENTION_SETTING] as const;
+const KNOWN_KEYS = [
+  ...VERSION_KEYS,
+  ...OPTIMIZATION_KEYS,
+  ...SERVER_TOOL_KEYS,
+  ...CORS_KEYS,
+  RETENTION_SETTING,
+] as const;
 type SettingKey = (typeof KNOWN_KEYS)[number];
 
 function isKnownKey(key: string): key is SettingKey {
@@ -64,8 +75,6 @@ function isServerToolKey(key: string): key is ServerToolKey {
 function isServerToolBooleanKey(key: string): key is ServerToolKey {
   return (SERVER_TOOL_BOOLEAN_KEYS as readonly string[]).includes(key);
 }
-
-
 
 function isCorsKey(key: string): key is CorsKey {
   return (CORS_KEYS as readonly string[]).includes(key);
@@ -180,7 +189,7 @@ function getSettingsSnapshot(db: Database): SettingsSnapshot {
     },
     ip_whitelist: {
       enabled: state.ipWhitelistEnabled,
-      trusted_proxies: state.trustedProxyRanges.map(rule => rule.original),
+      trusted_proxies: state.trustedProxyRanges.map((rule) => rule.original),
       ranges: state.ipWhitelistRanges.map((r) => r.original),
     },
     cors: {
@@ -212,10 +221,7 @@ export function createSettingsRoute(db: Database): Hono {
     const { key, value } = body;
 
     if (!key || typeof key !== "string") {
-      return c.json(
-        { error: { type: "validation_error", message: "key is required" } },
-        400,
-      );
+      return c.json({ error: { type: "validation_error", message: "key is required" } }, 400);
     }
     if (!isKnownKey(key)) {
       return c.json(
@@ -229,19 +235,20 @@ export function createSettingsRoute(db: Database): Hono {
       );
     }
     if (!value || typeof value !== "string") {
-      return c.json(
-        { error: { type: "validation_error", message: "value is required" } },
-        400,
-      );
+      return c.json({ error: { type: "validation_error", message: "value is required" } }, 400);
     }
 
     const trimmed = value.trim();
 
     // Validate based on key type
     if (key === RETENTION_SETTING) {
-      try { parseRetentionDays(trimmed); }
-      catch (error) {
-        return c.json({ error: { type: "validation_error", message: (error as Error).message } }, 400);
+      try {
+        parseRetentionDays(trimmed);
+      } catch (error) {
+        return c.json(
+          { error: { type: "validation_error", message: (error as Error).message } },
+          400,
+        );
       }
     } else if (isVersionKey(key)) {
       if (!isValidVersion(trimmed)) {
@@ -354,7 +361,6 @@ export function createSettingsRoute(db: Database): Hono {
       await cacheVersions(db);
     } else if (isServerToolKey(key)) {
       cacheServerTools(db);
-
     } else if (isCorsKey(key)) {
       cacheCorsSettings(db);
     } else if (isOptimizationKey(key)) {
@@ -385,7 +391,6 @@ export function createSettingsRoute(db: Database): Hono {
       await cacheVersions(db);
     } else if (isServerToolKey(key)) {
       cacheServerTools(db);
-
     } else if (isCorsKey(key)) {
       cacheCorsSettings(db);
     } else if (isOptimizationKey(key)) {

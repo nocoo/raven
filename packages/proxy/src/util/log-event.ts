@@ -12,18 +12,18 @@ export const LEVEL_ORDER: Record<LogLevel, number> = {
 };
 
 export type LogEventType =
-  | "system"          // init, token refresh, config change
-  | "request_start"   // request enters proxy
-  | "request_end"     // request complete (status, latency, token usage)
-  | "sse_chunk"       // upstream SSE chunk (translated or passthrough)
+  | "system" // init, token refresh, config change
+  | "request_start" // request enters proxy
+  | "request_end" // request complete (status, latency, token usage)
+  | "sse_chunk" // upstream SSE chunk (translated or passthrough)
   | "upstream_raw_sse" // raw SSE event from upstream (pre-translation)
   | "upstream_error"; // upstream non-2xx or network error
 
 export interface LogEvent {
-  ts: number;            // Date.now(), unix ms
+  ts: number; // Date.now(), unix ms
   level: LogLevel;
   type: LogEventType;
-  requestId: string | null;    // correlates all events for one request
-  msg: string;           // human-readable summary
+  requestId: string | null; // correlates all events for one request
+  msg: string; // human-readable summary
   data?: Record<string, unknown> | null;
 }

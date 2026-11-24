@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  LinkProvider,
-  ThemeProvider,
-  Toaster,
-  TooltipProvider,
-} from "@nocoo/basalt";
+import { LinkProvider, ThemeProvider, Toaster, TooltipProvider } from "@nocoo/basalt";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AuthProvider } from "@/components/auth-provider";

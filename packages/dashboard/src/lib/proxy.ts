@@ -6,8 +6,6 @@ import { apiErrorDetail, type ApiErrorDetail } from "./routing-client";
  * Dashboard Route Handlers use these to forward requests to the proxy server.
  */
 
-
-
 export class ProxyError extends Error {
   constructor(
     message: string,
@@ -22,18 +20,13 @@ export class ProxyError extends Error {
 /**
  * Result type for data fetching — explicitly distinguishes success from failure.
  */
-export type FetchResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+export type FetchResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 /**
  * Typed fetch helper for proxy API calls.
  * Automatically includes API key auth and JSON parsing.
  */
-export async function proxyFetch<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+export async function proxyFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const { url: base, key: API_KEY } = managementConfig();
   const url = `${base}${path}`;
   const headers: Record<string, string> = {
@@ -70,17 +63,12 @@ export async function proxyFetch<T>(
  * Safe wrapper that catches errors and returns a FetchResult.
  * Use this in server components to avoid silent error swallowing.
  */
-export async function safeFetch<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<FetchResult<T>> {
+export async function safeFetch<T>(path: string, init?: RequestInit): Promise<FetchResult<T>> {
   try {
     const data = await proxyFetch<T>(path, init);
     return { ok: true, data };
   } catch (err) {
-    const message = err instanceof Error
-      ? err.message
-      : "Unknown error connecting to proxy";
+    const message = err instanceof Error ? err.message : "Unknown error connecting to proxy";
     return { ok: false, error: message };
   }
 }

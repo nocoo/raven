@@ -12,18 +12,18 @@
  *   bun run scripts/check-coverage.ts --skip-tests    # re-use existing lcov.info
  */
 
-import { evaluateGate, loadBaseline, parseLcov } from "./lib/coverage"
-import { Glob } from "bun"
+import { evaluateGate, loadBaseline, parseLcov } from "./lib/coverage";
+import { Glob } from "bun";
 
-const args = new Set(process.argv.slice(2))
-const thresholdArg = [...args].find((a) => a.startsWith("--threshold="))
-const explicitThreshold = thresholdArg ? Number(thresholdArg.slice("--threshold=".length)) : null
-const skipTests = args.has("--skip-tests")
-const REPO_ROOT = `${import.meta.dir}/..`
-const BASELINE_PATH = `${REPO_ROOT}/docs/20-baseline.json`
-const COV_DIR = `${REPO_ROOT}/packages/proxy/coverage`
+const args = new Set(process.argv.slice(2));
+const thresholdArg = [...args].find((a) => a.startsWith("--threshold="));
+const explicitThreshold = thresholdArg ? Number(thresholdArg.slice("--threshold=".length)) : null;
+const skipTests = args.has("--skip-tests");
+const REPO_ROOT = `${import.meta.dir}/..`;
+const BASELINE_PATH = `${REPO_ROOT}/docs/20-baseline.json`;
+const COV_DIR = `${REPO_ROOT}/packages/proxy/coverage`;
 
-let testCount: number | null = null
+let testCount: number | null = null;
 
 /**
  * Parse vitest's "Tests  N passed (N)" summary line. Vitest emits
@@ -32,15 +32,15 @@ let testCount: number | null = null
  * (e.g. skipped-tests mode).
  */
 function extractTestCount(output: string): number | null {
-  const match = output.match(/Tests\s+([^\n]*?\))/)
-  if (!match) return null
-  let total = 0
-  let saw = false
+  const match = output.match(/Tests\s+([^\n]*?\))/);
+  if (!match) return null;
+  let total = 0;
+  let saw = false;
   for (const seg of match[1].matchAll(/(\d+)\s+(passed|failed|skipped|todo)/g)) {
-    total += Number(seg[1])
-    saw = true
+    total += Number(seg[1]);
+    saw = true;
   }
-  return saw ? total : null
+  return saw ? total : null;
 }
 
 /**
@@ -51,14 +51,14 @@ function extractTestCount(output: string): number | null {
  * imports — those files are absent from lcov entirely.
  */
 async function listProxySourceFiles(): Promise<string[]> {
-  const proxyRoot = `${REPO_ROOT}/packages/proxy`
-  const glob = new Glob("src/**/*.ts")
-  const results: string[] = []
+  const proxyRoot = `${REPO_ROOT}/packages/proxy`;
+  const glob = new Glob("src/**/*.ts");
+  const results: string[] = [];
   for await (const p of glob.scan({ cwd: proxyRoot })) {
-    if (p.endsWith(".d.ts")) continue
-    results.push(p)
+    if (p.endsWith(".d.ts")) continue;
+    results.push(p);
   }
-  return results
+  return results;
 }
 
 async function runVitest(
@@ -69,98 +69,102 @@ async function runVitest(
     cwd,
     stdout: "pipe",
     stderr: "pipe",
-  })
+  });
 
-  const decoder = new TextDecoder()
-  let stdoutBuf = ""
-  let stderrBuf = ""
-  const stdoutReader = proc.stdout.getReader()
-  const stderrReader = proc.stderr.getReader()
+  const decoder = new TextDecoder();
+  let stdoutBuf = "";
+  let stderrBuf = "";
+  const stdoutReader = proc.stdout.getReader();
+  const stderrReader = proc.stderr.getReader();
   const drainStdout = (async () => {
     while (true) {
-      const { value, done } = await stdoutReader.read()
-      if (done) break
-      const chunk = decoder.decode(value)
-      stdoutBuf += chunk
-      process.stdout.write(chunk)
+      const { value, done } = await stdoutReader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      stdoutBuf += chunk;
+      process.stdout.write(chunk);
     }
-  })()
+  })();
   const drainStderr = (async () => {
     while (true) {
-      const { value, done } = await stderrReader.read()
-      if (done) break
-      const chunk = decoder.decode(value)
-      stderrBuf += chunk
-      process.stderr.write(chunk)
+      const { value, done } = await stderrReader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      stderrBuf += chunk;
+      process.stderr.write(chunk);
     }
-  })()
+  })();
 
-  const exitCode = await proc.exited
-  await drainStdout
-  await drainStderr
-  return { exitCode, stdout: stdoutBuf, stderr: stderrBuf }
+  const exitCode = await proc.exited;
+  await drainStdout;
+  await drainStderr;
+  return { exitCode, stdout: stdoutBuf, stderr: stderrBuf };
 }
 
 if (!skipTests) {
   // Measure scripts/lib in its own Istanbul configuration. Running a workspace
   // project without --coverage never enforced that project's declared floors.
-  const libRun = await runVitest(["--config", "vitest.scripts.config.ts", "--coverage"], REPO_ROOT)
-  if (libRun.exitCode !== 0) process.exit(libRun.exitCode)
+  const libRun = await runVitest(["--config", "vitest.scripts.config.ts", "--coverage"], REPO_ROOT);
+  if (libRun.exitCode !== 0) process.exit(libRun.exitCode);
 
   // Proxy L1 tests with coverage — vitest istanbul provider emits
   // lcov.info into packages/proxy/coverage/.
-  const proxyRun = await runVitest(["--coverage"], `${REPO_ROOT}/packages/proxy`)
-  if (proxyRun.exitCode !== 0) process.exit(proxyRun.exitCode)
-  testCount = extractTestCount(proxyRun.stdout) ?? extractTestCount(proxyRun.stderr)
+  const proxyRun = await runVitest(["--coverage"], `${REPO_ROOT}/packages/proxy`);
+  if (proxyRun.exitCode !== 0) process.exit(proxyRun.exitCode);
+  testCount = extractTestCount(proxyRun.stdout) ?? extractTestCount(proxyRun.stderr);
 }
 
-const lcovPath = `${COV_DIR}/lcov.info`
-const lcovFile = Bun.file(lcovPath)
+const lcovPath = `${COV_DIR}/lcov.info`;
+const lcovFile = Bun.file(lcovPath);
 
 if (!(await lcovFile.exists())) {
-  console.error("\n❌ lcov.info not generated — cannot check coverage")
-  process.exit(1)
+  console.error("\n❌ lcov.info not generated — cannot check coverage");
+  process.exit(1);
 }
 
-const report = parseLcov(await lcovFile.text())
+const report = parseLcov(await lcovFile.text());
 
 if (explicitThreshold !== null && !Number.isNaN(explicitThreshold)) {
-  console.log(`\n📊 Proxy coverage: ${report.total.pct.toFixed(1)}% lines (legacy threshold: ${explicitThreshold}%)`)
+  console.log(
+    `\n📊 Proxy coverage: ${report.total.pct.toFixed(1)}% lines (legacy threshold: ${explicitThreshold}%)`,
+  );
   if (report.total.pct < explicitThreshold) {
-    console.error(`❌ Line coverage ${report.total.pct.toFixed(1)}% is below threshold ${explicitThreshold}%`)
-    process.exit(1)
+    console.error(
+      `❌ Line coverage ${report.total.pct.toFixed(1)}% is below threshold ${explicitThreshold}%`,
+    );
+    process.exit(1);
   }
-  console.log("✅ Coverage threshold passed")
-  process.exit(0)
+  console.log("✅ Coverage threshold passed");
+  process.exit(0);
 }
 
-const baselineFile = Bun.file(BASELINE_PATH)
+const baselineFile = Bun.file(BASELINE_PATH);
 if (!(await baselineFile.exists())) {
-  console.error(`❌ baseline file missing: ${BASELINE_PATH}`)
-  process.exit(1)
+  console.error(`❌ baseline file missing: ${BASELINE_PATH}`);
+  process.exit(1);
 }
-const baseline = loadBaseline(await baselineFile.text())
+const baseline = loadBaseline(await baselineFile.text());
 
 console.log(
   `\n📊 Proxy coverage: ${report.total.pct.toFixed(2)}% lines ` +
     `(floor ${baseline.enforcement.globalFloorPct.toFixed(2)}%, mode=${baseline.enforcement.mode})`,
-)
+);
 if (testCount !== null) {
-  const base = baseline.proxy.l1TestCount
-  const suffix = base !== null ? ` (baseline ${base})` : ""
-  console.log(`   L1 tests: ${testCount}${suffix}`)
+  const base = baseline.proxy.l1TestCount;
+  const suffix = base !== null ? ` (baseline ${base})` : "";
+  console.log(`   L1 tests: ${testCount}${suffix}`);
 }
 for (const [dir, agg] of Object.entries(report.byDirectory)) {
-  console.log(`   - ${dir}/: ${agg.pct.toFixed(2)}%`)
+  console.log(`   - ${dir}/: ${agg.pct.toFixed(2)}%`);
 }
 
 const violations = evaluateGate(report, baseline, {
   testCount,
   sourceFiles: await listProxySourceFiles(),
-})
+});
 if (violations.length > 0) {
-  console.error("\n❌ Coverage gate failed:")
-  for (const v of violations) console.error(`   [${v.kind}] ${v.detail}`)
-  process.exit(1)
+  console.error("\n❌ Coverage gate failed:");
+  for (const v of violations) console.error(`   [${v.kind}] ${v.detail}`);
+  process.exit(1);
 }
-console.log("\n✅ Coverage gate passed")
+console.log("\n✅ Coverage gate passed");

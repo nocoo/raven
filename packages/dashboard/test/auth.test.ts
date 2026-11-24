@@ -8,7 +8,13 @@ interface NextAuthConfig {
   trustHost: boolean;
   providers: Array<{ id: string; clientId?: string; clientSecret?: string }>;
   pages: { signIn: string; error: string };
-  cookies: Record<string, { name: string; options: { httpOnly: boolean; sameSite: string; path: string; secure: boolean } }>;
+  cookies: Record<
+    string,
+    {
+      name: string;
+      options: { httpOnly: boolean; sameSite: string; path: string; secure: boolean };
+    }
+  >;
   callbacks: {
     signIn: (params: { user: { email?: string | null | undefined } }) => Promise<boolean>;
   };
@@ -71,9 +77,7 @@ describe("auth.ts local mode (no OAuth vars)", () => {
   it("logs console.info about local mode", async () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     await importAuth();
-    expect(infoSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Local mode"),
-    );
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining("Local mode"));
     infoSpy.mockRestore();
   });
 
@@ -177,9 +181,7 @@ describe("auth.ts signIn callback", () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       await importAuth({ ...AUTH_ENV, ALLOWED_EMAILS: "" });
 
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("ALLOWED_EMAILS is not set"),
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("ALLOWED_EMAILS is not set"));
       warnSpy.mockRestore();
     });
   });

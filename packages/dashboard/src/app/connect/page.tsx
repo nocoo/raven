@@ -15,10 +15,19 @@ export default async function ConnectPage() {
   ]);
 
   if (!keysResult.ok || !connResult.ok || !rulesResult.ok) {
-    const errorMsg = !keysResult.ok ? keysResult.error : !connResult.ok ? connResult.error : !rulesResult.ok ? rulesResult.error : "Unknown error";
+    const errorMsg = !keysResult.ok
+      ? keysResult.error
+      : !connResult.ok
+        ? connResult.error
+        : !rulesResult.ok
+          ? rulesResult.error
+          : "Unknown error";
     return (
       <div className="space-y-4">
-        <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
+        <PageHeader
+          title="Connect"
+          description="API keys and the proxy endpoints to wire into your client."
+        />
         <FetchError title="Failed to load connection info" message={errorMsg} />
       </div>
     );
@@ -26,7 +35,10 @@ export default async function ConnectPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Connect" description="API keys and the proxy endpoints to wire into your client." />
+      <PageHeader
+        title="Connect"
+        description="API keys and the proxy endpoints to wire into your client."
+      />
       <ConnectContent
         keys={keysResult.data}
         connectionInfo={connResult.data}

@@ -11,12 +11,17 @@
  * - Mixed mode: strip server tools, loop with client tools
  */
 
-import type { Context } from "hono"
+import type { Context } from "hono";
 
-import { state } from "../../lib/state"
-import { logEmitter } from "../../util/log-emitter"
-import { searchTavily, TavilyError } from "../../lib/server-tools/tavily"
-import { HTTPError, extractErrorDetails, normalizeRequestError, RequestCancelledError } from "../../lib/error"
+import { state } from "../../lib/state";
+import { logEmitter } from "../../util/log-emitter";
+import { searchTavily, TavilyError } from "../../lib/server-tools/tavily";
+import {
+  HTTPError,
+  extractErrorDetails,
+  normalizeRequestError,
+  RequestCancelledError,
+} from "../../lib/error";
 import type {
   AnthropicMessagesPayload,
   AnthropicResponse,
@@ -25,9 +30,9 @@ import type {
   AnthropicWebSearchResult,
   AnthropicToolResultBlock,
   AnthropicMessage,
-} from "../../protocols/anthropic/types"
-import type { ServerToolContext } from "../../protocols/anthropic/preprocess"
-import { streamAnthropicResponse } from "./anthropic-stream-writer"
+} from "../../protocols/anthropic/types";
+import type { ServerToolContext } from "../../protocols/anthropic/preprocess";
+import { streamAnthropicResponse } from "./anthropic-stream-writer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,7 +47,7 @@ import { streamAnthropicResponse } from "./anthropic-stream-writer"
 export type SendAnthropicRequestFn = (
   payload: AnthropicMessagesPayload,
   signal?: AbortSignal,
-) => Promise<AnthropicResponse>
+) => Promise<AnthropicResponse>;
 
 /**
  * Server tool executor function type (for dependency injection in tests).
@@ -52,16 +57,16 @@ export type ServerToolExecutorFn = (
   input: Record<string, unknown>,
   requestId: string,
   signal?: AbortSignal,
-) => Promise<{ content: unknown; textContent: string }>
+) => Promise<{ content: unknown; textContent: string }>;
 
 /**
  * Result from server-side tool execution.
  */
 export interface ServerToolExecutionResult {
-  toolName: string
-  toolUseId: string
-  input: Record<string, unknown>
-  content: unknown
+  toolName: string;
+  toolUseId: string;
+  input: Record<string, unknown>;
+  content: unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -73,8 +78,8 @@ export interface ServerToolExecutionResult {
  */
 export interface ServerToolInterceptionOptions {
   /** Optional executor for testing (defaults to executeServerTool) */
-  executor?: ServerToolExecutorFn
-  signal?: AbortSignal
+  executor?: ServerToolExecutorFn;
+  signal?: AbortSignal;
 }
 
 /**
@@ -96,14 +101,14 @@ export async function withServerToolInterception(
   requestId: string,
   options?: ServerToolInterceptionOptions,
 ): Promise<AnthropicResponse> {
-  const executor = options?.executor ?? executeServerTool
-  const signal = options?.signal
-  signal?.throwIfAborted()
+  const executor = options?.executor ?? executeServerTool;
+  const signal = options?.signal;
+  signal?.throwIfAborted();
 
   if (!serverToolContext.hasServerSideTools) {
-    const response = await sendRequest(payload, signal)
-    signal?.throwIfAborted()
-    return response
+    const response = await sendRequest(payload, signal);
+    signal?.throwIfAborted();
+    return response;
   }
 
   logEmitter.emitLog({
@@ -117,13 +122,20 @@ export async function withServerToolInterception(
       mode: serverToolContext.allServerSide ? "pure" : "mixed",
       serverSideToolNames: serverToolContext.serverSideToolNames,
     },
-  })
+  });
 
   if (serverToolContext.allServerSide) {
-    return handlePureServerSideTools(payload, serverToolContext, sendRequest, requestId, executor, signal)
+    return handlePureServerSideTools(
+      payload,
+      serverToolContext,
+      sendRequest,
+      requestId,
+      executor,
+      signal,
+    );
   }
 
-  return handleMixedTools(payload, serverToolContext, sendRequest, requestId, executor, signal)
+  return handleMixedTools(payload, serverToolContext, sendRequest, requestId, executor, signal);
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +156,7 @@ async function handlePureServerSideTools(
   signal?: AbortSignal,
 ): Promise<AnthropicResponse> {
   // Extract search query from the last user message
-  const query = extractQueryFromPayload(payload)
+  const query = extractQueryFromPayload(payload);
 
   if (!query) {
     // No extractable query - send without tools for plain response
@@ -152,16 +164,16 @@ async function handlePureServerSideTools(
       ...payload,
       tools: null,
       tool_choice: null,
-    }
-    const response = await sendRequest(noToolsPayload, signal)
-    signal?.throwIfAborted()
-    return response
+    };
+    const response = await sendRequest(noToolsPayload, signal);
+    signal?.throwIfAborted();
+    return response;
   }
 
   const toolName =
     serverToolContext.serverSideToolNames.find((n) => n === "web_search") ??
     serverToolContext.serverSideToolNames[0] ??
-    "web_search"
+    "web_search";
 
   logEmitter.emitLog({
     ts: Date.now(),
@@ -170,11 +182,11 @@ async function handlePureServerSideTools(
     requestId,
     msg: `server-side tool direct call: ${toolName}`,
     data: { eventType: "server_tool_direct", toolName, query },
-  })
+  });
 
   // Execute web search
-  const searchResult = await executor(toolName, { query }, requestId, signal)
-  signal?.throwIfAborted()
+  const searchResult = await executor(toolName, { query }, requestId, signal);
+  signal?.throwIfAborted();
 
   logEmitter.emitLog({
     ts: Date.now(),
@@ -187,7 +199,7 @@ async function handlePureServerSideTools(
       toolName,
       resultCount: Array.isArray(searchResult.content) ? searchResult.content.length : 1,
     },
-  })
+  });
 
   // Inject search results and call upstream for synthesis
   const synthesisPayload: AnthropicMessagesPayload = {
@@ -201,18 +213,18 @@ async function handlePureServerSideTools(
         content: `[web_search results for "${query}"]\n\n${searchResult.textContent}`,
       },
     ],
-  }
+  };
 
-  const synthesisResp = await sendRequest(synthesisPayload, signal)
-  signal?.throwIfAborted()
+  const synthesisResp = await sendRequest(synthesisPayload, signal);
+  signal?.throwIfAborted();
 
   // Build native response with server_tool_use + web_search_tool_result + synthesized text
-  const toolUseId = `srvtoolu_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  const toolUseId = `srvtoolu_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const synthesizedText =
     synthesisResp.content
       ?.filter((b): b is { type: "text"; text: string } => b.type === "text")
       .map((b) => b.text)
-      .join("\n\n") ?? ""
+      .join("\n\n") ?? "";
 
   return {
     id: synthesisResp.id || `msg_${Date.now()}`,
@@ -246,14 +258,14 @@ async function handlePureServerSideTools(
       service_tier: null,
       server_tool_use: { web_search_requests: 1 },
     },
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Mixed Mode: Client tools + server-side tools
 // ---------------------------------------------------------------------------
 
-const MAX_ITERATIONS = 5
+const MAX_ITERATIONS = 5;
 
 /**
  * Mixed tool handling: client tools + server-side tools.
@@ -269,11 +281,14 @@ async function handleMixedTools(
   signal?: AbortSignal,
 ): Promise<AnthropicResponse> {
   // Filter out server-side tools from definitions
-  const clientTools = filterServerSideTools(payload.tools ?? [], serverToolContext.serverSideToolNames)
+  const clientTools = filterServerSideTools(
+    payload.tools ?? [],
+    serverToolContext.serverSideToolNames,
+  );
 
   // Rewrite tool_choice if it points to a server-side tool
   // Otherwise the request references a tool that's no longer in the definition list
-  let adjustedToolChoice = payload.tool_choice
+  let adjustedToolChoice = payload.tool_choice;
   if (adjustedToolChoice?.type === "tool" && adjustedToolChoice.name) {
     if (serverToolContext.serverSideToolNames.includes(adjustedToolChoice.name)) {
       logEmitter.emitLog({
@@ -286,53 +301,55 @@ async function handleMixedTools(
           originalToolChoice: adjustedToolChoice.name,
           newToolChoice: "auto",
         },
-      })
-      adjustedToolChoice = { type: "auto" }
+      });
+      adjustedToolChoice = { type: "auto" };
     }
   }
 
-  let iteration = 0
+  let iteration = 0;
   let currentPayload: AnthropicMessagesPayload = {
     ...payload,
     tools: clientTools.length > 0 ? clientTools : null,
     tool_choice: adjustedToolChoice,
-  }
+  };
 
   while (iteration < MAX_ITERATIONS) {
-    signal?.throwIfAborted()
-    iteration++
+    signal?.throwIfAborted();
+    iteration++;
 
-    const response = await sendRequest({
-      ...currentPayload,
-      tool_choice: iteration > 1
-        ? { type: "auto" }
-        : (currentPayload.tool_choice ?? { type: "auto" }),
-    }, signal)
-    signal?.throwIfAborted()
+    const response = await sendRequest(
+      {
+        ...currentPayload,
+        tool_choice:
+          iteration > 1 ? { type: "auto" } : (currentPayload.tool_choice ?? { type: "auto" }),
+      },
+      signal,
+    );
+    signal?.throwIfAborted();
 
     // Check for tool_use blocks in response
     const toolUseBlocks = (response.content ?? []).filter(
       (b): b is AnthropicToolUseBlock => b.type === "tool_use",
-    )
+    );
 
     if (toolUseBlocks.length === 0) {
       // No tool calls - return response
-      return response
+      return response;
     }
 
     // Find server-side tool call
     const serverToolUse = toolUseBlocks.find((tu) =>
       serverToolContext.serverSideToolNames.includes(tu.name),
-    )
+    );
 
     if (!serverToolUse) {
       // Client-side tool call - return to client
-      return response
+      return response;
     }
 
     // Execute server-side tool
-    const toolName = serverToolUse.name
-    const toolInput = serverToolUse.input as Record<string, unknown>
+    const toolName = serverToolUse.name;
+    const toolInput = serverToolUse.input as Record<string, unknown>;
 
     logEmitter.emitLog({
       ts: Date.now(),
@@ -341,10 +358,10 @@ async function handleMixedTools(
       requestId,
       msg: `intercepting server-side tool: ${toolName}`,
       data: { eventType: "server_tool_intercept", toolName, toolInput },
-    })
+    });
 
-    const toolResult = await executor(toolName, toolInput, requestId, signal)
-    signal?.throwIfAborted()
+    const toolResult = await executor(toolName, toolInput, requestId, signal);
+    signal?.throwIfAborted();
 
     logEmitter.emitLog({
       ts: Date.now(),
@@ -357,7 +374,7 @@ async function handleMixedTools(
         toolName,
         resultLength: JSON.stringify(toolResult.content).length,
       },
-    })
+    });
 
     // Inject tool result and continue loop
     const toolResultBlock: AnthropicToolResultBlock = {
@@ -365,26 +382,22 @@ async function handleMixedTools(
       tool_use_id: serverToolUse.id,
       content: JSON.stringify(toolResult.content),
       is_error: null,
-    }
+    };
     const assistantMessage: AnthropicMessage = {
       role: "assistant",
       content: response.content,
-    }
+    };
     const userMessage: AnthropicMessage = {
       role: "user",
       content: [toolResultBlock],
-    }
+    };
     currentPayload = {
       ...currentPayload,
-      messages: [
-        ...currentPayload.messages,
-        assistantMessage,
-        userMessage,
-      ],
-    }
+      messages: [...currentPayload.messages, assistantMessage, userMessage],
+    };
   }
 
-  throw new Error("Server tool loop exceeded maximum iterations")
+  throw new Error("Server tool loop exceeded maximum iterations");
 }
 
 // ---------------------------------------------------------------------------
@@ -395,33 +408,33 @@ async function handleMixedTools(
  * Extract a search query from the payload's last user message.
  */
 function extractQueryFromPayload(payload: AnthropicMessagesPayload): string {
-  const messages = payload.messages
-  if (!messages || messages.length === 0) return ""
+  const messages = payload.messages;
+  if (!messages || messages.length === 0) return "";
 
   // Find last user message
   for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i] as AnthropicMessage | undefined
+    const msg = messages[i] as AnthropicMessage | undefined;
     if (msg && msg.role === "user") {
-      return extractTextFromContent(msg.content)
+      return extractTextFromContent(msg.content);
     }
   }
-  return ""
+  return "";
 }
 
 /**
  * Extract plain text from Anthropic message content.
  */
-function extractTextFromContent(
-  content: string | Array<{ type: string; text?: string }>,
-): string {
-  if (typeof content === "string") return content
+function extractTextFromContent(content: string | Array<{ type: string; text?: string }>): string {
+  if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .filter((b): b is { type: "text"; text: string } => b.type === "text" && typeof b.text === "string")
+      .filter(
+        (b): b is { type: "text"; text: string } => b.type === "text" && typeof b.text === "string",
+      )
       .map((b) => b.text)
-      .join("\n")
+      .join("\n");
   }
-  return ""
+  return "";
 }
 
 /**
@@ -431,8 +444,8 @@ function filterServerSideTools(
   tools: AnthropicTool[],
   serverSideToolNames: string[],
 ): AnthropicTool[] {
-  const serverSet = new Set(serverSideToolNames)
-  return tools.filter((t) => !serverSet.has(t.name))
+  const serverSet = new Set(serverSideToolNames);
+  return tools.filter((t) => !serverSet.has(t.name));
 }
 
 /**
@@ -445,21 +458,21 @@ async function executeServerTool(
   requestId: string,
   signal?: AbortSignal,
 ): Promise<{ content: unknown; textContent: string }> {
-  signal?.throwIfAborted()
+  signal?.throwIfAborted();
   if (toolName === "web_search" && state.stWebSearchApiKey) {
     try {
       // Build search input, only including optional fields if they have values
       const searchInput: { query: string; count?: number; offset?: number } = {
         query: (input.query as string) || "",
-      }
-      if (typeof input.count === "number") searchInput.count = input.count
-      if (typeof input.offset === "number") searchInput.offset = input.offset
+      };
+      if (typeof input.count === "number") searchInput.count = input.count;
+      if (typeof input.offset === "number") searchInput.offset = input.offset;
 
-      const result = await searchTavily(state.stWebSearchApiKey, searchInput, signal)
+      const result = await searchTavily(state.stWebSearchApiKey, searchInput, signal);
       return {
         content: result.content,
         textContent: result.textContent,
-      }
+      };
     } catch (err) {
       if (err instanceof TavilyError) {
         logEmitter.emitLog({
@@ -474,10 +487,10 @@ async function executeServerTool(
             errorType: err.type,
             statusCode: err.statusCode,
           },
-        })
-        throw new HTTPError(err.message, err.statusCode, err.message)
+        });
+        throw new HTTPError(err.message, err.statusCode, err.message);
       }
-      throw err
+      throw err;
     }
   }
 
@@ -485,7 +498,7 @@ async function executeServerTool(
     `Server tool ${toolName} is not available`,
     500,
     `Server tool ${toolName} is not available`,
-  )
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -504,30 +517,30 @@ async function executeServerTool(
  * `routingPath`, `copilotModel`, `translatedModel` live here.
  */
 export interface DecorateLogFields {
-  path: string
-  format: string
-  accountName: string
-  clientIP?: string | null
-  peerIP?: string | null
-  ipSource?: string | null
-  apiKeyId: string
-  sessionId: string
-  clientName: string | null
-  clientVersion: string | null
-  extras?: Record<string, unknown>
+  path: string;
+  format: string;
+  accountName: string;
+  clientIP?: string | null;
+  peerIP?: string | null;
+  ipSource?: string | null;
+  apiKeyId: string;
+  sessionId: string;
+  clientName: string | null;
+  clientVersion: string | null;
+  extras?: Record<string, unknown>;
 }
 
 export interface DecorateInput {
-  c: Context
-  requestId: string
-  startTime: number
-  stream: boolean
-  model: string
-  payload: AnthropicMessagesPayload
-  serverToolContext: ServerToolContext
-  sendRequest: SendAnthropicRequestFn
-  log: DecorateLogFields
-  options?: Pick<ServerToolInterceptionOptions, "executor">
+  c: Context;
+  requestId: string;
+  startTime: number;
+  stream: boolean;
+  model: string;
+  payload: AnthropicMessagesPayload;
+  serverToolContext: ServerToolContext;
+  sendRequest: SendAnthropicRequestFn;
+  log: DecorateLogFields;
+  options?: Pick<ServerToolInterceptionOptions, "executor">;
 }
 
 /**
@@ -537,34 +550,57 @@ export interface DecorateInput {
  */
 export async function decorate(input: DecorateInput): Promise<Response> {
   const {
-    c, requestId, startTime, stream, model,
-    payload, serverToolContext, sendRequest, log, options,
-  } = input
-  const signal = c.req.raw.signal
+    c,
+    requestId,
+    startTime,
+    stream,
+    model,
+    payload,
+    serverToolContext,
+    sendRequest,
+    log,
+    options,
+  } = input;
+  const signal = c.req.raw.signal;
 
   try {
     const response = await withServerToolInterception(
-      payload, serverToolContext, sendRequest, requestId, { ...options, signal },
-    )
+      payload,
+      serverToolContext,
+      sendRequest,
+      requestId,
+      { ...options, signal },
+    );
 
     const emitEnd = (error: unknown | null = null) => {
-      const cancelled = error instanceof RequestCancelledError
-      const latencyMs = Math.round(performance.now() - startTime)
+      const cancelled = error instanceof RequestCancelledError;
+      const latencyMs = Math.round(performance.now() - startTime);
       logEmitter.emitLog({
-        ts: Date.now(), level: error && !cancelled ? "error" : "info", type: "request_end", requestId,
-        msg: `${error ? cancelled ? "cancelled" : "error" : "200"} ${model} ${latencyMs}ms (server-tools)`,
+        ts: Date.now(),
+        level: error && !cancelled ? "error" : "info",
+        type: "request_end",
+        requestId,
+        msg: `${error ? (cancelled ? "cancelled" : "error") : "200"} ${model} ${latencyMs}ms (server-tools)`,
         data: {
-          path: log.path, format: log.format, model,
+          path: log.path,
+          format: log.format,
+          model,
           resolvedModel: response.model,
           inputTokens: response.usage?.input_tokens ?? 0,
           outputTokens: response.usage?.output_tokens ?? 0,
           latencyMs,
-          ttftMs: null, processingMs: null,
-          stream, status: error ? cancelled ? "cancelled" : "error" : "success", statusCode: 200,
+          ttftMs: null,
+          processingMs: null,
+          stream,
+          status: error ? (cancelled ? "cancelled" : "error") : "success",
+          statusCode: 200,
           upstreamStatus: 200,
           serverToolsUsed: true,
           accountName: log.accountName,
-          apiKeyId: log.apiKeyId, clientIP: log.clientIP ?? null, peerIP: log.peerIP ?? null, ipSource: log.ipSource ?? null,
+          apiKeyId: log.apiKeyId,
+          clientIP: log.clientIP ?? null,
+          peerIP: log.peerIP ?? null,
+          ipSource: log.ipSource ?? null,
           sessionId: log.sessionId,
           clientName: log.clientName,
           clientVersion: log.clientVersion,
@@ -572,32 +608,44 @@ export async function decorate(input: DecorateInput): Promise<Response> {
           stopReason: response.stop_reason,
           ...(error ? { error: extractErrorDetails(error).errorDetail } : {}),
         },
-      })
-    }
-    if (stream) return streamAnthropicResponse(c, response, emitEnd)
-    emitEnd()
-    return c.json(response as unknown as Record<string, unknown>)
+      });
+    };
+    if (stream) return streamAnthropicResponse(c, response, emitEnd);
+    emitEnd();
+    return c.json(response as unknown as Record<string, unknown>);
   } catch (err) {
-    const error = normalizeRequestError(err, signal)
-    const cancelled = error instanceof RequestCancelledError
-    const latencyMs = Math.round(performance.now() - startTime)
-    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error)
+    const error = normalizeRequestError(err, signal);
+    const cancelled = error instanceof RequestCancelledError;
+    const latencyMs = Math.round(performance.now() - startTime);
+    const { errorDetail, upstreamStatus, statusCode } = extractErrorDetails(error);
     logEmitter.emitLog({
-      ts: Date.now(), level: cancelled ? "info" : "error", type: "request_end", requestId,
+      ts: Date.now(),
+      level: cancelled ? "info" : "error",
+      type: "request_end",
+      requestId,
       msg: `${statusCode} ${model} ${latencyMs}ms (server-tools)`,
       data: {
-        path: log.path, format: log.format, model, stream,
-        latencyMs, status: cancelled ? "cancelled" : "error", statusCode,
-        upstreamStatus, error: errorDetail,
+        path: log.path,
+        format: log.format,
+        model,
+        stream,
+        latencyMs,
+        status: cancelled ? "cancelled" : "error",
+        statusCode,
+        upstreamStatus,
+        error: errorDetail,
         serverToolsUsed: true,
         accountName: log.accountName,
-        apiKeyId: log.apiKeyId, clientIP: log.clientIP ?? null, peerIP: log.peerIP ?? null, ipSource: log.ipSource ?? null,
+        apiKeyId: log.apiKeyId,
+        clientIP: log.clientIP ?? null,
+        peerIP: log.peerIP ?? null,
+        ipSource: log.ipSource ?? null,
         sessionId: log.sessionId,
         clientName: log.clientName,
         clientVersion: log.clientVersion,
         ...(log.extras ?? {}),
       },
-    })
-    throw error
+    });
+    throw error;
   }
 }

@@ -1,12 +1,5 @@
 "use client";
 
-
-
-
-
-
-
-
 import type { RoutingRule } from "@/lib/routing-types";
 import { COPILOT_RULE_ID } from "@/lib/routing-model";
 import { RoutingSelect } from "@/components/routing/routing-ui";
@@ -21,10 +14,54 @@ import type { ApiKeyPublic, ApiKeyCreated, ConnectionInfo, ModelInfo } from "@/l
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Key, Trash2, Ban, AlertTriangle, Terminal, Code2, Cpu, ExternalLink, ChevronRight, Plug, BookOpen, Activity, } from "@nocoo/basalt/icons";
-import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, Input, Label, LayerCard, Tabs, TabsContent, TabsList, TabsTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@nocoo/basalt";
+  Plus,
+  Key,
+  Trash2,
+  Ban,
+  AlertTriangle,
+  Terminal,
+  Code2,
+  Cpu,
+  ExternalLink,
+  ChevronRight,
+  Plug,
+  BookOpen,
+  Activity,
+} from "@nocoo/basalt/icons";
+import {
+  Badge,
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  Input,
+  Label,
+  LayerCard,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@nocoo/basalt/components/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@nocoo/basalt/components/table";
 
 interface ConnectContentProps {
   keys: ApiKeyPublic[];
@@ -34,8 +71,8 @@ interface ConnectContentProps {
 
 export function ConnectContent({ keys, connectionInfo, rules }: ConnectContentProps) {
   // Use model_list if available, otherwise fall back to models array
-  const models: ModelInfo[] = connectionInfo.model_list ??
-    connectionInfo.models.map((id) => ({ id, owned_by: "unknown" }));
+  const models: ModelInfo[] =
+    connectionInfo.model_list ?? connectionInfo.models.map((id) => ({ id, owned_by: "unknown" }));
 
   return (
     <Tabs defaultValue="keys" className="w-full">
@@ -66,18 +103,33 @@ export function ConnectContent({ keys, connectionInfo, rules }: ConnectContentPr
           </div>
           <SetupGuidesSection baseUrl={connectionInfo.base_url} />
           <Collapsible>
-            <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Routing and protocol details</CollapsibleTrigger>
-            <CollapsibleContent unstyled><div className="max-w-prose space-y-2 pt-3 text-xs text-basalt-muted-foreground">
-              <p><code>auto</code> uses the key’s rule, current schedule and quota order. Explicit model IDs use the same upstream selection and pass through unchanged. Errors stop on that upstream.</p>
-              <p>Use the upstream’s native API format unless the rule enables conversion.</p>
-              <p>Embeddings currently require Copilot. Explicit IDs need no catalog; auto needs cached embedding capability.</p>
-            </div></CollapsibleContent>
+            <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">
+              Routing and protocol details
+            </CollapsibleTrigger>
+            <CollapsibleContent unstyled>
+              <div className="max-w-prose space-y-2 pt-3 text-xs text-basalt-muted-foreground">
+                <p>
+                  <code>auto</code> uses the key’s rule, current schedule and quota order. Explicit
+                  model IDs use the same upstream selection and pass through unchanged. Errors stop
+                  on that upstream.
+                </p>
+                <p>Use the upstream’s native API format unless the rule enables conversion.</p>
+                <p>
+                  Embeddings currently require Copilot. Explicit IDs need no catalog; auto needs
+                  cached embedding capability.
+                </p>
+              </div>
+            </CollapsibleContent>
           </Collapsible>
         </div>
       </TabsContent>
 
       <TabsContent value="models">
-        <p className="mb-3 text-sm text-basalt-muted-foreground">A global, cached catalog: auto plus exact IDs from every upstream. It is not filtered by your key’s rule or current period and does not guarantee availability on the selected upstream.</p>
+        <p className="mb-3 text-sm text-basalt-muted-foreground">
+          A global, cached catalog: auto plus exact IDs from every upstream. It is not filtered by
+          your key’s rule or current period and does not guarantee availability on the selected
+          upstream.
+        </p>
         <ModelsSection models={models} />
       </TabsContent>
     </Tabs>
@@ -98,7 +150,12 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
 
   return (
     <LayerCard className="min-w-0">
-      <LayerCard.Header><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Plug} tone="blue" />Endpoints</h2></LayerCard.Header>
+      <LayerCard.Header>
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground">
+          <SectionIcon icon={Plug} tone="blue" />
+          Endpoints
+        </h2>
+      </LayerCard.Header>
       <LayerCard.Body className="divide-y divide-basalt-border/50">
         {endpoints.map((ep) => (
           <div
@@ -107,7 +164,12 @@ function EndpointsSection({ info }: { info: ConnectionInfo }) {
           >
             <div className="min-w-0 space-y-1">
               <span className="block text-xs text-basalt-muted-foreground">{ep.label}</span>
-              <code className="block truncate font-mono text-xs text-basalt-foreground" title={ep.value}>{ep.value}</code>
+              <code
+                className="block truncate font-mono text-xs text-basalt-foreground"
+                title={ep.value}
+              >
+                {ep.value}
+              </code>
             </div>
             <CopyButton value={ep.value} />
           </div>
@@ -171,28 +233,51 @@ console.log(message.content);`,
 
   return (
     <LayerCard className="min-w-0 overflow-hidden">
-      <LayerCard.Header><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Code2} tone="purple" />Code examples</h2></LayerCard.Header>
+      <LayerCard.Header>
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground">
+          <SectionIcon icon={Code2} tone="purple" />
+          Code examples
+        </h2>
+      </LayerCard.Header>
       <LayerCard.Body>
-      <div className="grid max-w-xl gap-3 @min-[32rem]/page:grid-cols-2">
-        <RoutingSelect label="Model selection" value={selection} onChange={setSelection} options={[{ value: "auto", label: "auto · configured target model" }, { value: "explicit", label: "Explicit · preserve model ID" }]} />
-        {selection === "explicit" && <div className="space-y-1.5"><Label htmlFor="example-model">Explicit model ID</Label><Input id="example-model" size="sm" value={explicitModel} onChange={event => setExplicitModel(event.target.value)} /></div>}
-      </div>
+        <div className="grid max-w-xl gap-3 @min-[32rem]/page:grid-cols-2">
+          <RoutingSelect
+            label="Model selection"
+            value={selection}
+            onChange={setSelection}
+            options={[
+              { value: "auto", label: "auto · configured target model" },
+              { value: "explicit", label: "Explicit · preserve model ID" },
+            ]}
+          />
+          {selection === "explicit" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="example-model">Explicit model ID</Label>
+              <Input
+                id="example-model"
+                size="sm"
+                value={explicitModel}
+                onChange={(event) => setExplicitModel(event.target.value)}
+              />
+            </div>
+          )}
+        </div>
       </LayerCard.Body>
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as CodeTab)}>
-          <TabsList className="mx-4">
-            {tabs.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
-                <tab.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as CodeTab)}>
+        <TabsList className="mx-4">
           {tabs.map((tab) => (
-            <TabsContent key={tab.id} value={tab.id}>
-              <CodeBlock code={examples[tab.id]} className="border-0 rounded-none" />
-            </TabsContent>
+            <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
+              <tab.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {tab.label}
+            </TabsTrigger>
           ))}
-        </Tabs>
+        </TabsList>
+        {tabs.map((tab) => (
+          <TabsContent key={tab.id} value={tab.id}>
+            <CodeBlock code={examples[tab.id]} className="border-0 rounded-none" />
+          </TabsContent>
+        ))}
+      </Tabs>
     </LayerCard>
   );
 }
@@ -213,27 +298,38 @@ function SetupGuidesSection({ baseUrl }: { baseUrl: string }) {
   return (
     <Collapsible asChild>
       <LayerCard padding="none">
-        <h2><LayerCard.Header asChild><CollapsibleTrigger className="border-solid text-sm font-semibold data-[state=open]:rounded-b-none"><span className="flex items-center gap-2.5"><SectionIcon icon={BookOpen} tone="orange" />Client setup guides</span></CollapsibleTrigger></LayerCard.Header></h2>
-        <CollapsibleContent unstyled><LayerCard.Body>
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SetupTab)}>
-          <TabsList>
-            {tabs.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="claude-code" className="p-4">
-            <ClaudeCodeGuide baseUrl={baseUrl} />
-          </TabsContent>
-          <TabsContent value="codex" className="p-4">
-            <CodexGuide baseUrl={baseUrl} />
-          </TabsContent>
-          <TabsContent value="cc-switch" className="p-4">
-            <CCSwitchGuide />
-          </TabsContent>
-        </Tabs>
-        </LayerCard.Body></CollapsibleContent>
+        <h2>
+          <LayerCard.Header asChild>
+            <CollapsibleTrigger className="border-solid text-sm font-semibold data-[state=open]:rounded-b-none">
+              <span className="flex items-center gap-2.5">
+                <SectionIcon icon={BookOpen} tone="orange" />
+                Client setup guides
+              </span>
+            </CollapsibleTrigger>
+          </LayerCard.Header>
+        </h2>
+        <CollapsibleContent unstyled>
+          <LayerCard.Body>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SetupTab)}>
+              <TabsList>
+                {tabs.map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value="claude-code" className="p-4">
+                <ClaudeCodeGuide baseUrl={baseUrl} />
+              </TabsContent>
+              <TabsContent value="codex" className="p-4">
+                <CodexGuide baseUrl={baseUrl} />
+              </TabsContent>
+              <TabsContent value="cc-switch" className="p-4">
+                <CCSwitchGuide />
+              </TabsContent>
+            </Tabs>
+          </LayerCard.Body>
+        </CollapsibleContent>
       </LayerCard>
     </Collapsible>
   );
@@ -261,8 +357,8 @@ function ClaudeCodeGuide({ baseUrl }: { baseUrl: string }) {
       <LayerCard.Well className="flex items-start gap-2 text-xs text-basalt-muted-foreground">
         <ChevronRight className="h-3.5 w-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
         <span>
-          Replace <code className="bg-basalt-secondary/70 px-1 rounded">rk-...</code> with your API key from the Keys tab.
-          Adjust model names as needed.
+          Replace <code className="bg-basalt-secondary/70 px-1 rounded">rk-...</code> with your API
+          key from the Keys tab. Adjust model names as needed.
         </span>
       </LayerCard.Well>
     </div>
@@ -300,8 +396,8 @@ function CCSwitchGuide() {
           CC Switch
           <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
         </a>{" "}
-        is a command-line tool to quickly switch between Claude Code configurations —
-        ideal for toggling between Raven and direct Anthropic API.
+        is a command-line tool to quickly switch between Claude Code configurations — ideal for
+        toggling between Raven and direct Anthropic API.
       </p>
       <div className="space-y-3">
         <div>
@@ -328,10 +424,10 @@ cc-switch status`}
         <span>
           When configuring the model, use the hyphenated ID (e.g.{" "}
           <code className="bg-basalt-secondary/70 px-1 rounded">claude-opus-4-8</code>), not the
-          dotted form (<code className="bg-basalt-secondary/70 px-1 rounded">claude-opus-4.8</code>).
-          Both work upstream, but the status line only resolves the marketing name
-          (&ldquo;Opus 4.8&rdquo;) from the hyphenated form &mdash; the dotted form shows a
-          generic &ldquo;Opus 4&rdquo;.
+          dotted form (<code className="bg-basalt-secondary/70 px-1 rounded">claude-opus-4.8</code>
+          ). Both work upstream, but the status line only resolves the marketing name (&ldquo;Opus
+          4.8&rdquo;) from the hyphenated form &mdash; the dotted form shows a generic &ldquo;Opus
+          4&rdquo;.
         </span>
       </div>
     </div>
@@ -438,14 +534,24 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
   return (
     <LayerCard padding="none" className="overflow-hidden">
       <LayerCard.Header className="items-center">
-        <h3 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Cpu} tone="purple" />{displayName}</h3>
-        <Badge tone="neutral" className="text-xs">{models.length}</Badge>
+        <h3 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground">
+          <SectionIcon icon={Cpu} tone="purple" />
+          {displayName}
+        </h3>
+        <Badge tone="neutral" className="text-xs">
+          {models.length}
+        </Badge>
       </LayerCard.Header>
-        <div className="overflow-x-auto">
+      <div className="overflow-x-auto">
         <Table>
           <TableBody>
             {models.map((model) => (
-              <TableRow key={model.id} className="group cursor-pointer" onClick={() => navigator.clipboard.writeText(model.id)} title="Click to copy">
+              <TableRow
+                key={model.id}
+                className="group cursor-pointer"
+                onClick={() => navigator.clipboard.writeText(model.id)}
+                title="Click to copy"
+              >
                 <TableCell className="py-2">
                   <code className="font-mono text-xs">{model.id}</code>
                 </TableCell>
@@ -453,14 +559,20 @@ function ModelGroup({ vendor, models }: { vendor: string; models: ModelInfo[] })
             ))}
           </TableBody>
         </Table>
-        </div>
+      </div>
     </LayerCard>
   );
 }
 
 // ── API Keys Section ──
 
-function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; rules: RoutingRule[] }) {
+function ApiKeysSection({
+  keys: initialKeys,
+  rules,
+}: {
+  keys: ApiKeyPublic[];
+  rules: RoutingRule[];
+}) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogInstance, setDialogInstance] = useState(0);
@@ -488,7 +600,7 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
       try {
         const res = await fetch(
           action === "revoke" ? `/api/keys/${id}/revoke` : `/api/keys/${id}`,
-          { method: action === "revoke" ? "POST" : "DELETE" }
+          { method: action === "revoke" ? "POST" : "DELETE" },
         );
         if (!res.ok) {
           const data = await res.json().catch(() => null);
@@ -503,13 +615,16 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
         setActionLoading(null);
       }
     },
-    [router]
+    [router],
   );
 
   return (
     <LayerCard padding="none" className="overflow-hidden">
       <LayerCard.Header className="items-center gap-3">
-        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Key} tone="teal" />API keys</h2>
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground">
+          <SectionIcon icon={Key} tone="teal" />
+          API keys
+        </h2>
         <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" className="gap-1.5">
@@ -522,7 +637,10 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
       </LayerCard.Header>
 
       {actionError && (
-        <div role="alert" className="m-4 flex items-center gap-2 rounded-widget border border-basalt-destructive/40 bg-basalt-destructive/10 px-3 py-2">
+        <div
+          role="alert"
+          className="m-4 flex items-center gap-2 rounded-widget border border-basalt-destructive/40 bg-basalt-destructive/10 px-3 py-2"
+        >
           <AlertTriangle
             className="h-3.5 w-3.5 text-basalt-destructive shrink-0"
             strokeWidth={1.5}
@@ -532,13 +650,13 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
       )}
 
       {initialKeys.length === 0 ? (
-          <LayerCard.Empty
-            icon={<Key className="h-8 w-8" strokeWidth={1.5} />}
-            title="No API keys yet"
-            description="Create a key to authenticate client requests"
-          />
+        <LayerCard.Empty
+          icon={<Key className="h-8 w-8" strokeWidth={1.5} />}
+          title="No API keys yet"
+          description="Create a key to authenticate client requests"
+        />
       ) : (
-          <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -555,21 +673,30 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
               {initialKeys.map((key) => (
                 <TableRow key={key.id}>
                   <TableCell className="font-medium">
-                    <Link href={`/keys?key_id=${encodeURIComponent(key.id)}`} className="text-basalt-primary hover:underline focus-visible:underline">{key.name}</Link>
+                    <Link
+                      href={`/keys?key_id=${encodeURIComponent(key.id)}`}
+                      className="text-basalt-primary hover:underline focus-visible:underline"
+                    >
+                      {key.name}
+                    </Link>
                   </TableCell>
                   <TableCell>
                     <code className="text-xs text-basalt-muted-foreground">
                       {key.key_prefix}...
                     </code>
                   </TableCell>
-                  <TableCell><KeyRuleBinding apiKey={key} rules={rules} /></TableCell>
+                  <TableCell>
+                    <KeyRuleBinding apiKey={key} rules={rules} />
+                  </TableCell>
                   <TableCell className="hidden sm:table-cell text-xs text-basalt-muted-foreground">
                     <LocalTime timestamp={key.created_at} precision="day" />
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-xs text-basalt-muted-foreground">
-                    {key.last_used_at !== null
-                      ? <LocalTime timestamp={key.last_used_at} precision="day" />
-                      : "Never"}
+                    {key.last_used_at !== null ? (
+                      <LocalTime timestamp={key.last_used_at} precision="day" />
+                    ) : (
+                      "Never"
+                    )}
                   </TableCell>
                   <TableCell>
                     {key.revoked_at ? (
@@ -588,7 +715,10 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                       <Tooltip disableHoverableContent>
                         <TooltipTrigger asChild>
                           <Button size="icon" variant="ghost" className="size-8" asChild>
-                            <Link href={`/keys?key_id=${encodeURIComponent(key.id)}`} aria-label="IP activity">
+                            <Link
+                              href={`/keys?key_id=${encodeURIComponent(key.id)}`}
+                              aria-label="IP activity"
+                            >
                               <Activity className="size-3.5" strokeWidth={1.5} />
                               <span className="sr-only">IP activity</span>
                             </Link>
@@ -596,18 +726,36 @@ function ApiKeysSection({ keys: initialKeys, rules }: { keys: ApiKeyPublic[]; ru
                         </TooltipTrigger>
                         <TooltipContent>IP activity</TooltipContent>
                       </Tooltip>
-                      <Tooltip disableHoverableContent><TooltipTrigger asChild>
-                        <Button size="icon" variant="ghost" className={`size-8 ${key.revoked_at ? "text-basalt-destructive" : ""}`} aria-label={key.revoked_at ? "Delete" : "Revoke"}
-                          onClick={() => handleAction(key.id, key.revoked_at ? "delete" : "revoke")} disabled={actionLoading !== null} loading={actionLoading === key.id}
-                          icon={key.revoked_at ? <Trash2 className="size-3.5" strokeWidth={1.5} /> : <Ban className="size-3.5" strokeWidth={1.5} />} />
-                      </TooltipTrigger><TooltipContent>{key.revoked_at ? "Delete" : "Revoke"}</TooltipContent></Tooltip>
+                      <Tooltip disableHoverableContent>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className={`size-8 ${key.revoked_at ? "text-basalt-destructive" : ""}`}
+                            aria-label={key.revoked_at ? "Delete" : "Revoke"}
+                            onClick={() =>
+                              handleAction(key.id, key.revoked_at ? "delete" : "revoke")
+                            }
+                            disabled={actionLoading !== null}
+                            loading={actionLoading === key.id}
+                            icon={
+                              key.revoked_at ? (
+                                <Trash2 className="size-3.5" strokeWidth={1.5} />
+                              ) : (
+                                <Ban className="size-3.5" strokeWidth={1.5} />
+                              )
+                            }
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>{key.revoked_at ? "Delete" : "Revoke"}</TooltipContent>
+                      </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          </div>
+        </div>
       )}
     </LayerCard>
   );
@@ -623,7 +771,7 @@ function CreateKeyDialog({ onCreated, rules }: { onCreated: () => void; rules: R
   const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!name.trim() || !rules.some(rule => rule.id === ruleId) || loading) return;
+    if (!name.trim() || !rules.some((rule) => rule.id === ruleId) || loading) return;
     setLoading(true);
     setError(null);
 
@@ -638,7 +786,7 @@ function CreateKeyDialog({ onCreated, rules }: { onCreated: () => void; rules: R
         const errMsg =
           typeof data.error === "string"
             ? data.error
-            : data.error?.message ?? "Failed to create key";
+            : (data.error?.message ?? "Failed to create key");
         setError(errMsg);
         return;
       }
@@ -656,22 +804,15 @@ function CreateKeyDialog({ onCreated, rules }: { onCreated: () => void; rules: R
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Key Created</DialogTitle>
-          <DialogDescription>
-            Copy this key now. It will not be shown again.
-          </DialogDescription>
+          <DialogDescription>Copy this key now. It will not be shown again.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <LayerCard.Well className="flex items-center gap-2">
-            <code className="text-xs font-mono flex-1 break-all select-all">
-              {createdKey}
-            </code>
+            <code className="text-xs font-mono flex-1 break-all select-all">{createdKey}</code>
             <CopyButton value={createdKey} />
           </LayerCard.Well>
           <div className="flex items-start gap-2 text-xs text-basalt-warning">
-            <AlertTriangle
-              className="h-3.5 w-3.5 shrink-0 mt-0.5"
-              strokeWidth={1.5}
-            />
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
             <span>This key will not be shown again. Store it securely.</span>
           </div>
         </div>
@@ -701,15 +842,30 @@ function CreateKeyDialog({ onCreated, rules }: { onCreated: () => void; rules: R
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           maxLength={64}
         />
-        <RoutingSelect label="Routing rule" value={ruleId} onChange={setRuleId} disabled={loading} options={rules.map(rule => ({ value: rule.id, label: rule.name }))} />
-        <p className="text-xs text-basalt-muted-foreground">The environment client key always uses the protected Copilot rule.</p>
-        {error && <p role="alert" className="text-xs text-basalt-destructive">{error}</p>}
+        <RoutingSelect
+          label="Routing rule"
+          value={ruleId}
+          onChange={setRuleId}
+          disabled={loading}
+          options={rules.map((rule) => ({ value: rule.id, label: rule.name }))}
+        />
+        <p className="text-xs text-basalt-muted-foreground">
+          The environment client key always uses the protected Copilot rule.
+        </p>
+        {error && (
+          <p role="alert" className="text-xs text-basalt-destructive">
+            {error}
+          </p>
+        )}
       </div>
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="outline">Cancel</Button>
         </DialogClose>
-        <Button onClick={handleCreate} disabled={loading || !name.trim() || !rules.some(rule => rule.id === ruleId)}>
+        <Button
+          onClick={handleCreate}
+          disabled={loading || !name.trim() || !rules.some((rule) => rule.id === ruleId)}
+        >
           {loading ? "Creating..." : "Create"}
         </Button>
       </DialogFooter>

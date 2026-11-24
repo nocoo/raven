@@ -1,18 +1,18 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
-import { Database } from "bun:sqlite"
-import { initDatabase, type RequestRecord } from "../../src/db/requests.ts"
-import { startRequestSink } from "../../src/db/request-sink.ts"
-import { logEmitter } from "../../src/util/log-emitter.ts"
-import type { LogEvent } from "../../src/util/log-event.ts"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+import { Database } from "bun:sqlite";
+import { initDatabase, type RequestRecord } from "../../src/db/requests.ts";
+import { startRequestSink } from "../../src/db/request-sink.ts";
+import { logEmitter } from "../../src/util/log-emitter.ts";
+import type { LogEvent } from "../../src/util/log-event.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function createTestDb(): Database {
-  const db = new Database(":memory:")
-  initDatabase(db)
-  return db
+  const db = new Database(":memory:");
+  initDatabase(db);
+  return db;
 }
 
 function makeRequestEndEvent(
@@ -44,7 +44,7 @@ function makeRequestEndEvent(
     },
     ...overrides,
     // Ensure data override doesn't get clobbered by spread
-  }
+  };
 }
 
 // ===========================================================================
@@ -52,38 +52,38 @@ function makeRequestEndEvent(
 // ===========================================================================
 
 describe("request-sink", () => {
-  let db: Database
-  let stopSink: () => void
+  let db: Database;
+  let stopSink: () => void;
 
   beforeEach(() => {
-    db = createTestDb()
-    stopSink = startRequestSink(db)
-  })
+    db = createTestDb();
+    stopSink = startRequestSink(db);
+  });
 
   afterEach(() => {
-    stopSink()
-    db.close()
-  })
+    stopSink();
+    db.close();
+  });
 
   test("persists request_end event to DB", () => {
-    logEmitter.emitLog(makeRequestEndEvent())
+    logEmitter.emitLog(makeRequestEndEvent());
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.id).toBe("req_test_123")
-    expect(rows[0]!.path).toBe("/v1/chat/completions")
-    expect(rows[0]!.client_format).toBe("openai")
-    expect(rows[0]!.model).toBe("gpt-4o")
-    expect(rows[0]!.resolved_model).toBe("gpt-4o-2024-08-06")
-    expect(rows[0]!.input_tokens).toBe(100)
-    expect(rows[0]!.output_tokens).toBe(50)
-    expect(rows[0]!.latency_ms).toBe(500)
-    expect(rows[0]!.status).toBe("success")
-    expect(rows[0]!.status_code).toBe(200)
-    expect(rows[0]!.session_id).toBe("user_abc_a885da1234")
-    expect(rows[0]!.client_name).toBe("Claude Code")
-    expect(rows[0]!.client_version).toBe("1.2.3")
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe("req_test_123");
+    expect(rows[0]!.path).toBe("/v1/chat/completions");
+    expect(rows[0]!.client_format).toBe("openai");
+    expect(rows[0]!.model).toBe("gpt-4o");
+    expect(rows[0]!.resolved_model).toBe("gpt-4o-2024-08-06");
+    expect(rows[0]!.input_tokens).toBe(100);
+    expect(rows[0]!.output_tokens).toBe(50);
+    expect(rows[0]!.latency_ms).toBe(500);
+    expect(rows[0]!.status).toBe("success");
+    expect(rows[0]!.status_code).toBe(200);
+    expect(rows[0]!.session_id).toBe("user_abc_a885da1234");
+    expect(rows[0]!.client_name).toBe("Claude Code");
+    expect(rows[0]!.client_version).toBe("1.2.3");
+  });
 
   test("ignores non-request_end events", () => {
     logEmitter.emitLog({
@@ -92,7 +92,7 @@ describe("request-sink", () => {
       type: "request_start",
       requestId: "req_ignored",
       msg: "start",
-    })
+    });
 
     logEmitter.emitLog({
       ts: Date.now(),
@@ -100,7 +100,7 @@ describe("request-sink", () => {
       type: "upstream_error",
       requestId: "req_ignored2",
       msg: "error",
-    })
+    });
 
     logEmitter.emitLog({
       ts: Date.now(),
@@ -108,11 +108,11 @@ describe("request-sink", () => {
       type: "system",
       requestId: null,
       msg: "system message",
-    })
+    });
 
-    const rows = db.query("SELECT * FROM requests").all()
-    expect(rows).toHaveLength(0)
-  })
+    const rows = db.query("SELECT * FROM requests").all();
+    expect(rows).toHaveLength(0);
+  });
 
   test("persists error request with error_message", () => {
     logEmitter.emitLog(
@@ -133,33 +133,27 @@ describe("request-sink", () => {
           accountName: "test-account",
         },
       }),
-    )
+    );
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.id).toBe("req_err_456")
-    expect(rows[0]!.status).toBe("error")
-    expect(rows[0]!.status_code).toBe(502)
-    expect(rows[0]!.error_message).toBe("stream error: connection reset")
-    expect(rows[0]!.client_format).toBe("anthropic")
-    expect(rows[0]!.stream).toBe(1)
-    expect(rows[0]!.account_name).toBe("test-account")
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe("req_err_456");
+    expect(rows[0]!.status).toBe("error");
+    expect(rows[0]!.status_code).toBe(502);
+    expect(rows[0]!.error_message).toBe("stream error: connection reset");
+    expect(rows[0]!.client_format).toBe("anthropic");
+    expect(rows[0]!.stream).toBe(1);
+    expect(rows[0]!.account_name).toBe("test-account");
+  });
 
   test("multiple events → multiple rows", () => {
-    logEmitter.emitLog(
-      makeRequestEndEvent({ requestId: "req_1" }),
-    )
-    logEmitter.emitLog(
-      makeRequestEndEvent({ requestId: "req_2" }),
-    )
-    logEmitter.emitLog(
-      makeRequestEndEvent({ requestId: "req_3" }),
-    )
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_1" }));
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_2" }));
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_3" }));
 
-    const rows = db.query("SELECT * FROM requests").all()
-    expect(rows).toHaveLength(3)
-  })
+    const rows = db.query("SELECT * FROM requests").all();
+    expect(rows).toHaveLength(3);
+  });
 
   test("ignores events without requestId", () => {
     logEmitter.emitLog({
@@ -169,20 +163,20 @@ describe("request-sink", () => {
       requestId: null,
       msg: "no id",
       data: { path: "/v1/chat/completions", model: "gpt-4o" },
-    })
+    });
 
-    const rows = db.query("SELECT * FROM requests").all()
-    expect(rows).toHaveLength(0)
-  })
+    const rows = db.query("SELECT * FROM requests").all();
+    expect(rows).toHaveLength(0);
+  });
 
   test("cleanup function removes listener", () => {
-    stopSink()
+    stopSink();
 
-    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_after_stop" }))
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_after_stop" }));
 
-    const rows = db.query("SELECT * FROM requests").all()
-    expect(rows).toHaveLength(0)
-  })
+    const rows = db.query("SELECT * FROM requests").all();
+    expect(rows).toHaveLength(0);
+  });
 
   test("handles missing data fields gracefully", () => {
     logEmitter.emitLog({
@@ -192,14 +186,14 @@ describe("request-sink", () => {
       requestId: "req_minimal",
       msg: "minimal event",
       data: {},
-    })
+    });
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.path).toBe("")
-    expect(rows[0]!.model).toBe("")
-    expect(rows[0]!.status).toBe("unknown")
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.path).toBe("");
+    expect(rows[0]!.model).toBe("");
+    expect(rows[0]!.status).toBe("unknown");
+  });
 
   test("persists Anthropic format with translated model", () => {
     logEmitter.emitLog(
@@ -221,30 +215,30 @@ describe("request-sink", () => {
           accountName: "default",
         },
       }),
-    )
+    );
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.client_format).toBe("anthropic")
-    expect(rows[0]!.model).toBe("claude-sonnet-4-20250514")
-    expect(rows[0]!.resolved_model).toBe("Claude Sonnet 4")
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.client_format).toBe("anthropic");
+    expect(rows[0]!.model).toBe("claude-sonnet-4-20250514");
+    expect(rows[0]!.resolved_model).toBe("Claude Sonnet 4");
+  });
 
   test("DB error does not throw", () => {
     // Close DB to trigger write error
-    db.close()
+    db.close();
 
     // Suppress expected console.error output
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     // Should not throw
     expect(() => {
-      logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_db_error" }))
-    }).not.toThrow()
+      logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_db_error" }));
+    }).not.toThrow();
 
-    expect(spy).toHaveBeenCalledTimes(1)
-    spy.mockRestore()
-  })
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
 
   test("persists session fields round-trip", () => {
     logEmitter.emitLog(
@@ -264,14 +258,14 @@ describe("request-sink", () => {
           clientVersion: "2.0.0-beta.1",
         },
       }),
-    )
+    );
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.session_id).toBe("550e8400-e29b-41d4-a716-446655440000::Claude Code::default")
-    expect(rows[0]!.client_name).toBe("Claude Code")
-    expect(rows[0]!.client_version).toBe("2.0.0-beta.1")
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.session_id).toBe("550e8400-e29b-41d4-a716-446655440000::Claude Code::default");
+    expect(rows[0]!.client_name).toBe("Claude Code");
+    expect(rows[0]!.client_version).toBe("2.0.0-beta.1");
+  });
 
   test("persists cache token fields round-trip", () => {
     logEmitter.emitLog(
@@ -292,13 +286,13 @@ describe("request-sink", () => {
           cacheWriteTokens: 0,
         },
       }),
-    )
+    );
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.cache_read_tokens).toBe(8403)
-    expect(rows[0]!.cache_write_tokens).toBe(0)
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.cache_read_tokens).toBe(8403);
+    expect(rows[0]!.cache_write_tokens).toBe(0);
+  });
 
   test("defaults cache token fields to null when absent", () => {
     logEmitter.emitLog(
@@ -315,12 +309,12 @@ describe("request-sink", () => {
           accountName: "default",
         },
       }),
-    )
+    );
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows[0]!.cache_read_tokens).toBeNull()
-    expect(rows[0]!.cache_write_tokens).toBeNull()
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows[0]!.cache_read_tokens).toBeNull();
+    expect(rows[0]!.cache_write_tokens).toBeNull();
+  });
 
   test("persists null client_version", () => {
     logEmitter.emitLog(
@@ -340,14 +334,14 @@ describe("request-sink", () => {
           clientVersion: undefined,
         },
       }),
-    )
+    );
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.session_id).toBe("user_xyz")
-    expect(rows[0]!.client_name).toBe("Cursor")
-    expect(rows[0]!.client_version).toBeNull()
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.session_id).toBe("user_xyz");
+    expect(rows[0]!.client_name).toBe("Cursor");
+    expect(rows[0]!.client_version).toBeNull();
+  });
 
   test("persists api_key_id from apiKeyId event data", () => {
     logEmitter.emitLog(
@@ -355,19 +349,19 @@ describe("request-sink", () => {
         requestId: "req_key_id",
         data: { apiKeyId: "K1DUPKEY" },
       }),
-    )
+    );
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows).toHaveLength(1)
-    expect(rows[0]!.api_key_id).toBe("K1DUPKEY")
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.api_key_id).toBe("K1DUPKEY");
+  });
 
   test("api_key_id defaults to empty string when absent (legacy identity)", () => {
-    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_key_absent" }))
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_key_absent" }));
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    expect(rows[0]!.api_key_id).toBe("")
-  })
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    expect(rows[0]!.api_key_id).toBe("");
+  });
 
   test("persists serverToolsUsed as server_tools_used flag, independent per row", () => {
     logEmitter.emitLog(
@@ -375,13 +369,13 @@ describe("request-sink", () => {
         requestId: "req_st_used",
         data: { serverToolsUsed: true },
       }),
-    )
-    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_st_plain" }))
+    );
+    logEmitter.emitLog(makeRequestEndEvent({ requestId: "req_st_plain" }));
 
-    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[]
-    const used = rows.find((r) => r.id === "req_st_used")
-    const plain = rows.find((r) => r.id === "req_st_plain")
-    expect(used!.server_tools_used).toBe(1)
-    expect(plain!.server_tools_used).toBe(0)
-  })
-})
+    const rows = db.query("SELECT * FROM requests").all() as RequestRecord[];
+    const used = rows.find((r) => r.id === "req_st_used");
+    const plain = rows.find((r) => r.id === "req_st_plain");
+    expect(used!.server_tools_used).toBe(1);
+    expect(plain!.server_tools_used).toBe(0);
+  });
+});

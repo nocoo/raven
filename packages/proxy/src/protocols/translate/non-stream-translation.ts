@@ -5,9 +5,9 @@ import type {
   Message,
   Tool,
   ToolCall,
-} from "./../../upstream/copilot-openai"
+} from "./../../upstream/copilot-openai";
 
-import { translateModelName } from "../anthropic/preprocess"
+import { translateModelName } from "../anthropic/preprocess";
 
 import type {
   AnthropicAssistantContentBlock,
@@ -22,7 +22,7 @@ import type {
   AnthropicToolUseBlock,
   AnthropicUserContentBlock,
   AnthropicUserMessage,
-} from "../anthropic/types"
+} from "../anthropic/types";
 
 // ---------------------------------------------------------------------------
 // Sanitization Constants
@@ -54,17 +54,17 @@ export const UNSUPPORTED_CONTENT_TYPES = new Set([
   "search_result",
   "citations",
   "citation",
-])
+]);
 
 /**
  * Metadata fields on content blocks that should be stripped (Anthropic caching).
  */
-export const BLOCK_METADATA_TO_STRIP = ["cache_control", "citations"] as const
+export const BLOCK_METADATA_TO_STRIP = ["cache_control", "citations"] as const;
 
 /**
  * Extended fields on tool_use blocks that should be stripped (tool search beta).
  */
-export const TOOL_USE_FIELDS_TO_STRIP = ["caller"] as const
+export const TOOL_USE_FIELDS_TO_STRIP = ["caller"] as const;
 
 /**
  * Extended fields on tool schema definitions that should be stripped.
@@ -74,13 +74,13 @@ export const TOOL_SCHEMA_FIELDS_TO_STRIP = [
   "defer_loading",
   "strict",
   "eager_input_streaming",
-] as const
+] as const;
 
-import { mapOpenAIStopReasonToAnthropic } from "./stop-reason"
+import { mapOpenAIStopReasonToAnthropic } from "./stop-reason";
 
 interface MessageTranslateFlags {
-  sanitizeOrphanedToolResults: boolean
-  reorderToolResults: boolean
+  sanitizeOrphanedToolResults: boolean;
+  reorderToolResults: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,20 +91,18 @@ interface MessageTranslateFlags {
  * Filter out unsupported content block types and strip metadata from remaining blocks.
  * Returns a new array with only supported blocks.
  */
-export function filterContentBlocks<T extends { type: string }>(
-  blocks: T[],
-): T[] {
-  const filtered: T[] = []
+export function filterContentBlocks<T extends { type: string }>(blocks: T[]): T[] {
+  const filtered: T[] = [];
   for (const block of blocks) {
     // Skip unsupported block types
     if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) {
-      continue
+      continue;
     }
     // Strip metadata from remaining blocks
-    stripBlockMetadata(block)
-    filtered.push(block)
+    stripBlockMetadata(block);
+    filtered.push(block);
   }
-  return filtered
+  return filtered;
 }
 
 /**
@@ -112,10 +110,10 @@ export function filterContentBlocks<T extends { type: string }>(
  */
 export function stripBlockMetadata(block: Record<string, unknown>): void {
   if ("cache_control" in block) {
-    delete block.cache_control
+    delete block.cache_control;
   }
   if ("citations" in block) {
-    delete block.citations
+    delete block.citations;
   }
 }
 
@@ -123,9 +121,9 @@ export function stripBlockMetadata(block: Record<string, unknown>): void {
  * Strip extended fields from a tool_use block (mutates in place).
  */
 export function stripToolUseFields(block: AnthropicToolUseBlock): void {
-  const blockAny = block as unknown as Record<string, unknown>
+  const blockAny = block as unknown as Record<string, unknown>;
   if ("caller" in blockAny) {
-    delete blockAny.caller
+    delete blockAny.caller;
   }
 }
 
@@ -134,7 +132,7 @@ export function stripToolUseFields(block: AnthropicToolUseBlock): void {
  */
 export function sanitizeToolDefinitions(tools: AnthropicTool[]): void {
   for (const tool of tools) {
-    sanitizeSingleToolDefinition(tool)
+    sanitizeSingleToolDefinition(tool);
   }
 }
 
@@ -143,18 +141,18 @@ export function sanitizeToolDefinitions(tools: AnthropicTool[]): void {
  * Used by translateAnthropicToolsToOpenAI to avoid array allocation overhead.
  */
 function sanitizeSingleToolDefinition(tool: AnthropicTool): void {
-  const toolAny = tool as unknown as Record<string, unknown>
+  const toolAny = tool as unknown as Record<string, unknown>;
   if ("cache_control" in toolAny) {
-    delete toolAny.cache_control
+    delete toolAny.cache_control;
   }
   if ("defer_loading" in toolAny) {
-    delete toolAny.defer_loading
+    delete toolAny.defer_loading;
   }
   if ("strict" in toolAny) {
-    delete toolAny.strict
+    delete toolAny.strict;
   }
   if ("eager_input_streaming" in toolAny) {
-    delete toolAny.eager_input_streaming
+    delete toolAny.eager_input_streaming;
   }
 }
 
@@ -171,15 +169,19 @@ function sanitizeSingleToolDefinition(tool: AnthropicTool): void {
 // to 5.4+ families only. When future Copilot gpt-5.x families (5.5, 5.6, ...)
 // inherit the same strict behaviour, extend this regex.
 // Matches: gpt-5.4, gpt-5.4-codex, gpt-5.4-mini, ... (not gpt-5.2 / gpt-5-mini)
-const COPILOT_STRICT_MAX_COMPLETION_TOKENS_REGEX = /^gpt-5\.4(?:[-.]|$)/i
+const COPILOT_STRICT_MAX_COMPLETION_TOKENS_REGEX = /^gpt-5\.4(?:[-.]|$)/i;
 
 function requiresMaxCompletionTokens(
   targetFormat: TranslateTargetFormat | undefined,
   translatedModel: string,
 ): boolean {
-  if (targetFormat === "openai-reasoning") return true
-  if (targetFormat === "copilot" && COPILOT_STRICT_MAX_COMPLETION_TOKENS_REGEX.test(translatedModel)) return true
-  return false
+  if (targetFormat === "openai-reasoning") return true;
+  if (
+    targetFormat === "copilot" &&
+    COPILOT_STRICT_MAX_COMPLETION_TOKENS_REGEX.test(translatedModel)
+  )
+    return true;
+  return false;
 }
 
 /**
@@ -188,15 +190,15 @@ function requiresMaxCompletionTokens(
  * - "openai": OpenAI upstream without reasoning support
  * - "copilot": Default Copilot path
  */
-export type TranslateTargetFormat = "openai-reasoning" | "openai" | "copilot"
+export type TranslateTargetFormat = "openai-reasoning" | "openai" | "copilot";
 
 export interface TranslateToOpenAIOptions {
-  targetFormat?: TranslateTargetFormat
-  anthropicBeta?: string | null
+  targetFormat?: TranslateTargetFormat;
+  anthropicBeta?: string | null;
   /** When true, drop tool_result blocks referencing unknown tool_use ids (OPT-1). */
-  sanitizeOrphanedToolResults?: boolean
+  sanitizeOrphanedToolResults?: boolean;
   /** When true, reorder tool_result blocks to match the prior assistant's tool_calls order (OPT-2). */
-  reorderToolResults?: boolean
+  reorderToolResults?: boolean;
 }
 
 export function translateToOpenAI(
@@ -204,34 +206,34 @@ export function translateToOpenAI(
   options?: TranslateToOpenAIOptions,
 ): ChatCompletionsPayload {
   // Compute optional fields first to keep result object literal stable.
-  const stop = payload.stop_sequences || undefined
-  const stream = payload.stream === undefined ? undefined : payload.stream
-  const temperature = payload.temperature === undefined ? undefined : payload.temperature
-  const top_p = payload.top_p === undefined ? undefined : payload.top_p
-  const user = payload.metadata?.user_id || undefined
-  const tools = translateAnthropicToolsToOpenAI(payload.tools) || undefined
-  const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice) || undefined
+  const stop = payload.stop_sequences || undefined;
+  const stream = payload.stream === undefined ? undefined : payload.stream;
+  const temperature = payload.temperature === undefined ? undefined : payload.temperature;
+  const top_p = payload.top_p === undefined ? undefined : payload.top_p;
+  const user = payload.metadata?.user_id || undefined;
+  const tools = translateAnthropicToolsToOpenAI(payload.tools) || undefined;
+  const toolChoice = translateAnthropicToolChoiceToOpenAI(payload.tool_choice) || undefined;
 
-  let reasoning_effort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | undefined
+  let reasoning_effort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | undefined;
   if (options?.targetFormat === "openai-reasoning" && payload.thinking?.type === "enabled") {
-    const budget = payload.thinking.budget_tokens ?? 0
-    reasoning_effort = budget >= 10000 ? "high" : budget >= 5000 ? "medium" : budget >= 2000 ? "low" : "minimal"
+    const budget = payload.thinking.budget_tokens ?? 0;
+    reasoning_effort =
+      budget >= 10000 ? "high" : budget >= 5000 ? "medium" : budget >= 2000 ? "low" : "minimal";
   }
 
   // Build result with stable hidden-class shape (all optional fields included; undefined values
   // are skipped by JSON.stringify, so wire format matches the prior conditional-assignment version).
-  const translatedModel = translateModelName(payload.model, options?.anthropicBeta ?? null)
-  const useMaxCompletionTokens = requiresMaxCompletionTokens(options?.targetFormat, translatedModel)
+  const translatedModel = translateModelName(payload.model, options?.anthropicBeta ?? null);
+  const useMaxCompletionTokens = requiresMaxCompletionTokens(
+    options?.targetFormat,
+    translatedModel,
+  );
   const result = {
     model: translatedModel,
-    messages: translateAnthropicMessagesToOpenAI(
-      payload.messages,
-      payload.system ?? undefined,
-      {
-        sanitizeOrphanedToolResults: options?.sanitizeOrphanedToolResults ?? false,
-        reorderToolResults: options?.reorderToolResults ?? false,
-      },
-    ),
+    messages: translateAnthropicMessagesToOpenAI(payload.messages, payload.system ?? undefined, {
+      sanitizeOrphanedToolResults: options?.sanitizeOrphanedToolResults ?? false,
+      reorderToolResults: options?.reorderToolResults ?? false,
+    }),
     max_tokens: useMaxCompletionTokens ? undefined : payload.max_tokens,
     max_completion_tokens: useMaxCompletionTokens ? payload.max_tokens : undefined,
     stop,
@@ -242,9 +244,9 @@ export function translateToOpenAI(
     tools,
     tool_choice: toolChoice,
     reasoning_effort,
-  } as ChatCompletionsPayload
+  } as ChatCompletionsPayload;
 
-  return result
+  return result;
 }
 
 // Pre-compiled regexes for model name translation moved to
@@ -255,36 +257,35 @@ function translateAnthropicMessagesToOpenAI(
   system: string | Array<AnthropicTextBlock> | undefined,
   flags: MessageTranslateFlags,
 ): Array<Message> {
-  const result: Array<Message> = []
-  appendSystemPrompt(system, result)
+  const result: Array<Message> = [];
+  appendSystemPrompt(system, result);
 
   // Context state for OPT-1 (sanitize) and OPT-2 (reorder).
   // Tracks tool_use IDs from the most recent assistant message, in order.
-  let pendingToolCallIds: string[] = []
+  let pendingToolCallIds: string[] = [];
 
   for (const message of anthropicMessages) {
     if (message.role === "assistant") {
-      pendingToolCallIds = appendAssistantMessage(message, result)
+      pendingToolCallIds = appendAssistantMessage(message, result);
     } else {
-      appendUserMessage(message, pendingToolCallIds, flags, result)
-      pendingToolCallIds = EMPTY_IDS
+      appendUserMessage(message, pendingToolCallIds, flags, result);
+      pendingToolCallIds = EMPTY_IDS;
     }
   }
 
-  return result
+  return result;
 }
 
-const EMPTY_IDS: string[] = []
+const EMPTY_IDS: string[] = [];
 
 function appendSystemPrompt(
   system: string | Array<AnthropicTextBlock> | undefined,
   out: Array<Message>,
 ): void {
-  if (!system) return
-  const content = typeof system === "string"
-    ? system
-    : system.map((block) => block.text).join("\n\n")
-  out.push({ role: "system", content, name: null, tool_calls: null, tool_call_id: null })
+  if (!system) return;
+  const content =
+    typeof system === "string" ? system : system.map((block) => block.text).join("\n\n");
+  out.push({ role: "system", content, name: null, tool_calls: null, tool_call_id: null });
 }
 
 function appendUserMessage(
@@ -293,31 +294,29 @@ function appendUserMessage(
   flags: MessageTranslateFlags,
   out: Array<Message>,
 ): void {
-
-
   if (Array.isArray(message.content)) {
-    const flagsActive = flags.sanitizeOrphanedToolResults || flags.reorderToolResults
+    const flagsActive = flags.sanitizeOrphanedToolResults || flags.reorderToolResults;
 
     if (!flagsActive) {
       // Fast path: no tool-result reordering/sanitization. Single pass:
       // filter unsupported, push tool messages directly, lazily collect non-tool-result blocks.
       // Tool results must come first to maintain protocol: tool_use -> tool_result -> user.
-      let otherBlocks: AnthropicUserContentBlock[] | null = null
+      let otherBlocks: AnthropicUserContentBlock[] | null = null;
       for (const block of message.content) {
-        if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
-        stripBlockMetadata(block as unknown as Record<string, unknown>)
+        if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue;
+        stripBlockMetadata(block as unknown as Record<string, unknown>);
         if (block.type === "tool_result") {
-          const trBlock = block as AnthropicToolResultBlock
+          const trBlock = block as AnthropicToolResultBlock;
           out.push({
             role: "tool",
             content: mapContent(trBlock.content),
             name: null,
             tool_calls: null,
             tool_call_id: trBlock.tool_use_id,
-          })
+          });
         } else {
-          if (otherBlocks === null) otherBlocks = []
-          otherBlocks.push(block)
+          if (otherBlocks === null) otherBlocks = [];
+          otherBlocks.push(block);
         }
       }
 
@@ -328,37 +327,37 @@ function appendUserMessage(
           name: null,
           tool_calls: null,
           tool_call_id: null,
-        })
+        });
       }
-      return
+      return;
     }
 
     // Slow path: tool-result sanitization/reordering active.
-    const filteredContent = filterContentBlocks(message.content)
-    let toolResultBlocks: AnthropicToolResultBlock[] = []
-    const otherBlocks: AnthropicUserContentBlock[] = []
+    const filteredContent = filterContentBlocks(message.content);
+    let toolResultBlocks: AnthropicToolResultBlock[] = [];
+    const otherBlocks: AnthropicUserContentBlock[] = [];
     for (const block of filteredContent) {
       if (block.type === "tool_result") {
-        toolResultBlocks.push(block as AnthropicToolResultBlock)
+        toolResultBlocks.push(block as AnthropicToolResultBlock);
       } else {
-        otherBlocks.push(block)
+        otherBlocks.push(block);
       }
     }
 
     // OPT-1: Drop tool_result blocks referencing non-existent tool_use IDs.
     if (flags.sanitizeOrphanedToolResults) {
-      const validIds = new Set(pendingToolCallIds)
-      toolResultBlocks = toolResultBlocks.filter((block) => validIds.has(block.tool_use_id))
+      const validIds = new Set(pendingToolCallIds);
+      toolResultBlocks = toolResultBlocks.filter((block) => validIds.has(block.tool_use_id));
     }
 
     // OPT-2: Reorder tool results to match tool_calls array order
     if (flags.reorderToolResults && pendingToolCallIds.length > 0 && toolResultBlocks.length > 1) {
-      const idOrder = new Map(pendingToolCallIds.map((id, i) => [id, i]))
+      const idOrder = new Map(pendingToolCallIds.map((id, i) => [id, i]));
       toolResultBlocks.sort((a, b) => {
-        const aIdx = idOrder.get(a.tool_use_id) ?? pendingToolCallIds.length
-        const bIdx = idOrder.get(b.tool_use_id) ?? pendingToolCallIds.length
-        return aIdx - bIdx
-      })
+        const aIdx = idOrder.get(a.tool_use_id) ?? pendingToolCallIds.length;
+        const bIdx = idOrder.get(b.tool_use_id) ?? pendingToolCallIds.length;
+        return aIdx - bIdx;
+      });
     }
 
     for (const block of toolResultBlocks) {
@@ -368,7 +367,7 @@ function appendUserMessage(
         name: null,
         tool_calls: null,
         tool_call_id: block.tool_use_id,
-      })
+      });
     }
 
     if (otherBlocks.length > 0) {
@@ -378,7 +377,7 @@ function appendUserMessage(
         name: null,
         tool_calls: null,
         tool_call_id: null,
-      })
+      });
     }
   } else {
     // Inline mapContent: non-array user content is normally string; treat anything else as null
@@ -388,14 +387,11 @@ function appendUserMessage(
       name: null,
       tool_calls: null,
       tool_call_id: null,
-    })
+    });
   }
 }
 
-function appendAssistantMessage(
-  message: AnthropicAssistantMessage,
-  out: Array<Message>,
-): string[] {
+function appendAssistantMessage(message: AnthropicAssistantMessage, out: Array<Message>): string[] {
   if (!Array.isArray(message.content)) {
     // Inline mapContent: non-array assistant content is normally string; treat anything else as null
     out.push({
@@ -404,60 +400,61 @@ function appendAssistantMessage(
       name: null,
       tool_calls: null,
       tool_call_id: null,
-    })
-    return EMPTY_IDS
+    });
+    return EMPTY_IDS;
   }
 
   // Single-pass: filter unsupported (count only), strip metadata, categorize.
   // Fallback (no tool_use) calls mapContent(content) which itself ignores unsupported types
   // via switch fall-through, so we don't need to materialize a filtered-content array.
-  const toolUseBlocks: AnthropicToolUseBlock[] = []
-  const textParts: string[] = []
-  const thinkingParts: string[] = []
-  let kept = 0
+  const toolUseBlocks: AnthropicToolUseBlock[] = [];
+  const textParts: string[] = [];
+  const thinkingParts: string[] = [];
+  let kept = 0;
 
   for (const block of message.content) {
-    if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
-    stripBlockMetadata(block as unknown as Record<string, unknown>)
-    kept++
+    if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue;
+    stripBlockMetadata(block as unknown as Record<string, unknown>);
+    kept++;
     switch (block.type) {
       case "tool_use":
-        stripToolUseFields(block as AnthropicToolUseBlock)
-        toolUseBlocks.push(block as AnthropicToolUseBlock)
-        break
+        stripToolUseFields(block as AnthropicToolUseBlock);
+        toolUseBlocks.push(block as AnthropicToolUseBlock);
+        break;
       case "text":
-        textParts.push((block as AnthropicTextBlock).text)
-        break
+        textParts.push((block as AnthropicTextBlock).text);
+        break;
       case "thinking":
-        thinkingParts.push((block as AnthropicThinkingBlock).thinking)
-        break
+        thinkingParts.push((block as AnthropicThinkingBlock).thinking);
+        break;
     }
   }
 
   // If all content was filtered out, drop the entire message
   if (kept === 0) {
-    return EMPTY_IDS
+    return EMPTY_IDS;
   }
 
   // Combine text and thinking blocks, as OpenAI doesn't have separate thinking blocks
   // Original order: all text first, then all thinking
   // Avoid double-spread: combine without intermediate allocation
-  let allTextContent: string | null = null
+  let allTextContent: string | null = null;
   if (textParts.length > 0) {
     if (thinkingParts.length === 0) {
-      allTextContent = textParts.length === 1 ? (textParts[0] ?? null) : textParts.join("\n\n")
+      allTextContent = textParts.length === 1 ? (textParts[0] ?? null) : textParts.join("\n\n");
     } else {
-      allTextContent = textParts.concat(thinkingParts).join("\n\n")
+      allTextContent = textParts.concat(thinkingParts).join("\n\n");
     }
   } else if (thinkingParts.length > 0) {
-    allTextContent = thinkingParts.length === 1 ? (thinkingParts[0] ?? null) : thinkingParts.join("\n\n")
+    allTextContent =
+      thinkingParts.length === 1 ? (thinkingParts[0] ?? null) : thinkingParts.join("\n\n");
   }
 
   if (toolUseBlocks.length > 0) {
-    const ids: string[] = new Array(toolUseBlocks.length)
-    const toolCalls = new Array(toolUseBlocks.length)
+    const ids: string[] = new Array(toolUseBlocks.length);
+    const toolCalls = new Array(toolUseBlocks.length);
     for (const [i, toolUse] of toolUseBlocks.entries()) {
-      ids[i] = toolUse.id
+      ids[i] = toolUse.id;
       toolCalls[i] = {
         id: toolUse.id,
         type: "function",
@@ -465,7 +462,7 @@ function appendAssistantMessage(
           name: toolUse.name,
           arguments: JSON.stringify(toolUse.input),
         },
-      }
+      };
     }
     out.push({
       role: "assistant",
@@ -473,8 +470,8 @@ function appendAssistantMessage(
       name: null,
       tool_calls: toolCalls,
       tool_call_id: null,
-    })
-    return ids
+    });
+    return ids;
   }
 
   out.push({
@@ -483,58 +480,56 @@ function appendAssistantMessage(
     name: null,
     tool_calls: null,
     tool_call_id: null,
-  })
-  return EMPTY_IDS
+  });
+  return EMPTY_IDS;
 }
 
 function mapContent(
-  content:
-    | string
-    | Array<AnthropicUserContentBlock | AnthropicAssistantContentBlock>,
+  content: string | Array<AnthropicUserContentBlock | AnthropicAssistantContentBlock>,
 ): string | Array<ContentPart> | null {
   if (typeof content === "string") {
-    return content
+    return content;
   }
   if (!Array.isArray(content)) {
-    return null
+    return null;
   }
 
   // Single-pass: detect image and collect text simultaneously
-  let hasImage = false
-  const textParts: string[] = []
+  let hasImage = false;
+  const textParts: string[] = [];
 
   for (const block of content) {
     switch (block.type) {
       case "image":
-        hasImage = true
-        break
+        hasImage = true;
+        break;
       case "text":
-        textParts.push(block.text)
-        break
+        textParts.push(block.text);
+        break;
       case "thinking":
-        textParts.push((block as AnthropicThinkingBlock).thinking)
-        break
+        textParts.push((block as AnthropicThinkingBlock).thinking);
+        break;
     }
   }
 
   // Fast path: no images, just join text
   if (!hasImage) {
-    if (textParts.length === 0) return null
-    if (textParts.length === 1) return textParts[0] ?? null
-    return textParts.join("\n\n")
+    if (textParts.length === 0) return null;
+    if (textParts.length === 1) return textParts[0] ?? null;
+    return textParts.join("\n\n");
   }
 
   // Slow path with images: build ContentPart array
-  const contentParts: Array<ContentPart> = []
+  const contentParts: Array<ContentPart> = [];
   for (const block of content) {
     switch (block.type) {
       case "text": {
-        contentParts.push({ type: "text", text: block.text })
-        break
+        contentParts.push({ type: "text", text: block.text });
+        break;
       }
       case "thinking": {
-        contentParts.push({ type: "text", text: (block as AnthropicThinkingBlock).thinking })
-        break
+        contentParts.push({ type: "text", text: (block as AnthropicThinkingBlock).thinking });
+        break;
       }
       case "image": {
         contentParts.push({
@@ -542,24 +537,24 @@ function mapContent(
           image_url: {
             url: `data:${block.source.media_type};base64,${block.source.data}`,
           },
-        })
-        break
+        });
+        break;
       }
     }
   }
-  return contentParts
+  return contentParts;
 }
 
 function translateAnthropicToolsToOpenAI(
   anthropicTools: Array<AnthropicTool> | null | undefined,
 ): Array<Tool> | null {
   if (!anthropicTools) {
-    return null
+    return null;
   }
 
-  const result: Array<Tool> = new Array(anthropicTools.length)
+  const result: Array<Tool> = new Array(anthropicTools.length);
   for (const [i, tool] of anthropicTools.entries()) {
-    sanitizeSingleToolDefinition(tool)
+    sanitizeSingleToolDefinition(tool);
     result[i] = {
       type: "function",
       function: {
@@ -567,39 +562,39 @@ function translateAnthropicToolsToOpenAI(
         description: tool.description,
         parameters: tool.input_schema,
       },
-    }
+    };
   }
-  return result
+  return result;
 }
 
 function translateAnthropicToolChoiceToOpenAI(
   anthropicToolChoice: AnthropicMessagesPayload["tool_choice"],
 ): ChatCompletionsPayload["tool_choice"] {
   if (!anthropicToolChoice) {
-    return null
+    return null;
   }
 
   switch (anthropicToolChoice.type) {
     case "auto": {
-      return "auto"
+      return "auto";
     }
     case "any": {
-      return "required"
+      return "required";
     }
     case "tool": {
       if (anthropicToolChoice.name) {
         return {
           type: "function",
           function: { name: anthropicToolChoice.name },
-        }
+        };
       }
-      return null
+      return null;
     }
     case "none": {
-      return "none"
+      return "none";
     }
     default: {
-      return null
+      return null;
     }
   }
 }
@@ -610,45 +605,45 @@ export function translateToAnthropic(
   response: ChatCompletionResponse,
   originalModel?: string,
 ): AnthropicResponse {
-  const choices = response.choices
-  const allTextBlocks: Array<AnthropicTextBlock> = []
-  let refusalSeen = false
-  const allToolUseBlocks: Array<AnthropicToolUseBlock> = []
+  const choices = response.choices;
+  const allTextBlocks: Array<AnthropicTextBlock> = [];
+  let refusalSeen = false;
+  const allToolUseBlocks: Array<AnthropicToolUseBlock> = [];
   let stopReason: "stop" | "length" | "tool_calls" | "content_filter" | null =
-    choices[0]?.finish_reason ?? null
+    choices[0]?.finish_reason ?? null;
 
   // Process all choices to extract text and tool use blocks
   for (const choice of choices) {
-    appendAnthropicTextBlocks(choice.message.content, allTextBlocks)
+    appendAnthropicTextBlocks(choice.message.content, allTextBlocks);
     if (typeof choice.message.refusal === "string" && choice.message.refusal.length > 0) {
-      allTextBlocks.push({ type: "text", text: choice.message.refusal })
-      refusalSeen = true
+      allTextBlocks.push({ type: "text", text: choice.message.refusal });
+      refusalSeen = true;
     }
-    appendAnthropicToolUseBlocks(choice.message.tool_calls, allToolUseBlocks)
+    appendAnthropicToolUseBlocks(choice.message.tool_calls, allToolUseBlocks);
 
     // Use the finish_reason from the first choice, or prioritize tool_calls
     if (choice.finish_reason === "tool_calls" || stopReason === "stop") {
-      stopReason = choice.finish_reason
+      stopReason = choice.finish_reason;
     }
   }
 
   // Note: GitHub Copilot doesn't generate thinking blocks, so we don't include them in responses
 
   // Merge content arrays without spread (text first, then tool_use)
-  let content: Array<AnthropicTextBlock | AnthropicToolUseBlock>
+  let content: Array<AnthropicTextBlock | AnthropicToolUseBlock>;
   if (allToolUseBlocks.length === 0) {
-    content = allTextBlocks
+    content = allTextBlocks;
   } else if (allTextBlocks.length === 0) {
-    content = allToolUseBlocks
+    content = allToolUseBlocks;
   } else {
-    content = allTextBlocks
-    for (const toolUse of allToolUseBlocks) content.push(toolUse)
+    content = allTextBlocks;
+    for (const toolUse of allToolUseBlocks) content.push(toolUse);
   }
 
-  const usage = response.usage
-  const rawCached = usage?.prompt_tokens_details?.cached_tokens ?? null
-  const cachedTokens = rawCached ?? 0
-  const promptTokens = usage?.prompt_tokens ?? 0
+  const usage = response.usage;
+  const rawCached = usage?.prompt_tokens_details?.cached_tokens ?? null;
+  const cachedTokens = rawCached ?? 0;
+  const promptTokens = usage?.prompt_tokens ?? 0;
 
   return {
     id: response.id,
@@ -665,7 +660,7 @@ export function translateToAnthropic(
       cache_read_input_tokens: rawCached,
       service_tier: null,
     },
-  }
+  };
 }
 
 function appendAnthropicTextBlocks(
@@ -673,12 +668,12 @@ function appendAnthropicTextBlocks(
   out: Array<AnthropicTextBlock>,
 ): void {
   if (typeof messageContent === "string") {
-    out.push({ type: "text", text: messageContent })
-    return
+    out.push({ type: "text", text: messageContent });
+    return;
   }
   if (Array.isArray(messageContent)) {
     for (const part of messageContent) {
-      if (part.type === "text") out.push({ type: "text", text: part.text })
+      if (part.type === "text") out.push({ type: "text", text: part.text });
     }
   }
 }
@@ -687,13 +682,13 @@ function appendAnthropicToolUseBlocks(
   toolCalls: Array<ToolCall> | null | undefined,
   out: Array<AnthropicToolUseBlock>,
 ): void {
-  if (!toolCalls) return
+  if (!toolCalls) return;
   for (const toolCall of toolCalls) {
     out.push({
       type: "tool_use",
       id: toolCall.id,
       name: toolCall.function.name,
       input: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
-    })
+    });
   }
 }

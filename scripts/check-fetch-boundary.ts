@@ -13,12 +13,12 @@
  * require explicit review.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs"
-import { join, relative } from "node:path"
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 
-const ROOT = join(import.meta.dir, "..", "packages", "proxy", "src")
-const UPSTREAM_PREFIX = "upstream/"
-const FETCH_PATTERN = /(?<![./_a-zA-Z0-9])fetch\s*\(/
+const ROOT = join(import.meta.dir, "..", "packages", "proxy", "src");
+const UPSTREAM_PREFIX = "upstream/";
+const FETCH_PATTERN = /(?<![./_a-zA-Z0-9])fetch\s*\(/;
 
 const ALLOWED_NON_UPSTREAM_FETCH = new Set<string>([
   // Hono server entrypoint — receives inbound requests, does not initiate
@@ -40,63 +40,59 @@ const ALLOWED_NON_UPSTREAM_FETCH = new Set<string>([
   "routes/settings-socks5.ts",
   // Dashboard-only Echo enrichment, never used during model admission.
   "routes/ip-lookup.ts",
-])
+]);
 
 function* walk(dir: string): Generator<string> {
   for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) yield* walk(full)
-    else if (entry.endsWith(".ts")) yield full
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) yield* walk(full);
+    else if (entry.endsWith(".ts")) yield full;
   }
 }
 
 function isComment(line: string): boolean {
-  const trimmed = line.trim()
-  return (
-    trimmed.startsWith("//") ||
-    trimmed.startsWith("*") ||
-    trimmed.startsWith("/*")
-  )
+  const trimmed = line.trim();
+  return trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*");
 }
 
-const violations: { file: string; line: number; text: string }[] = []
-const unusedAllowList = new Set(ALLOWED_NON_UPSTREAM_FETCH)
+const violations: { file: string; line: number; text: string }[] = [];
+const unusedAllowList = new Set(ALLOWED_NON_UPSTREAM_FETCH);
 
 for (const abs of walk(ROOT)) {
-  const rel = relative(ROOT, abs)
-  if (rel.startsWith(UPSTREAM_PREFIX)) continue
-  const src = readFileSync(abs, "utf8").split("\n")
-  let hasFetch = false
+  const rel = relative(ROOT, abs);
+  if (rel.startsWith(UPSTREAM_PREFIX)) continue;
+  const src = readFileSync(abs, "utf8").split("\n");
+  let hasFetch = false;
   for (const [i, line] of src.entries()) {
-    if (isComment(line)) continue
+    if (isComment(line)) continue;
     if (FETCH_PATTERN.test(line)) {
-      hasFetch = true
+      hasFetch = true;
       if (!ALLOWED_NON_UPSTREAM_FETCH.has(rel)) {
-        violations.push({ file: rel, line: i + 1, text: line.trim() })
+        violations.push({ file: rel, line: i + 1, text: line.trim() });
       }
     }
   }
-  if (hasFetch) unusedAllowList.delete(rel)
+  if (hasFetch) unusedAllowList.delete(rel);
 }
 
 if (violations.length > 0) {
-  console.error("❌ fetch() boundary violation (Phase E.11)")
+  console.error("❌ fetch() boundary violation (Phase E.11)");
   console.error(
     "Only packages/proxy/src/upstream/ may call fetch(). Move the call into",
     "an UpstreamClient, or add the file to ALLOWED_NON_UPSTREAM_FETCH",
     "in scripts/check-fetch-boundary.ts (with reviewer approval).",
-  )
+  );
   for (const v of violations) {
-    console.error(`  ${v.file}:${v.line}  ${v.text}`)
+    console.error(`  ${v.file}:${v.line}  ${v.text}`);
   }
-  process.exit(1)
+  process.exit(1);
 }
 
 if (unusedAllowList.size > 0) {
-  console.error("❌ stale entries in ALLOWED_NON_UPSTREAM_FETCH:")
-  for (const f of unusedAllowList) console.error(`  ${f}`)
-  console.error("Remove them from scripts/check-fetch-boundary.ts.")
-  process.exit(1)
+  console.error("❌ stale entries in ALLOWED_NON_UPSTREAM_FETCH:");
+  for (const f of unusedAllowList) console.error(`  ${f}`);
+  console.error("Remove them from scripts/check-fetch-boundary.ts.");
+  process.exit(1);
 }
 
-console.log("✅ fetch() boundary check passed")
+console.log("✅ fetch() boundary check passed");

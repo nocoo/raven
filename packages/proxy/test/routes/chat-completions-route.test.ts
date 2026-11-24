@@ -1,103 +1,130 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
-import { Hono } from "hono"
-import { installTestRouting, routingHarness } from "../helpers/routing"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+import { Hono } from "hono";
+import { installTestRouting, routingHarness } from "../helpers/routing";
 
-import { state } from "../../src/lib/state"
-import { completionRoutes } from "../../src/routes/chat-completions/route"
-import * as completionHandler from "../../src/routes/chat-completions/handler"
+import { state } from "../../src/lib/state";
+import { completionRoutes } from "../../src/routes/chat-completions/route";
+import * as completionHandler from "../../src/routes/chat-completions/handler";
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof vi.spyOn>
-let harness: ReturnType<typeof routingHarness>
+const savedToken = state.copilotToken;
+let fetchSpy: ReturnType<typeof vi.spyOn>;
+let harness: ReturnType<typeof routingHarness>;
 
 beforeEach(() => {
-  harness = routingHarness()
-  state.copilotToken = "test-token"
-  state.vsCodeVersion = "1.90.0"
-  state.accountType = "individual"
+  harness = routingHarness();
+  state.copilotToken = "test-token";
+  state.vsCodeVersion = "1.90.0";
+  state.accountType = "individual";
   state.models = {
     object: "list",
-    data: [{
-      id: "gpt-4o", name: "GPT-4o", object: "model", vendor: "openai",
-      version: "2024-08-06", preview: false, policy: null,
+    data: [
+      {
+        id: "gpt-4o",
+        name: "GPT-4o",
+        object: "model",
+        vendor: "openai",
+        version: "2024-08-06",
+        preview: false,
+        policy: null,
         model_picker_enabled: true,
-      capabilities: {
-        family: "gpt-4o", object: "model_capabilities", type: "chat",
-        tokenizer: "o200k_base",
-        limits: { max_context_window_tokens: 128000, max_output_tokens: 16384, max_prompt_tokens: null, max_inputs: null },
-        supports: { tool_calls: true, parallel_tool_calls: null, dimensions: null },
+        capabilities: {
+          family: "gpt-4o",
+          object: "model_capabilities",
+          type: "chat",
+          tokenizer: "o200k_base",
+          limits: {
+            max_context_window_tokens: 128000,
+            max_output_tokens: 16384,
+            max_prompt_tokens: null,
+            max_inputs: null,
+          },
+          supports: { tool_calls: true, parallel_tool_calls: null, dimensions: null },
+        },
       },
-    }],
-  }
-  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
-})
+    ],
+  };
+  fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected upstream request"));
+});
 
 afterEach(() => {
-  if (savedToken !== undefined) state.copilotToken = savedToken
-  else state.copilotToken = null
-  fetchSpy.mockRestore()
-  harness.close()
-})
+  if (savedToken !== undefined) state.copilotToken = savedToken;
+  else state.copilotToken = null;
+  fetchSpy.mockRestore();
+  harness.close();
+});
 
 // ===========================================================================
 // POST /v1/chat/completions — route wrapper (try/catch → forwardError)
 // ===========================================================================
 
 describe("POST /v1/chat/completions (route wrapper)", () => {
-  const body = JSON.stringify({ model: "gpt-4o", messages: [{ role: "user", content: "hi" }] })
-  const headers = { "content-type": "application/json" }
+  const body = JSON.stringify({ model: "gpt-4o", messages: [{ role: "user", content: "hi" }] });
+  const headers = { "content-type": "application/json" };
 
   test("success → proxies handler response", async () => {
     fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify({
-        id: "chatcmpl-1", object: "chat.completion", model: "gpt-4o",
-        choices: [{ index: 0, message: { role: "assistant", content: "hi" }, finish_reason: "stop" }],
-        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-      }), { status: 200, headers }),
-    )
+      new Response(
+        JSON.stringify({
+          id: "chatcmpl-1",
+          object: "chat.completion",
+          model: "gpt-4o",
+          choices: [
+            { index: 0, message: { role: "assistant", content: "hi" }, finish_reason: "stop" },
+          ],
+          usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        }),
+        { status: 200, headers },
+      ),
+    );
 
-    const app = new Hono()
-    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
-    installTestRouting(app, harness.db)
-    app.route("/v1/chat/completions", completionRoutes)
-    const res = await app.request("/v1/chat/completions", { method: "POST", headers, body })
+    const app = new Hono();
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })));
+    installTestRouting(app, harness.db);
+    app.route("/v1/chat/completions", completionRoutes);
+    const res = await app.request("/v1/chat/completions", { method: "POST", headers, body });
 
-    expect(res.status).toBe(200)
-  })
+    expect(res.status).toBe(200);
+  });
 
   test("handler throws → forwardError returns error JSON", async () => {
-    fetchSpy.mockRejectedValueOnce(new Error("upstream boom"))
+    fetchSpy.mockRejectedValueOnce(new Error("upstream boom"));
 
-    const app = new Hono()
-    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })))
-    installTestRouting(app, harness.db)
-    app.route("/v1/chat/completions", completionRoutes)
-    const res = await app.request("/v1/chat/completions", { method: "POST", headers, body })
+    const app = new Hono();
+    if (state.models) harness.copilot(state.models.data.map((entry) => ({ ...entry })));
+    installTestRouting(app, harness.db);
+    app.route("/v1/chat/completions", completionRoutes);
+    const res = await app.request("/v1/chat/completions", { method: "POST", headers, body });
 
-    expect(res.status).toBe(500)
-    const json = (await res.json()) as { error: { message: string } }
-    expect(json.error).toBeDefined()
-  })
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { error: { message: string } };
+    expect(json.error).toBeDefined();
+  });
 
   test("the actual route catches a rejection escaping the completion handler", async () => {
-    const handler = vi.spyOn(completionHandler, "handleCompletion").mockRejectedValueOnce(new Error("completion boundary failed"))
+    const handler = vi
+      .spyOn(completionHandler, "handleCompletion")
+      .mockRejectedValueOnce(new Error("completion boundary failed"));
     try {
-      const app = new Hono()
-      installTestRouting(app, harness.db)
-      app.route("/v1/chat/completions", completionRoutes)
-      const res = await app.request("/v1/chat/completions", { method: "POST", headers, body })
+      const app = new Hono();
+      installTestRouting(app, harness.db);
+      app.route("/v1/chat/completions", completionRoutes);
+      const res = await app.request("/v1/chat/completions", { method: "POST", headers, body });
 
-      expect(res.status).toBe(500)
-      expect(res.headers.get("content-type")).toContain("application/json")
-      expect(await res.json()).toEqual({ error: { message: "completion boundary failed", type: "error" } })
-      expect(handler).toHaveBeenCalledTimes(1)
-      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(res.status).toBe(500);
+      expect(res.headers.get("content-type")).toContain("application/json");
+      expect(await res.json()).toEqual({
+        error: { message: "completion boundary failed", type: "error" },
+      });
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
-      handler.mockRestore()
+      handler.mockRestore();
     }
-  })
-})
+  });
+});

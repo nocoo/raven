@@ -1,87 +1,162 @@
-import { resolveAgainstCatalog, translateModelName } from "../protocols/anthropic/preprocess"
-import type { StrategyName } from "./strategy"
-import { formatProtocol, nativeCapabilities, type ProtocolProvider } from "./protocol-capabilities"
-import { nativeProtocolEvidence, type NativeProtocolEvidence } from "./protocol-evidence"
-import type { ImageEndpoint } from "../protocols/native-json"
-export { declaredProtocols, formatProtocol } from "./protocol-capabilities"
+import { resolveAgainstCatalog, translateModelName } from "../protocols/anthropic/preprocess";
+import type { StrategyName } from "./strategy";
+import { formatProtocol, nativeCapabilities, type ProtocolProvider } from "./protocol-capabilities";
+import { nativeProtocolEvidence, type NativeProtocolEvidence } from "./protocol-evidence";
+import type { ImageEndpoint } from "../protocols/native-json";
+export { declaredProtocols, formatProtocol } from "./protocol-capabilities";
 
-export type { StrategyName }
-export type ClientProtocol = "anthropic" | "openai" | "responses" | "systemone" | "decisions" | "images"
+export type { StrategyName };
+export type ClientProtocol =
+  | "anthropic"
+  | "openai"
+  | "responses"
+  | "systemone"
+  | "decisions"
+  | "images";
 
 export type StrategyDecision =
-  | { kind: "ok"; name: StrategyName; providerId: string; upstreamProtocol: ClientProtocol; clientProtocol: ClientProtocol; model: string; imageEndpoint?: ImageEndpoint }
-  | { kind: "reject"; status: number; message: string; errorType: string }
+  | {
+      kind: "ok";
+      name: StrategyName;
+      providerId: string;
+      upstreamProtocol: ClientProtocol;
+      clientProtocol: ClientProtocol;
+      model: string;
+      imageEndpoint?: ImageEndpoint;
+    }
+  | { kind: "reject"; status: number; message: string; errorType: string };
 
 export interface RouterInput {
-  protocol: ClientProtocol
-  model: string
-  requestedModel: string
-  provider: ProtocolProvider
-  allowConversion: boolean
-  stream?: boolean
-  anthropicBeta?: string | null
-  imageEndpoint?: ImageEndpoint
+  protocol: ClientProtocol;
+  model: string;
+  requestedModel: string;
+  provider: ProtocolProvider;
+  allowConversion: boolean;
+  stream?: boolean;
+  anthropicBeta?: string | null;
+  imageEndpoint?: ImageEndpoint;
 }
 
-export function pickStrategy(input: RouterInput, evidence: readonly NativeProtocolEvidence[] = nativeProtocolEvidence): StrategyDecision {
-  const { provider, protocol, allowConversion } = input
-  const copilot = provider.kind === "copilot"
-  const model = copilot && protocol === "anthropic"
-    ? resolveAgainstCatalog(translateModelName(input.model, input.anthropicBeta ?? null), provider.models.map((entry) => entry.id))
-    : input.model
-  let target: ClientProtocol
+export function pickStrategy(
+  input: RouterInput,
+  evidence: readonly NativeProtocolEvidence[] = nativeProtocolEvidence,
+): StrategyDecision {
+  const { provider, protocol, allowConversion } = input;
+  const copilot = provider.kind === "copilot";
+  const model =
+    copilot && protocol === "anthropic"
+      ? resolveAgainstCatalog(
+          translateModelName(input.model, input.anthropicBeta ?? null),
+          provider.models.map((entry) => entry.id),
+        )
+      : input.model;
+  let target: ClientProtocol;
   if (copilot) {
-    const declared = nativeCapabilities(provider, model, input.stream === true, evidence).map(entry => entry.protocol)
+    const declared = nativeCapabilities(provider, model, input.stream === true, evidence).map(
+      (entry) => entry.protocol,
+    );
     if (protocol === "systemone" && !declared.includes("systemone")) {
-      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/systemone. Refresh its model catalog in Upstreams." }
+      return {
+        kind: "reject",
+        status: 503,
+        errorType: "copilot_capabilities_unavailable",
+        message:
+          "The selected Copilot model does not declare /v1/systemone. Refresh its model catalog in Upstreams.",
+      };
     }
     if (protocol === "decisions" && !declared.includes("decisions")) {
-      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "The selected Copilot model does not declare /v1/decisions. Refresh its model catalog in Upstreams." }
+      return {
+        kind: "reject",
+        status: 503,
+        errorType: "copilot_capabilities_unavailable",
+        message:
+          "The selected Copilot model does not declare /v1/decisions. Refresh its model catalog in Upstreams.",
+      };
     }
-    const imageEndpoint = input.imageEndpoint ?? "/v1/images/generations"
-    const endpoints = provider.models.find(entry => entry.id === model)?.supported_endpoints
-    if (protocol === "images" && (!Array.isArray(endpoints) || !endpoints.includes(imageEndpoint))) {
-      return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: `The selected Copilot model does not declare ${imageEndpoint}. Refresh its model catalog in Upstreams.` }
+    const imageEndpoint = input.imageEndpoint ?? "/v1/images/generations";
+    const endpoints = provider.models.find((entry) => entry.id === model)?.supported_endpoints;
+    if (
+      protocol === "images" &&
+      (!Array.isArray(endpoints) || !endpoints.includes(imageEndpoint))
+    ) {
+      return {
+        kind: "reject",
+        status: 503,
+        errorType: "copilot_capabilities_unavailable",
+        message: `The selected Copilot model does not declare ${imageEndpoint}. Refresh its model catalog in Upstreams.`,
+      };
     }
-    const fallbackProtocol = declared[0]
+    const fallbackProtocol = declared[0];
     if (fallbackProtocol) {
-      target = declared.includes(protocol) ? protocol : fallbackProtocol
+      target = declared.includes(protocol) ? protocol : fallbackProtocol;
     } else {
       if (input.requestedModel === "auto") {
-        return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "Copilot model capabilities are unavailable. Refresh its model catalog in Upstreams." }
+        return {
+          kind: "reject",
+          status: 503,
+          errorType: "copilot_capabilities_unavailable",
+          message:
+            "Copilot model capabilities are unavailable. Refresh its model catalog in Upstreams.",
+        };
       }
-      target = allowConversion && protocol === "anthropic" ? "openai" : protocol
+      target = allowConversion && protocol === "anthropic" ? "openai" : protocol;
     }
   } else {
     if (!provider.format) {
-      return { kind: "reject", status: 503, errorType: "routing_configuration_error", message: "The selected upstream has no protocol format" }
+      return {
+        kind: "reject",
+        status: 503,
+        errorType: "routing_configuration_error",
+        message: "The selected upstream has no protocol format",
+      };
     }
-    target = formatProtocol(provider.format)
+    target = formatProtocol(provider.format);
   }
-  const nativeJsonProtocols: readonly ClientProtocol[] = ["systemone", "decisions", "images"]
+  const nativeJsonProtocols: readonly ClientProtocol[] = ["systemone", "decisions", "images"];
   if (nativeJsonProtocols.includes(protocol) || nativeJsonProtocols.includes(target)) {
     if (protocol !== target || input.stream) {
-      const label = protocol === "systemone" ? "Systemone" : protocol === "decisions" ? "Decisions" : "Images"
-      return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: `${label} requires a native non-streaming upstream; protocol conversion is not supported.` }
+      const label =
+        protocol === "systemone" ? "Systemone" : protocol === "decisions" ? "Decisions" : "Images";
+      return {
+        kind: "reject",
+        status: 400,
+        errorType: "protocol_mismatch",
+        message: `${label} requires a native non-streaming upstream; protocol conversion is not supported.`,
+      };
     }
   }
   if (!allowConversion && protocol !== target) {
-    return { kind: "reject", status: 400, errorType: "protocol_mismatch", message: `The selected upstream uses ${target}; this rule does not allow conversion from ${protocol}.` }
+    return {
+      kind: "reject",
+      status: 400,
+      errorType: "protocol_mismatch",
+      message: `The selected upstream uses ${target}; this rule does not allow conversion from ${protocol}.`,
+    };
   }
-  let name: StrategyName = "protocol-converted"
+  let name: StrategyName = "protocol-converted";
   if (copilot) {
-    if (protocol === "systemone" && target === "systemone") name = "copilot-systemone"
-    else if (protocol === "decisions" && target === "decisions") name = "copilot-decisions"
-    else if (protocol === "images" && target === "images") name = "copilot-images"
-    else if (protocol === "anthropic" && target === "anthropic") name = "copilot-native"
-    else if (protocol === "anthropic" && target === "openai") name = "copilot-translated"
-    else if (protocol === "openai" && target === "openai") name = "copilot-openai-direct"
-    else if (protocol === "responses" && target === "responses") name = "copilot-responses"
-    else if (protocol === "openai" && target === "responses") name = "copilot-chat-via-responses"
+    if (protocol === "systemone" && target === "systemone") name = "copilot-systemone";
+    else if (protocol === "decisions" && target === "decisions") name = "copilot-decisions";
+    else if (protocol === "images" && target === "images") name = "copilot-images";
+    else if (protocol === "anthropic" && target === "anthropic") name = "copilot-native";
+    else if (protocol === "anthropic" && target === "openai") name = "copilot-translated";
+    else if (protocol === "openai" && target === "openai") name = "copilot-openai-direct";
+    else if (protocol === "responses" && target === "responses") name = "copilot-responses";
+    else if (protocol === "openai" && target === "responses") name = "copilot-chat-via-responses";
   } else {
-    if (protocol === "anthropic" && target === "anthropic") name = "custom-anthropic"
-    else if ((protocol === "openai" || protocol === "anthropic") && target === "openai") name = "custom-openai"
+    if (protocol === "anthropic" && target === "anthropic") name = "custom-anthropic";
+    else if ((protocol === "openai" || protocol === "anthropic") && target === "openai")
+      name = "custom-openai";
   }
-  return { kind: "ok", name, providerId: provider.id, upstreamProtocol: target, clientProtocol: protocol, model,
-    ...(protocol === "images" ? { imageEndpoint: input.imageEndpoint ?? "/v1/images/generations" } : {}) }
+  return {
+    kind: "ok",
+    name,
+    providerId: provider.id,
+    upstreamProtocol: target,
+    clientProtocol: protocol,
+    model,
+    ...(protocol === "images"
+      ? { imageEndpoint: input.imageEndpoint ?? "/v1/images/generations" }
+      : {}),
+  };
 }

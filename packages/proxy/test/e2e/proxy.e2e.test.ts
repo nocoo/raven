@@ -48,9 +48,7 @@ function failFastOnError(res: Response, body: string): void {
  * Parse an SSE stream into an array of event objects.
  * Each event has { event?: string, data: string }.
  */
-async function consumeSSE(
-  res: Response,
-): Promise<Array<{ event?: string; data: string }>> {
+async function consumeSSE(res: Response): Promise<Array<{ event?: string; data: string }>> {
   const text = await res.text();
   const events: Array<{ event?: string; data: string }> = [];
 
@@ -132,9 +130,7 @@ describe("e2e L1: /v1/messages (non-streaming)", () => {
       body: JSON.stringify({
         model: "claude-haiku-4.5",
         max_tokens: 32,
-        messages: [
-          { role: "user", content: "Reply with exactly: hello" },
-        ],
+        messages: [{ role: "user", content: "Reply with exactly: hello" }],
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -170,9 +166,7 @@ describe("e2e L1: /v1/chat/completions (non-streaming)", () => {
       body: JSON.stringify({
         model: "gpt-5-mini",
         max_tokens: 32,
-        messages: [
-          { role: "user", content: "Reply with exactly: hello" },
-        ],
+        messages: [{ role: "user", content: "Reply with exactly: hello" }],
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -208,9 +202,7 @@ describe("e2e L2: /v1/messages (streaming)", () => {
         model: "claude-haiku-4.5",
         max_tokens: 32,
         stream: true,
-        messages: [
-          { role: "user", content: "Reply with exactly one word: hello" },
-        ],
+        messages: [{ role: "user", content: "Reply with exactly one word: hello" }],
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -263,9 +255,7 @@ describe("e2e L2: /v1/chat/completions (streaming)", () => {
         model: "gpt-5-mini",
         max_tokens: 32,
         stream: true,
-        messages: [
-          { role: "user", content: "Reply with exactly one word: hello" },
-        ],
+        messages: [{ role: "user", content: "Reply with exactly one word: hello" }],
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -283,9 +273,7 @@ describe("e2e L2: /v1/chat/completions (streaming)", () => {
     expect(events[events.length - 1]!.data).toBe("[DONE]");
 
     // At least one chunk should have model field
-    const dataChunks = events
-      .filter((e) => e.data !== "[DONE]")
-      .map((e) => JSON.parse(e.data));
+    const dataChunks = events.filter((e) => e.data !== "[DONE]").map((e) => JSON.parse(e.data));
     const hasModel = dataChunks.some((c: { model?: string }) => c.model);
     expect(hasModel).toBe(true);
     expect(dataChunks[0].choices).toBeArray();
@@ -307,9 +295,7 @@ describe("e2e L3: /v1/messages/count_tokens", () => {
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 1024,
-        messages: [
-          { role: "user", content: "Hello, how are you?" },
-        ],
+        messages: [{ role: "user", content: "Hello, how are you?" }],
       }),
       signal: AbortSignal.timeout(5000),
     });
@@ -332,9 +318,7 @@ describe("e2e L3: no-prefix routes", () => {
       body: JSON.stringify({
         model: "gpt-5-mini",
         max_tokens: 32,
-        messages: [
-          { role: "user", content: "Reply with exactly: hello" },
-        ],
+        messages: [{ role: "user", content: "Reply with exactly: hello" }],
       }),
       signal: AbortSignal.timeout(30000),
     });
@@ -398,9 +382,7 @@ describe("e2e L4: tool_choice none", () => {
 
     // With tool_choice: none, the model should NOT use tools
     expect(body.content).toBeArray();
-    const hasToolUse = body.content.some(
-      (block: { type: string }) => block.type === "tool_use",
-    );
+    const hasToolUse = body.content.some((block: { type: string }) => block.type === "tool_use");
     expect(hasToolUse).toBe(false);
   });
 });
@@ -466,9 +448,7 @@ describe("e2e L5: /v1/responses (streaming)", () => {
     expect(res.headers.get("content-type")).toContain("text/event-stream");
 
     const events = await consumeSSE(res);
-    const eventTypes = events
-      .filter((e) => e.event)
-      .map((e) => e.event);
+    const eventTypes = events.filter((e) => e.event).map((e) => e.event);
 
     // Verify Responses API SSE lifecycle
     expect(eventTypes).toContain("response.created");

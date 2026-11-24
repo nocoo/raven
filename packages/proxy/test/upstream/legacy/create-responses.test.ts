@@ -1,74 +1,72 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import {
   CopilotResponsesClient,
   defaultCopilotResponsesConfig,
   hasVisionContent,
   hasAgentHistory,
   type ResponsesPayload,
-} from "../../../src/upstream/copilot-responses"
-import { state } from "../../../src/lib/state"
-import { HTTPError } from "../../../src/lib/error"
+} from "../../../src/upstream/copilot-responses";
+import { state } from "../../../src/lib/state";
+import { HTTPError } from "../../../src/lib/error";
 
 const createResponses = (payload: ResponsesPayload) =>
-  new CopilotResponsesClient(defaultCopilotResponsesConfig()).send(payload) as Promise<any>
+  new CopilotResponsesClient(defaultCopilotResponsesConfig()).send(payload) as Promise<any>;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SAVED_TOKEN = state.copilotToken
+const SAVED_TOKEN = state.copilotToken;
 
-function makePayload(
-  overrides: Partial<ResponsesPayload> = {},
-): ResponsesPayload {
+function makePayload(overrides: Partial<ResponsesPayload> = {}): ResponsesPayload {
   return {
     model: "gpt-5-mini",
     input: "hello",
     ...overrides,
-  }
+  };
 }
 
 function mockFetchResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
-  })
+  });
 }
 
 function mockFetchStream(chunks: string[]): Response {
-  const encoder = new TextEncoder()
+  const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
       for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk))
+        controller.enqueue(encoder.encode(chunk));
       }
-      controller.close()
+      controller.close();
     },
-  })
+  });
   return new Response(stream, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
-  })
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-let fetchSpy: ReturnType<typeof vi.spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  state.copilotToken = "test-jwt-token"
-  state.vsCodeVersion = "1.90.0"
-  state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch")
-})
+  state.copilotToken = "test-jwt-token";
+  state.vsCodeVersion = "1.90.0";
+  state.accountType = "individual";
+  fetchSpy = vi.spyOn(globalThis, "fetch");
+});
 
 afterEach(() => {
-  if (SAVED_TOKEN !== undefined) state.copilotToken = SAVED_TOKEN
-  else state.copilotToken = null
-  fetchSpy.mockRestore()
-})
+  if (SAVED_TOKEN !== undefined) state.copilotToken = SAVED_TOKEN;
+  else state.copilotToken = null;
+  fetchSpy.mockRestore();
+});
 
 // ===========================================================================
 // createResponses
@@ -76,14 +74,14 @@ afterEach(() => {
 
 describe("createResponses", () => {
   test("throws when copilotToken is missing", async () => {
-    state.copilotToken = null
+    state.copilotToken = null;
     try {
-      await createResponses(makePayload())
-      expect(true).toBe(false) // should not reach
+      await createResponses(makePayload());
+      expect(true).toBe(false); // should not reach
     } catch (err) {
-      expect((err as Error).message).toBe("Copilot token not found")
+      expect((err as Error).message).toBe("Copilot token not found");
     }
-  })
+  });
 
   test("non-streaming request returns JSON", async () => {
     const responseBody = {
@@ -91,57 +89,57 @@ describe("createResponses", () => {
       object: "response",
       status: "completed",
       output: [{ type: "message", content: [{ type: "output_text", text: "hi" }] }],
-    }
-    fetchSpy.mockResolvedValueOnce(mockFetchResponse(responseBody))
+    };
+    fetchSpy.mockResolvedValueOnce(mockFetchResponse(responseBody));
 
-    const result = await createResponses(makePayload({ stream: false }))
+    const result = await createResponses(makePayload({ stream: false }));
 
-    expect(result).toEqual(responseBody)
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe("https://api.githubcopilot.com/responses")
-  })
+    expect(result).toEqual(responseBody);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.githubcopilot.com/responses");
+  });
 
   test("streaming request returns SSE async iterable", async () => {
     const sseChunks = [
       'event: response.created\ndata: {"id":"resp_1"}\n\n',
       'event: response.output_text.delta\ndata: {"delta":"hi"}\n\n',
       'event: response.completed\ndata: {"id":"resp_1"}\n\n',
-    ]
-    fetchSpy.mockResolvedValueOnce(mockFetchStream(sseChunks))
+    ];
+    fetchSpy.mockResolvedValueOnce(mockFetchStream(sseChunks));
 
-    const result = await createResponses(makePayload({ stream: true }))
+    const result = await createResponses(makePayload({ stream: true }));
 
     // Should be async iterable
-    expect(typeof result[Symbol.asyncIterator]).toBe("function")
+    expect(typeof result[Symbol.asyncIterator]).toBe("function");
 
-    const events: unknown[] = []
+    const events: unknown[] = [];
     for await (const event of result as AsyncIterable<unknown>) {
-      events.push(event)
+      events.push(event);
     }
 
-    expect(events.length).toBe(3)
-    expect((events[0] as { event: string }).event).toBe("response.created")
-    expect((events[1] as { event: string }).event).toBe("response.output_text.delta")
-    expect((events[2] as { event: string }).event).toBe("response.completed")
-  })
+    expect(events.length).toBe(3);
+    expect((events[0] as { event: string }).event).toBe("response.created");
+    expect((events[1] as { event: string }).event).toBe("response.output_text.delta");
+    expect((events[2] as { event: string }).event).toBe("response.completed");
+  });
 
   test("throws HTTPError on upstream failure", async () => {
-    const errorBody = JSON.stringify({ error: { message: "model not found" } })
+    const errorBody = JSON.stringify({ error: { message: "model not found" } });
     fetchSpy.mockResolvedValueOnce(
       new Response(errorBody, { status: 404, headers: { "content-type": "application/json" } }),
-    )
+    );
 
     try {
-      await createResponses(makePayload())
-      expect(true).toBe(false)
+      await createResponses(makePayload());
+      expect(true).toBe(false);
     } catch (err) {
-      expect(err).toBeInstanceOf(HTTPError)
-      expect((err as HTTPError).status).toBe(404)
-      expect((err as HTTPError).responseBody).toContain("model not found")
+      expect(err).toBeInstanceOf(HTTPError);
+      expect((err as HTTPError).status).toBe(404);
+      expect((err as HTTPError).responseBody).toContain("model not found");
     }
-  })
-})
+  });
+});
 
 // ===========================================================================
 // hasVisionContent
@@ -149,18 +147,16 @@ describe("createResponses", () => {
 
 describe("hasVisionContent", () => {
   test("returns false for string input", () => {
-    expect(hasVisionContent({ model: "gpt-5", input: "hello" })).toBe(false)
-  })
+    expect(hasVisionContent({ model: "gpt-5", input: "hello" })).toBe(false);
+  });
 
   test("returns false for text-only messages", () => {
     const payload: ResponsesPayload = {
       model: "gpt-5",
-      input: [
-        { role: "user", content: [{ type: "input_text", text: "hello" }] },
-      ],
-    }
-    expect(hasVisionContent(payload)).toBe(false)
-  })
+      input: [{ role: "user", content: [{ type: "input_text", text: "hello" }] }],
+    };
+    expect(hasVisionContent(payload)).toBe(false);
+  });
 
   test("returns true for input_image content", () => {
     const payload: ResponsesPayload = {
@@ -174,10 +170,10 @@ describe("hasVisionContent", () => {
           ],
         },
       ],
-    }
-    expect(hasVisionContent(payload)).toBe(true)
-  })
-})
+    };
+    expect(hasVisionContent(payload)).toBe(true);
+  });
+});
 
 // ===========================================================================
 // hasAgentHistory
@@ -185,16 +181,16 @@ describe("hasVisionContent", () => {
 
 describe("hasAgentHistory", () => {
   test("returns false for string input", () => {
-    expect(hasAgentHistory({ model: "gpt-5", input: "hello" })).toBe(false)
-  })
+    expect(hasAgentHistory({ model: "gpt-5", input: "hello" })).toBe(false);
+  });
 
   test("returns false for user-only messages", () => {
     const payload: ResponsesPayload = {
       model: "gpt-5",
       input: [{ role: "user", content: "hello" }],
-    }
-    expect(hasAgentHistory(payload)).toBe(false)
-  })
+    };
+    expect(hasAgentHistory(payload)).toBe(false);
+  });
 
   test("returns true for assistant message", () => {
     const payload: ResponsesPayload = {
@@ -203,9 +199,9 @@ describe("hasAgentHistory", () => {
         { role: "user", content: "hello" },
         { role: "assistant", content: "hi there" },
       ],
-    }
-    expect(hasAgentHistory(payload)).toBe(true)
-  })
+    };
+    expect(hasAgentHistory(payload)).toBe(true);
+  });
 
   test("returns true for function_call item", () => {
     const payload: ResponsesPayload = {
@@ -214,17 +210,15 @@ describe("hasAgentHistory", () => {
         { role: "user", content: "run ls" },
         { type: "function_call", call_id: "fc_1", name: "shell", arguments: '{"cmd":"ls"}' },
       ],
-    }
-    expect(hasAgentHistory(payload)).toBe(true)
-  })
+    };
+    expect(hasAgentHistory(payload)).toBe(true);
+  });
 
   test("returns true for function_call_output item", () => {
     const payload: ResponsesPayload = {
       model: "gpt-5",
-      input: [
-        { type: "function_call_output", call_id: "fc_1", output: "file1.txt\nfile2.txt" },
-      ],
-    }
-    expect(hasAgentHistory(payload)).toBe(true)
-  })
-})
+      input: [{ type: "function_call_output", call_id: "fc_1", output: "file1.txt\nfile2.txt" }],
+    };
+    expect(hasAgentHistory(payload)).toBe(true);
+  });
+});

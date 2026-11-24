@@ -10,7 +10,7 @@
  * script and downstream scripts can parse it without importing the test
  * file, and the JSON schema validates the shape.
  */
-import scenariosJson from "./scenarios.json" with { type: "json" }
+import scenariosJson from "./scenarios.json" with { type: "json" };
 
 export type StrategyName =
   | "CopilotNative"
@@ -18,39 +18,39 @@ export type StrategyName =
   | "CopilotOpenAIDirect"
   | "CopilotResponses"
   | "CustomOpenAI"
-  | "CustomAnthropic"
+  | "CustomAnthropic";
 
 export interface Scenario {
-  model: string
-  stream: boolean
-  features: string[]
-  goldenPath: string
+  model: string;
+  stream: boolean;
+  features: string[];
+  goldenPath: string;
 }
 
 export interface StrategyEntry {
-  name: StrategyName
-  scenarios: Scenario[]
+  name: StrategyName;
+  scenarios: Scenario[];
 }
 
 interface ScenariosFile {
-  strategies: StrategyEntry[]
+  strategies: StrategyEntry[];
 }
 
-const data = scenariosJson as unknown as ScenariosFile
+const data = scenariosJson as unknown as ScenariosFile;
 
 export function allStrategies(): StrategyEntry[] {
-  return data.strategies
+  return data.strategies;
 }
 
 export function scenariosFor(name: StrategyName): Scenario[] {
-  const entry = data.strategies.find((s) => s.name === name)
-  if (!entry) throw new Error(`unknown strategy: ${name}`)
-  return entry.scenarios
+  const entry = data.strategies.find((s) => s.name === name);
+  if (!entry) throw new Error(`unknown strategy: ${name}`);
+  return entry.scenarios;
 }
 
 /** Short test-name tag: `<model>[-<feature>]-<stream|nonstream>`. */
 export function scenarioLabel(s: Scenario): string {
-  const streamTag = s.stream ? "stream" : "nonstream"
-  const feat = s.features.length > 0 ? `-${s.features.join("+")}` : ""
-  return `${s.model}${feat}-${streamTag}`
+  const streamTag = s.stream ? "stream" : "nonstream";
+  const feat = s.features.length > 0 ? `-${s.features.join("+")}` : "";
+  return `${s.model}${feat}-${streamTag}`;
 }

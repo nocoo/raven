@@ -49,10 +49,7 @@ async function waitForPort(port: number, label: string): Promise<void> {
   throw new Error(`${label} did not start within ${STARTUP_TIMEOUT_MS}ms`);
 }
 
-function killProc(
-  proc: ReturnType<typeof Bun.spawn> | null,
-  label: string,
-) {
+function killProc(proc: ReturnType<typeof Bun.spawn> | null, label: string) {
   if (!proc) return;
   try {
     proc.kill("SIGTERM");
@@ -96,12 +93,12 @@ async function main(): Promise<number> {
     }
     const testPath = fullSuite ? "test/e2e/" : "test/e2e/";
     const result = fullSuite
-      ? await $`bun test ${testPath} ${extraArgs}`.cwd(
-          `${import.meta.dir}/../packages/proxy`,
-        ).nothrow()
-      : await $`bun test ${testPath} --test-name-pattern=^((?!refactor E2E).)*$ ${extraArgs}`.cwd(
-          `${import.meta.dir}/../packages/proxy`,
-        ).nothrow();
+      ? await $`bun test ${testPath} ${extraArgs}`
+          .cwd(`${import.meta.dir}/../packages/proxy`)
+          .nothrow()
+      : await $`bun test ${testPath} --test-name-pattern=^((?!refactor E2E).)*$ ${extraArgs}`
+          .cwd(`${import.meta.dir}/../packages/proxy`)
+          .nothrow();
 
     return result.exitCode;
   } finally {

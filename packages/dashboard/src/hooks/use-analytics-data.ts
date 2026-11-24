@@ -83,18 +83,9 @@ export function resolveSource(
  * });
  * ```
  */
-export function useAnalyticsData<T>(
-  config: UseAnalyticsDataConfig<T>,
-): UseAnalyticsDataReturn<T> {
-  const {
-    historicalFetcher,
-    liveTransformer,
-    mode,
-    filters,
-    events,
-    connected,
-    refetchInterval,
-  } = config;
+export function useAnalyticsData<T>(config: UseAnalyticsDataConfig<T>): UseAnalyticsDataReturn<T> {
+  const { historicalFetcher, liveTransformer, mode, filters, events, connected, refetchInterval } =
+    config;
 
   const [historicalData, setHistoricalData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(false);

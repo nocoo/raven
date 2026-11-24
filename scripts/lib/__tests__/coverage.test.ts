@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest"
-import { parseLcov, evaluateGate, loadBaseline, type Baseline } from "../coverage"
+import { describe, expect, test } from "vitest";
+import { parseLcov, evaluateGate, loadBaseline, type Baseline } from "../coverage";
 
 const SAMPLE_LCOV = `TN:
 SF:src/routes/messages/handler.ts
@@ -30,9 +30,12 @@ DA:4,1
 LF:4
 LH:3
 end_of_record
-`
+`;
 
-function baseline(overrides: Partial<Baseline["enforcement"]> = {}, proxyOverrides: Partial<Baseline["proxy"]> = {}): Baseline {
+function baseline(
+  overrides: Partial<Baseline["enforcement"]> = {},
+  proxyOverrides: Partial<Baseline["proxy"]> = {},
+): Baseline {
   return {
     capturedAt: null,
     proxy: {
@@ -49,109 +52,118 @@ function baseline(overrides: Partial<Baseline["enforcement"]> = {}, proxyOverrid
       perDirectoryFloors: {},
       ...overrides,
     },
-  }
+  };
 }
 
 describe("parseLcov", () => {
   test("handles empty counters and root entrypoints without dividing by zero or counting helper code", () => {
     const report = parseLcov(
       "SF:src/lib/types.ts\nLF:invalid\nLH:invalid\nend_of_record\n" +
-      "SF:src/index.ts\nLF:2\nLH:2\nend_of_record\n",
-    )
-    expect(report.total).toEqual({ linesFound: 0, linesHit: 0, pct: 0 })
-    expect(report.byDirectory.lib).toEqual({ linesFound: 0, linesHit: 0, pct: 0 })
-    expect(report.byFile).toHaveLength(2)
-  })
+        "SF:src/index.ts\nLF:2\nLH:2\nend_of_record\n",
+    );
+    expect(report.total).toEqual({ linesFound: 0, linesHit: 0, pct: 0 });
+    expect(report.byDirectory.lib).toEqual({ linesFound: 0, linesHit: 0, pct: 0 });
+    expect(report.byFile).toHaveLength(2);
+  });
 
   test("combines multiple files in the same directory using line counts, not average percentages", () => {
     const report = parseLcov(
       "SF:src/lib/a.ts\nLF:1\nLH:1\nend_of_record\n" +
-      "SF:src/lib/b.ts\nLF:9\nLH:0\nend_of_record\n",
-    )
-    expect(report.byDirectory.lib).toEqual({ linesFound: 10, linesHit: 1, pct: 10 })
-  })
+        "SF:src/lib/b.ts\nLF:9\nLH:0\nend_of_record\n",
+    );
+    expect(report.byDirectory.lib).toEqual({ linesFound: 10, linesHit: 1, pct: 10 });
+  });
 
   test("aggregates total lines found and hit", () => {
-    const r = parseLcov(SAMPLE_LCOV)
-    expect(r.total.linesFound).toBe(8)
-    expect(r.total.linesHit).toBe(6)
-    expect(r.total.pct).toBeCloseTo(75, 5)
-  })
+    const r = parseLcov(SAMPLE_LCOV);
+    expect(r.total.linesFound).toBe(8);
+    expect(r.total.linesHit).toBe(6);
+    expect(r.total.pct).toBeCloseTo(75, 5);
+  });
 
   test("tracks per-file entries", () => {
-    const r = parseLcov(SAMPLE_LCOV)
-    expect(r.byFile.length).toBe(3)
-    expect(r.byFile[0]?.path).toBe("src/routes/messages/handler.ts")
-    expect(r.byFile[0]?.linesHit).toBe(2)
-  })
+    const r = parseLcov(SAMPLE_LCOV);
+    expect(r.byFile.length).toBe(3);
+    expect(r.byFile[0]?.path).toBe("src/routes/messages/handler.ts");
+    expect(r.byFile[0]?.linesHit).toBe(2);
+  });
 
   test("groups by top-level src directory", () => {
-    const r = parseLcov(SAMPLE_LCOV)
-    expect(Object.keys(r.byDirectory).sort()).toEqual(["lib", "routes", "util"])
-    expect(r.byDirectory.routes?.linesFound).toBe(3)
-    expect(r.byDirectory.routes?.pct).toBeCloseTo(66.666, 2)
-  })
+    const r = parseLcov(SAMPLE_LCOV);
+    expect(Object.keys(r.byDirectory).sort()).toEqual(["lib", "routes", "util"]);
+    expect(r.byDirectory.routes?.linesFound).toBe(3);
+    expect(r.byDirectory.routes?.pct).toBeCloseTo(66.666, 2);
+  });
 
   test("handles empty input", () => {
-    const r = parseLcov("")
-    expect(r.total.linesFound).toBe(0)
-    expect(r.total.pct).toBe(0)
-    expect(r.byFile).toEqual([])
-  })
+    const r = parseLcov("");
+    expect(r.total.linesFound).toBe(0);
+    expect(r.total.pct).toBe(0);
+    expect(r.byFile).toEqual([]);
+  });
 
   test("skips files outside src/ from totals and per-directory aggregates", () => {
     const r = parseLcov(
-      "SF:test/foo.ts\nLF:10\nLH:5\nend_of_record\n"
-      + "SF:src/util/id.ts\nLF:4\nLH:4\nend_of_record\n",
-    )
+      "SF:test/foo.ts\nLF:10\nLH:5\nend_of_record\n" +
+        "SF:src/util/id.ts\nLF:4\nLH:4\nend_of_record\n",
+    );
     // test/foo.ts is kept in byFile (visible in per-file reports) but
     // excluded from global totals and per-directory aggregates.
-    expect(r.byFile.length).toBe(2)
-    expect(r.total.linesFound).toBe(4)
-    expect(r.total.linesHit).toBe(4)
-    expect(Object.keys(r.byDirectory)).toEqual(["util"])
-  })
-})
+    expect(r.byFile.length).toBe(2);
+    expect(r.total.linesFound).toBe(4);
+    expect(r.total.linesHit).toBe(4);
+    expect(Object.keys(r.byDirectory)).toEqual(["util"]);
+  });
+});
 
 describe("evaluateGate", () => {
-  const report = parseLcov(SAMPLE_LCOV)
+  const report = parseLcov(SAMPLE_LCOV);
 
   test("accepts a met directory floor without inventing a regression for an unmeasured baseline", () => {
-    const result = evaluateGate(report, baseline(
-      { mode: "enforce", globalFloorPct: 50, perDirectoryFloors: { routes: 60 } },
-      { l1TestCount: 100, perDirectoryCoveragePct: { routes: null } },
-    ))
-    expect(result).toEqual([])
-  })
+    const result = evaluateGate(
+      report,
+      baseline(
+        { mode: "enforce", globalFloorPct: 50, perDirectoryFloors: { routes: 60 } },
+        { l1TestCount: 100, perDirectoryCoveragePct: { routes: null } },
+      ),
+    );
+    expect(result).toEqual([]);
+  });
 
   test("does not classify a reported zero-runtime declaration as an untested executable file", () => {
-    const report = parseLcov(`${SAMPLE_LCOV}SF:src/lib/types.ts\nLF:0\nLH:0\nend_of_record\n`)
-    expect(evaluateGate(report, baseline(), { sourceFiles: ["src/lib/types.ts"] })).toEqual([])
-  })
+    const report = parseLcov(`${SAMPLE_LCOV}SF:src/lib/types.ts\nLF:0\nLH:0\nend_of_record\n`);
+    expect(evaluateGate(report, baseline(), { sourceFiles: ["src/lib/types.ts"] })).toEqual([]);
+  });
 
   test("passes when above floor in placeholder mode", () => {
-    expect(evaluateGate(report, baseline({ globalFloorPct: 50 }))).toEqual([])
-  })
+    expect(evaluateGate(report, baseline({ globalFloorPct: 50 }))).toEqual([]);
+  });
 
   test("flags below-floor violation", () => {
-    const v = evaluateGate(report, baseline({ globalFloorPct: 90 }))
-    expect(v).toHaveLength(1)
-    expect(v[0]?.kind).toBe("below-floor")
-  })
+    const v = evaluateGate(report, baseline({ globalFloorPct: 90 }));
+    expect(v).toHaveLength(1);
+    expect(v[0]?.kind).toBe("below-floor");
+  });
 
   test("does not check regression in placeholder mode", () => {
-    const v = evaluateGate(report, baseline({ mode: "placeholder", globalFloorPct: 10 }, { statementCoveragePct: 99 }))
-    expect(v).toEqual([])
-  })
+    const v = evaluateGate(
+      report,
+      baseline({ mode: "placeholder", globalFloorPct: 10 }, { statementCoveragePct: 99 }),
+    );
+    expect(v).toEqual([]);
+  });
 
   test("flags global regression in enforce mode", () => {
     const v = evaluateGate(
       report,
-      baseline({ mode: "enforce", globalFloorPct: 10, regressionAllowanceAbsPct: 0.1 }, { statementCoveragePct: 95 }),
-    )
-    expect(v).toHaveLength(1)
-    expect(v[0]?.kind).toBe("global-regression")
-  })
+      baseline(
+        { mode: "enforce", globalFloorPct: 10, regressionAllowanceAbsPct: 0.1 },
+        { statementCoveragePct: 95 },
+      ),
+    );
+    expect(v).toHaveLength(1);
+    expect(v[0]?.kind).toBe("global-regression");
+  });
 
   test("does not flag global regression within allowance", () => {
     const v = evaluateGate(
@@ -160,18 +172,15 @@ describe("evaluateGate", () => {
         { mode: "enforce", globalFloorPct: 10, regressionAllowanceAbsPct: 0.5 },
         { statementCoveragePct: 75.4 },
       ),
-    )
-    expect(v).toEqual([])
-  })
+    );
+    expect(v).toEqual([]);
+  });
 
   test("flags per-directory floor breach", () => {
-    const v = evaluateGate(
-      report,
-      baseline({ perDirectoryFloors: { routes: 100 } }),
-    )
-    expect(v).toHaveLength(1)
-    expect(v[0]?.detail).toContain("routes/")
-  })
+    const v = evaluateGate(report, baseline({ perDirectoryFloors: { routes: 100 } }));
+    expect(v).toHaveLength(1);
+    expect(v[0]?.detail).toContain("routes/");
+  });
 
   test("flags per-directory regression in enforce mode", () => {
     const v = evaluateGate(
@@ -180,9 +189,9 @@ describe("evaluateGate", () => {
         { mode: "enforce", globalFloorPct: 10 },
         { statementCoveragePct: 75, perDirectoryCoveragePct: { routes: 100 } },
       ),
-    )
-    expect(v.some((x) => x.kind === "directory-regression")).toBe(true)
-  })
+    );
+    expect(v.some((x) => x.kind === "directory-regression")).toBe(true);
+  });
 
   test("skips per-directory regression when directory was migrated away", () => {
     // services/ exists in baseline but not in the current report —
@@ -197,9 +206,9 @@ describe("evaluateGate", () => {
           perDirectoryCoveragePct: { services: 98 },
         },
       ),
-    )
-    expect(v.some((x) => x.kind === "directory-regression")).toBe(false)
-  })
+    );
+    expect(v.some((x) => x.kind === "directory-regression")).toBe(false);
+  });
 
   test("skips per-directory floor breach when directory was migrated away", () => {
     // A floor authored against a directory that no longer exists must
@@ -209,112 +218,98 @@ describe("evaluateGate", () => {
     const v = evaluateGate(
       report,
       baseline({ globalFloorPct: 10, perDirectoryFloors: { services: 95 } }),
-    )
-    expect(v.some((x) => x.detail.includes("services/"))).toBe(false)
-  })
+    );
+    expect(v.some((x) => x.detail.includes("services/"))).toBe(false);
+  });
 
   test("flags L1 test-count regression in enforce mode", () => {
     const v = evaluateGate(
       report,
       baseline({ mode: "enforce", globalFloorPct: 10 }, { l1TestCount: 1240 }),
       { testCount: 1230 },
-    )
-    expect(v.some((x) => x.kind === "test-count-regression")).toBe(true)
-  })
+    );
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(true);
+  });
 
   test("skips test-count regression when count is steady or higher", () => {
     const v = evaluateGate(
       report,
       baseline({ mode: "enforce", globalFloorPct: 10 }, { l1TestCount: 1240 }),
       { testCount: 1250 },
-    )
-    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false)
-  })
+    );
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false);
+  });
 
   test("skips test-count regression when current run did not report a count", () => {
     const v = evaluateGate(
       report,
       baseline({ mode: "enforce", globalFloorPct: 10 }, { l1TestCount: 1240 }),
       { testCount: null },
-    )
-    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false)
-  })
+    );
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false);
+  });
 
   test("skips test-count check in placeholder mode", () => {
     const v = evaluateGate(
       report,
       baseline({ mode: "placeholder", globalFloorPct: 10 }, { l1TestCount: 1240 }),
       { testCount: 1 },
-    )
-    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false)
-  })
+    );
+    expect(v.some((x) => x.kind === "test-count-regression")).toBe(false);
+  });
 
   test("flags a src/ file with zero executed lines (new module without a test)", () => {
-    const lcov =
-      SAMPLE_LCOV +
-      "TN:\nSF:src/routes/new-feature.ts\nLF:10\nLH:0\nend_of_record\n"
-    const r = parseLcov(lcov)
-    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }))
-    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(true)
-    expect(v.find((x) => x.kind === "file-without-coverage")?.detail).toContain("new-feature.ts")
-  })
+    const lcov = SAMPLE_LCOV + "TN:\nSF:src/routes/new-feature.ts\nLF:10\nLH:0\nend_of_record\n";
+    const r = parseLcov(lcov);
+    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }));
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(true);
+    expect(v.find((x) => x.kind === "file-without-coverage")?.detail).toContain("new-feature.ts");
+  });
 
   test("does not flag non-src files with zero hits", () => {
-    const lcov =
-      SAMPLE_LCOV +
-      "TN:\nSF:test/helpers.ts\nLF:5\nLH:0\nend_of_record\n"
-    const r = parseLcov(lcov)
-    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }))
-    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
-  })
+    const lcov = SAMPLE_LCOV + "TN:\nSF:test/helpers.ts\nLF:5\nLH:0\nend_of_record\n";
+    const r = parseLcov(lcov);
+    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }));
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false);
+  });
 
   test("flags a src/ file absent from lcov entirely (no test imports it)", () => {
     // bun's lcov only records files the test run loaded, so a
     // brand-new file with no importing test is silently absent.
     // Pass the on-disk source list to catch that case.
-    const r = parseLcov(SAMPLE_LCOV)
-    const v = evaluateGate(
-      r,
-      baseline({ globalFloorPct: 10 }),
-      {
-        sourceFiles: [
-          "src/routes/messages/handler.ts",
-          "src/lib/state.ts",
-          "src/util/id.ts",
-          "src/lib/brand-new-untested.ts",
-        ],
-      },
-    )
-    const hit = v.find((x) => x.detail.includes("brand-new-untested.ts"))
-    expect(hit).toBeDefined()
-    expect(hit?.kind).toBe("file-without-coverage")
-  })
+    const r = parseLcov(SAMPLE_LCOV);
+    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }), {
+      sourceFiles: [
+        "src/routes/messages/handler.ts",
+        "src/lib/state.ts",
+        "src/util/id.ts",
+        "src/lib/brand-new-untested.ts",
+      ],
+    });
+    const hit = v.find((x) => x.detail.includes("brand-new-untested.ts"));
+    expect(hit).toBeDefined();
+    expect(hit?.kind).toBe("file-without-coverage");
+  });
 
   test("does not flag a src/ file that appears in lcov (even with 100% coverage)", () => {
-    const r = parseLcov(SAMPLE_LCOV)
-    const v = evaluateGate(
-      r,
-      baseline({ globalFloorPct: 10 }),
-      { sourceFiles: ["src/lib/state.ts"] },
-    )
-    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
-  })
+    const r = parseLcov(SAMPLE_LCOV);
+    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }), {
+      sourceFiles: ["src/lib/state.ts"],
+    });
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false);
+  });
 
   test("ignores non-src paths in sourceFiles", () => {
-    const r = parseLcov(SAMPLE_LCOV)
-    const v = evaluateGate(
-      r,
-      baseline({ globalFloorPct: 10 }),
-      { sourceFiles: ["scripts/thing.ts", "test/foo.ts"] },
-    )
-    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
-  })
+    const r = parseLcov(SAMPLE_LCOV);
+    const v = evaluateGate(r, baseline({ globalFloorPct: 10 }), {
+      sourceFiles: ["scripts/thing.ts", "test/foo.ts"],
+    });
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false);
+  });
 
   test("allowUntestedFiles grandfathers listed paths out of both checks", () => {
-    const lcov =
-      SAMPLE_LCOV +
-      "TN:\nSF:src/legacy/entry.ts\nLF:10\nLH:0\nend_of_record\n"
-    const r = parseLcov(lcov)
+    const lcov = SAMPLE_LCOV + "TN:\nSF:src/legacy/entry.ts\nLF:10\nLH:0\nend_of_record\n";
+    const r = parseLcov(lcov);
     const v = evaluateGate(
       r,
       baseline({
@@ -322,39 +317,38 @@ describe("evaluateGate", () => {
         allowUntestedFiles: ["src/legacy/entry.ts", "src/legacy/absent.ts"],
       }),
       {
-        sourceFiles: [
-          "src/legacy/entry.ts",
-          "src/legacy/absent.ts",
-          "src/lib/state.ts",
-        ],
+        sourceFiles: ["src/legacy/entry.ts", "src/legacy/absent.ts", "src/lib/state.ts"],
       },
-    )
-    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false)
-  })
-})
+    );
+    expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false);
+  });
+});
 
 describe("loadBaseline", () => {
   test("parses a well-formed baseline", () => {
-    const b = loadBaseline(
-      JSON.stringify(baseline()),
-    )
-    expect(b.enforcement.mode).toBe("placeholder")
-  })
+    const b = loadBaseline(JSON.stringify(baseline()));
+    expect(b.enforcement.mode).toBe("placeholder");
+  });
 
   test("rejects missing enforcement section", () => {
-    expect(() => loadBaseline(JSON.stringify({ proxy: {}, dashboard: {} }))).toThrow("enforcement")
-  })
+    expect(() => loadBaseline(JSON.stringify({ proxy: {}, dashboard: {} }))).toThrow("enforcement");
+  });
 
   test("rejects missing proxy section", () => {
     expect(() =>
       loadBaseline(
         JSON.stringify({
-          enforcement: { mode: "placeholder", globalFloorPct: 95, regressionAllowanceAbsPct: 0.1, perDirectoryFloors: {} },
+          enforcement: {
+            mode: "placeholder",
+            globalFloorPct: 95,
+            regressionAllowanceAbsPct: 0.1,
+            perDirectoryFloors: {},
+          },
           dashboard: { l1TestCount: null },
         }),
       ),
-    ).toThrow("proxy")
-  })
+    ).toThrow("proxy");
+  });
 
   test("rejects unknown mode", () => {
     expect(() =>
@@ -362,11 +356,16 @@ describe("loadBaseline", () => {
         JSON.stringify({
           proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
           dashboard: { l1TestCount: null },
-          enforcement: { mode: "yolo", globalFloorPct: 90, regressionAllowanceAbsPct: 0.1, perDirectoryFloors: {} },
+          enforcement: {
+            mode: "yolo",
+            globalFloorPct: 90,
+            regressionAllowanceAbsPct: 0.1,
+            perDirectoryFloors: {},
+          },
         }),
       ),
-    ).toThrow("mode")
-  })
+    ).toThrow("mode");
+  });
 
   test("rejects non-numeric floor", () => {
     expect(() =>
@@ -374,11 +373,16 @@ describe("loadBaseline", () => {
         JSON.stringify({
           proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
           dashboard: { l1TestCount: null },
-          enforcement: { mode: "placeholder", globalFloorPct: "oops", regressionAllowanceAbsPct: 0.1, perDirectoryFloors: {} },
+          enforcement: {
+            mode: "placeholder",
+            globalFloorPct: "oops",
+            regressionAllowanceAbsPct: 0.1,
+            perDirectoryFloors: {},
+          },
         }),
       ),
-    ).toThrow("globalFloorPct")
-  })
+    ).toThrow("globalFloorPct");
+  });
 
   test("rejects non-numeric allowance", () => {
     expect(() =>
@@ -386,9 +390,14 @@ describe("loadBaseline", () => {
         JSON.stringify({
           proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
           dashboard: { l1TestCount: null },
-          enforcement: { mode: "placeholder", globalFloorPct: 95, regressionAllowanceAbsPct: "oops", perDirectoryFloors: {} },
+          enforcement: {
+            mode: "placeholder",
+            globalFloorPct: 95,
+            regressionAllowanceAbsPct: "oops",
+            perDirectoryFloors: {},
+          },
         }),
       ),
-    ).toThrow("regressionAllowanceAbsPct")
-  })
-})
+    ).toThrow("regressionAllowanceAbsPct");
+  });
+});

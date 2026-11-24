@@ -1,21 +1,21 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
-import { Hono } from "hono"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+import { Hono } from "hono";
 
-import { state } from "../../../src/lib/state"
-import { logEmitter } from "../../../src/util/log-emitter"
-import type { LogEvent } from "../../../src/util/log-event"
-import { handleResponses } from "../../../src/routes/responses/handler"
-import { installTestRouting, routingHarness } from "../../helpers/routing"
+import { state } from "../../../src/lib/state";
+import { logEmitter } from "../../../src/util/log-emitter";
+import type { LogEvent } from "../../../src/util/log-event";
+import { handleResponses } from "../../../src/routes/responses/handler";
+import { installTestRouting, routingHarness } from "../../helpers/routing";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function makeApp(): Hono {
-  const app = new Hono()
-  installTestRouting(app, harness.db)
-  app.post("/v1/responses", handleResponses)
-  return app
+  const app = new Hono();
+  installTestRouting(app, harness.db);
+  app.post("/v1/responses", handleResponses);
+  return app;
 }
 
 function req(body: unknown): Request {
@@ -23,7 +23,7 @@ function req(body: unknown): Request {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
-  })
+  });
 }
 
 function reqInvalidJson(): Request {
@@ -31,30 +31,30 @@ function reqInvalidJson(): Request {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "{ invalid json",
-  })
+  });
 }
 
 function mockFetchJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
-  })
+  });
 }
 
 function mockFetchStream(chunks: string[]): Response {
-  const encoder = new TextEncoder()
+  const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
       for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk))
+        controller.enqueue(encoder.encode(chunk));
       }
-      controller.close()
+      controller.close();
     },
-  })
+  });
   return new Response(stream, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
-  })
+  });
 }
 
 function makeResponsesResponse(overrides: Record<string, unknown> = {}) {
@@ -77,64 +77,106 @@ function makeResponsesResponse(overrides: Record<string, unknown> = {}) {
       total_tokens: 120,
     },
     ...overrides,
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Setup / teardown
 // ---------------------------------------------------------------------------
 
-const savedToken = state.copilotToken
-let fetchSpy: ReturnType<typeof vi.spyOn>
-let harness: ReturnType<typeof routingHarness>
+const savedToken = state.copilotToken;
+let fetchSpy: ReturnType<typeof vi.spyOn>;
+let harness: ReturnType<typeof routingHarness>;
 
 describe("Copilot agent task compatibility setting", () => {
-  test.each([false, true])("routes the opt-in setting without changing task content: %s", async (enabled) => {
-    vi.stubEnv("RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS", String(enabled))
-    try {
-      const declaration = { type: "namespace", name: "collaboration", tools: [{
-        type: "function", name: "spawn_agent", parameters: { type: "object", properties: { message: { type: "string", encrypted: true }, other: { type: "string", encrypted: true } } },
-      }] }
-      const task = { type: "agent_message", content: [{ type: "encrypted_content", encrypted_content: "opaque-fixture" }] }
-      let forwarded: Record<string, any> | undefined
-      fetchSpy.mockImplementation(async (_url: RequestInfo | URL, init?: RequestInit) => {
-        forwarded = JSON.parse(String(init?.body))
-        return mockFetchJson(makeResponsesResponse({ output: [{
-          type: "function_call", name: "spawn_agent", namespace: enabled ? "raven_agent_compat" : "collaboration", call_id: "fixture-call", arguments: '{"message":"Whole task"}',
-        }] }))
-      })
-      const response = await makeApp().request(req({ model: "gpt-4o", input: [{ type: "additional_tools", tools: [declaration] }, task],
-        tool_choice: { type: "function", namespace: "collaboration", name: "spawn_agent" },
-      }))
-      expect(response.status).toBe(200)
-      const result = await response.json()
-      expect(forwarded?.input[0].tools[0].tools[0].parameters.properties.message.encrypted).toBe(!enabled)
-      expect(forwarded?.input[1]).toEqual(task)
-      expect(forwarded?.tool_choice).toEqual({ type: "function", namespace: enabled ? "raven_agent_compat" : "collaboration", name: "spawn_agent" })
-      expect(forwarded?.input[0].tools[0].tools[0].parameters.properties.other.encrypted).toBe(true)
-      expect(result.output[0].arguments).toBe('{"message":"Whole task"}')
-      expect(result.output[0].encrypted_function_args).toEqual(enabled ? ["other"] : undefined)
-      expect(fetchSpy).toHaveBeenCalledTimes(1)
-    } finally {
-      vi.unstubAllEnvs()
-    }
-  })
-})
+  test.each([false, true])(
+    "routes the opt-in setting without changing task content: %s",
+    async (enabled) => {
+      vi.stubEnv("RAVEN_COPILOT_PLAINTEXT_AGENT_TASKS", String(enabled));
+      try {
+        const declaration = {
+          type: "namespace",
+          name: "collaboration",
+          tools: [
+            {
+              type: "function",
+              name: "spawn_agent",
+              parameters: {
+                type: "object",
+                properties: {
+                  message: { type: "string", encrypted: true },
+                  other: { type: "string", encrypted: true },
+                },
+              },
+            },
+          ],
+        };
+        const task = {
+          type: "agent_message",
+          content: [{ type: "encrypted_content", encrypted_content: "opaque-fixture" }],
+        };
+        let forwarded: Record<string, any> | undefined;
+        fetchSpy.mockImplementation(async (_url: RequestInfo | URL, init?: RequestInit) => {
+          forwarded = JSON.parse(String(init?.body));
+          return mockFetchJson(
+            makeResponsesResponse({
+              output: [
+                {
+                  type: "function_call",
+                  name: "spawn_agent",
+                  namespace: enabled ? "raven_agent_compat" : "collaboration",
+                  call_id: "fixture-call",
+                  arguments: '{"message":"Whole task"}',
+                },
+              ],
+            }),
+          );
+        });
+        const response = await makeApp().request(
+          req({
+            model: "gpt-4o",
+            input: [{ type: "additional_tools", tools: [declaration] }, task],
+            tool_choice: { type: "function", namespace: "collaboration", name: "spawn_agent" },
+          }),
+        );
+        expect(response.status).toBe(200);
+        const result = await response.json();
+        expect(forwarded?.input[0].tools[0].tools[0].parameters.properties.message.encrypted).toBe(
+          !enabled,
+        );
+        expect(forwarded?.input[1]).toEqual(task);
+        expect(forwarded?.tool_choice).toEqual({
+          type: "function",
+          namespace: enabled ? "raven_agent_compat" : "collaboration",
+          name: "spawn_agent",
+        });
+        expect(forwarded?.input[0].tools[0].tools[0].parameters.properties.other.encrypted).toBe(
+          true,
+        );
+        expect(result.output[0].arguments).toBe('{"message":"Whole task"}');
+        expect(result.output[0].encrypted_function_args).toEqual(enabled ? ["other"] : undefined);
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+});
 
 beforeEach(() => {
-  harness = routingHarness()
-  state.copilotToken = "test-token"
-  state.vsCodeVersion = "1.90.0"
-  state.accountType = "individual"
-  fetchSpy = vi.spyOn(globalThis, "fetch")
-})
+  harness = routingHarness();
+  state.copilotToken = "test-token";
+  state.vsCodeVersion = "1.90.0";
+  state.accountType = "individual";
+  fetchSpy = vi.spyOn(globalThis, "fetch");
+});
 
 afterEach(() => {
-  if (savedToken !== undefined) state.copilotToken = savedToken
-  else state.copilotToken = null
-  fetchSpy.mockRestore()
-  harness.close()
-})
+  if (savedToken !== undefined) state.copilotToken = savedToken;
+  else state.copilotToken = null;
+  fetchSpy.mockRestore();
+  harness.close();
+});
 
 // ===========================================================================
 // handleResponses — non-streaming
@@ -142,17 +184,15 @@ afterEach(() => {
 
 describe("handleResponses (non-streaming)", () => {
   test("returns 200 for non-streaming request", async () => {
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeResponsesResponse()))
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeResponsesResponse()));
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello" }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello" }));
 
-    expect(res.status).toBe(200)
-    const json = await res.json()
-    expect(json).toMatchObject({ id: "resp_123", status: "completed" })
-  })
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toMatchObject({ id: "resp_123", status: "completed" });
+  });
 
   test("passes through upstream response body unchanged", async () => {
     const upstreamResponse = makeResponsesResponse({
@@ -164,19 +204,17 @@ describe("handleResponses (non-streaming)", () => {
           content: [{ type: "output_text", text: "Custom response" }],
         },
       ],
-    })
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(upstreamResponse))
+    });
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(upstreamResponse));
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello" }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello" }));
 
-    const json = await res.json()
-    expect(json.custom_field).toBe("preserved")
-    expect(json.output[0].content[0].text).toBe("Custom response")
-  })
-})
+    const json = await res.json();
+    expect(json.custom_field).toBe("preserved");
+    expect(json.output[0].content[0].text).toBe("Custom response");
+  });
+});
 
 // ===========================================================================
 // handleResponses — streaming
@@ -189,16 +227,14 @@ describe("handleResponses (streaming)", () => {
         'event: response.created\ndata: {"id":"resp_1"}\n\n',
         'event: response.completed\ndata: {"id":"resp_1"}\n\n',
       ]),
-    )
+    );
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello", stream: true }));
 
-    expect(res.status).toBe(200)
-    expect(res.headers.get("content-type")).toContain("text/event-stream")
-  })
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+  });
 
   test("passthrough SSE events with correct format", async () => {
     fetchSpy.mockResolvedValueOnce(
@@ -207,19 +243,17 @@ describe("handleResponses (streaming)", () => {
         'event: response.output_text.delta\ndata: {"delta":"Hi"}\n\n',
         'event: response.completed\ndata: {"id":"resp_1","status":"completed"}\n\n',
       ]),
-    )
+    );
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello", stream: true }));
 
-    const text = await res.text()
-    expect(text).toContain("event: response.created")
-    expect(text).toContain("event: response.output_text.delta")
-    expect(text).toContain("event: response.completed")
-    expect(text).toContain('"delta":"Hi"')
-  })
+    const text = await res.text();
+    expect(text).toContain("event: response.created");
+    expect(text).toContain("event: response.output_text.delta");
+    expect(text).toContain("event: response.completed");
+    expect(text).toContain('"delta":"Hi"');
+  });
 
   test("handles function_call streaming", async () => {
     fetchSpy.mockResolvedValueOnce(
@@ -229,32 +263,28 @@ describe("handleResponses (streaming)", () => {
         'event: response.output_item.done\ndata: {"item":{"type":"function_call","name":"shell"}}\n\n',
         'event: response.completed\ndata: {"id":"resp_1"}\n\n',
       ]),
-    )
+    );
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "run ls", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "run ls", stream: true }));
 
-    const text = await res.text()
-    expect(text).toContain("response.function_call_arguments.delta")
-    expect(text).toContain("response.output_item.done")
-    expect(text).toContain('"name":"shell"')
-  })
+    const text = await res.text();
+    expect(text).toContain("response.function_call_arguments.delta");
+    expect(text).toContain("response.output_item.done");
+    expect(text).toContain('"name":"shell"');
+  });
 
   test("handles empty stream gracefully", async () => {
-    fetchSpy.mockResolvedValueOnce(mockFetchStream([]))
+    fetchSpy.mockResolvedValueOnce(mockFetchStream([]));
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello", stream: true }));
 
-    expect(res.status).toBe(200)
-    const text = await res.text()
-    expect(text).toBe("")
-  })
-})
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toBe("");
+  });
+});
 
 // ===========================================================================
 // handleResponses — error handling
@@ -262,54 +292,54 @@ describe("handleResponses (streaming)", () => {
 
 describe("handleResponses (errors)", () => {
   test("returns 400 on invalid JSON body", async () => {
-    const app = makeApp()
-    const res = await app.request(reqInvalidJson())
+    const app = makeApp();
+    const res = await app.request(reqInvalidJson());
 
-    expect(res.status).toBe(400)
-    const json = await res.json()
-    expect(json.error.type).toBe("invalid_request_error")
-    expect(json.error.message).toBe("Invalid JSON")
-  })
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.type).toBe("invalid_request_error");
+    expect(json.error.message).toBe("Invalid JSON");
+  });
 
   test("returns upstream status code via forwardError", async () => {
-    const errorBody = JSON.stringify({ error: { message: "model not found", type: "invalid_request_error" } })
+    const errorBody = JSON.stringify({
+      error: { message: "model not found", type: "invalid_request_error" },
+    });
     fetchSpy.mockResolvedValueOnce(
       new Response(errorBody, { status: 404, headers: { "content-type": "application/json" } }),
-    )
+    );
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "nonexistent-model", input: "hello" }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "nonexistent-model", input: "hello" }));
 
-    expect(res.status).toBe(404)
-  })
+    expect(res.status).toBe(404);
+  });
 
   test("error response contains upstream body in message", async () => {
-    const errorBody = JSON.stringify({ error: { message: "rate limit exceeded", code: "rate_limit_error" } })
+    const errorBody = JSON.stringify({
+      error: { message: "rate limit exceeded", code: "rate_limit_error" },
+    });
     fetchSpy.mockResolvedValueOnce(
       new Response(errorBody, { status: 429, headers: { "content-type": "application/json" } }),
-    )
+    );
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello" }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello" }));
 
-    expect(res.status).toBe(429)
-    const json = await res.json()
-    expect(json.error.message).toContain("rate limit exceeded")
-  })
+    expect(res.status).toBe(429);
+    const json = await res.json();
+    expect(json.error.message).toContain("rate limit exceeded");
+  });
 
   test("returns 400 when model maps to a custom provider (router reject)", async () => {
     // §3.2: Responses API cannot be routed to custom upstreams.
-    harness.bind(harness.upstream().id, "chosen-model", { allow_conversion: false })
-    const response = await makeApp().request(req({ model: "gpt-5.2", input: "hello" }))
-    expect(response.status).toBe(400)
-    expect((await response.json()).error.type).toBe("protocol_mismatch")
-    expect(fetchSpy).not.toHaveBeenCalled()
-  })
-})
+    harness.bind(harness.upstream().id, "chosen-model", { allow_conversion: false });
+    const response = await makeApp().request(req({ model: "gpt-5.2", input: "hello" }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.type).toBe("protocol_mismatch");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
 
 // ===========================================================================
 // handleResponses — logging
@@ -317,26 +347,24 @@ describe("handleResponses (errors)", () => {
 
 describe("handleResponses (logging)", () => {
   test("emits request_start log event", async () => {
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeResponsesResponse()))
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeResponsesResponse()));
 
-    const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
-    logEmitter.on("log", listener)
+    const events: LogEvent[] = [];
+    const listener = (e: LogEvent) => events.push(e);
+    logEmitter.on("log", listener);
 
-    const app = makeApp()
-    await app.request(
-      req({ model: "gpt-4o", input: "hello" }),
-    )
+    const app = makeApp();
+    await app.request(req({ model: "gpt-4o", input: "hello" }));
 
-    logEmitter.off("log", listener)
+    logEmitter.off("log", listener);
 
-    const startEvent = events.find((e) => e.type === "request_start")
-    expect(startEvent).toBeDefined()
-    expect(startEvent!.data?.path).toBe("/v1/responses")
-    expect(startEvent!.data?.format).toBe("responses")
-    expect(startEvent!.data?.model).toBe("gpt-4o")
-    expect(startEvent!.data?.stream).toBe(false)
-  })
+    const startEvent = events.find((e) => e.type === "request_start");
+    expect(startEvent).toBeDefined();
+    expect(startEvent!.data?.path).toBe("/v1/responses");
+    expect(startEvent!.data?.format).toBe("responses");
+    expect(startEvent!.data?.model).toBe("gpt-4o");
+    expect(startEvent!.data?.stream).toBe(false);
+  });
 
   test("emits request_end log event with usage", async () => {
     fetchSpy.mockResolvedValueOnce(
@@ -345,26 +373,24 @@ describe("handleResponses (logging)", () => {
           usage: { input_tokens: 50, output_tokens: 25, total_tokens: 75 },
         }),
       ),
-    )
+    );
 
-    const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
-    logEmitter.on("log", listener)
+    const events: LogEvent[] = [];
+    const listener = (e: LogEvent) => events.push(e);
+    logEmitter.on("log", listener);
 
-    const app = makeApp()
-    await app.request(
-      req({ model: "gpt-4o", input: "hello" }),
-    )
+    const app = makeApp();
+    await app.request(req({ model: "gpt-4o", input: "hello" }));
 
-    logEmitter.off("log", listener)
+    logEmitter.off("log", listener);
 
-    const endEvent = events.find((e) => e.type === "request_end")
-    expect(endEvent).toBeDefined()
-    expect(endEvent!.data?.inputTokens).toBe(50)
-    expect(endEvent!.data?.outputTokens).toBe(25)
-    expect(endEvent!.data?.status).toBe("success")
-    expect(endEvent!.data?.statusCode).toBe(200)
-  })
+    const endEvent = events.find((e) => e.type === "request_end");
+    expect(endEvent).toBeDefined();
+    expect(endEvent!.data?.inputTokens).toBe(50);
+    expect(endEvent!.data?.outputTokens).toBe(25);
+    expect(endEvent!.data?.status).toBe("success");
+    expect(endEvent!.data?.statusCode).toBe(200);
+  });
 
   test("extracts usage from streaming response.completed event", async () => {
     const completedData = JSON.stringify({
@@ -373,36 +399,34 @@ describe("handleResponses (logging)", () => {
         status: "completed",
         usage: { input_tokens: 100, output_tokens: 50 },
       },
-    })
+    });
 
     fetchSpy.mockResolvedValueOnce(
       mockFetchStream([
         'event: response.created\ndata: {"id":"resp_1"}\n\n',
         `event: response.completed\ndata: ${completedData}\n\n`,
       ]),
-    )
+    );
 
-    const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
-    logEmitter.on("log", listener)
+    const events: LogEvent[] = [];
+    const listener = (e: LogEvent) => events.push(e);
+    logEmitter.on("log", listener);
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello", stream: true }));
 
     // Must consume the response body to trigger finally block
-    await res.text()
-    await new Promise((r) => setTimeout(r, 50))
+    await res.text();
+    await new Promise((r) => setTimeout(r, 50));
 
-    logEmitter.off("log", listener)
+    logEmitter.off("log", listener);
 
-    const endEvent = events.find((e) => e.type === "request_end")
-    expect(endEvent).toBeDefined()
-    expect(endEvent!.data?.inputTokens).toBe(100)
-    expect(endEvent!.data?.outputTokens).toBe(50)
-    expect(endEvent!.data?.stream).toBe(true)
-  })
+    const endEvent = events.find((e) => e.type === "request_end");
+    expect(endEvent).toBeDefined();
+    expect(endEvent!.data?.inputTokens).toBe(100);
+    expect(endEvent!.data?.outputTokens).toBe(50);
+    expect(endEvent!.data?.stream).toBe(true);
+  });
 
   test("extracts usage from streaming response.incomplete event", async () => {
     const incompleteData = JSON.stringify({
@@ -412,59 +436,55 @@ describe("handleResponses (logging)", () => {
         incomplete_details: { reason: "max_output_tokens" },
         usage: { input_tokens: 200, output_tokens: 4096 },
       },
-    })
+    });
 
     fetchSpy.mockResolvedValueOnce(
       mockFetchStream([
         'event: response.created\ndata: {"id":"resp_1"}\n\n',
         `event: response.incomplete\ndata: ${incompleteData}\n\n`,
       ]),
-    )
+    );
 
-    const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
-    logEmitter.on("log", listener)
+    const events: LogEvent[] = [];
+    const listener = (e: LogEvent) => events.push(e);
+    logEmitter.on("log", listener);
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello", stream: true }));
 
-    await res.text()
-    await new Promise((r) => setTimeout(r, 50))
+    await res.text();
+    await new Promise((r) => setTimeout(r, 50));
 
-    logEmitter.off("log", listener)
+    logEmitter.off("log", listener);
 
-    const endEvent = events.find((e) => e.type === "request_end")
-    expect(endEvent).toBeDefined()
-    expect(endEvent!.data?.inputTokens).toBe(200)
-    expect(endEvent!.data?.outputTokens).toBe(4096)
-  })
+    const endEvent = events.find((e) => e.type === "request_end");
+    expect(endEvent).toBeDefined();
+    expect(endEvent!.data?.inputTokens).toBe(200);
+    expect(endEvent!.data?.outputTokens).toBe(4096);
+  });
 
   test("emits error log on upstream failure", async () => {
-    const errorBody = JSON.stringify({ error: { message: "model not found" } })
+    const errorBody = JSON.stringify({ error: { message: "model not found" } });
     fetchSpy.mockResolvedValueOnce(
       new Response(errorBody, { status: 404, headers: { "content-type": "application/json" } }),
-    )
+    );
 
-    const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
-    logEmitter.on("log", listener)
+    const events: LogEvent[] = [];
+    const listener = (e: LogEvent) => events.push(e);
+    logEmitter.on("log", listener);
 
-    const app = makeApp()
-    await app.request(
-      req({ model: "nonexistent-model", input: "hello" }),
-    )
+    const app = makeApp();
+    await app.request(req({ model: "nonexistent-model", input: "hello" }));
 
-    logEmitter.off("log", listener)
+    logEmitter.off("log", listener);
 
-    const endEvent = events.find((e) => e.type === "request_end")
-    expect(endEvent).toBeDefined()
-    expect(endEvent!.level).toBe("error")
-    expect(endEvent!.data?.status).toBe("error")
-    expect(endEvent!.data?.statusCode).toBe(404)
-  })
-})
+    const endEvent = events.find((e) => e.type === "request_end");
+    expect(endEvent).toBeDefined();
+    expect(endEvent!.level).toBe("error");
+    expect(endEvent!.data?.status).toBe("error");
+    expect(endEvent!.data?.statusCode).toBe(404);
+  });
+});
 
 // ===========================================================================
 // handleResponses — rate limiting
@@ -472,63 +492,63 @@ describe("handleResponses (logging)", () => {
 
 describe("handleResponses (rate limiting)", () => {
   test("returns 429 with error message when rate limited", async () => {
-    const savedRateLimitSeconds = state.rateLimitSeconds
-    const savedRateLimitWait = state.rateLimitWait
-    const savedLastRequestTimestamp = state.lastRequestTimestamp
+    const savedRateLimitSeconds = state.rateLimitSeconds;
+    const savedRateLimitWait = state.rateLimitWait;
+    const savedLastRequestTimestamp = state.lastRequestTimestamp;
 
-    state.rateLimitSeconds = 60 // 60 seconds between requests
-    state.rateLimitWait = false // throw instead of wait
-    state.lastRequestTimestamp = Date.now() // just made a request
+    state.rateLimitSeconds = 60; // 60 seconds between requests
+    state.rateLimitWait = false; // throw instead of wait
+    state.lastRequestTimestamp = Date.now(); // just made a request
 
-    fetchSpy.mockResolvedValue(mockFetchJson(makeResponsesResponse()))
+    fetchSpy.mockResolvedValue(mockFetchJson(makeResponsesResponse()));
 
-    const app = makeApp()
+    const app = makeApp();
 
-    const res = await app.request(req({ model: "gpt-4o", input: "hello" }))
+    const res = await app.request(req({ model: "gpt-4o", input: "hello" }));
 
     // Should return 429 with proper error structure
-    expect(res.status).toBe(429)
-    const json = await res.json()
-    expect(json.error.message).toContain("Rate limit exceeded")
+    expect(res.status).toBe(429);
+    const json = await res.json();
+    expect(json.error.message).toContain("Rate limit exceeded");
 
     // Upstream was never called because rate limit blocked it
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(fetchSpy).not.toHaveBeenCalled();
 
     // Restore
-    state.rateLimitSeconds = savedRateLimitSeconds
-    state.rateLimitWait = savedRateLimitWait
-    state.lastRequestTimestamp = savedLastRequestTimestamp
-  })
+    state.rateLimitSeconds = savedRateLimitSeconds;
+    state.rateLimitWait = savedRateLimitWait;
+    state.lastRequestTimestamp = savedLastRequestTimestamp;
+  });
 
   test("429 error body is not double-encoded", async () => {
-    const savedRateLimitSeconds = state.rateLimitSeconds
-    const savedRateLimitWait = state.rateLimitWait
-    const savedLastRequestTimestamp = state.lastRequestTimestamp
+    const savedRateLimitSeconds = state.rateLimitSeconds;
+    const savedRateLimitWait = state.rateLimitWait;
+    const savedLastRequestTimestamp = state.lastRequestTimestamp;
 
-    state.rateLimitSeconds = 60
-    state.rateLimitWait = false
-    state.lastRequestTimestamp = Date.now()
+    state.rateLimitSeconds = 60;
+    state.rateLimitWait = false;
+    state.lastRequestTimestamp = Date.now();
 
-    fetchSpy.mockResolvedValue(mockFetchJson(makeResponsesResponse()))
+    fetchSpy.mockResolvedValue(mockFetchJson(makeResponsesResponse()));
 
-    const app = makeApp()
+    const app = makeApp();
 
-    const res = await app.request(req({ model: "gpt-4o", input: "hello" }))
+    const res = await app.request(req({ model: "gpt-4o", input: "hello" }));
 
-    expect(res.status).toBe(429)
-    const json = await res.json()
+    expect(res.status).toBe(429);
+    const json = await res.json();
 
     // The error.message should be a plain string, NOT double-encoded JSON
-    expect(typeof json.error.message).toBe("string")
-    expect(json.error.message).not.toContain('{"message"')
-    expect(json.error.message).not.toContain('\\"')
+    expect(typeof json.error.message).toBe("string");
+    expect(json.error.message).not.toContain('{"message"');
+    expect(json.error.message).not.toContain('\\"');
 
     // Restore
-    state.rateLimitSeconds = savedRateLimitSeconds
-    state.rateLimitWait = savedRateLimitWait
-    state.lastRequestTimestamp = savedLastRequestTimestamp
-  })
-})
+    state.rateLimitSeconds = savedRateLimitSeconds;
+    state.rateLimitWait = savedRateLimitWait;
+    state.lastRequestTimestamp = savedLastRequestTimestamp;
+  });
+});
 
 // ===========================================================================
 // handleResponses — SSE passthrough (id/retry fields)
@@ -541,22 +561,20 @@ describe("handleResponses (SSE passthrough)", () => {
         'id: evt_001\nevent: response.created\ndata: {"id":"resp_1"}\n\n',
         'id: evt_002\nretry: 1500\nevent: response.completed\ndata: {"id":"resp_1"}\n\n',
       ]),
-    )
+    );
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello", stream: true }));
 
-    const text = await res.text()
+    const text = await res.text();
 
     // Should preserve id fields
-    expect(text).toContain("id: evt_001")
-    expect(text).toContain("id: evt_002")
+    expect(text).toContain("id: evt_001");
+    expect(text).toContain("id: evt_002");
     // Should preserve retry field
-    expect(text).toContain("retry: 1500")
-  })
-})
+    expect(text).toContain("retry: 1500");
+  });
+});
 
 // ===========================================================================
 // handleResponses — mid-stream error
@@ -565,44 +583,42 @@ describe("handleResponses (SSE passthrough)", () => {
 describe("handleResponses (mid-stream error)", () => {
   test("sends error event on mid-stream upstream failure", async () => {
     // Ensure rate limit is not active
-    state.rateLimitSeconds = null
+    state.rateLimitSeconds = null;
 
     // Create a stream that errors mid-way (after first chunk is enqueued)
-    const encoder = new TextEncoder()
-    let controller: ReadableStreamDefaultController<Uint8Array>
+    const encoder = new TextEncoder();
+    let controller: ReadableStreamDefaultController<Uint8Array>;
 
     const stream = new ReadableStream<Uint8Array>({
       start(c) {
-        controller = c
+        controller = c;
         // First chunk goes through
-        controller.enqueue(encoder.encode('event: response.created\ndata: {"id":"resp_1"}\n\n'))
+        controller.enqueue(encoder.encode('event: response.created\ndata: {"id":"resp_1"}\n\n'));
       },
       pull() {
         // Error on second pull
-        controller.error(new Error("connection reset"))
+        controller.error(new Error("connection reset"));
       },
-    })
+    });
 
     fetchSpy.mockResolvedValueOnce(
       new Response(stream, {
         status: 200,
         headers: { "content-type": "text/event-stream" },
       }),
-    )
+    );
 
-    const app = makeApp()
-    const res = await app.request(
-      req({ model: "gpt-4o", input: "hello", stream: true }),
-    )
+    const app = makeApp();
+    const res = await app.request(req({ model: "gpt-4o", input: "hello", stream: true }));
 
-    const text = await res.text()
+    const text = await res.text();
 
     // Should contain the initial event
-    expect(text).toContain("response.created")
+    expect(text).toContain("response.created");
 
     // Should contain the error event (best-effort) with code
-    expect(text).toContain("event: error")
-    expect(text).toContain("server_error")
-    expect(text).toContain("stream_error")
-  })
-})
+    expect(text).toContain("event: error");
+    expect(text).toContain("server_error");
+    expect(text).toContain("stream_error");
+  });
+});

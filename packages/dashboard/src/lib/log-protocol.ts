@@ -21,13 +21,15 @@ export function logProtocol(data: Record<string, unknown>, complete: boolean) {
     const upstreamName = upstream === "images" && imageName ? imageName : PROTOCOLS[upstream];
     return {
       label: native ? "Native" : "Translated",
-      variant: native ? "success" as const : "warning" as const,
+      variant: native ? ("success" as const) : ("warning" as const),
       title: `${clientName} → ${upstreamName}${native ? " · No protocol translation" : ` · Prefer ${upstreamName} in your client`}`,
     };
   }
   return {
     label: complete ? "Unknown path" : "Pending path",
     variant: "secondary" as const,
-    title: complete ? "No upstream protocol recorded; the request may have failed before routing." : "The protocol path is recorded when the request completes.",
+    title: complete
+      ? "No upstream protocol recorded; the request may have failed before routing."
+      : "The protocol path is recorded when the request completes.",
   };
 }

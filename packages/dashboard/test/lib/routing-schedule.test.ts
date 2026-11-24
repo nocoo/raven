@@ -1,14 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { availableWindow, changeScheduleMode, copyDay, DAY, daySegments, localDateTime, minuteLabel, setWindowEnd, toLocalWindows, toUtcWindows, utcDateTime, WEEK, wrap, type LocalWindow } from "@/lib/routing-schedule";
+import {
+  availableWindow,
+  changeScheduleMode,
+  copyDay,
+  DAY,
+  daySegments,
+  localDateTime,
+  minuteLabel,
+  setWindowEnd,
+  toLocalWindows,
+  toUtcWindows,
+  utcDateTime,
+  WEEK,
+  wrap,
+  type LocalWindow,
+} from "@/lib/routing-schedule";
 
-const window = (overrides: Partial<LocalWindow<string[]>> = {}): LocalWindow<string[]> => ({ id: "focus", day: 0, start: 540, end: 1020, value: ["primary", "terminal"], ...overrides });
+const window = (overrides: Partial<LocalWindow<string[]>> = {}): LocalWindow<string[]> => ({
+  id: "focus",
+  day: 0,
+  start: 540,
+  end: 1020,
+  value: ["primary", "terminal"],
+  ...overrides,
+});
 
-function idFactory() { let id = 0; return () => `copy-${++id}`; }
+function idFactory() {
+  let id = 0;
+  return () => `copy-${++id}`;
+}
 
 describe("local schedules persisted as fixed UTC recurrences", () => {
   it("places Monday early morning in the previous UTC week at UTC+08", () => {
     const result = toUtcWindows([window({ start: 0, end: 120 })], "weekly", -480);
-    expect(result).toEqual([{ id: "focus", start_minute: 9600, end_minute: 9720, value: ["primary", "terminal"] }]);
+    expect(result).toEqual([
+      { id: "focus", start_minute: 9600, end_minute: 9720, value: ["primary", "terminal"] },
+    ]);
     expect(toLocalWindows(result, "weekly", -480)).toEqual([window({ start: 0, end: 120 })]);
   });
 
@@ -20,30 +47,47 @@ describe("local schedules persisted as fixed UTC recurrences", () => {
   });
 
   it("splits Sunday overnight and rejoins only by logical identity", () => {
-    const local = [window({ day: 6, start: 1410, end: 1530 }), window({ id: "adjacent", day: 0, start: 90, end: 120 })];
+    const local = [
+      window({ day: 6, start: 1410, end: 1530 }),
+      window({ id: "adjacent", day: 0, start: 90, end: 120 }),
+    ];
     const utc = toUtcWindows(local, "weekly", 0);
-    expect(utc.map(item => [item.id, item.start_minute, item.end_minute])).toEqual([["focus", 0, 90], ["adjacent", 90, 120], ["focus", 10050, WEEK]]);
+    expect(utc.map((item) => [item.id, item.start_minute, item.end_minute])).toEqual([
+      ["focus", 0, 90],
+      ["adjacent", 90, 120],
+      ["focus", 10050, WEEK],
+    ]);
     expect(toLocalWindows(utc, "weekly", 0)).toEqual([local[1], local[0]]);
   });
 
   it("splits a daily overnight period and keeps half-open adjacent periods distinct", () => {
     const local = [window({ start: 1380, end: 1500 }), window({ id: "next", start: 60, end: 120 })];
-    expect(toLocalWindows(toUtcWindows(local, "daily", 0), "daily", 0)).toEqual([local[1], local[0]]);
+    expect(toLocalWindows(toUtcWindows(local, "daily", 0), "daily", 0)).toEqual([
+      local[1],
+      local[0],
+    ]);
   });
 
-  it.each([-840, -480, -345, 0, 210, 360, 720])("round trips local half-hour periods at offset %i", offset => {
-    for (let day = 0; day < 7; day++) {
-      for (const start of [0, 30, 540, 1380]) {
-        for (const duration of [30, 90, 210]) {
-          const local = [window({ day, start, end: start + duration })];
-          const utc = toUtcWindows(local, "weekly", offset);
-          expect(toLocalWindows(utc, "weekly", offset)).toEqual(local);
-          expect(utc.every(fragment => fragment.start_minute >= 0 && fragment.end_minute <= WEEK)).toBe(true);
-          expect(utc.reduce((sum, fragment) => sum + fragment.end_minute - fragment.start_minute, 0)).toBe(duration);
+  it.each([-840, -480, -345, 0, 210, 360, 720])(
+    "round trips local half-hour periods at offset %i",
+    (offset) => {
+      for (let day = 0; day < 7; day++) {
+        for (const start of [0, 30, 540, 1380]) {
+          for (const duration of [30, 90, 210]) {
+            const local = [window({ day, start, end: start + duration })];
+            const utc = toUtcWindows(local, "weekly", offset);
+            expect(toLocalWindows(utc, "weekly", offset)).toEqual(local);
+            expect(
+              utc.every((fragment) => fragment.start_minute >= 0 && fragment.end_minute <= WEEK),
+            ).toBe(true);
+            expect(
+              utc.reduce((sum, fragment) => sum + fragment.end_minute - fragment.start_minute, 0),
+            ).toBe(duration);
+          }
         }
       }
-    }
-  });
+    },
+  );
 
   it("changes display with offset changes without moving persisted UTC periods", () => {
     const saved = [{ id: "fixed", start_minute: 480, end_minute: 600, value: [] }];
@@ -54,23 +98,35 @@ describe("local schedules persisted as fixed UTC recurrences", () => {
 
   it("uses the default for all-day mode and empty scheduled days", () => {
     expect(toUtcWindows([window()], "all_day", 0)).toEqual([]);
-    expect(toLocalWindows([{ id: "ignored", start_minute: 0, end_minute: 10, value: [] }], "all_day", 0)).toEqual([]);
+    expect(
+      toLocalWindows([{ id: "ignored", start_minute: 0, end_minute: 10, value: [] }], "all_day", 0),
+    ).toEqual([]);
     expect(toLocalWindows([], "weekly", 0)).toEqual([]);
   });
 
   it("handles a single midnight-to-midnight daily fragment", () => {
-    expect(toLocalWindows([{ id: "whole", start_minute: 0, end_minute: DAY, value: 1 }], "daily", 0)).toEqual([{ id: "whole", day: 0, start: 0, end: DAY, value: 1 }]);
+    expect(
+      toLocalWindows([{ id: "whole", start_minute: 0, end_minute: DAY, value: 1 }], "daily", 0),
+    ).toEqual([{ id: "whole", day: 0, start: 0, end: DAY, value: 1 }]);
   });
 
   it("canonicalizes a full daily recurrence regardless of timezone offset", () => {
     const fullDay = window({ start: 0, end: DAY });
-    expect(toLocalWindows(toUtcWindows([fullDay], "daily", -345), "daily", -345)).toEqual([fullDay]);
+    expect(toLocalWindows(toUtcWindows([fullDay], "daily", -345), "daily", -345)).toEqual([
+      fullDay,
+    ]);
   });
 
   it.each([
-    { start: 30, end: 30 }, { start: -1 }, { start: DAY }, { start: 0, end: DAY + 1 },
-    { day: 7 }, { day: -1 }, { day: 0.5 }, { start: 30.5 },
-  ])("rejects an invalid local range %j", invalid => {
+    { start: 30, end: 30 },
+    { start: -1 },
+    { start: DAY },
+    { start: 0, end: DAY + 1 },
+    { day: 7 },
+    { day: -1 },
+    { day: 0.5 },
+    { start: 30.5 },
+  ])("rejects an invalid local range %j", (invalid) => {
     expect(() => toUtcWindows([window(invalid)], "weekly", 0)).toThrow("nonempty period");
   });
 
@@ -81,16 +137,26 @@ describe("local schedules persisted as fixed UTC recurrences", () => {
   });
 
   it("rejects overnight overlap after UTC normalization", () => {
-    expect(() => toUtcWindows([window({ day: 6, start: 1380, end: 1530 }), window({ id: "monday", start: 30, end: 90 })], "weekly", -345)).toThrow("overlap");
+    expect(() =>
+      toUtcWindows(
+        [window({ day: 6, start: 1380, end: 1530 }), window({ id: "monday", start: 30, end: 90 })],
+        "weekly",
+        -345,
+      ),
+    ).toThrow("overlap");
   });
 });
 
 describe("copying local start-day periods", () => {
   it("replaces destination start-day periods under fresh ids and clones chains", () => {
     const source = window({ start: 1320, end: 1500 });
-    const original = [source, window({ id: "old-tuesday", day: 1 }), window({ id: "unrelated", day: 4 })];
+    const original = [
+      source,
+      window({ id: "old-tuesday", day: 1 }),
+      window({ id: "unrelated", day: 4 }),
+    ];
     const next = copyDay(original, 0, [0, 1, 2, 2], -480, idFactory());
-    expect(next.map(item => item.id)).toEqual(["focus", "unrelated", "copy-1", "copy-2"]);
+    expect(next.map((item) => item.id)).toEqual(["focus", "unrelated", "copy-1", "copy-2"]);
     expect(next[2]).toMatchObject({ day: 1, start: 1320, end: 1500 });
     next[2]!.value.push("other");
     expect(source.value).toEqual(["primary", "terminal"]);
@@ -99,7 +165,10 @@ describe("copying local start-day periods", () => {
   });
 
   it("rejects the whole copy when a prior-day tail overlaps the copied start", () => {
-    const original = [window({ start: 30, end: 120 }), window({ id: "monday-late", start: 1380, end: 1530 })];
+    const original = [
+      window({ start: 30, end: 120 }),
+      window({ id: "monday-late", start: 1380, end: 1530 }),
+    ];
     const before = structuredClone(original);
     expect(() => copyDay(original, 0, [1, 3], 0, idFactory())).toThrow("overlap");
     expect(original).toEqual(before);
@@ -114,8 +183,10 @@ describe("copying local start-day periods", () => {
     const original = [window()];
     const week = changeScheduleMode(original, "daily", "weekly", 0, idFactory());
     expect(week).toHaveLength(7);
-    expect(new Set(week.map(item => item.id)).size).toBe(7);
-    expect(changeScheduleMode(week, "weekly", "daily", 4, idFactory())).toEqual([{ ...week[4], day: 0 }]);
+    expect(new Set(week.map((item) => item.id)).size).toBe(7);
+    expect(changeScheduleMode(week, "weekly", "daily", 4, idFactory())).toEqual([
+      { ...week[4], day: 0 },
+    ]);
     expect(changeScheduleMode(original, "daily", "daily", 0, idFactory())).toBe(original);
     expect(changeScheduleMode(original, "daily", "all_day", 0, idFactory())).toEqual([]);
     expect(changeScheduleMode(original, "all_day", "weekly", 0, idFactory())).toEqual([]);
@@ -126,7 +197,9 @@ describe("visual schedule and date helpers", () => {
   it("shows overnight tails on the following day while retaining their start day", () => {
     const windows = [window({ day: 6, start: 1320, end: 1500 })];
     expect(daySegments(windows, 6, "weekly")).toEqual([{ ...windows[0], end: DAY, tail: false }]);
-    expect(daySegments(windows, 0, "weekly")).toEqual([{ ...windows[0], start: 0, end: 60, tail: true }]);
+    expect(daySegments(windows, 0, "weekly")).toEqual([
+      { ...windows[0], start: 0, end: 60, tail: true },
+    ]);
     expect(daySegments(windows, 2, "weekly")).toEqual([]);
     expect(daySegments([window({ start: 1320, end: 1500 })], 0, "daily")).toHaveLength(2);
   });
@@ -134,7 +207,10 @@ describe("visual schedule and date helpers", () => {
   it("finds free half-hour slots and reports a full day", () => {
     expect(availableWindow([], 0, "daily")).toEqual({ start: 540, end: 600 });
     expect(availableWindow([window()], 0, "daily")).toEqual({ start: 0, end: 60 });
-    expect(availableWindow([window({ start: 30, end: DAY })], 0, "daily")).toEqual({ start: 0, end: 30 });
+    expect(availableWindow([window({ start: 30, end: DAY })], 0, "daily")).toEqual({
+      start: 0,
+      end: 30,
+    });
     expect(availableWindow([window({ start: 0, end: DAY })], 0, "daily")).toBeNull();
   });
 

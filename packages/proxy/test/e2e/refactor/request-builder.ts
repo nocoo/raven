@@ -15,38 +15,35 @@
  *   CustomAnthropic    → /v1/messages (passthrough)
  */
 
-import type { Scenario, StrategyName } from "./scenarios"
-import type { FixtureRequest } from "./fixture-format"
+import type { Scenario, StrategyName } from "./scenarios";
+import type { FixtureRequest } from "./fixture-format";
 
-const BASE_PROMPT = "Reply with exactly: ok"
-const TOOL_USE_PROMPT = "Use the echo tool with arg=hello, then stop."
-const WEB_SEARCH_PROMPT = "Search the web for 'openai' and summarise in one sentence."
-const EVENT_ORDERING_PROMPT = "Count from 1 to 3."
+const BASE_PROMPT = "Reply with exactly: ok";
+const TOOL_USE_PROMPT = "Use the echo tool with arg=hello, then stop.";
+const WEB_SEARCH_PROMPT = "Search the web for 'openai' and summarise in one sentence.";
+const EVENT_ORDERING_PROMPT = "Count from 1 to 3.";
 
 /**
  * Build the POST body + path for a scenario under a given strategy.
  * Token budgets are kept tiny (16–64) to minimise upstream usage.
  */
-export function buildScenarioRequest(
-  strategy: StrategyName,
-  scenario: Scenario,
-): FixtureRequest {
+export function buildScenarioRequest(strategy: StrategyName, scenario: Scenario): FixtureRequest {
   switch (strategy) {
     case "CopilotNative":
-      return anthropicMessages(scenario)
+      return anthropicMessages(scenario);
     case "CopilotTranslated":
-      return anthropicMessagesTranslated(scenario)
+      return anthropicMessagesTranslated(scenario);
     case "CopilotOpenAIDirect":
-      return openAIChatCompletions(scenario, { isCopilot: true })
+      return openAIChatCompletions(scenario, { isCopilot: true });
     case "CopilotResponses":
-      return responsesPayload(scenario)
+      return responsesPayload(scenario);
     case "CustomOpenAI":
       if (scenario.features.includes("anthropic_client")) {
-        return anthropicMessages(scenario)
+        return anthropicMessages(scenario);
       }
-      return openAIChatCompletions(scenario, { isCopilot: false })
+      return openAIChatCompletions(scenario, { isCopilot: false });
     case "CustomAnthropic":
-      return anthropicMessages(scenario)
+      return anthropicMessages(scenario);
   }
 }
 
@@ -56,27 +53,29 @@ function anthropicMessages(s: Scenario): FixtureRequest {
     max_tokens: 64,
     stream: s.stream,
     messages: [{ role: "user", content: basePrompt(s) }],
-  }
+  };
   if (s.features.includes("tool_use")) {
-    body.tools = [{
-      name: "echo",
-      description: "Echo the arg back verbatim.",
-      input_schema: {
-        type: "object",
-        properties: { arg: { type: "string" } },
-        required: ["arg"],
+    body.tools = [
+      {
+        name: "echo",
+        description: "Echo the arg back verbatim.",
+        input_schema: {
+          type: "object",
+          properties: { arg: { type: "string" } },
+          required: ["arg"],
+        },
       },
-    }]
+    ];
   }
   if (s.features.includes("web_search")) {
-    body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }]
+    body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }];
   }
-  return { method: "POST", path: "/v1/messages", body }
+  return { method: "POST", path: "/v1/messages", body };
 }
 
 /** Models that force the OpenAI-translated path in Anthropic `/v1/messages`. */
 function anthropicMessagesTranslated(s: Scenario): FixtureRequest {
-  const base = anthropicMessages(s)
+  const base = anthropicMessages(s);
   if (s.features.includes("reasoning")) {
     return {
       ...base,
@@ -84,43 +83,42 @@ function anthropicMessagesTranslated(s: Scenario): FixtureRequest {
         ...(base.body as Record<string, unknown>),
         thinking: { type: "enabled", budget_tokens: 16 },
       },
-    }
+    };
   }
-  return base
+  return base;
 }
 
-function openAIChatCompletions(
-  s: Scenario,
-  opts: { isCopilot: boolean },
-): FixtureRequest {
+function openAIChatCompletions(s: Scenario, opts: { isCopilot: boolean }): FixtureRequest {
   const body: Record<string, unknown> = {
     model: s.model,
     stream: s.stream,
     messages: [{ role: "user", content: basePrompt(s) }],
-  }
+  };
   if (s.features.includes("max_tokens")) {
-    body.max_tokens = 16
+    body.max_tokens = 16;
   } else {
-    body.max_completion_tokens = 64
+    body.max_completion_tokens = 64;
   }
   if (s.features.includes("tool_use")) {
-    body.tools = [{
-      type: "function",
-      function: {
-        name: "echo",
-        description: "Echo the arg back verbatim.",
-        parameters: {
-          type: "object",
-          properties: { arg: { type: "string" } },
-          required: ["arg"],
+    body.tools = [
+      {
+        type: "function",
+        function: {
+          name: "echo",
+          description: "Echo the arg back verbatim.",
+          parameters: {
+            type: "object",
+            properties: { arg: { type: "string" } },
+            required: ["arg"],
+          },
         },
       },
-    }]
+    ];
   }
   // isCopilot is a seam for future divergence (e.g., X-Initiator routing
   // differences) — presently both paths accept the same body shape.
-  void opts
-  return { method: "POST", path: "/v1/chat/completions", body }
+  void opts;
+  return { method: "POST", path: "/v1/chat/completions", body };
 }
 
 function responsesPayload(s: Scenario): FixtureRequest {
@@ -128,23 +126,23 @@ function responsesPayload(s: Scenario): FixtureRequest {
     model: s.model,
     stream: s.stream,
     input: basePrompt(s),
-  }
+  };
   if (s.features.includes("reasoning")) {
-    body.reasoning = { effort: "low" }
+    body.reasoning = { effort: "low" };
   }
   if (s.features.includes("response_failed")) {
     // Nudge the upstream into a failure response by asking for an
     // impossibly large output. Upstream behaviour is probabilistic —
     // the captured fixture records whatever response came back.
-    body.max_output_tokens = 1_000_000
-    body.input = "Produce a plan with 500 steps."
+    body.max_output_tokens = 1_000_000;
+    body.input = "Produce a plan with 500 steps.";
   }
-  return { method: "POST", path: "/v1/responses", body }
+  return { method: "POST", path: "/v1/responses", body };
 }
 
 function basePrompt(s: Scenario): string {
-  if (s.features.includes("tool_use")) return TOOL_USE_PROMPT
-  if (s.features.includes("web_search")) return WEB_SEARCH_PROMPT
-  if (s.features.includes("event_ordering")) return EVENT_ORDERING_PROMPT
-  return BASE_PROMPT
+  if (s.features.includes("tool_use")) return TOOL_USE_PROMPT;
+  if (s.features.includes("web_search")) return WEB_SEARCH_PROMPT;
+  if (s.features.includes("event_ordering")) return EVENT_ORDERING_PROMPT;
+  return BASE_PROMPT;
 }

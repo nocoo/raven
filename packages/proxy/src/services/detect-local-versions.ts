@@ -22,8 +22,7 @@ function getEditorCandidates(): EditorCandidate[] {
     return [
       // VS Code
       {
-        packageJson:
-          "/Applications/Visual Studio Code.app/Contents/Resources/app/package.json",
+        packageJson: "/Applications/Visual Studio Code.app/Contents/Resources/app/package.json",
         extensionsDir: join(home, ".vscode", "extensions"),
       },
       // VS Code Insiders
@@ -34,14 +33,12 @@ function getEditorCandidates(): EditorCandidate[] {
       },
       // Cursor
       {
-        packageJson:
-          "/Applications/Cursor.app/Contents/Resources/app/package.json",
+        packageJson: "/Applications/Cursor.app/Contents/Resources/app/package.json",
         extensionsDir: join(home, ".cursor", "extensions"),
       },
       // VSCodium
       {
-        packageJson:
-          "/Applications/VSCodium.app/Contents/Resources/app/package.json",
+        packageJson: "/Applications/VSCodium.app/Contents/Resources/app/package.json",
         extensionsDir: join(home, ".vscode-oss", "extensions"),
       },
     ];
@@ -85,12 +82,26 @@ function getEditorCandidates(): EditorCandidate[] {
     return [
       // VS Code
       {
-        packageJson: join(localAppData, "Programs", "Microsoft VS Code", "resources", "app", "package.json"),
+        packageJson: join(
+          localAppData,
+          "Programs",
+          "Microsoft VS Code",
+          "resources",
+          "app",
+          "package.json",
+        ),
         extensionsDir: join(home, ".vscode", "extensions"),
       },
       // VS Code Insiders
       {
-        packageJson: join(localAppData, "Programs", "Microsoft VS Code Insiders", "resources", "app", "package.json"),
+        packageJson: join(
+          localAppData,
+          "Programs",
+          "Microsoft VS Code Insiders",
+          "resources",
+          "app",
+          "package.json",
+        ),
         extensionsDir: join(home, ".vscode-insiders", "extensions"),
       },
       // Cursor

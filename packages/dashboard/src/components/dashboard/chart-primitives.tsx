@@ -98,9 +98,7 @@ export function ChartTooltipRow({ color, label, value }: ChartTooltipRowProps) {
         )}
         {label}
       </span>
-      <span className="font-medium text-basalt-popover-foreground tabular-nums">
-        {value}
-      </span>
+      <span className="font-medium text-basalt-popover-foreground tabular-nums">{value}</span>
     </div>
   );
 }
@@ -118,9 +116,7 @@ export function ChartTooltipSummary({ label, value }: ChartTooltipSummaryProps) 
   return (
     <div className="mt-1 flex items-center justify-between gap-3 border-t border-basalt-border/30 pt-1 text-xs">
       <span className="text-basalt-muted-foreground">{label}</span>
-      <span className="font-semibold text-basalt-popover-foreground tabular-nums">
-        {value}
-      </span>
+      <span className="font-semibold text-basalt-popover-foreground tabular-nums">{value}</span>
     </div>
   );
 }

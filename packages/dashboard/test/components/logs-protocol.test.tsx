@@ -6,7 +6,17 @@ import type { LogEvent } from "@/hooks/use-log-stream";
 
 const stream = vi.hoisted(() => ({ events: [] as LogEvent[] }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
-vi.mock("@/hooks/use-log-stream", () => ({ useLogStream: () => ({ ...stream, eventSeq: 1, connected: true, paused: false, setPaused: vi.fn(), clear: vi.fn(), setLevel: vi.fn() }) }));
+vi.mock("@/hooks/use-log-stream", () => ({
+  useLogStream: () => ({
+    ...stream,
+    eventSeq: 1,
+    connected: true,
+    paused: false,
+    setPaused: vi.fn(),
+    clear: vi.fn(),
+    setLevel: vi.fn(),
+  }),
+}));
 vi.mock("@/app/logs/logs-stats", () => ({ LogsStats: () => null }));
 
 describe("Logs request badges", () => {
@@ -19,8 +29,22 @@ describe("Logs request badges", () => {
     ["responses", "anthropic", "protocol-converted", "Translated"],
   ])("renders %s → %s as %s / %s", (format, upstreamFormat, strategy, label) => {
     stream.events = [
-      { ts: 1, type: "request_start", level: "info", requestId: "fixture", msg: "start", data: { path: "/v1/responses", format, model: "gpt-fixture" } },
-      { ts: 2, type: "request_end", level: "info", requestId: "fixture", msg: "end", data: { format, upstreamFormat, strategy, status: "success" } },
+      {
+        ts: 1,
+        type: "request_start",
+        level: "info",
+        requestId: "fixture",
+        msg: "start",
+        data: { path: "/v1/responses", format, model: "gpt-fixture" },
+      },
+      {
+        ts: 2,
+        type: "request_end",
+        level: "info",
+        requestId: "fixture",
+        msg: "end",
+        data: { format, upstreamFormat, strategy, status: "success" },
+      },
     ];
     render(<LogsContent />);
     expect(screen.getByText(label, { exact: true })).toBeVisible();
@@ -28,10 +52,29 @@ describe("Logs request badges", () => {
   });
 
   it("labels incomplete and rejected requests without claiming native forwarding", () => {
-    stream.events = [{ ts: 1, type: "request_start", level: "info", requestId: "fixture", msg: "start", data: { format: "responses" } }];
+    stream.events = [
+      {
+        ts: 1,
+        type: "request_start",
+        level: "info",
+        requestId: "fixture",
+        msg: "start",
+        data: { format: "responses" },
+      },
+    ];
     const { rerender } = render(<LogsContent />);
     expect(screen.getByText("Pending path")).toBeVisible();
-    stream.events = [...stream.events, { ts: 2, type: "request_end", level: "error", requestId: "fixture", msg: "rejected", data: { status: "error" } }];
+    stream.events = [
+      ...stream.events,
+      {
+        ts: 2,
+        type: "request_end",
+        level: "error",
+        requestId: "fixture",
+        msg: "rejected",
+        data: { status: "error" },
+      },
+    ];
     rerender(<LogsContent />);
     expect(screen.getByText("Unknown path")).toBeVisible();
     expect(screen.queryByText("Native")).toBeNull();
@@ -39,23 +82,63 @@ describe("Logs request badges", () => {
 
   it("shows a started-stream cancellation as neutral, not success or error", () => {
     stream.events = [
-      { ts: 1, type: "request_start", level: "info", requestId: "fixture", msg: "start", data: { path: "/v1/chat/completions", format: "openai", model: "gpt-fixture" } },
-      { ts: 2, type: "request_end", level: "warn", requestId: "fixture", msg: "200 openai", data: { format: "openai", status: "cancelled", statusCode: 200, error: "client cancelled: The connection was closed." } },
+      {
+        ts: 1,
+        type: "request_start",
+        level: "info",
+        requestId: "fixture",
+        msg: "start",
+        data: { path: "/v1/chat/completions", format: "openai", model: "gpt-fixture" },
+      },
+      {
+        ts: 2,
+        type: "request_end",
+        level: "warn",
+        requestId: "fixture",
+        msg: "200 openai",
+        data: {
+          format: "openai",
+          status: "cancelled",
+          statusCode: 200,
+          error: "client cancelled: The connection was closed.",
+        },
+      },
     ];
     render(<LogsContent />);
     const badge = screen.getByText("cancelled");
     expect(badge.className).toContain("bg-basalt-foreground/6");
     expect(screen.queryByText("ERROR")).toBeNull();
     expect(screen.queryByText("OK")).toBeNull();
-    expect(screen.getByText("client cancelled: The connection was closed.").className).toContain("text-basalt-muted-foreground");
+    expect(screen.getByText("client cancelled: The connection was closed.").className).toContain(
+      "text-basalt-muted-foreground",
+    );
   });
 });
 
 it("uses compact IP rows and reveals complete details and copy only on click", async () => {
   const { default: userEvent } = await import("@testing-library/user-event");
   stream.events = [
-    { ts: 1, type: "request_start", level: "info", requestId: "fixture", msg: "start", data: { path: "/v1/responses", model: "gpt-fixture", clientIP: "2001:db8::1" } },
-    { ts: 2, type: "request_end", level: "warn", requestId: "fixture", msg: "denied", data: { status: "denied", error: "IP denied by key whitelist", peerIP: "::1", ipSource: "forwarded" } },
+    {
+      ts: 1,
+      type: "request_start",
+      level: "info",
+      requestId: "fixture",
+      msg: "start",
+      data: { path: "/v1/responses", model: "gpt-fixture", clientIP: "2001:db8::1" },
+    },
+    {
+      ts: 2,
+      type: "request_end",
+      level: "warn",
+      requestId: "fixture",
+      msg: "denied",
+      data: {
+        status: "denied",
+        error: "IP denied by key whitelist",
+        peerIP: "::1",
+        ipSource: "forwarded",
+      },
+    },
   ];
   render(<LogsContent />);
   expect(screen.getByText("2001:db8::1")).toBeVisible();

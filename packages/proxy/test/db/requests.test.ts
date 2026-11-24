@@ -91,27 +91,51 @@ afterEach(() => {
 });
 
 describe("request storage boundary contracts", () => {
-  test.each([new Error("fixture migration denied"), "fixture migration denied"])("does not swallow a non-duplicate migration failure: %#", (failure) => {
-    const failingDb = { exec(sql: string) { if (sql.startsWith("ALTER TABLE")) throw failure } } as unknown as Database
-    let caught: unknown
-    try { initDatabase(failingDb) } catch (error) { caught = error }
-    expect(caught).toBe(failure)
-  })
+  test.each([new Error("fixture migration denied"), "fixture migration denied"])(
+    "does not swallow a non-duplicate migration failure: %#",
+    (failure) => {
+      const failingDb = {
+        exec(sql: string) {
+          if (sql.startsWith("ALTER TABLE")) throw failure;
+        },
+      } as unknown as Database;
+      let caught: unknown;
+      try {
+        initDatabase(failingDb);
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBe(failure);
+    },
+  );
 
   test("supports default retrieval and ascending cursor pagination without duplicating the boundary row", () => {
-    insertRequest(db, makeRecord({ id: "first", timestamp: 1 }))
-    insertRequest(db, makeRecord({ id: "second", timestamp: 2 }))
-    expect(queryRequests(db).data.map((row) => row.id)).toEqual(["second", "first"])
-    const result = queryRequests(db, { model: null, status: null, format: null, sort: "timestamp", order: "asc", cursor: "first", offset: null, limit: 10 })
-    expect(result.data.map((row) => row.id)).toEqual(["second"])
-  })
+    insertRequest(db, makeRecord({ id: "first", timestamp: 1 }));
+    insertRequest(db, makeRecord({ id: "second", timestamp: 2 }));
+    expect(queryRequests(db).data.map((row) => row.id)).toEqual(["second", "first"]);
+    const result = queryRequests(db, {
+      model: null,
+      status: null,
+      format: null,
+      sort: "timestamp",
+      order: "asc",
+      cursor: "first",
+      offset: null,
+      limit: 10,
+    });
+    expect(result.data.map((row) => row.id)).toEqual(["second"]);
+  });
 
   test("sorts computed latency percentiles in ascending order", () => {
-    insertRequest(db, makeRecord({ model: "slow", latency_ms: 500 }))
-    insertRequest(db, makeRecord({ model: "fast", latency_ms: 10 }))
-    expect(queryBreakdown(db, { by: "model", sort: "p95_latency_ms", order: "asc" }).map((row) => row.key)).toEqual(["fast", "slow"])
-  })
-})
+    insertRequest(db, makeRecord({ model: "slow", latency_ms: 500 }));
+    insertRequest(db, makeRecord({ model: "fast", latency_ms: 10 }));
+    expect(
+      queryBreakdown(db, { by: "model", sort: "p95_latency_ms", order: "asc" }).map(
+        (row) => row.key,
+      ),
+    ).toEqual(["fast", "slow"]);
+  });
+});
 
 // ===========================================================================
 // Schema initialization
@@ -164,10 +188,7 @@ describe("insertRequest", () => {
   });
 
   test("total_tokens is computed", () => {
-    insertRequest(
-      db,
-      makeRecord({ input_tokens: 100, output_tokens: 50 }),
-    );
+    insertRequest(db, makeRecord({ input_tokens: 100, output_tokens: 50 }));
     const row = db.query("SELECT total_tokens FROM requests").get() as {
       total_tokens: number;
     };
@@ -175,10 +196,7 @@ describe("insertRequest", () => {
   });
 
   test("null tokens → total_tokens is 0", () => {
-    insertRequest(
-      db,
-      makeRecord({ input_tokens: null, output_tokens: null }),
-    );
+    insertRequest(db, makeRecord({ input_tokens: null, output_tokens: null }));
     const row = db.query("SELECT total_tokens FROM requests").get() as {
       total_tokens: number;
     };
@@ -221,9 +239,18 @@ describe("queryOverview", () => {
 
 describe("querySummary", () => {
   test("returns comprehensive stats with no filters", () => {
-    insertRequest(db, makeRecord({ input_tokens: 100, output_tokens: 50, latency_ms: 200, stream: 1, ttft_ms: 80 }));
-    insertRequest(db, makeRecord({ input_tokens: 200, output_tokens: 100, latency_ms: 400, stream: 0 }));
-    insertRequest(db, makeRecord({ status: "error", input_tokens: 0, output_tokens: 0, latency_ms: 50, stream: 0 }));
+    insertRequest(
+      db,
+      makeRecord({ input_tokens: 100, output_tokens: 50, latency_ms: 200, stream: 1, ttft_ms: 80 }),
+    );
+    insertRequest(
+      db,
+      makeRecord({ input_tokens: 200, output_tokens: 100, latency_ms: 400, stream: 0 }),
+    );
+    insertRequest(
+      db,
+      makeRecord({ status: "error", input_tokens: 0, output_tokens: 0, latency_ms: 50, stream: 0 }),
+    );
 
     const result = querySummary(db, "", []);
     expect(result.total_requests).toBe(3);
@@ -255,10 +282,34 @@ describe("querySummary", () => {
   });
 
   test("aggregates cache read/write tokens", () => {
-    insertRequest(db, makeRecord({ input_tokens: 100, output_tokens: 50, cache_read_tokens: 400, cache_write_tokens: 20 }));
-    insertRequest(db, makeRecord({ input_tokens: 200, output_tokens: 100, cache_read_tokens: 600, cache_write_tokens: 30 }));
+    insertRequest(
+      db,
+      makeRecord({
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_read_tokens: 400,
+        cache_write_tokens: 20,
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        input_tokens: 200,
+        output_tokens: 100,
+        cache_read_tokens: 600,
+        cache_write_tokens: 30,
+      }),
+    );
     // cache_write NULL → skipped by SUM (Responses path has no write counter)
-    insertRequest(db, makeRecord({ input_tokens: 50, output_tokens: 25, cache_read_tokens: 150, cache_write_tokens: null }));
+    insertRequest(
+      db,
+      makeRecord({
+        input_tokens: 50,
+        output_tokens: 25,
+        cache_read_tokens: 150,
+        cache_write_tokens: null,
+      }),
+    );
 
     const result = querySummary(db, "", []);
     expect(result.total_cache_read_tokens).toBe(1150);
@@ -266,8 +317,14 @@ describe("querySummary", () => {
   });
 
   test("observed input excludes rows without cache observation (pre-migration data)", () => {
-    insertRequest(db, makeRecord({ input_tokens: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
-    insertRequest(db, makeRecord({ input_tokens: 50, cache_read_tokens: null, cache_write_tokens: null }));
+    insertRequest(
+      db,
+      makeRecord({ input_tokens: 100, cache_read_tokens: 400, cache_write_tokens: 20 }),
+    );
+    insertRequest(
+      db,
+      makeRecord({ input_tokens: 50, cache_read_tokens: null, cache_write_tokens: null }),
+    );
 
     const result = querySummary(db, "", []);
     expect(result.total_input_tokens).toBe(150);
@@ -298,8 +355,27 @@ describe("queryTimeseries", () => {
 
   test("returns extended bucket fields", () => {
     const now = stableHourTimestamp();
-    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, stream: 1, status: "success", status_code: 200, ttft_ms: 50 }));
-    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, stream: 0, status: "error", status_code: 429 }));
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now,
+        latency_ms: 100,
+        stream: 1,
+        status: "success",
+        status_code: 200,
+        ttft_ms: 50,
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now - 1000,
+        latency_ms: 200,
+        stream: 0,
+        status: "error",
+        status_code: 429,
+      }),
+    );
 
     const result = queryTimeseries(db, "hour", "24h");
     const bucket = result[result.length - 1]!;
@@ -322,8 +398,26 @@ describe("queryTimeseries", () => {
     const now = stableHourTimestamp();
     insertRequest(db, makeRecord({ timestamp: now, status: "success", status_code: 200 }));
     insertRequest(db, makeRecord({ timestamp: now - 100, status: "error", status_code: 502 }));
-    insertRequest(db, makeRecord({ timestamp: now - 200, status: "cancelled", status_code: 499, stream: 0, error_message: "client cancelled" }));
-    insertRequest(db, makeRecord({ timestamp: now - 300, status: "cancelled", status_code: 200, stream: 1, error_message: "client cancelled" }));
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now - 200,
+        status: "cancelled",
+        status_code: 499,
+        stream: 0,
+        error_message: "client cancelled",
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now - 300,
+        status: "cancelled",
+        status_code: 200,
+        stream: 1,
+        error_message: "client cancelled",
+      }),
+    );
 
     const bucket = queryTimeseries(db, "hour", "24h").at(-1)!;
     expect(bucket.count).toBe(4);
@@ -400,8 +494,24 @@ describe("queryTimeseries", () => {
 
   test("aggregates cache tokens per bucket", () => {
     const now = stableHourTimestamp();
-    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
-    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, cache_read_tokens: 150, cache_write_tokens: null }));
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now,
+        latency_ms: 100,
+        cache_read_tokens: 400,
+        cache_write_tokens: 20,
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now - 1000,
+        latency_ms: 200,
+        cache_read_tokens: 150,
+        cache_write_tokens: null,
+      }),
+    );
 
     const result = queryTimeseries(db, "hour", "24h");
     const bucket = result[result.length - 1]!;
@@ -411,8 +521,26 @@ describe("queryTimeseries", () => {
 
   test("observed input excludes unobserved rows per bucket", () => {
     const now = stableHourTimestamp();
-    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, input_tokens: 30, cache_read_tokens: 500, cache_write_tokens: 0 }));
-    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 100, input_tokens: 70, cache_read_tokens: null, cache_write_tokens: null }));
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now,
+        latency_ms: 100,
+        input_tokens: 30,
+        cache_read_tokens: 500,
+        cache_write_tokens: 0,
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now - 1000,
+        latency_ms: 100,
+        input_tokens: 70,
+        cache_read_tokens: null,
+        cache_write_tokens: null,
+      }),
+    );
 
     const result = queryTimeseries(db, "hour", "24h");
     const bucket = result[result.length - 1]!;
@@ -425,8 +553,24 @@ describe("queryTimeseries", () => {
     const hourMs = 3_600_000;
     const nearBoundary = Math.floor(Date.now() / hourMs) * hourMs + 200;
     const now = stableHourTimestamp(nearBoundary);
-    insertRequest(db, makeRecord({ timestamp: now, latency_ms: 100, cache_read_tokens: 400, cache_write_tokens: 20 }));
-    insertRequest(db, makeRecord({ timestamp: now - 1000, latency_ms: 200, cache_read_tokens: 150, cache_write_tokens: null }));
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now,
+        latency_ms: 100,
+        cache_read_tokens: 400,
+        cache_write_tokens: 20,
+      }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        timestamp: now - 1000,
+        latency_ms: 200,
+        cache_read_tokens: 150,
+        cache_write_tokens: null,
+      }),
+    );
 
     const result = queryTimeseries(db, "hour", "24h");
     const bucket = result[result.length - 1]!;
@@ -478,17 +622,15 @@ describe("queryGroupedTimeseries", () => {
 
   test("applies extra WHERE alongside the implicit range", () => {
     const now = Date.now();
-    insertRequest(db, makeRecord({ timestamp: now, account_name: "keep", model: "claude-sonnet-4" }));
+    insertRequest(
+      db,
+      makeRecord({ timestamp: now, account_name: "keep", model: "claude-sonnet-4" }),
+    );
     insertRequest(db, makeRecord({ timestamp: now, account_name: "drop", model: "gpt-4o" }));
 
-    const result = queryGroupedTimeseries(
-      db,
-      "account_name",
-      "hour",
-      "24h",
-      "WHERE model = ?",
-      ["claude-sonnet-4"],
-    );
+    const result = queryGroupedTimeseries(db, "account_name", "hour", "24h", "WHERE model = ?", [
+      "claude-sonnet-4",
+    ]);
     expect(result.keys).toEqual(["keep"]);
     expect(result.points[0]?.keep).toBe(1);
   });
@@ -559,8 +701,14 @@ describe("queryBreakdown", () => {
   });
 
   test("session breakdown includes extra context fields", () => {
-    insertRequest(db, makeRecord({ session_id: "s1", client_name: "vscode", account_name: "default" }));
-    insertRequest(db, makeRecord({ session_id: "s1", client_name: "vscode", account_name: "default" }));
+    insertRequest(
+      db,
+      makeRecord({ session_id: "s1", client_name: "vscode", account_name: "default" }),
+    );
+    insertRequest(
+      db,
+      makeRecord({ session_id: "s1", client_name: "vscode", account_name: "default" }),
+    );
 
     const result = queryBreakdown(db, { by: "session_id" });
     expect(result[0]!.client_name).toBe("vscode");
@@ -572,15 +720,28 @@ describe("queryBreakdown", () => {
     insertRequest(db, makeRecord({ model: "a", status: "error" }));
     insertRequest(db, makeRecord({ model: "b", status: "success" }));
 
-    const result = queryBreakdown(db, { by: "model", whereClause: "WHERE status = ?", bindings: ["error"] });
+    const result = queryBreakdown(db, {
+      by: "model",
+      whereClause: "WHERE status = ?",
+      bindings: ["error"],
+    });
     expect(result).toHaveLength(1);
     expect(result[0]!.key).toBe("a");
   });
 
   test("aggregates cache tokens per group", () => {
-    insertRequest(db, makeRecord({ model: "claude-3", cache_read_tokens: 400, cache_write_tokens: 20 }));
-    insertRequest(db, makeRecord({ model: "claude-3", cache_read_tokens: 600, cache_write_tokens: null }));
-    insertRequest(db, makeRecord({ model: "gpt-4o", cache_read_tokens: 150, cache_write_tokens: 5 }));
+    insertRequest(
+      db,
+      makeRecord({ model: "claude-3", cache_read_tokens: 400, cache_write_tokens: 20 }),
+    );
+    insertRequest(
+      db,
+      makeRecord({ model: "claude-3", cache_read_tokens: 600, cache_write_tokens: null }),
+    );
+    insertRequest(
+      db,
+      makeRecord({ model: "gpt-4o", cache_read_tokens: 150, cache_write_tokens: 5 }),
+    );
 
     const result = queryBreakdown(db, { by: "model" });
     const claude = result.find((e) => e.key === "claude-3")!;
@@ -589,8 +750,19 @@ describe("queryBreakdown", () => {
   });
 
   test("observed input excludes unobserved rows per group", () => {
-    insertRequest(db, makeRecord({ model: "a", input_tokens: 30, cache_read_tokens: 500, cache_write_tokens: 0 }));
-    insertRequest(db, makeRecord({ model: "a", input_tokens: 70, cache_read_tokens: null, cache_write_tokens: null }));
+    insertRequest(
+      db,
+      makeRecord({ model: "a", input_tokens: 30, cache_read_tokens: 500, cache_write_tokens: 0 }),
+    );
+    insertRequest(
+      db,
+      makeRecord({
+        model: "a",
+        input_tokens: 70,
+        cache_read_tokens: null,
+        cache_write_tokens: null,
+      }),
+    );
 
     const result = queryBreakdown(db, { by: "model" });
     const a = result.find((e) => e.key === "a")!;
@@ -891,7 +1063,9 @@ describe("protocol_mode classification", () => {
   function modeOf(overrides: Partial<RequestRecord>): string {
     const id = `pm_${pmSeq++}`;
     insertRequest(db, makeRecord({ id, ...overrides }));
-    const row = db.query(`SELECT ${PROTOCOL_MODE_EXPR} as pm FROM requests WHERE id = ?`).get(id) as { pm: string };
+    const row = db
+      .query(`SELECT ${PROTOCOL_MODE_EXPR} as pm FROM requests WHERE id = ?`)
+      .get(id) as { pm: string };
     return row.pm;
   }
 
@@ -903,29 +1077,51 @@ describe("protocol_mode classification", () => {
     expect(modeOf({ strategy: "copilot-openai-direct", client_format: "openai" })).toBe("native");
     expect(modeOf({ strategy: "copilot-responses", client_format: "responses" })).toBe("native");
     expect(modeOf({ strategy: "custom-anthropic", client_format: "anthropic" })).toBe("native");
-    expect(modeOf({ strategy: "copilot-translated", translated_model: "gpt-4o" })).toBe("translated");
-    expect(modeOf({ strategy: "copilot-chat-via-responses", client_format: "openai" })).toBe("translated");
-    expect(modeOf({ strategy: "custom-openai", client_format: "openai", translated_model: "" })).toBe("native");
+    expect(modeOf({ strategy: "copilot-translated", translated_model: "gpt-4o" })).toBe(
+      "translated",
+    );
+    expect(modeOf({ strategy: "copilot-chat-via-responses", client_format: "openai" })).toBe(
+      "translated",
+    );
+    expect(
+      modeOf({ strategy: "custom-openai", client_format: "openai", translated_model: "" }),
+    ).toBe("native");
   });
 
   test("custom-openai dual mode: Anthropic client with translated_model is translated", () => {
     expect(
-      modeOf({ strategy: "custom-openai", client_format: "anthropic", translated_model: "gpt-5-mini" }),
+      modeOf({
+        strategy: "custom-openai",
+        client_format: "anthropic",
+        translated_model: "gpt-5-mini",
+      }),
     ).toBe("translated");
   });
 
   test("custom-openai contradictions stay unknown, never guessed as native", () => {
     // Anthropic client without translation evidence
-    expect(modeOf({ strategy: "custom-openai", client_format: "anthropic", translated_model: "" })).toBe("unknown");
+    expect(
+      modeOf({ strategy: "custom-openai", client_format: "anthropic", translated_model: "" }),
+    ).toBe("unknown");
     // OpenAI client claiming a translated model
-    expect(modeOf({ strategy: "custom-openai", client_format: "openai", translated_model: "gpt-5-mini" })).toBe("unknown");
+    expect(
+      modeOf({
+        strategy: "custom-openai",
+        client_format: "openai",
+        translated_model: "gpt-5-mini",
+      }),
+    ).toBe("unknown");
     // Missing client format
-    expect(modeOf({ strategy: "custom-openai", client_format: "", translated_model: "gpt-5-mini" })).toBe("unknown");
+    expect(
+      modeOf({ strategy: "custom-openai", client_format: "", translated_model: "gpt-5-mini" }),
+    ).toBe("unknown");
   });
 
   test("server-tools rows classify via routing_path even without strategy", () => {
     expect(modeOf({ strategy: "", routing_path: "native", server_tools_used: 1 })).toBe("native");
-    expect(modeOf({ strategy: "", routing_path: "translated", server_tools_used: 1 })).toBe("translated");
+    expect(modeOf({ strategy: "", routing_path: "translated", server_tools_used: 1 })).toBe(
+      "translated",
+    );
     // server_tools_used alone does not imply a path
     expect(modeOf({ strategy: "", routing_path: "", server_tools_used: 1 })).toBe("unknown");
   });
@@ -938,7 +1134,10 @@ describe("protocol_mode classification", () => {
   test("summary counts conserve: native + translated + unknown = total", () => {
     insertRequest(db, makeRecord({ id: "c1", strategy: "copilot-native" }));
     insertRequest(db, makeRecord({ id: "c2", strategy: "copilot-native" }));
-    insertRequest(db, makeRecord({ id: "c3", strategy: "copilot-translated", translated_model: "gpt-4o" }));
+    insertRequest(
+      db,
+      makeRecord({ id: "c3", strategy: "copilot-translated", translated_model: "gpt-4o" }),
+    );
     insertRequest(db, makeRecord({ id: "c4", strategy: "" }));
 
     const result = querySummary(db, "", []);
@@ -946,7 +1145,9 @@ describe("protocol_mode classification", () => {
     expect(result.native_count).toBe(2);
     expect(result.translated_count).toBe(1);
     expect(result.unknown_count).toBe(1);
-    expect(result.native_count + result.translated_count + result.unknown_count).toBe(result.total_requests);
+    expect(result.native_count + result.translated_count + result.unknown_count).toBe(
+      result.total_requests,
+    );
   });
 
   test("summary counts are zero (not null) on an empty table", () => {
@@ -959,7 +1160,10 @@ describe("protocol_mode classification", () => {
 
   test("breakdown by protocol_mode returns three conserving groups with counts", () => {
     insertRequest(db, makeRecord({ id: "b1", strategy: "copilot-native" }));
-    insertRequest(db, makeRecord({ id: "b2", strategy: "copilot-chat-via-responses", client_format: "openai" }));
+    insertRequest(
+      db,
+      makeRecord({ id: "b2", strategy: "copilot-chat-via-responses", client_format: "openai" }),
+    );
     insertRequest(db, makeRecord({ id: "b3", strategy: "" }));
     insertRequest(db, makeRecord({ id: "b4", strategy: "" }));
 
@@ -976,7 +1180,10 @@ describe("protocol_mode classification", () => {
   test("grouped timeseries by protocol_mode stacks three series", () => {
     const now = stableHourTimestamp();
     insertRequest(db, makeRecord({ timestamp: now, strategy: "copilot-native" }));
-    insertRequest(db, makeRecord({ timestamp: now, strategy: "copilot-translated", translated_model: "gpt-4o" }));
+    insertRequest(
+      db,
+      makeRecord({ timestamp: now, strategy: "copilot-translated", translated_model: "gpt-4o" }),
+    );
     insertRequest(db, makeRecord({ timestamp: now, strategy: "" }));
 
     const result = queryGroupedTimeseries(db, "protocol_mode", "hour", "24h");

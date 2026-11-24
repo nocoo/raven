@@ -44,10 +44,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
 // ---------------------------------------------------------------------------
 
 function unauthorized(c: Context, message: string) {
-  return c.json(
-    { error: { type: "authentication_error", message } },
-    401,
-  );
+  return c.json({ error: { type: "authentication_error", message } }, 401);
 }
 
 // ---------------------------------------------------------------------------
@@ -58,7 +55,9 @@ function validateRequestToken(
   c: Context,
   db: Database,
   envApiKey: string | null,
-): { valid: true; keyName: string; keyId: string; ruleId: string } | { valid: false; response: Response } {
+):
+  | { valid: true; keyName: string; keyId: string; ruleId: string }
+  | { valid: false; response: Response } {
   // Accept token from Authorization: Bearer <token> or x-api-key: <token>
   // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
   const authHeader = c.req.header("Authorization");
@@ -72,7 +71,10 @@ function validateRequestToken(
   }
 
   if (!token) {
-    return { valid: false, response: unauthorized(c, "Missing or invalid authentication credentials") };
+    return {
+      valid: false,
+      response: unauthorized(c, "Missing or invalid authentication credentials"),
+    };
   }
 
   // rk- prefix → DB lookup only, never fallback to env
@@ -127,14 +129,39 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
     c.set("clientIP", client.ip);
     c.set("peerIP", peer);
     c.set("ipSource", client.source);
-    const policy = result.keyId === "env:default" ? { enabled: false, ranges: [] } : readIPPolicy(db, result.keyId);
-    const scope = !allowsIP(state.ipWhitelistEnabled, state.ipWhitelistRanges, client.ip) ? "global"
-      : !allowsIP(policy.enabled, parseRules(policy.ranges), client.ip) ? "key" : null;
+    const policy =
+      result.keyId === "env:default"
+        ? { enabled: false, ranges: [] }
+        : readIPPolicy(db, result.keyId);
+    const scope = !allowsIP(state.ipWhitelistEnabled, state.ipWhitelistRanges, client.ip)
+      ? "global"
+      : !allowsIP(policy.enabled, parseRules(policy.ranges), client.ip)
+        ? "key"
+        : null;
     if (scope) {
-      logEmitter.emitLog({ ts: Date.now(), level: "warn", type: "request_end", requestId: generateRequestId(), msg: "IP access denied",
-        data: { path: c.req.path, accountName: result.keyName, apiKeyId: result.keyId, clientIP: client.ip, peerIP: peer, ipSource: client.source,
-          status: "denied", statusCode: 403, error: `IP denied by ${scope} whitelist`, latencyMs: 0 } });
-      return c.json({ error: { type: "ip_access_denied", message: "Source IP is not allowed" } }, 403);
+      logEmitter.emitLog({
+        ts: Date.now(),
+        level: "warn",
+        type: "request_end",
+        requestId: generateRequestId(),
+        msg: "IP access denied",
+        data: {
+          path: c.req.path,
+          accountName: result.keyName,
+          apiKeyId: result.keyId,
+          clientIP: client.ip,
+          peerIP: peer,
+          ipSource: client.source,
+          status: "denied",
+          statusCode: 403,
+          error: `IP denied by ${scope} whitelist`,
+          latencyMs: 0,
+        },
+      });
+      return c.json(
+        { error: { type: "ip_access_denied", message: "Source IP is not allowed" } },
+        403,
+      );
     }
     c.set("keyName", result.keyName);
     c.set("keyId", result.keyId);
@@ -144,16 +171,30 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
   });
 }
 
-export function checkManagementAccess(peer: string | null, token: string | null, internalKey: string | null): Response | null {
-  if (!isLoopback(peer)) return Response.json({ error: { type: "access_denied", message: "Management requires a local connection" } }, { status: 403 });
-  if (!internalKey || !token || !timingSafeEqual(token, internalKey)) return Response.json({ error: { type: "authentication_error", message: "Internal credential required" } }, { status: 401 });
+export function checkManagementAccess(
+  peer: string | null,
+  token: string | null,
+  internalKey: string | null,
+): Response | null {
+  if (!isLoopback(peer))
+    return Response.json(
+      { error: { type: "access_denied", message: "Management requires a local connection" } },
+      { status: 403 },
+    );
+  if (!internalKey || !token || !timingSafeEqual(token, internalKey))
+    return Response.json(
+      { error: { type: "authentication_error", message: "Internal credential required" } },
+      { status: 401 },
+    );
   return null;
 }
 
 export function dashboardAuth(opts: { internalKey: string | null }) {
   return createMiddleware(async (c, next) => {
     const header = c.req.header("Authorization");
-    const token = header?.startsWith("Bearer ") ? header.slice(7) : c.req.header("x-api-key") ?? null;
+    const token = header?.startsWith("Bearer ")
+      ? header.slice(7)
+      : (c.req.header("x-api-key") ?? null);
     const denied = checkManagementAccess(c.env?.remoteAddress ?? null, token, opts.internalKey);
     if (denied) return denied;
     c.set("keyName", "internal");

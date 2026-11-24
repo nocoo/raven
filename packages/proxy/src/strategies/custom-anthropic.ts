@@ -10,43 +10,42 @@
 // `infra/state`.
 // ---------------------------------------------------------------------------
 
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { Strategy } from "../core/strategy"
-import { isInlineStreamError } from "./support/inline-stream-error"
-import type { ServerSentEvent } from "../util/sse"
-import type { UpstreamRecord } from "../core/routing-types"
-import type {
-  AnthropicMessagesPayload,
-  AnthropicResponse,
-} from "../protocols/anthropic/types"
-import { translateErrorToAnthropicErrorEvent } from "../protocols/translate/stream-translation"
-import type { CustomAnthropicClient } from "../upstream/custom-anthropic"
+import type { Strategy } from "../core/strategy";
+import { isInlineStreamError } from "./support/inline-stream-error";
+import type { ServerSentEvent } from "../util/sse";
+import type { UpstreamRecord } from "../core/routing-types";
+import type { AnthropicMessagesPayload, AnthropicResponse } from "../protocols/anthropic/types";
+import { translateErrorToAnthropicErrorEvent } from "../protocols/translate/stream-translation";
+import type { CustomAnthropicClient } from "../upstream/custom-anthropic";
 
 export interface CustomAnthropicDeps {
-  client: CustomAnthropicClient
+  client: CustomAnthropicClient;
 }
 
 export interface CustomAnthropicUpReq {
-  provider: UpstreamRecord
-  payload: AnthropicMessagesPayload
+  provider: UpstreamRecord;
+  payload: AnthropicMessagesPayload;
 }
 
 export interface CustomAnthropicStreamState {
-  inlineFailed?: boolean
-  terminalSeen?: boolean
-  inputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  cacheWriteTokens: number
+  inlineFailed?: boolean;
+  terminalSeen?: boolean;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
 }
 
 const isAnthropicNonStreaming = (
   response: AnthropicResponse | AsyncGenerator<ServerSentEvent>,
 ): response is AnthropicResponse =>
-  typeof response === "object" && "type" in response && response.type === "message"
+  typeof response === "object" && "type" in response && response.type === "message";
 
-export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
+export function makeCustomAnthropic(
+  deps: CustomAnthropicDeps,
+): Strategy<
   CustomAnthropicUpReq,
   CustomAnthropicUpReq,
   AnthropicResponse,
@@ -61,11 +60,11 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
     prepare: (req) => req,
 
     dispatch: async (up, ctx) => {
-      const response = await deps.client.send(up, ctx.signal)
+      const response = await deps.client.send(up, ctx.signal);
       if (isAnthropicNonStreaming(response)) {
-        return { kind: "json", body: response }
+        return { kind: "json", body: response };
       }
-      return { kind: "stream", chunks: response }
+      return { kind: "stream", chunks: response };
     },
 
     adaptJson: (resp) => resp,
@@ -78,53 +77,55 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
     }),
 
     adaptChunk: (sseEvent, st) => {
-      st.inlineFailed ||= isInlineStreamError(sseEvent.event)
+      st.inlineFailed ||= isInlineStreamError(sseEvent.event);
       try {
         type Usage = {
-          input_tokens?: number | null
-          output_tokens?: number | null
-          cache_read_input_tokens?: number | null
-          cache_creation_input_tokens?: number | null
-        }
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cache_read_input_tokens?: number | null;
+          cache_creation_input_tokens?: number | null;
+        };
         const parsed = JSON.parse(sseEvent.data) as {
-          type?: string
-          message?: { usage?: Usage }
-          usage?: Usage
-        }
-        st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed)
-        st.terminalSeen ||= parsed.type === "message_stop"
+          type?: string;
+          message?: { usage?: Usage };
+          usage?: Usage;
+        };
+        st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed);
+        st.terminalSeen ||= parsed.type === "message_stop";
         // message_start carries input + cache counters; message_delta carries
         // output totals and usually omits input_tokens — keep the prior value
         // rather than zeroing it.
         if (parsed.type === "message_start" && parsed.message?.usage) {
-          st.inputTokens = parsed.message.usage.input_tokens ?? st.inputTokens
-          st.cacheReadTokens = parsed.message.usage.cache_read_input_tokens ?? 0
-          st.cacheWriteTokens = parsed.message.usage.cache_creation_input_tokens ?? 0
+          st.inputTokens = parsed.message.usage.input_tokens ?? st.inputTokens;
+          st.cacheReadTokens = parsed.message.usage.cache_read_input_tokens ?? 0;
+          st.cacheWriteTokens = parsed.message.usage.cache_creation_input_tokens ?? 0;
         }
         if (parsed.type === "message_delta" && parsed.usage) {
-          st.inputTokens = parsed.usage.input_tokens ?? st.inputTokens
-          st.outputTokens = parsed.usage.output_tokens ?? st.outputTokens
+          st.inputTokens = parsed.usage.input_tokens ?? st.inputTokens;
+          st.outputTokens = parsed.usage.output_tokens ?? st.outputTokens;
         }
       } catch {
         // Ignore parse errors for metrics
       }
 
       if (sseEvent.event) {
-        return [{ event: sseEvent.event, data: sseEvent.data }]
+        return [{ event: sseEvent.event, data: sseEvent.data }];
       }
-      return [{ data: sseEvent.data }]
+      return [{ data: sseEvent.data }];
     },
 
-    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
+    streamOutcome: (st) => (st.inlineFailed ? "error" : "success"),
 
     isStreamTerminal: (_chunk, st) => st.terminalSeen === true,
 
     adaptStreamError: () => {
-      const errorEvent = translateErrorToAnthropicErrorEvent()
-      return [{
-        event: errorEvent.type,
-        data: JSON.stringify(errorEvent),
-      }]
+      const errorEvent = translateErrorToAnthropicErrorEvent();
+      return [
+        {
+          event: errorEvent.type,
+          data: JSON.stringify(errorEvent),
+        },
+      ];
     },
 
     describeEndLog: (result) => {
@@ -138,7 +139,7 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
           cacheWriteTokens: result.resp.usage?.cache_creation_input_tokens ?? 0,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
-        }
+        };
       }
       if (result.kind === "stream") {
         return {
@@ -149,16 +150,16 @@ export function makeCustomAnthropic(deps: CustomAnthropicDeps): Strategy<
           cacheWriteTokens: result.state.cacheWriteTokens,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
-        }
+        };
       }
       if (result.kind === "error") {
         return {
           model: result.req.payload.model,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
-        }
+        };
       }
-      return {}
+      return {};
     },
-  }
+  };
 }

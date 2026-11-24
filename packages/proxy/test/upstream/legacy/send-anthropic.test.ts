@@ -1,20 +1,20 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import {
   CustomAnthropicClient,
   defaultCustomAnthropicConfig,
-} from "./../../../src/upstream/custom-anthropic"
+} from "./../../../src/upstream/custom-anthropic";
 import {
   CustomOpenAIClient,
   defaultCustomOpenAIConfig,
-} from "./../../../src/upstream/custom-openai"
-import type { UpstreamRecord } from "./../../../src/core/routing-types"
-import type { AnthropicMessagesPayload } from "./../../../src/protocols/anthropic/types"
-import type { ChatCompletionsPayload } from "./../../../src/upstream/copilot-openai"
+} from "./../../../src/upstream/custom-openai";
+import type { UpstreamRecord } from "./../../../src/core/routing-types";
+import type { AnthropicMessagesPayload } from "./../../../src/protocols/anthropic/types";
+import type { ChatCompletionsPayload } from "./../../../src/upstream/copilot-openai";
 
 const sendAnthropicDirect = (provider: UpstreamRecord, payload: AnthropicMessagesPayload) =>
-  new CustomAnthropicClient(defaultCustomAnthropicConfig()).send({ provider, payload })
+  new CustomAnthropicClient(defaultCustomAnthropicConfig()).send({ provider, payload });
 const sendOpenAIDirect = (provider: UpstreamRecord, payload: ChatCompletionsPayload) =>
-  new CustomOpenAIClient(defaultCustomOpenAIConfig()).send({ provider, payload })
+  new CustomOpenAIClient(defaultCustomOpenAIConfig()).send({ provider, payload });
 
 function makeProvider(overrides: Partial<UpstreamRecord> = {}): UpstreamRecord {
   return {
@@ -36,30 +36,30 @@ function makeProvider(overrides: Partial<UpstreamRecord> = {}): UpstreamRecord {
     created_at: 1,
     updated_at: 1,
     ...overrides,
-  }
+  };
 }
 
 function makeMockStream(chunks: string[]): Response {
-  const encoder = new TextEncoder()
+  const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
       for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk))
+        controller.enqueue(encoder.encode(chunk));
       }
-      controller.close()
+      controller.close();
     },
-  })
+  });
   return new Response(stream, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
-  })
+  });
 }
 
 function makeMockResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
-  })
+  });
 }
 
 /** Complete Anthropic response for type-safe mocks */
@@ -80,7 +80,7 @@ function makeAnthropicResponse(overrides = {}) {
       service_tier: null,
     },
     ...overrides,
-  }
+  };
 }
 
 /** Complete OpenAI response for type-safe mocks */
@@ -110,25 +110,25 @@ function makeOpenAIResponse(overrides = {}) {
       prompt_tokens_details: { cached_tokens: 0 },
     },
     ...overrides,
-  }
+  };
 }
 
-let fetchSpy: ReturnType<typeof vi.spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  fetchSpy = vi.spyOn(globalThis, "fetch")
-})
+  fetchSpy = vi.spyOn(globalThis, "fetch");
+});
 
 afterEach(() => {
-  fetchSpy.mockRestore()
-})
+  fetchSpy.mockRestore();
+});
 
 // ===========================================================================
 // sendAnthropicDirect
 // ===========================================================================
 
 describe("sendAnthropicDirect", () => {
-  const provider = makeProvider()
+  const provider = makeProvider();
   const payload: AnthropicMessagesPayload = {
     model: "model-a",
     max_tokens: 1024,
@@ -144,41 +144,41 @@ describe("sendAnthropicDirect", () => {
     tool_choice: null,
     thinking: null,
     service_tier: null,
-  }
+  };
 
   test("sends POST to correct URL with Anthropic headers", async () => {
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeAnthropicResponse()))
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeAnthropicResponse()));
 
-    await sendAnthropicDirect(provider, payload)
+    await sendAnthropicDirect(provider, payload);
 
-    const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe("https://api.example.com/v1/messages")
-    expect(options.method).toBe("POST")
+    const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.example.com/v1/messages");
+    expect(options.method).toBe("POST");
     // Headers are captured by the spy but we trust the implementation
-  })
+  });
 
   test("trims trailing slash from base_url", async () => {
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeAnthropicResponse()))
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeAnthropicResponse()));
 
     const providerWithSlash = makeProvider({
       base_url: "https://api.example.com/",
-    })
+    });
 
-    await sendAnthropicDirect(providerWithSlash, payload)
+    await sendAnthropicDirect(providerWithSlash, payload);
 
-    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe("https://api.example.com/v1/messages")
-  })
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.example.com/v1/messages");
+  });
 
   test("non-streaming: returns parsed JSON response", async () => {
     const mockBody = makeAnthropicResponse({
       content: [{ type: "text" as const, text: "Hello!" }],
-    })
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(mockBody))
+    });
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(mockBody));
 
-    const result = await sendAnthropicDirect(provider, payload)
-    expect(result).toEqual(mockBody)
-  })
+    const result = await sendAnthropicDirect(provider, payload);
+    expect(result).toEqual(mockBody);
+  });
 
   test("streaming: returns async generator from events()", async () => {
     fetchSpy.mockResolvedValueOnce(
@@ -190,36 +190,36 @@ describe("sendAnthropicDirect", () => {
         'event: message_delta\ndata: {"delta":{"stop_reason":"end_turn"},"type":"message_delta","usage":{"input_tokens":1,"output_tokens":2}}\n\n',
         'event: message_stop\ndata: {"type":"message_stop"}\n\n',
       ]),
-    )
+    );
 
-    const streamingPayload = { ...payload, stream: true }
-    const result = await sendAnthropicDirect(provider, streamingPayload)
+    const streamingPayload = { ...payload, stream: true };
+    const result = await sendAnthropicDirect(provider, streamingPayload);
 
     // Should be an async generator
-    expect(Symbol.asyncIterator in Object(result)).toBe(true)
+    expect(Symbol.asyncIterator in Object(result)).toBe(true);
 
-    const events: unknown[] = []
+    const events: unknown[] = [];
     for await (const event of result as AsyncIterable<unknown>) {
-      events.push(event)
+      events.push(event);
     }
-    expect(events.length).toBe(6) // message_start, content_block_start, content_block_delta, content_block_stop, message_delta, message_stop
-  })
+    expect(events.length).toBe(6); // message_start, content_block_start, content_block_delta, content_block_stop, message_delta, message_stop
+  });
 
   test("throws HTTPError on non-ok response", async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }),
-    )
+    );
 
     try {
-      await sendAnthropicDirect(provider, payload)
-      expect(true).toBe(false)
+      await sendAnthropicDirect(provider, payload);
+      expect(true).toBe(false);
     } catch (err) {
-      expect((err as Error).message).toBe("Upstream TestProvider returned 401")
+      expect((err as Error).message).toBe("Upstream TestProvider returned 401");
     }
-  })
+  });
 
   test("strips unsupported output_config fields for anthropic upstreams", async () => {
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeAnthropicResponse()))
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeAnthropicResponse()));
 
     await sendAnthropicDirect(provider, {
       ...payload,
@@ -227,39 +227,39 @@ describe("sendAnthropicDirect", () => {
         effort: "medium",
         format: "verbose_json",
       } as AnthropicMessagesPayload["output_config"] & { format: string },
-    })
+    });
 
-    const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(options.body as string) as {
-      output_config?: Record<string, unknown>
-    }
+      output_config?: Record<string, unknown>;
+    };
 
-    expect(body.output_config).toEqual({ effort: "medium" })
-  })
-})
+    expect(body.output_config).toEqual({ effort: "medium" });
+  });
+});
 
 // ===========================================================================
 // sendOpenAIDirect
 // ===========================================================================
 
 describe("sendOpenAIDirect", () => {
-  const provider = makeProvider({ format: "chat_completions" })
+  const provider = makeProvider({ format: "chat_completions" });
   const payload: ChatCompletionsPayload = {
     model: "model-a",
     messages: [{ role: "user", content: "Hello" }],
     stream: false,
-  }
+  };
 
   test("sends POST to correct URL with OpenAI headers", async () => {
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeOpenAIResponse()))
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeOpenAIResponse()));
 
-    await sendOpenAIDirect(provider, payload)
+    await sendOpenAIDirect(provider, payload);
 
-    const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe("https://api.example.com/v1/chat/completions")
-    expect(options.method).toBe("POST")
+    const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.example.com/v1/chat/completions");
+    expect(options.method).toBe("POST");
     // Headers are captured by the spy but we trust the implementation
-  })
+  });
 
   test("non-streaming: returns parsed JSON response", async () => {
     const mockBody = makeOpenAIResponse({
@@ -275,12 +275,12 @@ describe("sendOpenAIDirect", () => {
           finish_reason: "stop" as const,
         },
       ],
-    })
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(mockBody))
+    });
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(mockBody));
 
-    const result = await sendOpenAIDirect(provider, payload)
-    expect(result).toEqual(mockBody)
-  })
+    const result = await sendOpenAIDirect(provider, payload);
+    expect(result).toEqual(mockBody);
+  });
 
   test("streaming: returns async generator from events()", async () => {
     fetchSpy.mockResolvedValueOnce(
@@ -288,32 +288,32 @@ describe("sendOpenAIDirect", () => {
         'data: {"id":"c1","choices":[{"delta":{"content":"Hi"}}]}\n\n',
         "data: [DONE]\n\n",
       ]),
-    )
+    );
 
-    const streamingPayload = { ...payload, stream: true }
-    const result = await sendOpenAIDirect(provider, streamingPayload)
+    const streamingPayload = { ...payload, stream: true };
+    const result = await sendOpenAIDirect(provider, streamingPayload);
 
-    expect(Symbol.asyncIterator in Object(result)).toBe(true)
+    expect(Symbol.asyncIterator in Object(result)).toBe(true);
 
-    const events: unknown[] = []
+    const events: unknown[] = [];
     for await (const event of result as AsyncIterable<unknown>) {
-      events.push(event)
+      events.push(event);
     }
-    expect(events.length).toBeGreaterThanOrEqual(1)
-  })
+    expect(events.length).toBeGreaterThanOrEqual(1);
+  });
 
   test("throws HTTPError on non-ok response", async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: "rate limit exceeded" }), {
         status: 429,
       }),
-    )
+    );
 
     try {
-      await sendOpenAIDirect(provider, payload)
-      expect(true).toBe(false)
+      await sendOpenAIDirect(provider, payload);
+      expect(true).toBe(false);
     } catch (err) {
-      expect((err as Error).message).toBe("Upstream TestProvider returned 429")
+      expect((err as Error).message).toBe("Upstream TestProvider returned 429");
     }
-  })
-})
+  });
+});

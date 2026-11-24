@@ -4,172 +4,171 @@
  * Constructor-injected config; default factory binds to the state singleton.
  */
 
-import { events, type ServerSentEvent } from "../util/sse"
-import {
-  copilotBaseUrl,
-  copilotHeaders,
-  copilotHeadersForToken,
-} from "../lib/api-config"
-import { HTTPError } from "../lib/error"
-import { getProxyUrl } from "../lib/socks5-bridge"
-import { state } from "../lib/state"
-import { refreshNow, noteLlm401 } from "../lib/token-sentinel"
-import { tokenSignal, isTokenExpiredBody } from "../lib/token-signal"
-import { getModelCapabilities } from "../strategies/support/model-capabilities"
-import type {
-  AnthropicMessagesPayload,
-  AnthropicResponse,
-} from "../protocols/anthropic/types"
-import type { UpstreamClient, UpstreamResult } from "./interface"
-import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http"
+import { events, type ServerSentEvent } from "../util/sse";
+import { copilotBaseUrl, copilotHeaders, copilotHeadersForToken } from "../lib/api-config";
+import { HTTPError } from "../lib/error";
+import { getProxyUrl } from "../lib/socks5-bridge";
+import { state } from "../lib/state";
+import { refreshNow, noteLlm401 } from "../lib/token-sentinel";
+import { tokenSignal, isTokenExpiredBody } from "../lib/token-signal";
+import { getModelCapabilities } from "../strategies/support/model-capabilities";
+import type { AnthropicMessagesPayload, AnthropicResponse } from "../protocols/anthropic/types";
+import type { UpstreamClient, UpstreamResult } from "./interface";
+import { modelFetch, replayAllowed, type ModelHttpConfig } from "./model-http";
 
-const INTERLEAVED_THINKING_BETA = "interleaved-thinking-2025-05-14"
-const EFFORT_PRIORITY = ["max", "xhigh", "high", "medium", "low"] as const
-type Effort = (typeof EFFORT_PRIORITY)[number]
-type SanitizedOutputConfig = Exclude<AnthropicMessagesPayload["output_config"], undefined>
+const INTERLEAVED_THINKING_BETA = "interleaved-thinking-2025-05-14";
+const EFFORT_PRIORITY = ["max", "xhigh", "high", "medium", "low"] as const;
+type Effort = (typeof EFFORT_PRIORITY)[number];
+type SanitizedOutputConfig = Exclude<AnthropicMessagesPayload["output_config"], undefined>;
 
 export interface NativeMessagesOptions {
-  copilotModel: string
-  anthropicBeta?: string | null
+  copilotModel: string;
+  anthropicBeta?: string | null;
 }
 
 export interface CopilotNativeSnapshotOptions {
-  anthropicBeta: string | null
-  visionRequest: boolean
-  isAgentCall: boolean
+  anthropicBeta: string | null;
+  visionRequest: boolean;
+  isAgentCall: boolean;
 }
 
 export interface CopilotNativeConfig extends ModelHttpConfig {
-  getToken(): string
-  getBaseUrl(): string
-  getHeaders(): Record<string, string>
-  getProxyUrl(): string | undefined
+  getToken(): string;
+  getBaseUrl(): string;
+  getHeaders(): Record<string, string>;
+  getProxyUrl(): string | undefined;
   snapshotAuth(opts: CopilotNativeSnapshotOptions): {
-    token: string
-    headers: Record<string, string>
-  }
+    token: string;
+    headers: Record<string, string>;
+  };
 }
 
 export interface CopilotNativeRequest {
-  payload: AnthropicMessagesPayload
-  options: NativeMessagesOptions
+  payload: AnthropicMessagesPayload;
+  options: NativeMessagesOptions;
 }
 
 export class CopilotNativeClient
   implements UpstreamClient<CopilotNativeRequest, AnthropicResponse>
 {
-  readonly allowReplay: boolean
+  readonly allowReplay: boolean;
 
   constructor(private readonly config: CopilotNativeConfig) {
-    this.allowReplay = replayAllowed(config)
+    this.allowReplay = replayAllowed(config);
   }
 
-  async send(req: CopilotNativeRequest, signal?: AbortSignal): Promise<UpstreamResult<AnthropicResponse>> {
-    signal?.throwIfAborted()
-    this.config.getToken()
+  async send(
+    req: CopilotNativeRequest,
+    signal?: AbortSignal,
+  ): Promise<UpstreamResult<AnthropicResponse>> {
+    signal?.throwIfAborted();
+    this.config.getToken();
 
-    const normalizedPayload = normalizeNativeThinkingPayload(req.payload, req.options.copilotModel)
+    const normalizedPayload = normalizeNativeThinkingPayload(req.payload, req.options.copilotModel);
 
-    const anthropicBeta = buildNativeAnthropicBeta(normalizedPayload, req.options.anthropicBeta ?? null)
-    const visionRequest = checkForVision(normalizedPayload)
+    const anthropicBeta = buildNativeAnthropicBeta(
+      normalizedPayload,
+      req.options.anthropicBeta ?? null,
+    );
+    const visionRequest = checkForVision(normalizedPayload);
     const isAgentCall = normalizedPayload.messages.some(
       (msg) => msg.role === "assistant" || hasToolResultContent(msg),
-    )
+    );
 
     const requestBody: Record<string, unknown> = {
       ...sanitizeNativeMessagesPayload(normalizedPayload),
       model: req.options.copilotModel,
-    }
+    };
 
-    if (requestBody.tools === null || requestBody.tools === undefined) delete requestBody.tools
+    if (requestBody.tools === null || requestBody.tools === undefined) delete requestBody.tools;
     if (requestBody.tool_choice === null || requestBody.tool_choice === undefined) {
-      delete requestBody.tool_choice
+      delete requestBody.tool_choice;
     }
     if (requestBody.output_config === null || requestBody.output_config === undefined) {
-      delete requestBody.output_config
+      delete requestBody.output_config;
     }
 
-    const proxyUrl = this.config.getProxyUrl()
-    const body = JSON.stringify(requestBody)
+    const proxyUrl = this.config.getProxyUrl();
+    const body = JSON.stringify(requestBody);
 
     const callOnce = async (): Promise<{ response: Response; usedToken: string }> => {
-      signal?.throwIfAborted()
+      signal?.throwIfAborted();
       const { token, headers } = this.config.snapshotAuth({
         anthropicBeta,
         visionRequest,
         isAgentCall,
-      })
-      const url = `${this.config.getBaseUrl()}/v1/messages`
+      });
+      const url = `${this.config.getBaseUrl()}/v1/messages`;
       const response = await modelFetch(this.config)(url, {
         method: "POST",
         signal,
         headers,
         body,
         ...(proxyUrl ? { proxy: proxyUrl } : {}),
-      } as RequestInit)
-      return { response, usedToken: token }
-    }
+      } as RequestInit);
+      return { response, usedToken: token };
+    };
 
-    const first = await callOnce()
-    let response = first.response
+    const first = await callOnce();
+    let response = first.response;
 
     if (response.status === 401 && this.allowReplay) {
-      const respBody = await response.text().catch(() => "")
-      signal?.throwIfAborted()
-      const tokenExpired = isTokenExpiredBody(401, respBody)
-      tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401")
-      noteLlm401(tokenExpired ? "token-expired" : "other-401")
+      const respBody = await response.text().catch(() => "");
+      signal?.throwIfAborted();
+      const tokenExpired = isTokenExpiredBody(401, respBody);
+      tokenSignal.reportAuthFailure(tokenExpired ? "token-expired" : "other-401");
+      noteLlm401(tokenExpired ? "token-expired" : "other-401");
 
       if (!tokenExpired) {
-        throw new HTTPError("Failed to create native messages", 401, respBody)
+        throw new HTTPError("Failed to create native messages", 401, respBody);
       }
 
-      const result = await refreshNow("llm-401", first.usedToken)
-      signal?.throwIfAborted()
+      const result = await refreshNow("llm-401", first.usedToken);
+      signal?.throwIfAborted();
       if (!result.ok || !result.tokenWasUpdated) {
-        throw new HTTPError("Failed to create native messages", 401, respBody)
+        throw new HTTPError("Failed to create native messages", 401, respBody);
       }
 
-      response = (await callOnce()).response
+      response = (await callOnce()).response;
     }
 
     if (!response.ok) {
-      throw await HTTPError.fromResponse("Failed to create native messages", response)
+      throw await HTTPError.fromResponse("Failed to create native messages", response);
     }
 
     if (normalizedPayload.stream) {
-      return events(response, signal) as AsyncGenerator<ServerSentEvent>
+      return events(response, signal) as AsyncGenerator<ServerSentEvent>;
     }
 
-    return (await response.json()) as AnthropicResponse
+    return (await response.json()) as AnthropicResponse;
   }
 }
 
 export function defaultCopilotNativeConfig(): CopilotNativeConfig {
   return {
     getToken: () => {
-      if (!state.copilotToken) throw new Error("Copilot token not found")
-      return state.copilotToken
+      if (!state.copilotToken) throw new Error("Copilot token not found");
+      return state.copilotToken;
     },
     getBaseUrl: () => copilotBaseUrl(state),
     getHeaders: () => copilotHeaders(state),
     getProxyUrl: () => getProxyUrl("copilot", state),
     snapshotAuth: ({ anthropicBeta, visionRequest, isAgentCall }) => {
-      const token = state.copilotToken
-      if (!token) throw new Error("Copilot token not found")
+      const token = state.copilotToken;
+      if (!token) throw new Error("Copilot token not found");
       const headers: Record<string, string> = {
         ...copilotHeadersForToken(state, token, visionRequest),
         "anthropic-version": "2023-06-01",
         "X-Initiator": isAgentCall ? "agent" : "user",
-      }
-      if (anthropicBeta) headers["anthropic-beta"] = anthropicBeta
-      return { token, headers }
+      };
+      if (anthropicBeta) headers["anthropic-beta"] = anthropicBeta;
+      return { token, headers };
     },
-  }
+  };
 }
 
 export function createDefaultCopilotNativeClient(): CopilotNativeClient {
-  return new CopilotNativeClient(defaultCopilotNativeConfig())
+  return new CopilotNativeClient(defaultCopilotNativeConfig());
 }
 
 // ---------------------------------------------------------------------------
@@ -178,56 +177,58 @@ export function createDefaultCopilotNativeClient(): CopilotNativeClient {
 
 function checkForVision(payload: AnthropicMessagesPayload): boolean {
   for (const msg of payload.messages) {
-    if (typeof msg.content === "string") continue
-    if (!Array.isArray(msg.content)) continue
+    if (typeof msg.content === "string") continue;
+    if (!Array.isArray(msg.content)) continue;
     for (const block of msg.content) {
-      if (block.type === "image") return true
+      if (block.type === "image") return true;
     }
   }
-  return false
+  return false;
 }
 
 function hasToolResultContent(msg: { content: unknown }): boolean {
-  if (typeof msg.content === "string") return false
-  if (!Array.isArray(msg.content)) return false
-  return msg.content.some((block: { type: string }) => block.type === "tool_result")
+  if (typeof msg.content === "string") return false;
+  if (!Array.isArray(msg.content)) return false;
+  return msg.content.some((block: { type: string }) => block.type === "tool_result");
 }
 
 function buildNativeAnthropicBeta(
   payload: AnthropicMessagesPayload,
   anthropicBeta: string | null,
 ): string | null {
-  const betas = anthropicBeta
-    ?.split(",")
-    .map((beta) => beta.trim())
-    .filter((beta) => beta.length > 0) ?? []
+  const betas =
+    anthropicBeta
+      ?.split(",")
+      .map((beta) => beta.trim())
+      .filter((beta) => beta.length > 0) ?? [];
 
   if (payload.thinking?.type === "enabled" && payload.thinking.budget_tokens) {
-    betas.push(INTERLEAVED_THINKING_BETA)
+    betas.push(INTERLEAVED_THINKING_BETA);
   }
 
-  if (betas.length === 0) return null
-  return [...new Set(betas)].join(",")
+  if (betas.length === 0) return null;
+  return [...new Set(betas)].join(",");
 }
 
 function normalizeNativeThinkingPayload(
   payload: AnthropicMessagesPayload,
   copilotModel: string,
 ): AnthropicMessagesPayload {
-  const requiresAdaptive = copilotModel === "claude-opus-5.5"
-    && payload.thinking?.type === "disabled"
-  if (payload.thinking?.type !== "enabled" && !requiresAdaptive) return payload
+  const requiresAdaptive =
+    copilotModel === "claude-opus-5.5" && payload.thinking?.type === "disabled";
+  if (payload.thinking?.type !== "enabled" && !requiresAdaptive) return payload;
 
-  const capabilities = getModelCapabilities(copilotModel)
-  if (!requiresAdaptive && !capabilities?.supports?.adaptive_thinking) return payload
+  const capabilities = getModelCapabilities(copilotModel);
+  if (!requiresAdaptive && !capabilities?.supports?.adaptive_thinking) return payload;
 
   const requestedEffort =
-    payload.output_config?.effort
-    ?? (requiresAdaptive ? "low" : mapThinkingBudgetToEffort(payload.thinking?.budget_tokens))
-  const supportedEffort = requiresAdaptive && !payload.output_config?.effort
-    ? "low"
-    : pickClosestSupportedEffort(requestedEffort, capabilities?.supports?.reasoning_effort)
-  const sanitizedOutputConfig = sanitizeOutputConfig(payload.output_config)
+    payload.output_config?.effort ??
+    (requiresAdaptive ? "low" : mapThinkingBudgetToEffort(payload.thinking?.budget_tokens));
+  const supportedEffort =
+    requiresAdaptive && !payload.output_config?.effort
+      ? "low"
+      : pickClosestSupportedEffort(requestedEffort, capabilities?.supports?.reasoning_effort);
+  const sanitizedOutputConfig = sanitizeOutputConfig(payload.output_config);
 
   return {
     ...payload,
@@ -236,7 +237,7 @@ function normalizeNativeThinkingPayload(
       ...sanitizedOutputConfig,
       effort: supportedEffort,
     },
-  }
+  };
 }
 
 function sanitizeNativeMessagesPayload(
@@ -248,24 +249,24 @@ function sanitizeNativeMessagesPayload(
     system: payload.system,
     tools: stripToolDefinitions(payload.tools),
     messages: payload.messages.map((message) => {
-      if (message.role !== "assistant" || !Array.isArray(message.content)) return message
+      if (message.role !== "assistant" || !Array.isArray(message.content)) return message;
       return {
         ...message,
         content: message.content.filter((block) => {
-          if (block.type !== "thinking") return true
-          const thinking = block.thinking.trim()
-          return thinking.length > 0 && thinking !== "Thinking..."
+          if (block.type !== "thinking") return true;
+          const thinking = block.thinking.trim();
+          return thinking.length > 0 && thinking !== "Thinking...";
         }),
-      }
+      };
     }),
-  }
+  };
 }
 
 function stripToolDefinitions(
   tools: AnthropicMessagesPayload["tools"],
 ): AnthropicMessagesPayload["tools"] {
-  if (!tools) return tools
-  return tools.map((tool) => stripToolDefinition(tool))
+  if (!tools) return tools;
+  return tools.map((tool) => stripToolDefinition(tool));
 }
 
 // Copilot rejects only these two: `strict` demands an explicit
@@ -274,57 +275,54 @@ function stripToolDefinitions(
 // blocks and system is forwarded — stripping it disabled prompt caching
 // entirely (cache_read_input_tokens stayed 0 across every request).
 function stripToolDefinition<T extends object>(tool: T): T {
-  const rest = { ...(tool as Record<string, unknown>) }
-  delete rest.defer_loading
-  delete rest.strict
-  return rest as T
+  const rest = { ...(tool as Record<string, unknown>) };
+  delete rest.defer_loading;
+  delete rest.strict;
+  return rest as T;
 }
 
 function mapThinkingBudgetToEffort(budgetTokens: number | null | undefined): Effort {
-  if (!budgetTokens) return "high"
-  if (budgetTokens <= 2048) return "low"
-  if (budgetTokens <= 8192) return "medium"
-  return "high"
+  if (!budgetTokens) return "high";
+  if (budgetTokens <= 2048) return "low";
+  if (budgetTokens <= 8192) return "medium";
+  return "high";
 }
 
-function pickClosestSupportedEffort(
-  requested: Effort,
-  supported: string[] | undefined,
-): Effort {
-  if (!supported?.length) return requested
+function pickClosestSupportedEffort(requested: Effort, supported: string[] | undefined): Effort {
+  if (!supported?.length) return requested;
 
-  const normalizedSupported = supported.filter(isEffort)
-  if (normalizedSupported.length === 0) return requested
-  if (normalizedSupported.includes(requested)) return requested
+  const normalizedSupported = supported.filter(isEffort);
+  if (normalizedSupported.length === 0) return requested;
+  if (normalizedSupported.includes(requested)) return requested;
 
-  const requestedIndex = EFFORT_PRIORITY.indexOf(requested)
-  let best: Effort | null = null
-  let bestDistance = Number.POSITIVE_INFINITY
+  const requestedIndex = EFFORT_PRIORITY.indexOf(requested);
+  let best: Effort | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
 
   for (const effort of normalizedSupported) {
-    const index = EFFORT_PRIORITY.indexOf(effort)
-    if (index === -1) continue
-    const distance = Math.abs(index - requestedIndex)
+    const index = EFFORT_PRIORITY.indexOf(effort);
+    if (index === -1) continue;
+    const distance = Math.abs(index - requestedIndex);
     if (distance < bestDistance) {
-      best = effort
-      bestDistance = distance
-      continue
+      best = effort;
+      bestDistance = distance;
+      continue;
     }
     if (distance === bestDistance && best !== null && index > EFFORT_PRIORITY.indexOf(best)) {
-      best = effort
+      best = effort;
     }
   }
 
-  return best ?? requested
+  return best ?? requested;
 }
 
 function isEffort(value: string): value is Effort {
-  return EFFORT_PRIORITY.includes(value as Effort)
+  return EFFORT_PRIORITY.includes(value as Effort);
 }
 
 function sanitizeOutputConfig(
   outputConfig: AnthropicMessagesPayload["output_config"],
 ): SanitizedOutputConfig {
-  if (!outputConfig || typeof outputConfig !== "object") return null
-  return outputConfig.effort ? { effort: outputConfig.effort } : null
+  if (!outputConfig || typeof outputConfig !== "object") return null;
+  return outputConfig.effort ? { effort: outputConfig.effort } : null;
 }

@@ -16,7 +16,9 @@ vi.mock("../../src/services/detect-local-versions", () => ({
 
 const { createSettingsRoute } = await import("../../src/routes/settings.ts");
 const { initSettings, getSetting, setSetting } = await import("../../src/db/settings.ts");
-const { cacheServerTools, cacheOptimizations, cacheCorsSettings } = await import("../../src/lib/utils.ts");
+const { cacheServerTools, cacheOptimizations, cacheCorsSettings } = await import(
+  "../../src/lib/utils.ts"
+);
 const { state } = await import("../../src/lib/state.ts");
 
 let db: Database;
@@ -52,9 +54,13 @@ describe("settings route", () => {
       expect((await response.json()).history_retention_days).toBe(30);
     });
 
-    test.each([7, 14, 30, 60, 90])("persists %i days and resets to 30", async days => {
+    test.each([7, 14, 30, 60, 90])("persists %i days and resets to 30", async (days) => {
       const app = createSettingsRoute(db);
-      const saved = await app.request("/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "history_retention_days", value: ` ${days} ` }) });
+      const saved = await app.request("/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "history_retention_days", value: ` ${days} ` }),
+      });
       expect(saved.status).toBe(200);
       expect((await saved.json()).history_retention_days).toBe(days);
       expect(getSetting(db, "history_retention_days")).toBe(String(days));
@@ -64,12 +70,19 @@ describe("settings route", () => {
       expect((await reset.json()).history_retention_days).toBe(30);
     });
 
-    test.each(["0", "1", "8", "91", "365", "30.5", "NaN", "30days", "", 30, null])("rejects invalid retention without changing the saved value: %j", async value => {
-      setSetting(db, "history_retention_days", "60");
-      const response = await createSettingsRoute(db).request("/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "history_retention_days", value }) });
-      expect(response.status).toBe(400);
-      expect(getSetting(db, "history_retention_days")).toBe("60");
-    });
+    test.each(["0", "1", "8", "91", "365", "30.5", "NaN", "30days", "", 30, null])(
+      "rejects invalid retention without changing the saved value: %j",
+      async (value) => {
+        setSetting(db, "history_retention_days", "60");
+        const response = await createSettingsRoute(db).request("/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "history_retention_days", value }),
+        });
+        expect(response.status).toBe(400);
+        expect(getSetting(db, "history_retention_days")).toBe("60");
+      },
+    );
   });
   describe("GET /settings", () => {
     test("returns default settings snapshot", async () => {
@@ -593,7 +606,10 @@ describe("settings route", () => {
       });
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.cors.allowed_origins).toEqual(["https://app.example.com", "http://app.example.com"]);
+      expect(body.cors.allowed_origins).toEqual([
+        "https://app.example.com",
+        "http://app.example.com",
+      ]);
     });
 
     test("preserves non-default port", async () => {

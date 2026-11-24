@@ -15,7 +15,9 @@ export function LogsDock() {
 
   return (
     <>
-      <Fab open={isOpen} onClick={() => openLogs()} aria-label="Open live logs"><Terminal className="size-6" aria-hidden="true" /></Fab>
+      <Fab open={isOpen} onClick={() => openLogs()} aria-label="Open live logs">
+        <Terminal className="size-6" aria-hidden="true" />
+      </Fab>
       <Dock
         mode={compact ? "overlay" : "push"}
         open={isOpen}
@@ -25,9 +27,15 @@ export function LogsDock() {
         onDismiss={closeLogs}
         className="h-full [&>div]:bg-transparent [&>div]:shadow-none [&>div]:ring-0"
       >
-        <div className={`flex h-full min-h-0 flex-col pr-2 pb-2 md:pr-3 md:pb-3 ${compact ? "pl-2 md:pl-3" : ""}`}>
+        <div
+          className={`flex h-full min-h-0 flex-col pr-2 pb-2 md:pr-3 md:pb-3 ${compact ? "pl-2 md:pl-3" : ""}`}
+        >
           <ContentIsland className="logs-dock-surface flex flex-col overflow-hidden p-3 md:p-4 shadow-none ring-0">
-            <Suspense fallback={<div className="p-4 text-xs text-basalt-muted-foreground">Loading logs...</div>}>
+            <Suspense
+              fallback={
+                <div className="p-4 text-xs text-basalt-muted-foreground">Loading logs...</div>
+              }
+            >
               <LogsContent
                 onClose={closeLogs}
                 requestIdFilter={requestIdFilter ?? undefined}

@@ -1,22 +1,22 @@
-import type { Database } from "bun:sqlite"
-import { logger } from "./../util/logger"
-import { getVSCodeVersion } from "./../services/get-vscode-version"
+import type { Database } from "bun:sqlite";
+import { logger } from "./../util/logger";
+import { getVSCodeVersion } from "./../services/get-vscode-version";
 import {
   detectLocalVSCodeVersion,
   detectLocalCopilotVersion,
-} from "./../services/detect-local-versions"
-import { getSetting } from "./../db/settings"
-import { parseRules } from "./ip-access"
+} from "./../services/detect-local-versions";
+import { getSetting } from "./../db/settings";
+import { parseRules } from "./ip-access";
 
-import { state } from "./state"
+import { state } from "./state";
 
-export const sleep = (ms: number) => Bun.sleep(ms)
+export const sleep = (ms: number) => Bun.sleep(ms);
 
 export const isNullish = (value: unknown): value is null | undefined =>
-  value === null || value === undefined
+  value === null || value === undefined;
 
-const VSCODE_VERSION_FALLBACK = "1.117.0"
-const COPILOT_CHAT_VERSION_FALLBACK = "0.45.1"
+const VSCODE_VERSION_FALLBACK = "1.117.0";
+const COPILOT_CHAT_VERSION_FALLBACK = "0.45.1";
 
 /**
  * Resolve and cache VS Code + Copilot Chat versions.
@@ -28,45 +28,43 @@ const COPILOT_CHAT_VERSION_FALLBACK = "0.45.1"
  */
 export async function cacheVersions(db: Database): Promise<void> {
   // ── VS Code version ──
-  const vsOverride = getSetting(db, "vscode_version")
+  const vsOverride = getSetting(db, "vscode_version");
   if (vsOverride) {
-    state.vsCodeVersion = vsOverride
-    state.vsCodeVersionSource = "override"
+    state.vsCodeVersion = vsOverride;
+    state.vsCodeVersionSource = "override";
   } else {
-    const local = await detectLocalVSCodeVersion()
+    const local = await detectLocalVSCodeVersion();
     if (local) {
-      state.vsCodeVersion = local
-      state.vsCodeVersionSource = "local"
+      state.vsCodeVersion = local;
+      state.vsCodeVersionSource = "local";
     } else {
-      const aur = await getVSCodeVersion()
+      const aur = await getVSCodeVersion();
       if (aur !== undefined) {
-        state.vsCodeVersion = aur
-        state.vsCodeVersionSource = aur !== VSCODE_VERSION_FALLBACK ? "aur" : "fallback"
+        state.vsCodeVersion = aur;
+        state.vsCodeVersionSource = aur !== VSCODE_VERSION_FALLBACK ? "aur" : "fallback";
       }
     }
   }
-  logger.info(
-    `Using VSCode version: ${state.vsCodeVersion} (${state.vsCodeVersionSource})`,
-  )
+  logger.info(`Using VSCode version: ${state.vsCodeVersion} (${state.vsCodeVersionSource})`);
 
   // ── Copilot Chat version ──
-  const copilotOverride = getSetting(db, "copilot_chat_version")
+  const copilotOverride = getSetting(db, "copilot_chat_version");
   if (copilotOverride) {
-    state.copilotChatVersion = copilotOverride
-    state.copilotChatVersionSource = "override"
+    state.copilotChatVersion = copilotOverride;
+    state.copilotChatVersionSource = "override";
   } else {
-    const local = await detectLocalCopilotVersion()
+    const local = await detectLocalCopilotVersion();
     if (local) {
-      state.copilotChatVersion = local
-      state.copilotChatVersionSource = "local"
+      state.copilotChatVersion = local;
+      state.copilotChatVersionSource = "local";
     } else {
-      state.copilotChatVersion = COPILOT_CHAT_VERSION_FALLBACK
-      state.copilotChatVersionSource = "fallback"
+      state.copilotChatVersion = COPILOT_CHAT_VERSION_FALLBACK;
+      state.copilotChatVersionSource = "fallback";
     }
   }
   logger.info(
     `Using Copilot Chat version: ${state.copilotChatVersion} (${state.copilotChatVersionSource})`,
-  )
+  );
 }
 
 /**
@@ -75,10 +73,9 @@ export async function cacheVersions(db: Database): Promise<void> {
  */
 export function cacheOptimizations(db: Database): void {
   state.optSanitizeOrphanedToolResults =
-    getSetting(db, "opt_sanitize_orphaned_tool_results") === "true"
-  state.optReorderToolResults =
-    getSetting(db, "opt_reorder_tool_results") === "true"
-  state.optToolCallDebug = getSetting(db, "tool_call_debug") === "true"
+    getSetting(db, "opt_sanitize_orphaned_tool_results") === "true";
+  state.optReorderToolResults = getSetting(db, "opt_reorder_tool_results") === "true";
+  state.optToolCallDebug = getSetting(db, "tool_call_debug") === "true";
 }
 
 /**
@@ -86,8 +83,8 @@ export function cacheOptimizations(db: Database): void {
  * Called at startup and after any server tool setting change.
  */
 export function cacheServerTools(db: Database): void {
-  state.stWebSearchEnabled = getSetting(db, "st_web_search_enabled") === "true"
-  state.stWebSearchApiKey = getSetting(db, "st_web_search_api_key") ?? null
+  state.stWebSearchEnabled = getSetting(db, "st_web_search_enabled") === "true";
+  state.stWebSearchApiKey = getSetting(db, "st_web_search_api_key") ?? null;
 }
 
 /**
@@ -95,14 +92,14 @@ export function cacheServerTools(db: Database): void {
  * Called at startup and after any IP whitelist setting change.
  */
 export function cacheIPWhitelist(db: Database): void {
-  state.ipWhitelistEnabled = getSetting(db, "ip_whitelist_enabled") === "true"
+  state.ipWhitelistEnabled = getSetting(db, "ip_whitelist_enabled") === "true";
   try {
-    state.ipWhitelistRanges = parseRules(JSON.parse(getSetting(db, "ip_whitelist_ranges") ?? "[]"))
-    state.trustedProxyRanges = parseRules(JSON.parse(getSetting(db, "ip_trusted_proxies") ?? "[]"))
+    state.ipWhitelistRanges = parseRules(JSON.parse(getSetting(db, "ip_whitelist_ranges") ?? "[]"));
+    state.trustedProxyRanges = parseRules(JSON.parse(getSetting(db, "ip_trusted_proxies") ?? "[]"));
   } catch {
-    state.ipWhitelistRanges = []
-    state.trustedProxyRanges = []
-    logger.warn("Invalid IP policy; enabled whitelists deny all requests")
+    state.ipWhitelistRanges = [];
+    state.trustedProxyRanges = [];
+    logger.warn("Invalid IP policy; enabled whitelists deny all requests");
   }
 }
 
@@ -111,18 +108,18 @@ export function cacheIPWhitelist(db: Database): void {
  * Called at startup and after any CORS setting change.
  */
 export function cacheCorsSettings(db: Database): void {
-  state.corsEnabled = getSetting(db, "cors_enabled") === "true"
+  state.corsEnabled = getSetting(db, "cors_enabled") === "true";
 
-  const originsJson = getSetting(db, "cors_allowed_origins")
+  const originsJson = getSetting(db, "cors_allowed_origins");
   if (originsJson) {
     try {
-      const parsed = JSON.parse(originsJson)
-      state.corsAllowedOrigins = Array.isArray(parsed) ? parsed : []
+      const parsed = JSON.parse(originsJson);
+      state.corsAllowedOrigins = Array.isArray(parsed) ? parsed : [];
     } catch {
-      state.corsAllowedOrigins = []
+      state.corsAllowedOrigins = [];
     }
   } else {
-    state.corsAllowedOrigins = []
+    state.corsAllowedOrigins = [];
   }
 }
 
@@ -131,13 +128,13 @@ export function cacheCorsSettings(db: Database): void {
  * Called at startup and after any SOCKS5 setting change.
  */
 export function cacheSocks5Settings(db: Database): void {
-  state.socks5Enabled = getSetting(db, "socks5_enabled") === "true"
-  state.socks5Host = getSetting(db, "socks5_host") ?? null
-  const portStr = getSetting(db, "socks5_port")
-  state.socks5Port = portStr ? Number.parseInt(portStr, 10) : null
-  state.socks5Username = getSetting(db, "socks5_username") ?? null
-  state.socks5Password = getSetting(db, "socks5_password") ?? null
-  const copilotPolicy = getSetting(db, "socks5_copilot")
+  state.socks5Enabled = getSetting(db, "socks5_enabled") === "true";
+  state.socks5Host = getSetting(db, "socks5_host") ?? null;
+  const portStr = getSetting(db, "socks5_port");
+  state.socks5Port = portStr ? Number.parseInt(portStr, 10) : null;
+  state.socks5Username = getSetting(db, "socks5_username") ?? null;
+  state.socks5Password = getSetting(db, "socks5_password") ?? null;
+  const copilotPolicy = getSetting(db, "socks5_copilot");
   state.socks5CopilotPolicy =
-    copilotPolicy === "on" || copilotPolicy === "off" ? copilotPolicy : "default"
+    copilotPolicy === "on" || copilotPolicy === "off" ? copilotPolicy : "default";
 }

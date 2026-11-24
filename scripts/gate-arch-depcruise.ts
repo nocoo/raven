@@ -41,84 +41,76 @@
  *   - keep the empty-cruise guard
  */
 
-import { spawnSync } from "node:child_process"
-import { existsSync, readdirSync, symlinkSync } from "node:fs"
-import { join, relative } from "node:path"
+import { spawnSync } from "node:child_process";
+import { existsSync, readdirSync, symlinkSync } from "node:fs";
+import { join, relative } from "node:path";
 
-const REPO_ROOT = join(import.meta.dir, "..")
+const REPO_ROOT = join(import.meta.dir, "..");
 
 function locateDepcruiseStores(): string[] {
-  const bunStore = join(REPO_ROOT, "node_modules", ".bun")
+  const bunStore = join(REPO_ROOT, "node_modules", ".bun");
   if (!existsSync(bunStore)) {
-    console.error(
-      "✗ node_modules/.bun not found — did `bun install` complete?",
-    )
-    process.exit(1)
+    console.error("✗ node_modules/.bun not found — did `bun install` complete?");
+    process.exit(1);
   }
-  const entries = readdirSync(bunStore).filter((name) =>
-    name.startsWith("dependency-cruiser@"),
-  )
+  const entries = readdirSync(bunStore).filter((name) => name.startsWith("dependency-cruiser@"));
   if (entries.length === 0) {
-    console.error(
-      "✗ dependency-cruiser is not installed under node_modules/.bun.",
-    )
-    process.exit(1)
+    console.error("✗ dependency-cruiser is not installed under node_modules/.bun.");
+    process.exit(1);
   }
   // Shim every version present. bun may keep an older store copy around
   // after an upgrade, and .find()-ing the first one can pick the stale
   // sibling. Cheap to shim them all.
-  return entries.map((entry) => join(bunStore, entry, "node_modules"))
+  return entries.map((entry) => join(bunStore, entry, "node_modules"));
 }
 
 function locateTs6Store(): string {
-  const bunStore = join(REPO_ROOT, "node_modules", ".bun")
-  const entry = readdirSync(bunStore).find(
-    (name) => name === "typescript@6.0.3",
-  )
+  const bunStore = join(REPO_ROOT, "node_modules", ".bun");
+  const entry = readdirSync(bunStore).find((name) => name === "typescript@6.0.3");
   if (!entry) {
     console.error(
       "✗ typescript@6.0.3 not found under node_modules/.bun.\n" +
         "  The typescript6-for-depcruise devDependency must be installed;\n" +
         "  see package.json.",
-    )
-    process.exit(1)
+    );
+    process.exit(1);
   }
-  return join(bunStore, entry, "node_modules", "typescript")
+  return join(bunStore, entry, "node_modules", "typescript");
 }
 
 function ensureShim(): void {
-  const depStores = locateDepcruiseStores()
-  const ts6Real = locateTs6Store()
+  const depStores = locateDepcruiseStores();
+  const ts6Real = locateTs6Store();
   for (const depStore of depStores) {
-    const shimPath = join(depStore, "typescript")
-    if (existsSync(shimPath)) continue
-    const relTarget = relative(depStore, ts6Real)
-    symlinkSync(relTarget, shimPath, "dir")
+    const shimPath = join(depStore, "typescript");
+    if (existsSync(shimPath)) continue;
+    const relTarget = relative(depStore, ts6Real);
+    symlinkSync(relTarget, shimPath, "dir");
   }
 }
 
-ensureShim()
+ensureShim();
 
 const proc = spawnSync(
   "bunx",
   ["depcruise", "--config", "dependency-cruiser.config.cjs", "packages/proxy/src"],
   { cwd: REPO_ROOT, stdio: ["inherit", "pipe", "inherit"] },
-)
+);
 
-const output = proc.stdout?.toString() ?? ""
-process.stdout.write(output)
+const output = proc.stdout?.toString() ?? "";
+process.stdout.write(output);
 
-if (proc.status !== 0) process.exit(proc.status ?? 1)
+if (proc.status !== 0) process.exit(proc.status ?? 1);
 
-const match = output.match(/\((\d+) modules,\s*(\d+) dependencies cruised\)/)
+const match = output.match(/\((\d+) modules,\s*(\d+) dependencies cruised\)/);
 if (!match?.[1] || !match[2]) {
   console.error(
     "✗ depcruise output missing modules/dependencies summary — reporter format may have changed.",
-  )
-  process.exit(1)
+  );
+  process.exit(1);
 }
-const modules = Number.parseInt(match[1], 10)
-const deps = Number.parseInt(match[2], 10)
+const modules = Number.parseInt(match[1], 10);
+const deps = Number.parseInt(match[2], 10);
 if (modules === 0 || deps === 0) {
   console.error(
     `✗ depcruise cruised ${modules} modules / ${deps} dependencies.\n` +
@@ -128,6 +120,6 @@ if (modules === 0 || deps === 0) {
       "    - `bunx depcruise -i` reports ✔ for typescript@6.x\n" +
       "    - node_modules/.bun/dependency-cruiser@*/node_modules/typescript\n" +
       "      exists and points at .bun/typescript@6.0.3/...",
-  )
-  process.exit(1)
+  );
+  process.exit(1);
 }

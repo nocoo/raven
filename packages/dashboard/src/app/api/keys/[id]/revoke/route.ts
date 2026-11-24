@@ -3,10 +3,7 @@ import { proxyFetch, ProxyError } from "@/lib/proxy";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
     const data = await proxyFetch<{ ok: boolean }>(`/api/keys/${id}/revoke`, {

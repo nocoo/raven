@@ -1,48 +1,48 @@
-import { GITHUB_API_BASE_URL, githubHeaders } from "./../../lib/api-config"
-import { HTTPError } from "./../../lib/error"
-import { getProxyUrl } from "./../../lib/socks5-bridge"
-import { state } from "./../../lib/state"
+import { GITHUB_API_BASE_URL, githubHeaders } from "./../../lib/api-config";
+import { HTTPError } from "./../../lib/error";
+import { getProxyUrl } from "./../../lib/socks5-bridge";
+import { state } from "./../../lib/state";
 
 export const getCopilotUsage = async (): Promise<CopilotUsageResponse> => {
-  const proxyUrl = getProxyUrl("github", state)
+  const proxyUrl = getProxyUrl("github", state);
   const response = await fetch(`${GITHUB_API_BASE_URL}/copilot_internal/user`, {
     headers: githubHeaders(state),
     ...(proxyUrl ? { proxy: proxyUrl } : {}),
-  } as RequestInit)
+  } as RequestInit);
 
   if (!response.ok) {
-    throw await HTTPError.fromResponse("Failed to get Copilot usage", response)
+    throw await HTTPError.fromResponse("Failed to get Copilot usage", response);
   }
 
-  return (await response.json()) as CopilotUsageResponse
-}
+  return (await response.json()) as CopilotUsageResponse;
+};
 
 export interface QuotaDetail {
-  entitlement: number
-  overage_count: number
-  overage_permitted: boolean
-  percent_remaining: number
-  quota_id: string
-  quota_remaining: number
-  remaining: number
-  unlimited: boolean
+  entitlement: number;
+  overage_count: number;
+  overage_permitted: boolean;
+  percent_remaining: number;
+  quota_id: string;
+  quota_remaining: number;
+  remaining: number;
+  unlimited: boolean;
 }
 
 interface QuotaSnapshots {
-  chat: QuotaDetail
-  completions: QuotaDetail
-  premium_interactions: QuotaDetail
+  chat: QuotaDetail;
+  completions: QuotaDetail;
+  premium_interactions: QuotaDetail;
 }
 
 interface CopilotUsageResponse {
-  access_type_sku: string
-  analytics_tracking_id: string
-  assigned_date: string
-  can_signup_for_limited: boolean
-  chat_enabled: boolean
-  copilot_plan: string
-  organization_login_list: Array<unknown>
-  organization_list: Array<unknown>
-  quota_reset_date: string
-  quota_snapshots: QuotaSnapshots
+  access_type_sku: string;
+  analytics_tracking_id: string;
+  assigned_date: string;
+  can_signup_for_limited: boolean;
+  chat_enabled: boolean;
+  copilot_plan: string;
+  organization_login_list: Array<unknown>;
+  organization_list: Array<unknown>;
+  quota_reset_date: string;
+  quota_snapshots: QuotaSnapshots;
 }

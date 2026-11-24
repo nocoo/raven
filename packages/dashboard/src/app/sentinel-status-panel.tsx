@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import { LayerCard } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { useRingBuffer } from "@/hooks/use-ring-buffer";
-import {
-  derive401Slices,
-  deriveRetryStacks,
-} from "@/lib/sentinel-derive";
+import { derive401Slices, deriveRetryStacks } from "@/lib/sentinel-derive";
 import type { SentinelStatus } from "@/lib/types";
 import { OccurrencesDonut } from "./sentinel/occurrences-donut";
 import { RetryBar } from "./sentinel/retry-bar";
@@ -26,13 +23,7 @@ import { Skeleton } from "@/components/layout/page-skeleton";
 const POLL_INTERVAL_MS = 5_000;
 const SIGNAL_HISTORY_LEN = 60; // ~5 minutes at 5 s poll
 
-function PanelShell({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function PanelShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <LayerCard padding="none" className="h-full flex flex-col">
       <LayerCard.Header>
@@ -92,8 +83,18 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
   if (!data) {
     return (
       <SectionRule title="Token Refresh Sentinel">
-        <div role="status" aria-label="Loading Token Refresh Sentinel" aria-busy="true" className="grid grid-cols-1 gap-3 @min-[48rem]/page:grid-cols-3">
-          {["occurrences", "retry", "state"].map(key => <LayerCard key={key} aria-hidden="true" className="space-y-4"><Skeleton className="h-4 w-32" /><Skeleton className="h-40 w-full" /></LayerCard>)}
+        <div
+          role="status"
+          aria-label="Loading Token Refresh Sentinel"
+          aria-busy="true"
+          className="grid grid-cols-1 gap-3 @min-[48rem]/page:grid-cols-3"
+        >
+          {["occurrences", "retry", "state"].map((key) => (
+            <LayerCard key={key} aria-hidden="true" className="space-y-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-40 w-full" />
+            </LayerCard>
+          ))}
         </div>
       </SectionRule>
     );
@@ -114,9 +115,7 @@ export function SentinelStatusPanel({ initialData = null }: SentinelStatusPanelP
 
   return (
     <SectionRule title="Token Refresh Sentinel">
-      {error && (
-        <p className="text-meta text-basalt-destructive">Stale: {error}</p>
-      )}
+      {error && <p className="text-meta text-basalt-destructive">Stale: {error}</p>}
       <div className="grid grid-cols-1 @min-[48rem]/page:grid-cols-3 gap-3 items-stretch">
         <PanelShell title="401 Occurrences">
           <OccurrencesDonut slices={slices} />

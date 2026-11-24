@@ -1,15 +1,13 @@
-import { describe, expect, test, beforeEach } from "vitest"
-import {
-  translateToOpenAI as translateToOpenAIRaw,
-} from "../../src/protocols/translate/non-stream-translation"
+import { describe, expect, test, beforeEach } from "vitest";
+import { translateToOpenAI as translateToOpenAIRaw } from "../../src/protocols/translate/non-stream-translation";
 import {
   createAnthropicStreamState,
   translateChunkToAnthropicEvents,
-} from "../../src/protocols/translate/stream-translation"
-import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
-import type { AnthropicStreamState } from "../../src/protocols/anthropic/types"
-import type { ChatCompletionChunk } from "../../src/upstream/copilot-openai"
-import { state } from "../../src/lib/state"
+} from "../../src/protocols/translate/stream-translation";
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types";
+import type { AnthropicStreamState } from "../../src/protocols/anthropic/types";
+import type { ChatCompletionChunk } from "../../src/upstream/copilot-openai";
+import { state } from "../../src/lib/state";
 
 /**
  * Test wrappers that thread the current global-state OPT-* flags into the
@@ -20,16 +18,14 @@ function translateToOpenAI(payload: AnthropicMessagesPayload) {
   return translateToOpenAIRaw(payload, {
     sanitizeOrphanedToolResults: state.optSanitizeOrphanedToolResults,
     reorderToolResults: state.optReorderToolResults,
-  })
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeRequest(
-  overrides: Partial<AnthropicMessagesPayload> = {},
-): AnthropicMessagesPayload {
+function makeRequest(overrides: Partial<AnthropicMessagesPayload> = {}): AnthropicMessagesPayload {
   return {
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
@@ -46,20 +42,20 @@ function makeRequest(
     thinking: null,
     service_tier: null,
     ...overrides,
-  }
+  };
 }
 
 function makeStreamState(): AnthropicStreamState {
-  return createAnthropicStreamState()
+  return createAnthropicStreamState();
 }
 
 function makeChunk(
   overrides: Partial<ChatCompletionChunk> & {
-    delta?: Partial<ChatCompletionChunk["choices"][0]["delta"]>
-    finish_reason?: ChatCompletionChunk["choices"][0]["finish_reason"]
+    delta?: Partial<ChatCompletionChunk["choices"][0]["delta"]>;
+    finish_reason?: ChatCompletionChunk["choices"][0]["finish_reason"];
   } = {},
 ): ChatCompletionChunk {
-  const { delta, finish_reason, ...rest } = overrides
+  const { delta, finish_reason, ...rest } = overrides;
   return {
     id: "chatcmpl-123",
     object: "chat.completion.chunk",
@@ -76,14 +72,14 @@ function makeChunk(
       },
     ],
     ...rest,
-  }
+  };
 }
 
 // Reset all optimization flags before each test
 beforeEach(() => {
-  state.optSanitizeOrphanedToolResults = false
-  state.optReorderToolResults = false
-})
+  state.optSanitizeOrphanedToolResults = false;
+  state.optReorderToolResults = false;
+});
 
 // ===========================================================================
 // Commit 2 regression: refactor does not change behavior
@@ -99,13 +95,13 @@ describe("contextual loop refactor (regression)", () => {
           { role: "user", content: "bye" },
         ],
       }),
-    )
+    );
     expect(result.messages).toEqual([
       { role: "user", content: "hello", name: null, tool_calls: null, tool_call_id: null },
       { role: "assistant", content: "hi", name: null, tool_calls: null, tool_call_id: null },
       { role: "user", content: "bye", name: null, tool_calls: null, tool_call_id: null },
-    ])
-  })
+    ]);
+  });
 
   test("tool_use/tool_result round trip unchanged", () => {
     const result = translateToOpenAI(
@@ -136,12 +132,12 @@ describe("contextual loop refactor (regression)", () => {
           },
         ],
       }),
-    )
+    );
     // assistant with tool_calls
     expect(result.messages[1]).toMatchObject({
       role: "assistant",
       tool_calls: [{ id: "tu_1", function: { name: "search" } }],
-    })
+    });
     // tool result
     expect(result.messages[2]).toEqual({
       role: "tool",
@@ -149,9 +145,9 @@ describe("contextual loop refactor (regression)", () => {
       content: "found X",
       name: null,
       tool_calls: null,
-    })
-  })
-})
+    });
+  });
+});
 
 // ===========================================================================
 // OPT-1: Sanitize Orphaned Tool Results
@@ -187,33 +183,25 @@ describe("OPT-1: sanitize orphaned tool results", () => {
         },
       ],
     },
-  ]
+  ];
 
   test("disabled: orphaned tool_result passes through", () => {
-    state.optSanitizeOrphanedToolResults = false
-    const result = translateToOpenAI(
-      makeRequest({ messages: messagesWithOrphan }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
-    expect(toolMessages).toHaveLength(2)
-  })
+    state.optSanitizeOrphanedToolResults = false;
+    const result = translateToOpenAI(makeRequest({ messages: messagesWithOrphan }));
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
+    expect(toolMessages).toHaveLength(2);
+  });
 
   test("enabled: orphaned tool_result is dropped", () => {
-    state.optSanitizeOrphanedToolResults = true
-    const result = translateToOpenAI(
-      makeRequest({ messages: messagesWithOrphan }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
-    expect(toolMessages).toHaveLength(1)
-    expect(toolMessages[0]!.tool_call_id).toBe("tu_alive")
-  })
+    state.optSanitizeOrphanedToolResults = true;
+    const result = translateToOpenAI(makeRequest({ messages: messagesWithOrphan }));
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
+    expect(toolMessages).toHaveLength(1);
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_alive");
+  });
 
   test("enabled: valid tool_result is preserved", () => {
-    state.optSanitizeOrphanedToolResults = true
+    state.optSanitizeOrphanedToolResults = true;
     const result = translateToOpenAI(
       makeRequest({
         messages: [
@@ -241,16 +229,14 @@ describe("OPT-1: sanitize orphaned tool results", () => {
           },
         ],
       }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
-    expect(toolMessages).toHaveLength(1)
-  })
+    );
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
+    expect(toolMessages).toHaveLength(1);
+  });
 
   test("enabled: cross-turn historical ID is not accepted", () => {
     // tu_old was valid in the first turn but should NOT be accepted in the second turn
-    state.optSanitizeOrphanedToolResults = true
+    state.optSanitizeOrphanedToolResults = true;
     const result = translateToOpenAI(
       makeRequest({
         messages: [
@@ -306,22 +292,20 @@ describe("OPT-1: sanitize orphaned tool results", () => {
           },
         ],
       }),
-    )
+    );
     // Count all tool messages in the second turn (after the second assistant)
-    const allToolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
+    const allToolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
     // First turn: tu_old (valid), second turn: only tu_new (tu_old dropped)
-    expect(allToolMessages).toHaveLength(2)
-    expect(allToolMessages[0]!.tool_call_id).toBe("tu_old")
-    expect(allToolMessages[1]!.tool_call_id).toBe("tu_new")
-  })
+    expect(allToolMessages).toHaveLength(2);
+    expect(allToolMessages[0]!.tool_call_id).toBe("tu_old");
+    expect(allToolMessages[1]!.tool_call_id).toBe("tu_new");
+  });
 
   test("enabled: assistant deleted by compaction — all tool_results dropped", () => {
     // Core scenario: auto-compaction removes the assistant message entirely,
     // leaving orphaned tool_results with no preceding assistant.
     // pendingToolCallIds will be [] → all tool_results are orphans.
-    state.optSanitizeOrphanedToolResults = true
+    state.optSanitizeOrphanedToolResults = true;
     const result = translateToOpenAI(
       makeRequest({
         messages: [
@@ -349,22 +333,18 @@ describe("OPT-1: sanitize orphaned tool results", () => {
           },
         ],
       }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
+    );
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
     // All tool_results should be dropped since no assistant preceded them
-    expect(toolMessages).toHaveLength(0)
+    expect(toolMessages).toHaveLength(0);
     // The text block should still be preserved as a user message
-    const userMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "user",
-    )
-    expect(userMessages).toHaveLength(2)
-  })
+    const userMessages = result.messages.filter((m: { role: string }) => m.role === "user");
+    expect(userMessages).toHaveLength(2);
+  });
 
   test("disabled: assistant deleted by compaction — tool_results pass through", () => {
     // Same scenario but with the flag off — tool_results should NOT be filtered
-    state.optSanitizeOrphanedToolResults = false
+    state.optSanitizeOrphanedToolResults = false;
     const result = translateToOpenAI(
       makeRequest({
         messages: [
@@ -382,13 +362,11 @@ describe("OPT-1: sanitize orphaned tool results", () => {
           },
         ],
       }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
-    expect(toolMessages).toHaveLength(1)
-  })
-})
+    );
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
+    expect(toolMessages).toHaveLength(1);
+  });
+});
 
 // ===========================================================================
 // OPT-2: Reorder Tool Results
@@ -442,40 +420,32 @@ describe("OPT-2: reorder tool results", () => {
         },
       ],
     },
-  ]
+  ];
 
   test("disabled: tool results stay in original order", () => {
-    state.optReorderToolResults = false
-    const result = translateToOpenAI(
-      makeRequest({ messages: messagesOutOfOrder }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
+    state.optReorderToolResults = false;
+    const result = translateToOpenAI(makeRequest({ messages: messagesOutOfOrder }));
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
     expect(toolMessages.map((m: { tool_call_id?: string | null }) => m.tool_call_id)).toEqual([
       "tu_c",
       "tu_a",
       "tu_b",
-    ])
-  })
+    ]);
+  });
 
   test("enabled: tool results reordered to match tool_calls", () => {
-    state.optReorderToolResults = true
-    const result = translateToOpenAI(
-      makeRequest({ messages: messagesOutOfOrder }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
+    state.optReorderToolResults = true;
+    const result = translateToOpenAI(makeRequest({ messages: messagesOutOfOrder }));
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
     expect(toolMessages.map((m: { tool_call_id?: string | null }) => m.tool_call_id)).toEqual([
       "tu_a",
       "tu_b",
       "tu_c",
-    ])
-  })
+    ]);
+  });
 
   test("enabled: unmatched tool_result goes to end", () => {
-    state.optReorderToolResults = true
+    state.optReorderToolResults = true;
     // Add an extra tool_result not in the assistant's tool_calls
     const result = translateToOpenAI(
       makeRequest({
@@ -510,17 +480,15 @@ describe("OPT-2: reorder tool results", () => {
           },
         ],
       }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
+    );
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
     // tu_a should come first (matched), tu_unknown should come last (unmatched)
-    expect(toolMessages[0]!.tool_call_id).toBe("tu_a")
-    expect(toolMessages[1]!.tool_call_id).toBe("tu_unknown")
-  })
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_a");
+    expect(toolMessages[1]!.tool_call_id).toBe("tu_unknown");
+  });
 
   test("single tool_result: no change regardless of flag", () => {
-    state.optReorderToolResults = true
+    state.optReorderToolResults = true;
     const result = translateToOpenAI(
       makeRequest({
         messages: [
@@ -548,14 +516,12 @@ describe("OPT-2: reorder tool results", () => {
           },
         ],
       }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
-    expect(toolMessages).toHaveLength(1)
-    expect(toolMessages[0]!.tool_call_id).toBe("tu_1")
-  })
-})
+    );
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
+    expect(toolMessages).toHaveLength(1);
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_1");
+  });
+});
 
 // ===========================================================================
 // OPT-1 + OPT-2 combined
@@ -563,8 +529,8 @@ describe("OPT-2: reorder tool results", () => {
 
 describe("OPT-1 + OPT-2 combined", () => {
   test("orphan removed then remaining reordered", () => {
-    state.optSanitizeOrphanedToolResults = true
-    state.optReorderToolResults = true
+    state.optSanitizeOrphanedToolResults = true;
+    state.optReorderToolResults = true;
     const result = translateToOpenAI(
       makeRequest({
         messages: [
@@ -585,52 +551,74 @@ describe("OPT-1 + OPT-2 combined", () => {
           },
         ],
       }),
-    )
-    const toolMessages = result.messages.filter(
-      (m: { role: string }) => m.role === "tool",
-    )
+    );
+    const toolMessages = result.messages.filter((m: { role: string }) => m.role === "tool");
     // orphan dropped, remaining reordered to [tu_a, tu_b]
-    expect(toolMessages).toHaveLength(2)
-    expect(toolMessages[0]!.tool_call_id).toBe("tu_a")
-    expect(toolMessages[1]!.tool_call_id).toBe("tu_b")
-  })
-})
+    expect(toolMessages).toHaveLength(2);
+    expect(toolMessages[0]!.tool_call_id).toBe("tu_a");
+    expect(toolMessages[1]!.tool_call_id).toBe("tu_b");
+  });
+});
 
 describe("streaming whitespace preservation", () => {
   test("spaces, newlines and tabs in text deltas are kept", () => {
-    const streamState = makeStreamState()
-    translateChunkToAnthropicEvents(makeChunk({ delta: { content: "hello" } }), streamState)
-    const space = translateChunkToAnthropicEvents(makeChunk({ delta: { content: " " } }), streamState)
-    const tab = translateChunkToAnthropicEvents(makeChunk({ delta: { content: "\t" } }), streamState)
-    const newline = translateChunkToAnthropicEvents(makeChunk({ delta: { content: "\n" } }), streamState)
-    expect(space).toMatchObject([{ type: "content_block_delta", delta: { text: " " } }])
-    expect(tab).toMatchObject([{ type: "content_block_delta", delta: { text: "\t" } }])
-    expect(newline).toMatchObject([{ type: "content_block_delta", delta: { text: "\n" } }])
-  })
+    const streamState = makeStreamState();
+    translateChunkToAnthropicEvents(makeChunk({ delta: { content: "hello" } }), streamState);
+    const space = translateChunkToAnthropicEvents(
+      makeChunk({ delta: { content: " " } }),
+      streamState,
+    );
+    const tab = translateChunkToAnthropicEvents(
+      makeChunk({ delta: { content: "\t" } }),
+      streamState,
+    );
+    const newline = translateChunkToAnthropicEvents(
+      makeChunk({ delta: { content: "\n" } }),
+      streamState,
+    );
+    expect(space).toMatchObject([{ type: "content_block_delta", delta: { text: " " } }]);
+    expect(tab).toMatchObject([{ type: "content_block_delta", delta: { text: "\t" } }]);
+    expect(newline).toMatchObject([{ type: "content_block_delta", delta: { text: "\n" } }]);
+  });
 
   test("empty content emits no text delta", () => {
-    const streamState = makeStreamState()
-    const events = translateChunkToAnthropicEvents(makeChunk({ delta: { content: "" } }), streamState)
-    expect(events.filter((e) => e.type === "content_block_delta")).toHaveLength(0)
-  })
+    const streamState = makeStreamState();
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ delta: { content: "" } }),
+      streamState,
+    );
+    expect(events.filter((e) => e.type === "content_block_delta")).toHaveLength(0);
+  });
 
   test("whitespace inside tool argument fragments is kept", () => {
-    const streamState = makeStreamState()
+    const streamState = makeStreamState();
     translateChunkToAnthropicEvents(
       makeChunk({
         delta: {
-          tool_calls: [{
-            index: 0, id: "call-1", type: "function",
-            function: { name: "lookup", arguments: '{"q": "a b\\n\\t"}' },
-          }],
+          tool_calls: [
+            {
+              index: 0,
+              id: "call-1",
+              type: "function",
+              function: { name: "lookup", arguments: '{"q": "a b\\n\\t"}' },
+            },
+          ],
         },
       }),
       streamState,
-    )
-    const events = translateChunkToAnthropicEvents(makeChunk({ finish_reason: "tool_calls" }), streamState)
-    const parameters = events.flatMap((event) => event.type === "content_block_delta"
-      && event.delta.type === "input_json_delta" ? [event.delta.partial_json] : []).join("")
-    expect(parameters).toBe('{"q": "a b\\n\\t"}')
-    expect(JSON.parse(parameters)).toEqual({ q: "a b\n\t" })
-  })
-})
+    );
+    const events = translateChunkToAnthropicEvents(
+      makeChunk({ finish_reason: "tool_calls" }),
+      streamState,
+    );
+    const parameters = events
+      .flatMap((event) =>
+        event.type === "content_block_delta" && event.delta.type === "input_json_delta"
+          ? [event.delta.partial_json]
+          : [],
+      )
+      .join("");
+    expect(parameters).toBe('{"q": "a b\\n\\t"}');
+    expect(JSON.parse(parameters)).toEqual({ q: "a b\n\t" });
+  });
+});

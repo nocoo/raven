@@ -188,7 +188,9 @@ describe("FilterBar", () => {
     await user.clear(input);
     await user.type(input, " 2001:db8::1 ");
     await user.click(screen.getByRole("button", { name: "Apply" }));
-    expect(mockPush).toHaveBeenLastCalledWith("/?range=7d&client_ip=2001%3Adb8%3A%3A1&key_id=key-1");
+    expect(mockPush).toHaveBeenLastCalledWith(
+      "/?range=7d&client_ip=2001%3Adb8%3A%3A1&key_id=key-1",
+    );
     await user.clear(input);
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(mockPush).toHaveBeenLastCalledWith("/?range=7d&key_id=key-1");
@@ -198,13 +200,16 @@ describe("FilterBar", () => {
     ["model", "model=gpt-5"],
     ["key_id", "key_id=key-1"],
     ["key_id", "account=Editor"],
-  ] as const)("does not duplicate the %s tab selection (%s) as filter chips or a count", (tabDimension, query) => {
-    mockSearchParams = new URLSearchParams(query);
-    render(<FilterBar tabDimension={tabDimension} />);
-    expect(screen.queryByRole("button", { name: /^Remove .* filter$/ })).toBeNull();
-    expect(screen.queryByText(/\d+ active/)).toBeNull();
-    expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
-  });
+  ] as const)(
+    "does not duplicate the %s tab selection (%s) as filter chips or a count",
+    (tabDimension, query) => {
+      mockSearchParams = new URLSearchParams(query);
+      render(<FilterBar tabDimension={tabDimension} />);
+      expect(screen.queryByRole("button", { name: /^Remove .* filter$/ })).toBeNull();
+      expect(screen.queryByText(/\d+ active/)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Reset" })).toBeNull();
+    },
+  );
 
   it.each([
     ["model", "model=gpt-5"],
@@ -219,39 +224,59 @@ describe("FilterBar", () => {
     expect(mockPush).toHaveBeenCalledWith(`/?${query}`);
   });
 
-  it.each([["Every 1s", 1000], ["Every 5s", 5000], ["Auto: off", 0]] as const)("sets automatic refresh to %s without navigating or clearing filters", async (label, milliseconds) => {
-    const timer = vi.spyOn(window, "setInterval");
-    try {
-      mockSearchParams = new URLSearchParams("model=gpt-5&cursor=cursor-2&sort=latency");
-      const { rerender } = render(<FilterBar />);
-      expect(screen.queryByRole("combobox", { name: "Auto-refresh interval" })).toBeNull();
-      rerender(<FilterBar autoRefresh />);
-      const interval = screen.getByRole("combobox", { name: "Auto-refresh interval" });
-      expect(interval).toHaveTextContent("Every 3s");
-      expect(timer).toHaveBeenCalledWith(expect.any(Function), 3000);
-      timer.mockClear();
-      const user = userEvent.setup();
-      await user.click(interval);
-      await user.click(screen.getByRole("option", { name: label }));
-      expect(interval).toHaveTextContent(label);
-      if (milliseconds) expect(timer).toHaveBeenCalledWith(expect.any(Function), milliseconds);
-      await user.click(screen.getByRole("button", { name: "Refresh monitoring data" }));
-      expect(mockRefresh).toHaveBeenCalled();
-      expect(mockPush).not.toHaveBeenCalled();
-      expect(mockSearchParams.toString()).toBe("model=gpt-5&cursor=cursor-2&sort=latency");
-    } finally {
-      timer.mockRestore();
-    }
-  });
+  it.each([
+    ["Every 1s", 1000],
+    ["Every 5s", 5000],
+    ["Auto: off", 0],
+  ] as const)(
+    "sets automatic refresh to %s without navigating or clearing filters",
+    async (label, milliseconds) => {
+      const timer = vi.spyOn(window, "setInterval");
+      try {
+        mockSearchParams = new URLSearchParams("model=gpt-5&cursor=cursor-2&sort=latency");
+        const { rerender } = render(<FilterBar />);
+        expect(screen.queryByRole("combobox", { name: "Auto-refresh interval" })).toBeNull();
+        rerender(<FilterBar autoRefresh />);
+        const interval = screen.getByRole("combobox", { name: "Auto-refresh interval" });
+        expect(interval).toHaveTextContent("Every 3s");
+        expect(timer).toHaveBeenCalledWith(expect.any(Function), 3000);
+        timer.mockClear();
+        const user = userEvent.setup();
+        await user.click(interval);
+        await user.click(screen.getByRole("option", { name: label }));
+        expect(interval).toHaveTextContent(label);
+        if (milliseconds) expect(timer).toHaveBeenCalledWith(expect.any(Function), milliseconds);
+        await user.click(screen.getByRole("button", { name: "Refresh monitoring data" }));
+        expect(mockRefresh).toHaveBeenCalled();
+        expect(mockPush).not.toHaveBeenCalled();
+        expect(mockSearchParams.toString()).toBe("model=gpt-5&cursor=cursor-2&sort=latency");
+      } finally {
+        timer.mockRestore();
+      }
+    },
+  );
 
   it("selects a stable key ID without retaining a historical name filter", async () => {
-    mockSearchParams = new URLSearchParams("range=7d&model=gpt-5&account=Editor&protocol_mode=native");
-    render(<FilterBar keys={[{ id: "key-1", label: "Editor" }, { id: "key-2", label: "Editor" }, { id: "legacy:Editor", label: "Editor" }]} />);
+    mockSearchParams = new URLSearchParams(
+      "range=7d&model=gpt-5&account=Editor&protocol_mode=native",
+    );
+    render(
+      <FilterBar
+        keys={[
+          { id: "key-1", label: "Editor" },
+          { id: "key-2", label: "Editor" },
+          { id: "legacy:Editor", label: "Editor" },
+        ]}
+      />,
+    );
     const user = userEvent.setup();
     await user.click(screen.getByRole("combobox", { name: "Filter by API key" }));
     expect(screen.getByRole("option", { name: "Editor · historical" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Editor · key-2" })).toHaveTextContent(/^Editor$/);
-    expect(screen.getByRole("option", { name: "Editor · key-2" })).toHaveAttribute("title", "key-2");
+    expect(screen.getByRole("option", { name: "Editor · key-2" })).toHaveAttribute(
+      "title",
+      "key-2",
+    );
     await user.click(screen.getByRole("option", { name: "Editor · key-2" }));
     const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
     expect(params.get("key_id")).toBe("key-2");
@@ -272,7 +297,10 @@ describe("FilterBar", () => {
     expect(mockPush).toHaveBeenCalledWith("/?range=custom&from=0&to=60000");
   });
 
-  it.each([["", "Unknown", "unknown"], ["protocol_mode=native", "All protocols", null]])("changes the protocol selection from %s", async (query, label, expected) => {
+  it.each([
+    ["", "Unknown", "unknown"],
+    ["protocol_mode=native", "All protocols", null],
+  ])("changes the protocol selection from %s", async (query, label, expected) => {
     mockSearchParams = new URLSearchParams(query!);
     render(<FilterBar />);
     const user = userEvent.setup();
@@ -298,26 +326,47 @@ describe("FilterBar", () => {
     await user.type(screen.getByRole("textbox", { name: "Upstream name" }), "provider");
     await user.click(screen.getByRole("button", { name: "Apply" }));
     const params = new URLSearchParams(String(mockPush.mock.calls[0]![0]).split("?")[1]);
-    expect(Object.fromEntries(params)).toEqual({ model: "gpt-5", key_id: "key-1", client: "Editor", session: "sess&2", upstream: "provider" });
+    expect(Object.fromEntries(params)).toEqual({
+      model: "gpt-5",
+      key_id: "key-1",
+      client: "Editor",
+      session: "sess&2",
+      upstream: "provider",
+    });
   });
 
   it("clears exact-match investigation fields without widening the time range", async () => {
-    mockSearchParams = new URLSearchParams("range=7d&client=Editor&session=sess-1&upstream=provider");
+    mockSearchParams = new URLSearchParams(
+      "range=7d&client=Editor&session=sess-1&upstream=provider",
+    );
     render(<FilterBar investigation />);
     const user = userEvent.setup();
     await user.click(screen.getByText("IP, client & session filters"));
-    for (const name of ["Client name", "Session ID", "Upstream name"]) await user.clear(screen.getByRole("textbox", { name }));
+    for (const name of ["Client name", "Session ID", "Upstream name"])
+      await user.clear(screen.getByRole("textbox", { name }));
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(mockPush).toHaveBeenCalledWith("/?range=7d");
   });
 
   it("shows every deep-linked dimension, including zero latency and synchronous mode", () => {
     mockSearchParams = new URLSearchParams({
-      model: "m", resolved_model: "resolved", strategy: "native", upstream: "fixture-provider",
-      account: "fixture-account", client: "fixture-client", client_version: "1.2.3",
-      session: "fixture-session", path: "/v1/messages", status: "error", status_code: "429",
-      stream: "false", has_error: "true", min_latency: "0", max_latency: "1000",
-      stop_reason: "length", routing_path: "fallback",
+      model: "m",
+      resolved_model: "resolved",
+      strategy: "native",
+      upstream: "fixture-provider",
+      account: "fixture-account",
+      client: "fixture-client",
+      client_version: "1.2.3",
+      session: "fixture-session",
+      path: "/v1/messages",
+      status: "error",
+      status_code: "429",
+      stream: "false",
+      has_error: "true",
+      min_latency: "0",
+      max_latency: "1000",
+      stop_reason: "length",
+      routing_path: "fallback",
     });
     render(<FilterBar upstreams={["fixture-provider"]} />);
     expect(screen.getByText("17 active")).toBeDefined();
@@ -327,10 +376,20 @@ describe("FilterBar", () => {
   });
 
   it.each([
-    ["fixture-model", "model"], ["fixture-strategy", "strategy"],
-    ["fixture-provider", "upstream"], ["error", "status"], ["cancelled", "status"], ["denied", "status"],
+    ["fixture-model", "model"],
+    ["fixture-strategy", "strategy"],
+    ["fixture-provider", "upstream"],
+    ["error", "status"],
+    ["cancelled", "status"],
+    ["denied", "status"],
   ])("selects %s through the actual dropdown", async (value, key) => {
-    render(<FilterBar models={["fixture-model"]} strategies={["fixture-strategy"]} upstreams={["fixture-provider"]} />);
+    render(
+      <FilterBar
+        models={["fixture-model"]}
+        strategies={["fixture-strategy"]}
+        upstreams={["fixture-provider"]}
+      />,
+    );
     const user = userEvent.setup();
     await user.click(screen.getByRole("combobox", { name: `Filter by ${key}` }));
     await user.click(screen.getByRole("option", { name: value }));

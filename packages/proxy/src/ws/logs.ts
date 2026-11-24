@@ -73,7 +73,4 @@ export const wsHandler = {
 };
 
 // WeakMap to track listener per WS connection for cleanup
-const listenerMap = new WeakMap<
-  ServerWebSocket<WsData>,
-  (event: LogEvent) => void
->();
+const listenerMap = new WeakMap<ServerWebSocket<WsData>, (event: LogEvent) => void>();

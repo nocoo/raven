@@ -1,31 +1,68 @@
-import { describe, expect, test } from "vitest"
-import { declaredProtocols, pickStrategy, type ClientProtocol } from "../../src/core/router"
-import type { UpstreamFormat } from "../../src/core/routing-types"
-import { upstreamRecord } from "../helpers/routing"
+import { describe, expect, test } from "vitest";
+import { declaredProtocols, pickStrategy, type ClientProtocol } from "../../src/core/router";
+import type { UpstreamFormat } from "../../src/core/routing-types";
+import { upstreamRecord } from "../helpers/routing";
 
-const protocols: ClientProtocol[] = ["anthropic", "openai", "responses"]
-const formats: UpstreamFormat[] = ["anthropic_messages", "chat_completions", "responses"]
+const protocols: ClientProtocol[] = ["anthropic", "openai", "responses"];
+const formats: UpstreamFormat[] = ["anthropic_messages", "chat_completions", "responses"];
 const expected = [
   ["custom-anthropic", "custom-openai", "protocol-converted"],
   ["protocol-converted", "custom-openai", "protocol-converted"],
   ["protocol-converted", "protocol-converted", "protocol-converted"],
-]
+];
 
 describe("endpoint selection after key-bound upstream selection", () => {
-  test.each(protocols.flatMap((protocol, source) => formats.map((format, target) => ({ protocol, format, source, target }))))(
-    "$protocol to $format uses its native endpoint or explicit adapter", ({ protocol, format, source, target }) => {
-      const provider = upstreamRecord({ format })
-      const input = { protocol, model: "raw-model", requestedModel: "raw-model", provider, allowConversion: true }
-      expect(pickStrategy(input)).toMatchObject({ kind: "ok", name: expected[source]![target], model: "raw-model", providerId: provider.id })
-      const off = pickStrategy({ ...input, allowConversion: false })
-      expect(off).toMatchObject(source === target ? { kind: "ok" } : { kind: "reject", status: 400, errorType: "protocol_mismatch" })
+  test.each(
+    protocols.flatMap((protocol, source) =>
+      formats.map((format, target) => ({ protocol, format, source, target })),
+    ),
+  )(
+    "$protocol to $format uses its native endpoint or explicit adapter",
+    ({ protocol, format, source, target }) => {
+      const provider = upstreamRecord({ format });
+      const input = {
+        protocol,
+        model: "raw-model",
+        requestedModel: "raw-model",
+        provider,
+        allowConversion: true,
+      };
+      expect(pickStrategy(input)).toMatchObject({
+        kind: "ok",
+        name: expected[source]![target],
+        model: "raw-model",
+        providerId: provider.id,
+      });
+      const off = pickStrategy({ ...input, allowConversion: false });
+      expect(off).toMatchObject(
+        source === target
+          ? { kind: "ok" }
+          : { kind: "reject", status: 400, errorType: "protocol_mismatch" },
+      );
     },
-  )
+  );
 
-  test.each(protocols)("Copilot prefers native %s even when all endpoints are advertised", (protocol) => {
-    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: "known", supported_endpoints: ["/responses", "/v1/messages", "/chat/completions"] }] })
-    expect(pickStrategy({ protocol, model: "known", requestedModel: "auto", provider, allowConversion: false })).toMatchObject({ kind: "ok", upstreamProtocol: protocol })
-  })
+  test.each(protocols)(
+    "Copilot prefers native %s even when all endpoints are advertised",
+    (protocol) => {
+      const provider = upstreamRecord({
+        kind: "copilot",
+        format: null,
+        models: [
+          { id: "known", supported_endpoints: ["/responses", "/v1/messages", "/chat/completions"] },
+        ],
+      });
+      expect(
+        pickStrategy({
+          protocol,
+          model: "known",
+          requestedModel: "auto",
+          provider,
+          allowConversion: false,
+        }),
+      ).toMatchObject({ kind: "ok", upstreamProtocol: protocol });
+    },
+  );
 
   test.each([
     ["anthropic", ["/responses"], "protocol-converted", "responses"],
@@ -33,84 +70,241 @@ describe("endpoint selection after key-bound upstream selection", () => {
     ["responses", ["/chat/completions", "/messages"], "protocol-converted", "openai"],
     ["openai", ["/messages"], "protocol-converted", "anthropic"],
     ["anthropic", ["/responses", "/chat/completions"], "copilot-translated", "openai"],
-  ] as const)("Copilot %s chooses the declared priority and honors conversion OFF", (protocol, endpoints, name, upstreamProtocol) => {
-    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: "known", supported_endpoints: [...endpoints] }] })
-    const input = { protocol, model: "known", requestedModel: "auto", provider, allowConversion: true }
-    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name, upstreamProtocol })
-    expect(pickStrategy({ ...input, allowConversion: false })).toMatchObject({ kind: "reject", status: 400 })
-  })
-
-  test.each([[], [{ id: "different" }], [{ id: "known" }], [{ id: "known", supported_endpoints: ["/unknown"] }]])(
-    "unusable Copilot capabilities never guess an endpoint for auto", (...models) => {
-      const provider = upstreamRecord({ kind: "copilot", format: null, models: models as never })
-      for (const protocol of protocols) {
-        expect(pickStrategy({ protocol, model: "known", requestedModel: "auto", provider, allowConversion: true })).toMatchObject({ kind: "reject", status: 503 })
-      }
+  ] as const)(
+    "Copilot %s chooses the declared priority and honors conversion OFF",
+    (protocol, endpoints, name, upstreamProtocol) => {
+      const provider = upstreamRecord({
+        kind: "copilot",
+        format: null,
+        models: [{ id: "known", supported_endpoints: [...endpoints] }],
+      });
+      const input = {
+        protocol,
+        model: "known",
+        requestedModel: "auto",
+        provider,
+        allowConversion: true,
+      };
+      expect(pickStrategy(input)).toMatchObject({ kind: "ok", name, upstreamProtocol });
+      expect(pickStrategy({ ...input, allowConversion: false })).toMatchObject({
+        kind: "reject",
+        status: 400,
+      });
     },
-  )
+  );
 
-  test.each(protocols)("explicit %s preserves legacy Copilot dispatch with no model membership gate", (protocol) => {
-    const provider = upstreamRecord({ kind: "copilot", format: null })
-    expect(pickStrategy({ protocol, model: "uncached", requestedModel: "uncached", provider, allowConversion: false })).toMatchObject({ kind: "ok", upstreamProtocol: protocol, model: "uncached" })
-    expect(pickStrategy({ protocol, model: "uncached", requestedModel: "uncached", provider, allowConversion: true })).toMatchObject({ kind: "ok", upstreamProtocol: protocol === "anthropic" ? "openai" : protocol })
-  })
+  test.each([
+    [],
+    [{ id: "different" }],
+    [{ id: "known" }],
+    [{ id: "known", supported_endpoints: ["/unknown"] }],
+  ])("unusable Copilot capabilities never guess an endpoint for auto", (...models) => {
+    const provider = upstreamRecord({ kind: "copilot", format: null, models: models as never });
+    for (const protocol of protocols) {
+      expect(
+        pickStrategy({
+          protocol,
+          model: "known",
+          requestedModel: "auto",
+          provider,
+          allowConversion: true,
+        }),
+      ).toMatchObject({ kind: "reject", status: 503 });
+    }
+  });
+
+  test.each(protocols)(
+    "explicit %s preserves legacy Copilot dispatch with no model membership gate",
+    (protocol) => {
+      const provider = upstreamRecord({ kind: "copilot", format: null });
+      expect(
+        pickStrategy({
+          protocol,
+          model: "uncached",
+          requestedModel: "uncached",
+          provider,
+          allowConversion: false,
+        }),
+      ).toMatchObject({ kind: "ok", upstreamProtocol: protocol, model: "uncached" });
+      expect(
+        pickStrategy({
+          protocol,
+          model: "uncached",
+          requestedModel: "uncached",
+          provider,
+          allowConversion: true,
+        }),
+      ).toMatchObject({
+        kind: "ok",
+        upstreamProtocol: protocol === "anthropic" ? "openai" : protocol,
+      });
+    },
+  );
 
   test("aliases resolve only inside Copilot, and custom model IDs remain exact", () => {
-    const model = "claude-sonnet-4-20250514"
-    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: "claude-sonnet-4", supported_endpoints: ["/v1/messages"] }] })
-    expect(pickStrategy({ protocol: "anthropic", model, requestedModel: model, provider, allowConversion: true })).toMatchObject({ kind: "ok", name: "copilot-native", model: "claude-sonnet-4" })
-    expect(pickStrategy({ protocol: "anthropic", model, requestedModel: model, provider: upstreamRecord({ format: "anthropic_messages" }), allowConversion: false })).toMatchObject({ kind: "ok", model })
-  })
+    const model = "claude-sonnet-4-20250514";
+    const provider = upstreamRecord({
+      kind: "copilot",
+      format: null,
+      models: [{ id: "claude-sonnet-4", supported_endpoints: ["/v1/messages"] }],
+    });
+    expect(
+      pickStrategy({
+        protocol: "anthropic",
+        model,
+        requestedModel: model,
+        provider,
+        allowConversion: true,
+      }),
+    ).toMatchObject({ kind: "ok", name: "copilot-native", model: "claude-sonnet-4" });
+    expect(
+      pickStrategy({
+        protocol: "anthropic",
+        model,
+        requestedModel: model,
+        provider: upstreamRecord({ format: "anthropic_messages" }),
+        allowConversion: false,
+      }),
+    ).toMatchObject({ kind: "ok", model });
+  });
 
   test("missing custom format fails without falling back", () => {
-    expect(pickStrategy({ protocol: "openai", model: "raw", requestedModel: "raw", provider: upstreamRecord({ format: null }), allowConversion: true })).toMatchObject({ kind: "reject", status: 503 })
-  })
+    expect(
+      pickStrategy({
+        protocol: "openai",
+        model: "raw",
+        requestedModel: "raw",
+        provider: upstreamRecord({ format: null }),
+        allowConversion: true,
+      }),
+    ).toMatchObject({ kind: "reject", status: 503 });
+  });
 
   test("endpoint declarations accept both API path spellings and ignore non-arrays", () => {
-    expect(declaredProtocols({ id: "x", supported_endpoints: ["/v1/chat/completions", "/v1/responses", "/messages", "/v1/systemone", "/v1/decisions", "/v1/images/generations"] })).toEqual(["openai", "responses", "anthropic", "systemone", "decisions", "images"])
-    expect(declaredProtocols({ id: "x", supported_endpoints: "invalid" as never })).toEqual([])
-    expect(declaredProtocols(undefined)).toEqual([])
-  })
+    expect(
+      declaredProtocols({
+        id: "x",
+        supported_endpoints: [
+          "/v1/chat/completions",
+          "/v1/responses",
+          "/messages",
+          "/v1/systemone",
+          "/v1/decisions",
+          "/v1/images/generations",
+        ],
+      }),
+    ).toEqual(["openai", "responses", "anthropic", "systemone", "decisions", "images"]);
+    expect(declaredProtocols({ id: "x", supported_endpoints: "invalid" as never })).toEqual([]);
+    expect(declaredProtocols(undefined)).toEqual([]);
+  });
 
   test.each([
     ["decisions", "/v1/decisions", "copilot-decisions"],
     ["images", "/v1/images/generations", "copilot-images"],
   ] as const)("%s is native-only regardless of conversion", (protocol, endpoint, name) => {
-    const model = protocol === "decisions" ? "gpt-6-luna-decisions" : "gpt-image-2.5-flare"
-    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: model, supported_endpoints: [endpoint] }] })
-    const input = { protocol, model, requestedModel: model, provider, allowConversion: true }
-    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name, upstreamProtocol: protocol, model })
-    expect(pickStrategy({ ...input, stream: true })).toMatchObject({ kind: "reject", status: 400 })
-    expect(pickStrategy({ ...input, allowConversion: false })).toMatchObject({ kind: "ok", name })
-    expect(pickStrategy({ ...input, provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
-  })
+    const model = protocol === "decisions" ? "gpt-6-luna-decisions" : "gpt-image-2.5-flare";
+    const provider = upstreamRecord({
+      kind: "copilot",
+      format: null,
+      models: [{ id: model, supported_endpoints: [endpoint] }],
+    });
+    const input = { protocol, model, requestedModel: model, provider, allowConversion: true };
+    expect(pickStrategy(input)).toMatchObject({
+      kind: "ok",
+      name,
+      upstreamProtocol: protocol,
+      model,
+    });
+    expect(pickStrategy({ ...input, stream: true })).toMatchObject({ kind: "reject", status: 400 });
+    expect(pickStrategy({ ...input, allowConversion: false })).toMatchObject({ kind: "ok", name });
+    expect(pickStrategy({ ...input, provider: { ...provider, models: [] } })).toMatchObject({
+      kind: "reject",
+      status: 503,
+    });
+  });
 
-  test.each([false, true])("systemone is native-only regardless of conversion=%s", (allowConversion) => {
-    const model = "microsoft-decision-1"
-    const provider = upstreamRecord({ kind: "copilot", format: null, models: [{ id: model, supported_endpoints: ["/v1/systemone"] }] })
-    const input = { protocol: "systemone" as const, model, requestedModel: model, provider, allowConversion }
-    expect(declaredProtocols(provider.models[0])).toEqual(["systemone"])
-    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name: "copilot-systemone", upstreamProtocol: "systemone", model })
-    expect(pickStrategy({ ...input, stream: true })).toMatchObject({ kind: "reject", status: 400 })
-    for (const protocol of protocols) {
-      expect(pickStrategy({ ...input, protocol })).toMatchObject({ kind: "reject", status: 400 })
-    }
-    for (const format of formats) {
-      expect(pickStrategy({ ...input, provider: upstreamRecord({ format }) })).toMatchObject({ kind: "reject", status: 400 })
-    }
-    expect(pickStrategy({ ...input, provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
-    expect(pickStrategy({ ...input, requestedModel: "auto", provider: { ...provider, models: [] } })).toMatchObject({ kind: "reject", status: 503 })
-  })
+  test.each([false, true])(
+    "systemone is native-only regardless of conversion=%s",
+    (allowConversion) => {
+      const model = "microsoft-decision-1";
+      const provider = upstreamRecord({
+        kind: "copilot",
+        format: null,
+        models: [{ id: model, supported_endpoints: ["/v1/systemone"] }],
+      });
+      const input = {
+        protocol: "systemone" as const,
+        model,
+        requestedModel: model,
+        provider,
+        allowConversion,
+      };
+      expect(declaredProtocols(provider.models[0])).toEqual(["systemone"]);
+      expect(pickStrategy(input)).toMatchObject({
+        kind: "ok",
+        name: "copilot-systemone",
+        upstreamProtocol: "systemone",
+        model,
+      });
+      expect(pickStrategy({ ...input, stream: true })).toMatchObject({
+        kind: "reject",
+        status: 400,
+      });
+      for (const protocol of protocols) {
+        expect(pickStrategy({ ...input, protocol })).toMatchObject({ kind: "reject", status: 400 });
+      }
+      for (const format of formats) {
+        expect(pickStrategy({ ...input, provider: upstreamRecord({ format }) })).toMatchObject({
+          kind: "reject",
+          status: 400,
+        });
+      }
+      expect(pickStrategy({ ...input, provider: { ...provider, models: [] } })).toMatchObject({
+        kind: "reject",
+        status: 503,
+      });
+      expect(
+        pickStrategy({ ...input, requestedModel: "auto", provider: { ...provider, models: [] } }),
+      ).toMatchObject({ kind: "reject", status: 503 });
+    },
+  );
 
-  test.each(["/v1/images/generations", "/v1/images/edits"] as const)("images require the exact %s declaration", imageEndpoint => {
-    const model = "gpt-image-2.5-flare"
-    const other = imageEndpoint === "/v1/images/edits" ? "/v1/images/generations" : "/v1/images/edits"
-    const provider = upstreamRecord({ kind: "copilot", models: [{ id: model, supported_endpoints: [imageEndpoint] }] })
-    const input = { protocol: "images" as const, model, requestedModel: model, provider, allowConversion: true, imageEndpoint }
-    expect(declaredProtocols(provider.models[0])).toEqual(["images"])
-    expect(pickStrategy(input)).toMatchObject({ kind: "ok", name: "copilot-images", imageEndpoint })
-    expect(pickStrategy({ ...input, imageEndpoint: other })).toMatchObject({ kind: "reject", status: 503 })
-    expect(pickStrategy({ ...input, protocol: "openai" })).toMatchObject({ kind: "reject", status: 400 })
-    expect(pickStrategy({ ...input, stream: true })).toMatchObject({ kind: "reject", status: 400 })
-  })
-})
+  test.each(["/v1/images/generations", "/v1/images/edits"] as const)(
+    "images require the exact %s declaration",
+    (imageEndpoint) => {
+      const model = "gpt-image-2.5-flare";
+      const other =
+        imageEndpoint === "/v1/images/edits" ? "/v1/images/generations" : "/v1/images/edits";
+      const provider = upstreamRecord({
+        kind: "copilot",
+        models: [{ id: model, supported_endpoints: [imageEndpoint] }],
+      });
+      const input = {
+        protocol: "images" as const,
+        model,
+        requestedModel: model,
+        provider,
+        allowConversion: true,
+        imageEndpoint,
+      };
+      expect(declaredProtocols(provider.models[0])).toEqual(["images"]);
+      expect(pickStrategy(input)).toMatchObject({
+        kind: "ok",
+        name: "copilot-images",
+        imageEndpoint,
+      });
+      expect(pickStrategy({ ...input, imageEndpoint: other })).toMatchObject({
+        kind: "reject",
+        status: 503,
+      });
+      expect(pickStrategy({ ...input, protocol: "openai" })).toMatchObject({
+        kind: "reject",
+        status: 400,
+      });
+      expect(pickStrategy({ ...input, stream: true })).toMatchObject({
+        kind: "reject",
+        status: 400,
+      });
+    },
+  );
+});

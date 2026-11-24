@@ -8,10 +8,7 @@ vi.mock("recharts", async () => {
 });
 
 import { SentinelStatusPanel } from "@/app/sentinel-status-panel";
-import type {
-  SentinelStatus,
-  SentinelReasonBuckets,
-} from "@/lib/types";
+import type { SentinelStatus, SentinelReasonBuckets } from "@/lib/types";
 
 function emptyBuckets(): SentinelReasonBuckets {
   return { llm401: 0, sentinel401: 0, scheduled: 0, manual: 0 };
@@ -135,7 +132,10 @@ describe("SentinelStatusPanel", () => {
   it("keeps a loading status while the first poll is pending", () => {
     fetchMock.mockReturnValue(new Promise(() => {}));
     render(<SentinelStatusPanel />);
-    expect(screen.getByRole("status", { name: "Loading Token Refresh Sentinel" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status", { name: "Loading Token Refresh Sentinel" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
   });
 
   it("uses initialData immediately without waiting for fetch", () => {
@@ -211,9 +211,7 @@ describe("SentinelStatusPanel", () => {
   it("SignalGauge exposes score via aria-label", () => {
     fetchMock.mockReturnValue(new Promise(() => {}));
     render(<SentinelStatusPanel initialData={buildStatus({ signalScore: 7 })} />);
-    expect(
-      screen.getByLabelText(/Signal score: 7 of 10 \(threshold 5\)/),
-    ).toBeTruthy();
+    expect(screen.getByLabelText(/Signal score: 7 of 10 \(threshold 5\)/)).toBeTruthy();
   });
 
   it("handles fetch returning non-ok response", async () => {

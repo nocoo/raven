@@ -12,61 +12,62 @@
  * Input parameters from Anthropic's web_search tool.
  */
 export interface WebSearchInput {
-  query: string
-  count?: number
-  offset?: number
-  offset_encoding?: "text" | "none"
+  query: string;
+  count?: number;
+  offset?: number;
+  offset_encoding?: "text" | "none";
 }
 
 /**
  * Tavily API request parameters.
  */
 export interface TavilySearchRequest {
-  query: string
-  search_depth?: "basic" | "advanced" | "fast"
-  max_results?: number
-  include_domains?: string[]
-  exclude_domains?: string[]
-  include_answer?: boolean
-  include_raw_content?: boolean
-  topic?: "general" | "news" | "finance"
-  days?: number
-  max_images?: number
-  images_location?: "inline" | "append"
+  query: string;
+  search_depth?: "basic" | "advanced" | "fast";
+  max_results?: number;
+  include_domains?: string[];
+  exclude_domains?: string[];
+  include_answer?: boolean;
+  include_raw_content?: boolean;
+  topic?: "general" | "news" | "finance";
+  days?: number;
+  max_images?: number;
+  images_location?: "inline" | "append";
 }
 
 /**
  * Tavily API response.
  */
 export interface TavilySearchResponse {
-  query: string
-  results: TavilyResult[]
-  answer?: string
-  response_time: number
+  query: string;
+  results: TavilyResult[];
+  answer?: string;
+  response_time: number;
   images?: Array<{
-    url: string
-    description: string
-  }>
+    url: string;
+    description: string;
+  }>;
 }
 
 export interface TavilyResult {
-  title: string
-  url: string
-  content: string
-  score: number
-  published_date?: string
-  raw_content?: string
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+  published_date?: string;
+  raw_content?: string;
 }
 
 /**
  * Single web search result item (Anthropic API format).
  */
 export interface WebSearchResultItem {
-  type: "web_search_result"
-  url: string
-  title: string
-  encrypted_content: string
-  page_age?: string}
+  type: "web_search_result";
+  url: string;
+  title: string;
+  encrypted_content: string;
+  page_age?: string;
+}
 
 /**
  * Anthropic web_search_tool_result format.
@@ -74,10 +75,10 @@ export interface WebSearchResultItem {
  * `textContent` is the plain-text representation for synthesis prompts.
  */
 export interface WebSearchToolResult {
-  type: "web_search_tool_result"
-  content: WebSearchResultItem[]
+  type: "web_search_tool_result";
+  content: WebSearchResultItem[];
   /** Plain text for synthesis (not sent in API response) */
-  textContent: string
+  textContent: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,8 +91,8 @@ export class TavilyError extends Error {
     public statusCode: number,
     public type: "auth" | "rate_limit" | "timeout" | "upstream" | "unknown",
   ) {
-    super(message)
-    this.name = "TavilyError"
+    super(message);
+    this.name = "TavilyError";
   }
 }
 
@@ -99,9 +100,9 @@ export class TavilyError extends Error {
 // Client
 // ---------------------------------------------------------------------------
 
-const TAVILY_API_URL = "https://api.tavily.com/search"
-const DEFAULT_MAX_RESULTS = 10
-const REQUEST_TIMEOUT = 30_000 // 30 seconds
+const TAVILY_API_URL = "https://api.tavily.com/search";
+const DEFAULT_MAX_RESULTS = 10;
+const REQUEST_TIMEOUT = 30_000; // 30 seconds
 
 /**
  * Execute a Tavily search with the given API key and query.
@@ -113,9 +114,9 @@ export async function searchTavily(
   input: WebSearchInput,
   signal?: AbortSignal,
 ): Promise<WebSearchToolResult> {
-  signal?.throwIfAborted()
+  signal?.throwIfAborted();
   if (!apiKey || apiKey.trim() === "") {
-    throw new TavilyError("API key not configured", 500, "auth")
+    throw new TavilyError("API key not configured", 500, "auth");
   }
 
   // Map Anthropic web_search input to Tavily request
@@ -125,44 +126,34 @@ export async function searchTavily(
     search_depth: "basic",
     include_answer: true,
     topic: "general",
-  }
+  };
 
   // AbortController for timeout
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
-  const requestSignal = signal
-    ? AbortSignal.any([signal, controller.signal])
-    : controller.signal
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+  const requestSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
 
   try {
     const response = await fetch(TAVILY_API_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(tavilyRequest),
       signal: requestSignal,
-    })
+    });
 
-    requestSignal.throwIfAborted()
+    requestSignal.throwIfAborted();
 
     // Handle authentication errors
     if (response.status === 401 || response.status === 403) {
-      throw new TavilyError(
-        "Invalid Tavily API key",
-        response.status,
-        "auth",
-      )
+      throw new TavilyError("Invalid Tavily API key", response.status, "auth");
     }
 
     // Handle rate limit
     if (response.status === 429) {
-      throw new TavilyError(
-        "Tavily rate limit exceeded",
-        response.status,
-        "rate_limit",
-      )
+      throw new TavilyError("Tavily rate limit exceeded", response.status, "rate_limit");
     }
 
     // Handle other errors
@@ -171,36 +162,32 @@ export async function searchTavily(
         `Tavily API error: ${response.status} ${response.statusText}`,
         response.status,
         "upstream",
-      )
+      );
     }
 
-    const data = (await response.json()) as TavilySearchResponse
-    requestSignal.throwIfAborted()
-    return formatWebSearchResult(data)
+    const data = (await response.json()) as TavilySearchResponse;
+    requestSignal.throwIfAborted();
+    return formatWebSearchResult(data);
   } catch (err) {
-    signal?.throwIfAborted()
+    signal?.throwIfAborted();
 
     if (err instanceof TavilyError) {
-      throw err
+      throw err;
     }
 
     // Handle timeout
     if (err instanceof Error && err.name === "AbortError") {
-      throw new TavilyError("Tavily request timeout", 408, "timeout")
+      throw new TavilyError("Tavily request timeout", 408, "timeout");
     }
 
     // Handle network errors
     if (err instanceof Error) {
-      throw new TavilyError(
-        `Tavily request failed: ${err.message}`,
-        502,
-        "upstream",
-      )
+      throw new TavilyError(`Tavily request failed: ${err.message}`, 502, "upstream");
     }
 
-    throw new TavilyError("Unknown Tavily error", 500, "unknown")
+    throw new TavilyError("Unknown Tavily error", 500, "unknown");
   } finally {
-    clearTimeout(timeoutId)
+    clearTimeout(timeoutId);
   }
 }
 
@@ -211,34 +198,28 @@ export async function searchTavily(
  * - `content`: Anthropic-format array of `web_search_result` items
  * - `textContent`: plain-text representation for synthesis prompts
  */
-export function formatWebSearchResult(
-  tavilyResponse: TavilySearchResponse,
-): WebSearchToolResult {
-  const results = tavilyResponse.results
+export function formatWebSearchResult(tavilyResponse: TavilySearchResponse): WebSearchToolResult {
+  const results = tavilyResponse.results;
 
   // Build Anthropic-format content array
   const content: WebSearchResultItem[] = results.map((r) => ({
     type: "web_search_result" as const,
     url: r.url,
     title: r.title,
-    encrypted_content: r.content
-      ? Buffer.from(r.content).toString("base64")
-      : "",
+    encrypted_content: r.content ? Buffer.from(r.content).toString("base64") : "",
     ...(r.published_date ? { page_age: r.published_date } : {}),
-  }))
+  }));
 
   // Build plain text for synthesis
-  let text = ""
+  let text = "";
   if (tavilyResponse.answer) {
-    text += `${tavilyResponse.answer}\n\n`
+    text += `${tavilyResponse.answer}\n\n`;
   }
-  text += results
-    .map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.content}`)
-    .join("\n\n")
+  text += results.map((r, i) => `[${i + 1}] ${r.title}\n${r.url}\n${r.content}`).join("\n\n");
 
   return {
     type: "web_search_tool_result",
     content,
     textContent: text || "No results found",
-  }
+  };
 }

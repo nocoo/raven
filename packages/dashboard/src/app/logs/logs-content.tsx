@@ -9,7 +9,13 @@ import { useSearchParams } from "next/navigation";
 import { Pause, Play, Trash2, Circle, Rocket, X } from "@nocoo/basalt/icons";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { Button, Input, LayerCard } from "@nocoo/basalt";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nocoo/basalt/components/select";
 const LEVELS: LogLevel[] = ["debug", "info", "warn", "error"];
 function relativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -115,7 +121,15 @@ export function LogsContent({
     anchorRef.current = null;
   }, []);
 
-  const { events, eventSeq, connected, paused, setPaused, clear, setLevel: setStreamLevel } = useLogStream({
+  const {
+    events,
+    eventSeq,
+    connected,
+    paused,
+    setPaused,
+    clear,
+    setLevel: setStreamLevel,
+  } = useLogStream({
     level,
     onBeforeAppend: captureAnchor,
     ...(requestIdFilter ? { requestId: requestIdFilter } : {}),
@@ -142,9 +156,7 @@ export function LogsContent({
     }
     const anchor = anchorRef.current;
     if (!anchor?.key) return;
-    const node = el.querySelector<HTMLElement>(
-      `[data-group-key="${CSS.escape(anchor.key)}"]`,
-    );
+    const node = el.querySelector<HTMLElement>(`[data-group-key="${CSS.escape(anchor.key)}"]`);
     if (!node) {
       // Anchor group was evicted from the ring buffer. The user's frame
       // of reference is gone; least-jarring recovery is to leave scrollTop
@@ -224,13 +236,7 @@ export function LogsContent({
                 </>
               )}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1"
-              onClick={clear}
-              title="Clear"
-            >
+            <Button variant="outline" size="sm" className="h-8 gap-1" onClick={clear} title="Clear">
               <Trash2 className="size-3" />
               <span className="hidden sm:inline">Clear</span>
             </Button>
@@ -260,10 +266,13 @@ export function LogsContent({
           )}
           {requestIdFilter && (
             <div className="flex shrink-0 items-center gap-2 rounded-md bg-basalt-info/10 px-3 py-1.5 text-xs text-basalt-info">
-              <span>Filtered by request: <code className="font-mono">{requestIdFilter}</code></span>
+              <span>
+                Filtered by request: <code className="font-mono">{requestIdFilter}</code>
+              </span>
               {onClearRequestIdFilter && (
                 <Button
-                  variant="ghost" size="sm"
+                  variant="ghost"
+                  size="sm"
                   onClick={onClearRequestIdFilter}
                   className="hover:underline ml-1 font-medium"
                 >
@@ -277,11 +286,7 @@ export function LogsContent({
 
       <div className="min-h-0 flex-1 flex flex-col @min-[42rem]/logs:flex-row gap-3">
         <section aria-label="Log events" className="relative min-h-0 min-w-0 flex-1 flex flex-col">
-          <div
-            ref={scrollRef}
-            onScroll={onScroll}
-            className="flex-1 overflow-y-auto"
-          >
+          <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto">
             {groups.length === 0 ? (
               <LayerCard padding="none">
                 <LayerCard.Empty
@@ -302,7 +307,8 @@ export function LogsContent({
           {/* FAB — scroll to top (newest) */}
           {showFab && (
             <Button
-              variant="default" size="icon"
+              variant="default"
+              size="icon"
               onClick={scrollToTop}
               className="absolute bottom-4 right-4 flex items-center justify-center size-10 rounded-full bg-basalt-primary text-basalt-primary-foreground shadow-lg hover:bg-basalt-primary/90 transition-all hover:scale-105 active:scale-95"
               title="Back to latest"

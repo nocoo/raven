@@ -58,7 +58,9 @@ let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   mockRefresh.mockClear();
-  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+  fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected fixture request"));
 });
 
 afterEach(() => {
@@ -71,7 +73,16 @@ afterEach(() => {
 
 describe("AccountContent.handleRefresh", () => {
   it("groups account metadata behind one disclosure without repeating capabilities", async () => {
-    render(<AccountContent data={makeUser({ chat_enabled: true, analytics_tracking_id: "fixture-tracking", endpoints: { api: "https://fixture.invalid/api" }, fixture_property: "fixture-extra" })} />);
+    render(
+      <AccountContent
+        data={makeUser({
+          chat_enabled: true,
+          analytics_tracking_id: "fixture-tracking",
+          endpoints: { api: "https://fixture.invalid/api" },
+          fixture_property: "fixture-extra",
+        })}
+      />,
+    );
     expect(screen.getByRole("heading", { name: "Account" })).toBeVisible();
     expect(screen.getAllByText("Chat")).toHaveLength(1);
     expect(screen.queryByText("fixture-tracking")).toBeNull();
@@ -132,46 +143,90 @@ describe("AccountContent.handleRefresh", () => {
 
 describe("CopilotModelsContent.handleRefresh", () => {
   it("renders sparse cached metadata without fabricating capability, limit or picker readiness", () => {
-    render(<CopilotModelsContent data={[{ id: "sparse-a", vendor: "fixture", supported_endpoints: ["/responses"] }, { id: "sparse-b", vendor: "fixture", capabilities: { type: "chat" } }]} />);
+    render(
+      <CopilotModelsContent
+        data={[
+          { id: "sparse-a", vendor: "fixture", supported_endpoints: ["/responses"] },
+          { id: "sparse-b", vendor: "fixture", capabilities: { type: "chat" } },
+        ]}
+      />,
+    );
     const first = within(screen.getByRole("row", { name: /sparse-a/ }));
     expect(first.getAllByText("Unknown")).toHaveLength(2);
     expect(first.getAllByText("—")).toHaveLength(5);
     expect(screen.getByText("sparse-b")).toBeVisible();
     expect(fetchSpy).not.toHaveBeenCalled();
 
-    const unknownBadge = screen.getByRole("row", { name: /sparse-a/ }).querySelector("[data-tag-color]");
+    const unknownBadge = screen
+      .getByRole("row", { name: /sparse-a/ })
+      .querySelector("[data-tag-color]");
     expect(unknownBadge).toHaveTextContent("Unknown");
     expect(unknownBadge).not.toHaveAttribute("style");
   });
 
   it("uses stable package-owned hash colors and sorts each vendor table by type then id", () => {
-    render(<CopilotModelsContent data={[
-      makeModel({ id: "z-chat-b", vendor: "zeta", capabilities: { family: "z", type: "chat" } }),
-      makeModel({ id: "z-chat-a", vendor: "zeta", capabilities: { family: "z", type: "chat" } }),
-      makeModel({ id: "z-image-a", vendor: "zeta", capabilities: { family: "z", type: "image" } }),
-      makeModel({ id: "z-audio-a", vendor: "zeta", capabilities: { family: "z", type: "audio" } }),
-      makeModel({ id: "a-image-b", vendor: "alpha", capabilities: { family: "a", type: "image" } }),
-      makeModel({ id: "a-chat-a", vendor: "alpha", capabilities: { family: "a", type: "chat" } }),
-    ]} />);
+    render(
+      <CopilotModelsContent
+        data={[
+          makeModel({
+            id: "z-chat-b",
+            vendor: "zeta",
+            capabilities: { family: "z", type: "chat" },
+          }),
+          makeModel({
+            id: "z-chat-a",
+            vendor: "zeta",
+            capabilities: { family: "z", type: "chat" },
+          }),
+          makeModel({
+            id: "z-image-a",
+            vendor: "zeta",
+            capabilities: { family: "z", type: "image" },
+          }),
+          makeModel({
+            id: "z-audio-a",
+            vendor: "zeta",
+            capabilities: { family: "z", type: "audio" },
+          }),
+          makeModel({
+            id: "a-image-b",
+            vendor: "alpha",
+            capabilities: { family: "a", type: "image" },
+          }),
+          makeModel({
+            id: "a-chat-a",
+            vendor: "alpha",
+            capabilities: { family: "a", type: "chat" },
+          }),
+        ]}
+      />,
+    );
 
-    const vendorNames = screen.getAllByRole("heading", { level: 2 }).map(heading => heading.textContent?.trim());
+    const vendorNames = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent?.trim());
     expect(vendorNames).toEqual(["alpha", "zeta"]);
 
     const idsInVendor = (vendor: string) => {
       const heading = screen.getByRole("heading", { name: vendor });
       const table = heading.parentElement?.parentElement?.querySelector("table");
       expect(table).not.toBeNull();
-      return within(table as HTMLTableElement).getAllByRole("row").slice(1).map(row => row.querySelector("td")?.textContent?.trim());
+      return within(table as HTMLTableElement)
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelector("td")?.textContent?.trim());
     };
 
     expect(idsInVendor("alpha")).toEqual(["a-chat-a", "a-image-b"]);
     expect(idsInVendor("zeta")).toEqual(["z-audio-a", "z-chat-a", "z-chat-b", "z-image-a"]);
 
-    const chatBadges = screen.getAllByText("chat").filter(element => element.hasAttribute("data-tag-color"));
+    const chatBadges = screen
+      .getAllByText("chat")
+      .filter((element) => element.hasAttribute("data-tag-color"));
     expect(chatBadges).toHaveLength(3);
-    const colors = chatBadges.map(badge => badge.getAttribute("data-tag-color"));
+    const colors = chatBadges.map((badge) => badge.getAttribute("data-tag-color"));
     expect(new Set(colors).size).toBe(1);
-    chatBadges.forEach(badge => {
+    chatBadges.forEach((badge) => {
       expect(badge).not.toHaveAttribute("style");
       expect(badge.className).toContain("bg-basalt-tag-");
     });
@@ -187,7 +242,9 @@ describe("CopilotModelsContent.handleRefresh", () => {
     await user.click(refreshButton);
 
     await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith("/api/upstreams/builtin%3Acopilot/models/refresh", { method: "POST" });
+      expect(fetchSpy).toHaveBeenCalledWith("/api/upstreams/builtin%3Acopilot/models/refresh", {
+        method: "POST",
+      });
     });
   });
 

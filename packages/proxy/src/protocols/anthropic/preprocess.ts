@@ -12,10 +12,7 @@
  * D.7 onward (docs/20-architecture-refactor.md §3.7).
  */
 
-import {
-  type AnthropicMessagesPayload,
-  isServerSideTool,
-} from "./types"
+import { type AnthropicMessagesPayload, isServerSideTool } from "./types";
 
 // ---------------------------------------------------------------------------
 // Model Name Translation
@@ -23,13 +20,13 @@ import {
 
 // Pre-compiled regexes for model name translation (avoid regex compilation on each call)
 const MODEL_REGEX_WITH_MINOR =
-  /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:(?:-|\[)(1m|fast)\]?)?(?:-\d{8})?$/
-const MODEL_REGEX_NO_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/
+  /^(claude-(?:opus|sonnet|haiku))-(\d+)-(\d{1,2})(?:(?:-|\[)(1m|fast)\]?)?(?:-\d{8})?$/;
+const MODEL_REGEX_NO_MINOR = /^(claude-(?:opus|sonnet|haiku))-(\d+)(?:-\d{8})?$/;
 
 // Tiny cache for translated model names. Same (model, beta) pair often
 // recurs across requests from the same client; regex match + string concat is the
 // dominant cost. Cleared when full to avoid unbounded growth (model namespace is small).
-const MODEL_NAME_CACHE = new Map<string, string>()
+const MODEL_NAME_CACHE = new Map<string, string>();
 
 /**
  * Translate Anthropic SDK model identifiers to Copilot model IDs.
@@ -46,54 +43,55 @@ const MODEL_NAME_CACHE = new Map<string, string>()
  */
 export function translateModelName(model: string, anthropicBeta: string | null): string {
   // Cache hit on identical (model, beta) inputs — common for repeat clients.
-  const cacheKey = anthropicBeta === null ? model : `${model}\0${anthropicBeta}`
-  const cached = MODEL_NAME_CACHE.get(cacheKey)
-  if (cached !== undefined) return cached
+  const cacheKey = anthropicBeta === null ? model : `${model}\0${anthropicBeta}`;
+  const cached = MODEL_NAME_CACHE.get(cacheKey);
+  if (cached !== undefined) return cached;
 
-  const result = translateModelNameUncached(model, anthropicBeta)
-  if (MODEL_NAME_CACHE.size >= 64) MODEL_NAME_CACHE.clear()
-  MODEL_NAME_CACHE.set(cacheKey, result)
-  return result
+  const result = translateModelNameUncached(model, anthropicBeta);
+  if (MODEL_NAME_CACHE.size >= 64) MODEL_NAME_CACHE.clear();
+  MODEL_NAME_CACHE.set(cacheKey, result);
+  return result;
 }
 
 function translateModelNameUncached(model: string, anthropicBeta: string | null): string {
-  let wants1m = false
-  let wantsFast = false
+  let wants1m = false;
+  let wantsFast = false;
   if (anthropicBeta) {
     // Avoid allocating betas array for the common (null beta) case.
-    let start = 0
-    const len = anthropicBeta.length
+    let start = 0;
+    const len = anthropicBeta.length;
     for (let i = 0; i <= len; i++) {
       if (i === len || anthropicBeta.charCodeAt(i) === 44 /* ',' */) {
         // Trim whitespace via charCode bounds without slicing.
-        let s = start
-        let e = i
-        while (s < e && anthropicBeta.charCodeAt(s) <= 32) s++
-        while (e > s && anthropicBeta.charCodeAt(e - 1) <= 32) e--
-        if (e - s >= 11 && !wants1m && anthropicBeta.startsWith("context-1m-", s)) wants1m = true
-        else if (e - s >= 10 && !wantsFast && anthropicBeta.startsWith("fast-mode-", s)) wantsFast = true
-        start = i + 1
+        let s = start;
+        let e = i;
+        while (s < e && anthropicBeta.charCodeAt(s) <= 32) s++;
+        while (e > s && anthropicBeta.charCodeAt(e - 1) <= 32) e--;
+        if (e - s >= 11 && !wants1m && anthropicBeta.startsWith("context-1m-", s)) wants1m = true;
+        else if (e - s >= 10 && !wantsFast && anthropicBeta.startsWith("fast-mode-", s))
+          wantsFast = true;
+        start = i + 1;
       }
     }
   }
 
-  const match = model.match(MODEL_REGEX_WITH_MINOR)
+  const match = model.match(MODEL_REGEX_WITH_MINOR);
   if (match) {
-    const [, family, major, minor, suffix] = match
-    const base = `${family}-${major}.${minor}`
-    if (suffix) return `${base}-${suffix}`
-    if (wants1m) return `${base}-1m`
-    if (wantsFast) return `${base}-fast`
-    return base
+    const [, family, major, minor, suffix] = match;
+    const base = `${family}-${major}.${minor}`;
+    if (suffix) return `${base}-${suffix}`;
+    if (wants1m) return `${base}-1m`;
+    if (wantsFast) return `${base}-fast`;
+    return base;
   }
 
-  const matchNoMinor = model.match(MODEL_REGEX_NO_MINOR)
+  const matchNoMinor = model.match(MODEL_REGEX_NO_MINOR);
   if (matchNoMinor) {
-    const [, family, major] = matchNoMinor
-    return `${family}-${major}`
+    const [, family, major] = matchNoMinor;
+    return `${family}-${major}`;
   }
 
-  return model
+  return model;
 }
 
 /**
@@ -113,15 +111,15 @@ function translateModelNameUncached(model: string, anthropicBeta: string | null)
  * empty or already contains the exact id.
  */
 export function resolveAgainstCatalog(name: string, catalogIds: readonly string[]): string {
-  if (catalogIds.length === 0) return name
-  if (catalogIds.includes(name)) return name
-  const internalVariant = `${name}-internal`
-  if (catalogIds.includes(internalVariant)) return internalVariant
+  if (catalogIds.length === 0) return name;
+  if (catalogIds.includes(name)) return name;
+  const internalVariant = `${name}-internal`;
+  if (catalogIds.includes(internalVariant)) return internalVariant;
   if (name.endsWith("-1m")) {
-    const base = name.slice(0, -3)
-    if (catalogIds.includes(base)) return base
+    const base = name.slice(0, -3);
+    if (catalogIds.includes(base)) return base;
   }
-  return name
+  return name;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,24 +128,24 @@ export function resolveAgainstCatalog(name: string, catalogIds: readonly string[
 
 export interface ServerToolContext {
   /** Names of server-side tools detected in the payload */
-  serverSideToolNames: string[]
+  serverSideToolNames: string[];
   /** Whether any server-side tools are present */
-  hasServerSideTools: boolean
+  hasServerSideTools: boolean;
   /** Whether ALL tools are server-side (pure mode) */
-  allServerSide: boolean
+  allServerSide: boolean;
 }
 
 export interface PreprocessedRequest {
   /** Cleaned payload (service_tier removed, original model preserved) */
-  payload: AnthropicMessagesPayload
+  payload: AnthropicMessagesPayload;
   /** Original model name from client, used for provider matching */
-  rawModel: string
+  rawModel: string;
   /** Normalized model name for Copilot routing and sending */
-  copilotModel: string
+  copilotModel: string;
   /** Filtered anthropic-beta header (only allowed betas) */
-  anthropicBeta: string | null
+  anthropicBeta: string | null;
   /** Server-side tool detection results */
-  serverToolContext: ServerToolContext
+  serverToolContext: ServerToolContext;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,19 +159,19 @@ export interface PreprocessedRequest {
 export const ALLOWED_BETAS = new Set([
   "interleaved-thinking-2025-05-14",
   "advanced-tool-use-2025-11-20",
-])
+]);
 
 /**
  * Filter anthropic-beta header to only include supported betas.
  * Betas like "context-1m-*" are handled via model name suffix, not header.
  */
 export function filterAnthropicBeta(header: string | null | undefined): string | null {
-  if (!header) return null
+  if (!header) return null;
   const filtered = header
     .split(",")
     .map((s) => s.trim())
-    .filter((s) => ALLOWED_BETAS.has(s))
-  return filtered.length > 0 ? filtered.join(",") : null
+    .filter((s) => ALLOWED_BETAS.has(s));
+  return filtered.length > 0 ? filtered.join(",") : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -190,27 +188,27 @@ export function sanitizePayload(payload: AnthropicMessagesPayload): AnthropicMes
     service_tier: _serviceTier,
     context_management: _contextManagement,
     ...sanitized
-  } = payload as AnthropicMessagesPayload & { context_management?: unknown }
+  } = payload as AnthropicMessagesPayload & { context_management?: unknown };
 
   // Strip thinking blocks from assistant messages for claude-opus-4.5 only.
   // Copilot cannot verify the `signature` field generated by a previous API
   // call, causing "Invalid `signature` in `thinking` block" errors.
   // This issue currently only affects claude-opus-4.5 via GitHub Copilot.
-  const needsThinkingStrip = payload.model.startsWith("claude-opus-4-5")
-    || payload.model.startsWith("claude-opus-4.5")
+  const needsThinkingStrip =
+    payload.model.startsWith("claude-opus-4-5") || payload.model.startsWith("claude-opus-4.5");
   if (!needsThinkingStrip) {
-    return sanitized as AnthropicMessagesPayload
+    return sanitized as AnthropicMessagesPayload;
   }
 
   const messages = sanitized.messages.map((msg) => {
-    if (msg.role !== "assistant") return msg
-    if (typeof msg.content === "string") return msg
-    const filtered = msg.content.filter((block) => block.type !== "thinking")
-    if (filtered.length === msg.content.length) return msg
-    return { ...msg, content: filtered }
-  })
+    if (msg.role !== "assistant") return msg;
+    if (typeof msg.content === "string") return msg;
+    const filtered = msg.content.filter((block) => block.type !== "thinking");
+    if (filtered.length === msg.content.length) return msg;
+    return { ...msg, content: filtered };
+  });
 
-  return { ...sanitized, messages } as AnthropicMessagesPayload
+  return { ...sanitized, messages } as AnthropicMessagesPayload;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,23 +221,23 @@ export function sanitizePayload(payload: AnthropicMessagesPayload): AnthropicMes
  * can use the same interception logic.
  */
 export function detectServerTools(payload: AnthropicMessagesPayload): ServerToolContext {
-  const tools = payload.tools ?? []
-  const serverSideToolNames: string[] = []
+  const tools = payload.tools ?? [];
+  const serverSideToolNames: string[] = [];
 
   for (const tool of tools) {
     if (isServerSideTool(tool)) {
-      serverSideToolNames.push(tool.name)
+      serverSideToolNames.push(tool.name);
     }
   }
 
-  const hasServerSideTools = serverSideToolNames.length > 0
-  const allServerSide = hasServerSideTools && serverSideToolNames.length === tools.length
+  const hasServerSideTools = serverSideToolNames.length > 0;
+  const allServerSide = hasServerSideTools && serverSideToolNames.length === tools.length;
 
   return {
     serverSideToolNames,
     hasServerSideTools,
     allServerSide,
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -264,19 +262,19 @@ export function preprocessPayload(
   rawBeta: string | null,
   catalogIds: readonly string[] = [],
 ): PreprocessedRequest {
-  const rawModel = rawPayload.model
+  const rawModel = rawPayload.model;
 
   // 1. Copilot model name normalization (only for Copilot path)
-  const copilotModel = resolveAgainstCatalog(translateModelName(rawModel, rawBeta), catalogIds)
+  const copilotModel = resolveAgainstCatalog(translateModelName(rawModel, rawBeta), catalogIds);
 
   // 2. Beta header filtering
-  const anthropicBeta = filterAnthropicBeta(rawBeta)
+  const anthropicBeta = filterAnthropicBeta(rawBeta);
 
   // 3. Payload sanitization (remove service_tier, etc.)
-  const payload = sanitizePayload(rawPayload)
+  const payload = sanitizePayload(rawPayload);
 
   // 4. Server-side tool detection (before translation!)
-  const serverToolContext = detectServerTools(payload)
+  const serverToolContext = detectServerTools(payload);
 
   return {
     payload,
@@ -284,5 +282,5 @@ export function preprocessPayload(
     copilotModel,
     anthropicBeta,
     serverToolContext,
-  }
+  };
 }

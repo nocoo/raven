@@ -1,72 +1,66 @@
-import { describe, expect, test, beforeEach, afterEach } from "vitest"
-import {
-  getModelCapabilities,
-} from "../../src/strategies/support/model-capabilities"
-import { state } from "../../src/lib/state"
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
+import { getModelCapabilities } from "../../src/strategies/support/model-capabilities";
+import { state } from "../../src/lib/state";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 interface TestModel {
-  id: string
-  name: string
-  version: string
+  id: string;
+  name: string;
+  version: string;
   capabilities?: {
     supports?: {
-      reasoning_effort?: string[]
-      adaptive_thinking?: boolean
-      max_thinking_budget?: number
-    }
+      reasoning_effort?: string[];
+      adaptive_thinking?: boolean;
+      max_thinking_budget?: number;
+    };
     limits?: {
-      max_context_window_tokens?: number | null
-      max_output_tokens?: number | null
-    }
-  }
+      max_context_window_tokens?: number | null;
+      max_output_tokens?: number | null;
+    };
+  };
 }
 
 // Save original state
-let savedModels: typeof state.models
+let savedModels: typeof state.models;
 
 beforeEach(() => {
-  savedModels = state.models
-})
+  savedModels = state.models;
+});
 
 afterEach(() => {
-  state.models = savedModels
-})
+  state.models = savedModels;
+});
 
 function setModels(models: TestModel[]): void {
   state.models = {
     data: models as typeof state.models extends { data: infer T } ? T : never,
     object: "list",
-  }
+  };
 }
 
 describe("getModelCapabilities", () => {
   test("returns null when state.models is null", () => {
-    state.models = null
-    expect(getModelCapabilities("claude-sonnet-4")).toBeNull()
-  })
+    state.models = null;
+    expect(getModelCapabilities("claude-sonnet-4")).toBeNull();
+  });
 
   test("returns null when state.models.data is undefined", () => {
-    state.models = {} as typeof state.models
-    expect(getModelCapabilities("claude-sonnet-4")).toBeNull()
-  })
+    state.models = {} as typeof state.models;
+    expect(getModelCapabilities("claude-sonnet-4")).toBeNull();
+  });
 
   test("returns null when model is not found", () => {
-    setModels([
-      { id: "gpt-4o", name: "GPT-4o", version: "2024-08-06" },
-    ])
-    expect(getModelCapabilities("claude-sonnet-4")).toBeNull()
-  })
+    setModels([{ id: "gpt-4o", name: "GPT-4o", version: "2024-08-06" }]);
+    expect(getModelCapabilities("claude-sonnet-4")).toBeNull();
+  });
 
   test("returns null when model has no capabilities", () => {
-    setModels([
-      { id: "claude-sonnet-4", name: "Claude Sonnet 4", version: "2025-04-14" },
-    ])
-    expect(getModelCapabilities("claude-sonnet-4")).toBeNull()
-  })
+    setModels([{ id: "claude-sonnet-4", name: "Claude Sonnet 4", version: "2025-04-14" }]);
+    expect(getModelCapabilities("claude-sonnet-4")).toBeNull();
+  });
 
   test("returns capabilities when present", () => {
     setModels([
@@ -86,16 +80,16 @@ describe("getModelCapabilities", () => {
           },
         },
       },
-    ])
+    ]);
 
-    const caps = getModelCapabilities("claude-sonnet-4")
-    expect(caps).not.toBeNull()
-    expect(caps?.supports?.reasoning_effort).toEqual(["low", "medium", "high"])
-    expect(caps?.supports?.adaptive_thinking).toBe(true)
-    expect(caps?.supports?.max_thinking_budget).toBe(32000)
-    expect(caps?.limits?.max_context_window_tokens).toBe(200000)
-    expect(caps?.limits?.max_output_tokens).toBe(16384)
-  })
+    const caps = getModelCapabilities("claude-sonnet-4");
+    expect(caps).not.toBeNull();
+    expect(caps?.supports?.reasoning_effort).toEqual(["low", "medium", "high"]);
+    expect(caps?.supports?.adaptive_thinking).toBe(true);
+    expect(caps?.supports?.max_thinking_budget).toBe(32000);
+    expect(caps?.limits?.max_context_window_tokens).toBe(200000);
+    expect(caps?.limits?.max_output_tokens).toBe(16384);
+  });
 
   test("returns partial capabilities", () => {
     setModels([
@@ -109,13 +103,13 @@ describe("getModelCapabilities", () => {
           },
         },
       },
-    ])
+    ]);
 
-    const caps = getModelCapabilities("claude-sonnet-4")
-    expect(caps).not.toBeNull()
-    expect(caps?.supports).toBeUndefined()
-    expect(caps?.limits?.max_output_tokens).toBe(8192)
-  })
+    const caps = getModelCapabilities("claude-sonnet-4");
+    expect(caps).not.toBeNull();
+    expect(caps?.supports).toBeUndefined();
+    expect(caps?.limits?.max_output_tokens).toBe(8192);
+  });
 
   test("matches model by exact id", () => {
     setModels([
@@ -135,12 +129,12 @@ describe("getModelCapabilities", () => {
           supports: { adaptive_thinking: false },
         },
       },
-    ])
+    ]);
 
-    const opusCaps = getModelCapabilities("claude-opus-4.6")
-    const sonnetCaps = getModelCapabilities("claude-sonnet-4")
+    const opusCaps = getModelCapabilities("claude-opus-4.6");
+    const sonnetCaps = getModelCapabilities("claude-sonnet-4");
 
-    expect(opusCaps?.supports?.adaptive_thinking).toBe(true)
-    expect(sonnetCaps?.supports?.adaptive_thinking).toBe(false)
-  })
-})
+    expect(opusCaps?.supports?.adaptive_thinking).toBe(true);
+    expect(sonnetCaps?.supports?.adaptive_thinking).toBe(false);
+  });
+});

@@ -117,10 +117,7 @@ describe("migration integration tests", () => {
     await fs.mkdir(dataDir, { recursive: true });
 
     // Simulate selective migration
-    const tokenMigrated = await copyIfExists(
-      legacyTokenPath,
-      path.join(configDir, "github_token"),
-    );
+    const tokenMigrated = await copyIfExists(legacyTokenPath, path.join(configDir, "github_token"));
     const dbMigrated = await copyIfExists(
       path.join(legacyDataDir, "raven.db"),
       path.join(dataDir, "raven.db"),
@@ -147,16 +144,10 @@ describe("migration integration tests", () => {
     await fs.mkdir(dataDir, { recursive: true });
 
     // Migrate token
-    await fs.copyFile(
-      legacyTokenPath,
-      path.join(configDir, "github_token"),
-    );
+    await fs.copyFile(legacyTokenPath, path.join(configDir, "github_token"));
 
     // Verify token migrated
-    const tokenContent = await fs.readFile(
-      path.join(configDir, "github_token"),
-      "utf-8",
-    );
+    const tokenContent = await fs.readFile(path.join(configDir, "github_token"), "utf-8");
     expect(tokenContent).toBe("token_only");
 
     // Database should not exist
@@ -176,10 +167,7 @@ describe("migration integration tests", () => {
     await fs.copyFile(legacyDbPath, path.join(dataDir, "raven.db"));
 
     // Verify database migrated
-    const dbContent = await fs.readFile(
-      path.join(dataDir, "raven.db"),
-      "utf-8",
-    );
+    const dbContent = await fs.readFile(path.join(dataDir, "raven.db"), "utf-8");
     expect(dbContent).toBe("db_only");
 
     // Token should not exist

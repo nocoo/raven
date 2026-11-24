@@ -9,41 +9,40 @@
 // (H.3) is the only module that reads `state` and threads the flag in.
 // ---------------------------------------------------------------------------
 
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { Strategy } from "../core/strategy"
-import { isInlineStreamError } from "./support/inline-stream-error"
-import type { ServerSentEvent } from "../util/sse"
-import { logEmitter } from "../util/log-emitter"
-import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
-import type {
-  ChatCompletionResponse,
-  ChatCompletionsPayload,
-} from "../upstream/copilot-openai"
-import type { CopilotOpenAIClient } from "../upstream/copilot-openai"
+import type { Strategy } from "../core/strategy";
+import { isInlineStreamError } from "./support/inline-stream-error";
+import type { ServerSentEvent } from "../util/sse";
+import { logEmitter } from "../util/log-emitter";
+import { emitUpstreamRawSse } from "../util/emit-upstream-raw";
+import type { ChatCompletionResponse, ChatCompletionsPayload } from "../upstream/copilot-openai";
+import type { CopilotOpenAIClient } from "../upstream/copilot-openai";
 
 export interface CopilotOpenAIDirectDeps {
   /** Pre-built upstream client (composition wires `buildUpstreamClient("copilot-openai")`). */
-  client: CopilotOpenAIClient
+  client: CopilotOpenAIClient;
   /** When true, emit `tool_call_start` debug events as new tool calls arrive in the stream. */
-  toolCallDebug: boolean
+  toolCallDebug: boolean;
 }
 
 export interface CopilotDirectStreamState {
-  inlineFailed?: boolean
-  model: string
-  resolvedModel: string
-  inputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  toolCallIds: Set<string>
+  inlineFailed?: boolean;
+  model: string;
+  resolvedModel: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  toolCallIds: Set<string>;
 }
 
 const isNonStreaming = (
   response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
-): response is ChatCompletionResponse => Object.hasOwn(response, "choices")
+): response is ChatCompletionResponse => Object.hasOwn(response, "choices");
 
-export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy<
+export function makeCopilotOpenAIDirect(
+  deps: CopilotOpenAIDirectDeps,
+): Strategy<
   ChatCompletionsPayload,
   ChatCompletionsPayload,
   ChatCompletionResponse,
@@ -58,11 +57,11 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
     prepare: (req) => req,
 
     dispatch: async (up, ctx) => {
-      const response = await deps.client.send(up, ctx.signal)
+      const response = await deps.client.send(up, ctx.signal);
       if (isNonStreaming(response)) {
-        return { kind: "json", body: response }
+        return { kind: "json", body: response };
       }
-      return { kind: "stream", chunks: response }
+      return { kind: "stream", chunks: response };
     },
 
     adaptJson: (resp) => resp,
@@ -77,29 +76,34 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
     }),
 
     adaptChunk: (chunk, st, ctx) => {
-      st.inlineFailed ||= isInlineStreamError(chunk.event)
-      emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data })
+      st.inlineFailed ||= isInlineStreamError(chunk.event);
+      emitUpstreamRawSse(ctx.requestId, { event: chunk.event, data: chunk.data });
 
       if (chunk.data && chunk.data !== "[DONE]") {
         try {
-          const parsed = JSON.parse(chunk.data)
-          st.inlineFailed ||= isInlineStreamError(chunk.event, parsed)
-          if (parsed.model) st.resolvedModel = parsed.model
+          const parsed = JSON.parse(chunk.data);
+          st.inlineFailed ||= isInlineStreamError(chunk.event, parsed);
+          if (parsed.model) st.resolvedModel = parsed.model;
           if (parsed.usage) {
-            const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0
-            st.inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached
-            st.outputTokens = parsed.usage.completion_tokens ?? 0
-            st.cacheReadTokens = cached
+            const cached = parsed.usage.prompt_tokens_details?.cached_tokens ?? 0;
+            st.inputTokens = (parsed.usage.prompt_tokens ?? 0) - cached;
+            st.outputTokens = parsed.usage.completion_tokens ?? 0;
+            st.cacheReadTokens = cached;
           }
 
           if (deps.toolCallDebug && parsed.choices?.[0]?.delta?.tool_calls) {
             for (const tc of parsed.choices[0].delta.tool_calls as Array<{
-              id?: string; function?: { name?: string }; index?: number
+              id?: string;
+              function?: { name?: string };
+              index?: number;
             }>) {
               if (tc.id && tc.function?.name && !st.toolCallIds.has(tc.id)) {
-                st.toolCallIds.add(tc.id)
+                st.toolCallIds.add(tc.id);
                 logEmitter.emitLog({
-                  ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
+                  ts: Date.now(),
+                  level: "debug",
+                  type: "sse_chunk",
+                  requestId: ctx.requestId,
                   msg: `tool_call started: ${tc.function.name}`,
                   data: {
                     eventType: "tool_call_start",
@@ -107,7 +111,7 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
                     toolId: tc.id,
                     index: tc.index,
                   },
-                })
+                });
               }
             }
           }
@@ -116,10 +120,10 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
         }
       }
 
-      return [chunk as SSEMessage]
+      return [chunk as SSEMessage];
     },
 
-    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
+    streamOutcome: (st) => (st.inlineFailed ? "error" : "success"),
 
     isStreamTerminal: (chunk) => chunk.data === "[DONE]",
 
@@ -137,22 +141,22 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
 
     describeEndLog: (result) => {
       if (result.kind === "json") {
-        const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
-        const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
-        const outputTokens = result.resp.usage?.completion_tokens ?? 0
+        const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+        const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached;
+        const outputTokens = result.resp.usage?.completion_tokens ?? 0;
         return {
           model: result.resp.model,
           resolvedModel: result.resp.model,
           inputTokens,
           outputTokens,
           cacheReadTokens: cached,
-        }
+        };
       }
       if (result.kind === "stream") {
-        const toolCallCount = result.state.toolCallIds.size
+        const toolCallCount = result.state.toolCallIds.size;
         const debugExtras = deps.toolCallDebug
           ? { toolCallNames: Array.from(result.state.toolCallIds) }
-          : {}
+          : {};
         return {
           model: result.state.model,
           resolvedModel: result.state.resolvedModel,
@@ -162,12 +166,12 @@ export function makeCopilotOpenAIDirect(deps: CopilotOpenAIDirectDeps): Strategy
           stopReason: toolCallCount > 0 ? "tool_calls" : "stop",
           toolCallCount,
           ...debugExtras,
-        }
+        };
       }
       if (result.kind === "error") {
-        return { model: result.req.model }
+        return { model: result.req.model };
       }
-      return {}
+      return {};
     },
-  }
+  };
 }

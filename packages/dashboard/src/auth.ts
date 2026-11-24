@@ -76,9 +76,7 @@ function createGoogleAuth() {
     },
     cookies: {
       pkceCodeVerifier: {
-        name: useSecureCookies
-          ? "__Secure-authjs.pkce.code_verifier"
-          : "authjs.pkce.code_verifier",
+        name: useSecureCookies ? "__Secure-authjs.pkce.code_verifier" : "authjs.pkce.code_verifier",
         options: {
           httpOnly: true,
           sameSite: "lax",
@@ -96,9 +94,7 @@ function createGoogleAuth() {
         },
       },
       callbackUrl: {
-        name: useSecureCookies
-          ? "__Secure-authjs.callback-url"
-          : "authjs.callback-url",
+        name: useSecureCookies ? "__Secure-authjs.callback-url" : "authjs.callback-url",
         options: {
           httpOnly: true,
           sameSite: "lax",
@@ -107,9 +103,7 @@ function createGoogleAuth() {
         },
       },
       sessionToken: {
-        name: useSecureCookies
-          ? "__Secure-authjs.session-token"
-          : "authjs.session-token",
+        name: useSecureCookies ? "__Secure-authjs.session-token" : "authjs.session-token",
         options: {
           httpOnly: true,
           sameSite: "lax",
@@ -118,9 +112,7 @@ function createGoogleAuth() {
         },
       },
       csrfToken: {
-        name: useSecureCookies
-          ? "__Host-authjs.csrf-token"
-          : "authjs.csrf-token",
+        name: useSecureCookies ? "__Host-authjs.csrf-token" : "authjs.csrf-token",
         options: {
           httpOnly: true,
           sameSite: "lax",

@@ -5,19 +5,19 @@
  * effort is not supported, we automatically retry with a fallback effort.
  */
 
-import { logEmitter } from "../../util/log-emitter"
-import { getModelCapabilities } from "./model-capabilities"
-import type { AnthropicMessagesPayload } from "../../protocols/anthropic/types"
+import { logEmitter } from "../../util/log-emitter";
+import { getModelCapabilities } from "./model-capabilities";
+import type { AnthropicMessagesPayload } from "../../protocols/anthropic/types";
 
 // Effort priority order (from highest to lowest)
-const EFFORT_PRIORITY = ["max", "xhigh", "high", "medium", "low"] as const
-type Effort = (typeof EFFORT_PRIORITY)[number]
+const EFFORT_PRIORITY = ["max", "xhigh", "high", "medium", "low"] as const;
+type Effort = (typeof EFFORT_PRIORITY)[number];
 
 /**
  * Check if a value is a valid effort level.
  */
 export function isValidEffort(value: unknown): value is Effort {
-  return typeof value === "string" && EFFORT_PRIORITY.includes(value as Effort)
+  return typeof value === "string" && EFFORT_PRIORITY.includes(value as Effort);
 }
 
 /**
@@ -30,24 +30,21 @@ export function isValidEffort(value: unknown): value is Effort {
  * @param supported - Array of supported effort levels from model capabilities
  * @returns The best supported effort, or null if none are supported
  */
-export function pickSupportedEffort(
-  requested: Effort,
-  supported: string[],
-): Effort | null {
-  const requestedIndex = EFFORT_PRIORITY.indexOf(requested)
-  if (requestedIndex === -1) return null
+export function pickSupportedEffort(requested: Effort, supported: string[]): Effort | null {
+  const requestedIndex = EFFORT_PRIORITY.indexOf(requested);
+  if (requestedIndex === -1) return null;
 
-  const supportedSet = new Set(supported)
+  const supportedSet = new Set(supported);
 
   // Search from requested effort downward (lower priority = more likely to be supported)
   for (let i = requestedIndex; i < EFFORT_PRIORITY.length; i++) {
-    const effort = EFFORT_PRIORITY[i]
+    const effort = EFFORT_PRIORITY[i];
     if (effort && supportedSet.has(effort)) {
-      return effort
+      return effort;
     }
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -68,34 +65,34 @@ export function pickSupportedEffort(
 export function parseReasoningEffortError(
   errorBody: unknown,
 ): { requestedEffort: Effort; supportedEfforts: Effort[] } | null {
-  if (typeof errorBody !== "object" || errorBody === null) return null
+  if (typeof errorBody !== "object" || errorBody === null) return null;
 
-  const error = (errorBody as { error?: { code?: string; message?: string } }).error
-  if (error?.code !== "invalid_reasoning_effort") return null
+  const error = (errorBody as { error?: { code?: string; message?: string } }).error;
+  if (error?.code !== "invalid_reasoning_effort") return null;
 
-  const message = error.message
-  if (typeof message !== "string") return null
+  const message = error.message;
+  if (typeof message !== "string") return null;
 
   // Parse: output_config.effort "xhigh" is not supported by model ...; supported values: [medium]
-  const requestedMatch = message.match(/effort "(\w+)" is not supported/)
-  const supportedMatch = message.match(/supported values: \[([^\]]+)\]/)
+  const requestedMatch = message.match(/effort "(\w+)" is not supported/);
+  const supportedMatch = message.match(/supported values: \[([^\]]+)\]/);
 
-  if (!requestedMatch?.[1]) return null
+  if (!requestedMatch?.[1]) return null;
 
-  const requestedEffort = requestedMatch[1]
-  if (!isValidEffort(requestedEffort)) return null
+  const requestedEffort = requestedMatch[1];
+  if (!isValidEffort(requestedEffort)) return null;
 
-  const supportedEfforts: Effort[] = []
+  const supportedEfforts: Effort[] = [];
   if (supportedMatch?.[1]) {
-    const parsed = supportedMatch[1].split(",").map((s) => s.trim())
+    const parsed = supportedMatch[1].split(",").map((s) => s.trim());
     for (const e of parsed) {
       if (isValidEffort(e)) {
-        supportedEfforts.push(e)
+        supportedEfforts.push(e);
       }
     }
   }
 
-  return { requestedEffort, supportedEfforts }
+  return { requestedEffort, supportedEfforts };
 }
 
 /**
@@ -105,10 +102,10 @@ export function parseReasoningEffortError(
  * @returns Array of supported effort levels, or null if unknown
  */
 export function getSupportedEfforts(copilotModel: string): Effort[] | null {
-  const capabilities = getModelCapabilities(copilotModel)
-  if (!capabilities?.supports?.reasoning_effort) return null
+  const capabilities = getModelCapabilities(copilotModel);
+  if (!capabilities?.supports?.reasoning_effort) return null;
 
-  return capabilities.supports.reasoning_effort.filter(isValidEffort)
+  return capabilities.supports.reasoning_effort.filter(isValidEffort);
 }
 
 /**
@@ -124,8 +121,8 @@ export function adjustEffortInPayload(
 ): AnthropicMessagesPayload {
   if (fallbackEffort === null) {
     // Remove output_config entirely
-    const { output_config: _, ...rest } = payload
-    return rest as AnthropicMessagesPayload
+    const { output_config: _, ...rest } = payload;
+    return rest as AnthropicMessagesPayload;
   }
 
   return {
@@ -134,7 +131,7 @@ export function adjustEffortInPayload(
       ...payload.output_config,
       effort: fallbackEffort,
     },
-  }
+  };
 }
 
 /**
@@ -157,5 +154,5 @@ export function logEffortFallback(
       originalEffort,
       fallbackEffort,
     },
-  })
+  });
 }

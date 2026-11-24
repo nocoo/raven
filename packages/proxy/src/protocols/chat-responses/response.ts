@@ -1,11 +1,11 @@
-import type { ChatCompletionResponse } from "../../upstream/copilot-openai"
-import { isResponsesFailure, responsesFailureMessage } from "./errors"
-import { mapResponsesFinishReason } from "./finish-reason"
+import type { ChatCompletionResponse } from "../../upstream/copilot-openai";
+import { isResponsesFailure, responsesFailureMessage } from "./errors";
+import { mapResponsesFinishReason } from "./finish-reason";
 
 export class ResponsesProtocolError extends Error {
   constructor(message: string) {
-    super(message)
-    this.name = "ResponsesProtocolError"
+    super(message);
+    this.name = "ResponsesProtocolError";
   }
 }
 
@@ -14,44 +14,40 @@ export function responsesJsonToChatCompletion(
   fallbackModel: string,
 ): ChatCompletionResponse {
   if (isResponsesFailure(body)) {
-    throw new ResponsesProtocolError(responsesFailureMessage(body))
+    throw new ResponsesProtocolError(responsesFailureMessage(body));
   }
 
   const b = (body && typeof body === "object" ? body : {}) as {
-    id?: unknown
-    model?: unknown
-    created_at?: unknown
-    output?: unknown
+    id?: unknown;
+    model?: unknown;
+    created_at?: unknown;
+    output?: unknown;
     usage?: {
-      input_tokens?: number
-      output_tokens?: number
-      total_tokens?: number
-    } | null
-    status?: unknown
-    incomplete_details?: { reason?: unknown } | null
-  }
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+    } | null;
+    status?: unknown;
+    incomplete_details?: { reason?: unknown } | null;
+  };
 
-  const model =
-    typeof b.model === "string" && b.model.length > 0 ? b.model : fallbackModel
-  const id = typeof b.id === "string" && b.id.length > 0 ? b.id : `resp_unknown`
+  const model = typeof b.model === "string" && b.model.length > 0 ? b.model : fallbackModel;
+  const id = typeof b.id === "string" && b.id.length > 0 ? b.id : `resp_unknown`;
   const created =
-    typeof b.created_at === "number"
-      ? Math.floor(b.created_at)
-      : Math.floor(Date.now() / 1000)
+    typeof b.created_at === "number" ? Math.floor(b.created_at) : Math.floor(Date.now() / 1000);
 
-  const { content, toolCalls, refusal } = extractOutput(b.output)
-  const finish_reason = mapResponsesFinishReason(b)
+  const { content, toolCalls, refusal } = extractOutput(b.output);
+  const finish_reason = mapResponsesFinishReason(b);
 
-  const prompt_tokens = b.usage?.input_tokens ?? 0
-  const completion_tokens = b.usage?.output_tokens ?? 0
-  const total_tokens =
-    b.usage?.total_tokens ?? prompt_tokens + completion_tokens
+  const prompt_tokens = b.usage?.input_tokens ?? 0;
+  const completion_tokens = b.usage?.output_tokens ?? 0;
+  const total_tokens = b.usage?.total_tokens ?? prompt_tokens + completion_tokens;
 
-  const hasTools = toolCalls != null && toolCalls.length > 0
+  const hasTools = toolCalls != null && toolCalls.length > 0;
   let messageContent: string | null =
-    hasTools && (content === "" || content == null) ? null : content
+    hasTools && (content === "" || content == null) ? null : content;
   if (refusal && !hasTools && (messageContent === "" || messageContent == null)) {
-    messageContent = null
+    messageContent = null;
   }
 
   return {
@@ -81,53 +77,53 @@ export function responsesJsonToChatCompletion(
           prompt_tokens_details: null,
         }
       : null,
-  }
+  };
 }
 
 function extractOutput(output: unknown): {
-  content: string | null
+  content: string | null;
   toolCalls: Array<{
-    id: string
-    type: "function"
-    function: { name: string; arguments: string }
-  }> | null
-  refusal: string | null
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }> | null;
+  refusal: string | null;
 } {
   if (!Array.isArray(output)) {
-    return { content: null, toolCalls: null, refusal: null }
+    return { content: null, toolCalls: null, refusal: null };
   }
 
-  const textParts: string[] = []
-  const refusalParts: string[] = []
+  const textParts: string[] = [];
+  const refusalParts: string[] = [];
   const toolCalls: Array<{
-    id: string
-    type: "function"
-    function: { name: string; arguments: string }
-  }> = []
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }> = [];
 
   for (const item of output) {
-    if (!item || typeof item !== "object") continue
+    if (!item || typeof item !== "object") continue;
     const it = item as {
-      type?: string
-      call_id?: string
-      name?: string
-      arguments?: string
-      content?: unknown
-      refusal?: unknown
-    }
+      type?: string;
+      call_id?: string;
+      name?: string;
+      arguments?: string;
+      content?: unknown;
+      refusal?: unknown;
+    };
 
     if (it.type === "function_call") {
-      const callId = typeof it.call_id === "string" ? it.call_id : ""
+      const callId = typeof it.call_id === "string" ? it.call_id : "";
       if (!callId) {
         throw new ResponsesProtocolError(
           "function_call missing call_id; cannot map to chat tool_calls[].id",
-        )
+        );
       }
-      const name = typeof it.name === "string" ? it.name : ""
+      const name = typeof it.name === "string" ? it.name : "";
       if (!name) {
         throw new ResponsesProtocolError(
           "function_call missing name; cannot map to chat tool_calls",
-        )
+        );
       }
       toolCalls.push({
         id: callId,
@@ -135,20 +131,18 @@ function extractOutput(output: unknown): {
         function: {
           name,
           arguments:
-            typeof it.arguments === "string"
-              ? it.arguments
-              : JSON.stringify(it.arguments ?? {}),
+            typeof it.arguments === "string" ? it.arguments : JSON.stringify(it.arguments ?? {}),
         },
-      })
-      continue
+      });
+      continue;
     }
 
     if (typeof it.refusal === "string" && it.refusal.length > 0) {
-      refusalParts.push(it.refusal)
+      refusalParts.push(it.refusal);
     }
 
     if (it.type === "message" || it.content != null) {
-      collectTextAndRefusal(it.content, textParts, refusalParts)
+      collectTextAndRefusal(it.content, textParts, refusalParts);
     }
   }
 
@@ -159,40 +153,36 @@ function extractOutput(output: unknown): {
         ? null
         : refusalParts.length > 0
           ? null
-          : ""
+          : "";
   return {
     content,
     toolCalls: toolCalls.length > 0 ? toolCalls : null,
     refusal: refusalParts.length > 0 ? refusalParts.join("") : null,
-  }
+  };
 }
 
-function collectTextAndRefusal(
-  content: unknown,
-  textOut: string[],
-  refusalOut: string[],
-): void {
+function collectTextAndRefusal(content: unknown, textOut: string[], refusalOut: string[]): void {
   if (typeof content === "string") {
-    textOut.push(content)
-    return
+    textOut.push(content);
+    return;
   }
-  if (!Array.isArray(content)) return
+  if (!Array.isArray(content)) return;
   for (const part of content) {
-    if (!part || typeof part !== "object") continue
-    const p = part as { type?: string; text?: string; refusal?: string }
+    if (!part || typeof part !== "object") continue;
+    const p = part as { type?: string; text?: string; refusal?: string };
     if (p.type === "refusal" && typeof p.refusal === "string") {
-      refusalOut.push(p.refusal)
-      continue
+      refusalOut.push(p.refusal);
+      continue;
     }
     if (typeof p.refusal === "string" && p.refusal.length > 0) {
-      refusalOut.push(p.refusal)
+      refusalOut.push(p.refusal);
     }
     if (
       (p.type === "output_text" || p.type === "text" || p.text != null) &&
       typeof p.text === "string" &&
       p.type !== "refusal"
     ) {
-      textOut.push(p.text)
+      textOut.push(p.text);
     }
   }
 }

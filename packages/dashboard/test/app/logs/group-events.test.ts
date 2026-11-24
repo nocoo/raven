@@ -48,10 +48,7 @@ describe("groupEvents", () => {
   });
 
   it("produces stable keys across successive calls with the same events", () => {
-    const events = [
-      ev({ _seq: 5, msg: "sys" }),
-      ev({ _seq: 6, requestId: "r-a", msg: "req" }),
-    ];
+    const events = [ev({ _seq: 5, msg: "sys" }), ev({ _seq: 6, requestId: "r-a", msg: "req" })];
     const first = groupEvents(events).map((g) => g.key);
     const second = groupEvents(events).map((g) => g.key);
     expect(first).toEqual(second);
@@ -63,19 +60,14 @@ describe("groupEvents", () => {
     // If the impl reintroduced Math.random(), two calls with identical
     // events would produce different keys. Guard with 4 calls.
     const events = [ev({ _seq: 100, msg: "boot" })];
-    const runs = Array.from({ length: 4 }, () =>
-      groupEvents(events).map((g) => g.key),
-    );
+    const runs = Array.from({ length: 4 }, () => groupEvents(events).map((g) => g.key));
     for (let i = 1; i < runs.length; i++) {
       expect(runs[i]).toEqual(runs[0]);
     }
   });
 
   it("falls back to ts+index when _seq is absent (test/synthetic streams)", () => {
-    const groups = groupEvents([
-      ev({ ts: 42, msg: "a" }),
-      ev({ ts: 42, msg: "b" }),
-    ]);
+    const groups = groupEvents([ev({ ts: 42, msg: "a" }), ev({ ts: 42, msg: "b" })]);
     // Reversed → index-in-original preserved
     expect(groups[0]!.key).toBe("sys-42-1");
     expect(groups[1]!.key).toBe("sys-42-0");

@@ -16,7 +16,10 @@ export default async function SettingsPage() {
   if (!settingsResult.ok) {
     return (
       <div className="space-y-4">
-        <PageHeader title="General" description="Version overrides, request optimizations and access controls." />
+        <PageHeader
+          title="General"
+          description="Version overrides, request optimizations and access controls."
+        />
         <FetchError title="Failed to load settings" message={settingsResult.error} />
       </div>
     );
@@ -26,7 +29,10 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="General" description="Version overrides, request optimizations and access controls." />
+      <PageHeader
+        title="General"
+        description="Version overrides, request optimizations and access controls."
+      />
 
       <div className="settings-grid">
         <HistoryRetentionContent days={data.history_retention_days} />

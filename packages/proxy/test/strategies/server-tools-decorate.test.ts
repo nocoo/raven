@@ -1,17 +1,20 @@
 // I.1 — decorate() helper tests.
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
-import { Hono, type Context } from "hono"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+import { Hono, type Context } from "hono";
 
 import {
   decorate,
   type DecorateInput,
   type ServerToolExecutorFn,
-} from "../../src/strategies/support/server-tools"
-import type { AnthropicMessagesPayload, AnthropicResponse } from "../../src/protocols/anthropic/types"
-import type { ServerToolContext } from "../../src/protocols/anthropic/preprocess"
-import { logEmitter } from "../../src/util/log-emitter"
-import type { LogEvent } from "../../src/util/log-event"
-import { state } from "../../src/lib/state"
+} from "../../src/strategies/support/server-tools";
+import type {
+  AnthropicMessagesPayload,
+  AnthropicResponse,
+} from "../../src/protocols/anthropic/types";
+import type { ServerToolContext } from "../../src/protocols/anthropic/preprocess";
+import { logEmitter } from "../../src/util/log-emitter";
+import type { LogEvent } from "../../src/util/log-event";
+import { state } from "../../src/lib/state";
 
 function makePayload(overrides: Partial<AnthropicMessagesPayload> = {}): AnthropicMessagesPayload {
   return {
@@ -30,7 +33,7 @@ function makePayload(overrides: Partial<AnthropicMessagesPayload> = {}): Anthrop
     thinking: null,
     service_tier: null,
     ...overrides,
-  }
+  };
 }
 
 function makeCtx(overrides: Partial<ServerToolContext> = {}): ServerToolContext {
@@ -39,43 +42,54 @@ function makeCtx(overrides: Partial<ServerToolContext> = {}): ServerToolContext 
     hasServerSideTools: false,
     allServerSide: false,
     ...overrides,
-  }
+  };
 }
 
 function makeResp(overrides: Partial<AnthropicResponse> = {}): AnthropicResponse {
   return {
-    id: "msg_1", type: "message", role: "assistant",
+    id: "msg_1",
+    type: "message",
+    role: "assistant",
     model: "claude-sonnet-4",
     content: [{ type: "text", text: "Hi!" }],
-    stop_reason: "end_turn", stop_sequence: null,
+    stop_reason: "end_turn",
+    stop_sequence: null,
     usage: {
-      input_tokens: 10, output_tokens: 5,
-      cache_creation_input_tokens: null, cache_read_input_tokens: null,
+      input_tokens: 10,
+      output_tokens: 5,
+      cache_creation_input_tokens: null,
+      cache_read_input_tokens: null,
       service_tier: null,
     },
     ...overrides,
-  }
+  };
 }
 
 function baseLogFields(): DecorateInput["log"] {
   return {
-    path: "/v1/messages", format: "anthropic",
-    accountName: "acct", apiKeyId: "key-acct", sessionId: "sess",
-    clientName: "test", clientVersion: null,
+    path: "/v1/messages",
+    format: "anthropic",
+    accountName: "acct",
+    apiKeyId: "key-acct",
+    sessionId: "sess",
+    clientName: "test",
+    clientVersion: null,
     extras: { routingPath: "translated" },
-  }
+  };
 }
 
 async function runDecorate(
   inputOverrides: Partial<DecorateInput> & { handler?: (c: Context) => Promise<Response> } = {},
 ): Promise<{ response: Response; events: LogEvent[] }> {
-  const events: LogEvent[] = []
-  const h = (e: LogEvent) => { events.push(e) }
-  logEmitter.on("log", h)
+  const events: LogEvent[] = [];
+  const h = (e: LogEvent) => {
+    events.push(e);
+  };
+  logEmitter.on("log", h);
   try {
-    const app = new Hono()
+    const app = new Hono();
     app.post("/x", async (c) => {
-      const payload = inputOverrides.payload ?? makePayload()
+      const payload = inputOverrides.payload ?? makePayload();
       const base = {
         c,
         requestId: inputOverrides.requestId ?? "01TESTDEC0000000000000000",
@@ -86,119 +100,146 @@ async function runDecorate(
         serverToolContext: inputOverrides.serverToolContext ?? makeCtx(),
         sendRequest: inputOverrides.sendRequest ?? (async () => makeResp()),
         log: inputOverrides.log ?? baseLogFields(),
-      }
-      return decorate(
-        inputOverrides.options
-          ? { ...base, options: inputOverrides.options }
-          : base,
-      )
-    })
-    const response = await app.request("http://localhost/x", { method: "POST" })
-    return { response: new Response(await response.text(), { status: response.status, headers: response.headers }), events }
+      };
+      return decorate(inputOverrides.options ? { ...base, options: inputOverrides.options } : base);
+    });
+    const response = await app.request("http://localhost/x", { method: "POST" });
+    return {
+      response: new Response(await response.text(), {
+        status: response.status,
+        headers: response.headers,
+      }),
+      events,
+    };
   } finally {
-    logEmitter.off("log", h)
+    logEmitter.off("log", h);
   }
 }
 
 describe("decorate()", () => {
   test("cancels a pending tool on raw request abort and logs one failure", async () => {
-    const controller = new AbortController()
-    const started = Promise.withResolvers<AbortSignal>()
-    const sendRequest = vi.fn()
-    const executor: ServerToolExecutorFn = (_name, _input, _id, signal) => new Promise((_resolve, reject) => {
-      if (!signal) throw new Error("missing tool signal")
-      started.resolve(signal)
-      signal.addEventListener("abort", () => reject(signal.reason), { once: true })
-    })
-    const logs: LogEvent[] = []
-    const listener = (event: LogEvent) => { if (event.type === "request_end") logs.push(event) }
-    logEmitter.on("log", listener)
+    const controller = new AbortController();
+    const started = Promise.withResolvers<AbortSignal>();
+    const sendRequest = vi.fn();
+    const executor: ServerToolExecutorFn = (_name, _input, _id, signal) =>
+      new Promise((_resolve, reject) => {
+        if (!signal) throw new Error("missing tool signal");
+        started.resolve(signal);
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      });
+    const logs: LogEvent[] = [];
+    const listener = (event: LogEvent) => {
+      if (event.type === "request_end") logs.push(event);
+    };
+    logEmitter.on("log", listener);
     try {
-      const app = new Hono()
-      app.onError(() => new Response("canceled", { status: 500 }))
-      app.post("/x", (c) => decorate({
-        c, requestId: "cancel-tools", startTime: performance.now(), stream: true,
-        model: "claude-sonnet-4", payload: makePayload(), sendRequest,
-        serverToolContext: makeCtx({ hasServerSideTools: true, allServerSide: true, serverSideToolNames: ["web_search"] }),
-        log: baseLogFields(), options: { executor },
-      }))
-      const pending = app.request("http://localhost/x", { method: "POST", signal: controller.signal })
-      const signal = await started.promise
-      controller.abort(new Error("client left during search"))
-      expect((await pending).status).toBe(500)
-      expect(signal.aborted).toBe(true)
-      expect(sendRequest).not.toHaveBeenCalled()
-      expect(logs).toHaveLength(1)
-      expect(logs[0]!.data).toMatchObject({ status: "cancelled", serverToolsUsed: true })
+      const app = new Hono();
+      app.onError(() => new Response("canceled", { status: 500 }));
+      app.post("/x", (c) =>
+        decorate({
+          c,
+          requestId: "cancel-tools",
+          startTime: performance.now(),
+          stream: true,
+          model: "claude-sonnet-4",
+          payload: makePayload(),
+          sendRequest,
+          serverToolContext: makeCtx({
+            hasServerSideTools: true,
+            allServerSide: true,
+            serverSideToolNames: ["web_search"],
+          }),
+          log: baseLogFields(),
+          options: { executor },
+        }),
+      );
+      const pending = app.request("http://localhost/x", {
+        method: "POST",
+        signal: controller.signal,
+      });
+      const signal = await started.promise;
+      controller.abort(new Error("client left during search"));
+      expect((await pending).status).toBe(500);
+      expect(signal.aborted).toBe(true);
+      expect(sendRequest).not.toHaveBeenCalled();
+      expect(logs).toHaveLength(1);
+      expect(logs[0]!.data).toMatchObject({ status: "cancelled", serverToolsUsed: true });
     } finally {
-      logEmitter.off("log", listener)
+      logEmitter.off("log", listener);
     }
-  })
+  });
 
   test("logs zero usage when an upstream omits token metadata and no strategy extras exist", async () => {
-    const { extras: _extras, ...log } = baseLogFields()
-    const sparse = { ...makeResp(), usage: undefined } as unknown as AnthropicResponse
-    const { response, events } = await runDecorate({ log, sendRequest: async () => sparse })
-    expect(response.status).toBe(200)
-    const end = events.find((event) => event.type === "request_end")
-    expect(end?.data).toMatchObject({ inputTokens: 0, outputTokens: 0, status: "success" })
-    expect(end?.data).not.toHaveProperty("routingPath")
-  })
+    const { extras: _extras, ...log } = baseLogFields();
+    const sparse = { ...makeResp(), usage: undefined } as unknown as AnthropicResponse;
+    const { response, events } = await runDecorate({ log, sendRequest: async () => sparse });
+    expect(response.status).toBe(200);
+    const end = events.find((event) => event.type === "request_end");
+    expect(end?.data).toMatchObject({ inputTokens: 0, outputTokens: 0, status: "success" });
+    expect(end?.data).not.toHaveProperty("routingPath");
+  });
 
   test("records an upstream failure without requiring optional strategy log extras", async () => {
-    const { extras: _extras, ...log } = baseLogFields()
-    const { response, events } = await runDecorate({ log, sendRequest: async () => { throw new Error("fixture denied") } })
-    expect(response.status).toBe(500)
-    const end = events.find((event) => event.type === "request_end")
-    expect(end?.data).toMatchObject({ status: "error" })
-    expect(end?.data).not.toHaveProperty("routingPath")
-  })
+    const { extras: _extras, ...log } = baseLogFields();
+    const { response, events } = await runDecorate({
+      log,
+      sendRequest: async () => {
+        throw new Error("fixture denied");
+      },
+    });
+    expect(response.status).toBe(500);
+    const end = events.find((event) => event.type === "request_end");
+    expect(end?.data).toMatchObject({ status: "error" });
+    expect(end?.data).not.toHaveProperty("routingPath");
+  });
 
-  let originalApiKey: string | null
+  let originalApiKey: string | null;
   beforeEach(() => {
-    originalApiKey = state.stWebSearchApiKey
-    state.stWebSearchApiKey = "test-key"
-  })
+    originalApiKey = state.stWebSearchApiKey;
+    state.stWebSearchApiKey = "test-key";
+  });
   afterEach(() => {
-    state.stWebSearchApiKey = originalApiKey
-    vi.restoreAllMocks()
-  })
+    state.stWebSearchApiKey = originalApiKey;
+    vi.restoreAllMocks();
+  });
 
   test("no server tools: passes through, emits success request_end", async () => {
-    const sendRequest = vi.fn().mockResolvedValue(makeResp({ model: "claude-sonnet-4" }))
-    const { response, events } = await runDecorate({ sendRequest })
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as AnthropicResponse
-    expect(body.content?.[0]?.type).toBe("text")
+    const sendRequest = vi.fn().mockResolvedValue(makeResp({ model: "claude-sonnet-4" }));
+    const { response, events } = await runDecorate({ sendRequest });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as AnthropicResponse;
+    expect(body.content?.[0]?.type).toBe("text");
 
-    const ends = events.filter((e) => e.type === "request_end")
-    expect(ends).toHaveLength(1)
-    const data = ends[0]!.data as Record<string, unknown>
-    expect(data.status).toBe("success")
-    expect(data.serverToolsUsed).toBe(true)
-    expect(data.routingPath).toBe("translated")
-    expect(data.stream).toBe(false)
-    expect(data.format).toBe("anthropic")
-    expect(data.model).toBe("claude-sonnet-4")
-    expect(sendRequest).toHaveBeenCalledTimes(1)
-  })
+    const ends = events.filter((e) => e.type === "request_end");
+    expect(ends).toHaveLength(1);
+    const data = ends[0]!.data as Record<string, unknown>;
+    expect(data.status).toBe("success");
+    expect(data.serverToolsUsed).toBe(true);
+    expect(data.routingPath).toBe("translated");
+    expect(data.stream).toBe(false);
+    expect(data.format).toBe("anthropic");
+    expect(data.model).toBe("claude-sonnet-4");
+    expect(sendRequest).toHaveBeenCalledTimes(1);
+  });
 
   test("server tools (pure mode): invokes executor + emits synthetic SSE when stream=true", async () => {
     const payload = makePayload({
-      tools: [{ name: "web_search", type: "web_search_20260209", description: "d", input_schema: {} }],
-    })
+      tools: [
+        { name: "web_search", type: "web_search_20260209", description: "d", input_schema: {} },
+      ],
+    });
     const serverToolContext = makeCtx({
       serverSideToolNames: ["web_search"],
       hasServerSideTools: true,
       allServerSide: true,
-    })
+    });
     const executor = vi.fn<ServerToolExecutorFn>().mockResolvedValue({
       content: [{ type: "text", text: "result" }],
       textContent: "result",
-    })
-    const sendRequest = vi.fn().mockResolvedValue(
-      makeResp({ content: [{ type: "text", text: "synthesized" }] }),
-    )
+    });
+    const sendRequest = vi
+      .fn()
+      .mockResolvedValue(makeResp({ content: [{ type: "text", text: "synthesized" }] }));
 
     const { response, events } = await runDecorate({
       payload,
@@ -206,37 +247,37 @@ describe("decorate()", () => {
       sendRequest,
       stream: true,
       options: { executor },
-    })
+    });
 
-    expect(response.status).toBe(200)
-    expect(response.headers.get("content-type")).toContain("text/event-stream")
-    expect(executor).toHaveBeenCalledTimes(1)
-    const body = await response.text()
-    expect(body).toContain("event: message_start")
-    expect(body).toContain("event: message_stop")
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(executor).toHaveBeenCalledTimes(1);
+    const body = await response.text();
+    expect(body).toContain("event: message_start");
+    expect(body).toContain("event: message_stop");
 
-    const ends = events.filter((e) => e.type === "request_end")
-    expect(ends).toHaveLength(1)
-    const data = ends[0]!.data as Record<string, unknown>
-    expect(data.status).toBe("success")
-    expect(data.stream).toBe(true)
-    expect(data.serverToolsUsed).toBe(true)
-  })
+    const ends = events.filter((e) => e.type === "request_end");
+    expect(ends).toHaveLength(1);
+    const data = ends[0]!.data as Record<string, unknown>;
+    expect(data.status).toBe("success");
+    expect(data.stream).toBe(true);
+    expect(data.serverToolsUsed).toBe(true);
+  });
 
   test("sendRequest throws: emits error request_end and re-raises", async () => {
-    const err = new Error("upstream boom")
-    const sendRequest = vi.fn().mockRejectedValue(err)
-    const { response, events } = await runDecorate({ sendRequest })
+    const err = new Error("upstream boom");
+    const sendRequest = vi.fn().mockRejectedValue(err);
+    const { response, events } = await runDecorate({ sendRequest });
     // Hono turns thrown errors into a 500 by default; what matters here is
     // that we emitted the error log before the throw bubbled up.
-    expect(response.status).toBe(500)
+    expect(response.status).toBe(500);
 
-    const ends = events.filter((e) => e.type === "request_end")
-    expect(ends).toHaveLength(1)
-    const data = ends[0]!.data as Record<string, unknown>
-    expect(data.status).toBe("error")
-    expect(data.serverToolsUsed).toBe(true)
-    expect(data.error).toBeTruthy()
-    expect(data.routingPath).toBe("translated")
-  })
-})
+    const ends = events.filter((e) => e.type === "request_end");
+    expect(ends).toHaveLength(1);
+    const data = ends[0]!.data as Record<string, unknown>;
+    expect(data.status).toBe("error");
+    expect(data.serverToolsUsed).toBe(true);
+    expect(data.error).toBeTruthy();
+    expect(data.routingPath).toBe("translated");
+  });
+});

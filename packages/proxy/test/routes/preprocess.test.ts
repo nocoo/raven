@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect, test } from "vitest";
 import {
   translateModelName,
   filterAnthropicBeta,
@@ -7,15 +7,13 @@ import {
   preprocessPayload,
   resolveAgainstCatalog,
   ALLOWED_BETAS,
-} from "../../src/protocols/anthropic/preprocess"
-import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types"
+} from "../../src/protocols/anthropic/preprocess";
+import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types";
 
 // ---------------------------------------------------------------------------
 // Helper: minimal valid Anthropic request
 // ---------------------------------------------------------------------------
-function makeRequest(
-  overrides: Partial<AnthropicMessagesPayload> = {},
-): AnthropicMessagesPayload {
+function makeRequest(overrides: Partial<AnthropicMessagesPayload> = {}): AnthropicMessagesPayload {
   return {
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
@@ -32,7 +30,7 @@ function makeRequest(
     thinking: null,
     service_tier: null,
     ...overrides,
-  }
+  };
 }
 
 // ===========================================================================
@@ -42,83 +40,91 @@ function makeRequest(
 describe("translateModelName", () => {
   describe("with minor version", () => {
     test("claude-opus-4-6-20250820 → claude-opus-4.6", () => {
-      expect(translateModelName("claude-opus-4-6-20250820", null)).toBe("claude-opus-4.6")
-    })
+      expect(translateModelName("claude-opus-4-6-20250820", null)).toBe("claude-opus-4.6");
+    });
 
     test("claude-sonnet-4-5-20250514 → claude-sonnet-4.5", () => {
-      expect(translateModelName("claude-sonnet-4-5-20250514", null)).toBe("claude-sonnet-4.5")
-    })
+      expect(translateModelName("claude-sonnet-4-5-20250514", null)).toBe("claude-sonnet-4.5");
+    });
 
     test("claude-haiku-4-5-20251001 → claude-haiku-4.5", () => {
-      expect(translateModelName("claude-haiku-4-5-20251001", null)).toBe("claude-haiku-4.5")
-    })
+      expect(translateModelName("claude-haiku-4-5-20251001", null)).toBe("claude-haiku-4.5");
+    });
 
     test("claude-opus-4-6 (no date) → claude-opus-4.6", () => {
-      expect(translateModelName("claude-opus-4-6", null)).toBe("claude-opus-4.6")
-    })
-  })
+      expect(translateModelName("claude-opus-4-6", null)).toBe("claude-opus-4.6");
+    });
+  });
 
   describe("without minor version", () => {
     test("claude-sonnet-4-20250514 → claude-sonnet-4", () => {
-      expect(translateModelName("claude-sonnet-4-20250514", null)).toBe("claude-sonnet-4")
-    })
+      expect(translateModelName("claude-sonnet-4-20250514", null)).toBe("claude-sonnet-4");
+    });
 
     test("claude-sonnet-4 (no date) → claude-sonnet-4", () => {
-      expect(translateModelName("claude-sonnet-4", null)).toBe("claude-sonnet-4")
-    })
-  })
+      expect(translateModelName("claude-sonnet-4", null)).toBe("claude-sonnet-4");
+    });
+  });
 
   describe("explicit suffix in model name", () => {
     test("claude-opus-4-6-1m-20250820 → claude-opus-4.6-1m", () => {
-      expect(translateModelName("claude-opus-4-6-1m-20250820", null)).toBe("claude-opus-4.6-1m")
-    })
+      expect(translateModelName("claude-opus-4-6-1m-20250820", null)).toBe("claude-opus-4.6-1m");
+    });
 
     test("claude-opus-4-6[1m] → claude-opus-4.6-1m", () => {
-      expect(translateModelName("claude-opus-4-6[1m]", null)).toBe("claude-opus-4.6-1m")
-    })
+      expect(translateModelName("claude-opus-4-6[1m]", null)).toBe("claude-opus-4.6-1m");
+    });
 
     test("claude-opus-4-6-fast → claude-opus-4.6-fast", () => {
-      expect(translateModelName("claude-opus-4-6-fast", null)).toBe("claude-opus-4.6-fast")
-    })
+      expect(translateModelName("claude-opus-4-6-fast", null)).toBe("claude-opus-4.6-fast");
+    });
 
     test("claude-opus-4-6[fast] → claude-opus-4.6-fast", () => {
-      expect(translateModelName("claude-opus-4-6[fast]", null)).toBe("claude-opus-4.6-fast")
-    })
-  })
+      expect(translateModelName("claude-opus-4-6[fast]", null)).toBe("claude-opus-4.6-fast");
+    });
+  });
 
   describe("suffix via anthropic-beta header", () => {
     test("context-1m-* beta → -1m suffix", () => {
-      expect(translateModelName("claude-opus-4-6", "context-1m-2025-01-01")).toBe("claude-opus-4.6-1m")
-    })
+      expect(translateModelName("claude-opus-4-6", "context-1m-2025-01-01")).toBe(
+        "claude-opus-4.6-1m",
+      );
+    });
 
     test("fast-mode-* beta → -fast suffix", () => {
-      expect(translateModelName("claude-opus-4-6", "fast-mode-2025-01-01")).toBe("claude-opus-4.6-fast")
-    })
+      expect(translateModelName("claude-opus-4-6", "fast-mode-2025-01-01")).toBe(
+        "claude-opus-4.6-fast",
+      );
+    });
 
     test("explicit suffix takes priority over beta header", () => {
       // Even with context-1m beta, explicit -fast in model name wins
-      expect(translateModelName("claude-opus-4-6-fast", "context-1m-2025-01-01")).toBe("claude-opus-4.6-fast")
-    })
+      expect(translateModelName("claude-opus-4-6-fast", "context-1m-2025-01-01")).toBe(
+        "claude-opus-4.6-fast",
+      );
+    });
 
     test("1m takes priority over fast when both betas present", () => {
-      expect(translateModelName("claude-opus-4-6", "context-1m-2025-01-01,fast-mode-2025-01-01")).toBe("claude-opus-4.6-1m")
-    })
-  })
+      expect(
+        translateModelName("claude-opus-4-6", "context-1m-2025-01-01,fast-mode-2025-01-01"),
+      ).toBe("claude-opus-4.6-1m");
+    });
+  });
 
   describe("non-Claude models", () => {
     test("gpt-4 passes through unchanged", () => {
-      expect(translateModelName("gpt-4", null)).toBe("gpt-4")
-    })
+      expect(translateModelName("gpt-4", null)).toBe("gpt-4");
+    });
 
     test("already Copilot format passes through", () => {
-      expect(translateModelName("claude-opus-4.6", null)).toBe("claude-opus-4.6")
-    })
+      expect(translateModelName("claude-opus-4.6", null)).toBe("claude-opus-4.6");
+    });
 
     test("grok-3 passes through unchanged", () => {
-      expect(translateModelName("grok-3", null)).toBe("grok-3")
-    })
-  })
-})
+      expect(translateModelName("grok-3", null)).toBe("grok-3");
+    });
+  });
+});
 
 // ===========================================================================
 // filterAnthropicBeta
@@ -126,46 +132,52 @@ describe("translateModelName", () => {
 
 describe("filterAnthropicBeta", () => {
   test("null input → null", () => {
-    expect(filterAnthropicBeta(null)).toBe(null)
-  })
+    expect(filterAnthropicBeta(null)).toBe(null);
+  });
 
   test("undefined input → null", () => {
-    expect(filterAnthropicBeta(undefined)).toBe(null)
-  })
+    expect(filterAnthropicBeta(undefined)).toBe(null);
+  });
 
   test("empty string → null", () => {
-    expect(filterAnthropicBeta("")).toBe(null)
-  })
+    expect(filterAnthropicBeta("")).toBe(null);
+  });
 
   test("single allowed beta → passes through", () => {
-    expect(filterAnthropicBeta("interleaved-thinking-2025-05-14")).toBe("interleaved-thinking-2025-05-14")
-  })
+    expect(filterAnthropicBeta("interleaved-thinking-2025-05-14")).toBe(
+      "interleaved-thinking-2025-05-14",
+    );
+  });
 
   test("single disallowed beta → null", () => {
-    expect(filterAnthropicBeta("context-1m-2025-01-01")).toBe(null)
-  })
+    expect(filterAnthropicBeta("context-1m-2025-01-01")).toBe(null);
+  });
 
   test("multiple betas, some allowed → only allowed ones", () => {
-    const input = "context-1m-2025-01-01,interleaved-thinking-2025-05-14,fast-mode-2025-01-01"
-    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14")
-  })
+    const input = "context-1m-2025-01-01,interleaved-thinking-2025-05-14,fast-mode-2025-01-01";
+    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14");
+  });
 
   test("multiple allowed betas → all pass through", () => {
-    const input = "interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20"
-    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20")
-  })
+    const input = "interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20";
+    expect(filterAnthropicBeta(input)).toBe(
+      "interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20",
+    );
+  });
 
   test("handles whitespace", () => {
-    const input = " interleaved-thinking-2025-05-14 , advanced-tool-use-2025-11-20 "
-    expect(filterAnthropicBeta(input)).toBe("interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20")
-  })
+    const input = " interleaved-thinking-2025-05-14 , advanced-tool-use-2025-11-20 ";
+    expect(filterAnthropicBeta(input)).toBe(
+      "interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20",
+    );
+  });
 
   test("ALLOWED_BETAS contains expected values", () => {
-    expect(ALLOWED_BETAS.has("interleaved-thinking-2025-05-14")).toBe(true)
-    expect(ALLOWED_BETAS.has("context-management-2025-06-27")).toBe(false)
-    expect(ALLOWED_BETAS.has("advanced-tool-use-2025-11-20")).toBe(true)
-  })
-})
+    expect(ALLOWED_BETAS.has("interleaved-thinking-2025-05-14")).toBe(true);
+    expect(ALLOWED_BETAS.has("context-management-2025-06-27")).toBe(false);
+    expect(ALLOWED_BETAS.has("advanced-tool-use-2025-11-20")).toBe(true);
+  });
+});
 
 // ===========================================================================
 // sanitizePayload
@@ -173,19 +185,19 @@ describe("filterAnthropicBeta", () => {
 
 describe("sanitizePayload", () => {
   test("removes service_tier", () => {
-    const input = makeRequest({ service_tier: "auto" })
-    const result = sanitizePayload(input)
-    expect(result.service_tier).toBeUndefined()
-  })
+    const input = makeRequest({ service_tier: "auto" });
+    const result = sanitizePayload(input);
+    expect(result.service_tier).toBeUndefined();
+  });
 
   test("removes context_management", () => {
     const input = {
       ...makeRequest(),
       context_management: { type: "ephemeral" },
-    } as AnthropicMessagesPayload & { context_management: { type: string } }
-    const result = sanitizePayload(input)
-    expect("context_management" in (result as unknown as Record<string, unknown>)).toBe(false)
-  })
+    } as AnthropicMessagesPayload & { context_management: { type: string } };
+    const result = sanitizePayload(input);
+    expect("context_management" in (result as unknown as Record<string, unknown>)).toBe(false);
+  });
 
   test("preserves other fields", () => {
     const input = makeRequest({
@@ -193,18 +205,18 @@ describe("sanitizePayload", () => {
       max_tokens: 8192,
       temperature: 0.5,
       service_tier: "standard_only",
-    })
-    const result = sanitizePayload(input)
-    expect(result.model).toBe("claude-opus-4.6")
-    expect(result.max_tokens).toBe(8192)
-    expect(result.temperature).toBe(0.5)
-  })
+    });
+    const result = sanitizePayload(input);
+    expect(result.model).toBe("claude-opus-4.6");
+    expect(result.max_tokens).toBe(8192);
+    expect(result.temperature).toBe(0.5);
+  });
 
   test("does not mutate input", () => {
-    const input = makeRequest({ service_tier: "auto" })
-    sanitizePayload(input)
-    expect(input.service_tier).toBe("auto")
-  })
+    const input = makeRequest({ service_tier: "auto" });
+    sanitizePayload(input);
+    expect(input.service_tier).toBe("auto");
+  });
 
   test("strips thinking blocks from assistant messages for claude-opus-4.5", () => {
     const input = makeRequest({
@@ -220,13 +232,13 @@ describe("sanitizePayload", () => {
         },
         { role: "user", content: "how are you?" },
       ],
-    })
-    const result = sanitizePayload(input)
-    expect(result.messages).toHaveLength(3)
-    const assistantMsg = result.messages[1]!
-    expect(assistantMsg.role).toBe("assistant")
-    expect(assistantMsg.content).toEqual([{ type: "text", text: "Hello!" }])
-  })
+    });
+    const result = sanitizePayload(input);
+    expect(result.messages).toHaveLength(3);
+    const assistantMsg = result.messages[1]!;
+    expect(assistantMsg.role).toBe("assistant");
+    expect(assistantMsg.content).toEqual([{ type: "text", text: "Hello!" }]);
+  });
 
   test("strips thinking blocks for claude-opus-4.5 (dot notation)", () => {
     const input = makeRequest({
@@ -241,11 +253,11 @@ describe("sanitizePayload", () => {
           ],
         },
       ],
-    })
-    const result = sanitizePayload(input)
-    const assistantMsg = result.messages[1]!
-    expect(assistantMsg.content).toEqual([{ type: "text", text: "Hello!" }])
-  })
+    });
+    const result = sanitizePayload(input);
+    const assistantMsg = result.messages[1]!;
+    expect(assistantMsg.content).toEqual([{ type: "text", text: "Hello!" }]);
+  });
 
   test("preserves thinking blocks for other models", () => {
     const input = makeRequest({
@@ -260,14 +272,14 @@ describe("sanitizePayload", () => {
           ],
         },
       ],
-    })
-    const result = sanitizePayload(input)
-    const assistantMsg = result.messages[1]!
+    });
+    const result = sanitizePayload(input);
+    const assistantMsg = result.messages[1]!;
     expect(assistantMsg.content).toEqual([
       { type: "thinking", thinking: "hmm...", signature: "abc123" },
       { type: "text", text: "Hello!" },
-    ])
-  })
+    ]);
+  });
 
   test("preserves assistant messages without thinking blocks for claude-opus-4.5", () => {
     const input = makeRequest({
@@ -282,14 +294,14 @@ describe("sanitizePayload", () => {
           ],
         },
       ],
-    })
-    const result = sanitizePayload(input)
-    const assistantMsg = result.messages[1]!
+    });
+    const result = sanitizePayload(input);
+    const assistantMsg = result.messages[1]!;
     expect(assistantMsg.content).toEqual([
       { type: "text", text: "Hello!" },
       { type: "tool_use", id: "t1", name: "foo", input: {} },
-    ])
-  })
+    ]);
+  });
 
   test("preserves string content in assistant messages", () => {
     const input = makeRequest({
@@ -297,12 +309,12 @@ describe("sanitizePayload", () => {
         { role: "user", content: "hello" },
         { role: "assistant", content: "Hello!" },
       ],
-    })
-    const result = sanitizePayload(input)
-    const assistantMsg = result.messages[1]!
-    expect(assistantMsg.content).toBe("Hello!")
-  })
-})
+    });
+    const result = sanitizePayload(input);
+    const assistantMsg = result.messages[1]!;
+    expect(assistantMsg.content).toBe("Hello!");
+  });
+});
 
 // ===========================================================================
 // detectServerTools
@@ -310,59 +322,87 @@ describe("sanitizePayload", () => {
 
 describe("detectServerTools", () => {
   test("no tools → no server-side tools", () => {
-    const result = detectServerTools(makeRequest())
-    expect(result.hasServerSideTools).toBe(false)
-    expect(result.allServerSide).toBe(false)
-    expect(result.serverSideToolNames).toEqual([])
-  })
+    const result = detectServerTools(makeRequest());
+    expect(result.hasServerSideTools).toBe(false);
+    expect(result.allServerSide).toBe(false);
+    expect(result.serverSideToolNames).toEqual([]);
+  });
 
   test("only custom tools → no server-side tools", () => {
-    const result = detectServerTools(makeRequest({
-      tools: [
-        { name: "my_tool", description: "A custom tool", input_schema: {}, type: "custom" },
-        { name: "another_tool", description: "Another", input_schema: {} },
-      ],
-    }))
-    expect(result.hasServerSideTools).toBe(false)
-    expect(result.allServerSide).toBe(false)
-    expect(result.serverSideToolNames).toEqual([])
-  })
+    const result = detectServerTools(
+      makeRequest({
+        tools: [
+          { name: "my_tool", description: "A custom tool", input_schema: {}, type: "custom" },
+          { name: "another_tool", description: "Another", input_schema: {} },
+        ],
+      }),
+    );
+    expect(result.hasServerSideTools).toBe(false);
+    expect(result.allServerSide).toBe(false);
+    expect(result.serverSideToolNames).toEqual([]);
+  });
 
   test("server-side tool detected by type suffix", () => {
-    const result = detectServerTools(makeRequest({
-      tools: [
-        { name: "web_search", description: "Search", input_schema: {}, type: "web_search_20260209" },
-      ],
-    }))
-    expect(result.hasServerSideTools).toBe(true)
-    expect(result.allServerSide).toBe(true)
-    expect(result.serverSideToolNames).toEqual(["web_search"])
-  })
+    const result = detectServerTools(
+      makeRequest({
+        tools: [
+          {
+            name: "web_search",
+            description: "Search",
+            input_schema: {},
+            type: "web_search_20260209",
+          },
+        ],
+      }),
+    );
+    expect(result.hasServerSideTools).toBe(true);
+    expect(result.allServerSide).toBe(true);
+    expect(result.serverSideToolNames).toEqual(["web_search"]);
+  });
 
   test("mixed tools → hasServerSideTools but not allServerSide", () => {
-    const result = detectServerTools(makeRequest({
-      tools: [
-        { name: "web_search", description: "Search", input_schema: {}, type: "web_search_20260209" },
-        { name: "my_tool", description: "Custom", input_schema: {}, type: "custom" },
-      ],
-    }))
-    expect(result.hasServerSideTools).toBe(true)
-    expect(result.allServerSide).toBe(false)
-    expect(result.serverSideToolNames).toEqual(["web_search"])
-  })
+    const result = detectServerTools(
+      makeRequest({
+        tools: [
+          {
+            name: "web_search",
+            description: "Search",
+            input_schema: {},
+            type: "web_search_20260209",
+          },
+          { name: "my_tool", description: "Custom", input_schema: {}, type: "custom" },
+        ],
+      }),
+    );
+    expect(result.hasServerSideTools).toBe(true);
+    expect(result.allServerSide).toBe(false);
+    expect(result.serverSideToolNames).toEqual(["web_search"]);
+  });
 
   test("multiple server-side tools", () => {
-    const result = detectServerTools(makeRequest({
-      tools: [
-        { name: "web_search", description: "Search", input_schema: {}, type: "web_search_20260209" },
-        { name: "code_exec", description: "Code", input_schema: {}, type: "code_execution_20250522" },
-      ],
-    }))
-    expect(result.hasServerSideTools).toBe(true)
-    expect(result.allServerSide).toBe(true)
-    expect(result.serverSideToolNames).toEqual(["web_search", "code_exec"])
-  })
-})
+    const result = detectServerTools(
+      makeRequest({
+        tools: [
+          {
+            name: "web_search",
+            description: "Search",
+            input_schema: {},
+            type: "web_search_20260209",
+          },
+          {
+            name: "code_exec",
+            description: "Code",
+            input_schema: {},
+            type: "code_execution_20250522",
+          },
+        ],
+      }),
+    );
+    expect(result.hasServerSideTools).toBe(true);
+    expect(result.allServerSide).toBe(true);
+    expect(result.serverSideToolNames).toEqual(["web_search", "code_exec"]);
+  });
+});
 
 // ===========================================================================
 // preprocessPayload (integration)
@@ -370,46 +410,37 @@ describe("detectServerTools", () => {
 
 describe("preprocessPayload", () => {
   test("extracts rawModel from payload", () => {
-    const result = preprocessPayload(
-      makeRequest({ model: "claude-opus-4-6-20250820" }),
-      null,
-    )
-    expect(result.rawModel).toBe("claude-opus-4-6-20250820")
-  })
+    const result = preprocessPayload(makeRequest({ model: "claude-opus-4-6-20250820" }), null);
+    expect(result.rawModel).toBe("claude-opus-4-6-20250820");
+  });
 
   test("translates copilotModel", () => {
-    const result = preprocessPayload(
-      makeRequest({ model: "claude-opus-4-6-20250820" }),
-      null,
-    )
-    expect(result.copilotModel).toBe("claude-opus-4.6")
-  })
+    const result = preprocessPayload(makeRequest({ model: "claude-opus-4-6-20250820" }), null);
+    expect(result.copilotModel).toBe("claude-opus-4.6");
+  });
 
   test("applies 1m suffix from beta header", () => {
     const result = preprocessPayload(
       makeRequest({ model: "claude-opus-4-6" }),
       "context-1m-2025-01-01",
-    )
-    expect(result.copilotModel).toBe("claude-opus-4.6-1m")
+    );
+    expect(result.copilotModel).toBe("claude-opus-4.6-1m");
     // rawModel should be unchanged
-    expect(result.rawModel).toBe("claude-opus-4-6")
-  })
+    expect(result.rawModel).toBe("claude-opus-4-6");
+  });
 
   test("filters anthropic-beta header", () => {
     const result = preprocessPayload(
       makeRequest(),
       "context-1m-2025-01-01,interleaved-thinking-2025-05-14",
-    )
-    expect(result.anthropicBeta).toBe("interleaved-thinking-2025-05-14")
-  })
+    );
+    expect(result.anthropicBeta).toBe("interleaved-thinking-2025-05-14");
+  });
 
   test("removes service_tier from payload", () => {
-    const result = preprocessPayload(
-      makeRequest({ service_tier: "auto" }),
-      null,
-    )
-    expect(result.payload.service_tier).toBeUndefined()
-  })
+    const result = preprocessPayload(makeRequest({ service_tier: "auto" }), null);
+    expect(result.payload.service_tier).toBeUndefined();
+  });
 
   test("removes context_management from payload", () => {
     const result = preprocessPayload(
@@ -418,31 +449,35 @@ describe("preprocessPayload", () => {
         context_management: { type: "ephemeral" },
       } as AnthropicMessagesPayload & { context_management: { type: string } },
       null,
-    )
-    expect("context_management" in (result.payload as unknown as Record<string, unknown>)).toBe(false)
-  })
+    );
+    expect("context_management" in (result.payload as unknown as Record<string, unknown>)).toBe(
+      false,
+    );
+  });
 
   test("detects server-side tools", () => {
     const result = preprocessPayload(
       makeRequest({
         tools: [
-          { name: "web_search", description: "Search", input_schema: {}, type: "web_search_20260209" },
+          {
+            name: "web_search",
+            description: "Search",
+            input_schema: {},
+            type: "web_search_20260209",
+          },
         ],
       }),
       null,
-    )
-    expect(result.serverToolContext.hasServerSideTools).toBe(true)
-    expect(result.serverToolContext.serverSideToolNames).toEqual(["web_search"])
-  })
+    );
+    expect(result.serverToolContext.hasServerSideTools).toBe(true);
+    expect(result.serverToolContext.serverSideToolNames).toEqual(["web_search"]);
+  });
 
   test("preserves original model in payload", () => {
-    const result = preprocessPayload(
-      makeRequest({ model: "claude-opus-4-6-20250820" }),
-      null,
-    )
+    const result = preprocessPayload(makeRequest({ model: "claude-opus-4-6-20250820" }), null);
     // payload.model should still be the original
-    expect(result.payload.model).toBe("claude-opus-4-6-20250820")
-  })
+    expect(result.payload.model).toBe("claude-opus-4-6-20250820");
+  });
 
   test("full preprocessing flow", () => {
     const result = preprocessPayload(
@@ -450,76 +485,83 @@ describe("preprocessPayload", () => {
         model: "claude-opus-4-6-20250820",
         service_tier: "auto",
         tools: [
-          { name: "web_search", description: "Search", input_schema: {}, type: "web_search_20260209" },
+          {
+            name: "web_search",
+            description: "Search",
+            input_schema: {},
+            type: "web_search_20260209",
+          },
           { name: "my_tool", description: "Custom", input_schema: {} },
         ],
       }),
       "context-1m-2025-01-01,interleaved-thinking-2025-05-14,fast-mode-2025-01-01",
-    )
+    );
 
     // rawModel is unchanged
-    expect(result.rawModel).toBe("claude-opus-4-6-20250820")
+    expect(result.rawModel).toBe("claude-opus-4-6-20250820");
     // copilotModel has 1m suffix (from beta, takes priority over fast)
-    expect(result.copilotModel).toBe("claude-opus-4.6-1m")
+    expect(result.copilotModel).toBe("claude-opus-4.6-1m");
     // Only allowed betas pass through
-    expect(result.anthropicBeta).toBe("interleaved-thinking-2025-05-14")
+    expect(result.anthropicBeta).toBe("interleaved-thinking-2025-05-14");
     // service_tier removed
-    expect(result.payload.service_tier).toBeUndefined()
+    expect(result.payload.service_tier).toBeUndefined();
     // Server-side tools detected
-    expect(result.serverToolContext.hasServerSideTools).toBe(true)
-    expect(result.serverToolContext.allServerSide).toBe(false)
-    expect(result.serverToolContext.serverSideToolNames).toEqual(["web_search"])
-  })
-})
+    expect(result.serverToolContext.hasServerSideTools).toBe(true);
+    expect(result.serverToolContext.allServerSide).toBe(false);
+    expect(result.serverToolContext.serverSideToolNames).toEqual(["web_search"]);
+  });
+});
 
 describe("resolveAgainstCatalog", () => {
   test("returns input unchanged when catalog is empty (back-compat)", () => {
-    expect(resolveAgainstCatalog("claude-opus-4.7-1m", [])).toBe("claude-opus-4.7-1m")
-  })
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", [])).toBe("claude-opus-4.7-1m");
+  });
 
   test("returns input unchanged when catalog contains exact id", () => {
-    const catalog = ["claude-opus-4.6", "claude-opus-4.6-1m", "claude-opus-4.7"]
-    expect(resolveAgainstCatalog("claude-opus-4.6-1m", catalog)).toBe("claude-opus-4.6-1m")
-  })
+    const catalog = ["claude-opus-4.6", "claude-opus-4.6-1m", "claude-opus-4.7"];
+    expect(resolveAgainstCatalog("claude-opus-4.6-1m", catalog)).toBe("claude-opus-4.6-1m");
+  });
 
   test("resolves to -internal variant when only that exists in catalog", () => {
-    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m-internal"]
-    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m-internal")
-  })
+    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m-internal"];
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe(
+      "claude-opus-4.7-1m-internal",
+    );
+  });
 
   test("prefers exact match over -internal variant when both exist", () => {
-    const catalog = ["claude-opus-4.7-1m", "claude-opus-4.7-1m-internal"]
-    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m")
-  })
+    const catalog = ["claude-opus-4.7-1m", "claude-opus-4.7-1m-internal"];
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m");
+  });
 
   test("falls back to base model when -1m retired but base is in catalog", () => {
     // Copilot folded 1M context into the base model and dropped the -1m SKU.
-    const catalog = ["claude-opus-4.7", "claude-sonnet-4.6"]
-    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7")
-  })
+    const catalog = ["claude-opus-4.7", "claude-sonnet-4.6"];
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7");
+  });
 
   test("prefers exact -1m over base fallback when -1m still exists", () => {
-    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m"]
-    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m")
-  })
+    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m"];
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m");
+  });
 
   test("returns input unchanged when neither exact nor -internal in catalog", () => {
-    const catalog = ["claude-opus-4.6", "claude-sonnet-4.5"]
-    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m")
-  })
-})
+    const catalog = ["claude-opus-4.6", "claude-sonnet-4.5"];
+    expect(resolveAgainstCatalog("claude-opus-4.7-1m", catalog)).toBe("claude-opus-4.7-1m");
+  });
+});
 
 describe("preprocessPayload catalogIds threading", () => {
   test("resolves copilotModel through catalog when -internal variant is present", () => {
-    const payload = makeRequest({ model: "claude-opus-4-7" })
-    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m-internal"]
-    const result = preprocessPayload(payload, "context-1m-2025-08-07", catalog)
-    expect(result.copilotModel).toBe("claude-opus-4.7-1m-internal")
-  })
+    const payload = makeRequest({ model: "claude-opus-4-7" });
+    const catalog = ["claude-opus-4.7", "claude-opus-4.7-1m-internal"];
+    const result = preprocessPayload(payload, "context-1m-2025-08-07", catalog);
+    expect(result.copilotModel).toBe("claude-opus-4.7-1m-internal");
+  });
 
   test("default catalog (empty) preserves prior behaviour", () => {
-    const payload = makeRequest({ model: "claude-opus-4-7" })
-    const result = preprocessPayload(payload, "context-1m-2025-08-07")
-    expect(result.copilotModel).toBe("claude-opus-4.7-1m")
-  })
-})
+    const payload = makeRequest({ model: "claude-opus-4-7" });
+    const result = preprocessPayload(payload, "context-1m-2025-08-07");
+    expect(result.copilotModel).toBe("claude-opus-4.7-1m");
+  });
+});

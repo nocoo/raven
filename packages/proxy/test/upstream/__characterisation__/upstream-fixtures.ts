@@ -16,20 +16,20 @@
  */
 
 export interface CharacterisationEntry {
-  id: string
+  id: string;
   input: {
-    payload: unknown
-    state: Record<string, unknown>
-    options?: Record<string, unknown>
-    provider?: Record<string, unknown>
-  }
+    payload: unknown;
+    state: Record<string, unknown>;
+    options?: Record<string, unknown>;
+    provider?: Record<string, unknown>;
+  };
   request: {
-    url: string
-    method: string
-    proxy: string | null
-    headers: Record<string, string>
-    body: unknown
-  }
+    url: string;
+    method: string;
+    proxy: string | null;
+    headers: Record<string, string>;
+    body: unknown;
+  };
 }
 
 export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
@@ -52,7 +52,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       method: "POST",
       proxy: null,
       headers: {
-        "authorization": "Bearer test-jwt",
+        authorization: "Bearer test-jwt",
         "content-type": "application/json",
         "copilot-integration-id": "vscode-chat",
         "editor-version": "vscode/1.90.0",
@@ -94,7 +94,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       method: "POST",
       proxy: null,
       headers: {
-        "authorization": "Bearer test-jwt",
+        authorization: "Bearer test-jwt",
         "content-type": "application/json",
         "copilot-integration-id": "vscode-chat",
         "editor-version": "vscode/1.90.0",
@@ -141,7 +141,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       method: "POST",
       proxy: null,
       headers: {
-        "authorization": "Bearer test-jwt",
+        authorization: "Bearer test-jwt",
         "content-type": "application/json",
         "copilot-integration-id": "vscode-chat",
         "editor-version": "vscode/1.90.0",
@@ -181,7 +181,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       method: "POST",
       proxy: null,
       headers: {
-        "authorization": "Bearer test-jwt",
+        authorization: "Bearer test-jwt",
         "content-type": "application/json",
         "copilot-integration-id": "vscode-chat",
         "editor-version": "vscode/1.90.0",
@@ -219,7 +219,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       method: "POST",
       proxy: null,
       headers: {
-        "authorization": "Bearer test-jwt",
+        authorization: "Bearer test-jwt",
         "content-type": "application/json",
         "copilot-integration-id": "vscode-chat",
         "editor-version": "vscode/1.90.0",
@@ -259,7 +259,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       proxy: null,
       headers: {
         "content-type": "application/json",
-        "authorization": "Bearer sk-test",
+        authorization: "Bearer sk-test",
       },
       body: {
         model: "deepseek-chat",
@@ -289,7 +289,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       proxy: null,
       headers: {
         "content-type": "application/json",
-        "authorization": "Bearer sk-test",
+        authorization: "Bearer sk-test",
       },
       body: {
         model: "deepseek-chat",
@@ -321,7 +321,7 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       headers: {
         "content-type": "application/json",
         "x-api-key": "sk-anth",
-        "authorization": "Bearer sk-anth",
+        authorization: "Bearer sk-anth",
         "anthropic-version": "2023-06-01",
       },
       body: {
@@ -331,4 +331,4 @@ export const upstreamCharacterisations: ReadonlyArray<CharacterisationEntry> = [
       },
     },
   },
-]
+];

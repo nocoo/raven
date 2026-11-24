@@ -1,6 +1,6 @@
-import { Hono } from "hono"
-import { handleGeneration } from "../generation"
+import { Hono } from "hono";
+import { handleGeneration } from "../generation";
 
-export const systemoneRoutes = new Hono()
+export const systemoneRoutes = new Hono();
 
-systemoneRoutes.post("/", (c) => handleGeneration(c, "systemone"))
+systemoneRoutes.post("/", (c) => handleGeneration(c, "systemone"));

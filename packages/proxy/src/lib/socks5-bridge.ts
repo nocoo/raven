@@ -16,9 +16,7 @@ export interface Socks5BridgeConfig {
 
 export class Socks5BridgeUnavailableError extends Error {
   constructor() {
-    super(
-      "SOCKS5 proxy is enabled but the bridge is not running. Check proxy settings.",
-    );
+    super("SOCKS5 proxy is enabled but the bridge is not running. Check proxy settings.");
     this.name = "Socks5BridgeUnavailableError";
   }
 }
@@ -44,16 +42,9 @@ export function getBridgePort(): number | null {
  * Listens on 127.0.0.1 with a random port.
  * Returns the port number on success.
  */
-export async function startBridge(
-  config: Socks5BridgeConfig,
-): Promise<number> {
+export async function startBridge(config: Socks5BridgeConfig): Promise<number> {
   // If already running with same config, return existing port
-  if (
-    bridgeServer &&
-    bridgePort &&
-    currentConfig &&
-    configEqual(currentConfig, config)
-  ) {
+  if (bridgeServer && bridgePort && currentConfig && configEqual(currentConfig, config)) {
     return bridgePort;
   }
 
@@ -70,8 +61,8 @@ export async function startBridge(
         return;
       }
 
-      const targetHost = match[1]
-      const targetPortText = match[2]
+      const targetHost = match[1];
+      const targetPortText = match[2];
       if (!targetHost || !targetPortText) {
         clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
         clientSocket.destroy();
@@ -189,9 +180,6 @@ export function getProxyUrl(
 
 function configEqual(a: Socks5BridgeConfig, b: Socks5BridgeConfig): boolean {
   return (
-    a.host === b.host &&
-    a.port === b.port &&
-    a.userId === b.userId &&
-    a.password === b.password
+    a.host === b.host && a.port === b.port && a.userId === b.userId && a.password === b.password
   );
 }

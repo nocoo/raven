@@ -1,13 +1,13 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import {
   CustomOpenAIClient,
   defaultCustomOpenAIConfig,
-} from "./../../../src/upstream/custom-openai"
-import type { UpstreamRecord } from "./../../../src/core/routing-types"
-import type { ChatCompletionsPayload } from "./../../../src/upstream/copilot-openai"
+} from "./../../../src/upstream/custom-openai";
+import type { UpstreamRecord } from "./../../../src/core/routing-types";
+import type { ChatCompletionsPayload } from "./../../../src/upstream/copilot-openai";
 
 const sendOpenAIDirect = (provider: UpstreamRecord, payload: ChatCompletionsPayload) =>
-  new CustomOpenAIClient(defaultCustomOpenAIConfig()).send({ provider, payload })
+  new CustomOpenAIClient(defaultCustomOpenAIConfig()).send({ provider, payload });
 
 function makeProvider(overrides: Partial<UpstreamRecord> = {}): UpstreamRecord {
   return {
@@ -29,30 +29,30 @@ function makeProvider(overrides: Partial<UpstreamRecord> = {}): UpstreamRecord {
     created_at: 1,
     updated_at: 1,
     ...overrides,
-  }
+  };
 }
 
 function makeMockStream(chunks: string[]): Response {
-  const encoder = new TextEncoder()
+  const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
       for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk))
+        controller.enqueue(encoder.encode(chunk));
       }
-      controller.close()
+      controller.close();
     },
-  })
+  });
   return new Response(stream, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
-  })
+  });
 }
 
 function makeMockResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
-  })
+  });
 }
 
 /** Complete OpenAI response for type-safe mocks */
@@ -82,37 +82,37 @@ function makeOpenAIResponse(overrides = {}) {
       prompt_tokens_details: { cached_tokens: 0 },
     },
     ...overrides,
-  }
+  };
 }
 
-let fetchSpy: ReturnType<typeof vi.spyOn>
+let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  fetchSpy = vi.spyOn(globalThis, "fetch")
-})
+  fetchSpy = vi.spyOn(globalThis, "fetch");
+});
 
 afterEach(() => {
-  fetchSpy.mockRestore()
-})
+  fetchSpy.mockRestore();
+});
 
 describe("sendOpenAIDirect", () => {
-  const provider = makeProvider({ format: "chat_completions" })
+  const provider = makeProvider({ format: "chat_completions" });
   const payload: ChatCompletionsPayload = {
     model: "model-a",
     messages: [{ role: "user", content: "Hello" }],
     stream: false,
-  }
+  };
 
   test("sends POST to correct URL with OpenAI headers", async () => {
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeOpenAIResponse()))
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(makeOpenAIResponse()));
 
-    await sendOpenAIDirect(provider, payload)
+    await sendOpenAIDirect(provider, payload);
 
-    const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe("https://api.example.com/v1/chat/completions")
-    expect(options.method).toBe("POST")
+    const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.example.com/v1/chat/completions");
+    expect(options.method).toBe("POST");
     // Headers are captured by the spy but we trust the implementation
-  })
+  });
 
   test("non-streaming: returns parsed JSON response", async () => {
     const mockBody = makeOpenAIResponse({
@@ -128,12 +128,12 @@ describe("sendOpenAIDirect", () => {
           finish_reason: "stop" as const,
         },
       ],
-    })
-    fetchSpy.mockResolvedValueOnce(makeMockResponse(mockBody))
+    });
+    fetchSpy.mockResolvedValueOnce(makeMockResponse(mockBody));
 
-    const result = await sendOpenAIDirect(provider, payload)
-    expect(result).toEqual(mockBody)
-  })
+    const result = await sendOpenAIDirect(provider, payload);
+    expect(result).toEqual(mockBody);
+  });
 
   test("streaming: returns async generator from events()", async () => {
     fetchSpy.mockResolvedValueOnce(
@@ -141,32 +141,32 @@ describe("sendOpenAIDirect", () => {
         'data: {"id":"c1","choices":[{"delta":{"content":"Hi"}}]}\n\n',
         "data: [DONE]\n\n",
       ]),
-    )
+    );
 
-    const streamingPayload = { ...payload, stream: true }
-    const result = await sendOpenAIDirect(provider, streamingPayload)
+    const streamingPayload = { ...payload, stream: true };
+    const result = await sendOpenAIDirect(provider, streamingPayload);
 
-    expect(Symbol.asyncIterator in Object(result)).toBe(true)
+    expect(Symbol.asyncIterator in Object(result)).toBe(true);
 
-    const events: unknown[] = []
+    const events: unknown[] = [];
     for await (const event of result as AsyncIterable<unknown>) {
-      events.push(event)
+      events.push(event);
     }
-    expect(events.length).toBeGreaterThanOrEqual(1)
-  })
+    expect(events.length).toBeGreaterThanOrEqual(1);
+  });
 
   test("throws HTTPError on non-ok response", async () => {
     fetchSpy.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: "rate limit exceeded" }), {
         status: 429,
       }),
-    )
+    );
 
     try {
-      await sendOpenAIDirect(provider, payload)
-      expect(true).toBe(false)
+      await sendOpenAIDirect(provider, payload);
+      expect(true).toBe(false);
     } catch (err) {
-      expect((err as Error).message).toBe("Upstream TestProvider returned 429")
+      expect((err as Error).message).toBe("Upstream TestProvider returned 429");
     }
-  })
-})
+  });
+});

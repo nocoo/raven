@@ -53,9 +53,17 @@ export function createRequestsRoute(db: Database): Hono {
     if (format) params.format = format;
 
     const sort = c.req.query("sort");
-    const validSorts = ["timestamp", "latency_ms", "total_tokens", "ttft_ms", "processing_ms", "input_tokens", "output_tokens"] as const;
+    const validSorts = [
+      "timestamp",
+      "latency_ms",
+      "total_tokens",
+      "ttft_ms",
+      "processing_ms",
+      "input_tokens",
+      "output_tokens",
+    ] as const;
     if (sort && (validSorts as readonly string[]).includes(sort)) {
-      params.sort = sort as typeof validSorts[number];
+      params.sort = sort as (typeof validSorts)[number];
     }
 
     const order = c.req.query("order");

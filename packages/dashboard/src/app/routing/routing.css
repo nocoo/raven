@@ -4,31 +4,112 @@
   align-items: start;
   min-width: 0;
 }
-.routing-workbench > * { min-width: 0; }
-.routing-directory-list { display: flex; gap: .25rem; overflow-x: auto; }
-.routing-directory-item { height: auto; min-width: 11rem; max-width: 15rem; flex-shrink: 0; justify-content: flex-start; gap: .5rem; padding: .625rem .75rem; text-align: left; }
-.routing-directory-item[aria-current="true"] { background-color: hsl(var(--basalt-accent)); color: hsl(var(--basalt-foreground)); font-weight: 600; }
-.routing-directory-item[aria-current="true"] > svg { color: inherit; }
-.routing-config-name { border-color: transparent; background: transparent; box-shadow: none; }
-.routing-config-name:hover { border-color: hsl(var(--basalt-border)); }
-.routing-target { transition: opacity 150ms ease, transform 150ms ease; }
-.routing-target[data-dragging="true"] { opacity: .4; transform: scale(.99); }
-.routing-target[data-over="true"] { outline: 2px solid hsl(var(--basalt-ring)); border-radius: var(--basalt-radius-widget); transform: translateY(3px); }
-.routing-schedule-track {
-  background-color: hsl(var(--basalt-muted) / .6);
-  background-image: repeating-linear-gradient(to right, transparent 0, transparent calc(100% / 48 - 1px), hsl(var(--basalt-border) / .45) calc(100% / 48 - 1px), hsl(var(--basalt-border) / .45) calc(100% / 48));
+.routing-workbench > * {
+  min-width: 0;
 }
-.routing-period { background-color: hsl(var(--basalt-primary) / .18); color: hsl(var(--basalt-foreground)); transition: width 180ms ease, left 180ms ease, background-color 150ms ease; }
-.routing-period[data-selected="true"] { background-color: hsl(var(--basalt-primary)); color: hsl(var(--basalt-primary-foreground)); }
-.routing-enter { animation: routing-enter 180ms ease-out both; }
-@keyframes routing-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.routing-directory-list {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+}
+.routing-directory-item {
+  height: auto;
+  min-width: 11rem;
+  max-width: 15rem;
+  flex-shrink: 0;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+}
+.routing-directory-item[aria-current="true"] {
+  background-color: hsl(var(--basalt-accent));
+  color: hsl(var(--basalt-foreground));
+  font-weight: 600;
+}
+.routing-directory-item[aria-current="true"] > svg {
+  color: inherit;
+}
+.routing-config-name {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.routing-config-name:hover {
+  border-color: hsl(var(--basalt-border));
+}
+.routing-target {
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+.routing-target[data-dragging="true"] {
+  opacity: 0.4;
+  transform: scale(0.99);
+}
+.routing-target[data-over="true"] {
+  outline: 2px solid hsl(var(--basalt-ring));
+  border-radius: var(--basalt-radius-widget);
+  transform: translateY(3px);
+}
+.routing-schedule-track {
+  background-color: hsl(var(--basalt-muted) / 0.6);
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(100% / 48 - 1px),
+    hsl(var(--basalt-border) / 0.45) calc(100% / 48 - 1px),
+    hsl(var(--basalt-border) / 0.45) calc(100% / 48)
+  );
+}
+.routing-period {
+  background-color: hsl(var(--basalt-primary) / 0.18);
+  color: hsl(var(--basalt-foreground));
+  transition:
+    width 180ms ease,
+    left 180ms ease,
+    background-color 150ms ease;
+}
+.routing-period[data-selected="true"] {
+  background-color: hsl(var(--basalt-primary));
+  color: hsl(var(--basalt-primary-foreground));
+}
+.routing-enter {
+  animation: routing-enter 180ms ease-out both;
+}
+@keyframes routing-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 @container page (min-width: 52rem) {
-  .routing-workbench { grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); }
-  .routing-directory { position: sticky; top: 0; }
-  .routing-directory-list { flex-direction: column; }
-  .routing-directory-item { width: 100%; min-width: 0; max-width: none; }
+  .routing-workbench {
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+  }
+  .routing-directory {
+    position: sticky;
+    top: 0;
+  }
+  .routing-directory-list {
+    flex-direction: column;
+  }
+  .routing-directory-item {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .routing-target, .routing-period { transition: none; }
-  .routing-enter { animation: none; }
+  .routing-target,
+  .routing-period {
+    transition: none;
+  }
+  .routing-enter {
+    animation: none;
+  }
 }

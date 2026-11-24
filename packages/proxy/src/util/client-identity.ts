@@ -32,16 +32,13 @@ const UA_PATTERNS: [RegExp, string][] = [
 /**
  * Parse User-Agent string to extract client name and version.
  */
-export function parseUserAgent(
-  ua: string | null,
-): { name: string; version: string | null } {
+export function parseUserAgent(ua: string | null): { name: string; version: string | null } {
   if (!ua) return { name: "Unknown", version: null };
 
   for (const [pattern, name] of UA_PATTERNS) {
     if (pattern.test(ua)) {
       const slashIdx = ua.indexOf("/");
-      const version =
-        slashIdx >= 0 ? (ua.slice(slashIdx + 1).split(" ")[0] ?? null) : null;
+      const version = slashIdx >= 0 ? (ua.slice(slashIdx + 1).split(" ")[0] ?? null) : null;
       return { name, version };
     }
   }

@@ -2,10 +2,7 @@ import { Suspense } from "react";
 import { FetchError } from "@/components/fetch-error";
 import { safeFetch } from "@/lib/proxy";
 import type { ExtendedRequestRecord, SummaryStats, PaginatedRequests } from "@/lib/types";
-import {
-  searchParamsToFilters,
-  filtersToApiQuery,
-} from "@/lib/analytics-filters";
+import { searchParamsToFilters, filtersToApiQuery } from "@/lib/analytics-filters";
 import { FilterBar } from "@/components/analytics/filter-bar";
 import { RequestsContent } from "./requests-content";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
@@ -50,22 +47,25 @@ export default async function RequestsPage({ searchParams }: PageProps) {
     safeFetch<{ key: string }[]>(
       `/api/stats/breakdown${apiQuery}${sep}by=model&sort=count&order=desc&limit=20`,
     ),
-    safeFetch<BreakdownEntry[]>(`/api/stats/breakdown${apiQuery}${sep}by=key_id&sort=count&order=desc&limit=50`),
+    safeFetch<BreakdownEntry[]>(
+      `/api/stats/breakdown${apiQuery}${sep}by=key_id&sort=count&order=desc&limit=50`,
+    ),
   ]);
 
   if (!requestsResult.ok) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Requests" description="Inspect every proxied request, with filters, sorting and pagination." />
+        <PageHeader
+          title="Requests"
+          description="Inspect every proxied request, with filters, sorting and pagination."
+        />
         <FetchError title="Failed to load requests" message={requestsResult.error} />
       </div>
     );
   }
 
   const { data, has_more, next_cursor, total } = requestsResult.data;
-  const models = modelsResult.ok
-    ? modelsResult.data.map((e) => e.key).filter(Boolean)
-    : [];
+  const models = modelsResult.ok ? modelsResult.data.map((e) => e.key).filter(Boolean) : [];
   const summary = summaryResult.ok ? summaryResult.data : null;
 
   return (
@@ -75,7 +75,16 @@ export default async function RequestsPage({ searchParams }: PageProps) {
         description="Trace a model, key or time window to individual calls. Open a request for its protocol route, timing and logs."
         filters={
           <Suspense>
-            <FilterBar models={models} keys={keysResult.ok ? keysResult.data.map(entry => ({ id: entry.key, label: keyLabel(entry) })) : []} investigation autoRefresh />
+            <FilterBar
+              models={models}
+              keys={
+                keysResult.ok
+                  ? keysResult.data.map((entry) => ({ id: entry.key, label: keyLabel(entry) }))
+                  : []
+              }
+              investigation
+              autoRefresh
+            />
           </Suspense>
         }
       />

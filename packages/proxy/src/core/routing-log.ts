@@ -1,25 +1,25 @@
-import type { RequestContext } from "./context"
+import type { RequestContext } from "./context";
 
 export interface RequestRoutingDetails {
-  requested_model: string
-  resolved_model: string
-  rule_id: string
-  period_id: string | null
-  upstream_id: string
-  upstream_name: string
-  quota_window_id: string | null
-  multiplier: number
-  weighted_tokens: number
-  usage_complete: boolean
-  accounting_healthy: boolean
-  admitted_at: number
-  skipped: { upstream_id: string; reason: string }[]
-  diagnostic: boolean
+  requested_model: string;
+  resolved_model: string;
+  rule_id: string;
+  period_id: string | null;
+  upstream_id: string;
+  upstream_name: string;
+  quota_window_id: string | null;
+  multiplier: number;
+  weighted_tokens: number;
+  usage_complete: boolean;
+  accounting_healthy: boolean;
+  admitted_at: number;
+  skipped: { upstream_id: string; reason: string }[];
+  diagnostic: boolean;
 }
 
 export function routingLog(ctx: RequestContext): Record<string, unknown> {
-  const route = ctx.routing
-  if (!route) return {}
+  const route = ctx.routing;
+  if (!route) return {};
   return {
     ...(ctx.upstreamProtocol ? { upstreamFormat: ctx.upstreamProtocol } : {}),
     routing: {
@@ -52,5 +52,5 @@ export function routingLog(ctx: RequestContext): Record<string, unknown> {
     quotaSkipped: route.skipped,
     admittedAt: ctx.admittedAt,
     diagnostic: ctx.diagnostic ?? false,
-  }
+  };
 }

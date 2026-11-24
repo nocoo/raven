@@ -60,36 +60,36 @@ export function ModelDistribution({ data }: ModelDistributionProps) {
         <span className="text-sm font-semibold text-basalt-foreground">Models</span>
       </LayerCard.Header>
       <LayerCard.Body>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{ left: 0, right: 8, top: 4, bottom: 4 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={CHART_COLORS.muted}
-              strokeOpacity={0.3}
-              horizontal={false}
-            />
-            <XAxis type="number" allowDecimals={false} {...AXIS_CONFIG} />
-            <YAxis
-              type="category"
-              dataKey="model"
-              width={90}
-              {...AXIS_CONFIG}
-              tick={{ fontSize: 10, fill: AXIS_CONFIG.tick.fill }}
-            />
-            <Tooltip content={<ModelTooltip />} />
-            <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20} {...ANIMATION_PROPS}>
-              {data.map((entry, i) => (
-                <Cell key={`cell-${entry.model}`} fill={getChartColor(i)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+        <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
+          <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ left: 0, right: 8, top: 4, bottom: 4 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={CHART_COLORS.muted}
+                strokeOpacity={0.3}
+                horizontal={false}
+              />
+              <XAxis type="number" allowDecimals={false} {...AXIS_CONFIG} />
+              <YAxis
+                type="category"
+                dataKey="model"
+                width={90}
+                {...AXIS_CONFIG}
+                tick={{ fontSize: 10, fill: AXIS_CONFIG.tick.fill }}
+              />
+              <Tooltip content={<ModelTooltip />} />
+              <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20} {...ANIMATION_PROPS}>
+                {data.map((entry, i) => (
+                  <Cell key={`cell-${entry.model}`} fill={getChartColor(i)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </LayerCard.Body>
     </LayerCard>
   );

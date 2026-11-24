@@ -9,30 +9,30 @@
 const v = (token: string) => `hsl(var(--basalt-${token}))`;
 
 const chart = {
-  blue:      v("chart-1"),  // Brand slate-blue (= --primary)
-  sky:       v("chart-2"),
-  teal:      v("chart-3"),
-  jade:      v("chart-4"),
-  green:     v("chart-5"),
-  lime:      v("chart-6"),
-  amber:     v("chart-7"),
-  orange:    v("chart-8"),
-  cobalt:    v("chart-9"),
-  red:       v("chart-10"),
-  rose:      v("chart-11"),
-  magenta:   v("chart-12"),
-  orchid:    v("chart-13"),
-  purple:    v("chart-14"),
-  indigo:    v("chart-15"),
-  navy:      v("chart-16"),
-  steel:     v("chart-17"),
-  cadet:     v("chart-18"),
-  seafoam:   v("chart-19"),
-  olive:     v("chart-20"),
-  gold:      v("chart-21"),
+  blue: v("chart-1"), // Brand slate-blue (= --primary)
+  sky: v("chart-2"),
+  teal: v("chart-3"),
+  jade: v("chart-4"),
+  green: v("chart-5"),
+  lime: v("chart-6"),
+  amber: v("chart-7"),
+  orange: v("chart-8"),
+  cobalt: v("chart-9"),
+  red: v("chart-10"),
+  rose: v("chart-11"),
+  magenta: v("chart-12"),
+  orchid: v("chart-13"),
+  purple: v("chart-14"),
+  indigo: v("chart-15"),
+  navy: v("chart-16"),
+  steel: v("chart-17"),
+  cadet: v("chart-18"),
+  seafoam: v("chart-19"),
+  olive: v("chart-20"),
+  gold: v("chart-21"),
   tangerine: v("chart-22"),
-  crimson:   v("chart-23"),
-  gray:      v("chart-24"),
+  crimson: v("chart-23"),
+  gray: v("chart-24"),
 } as const;
 
 /** Ordered array — use for pie / donut / bar where you need N colors by index. */
@@ -124,7 +124,8 @@ export function formatPercent(value: number): string {
  */
 export function cacheHitRate(cacheRead: number, cacheWrite: number, input: number): number | null {
   // An older proxy predates the cache columns and sends undefined here.
-  if (!Number.isFinite(cacheRead) || !Number.isFinite(cacheWrite) || !Number.isFinite(input)) return null;
+  if (!Number.isFinite(cacheRead) || !Number.isFinite(cacheWrite) || !Number.isFinite(input))
+    return null;
   const denom = cacheRead + cacheWrite + input;
   if (denom <= 0) return null;
   return cacheRead / denom;

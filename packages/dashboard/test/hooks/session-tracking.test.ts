@@ -370,9 +370,7 @@ describe("computeConcurrencyTimeline", () => {
     const result = computeConcurrencyTimeline(events);
 
     expect(result.length).toBeGreaterThanOrEqual(3);
-    const buckets = result.filter(
-      (b) => b.minute >= base && b.minute <= base + 120_000,
-    );
+    const buckets = result.filter((b) => b.minute >= base && b.minute <= base + 120_000);
     expect(buckets).toHaveLength(3);
     for (const b of buckets) {
       expect(b.sessions).toBe(1);
@@ -453,8 +451,18 @@ describe("extractRequestEnds", () => {
   });
 
   it("deduplicates request_end by requestId on reconnect replay", () => {
-    const end1 = makeRequestEnd({ requestId: "req-1", ts: 2000, inputTokens: 100, outputTokens: 50 });
-    const end2 = makeRequestEnd({ requestId: "req-2", ts: 3000, inputTokens: 200, outputTokens: 100 });
+    const end1 = makeRequestEnd({
+      requestId: "req-1",
+      ts: 2000,
+      inputTokens: 100,
+      outputTokens: 50,
+    });
+    const end2 = makeRequestEnd({
+      requestId: "req-2",
+      ts: 3000,
+      inputTokens: 200,
+      outputTokens: 100,
+    });
 
     // Simulate reconnect replay: same events appended again
     const events: LogEvent[] = [end1, end2, { ...end1 }, { ...end2 }];
@@ -464,7 +472,12 @@ describe("extractRequestEnds", () => {
   });
 
   it("counts are correct after dedup", () => {
-    const end = makeRequestEnd({ requestId: "req-1", ts: 2000, inputTokens: 100, outputTokens: 50 });
+    const end = makeRequestEnd({
+      requestId: "req-1",
+      ts: 2000,
+      inputTokens: 100,
+      outputTokens: 50,
+    });
 
     // 3 copies of the same request_end
     const events: LogEvent[] = [end, { ...end }, { ...end }];
@@ -479,12 +492,24 @@ describe("extractRequestEnds", () => {
       makeEvent({
         type: "request_end",
         ts: 1000,
-        data: { model: "test", inputTokens: 10, outputTokens: 5, latencyMs: 100, status: "success" },
+        data: {
+          model: "test",
+          inputTokens: 10,
+          outputTokens: 5,
+          latencyMs: 100,
+          status: "success",
+        },
       }),
       makeEvent({
         type: "request_end",
         ts: 2000,
-        data: { model: "test", inputTokens: 20, outputTokens: 10, latencyMs: 200, status: "success" },
+        data: {
+          model: "test",
+          inputTokens: 20,
+          outputTokens: 10,
+          latencyMs: 200,
+          status: "success",
+        },
       }),
     ];
 
@@ -493,9 +518,7 @@ describe("extractRequestEnds", () => {
   });
 
   it("skips events without data", () => {
-    const events: LogEvent[] = [
-      makeEvent({ type: "request_end", requestId: "req-1", ts: 1000 }),
-    ];
+    const events: LogEvent[] = [makeEvent({ type: "request_end", requestId: "req-1", ts: 1000 })];
 
     const result = extractRequestEnds(events);
     expect(result).toHaveLength(0);

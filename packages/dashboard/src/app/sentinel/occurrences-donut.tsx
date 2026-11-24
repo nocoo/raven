@@ -2,19 +2,9 @@
 
 import { memo } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import {
-  ANIMATION_PROPS,
-  RESPONSIVE_CONTAINER_PROPS,
-  formatCompact,
-} from "@/lib/chart-config";
-import {
-  ChartTooltip,
-  ChartTooltipRow,
-} from "@/components/dashboard/chart-primitives";
-import {
-  computePercent,
-  type OccurrenceSlice,
-} from "@/lib/sentinel-derive";
+import { ANIMATION_PROPS, RESPONSIVE_CONTAINER_PROPS, formatCompact } from "@/lib/chart-config";
+import { ChartTooltip, ChartTooltipRow } from "@/components/dashboard/chart-primitives";
+import { computePercent, type OccurrenceSlice } from "@/lib/sentinel-derive";
 
 interface OccurrencesDonutProps {
   slices: OccurrenceSlice[];
@@ -26,13 +16,7 @@ interface SliceTooltipPayload {
   color: string;
 }
 
-function SliceTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: SliceTooltipPayload[];
-}) {
+function SliceTooltip({ active, payload }: { active?: boolean; payload?: SliceTooltipPayload[] }) {
   const p = payload?.[0];
   if (!active || !p) return null;
   const total = p.payload._total;
@@ -48,16 +32,22 @@ function SliceTooltip({
   );
 }
 
-export const OccurrencesDonut = memo(function OccurrencesDonut({
-  slices,
-}: OccurrencesDonutProps) {
+export const OccurrencesDonut = memo(function OccurrencesDonut({ slices }: OccurrencesDonutProps) {
   const total = slices.reduce((s, x) => s + x.value, 0);
   const isEmpty = total === 0;
 
   // recharts Pie collapses a single zero datapoint; show a synthetic
   // grey ring for the empty state instead.
   const data = isEmpty
-    ? [{ key: "empty", label: "No data", value: 1, color: "hsl(var(--basalt-chart-muted))", _total: 0 }]
+    ? [
+        {
+          key: "empty",
+          label: "No data",
+          value: 1,
+          color: "hsl(var(--basalt-chart-muted))",
+          _total: 0,
+        },
+      ]
     : slices.map((s) => ({ ...s, _total: total }));
 
   return (
@@ -102,9 +92,7 @@ export const OccurrencesDonut = memo(function OccurrencesDonut({
 
       <div className="space-y-1 shrink-0">
         {isEmpty ? (
-          <p className="text-meta text-basalt-muted-foreground text-center">
-            No 401s recorded
-          </p>
+          <p className="text-meta text-basalt-muted-foreground text-center">No 401s recorded</p>
         ) : (
           <ul className="space-y-1 list-none m-0 p-0">
             {slices.map((s) => {
@@ -120,9 +108,7 @@ export const OccurrencesDonut = memo(function OccurrencesDonut({
                     className="inline-block h-2 w-2 rounded-full shrink-0"
                     style={{ background: s.color }}
                   />
-                  <span className="text-basalt-muted-foreground flex-1 truncate">
-                    {s.label}
-                  </span>
+                  <span className="text-basalt-muted-foreground flex-1 truncate">{s.label}</span>
                   <span className="tabular-nums text-basalt-foreground">
                     {s.value.toLocaleString()}
                   </span>

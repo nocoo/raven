@@ -92,7 +92,9 @@
   @container (min-width: 57rem) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  & > * { min-width: 0; }
+  & > * {
+    min-width: 0;
+  }
 }
 
 button[role="combobox"][aria-controls^="radix-"] {
@@ -143,13 +145,27 @@ button[role="combobox"][aria-controls^="radix-"] > svg {
   }
 }
 
-@utility stagger-1 { animation-delay: 0ms; }
-@utility stagger-2 { animation-delay: 60ms; }
-@utility stagger-3 { animation-delay: 120ms; }
-@utility stagger-4 { animation-delay: 180ms; }
-@utility stagger-5 { animation-delay: 240ms; }
-@utility stagger-6 { animation-delay: 300ms; }
-@utility stagger-7 { animation-delay: 360ms; }
+@utility stagger-1 {
+  animation-delay: 0ms;
+}
+@utility stagger-2 {
+  animation-delay: 60ms;
+}
+@utility stagger-3 {
+  animation-delay: 120ms;
+}
+@utility stagger-4 {
+  animation-delay: 180ms;
+}
+@utility stagger-5 {
+  animation-delay: 240ms;
+}
+@utility stagger-6 {
+  animation-delay: 300ms;
+}
+@utility stagger-7 {
+  animation-delay: 360ms;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -173,7 +189,7 @@ button[role="combobox"][aria-controls^="radix-"] > svg {
     hsl(var(--basalt-foreground) / 0.042) 10%,
     hsl(var(--basalt-foreground) / 0.036) 20%,
     hsl(var(--basalt-foreground) / 0.028) 32%,
-    hsl(var(--basalt-foreground) / 0.020) 45%,
+    hsl(var(--basalt-foreground) / 0.02) 45%,
     hsl(var(--basalt-foreground) / 0.012) 58%,
     hsl(var(--basalt-foreground) / 0.006) 72%,
     hsl(var(--basalt-foreground) / 0.002) 86%,
@@ -183,16 +199,16 @@ button[role="combobox"][aria-controls^="radix-"] > svg {
 
 @utility login-card-shadow {
   box-shadow:
-    0 1px 2px rgba(0,0,0,0.06),
-    0 4px 8px rgba(0,0,0,0.04),
-    0 12px 24px rgba(0,0,0,0.06),
-    0 24px 48px rgba(0,0,0,0.04),
-    0 0 0 0.5px rgba(0,0,0,0.02),
-    0 0 60px rgba(0,0,0,0.03);
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 12px 24px rgba(0, 0, 0, 0.06),
+    0 24px 48px rgba(0, 0, 0, 0.04),
+    0 0 0 0.5px rgba(0, 0, 0, 0.02),
+    0 0 60px rgba(0, 0, 0, 0.03);
 }
 
 @utility login-punch-hole {
   box-shadow:
-    inset 0 1.5px 3px rgba(0,0,0,0.35),
-    inset 0 -0.5px 1px rgba(255,255,255,0.1);
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.35),
+    inset 0 -0.5px 1px rgba(255, 255, 255, 0.1);
 }

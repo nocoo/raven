@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  parseUserAgent,
-  deriveClientIdentity,
-} from "../../src/util/client-identity";
+import { parseUserAgent, deriveClientIdentity } from "../../src/util/client-identity";
 
 // ===========================================================================
 // parseUserAgent
@@ -91,64 +88,34 @@ describe("parseUserAgent", () => {
 
 describe("deriveClientIdentity", () => {
   test("anthropicUserId takes highest priority", () => {
-    const result = deriveClientIdentity(
-      "uuid-123-abc",
-      "claude-code/1.0",
-      "dev",
-      null,
-    );
+    const result = deriveClientIdentity("uuid-123-abc", "claude-code/1.0", "dev", null);
     expect(result.sessionId).toBe("uuid-123-abc");
     expect(result.clientName).toBe("Claude Code");
     expect(result.clientVersion).toBe("1.0");
   });
 
   test("anthropicUserId overrides even when openaiUser is present", () => {
-    const result = deriveClientIdentity(
-      "uuid-123",
-      "claude-code/1.0",
-      "dev",
-      "user-42",
-    );
+    const result = deriveClientIdentity("uuid-123", "claude-code/1.0", "dev", "user-42");
     expect(result.sessionId).toBe("uuid-123");
   });
 
   test("openaiUser used as heuristic with clientName and accountName", () => {
-    const result = deriveClientIdentity(
-      null,
-      "cursor/0.5",
-      "dev",
-      "user-42",
-    );
+    const result = deriveClientIdentity(null, "cursor/0.5", "dev", "user-42");
     expect(result.sessionId).toBe("user-42::Cursor::dev");
     expect(result.clientName).toBe("Cursor");
     expect(result.clientVersion).toBe("0.5");
   });
 
   test("openaiUser heuristic includes accountName to prevent cross-key merge", () => {
-    const r1 = deriveClientIdentity(
-      null,
-      "cursor/0.5",
-      "key-A",
-      "shared-user",
-    );
-    const r2 = deriveClientIdentity(
-      null,
-      "cursor/0.5",
-      "key-B",
-      "shared-user",
-    );
+    const r1 = deriveClientIdentity(null, "cursor/0.5", "key-A", "shared-user");
+    const r2 = deriveClientIdentity(null, "cursor/0.5", "key-B", "shared-user");
     expect(r1.sessionId).not.toBe(r2.sessionId);
     expect(r1.sessionId).toBe("shared-user::Cursor::key-A");
     expect(r2.sessionId).toBe("shared-user::Cursor::key-B");
   });
 
   test("fallback to clientName::accountName when no user IDs", () => {
-    const result = deriveClientIdentity(
-      null,
-      "claude-code/1.0",
-      "dev",
-      null,
-    );
+    const result = deriveClientIdentity(null, "claude-code/1.0", "dev", null);
     expect(result.sessionId).toBe("Claude Code::dev");
     expect(result.clientName).toBe("Claude Code");
     expect(result.clientVersion).toBe("1.0");

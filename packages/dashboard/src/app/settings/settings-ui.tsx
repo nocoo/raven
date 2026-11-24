@@ -23,7 +23,10 @@ export function SettingsCard({
   return (
     <LayerCard className="min-w-0">
       <LayerCard.Header className="items-center gap-3">
-        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={icon} tone={tone} />{title}</h2>
+        <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground">
+          <SectionIcon icon={icon} tone={tone} />
+          {title}
+        </h2>
         {action}
       </LayerCard.Header>
       <LayerCard.Body className="space-y-3">{children}</LayerCard.Body>
@@ -63,7 +66,9 @@ export function SettingToggleRow({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {saving ? <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" /> : null}
+          {saving ? (
+            <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />
+          ) : null}
           <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} disabled={disabled} />
         </div>
       </div>

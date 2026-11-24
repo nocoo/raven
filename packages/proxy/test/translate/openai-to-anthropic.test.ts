@@ -1,13 +1,11 @@
-import { describe, expect, test } from "vitest"
-import { translateToAnthropic } from "../../src/protocols/translate/non-stream-translation"
-import type { ChatCompletionResponse } from "../../src/upstream/copilot-openai"
+import { describe, expect, test } from "vitest";
+import { translateToAnthropic } from "../../src/protocols/translate/non-stream-translation";
+import type { ChatCompletionResponse } from "../../src/upstream/copilot-openai";
 
 // ---------------------------------------------------------------------------
 // Helper: minimal valid OpenAI response
 // ---------------------------------------------------------------------------
-function makeResponse(
-  overrides: Partial<ChatCompletionResponse> = {},
-): ChatCompletionResponse {
+function makeResponse(overrides: Partial<ChatCompletionResponse> = {}): ChatCompletionResponse {
   return {
     id: "chatcmpl-123",
     object: "chat.completion",
@@ -29,7 +27,7 @@ function makeResponse(
       prompt_tokens_details: null,
     },
     ...overrides,
-  }
+  };
 }
 
 // ===========================================================================
@@ -38,9 +36,9 @@ function makeResponse(
 
 describe("text response", () => {
   test("text content → text block", () => {
-    const result = translateToAnthropic(makeResponse())
-    expect(result.content).toEqual([{ type: "text", text: "Hello!" }])
-  })
+    const result = translateToAnthropic(makeResponse());
+    expect(result.content).toEqual([{ type: "text", text: "Hello!" }]);
+  });
 
   test("null content → empty content array", () => {
     const result = translateToAnthropic(
@@ -54,10 +52,10 @@ describe("text response", () => {
           },
         ],
       }),
-    )
-    expect(result.content).toEqual([])
-  })
-})
+    );
+    expect(result.content).toEqual([]);
+  });
+});
 
 // ===========================================================================
 // Tool calls response
@@ -89,7 +87,7 @@ describe("tool calls response", () => {
           },
         ],
       }),
-    )
+    );
     expect(result.content).toEqual([
       {
         type: "tool_use",
@@ -97,8 +95,8 @@ describe("tool calls response", () => {
         name: "get_weather",
         input: { city: "SF" },
       },
-    ])
-  })
+    ]);
+  });
 
   test("multiple tool_calls → multiple tool_use blocks", () => {
     const result = translateToAnthropic(
@@ -133,19 +131,19 @@ describe("tool calls response", () => {
           },
         ],
       }),
-    )
-    expect(result.content).toHaveLength(2)
+    );
+    expect(result.content).toHaveLength(2);
     expect(result.content[0]).toMatchObject({
       type: "tool_use",
       id: "call_a",
       name: "fn_a",
-    })
+    });
     expect(result.content[1]).toMatchObject({
       type: "tool_use",
       id: "call_b",
       name: "fn_b",
-    })
-  })
+    });
+  });
 
   test("E2: content null + tool_calls → only tool_use blocks, no text block", () => {
     const result = translateToAnthropic(
@@ -169,12 +167,10 @@ describe("tool calls response", () => {
           },
         ],
       }),
-    )
+    );
     // No text blocks, only tool_use
-    expect(
-      result.content.every((b: { type: string }) => b.type === "tool_use"),
-    ).toBe(true)
-  })
+    expect(result.content.every((b: { type: string }) => b.type === "tool_use")).toBe(true);
+  });
 
   test("text + tool_calls → text block + tool_use blocks", () => {
     const result = translateToAnthropic(
@@ -198,15 +194,15 @@ describe("tool calls response", () => {
           },
         ],
       }),
-    )
-    expect(result.content).toHaveLength(2)
-    expect(result.content[0]).toEqual({ type: "text", text: "Let me help." })
+    );
+    expect(result.content).toHaveLength(2);
+    expect(result.content[0]).toEqual({ type: "text", text: "Let me help." });
     expect(result.content[1]).toMatchObject({
       type: "tool_use",
       name: "search",
-    })
-  })
-})
+    });
+  });
+});
 
 // ===========================================================================
 // Stop reason mapping
@@ -225,9 +221,9 @@ describe("stop_reason mapping", () => {
           },
         ],
       }),
-    )
-    expect(result.stop_reason).toBe("end_turn")
-  })
+    );
+    expect(result.stop_reason).toBe("end_turn");
+  });
 
   test("length → max_tokens", () => {
     const result = translateToAnthropic(
@@ -241,9 +237,9 @@ describe("stop_reason mapping", () => {
           },
         ],
       }),
-    )
-    expect(result.stop_reason).toBe("max_tokens")
-  })
+    );
+    expect(result.stop_reason).toBe("max_tokens");
+  });
 
   test("tool_calls → tool_use", () => {
     const result = translateToAnthropic(
@@ -267,9 +263,9 @@ describe("stop_reason mapping", () => {
           },
         ],
       }),
-    )
-    expect(result.stop_reason).toBe("tool_use")
-  })
+    );
+    expect(result.stop_reason).toBe("tool_use");
+  });
 
   test("content_filter → end_turn", () => {
     const result = translateToAnthropic(
@@ -283,10 +279,10 @@ describe("stop_reason mapping", () => {
           },
         ],
       }),
-    )
-    expect(result.stop_reason).toBe("end_turn")
-  })
-})
+    );
+    expect(result.stop_reason).toBe("end_turn");
+  });
+});
 
 // ===========================================================================
 // Usage mapping
@@ -303,10 +299,10 @@ describe("usage mapping", () => {
           prompt_tokens_details: null,
         },
       }),
-    )
-    expect(result.usage.input_tokens).toBe(100)
-    expect(result.usage.output_tokens).toBe(50)
-  })
+    );
+    expect(result.usage.input_tokens).toBe(100);
+    expect(result.usage.output_tokens).toBe(50);
+  });
 
   test("cached_tokens → cache_read_input_tokens, input_tokens adjusted", () => {
     const result = translateToAnthropic(
@@ -318,19 +314,19 @@ describe("usage mapping", () => {
           prompt_tokens_details: { cached_tokens: 40 },
         },
       }),
-    )
-    expect(result.usage.cache_read_input_tokens).toBe(40)
+    );
+    expect(result.usage.cache_read_input_tokens).toBe(40);
     // input_tokens = prompt_tokens - cached_tokens
-    expect(result.usage.input_tokens).toBe(60)
-  })
+    expect(result.usage.input_tokens).toBe(60);
+  });
 
   test("E3: missing usage → defaults to zeros", () => {
-    const response = makeResponse({ usage: null })
-    const result = translateToAnthropic(response)
-    expect(result.usage.input_tokens).toBe(0)
-    expect(result.usage.output_tokens).toBe(0)
-  })
-})
+    const response = makeResponse({ usage: null });
+    const result = translateToAnthropic(response);
+    expect(result.usage.input_tokens).toBe(0);
+    expect(result.usage.output_tokens).toBe(0);
+  });
+});
 
 // ===========================================================================
 // Response envelope
@@ -338,34 +334,30 @@ describe("usage mapping", () => {
 
 describe("response envelope", () => {
   test("preserves id from OpenAI response", () => {
-    const result = translateToAnthropic(
-      makeResponse({ id: "chatcmpl-abc123" }),
-    )
-    expect(result.id).toBe("chatcmpl-abc123")
-  })
+    const result = translateToAnthropic(makeResponse({ id: "chatcmpl-abc123" }));
+    expect(result.id).toBe("chatcmpl-abc123");
+  });
 
   test("type is always 'message'", () => {
-    const result = translateToAnthropic(makeResponse())
-    expect(result.type).toBe("message")
-  })
+    const result = translateToAnthropic(makeResponse());
+    expect(result.type).toBe("message");
+  });
 
   test("role is always 'assistant'", () => {
-    const result = translateToAnthropic(makeResponse())
-    expect(result.role).toBe("assistant")
-  })
+    const result = translateToAnthropic(makeResponse());
+    expect(result.role).toBe("assistant");
+  });
 
   test("model defaults to upstream response.model when originalModel omitted", () => {
-    const result = translateToAnthropic(
-      makeResponse({ model: "claude-sonnet-4" }),
-    )
-    expect(result.model).toBe("claude-sonnet-4")
-  })
+    const result = translateToAnthropic(makeResponse({ model: "claude-sonnet-4" }));
+    expect(result.model).toBe("claude-sonnet-4");
+  });
 
   test("stop_sequence is always null", () => {
-    const result = translateToAnthropic(makeResponse())
-    expect(result.stop_sequence).toBeNull()
-  })
-})
+    const result = translateToAnthropic(makeResponse());
+    expect(result.stop_sequence).toBeNull();
+  });
+});
 
 // ===========================================================================
 // originalModel override
@@ -376,30 +368,25 @@ describe("originalModel override", () => {
     const result = translateToAnthropic(
       makeResponse({ model: "claude-opus-4" }),
       "claude-opus-4-6-20250820",
-    )
-    expect(result.model).toBe("claude-opus-4-6-20250820")
-  })
+    );
+    expect(result.model).toBe("claude-opus-4-6-20250820");
+  });
 
   test("1m variant with date suffix preserved", () => {
     const result = translateToAnthropic(
       makeResponse({ model: "claude-sonnet-4" }),
       "claude-sonnet-4-5-1m-20250514",
-    )
-    expect(result.model).toBe("claude-sonnet-4-5-1m-20250514")
-  })
+    );
+    expect(result.model).toBe("claude-sonnet-4-5-1m-20250514");
+  });
 
   test("no originalModel → falls back to upstream response.model", () => {
-    const result = translateToAnthropic(
-      makeResponse({ model: "claude-sonnet-4" }),
-    )
-    expect(result.model).toBe("claude-sonnet-4")
-  })
+    const result = translateToAnthropic(makeResponse({ model: "claude-sonnet-4" }));
+    expect(result.model).toBe("claude-sonnet-4");
+  });
 
   test("originalModel same as upstream → no change", () => {
-    const result = translateToAnthropic(
-      makeResponse({ model: "gpt-4o" }),
-      "gpt-4o",
-    )
-    expect(result.model).toBe("gpt-4o")
-  })
-})
+    const result = translateToAnthropic(makeResponse({ model: "gpt-4o" }), "gpt-4o");
+    expect(result.model).toBe("gpt-4o");
+  });
+});

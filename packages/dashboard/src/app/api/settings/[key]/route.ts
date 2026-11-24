@@ -4,10 +4,7 @@ import type { SettingsData } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ key: string }> },
-) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
   try {
     const data = await proxyFetch<SettingsData>(`/api/settings/${key}`, {

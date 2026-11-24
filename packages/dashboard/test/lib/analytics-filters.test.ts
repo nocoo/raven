@@ -89,9 +89,7 @@ describe("searchParamsToFilters", () => {
   });
 
   it("parses boolean values", () => {
-    const filters = searchParamsToFilters(
-      new URLSearchParams("stream=true&has_error=true"),
-    );
+    const filters = searchParamsToFilters(new URLSearchParams("stream=true&has_error=true"));
     expect(filters.stream).toBe(true);
     expect(filters.has_error).toBe(true);
   });

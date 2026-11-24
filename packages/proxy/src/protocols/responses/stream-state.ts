@@ -10,18 +10,18 @@ const TERMINAL_RESPONSE_EVENTS = new Set([
   "response.done",
   "response.incomplete",
   "response.failed",
-])
+]);
 
 export interface ParsedUsage {
-  inputTokens: number
-  outputTokens: number
+  inputTokens: number;
+  outputTokens: number;
   /** `usage.input_tokens_details.cached_tokens`; 0 when the upstream omits it. */
-  cachedInputTokens: number
+  cachedInputTokens: number;
 }
 
 /** True if the given SSE event name is a terminal Responses event carrying usage. */
 export function isTerminalResponseEvent(event: string | null | undefined): boolean {
-  return typeof event === "string" && TERMINAL_RESPONSE_EVENTS.has(event)
+  return typeof event === "string" && TERMINAL_RESPONSE_EVENTS.has(event);
 }
 
 /**
@@ -31,7 +31,7 @@ export function isTerminalResponseEvent(event: string | null | undefined): boole
  * wire responses must keep the raw upstream value.
  */
 export function nonCachedInputTokens(inputTokens: number, cachedInputTokens: number): number {
-  return Math.max(0, inputTokens - cachedInputTokens)
+  return Math.max(0, inputTokens - cachedInputTokens);
 }
 
 /**
@@ -40,11 +40,11 @@ export function nonCachedInputTokens(inputTokens: number, cachedInputTokens: num
  */
 export function extractResolvedModel(data: string): string | null {
   try {
-    const parsed = JSON.parse(data) as { response?: { model?: unknown } }
-    const model = parsed.response?.model
-    return typeof model === "string" ? model : null
+    const parsed = JSON.parse(data) as { response?: { model?: unknown } };
+    const model = parsed.response?.model;
+    return typeof model === "string" ? model : null;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -58,22 +58,22 @@ export function extractUsage(data: string): ParsedUsage | null {
     const parsed = JSON.parse(data) as {
       response?: {
         usage?: {
-          input_tokens?: unknown
-          output_tokens?: unknown
-          input_tokens_details?: { cached_tokens?: unknown }
-        }
-      }
-    }
-    const usage = parsed.response?.usage
-    if (!usage) return null
-    const cached = usage.input_tokens_details?.cached_tokens
+          input_tokens?: unknown;
+          output_tokens?: unknown;
+          input_tokens_details?: { cached_tokens?: unknown };
+        };
+      };
+    };
+    const usage = parsed.response?.usage;
+    if (!usage) return null;
+    const cached = usage.input_tokens_details?.cached_tokens;
     return {
       inputTokens: typeof usage.input_tokens === "number" ? usage.input_tokens : 0,
       outputTokens: typeof usage.output_tokens === "number" ? usage.output_tokens : 0,
       cachedInputTokens: typeof cached === "number" ? cached : 0,
-    }
+    };
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -85,18 +85,18 @@ export function extractNonStreamingMeta(
   fallbackModel: string,
 ): { resolvedModel: string; inputTokens: number; outputTokens: number; cachedInputTokens: number } {
   const resp = (response ?? {}) as {
-    model?: unknown
+    model?: unknown;
     usage?: {
-      input_tokens?: unknown
-      output_tokens?: unknown
-      input_tokens_details?: { cached_tokens?: unknown }
-    }
-  }
-  const resolvedModel = typeof resp.model === "string" ? resp.model : fallbackModel
-  const usage = resp.usage
-  const inputTokens = typeof usage?.input_tokens === "number" ? usage.input_tokens : 0
-  const outputTokens = typeof usage?.output_tokens === "number" ? usage.output_tokens : 0
-  const cached = usage?.input_tokens_details?.cached_tokens
-  const cachedInputTokens = typeof cached === "number" ? cached : 0
-  return { resolvedModel, inputTokens, outputTokens, cachedInputTokens }
+      input_tokens?: unknown;
+      output_tokens?: unknown;
+      input_tokens_details?: { cached_tokens?: unknown };
+    };
+  };
+  const resolvedModel = typeof resp.model === "string" ? resp.model : fallbackModel;
+  const usage = resp.usage;
+  const inputTokens = typeof usage?.input_tokens === "number" ? usage.input_tokens : 0;
+  const outputTokens = typeof usage?.output_tokens === "number" ? usage.output_tokens : 0;
+  const cached = usage?.input_tokens_details?.cached_tokens;
+  const cachedInputTokens = typeof cached === "number" ? cached : 0;
+  return { resolvedModel, inputTokens, outputTokens, cachedInputTokens };
 }

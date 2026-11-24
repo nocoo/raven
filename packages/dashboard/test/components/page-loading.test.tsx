@@ -32,7 +32,10 @@ describe("route loading accessibility", () => {
     ["Sign in", LoginLoading],
   ] as const)("announces %s without exposing placeholder controls", (title, Loading) => {
     const { container } = render(<Loading />);
-    expect(screen.getByRole("status", { name: `Loading ${title}` })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status", { name: `Loading ${title}` })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
     expect(container.querySelector("a, button, input, select, textarea, [tabindex]")).toBeNull();
     expect(container.querySelector("nav, main")).toBeNull();
   });

@@ -11,12 +11,18 @@ afterEach(() => vi.restoreAllMocks());
 
 const cases = [
   {
-    name: "CORS", toggle: "Restrict browser origins", disclosure: "Allowed origins", placeholder: "e.g., http://localhost:3000", entry: "https://fixture.invalid",
-    render: (enabled = false, entries: string[] = []) => <CorsContent data={{ enabled, allowed_origins: entries }} />,
+    name: "CORS",
+    toggle: "Restrict browser origins",
+    disclosure: "Allowed origins",
+    placeholder: "e.g., http://localhost:3000",
+    entry: "https://fixture.invalid",
+    render: (enabled = false, entries: string[] = []) => (
+      <CorsContent data={{ enabled, allowed_origins: entries }} />
+    ),
   },
 ];
 
-describe.each(cases)("$name disclosure", fixture => {
+describe.each(cases)("$name disclosure", (fixture) => {
   it("groups its heading, enable switch and configuration in one card", () => {
     render(fixture.render());
     const heading = screen.getByRole("heading", { level: 2 });
@@ -43,7 +49,10 @@ describe.each(cases)("$name disclosure", fixture => {
   it("exposes saved entries even while restrictions are disabled", () => {
     render(fixture.render(false, [fixture.entry]));
     expect(screen.getByText(fixture.entry)).toBeVisible();
-    expect(screen.getByRole("button", { name: `${fixture.disclosure} · 1` })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: `${fixture.disclosure} · 1` })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
   it("reveals configuration after enabling succeeds", async () => {
@@ -56,7 +65,9 @@ describe.each(cases)("$name disclosure", fixture => {
   });
 
   it("keeps a failed enable visible without hiding it inside the collapsed details", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ error: "Fixture save failed" }, { status: 500 }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      Response.json({ error: "Fixture save failed" }, { status: 500 }),
+    );
     render(fixture.render());
     await userEvent.click(screen.getByRole("switch", { name: fixture.toggle }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Fixture save failed");
@@ -66,7 +77,9 @@ describe.each(cases)("$name disclosure", fixture => {
 });
 
 it("opens global IP editing on demand without cluttering settings", async () => {
-  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(Response.json({ enabled: true, ranges: ["::1"], trusted_proxies: [] }));
+  const fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ enabled: true, ranges: ["::1"], trusted_proxies: [] }));
   render(<IPWhitelistContent data={{ enabled: true, ranges: ["::1"], trusted_proxies: [] }} />);
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(fetchSpy).not.toHaveBeenCalled();
@@ -82,7 +95,9 @@ it("keeps the empty CORS allowance visible when enabled and collapsed", async ()
 
 describe("server tool configuration disclosure", () => {
   it("lets users configure a key before enabling search without an automatic request", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("Unexpected fixture request"));
     render(<ServerToolsContent data={{ web_search: { enabled: false, has_api_key: false } }} />);
     expect(screen.queryByLabelText("Tavily API key")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "API key · Not configured" }));

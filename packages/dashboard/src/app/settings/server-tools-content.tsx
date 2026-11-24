@@ -1,100 +1,106 @@
-"use client"
+"use client";
 
-import { Button, Collapsible, CollapsibleContent, CollapsibleTrigger, Input, Switch } from "@nocoo/basalt"
-import { Loader2, Search } from "@nocoo/basalt/icons"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
-import { SettingNote, SettingsCard } from "./settings-ui"
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Input,
+  Switch,
+} from "@nocoo/basalt";
+import { Loader2, Search } from "@nocoo/basalt/icons";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { SettingNote, SettingsCard } from "./settings-ui";
 
 interface ServerToolsContentProps {
-  data: Record<string, { enabled: boolean; has_api_key: boolean }>
+  data: Record<string, { enabled: boolean; has_api_key: boolean }>;
 }
 
 const SERVER_TOOL_ITEMS = [
   {
     id: "web_search",
     label: "Web Search",
-    description:
-      "Run web search through Tavily for Copilot requests.",
+    description: "Run web search through Tavily for Copilot requests.",
     key: "st_web_search_enabled",
     apiKeyKey: "st_web_search_api_key",
   },
-]
+];
 
 export function ServerToolsContent({ data }: ServerToolsContentProps) {
-  const router = useRouter()
-  const webSearch = data.web_search
+  const router = useRouter();
+  const webSearch = data.web_search;
 
-  const [enabled, setEnabled] = useState(webSearch?.enabled ?? false)
-  const [expanded, setExpanded] = useState(Boolean(webSearch?.enabled || webSearch?.has_api_key))
-  const [apiKey, setApiKey] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [savingKey, setSavingKey] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [keyError, setKeyError] = useState<string | null>(null)
+  const [enabled, setEnabled] = useState(webSearch?.enabled ?? false);
+  const [expanded, setExpanded] = useState(Boolean(webSearch?.enabled || webSearch?.has_api_key));
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [keyError, setKeyError] = useState<string | null>(null);
 
   async function handleToggle(checked: boolean) {
-    setEnabled(checked)
-    setSaving(true)
-    setError(null)
+    setEnabled(checked);
+    setSaving(true);
+    setError(null);
 
     try {
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "st_web_search_enabled", value: checked ? "true" : "false" }),
-      })
+      });
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Failed to update setting")
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update setting");
       }
 
-      if (checked) setExpanded(true)
-      router.refresh()
+      if (checked) setExpanded(true);
+      router.refresh();
     } catch (err) {
-      setEnabled(!checked)
-      setError(err instanceof Error ? err.message : "Unknown error")
+      setEnabled(!checked);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleSaveKey() {
     if (!apiKey.trim()) {
-      setKeyError("API key is required")
-      return
+      setKeyError("API key is required");
+      return;
     }
 
-    setSavingKey(true)
-    setKeyError(null)
+    setSavingKey(true);
+    setKeyError(null);
 
     try {
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "st_web_search_api_key", value: apiKey.trim() }),
-      })
+      });
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Failed to save API key")
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save API key");
       }
 
-      setApiKey("")
-      router.refresh()
+      setApiKey("");
+      router.refresh();
     } catch (err) {
-      setKeyError(err instanceof Error ? err.message : "Unknown error")
+      setKeyError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      setSavingKey(false)
+      setSavingKey(false);
     }
   }
 
   return (
     <>
       {SERVER_TOOL_ITEMS.map((item) => {
-        const itemEnabled = item.id === "web_search" ? enabled : false
-        const hasKey = item.id === "web_search" ? (webSearch?.has_api_key ?? false) : false
+        const itemEnabled = item.id === "web_search" ? enabled : false;
+        const hasKey = item.id === "web_search" ? (webSearch?.has_api_key ?? false) : false;
 
         return (
           <SettingsCard
@@ -104,7 +110,9 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
             tone="blue"
             action={
               <div className="flex items-center gap-2">
-                {saving ? <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" /> : null}
+                {saving ? (
+                  <Loader2 className="h-3 w-3 animate-spin text-basalt-muted-foreground" />
+                ) : null}
                 <Switch
                   id={`st-${item.id}`}
                   aria-label={item.label}
@@ -116,48 +124,64 @@ export function ServerToolsContent({ data }: ServerToolsContentProps) {
             }
           >
             <SettingNote>{item.description}</SettingNote>
-            {error ? <p role="alert" className="text-xs text-basalt-destructive">{error}</p> : null}
-            {!hasKey && itemEnabled ? <p className="text-xs text-basalt-warning">API key required for search functionality</p> : null}
+            {error ? (
+              <p role="alert" className="text-xs text-basalt-destructive">
+                {error}
+              </p>
+            ) : null}
+            {!hasKey && itemEnabled ? (
+              <p className="text-xs text-basalt-warning">
+                API key required for search functionality
+              </p>
+            ) : null}
             <Collapsible open={expanded} onOpenChange={setExpanded}>
-              <CollapsibleTrigger className="w-full justify-between text-xs">API key · {hasKey ? "Configured" : "Not configured"}</CollapsibleTrigger>
-              <CollapsibleContent unstyled><div className="space-y-3 pt-3">
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    aria-label="Tavily API key"
-                    placeholder={hasKey ? "Update API key..." : "Enter Tavily API key..."}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    disabled={savingKey}
-                    className="h-8 flex-1 text-xs"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleSaveKey}
-                    disabled={savingKey || !apiKey.trim()}
-                    className="h-8 shrink-0 px-3 text-xs"
-                  >
-                    {savingKey ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-                  </Button>
+              <CollapsibleTrigger className="w-full justify-between text-xs">
+                API key · {hasKey ? "Configured" : "Not configured"}
+              </CollapsibleTrigger>
+              <CollapsibleContent unstyled>
+                <div className="space-y-3 pt-3">
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      aria-label="Tavily API key"
+                      placeholder={hasKey ? "Update API key..." : "Enter Tavily API key..."}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      disabled={savingKey}
+                      className="h-8 flex-1 text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSaveKey}
+                      disabled={savingKey || !apiKey.trim()}
+                      className="h-8 shrink-0 px-3 text-xs"
+                    >
+                      {savingKey ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                    </Button>
+                  </div>
+                  <SettingNote>
+                    Get your API key at{" "}
+                    <a
+                      href="https://tavily.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-basalt-foreground"
+                    >
+                      tavily.com
+                    </a>
+                  </SettingNote>
                 </div>
-                <SettingNote>
-                  Get your API key at{" "}
-                  <a
-                    href="https://tavily.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-basalt-foreground"
-                  >
-                    tavily.com
-                  </a>
-                </SettingNote>
-              </div></CollapsibleContent>
+              </CollapsibleContent>
             </Collapsible>
-            {keyError ? <p role="alert" className="text-xs text-basalt-destructive">{keyError}</p> : null}
+            {keyError ? (
+              <p role="alert" className="text-xs text-basalt-destructive">
+                {keyError}
+              </p>
+            ) : null}
           </SettingsCard>
-        )
+        );
       })}
     </>
-  )
+  );
 }

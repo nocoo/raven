@@ -1,15 +1,21 @@
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { Strategy } from "../core/strategy"
-import type { UpstreamFormat } from "../core/routing-types"
-import { ClientInputError } from "../lib/error"
-import type { AnthropicMessagesPayload, AnthropicResponse } from "../protocols/anthropic/types"
+import type { Strategy } from "../core/strategy";
+import type { UpstreamFormat } from "../core/routing-types";
+import { ClientInputError } from "../lib/error";
+import type { AnthropicMessagesPayload, AnthropicResponse } from "../protocols/anthropic/types";
 import {
   assertChatViaResponsesSupported,
   chatRequestToResponses,
-} from "../protocols/chat-responses/request"
-import { adaptResponsesEventToChatChunks, initChatViaResponsesStreamState } from "../protocols/chat-responses/stream"
-import type { ChatViaResponsesClientReq, ChatViaResponsesStreamState } from "../protocols/chat-responses/types"
+} from "../protocols/chat-responses/request";
+import {
+  adaptResponsesEventToChatChunks,
+  initChatViaResponsesStreamState,
+} from "../protocols/chat-responses/stream";
+import type {
+  ChatViaResponsesClientReq,
+  ChatViaResponsesStreamState,
+} from "../protocols/chat-responses/types";
 import {
   adaptAnthropicEventToChatSse,
   anthropicResponseToChat,
@@ -18,7 +24,7 @@ import {
   initAnthropicToChatStreamState,
   parseAnthropicSseData,
   type AnthropicToChatStreamState,
-} from "../protocols/cross-format/chat-messages"
+} from "../protocols/cross-format/chat-messages";
 import {
   adaptResponsesEventToAnthropicSse,
   anthropicStreamErrorEvent,
@@ -27,7 +33,7 @@ import {
   messagesToResponsesPayload,
   responsesJsonToAnthropicMessage,
   type MessagesViaResponsesStreamState,
-} from "../protocols/cross-format/messages-to-responses"
+} from "../protocols/cross-format/messages-to-responses";
 import {
   adaptChatChunkToResponsesSse,
   finalizeChatToResponsesStream,
@@ -37,29 +43,33 @@ import {
   responsesJsonToChat,
   responsesRequestToChat,
   type ChatToResponsesStreamState,
-} from "../protocols/cross-format/responses-chat"
-import { extractNonStreamingMeta, isTerminalResponseEvent, nonCachedInputTokens } from "../protocols/responses/stream-state"
-import type { ChatCompletionsPayload, ChatCompletionResponse } from "../upstream/copilot-openai"
-import type { ResponsesPayload } from "../upstream/copilot-responses"
-import type { UpstreamResult } from "../upstream/interface"
-import type { ServerSentEvent } from "../util/sse"
-import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
-import { isInlineStreamError } from "./support/inline-stream-error"
+} from "../protocols/cross-format/responses-chat";
+import {
+  extractNonStreamingMeta,
+  isTerminalResponseEvent,
+  nonCachedInputTokens,
+} from "../protocols/responses/stream-state";
+import type { ChatCompletionsPayload, ChatCompletionResponse } from "../upstream/copilot-openai";
+import type { ResponsesPayload } from "../upstream/copilot-responses";
+import type { UpstreamResult } from "../upstream/interface";
+import type { ServerSentEvent } from "../util/sse";
+import { emitUpstreamRawSse } from "../util/emit-upstream-raw";
+import { isInlineStreamError } from "./support/inline-stream-error";
 
 export interface ProtocolConvertedDeps {
-  source: UpstreamFormat
-  target: UpstreamFormat
-  exactModel: boolean
-  includeUsage?: boolean
-  copilotSanitize?: boolean
-  sanitizeOrphanedToolResults?: boolean
-  reorderToolResults?: boolean
+  source: UpstreamFormat;
+  target: UpstreamFormat;
+  exactModel: boolean;
+  includeUsage?: boolean;
+  copilotSanitize?: boolean;
+  sanitizeOrphanedToolResults?: boolean;
+  reorderToolResults?: boolean;
   client: {
-    send(wire: ConvertedBody, signal?: AbortSignal): Promise<UpstreamResult<unknown>>
-  }
+    send(wire: ConvertedBody, signal?: AbortSignal): Promise<UpstreamResult<unknown>>;
+  };
 }
 
-type ConvertedBody = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload
+type ConvertedBody = AnthropicMessagesPayload | ChatCompletionsPayload | ResponsesPayload;
 
 type ConversionKind =
   | "responses-passthrough"
@@ -67,49 +77,49 @@ type ConversionKind =
   | "chat-to-messages"
   | "chat-to-responses"
   | "responses-to-chat"
-  | "responses-to-messages"
+  | "responses-to-messages";
 
 export interface ProtocolConvertedState {
-  kind: ConversionKind
-  model: string
-  inlineFailed: boolean
-  terminalSeen: boolean
-  inputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  messages?: MessagesViaResponsesStreamState
-  anthropic?: AnthropicToChatStreamState
-  responses?: ChatToResponsesStreamState
-  chat?: ChatViaResponsesStreamState
+  kind: ConversionKind;
+  model: string;
+  inlineFailed: boolean;
+  terminalSeen: boolean;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  messages?: MessagesViaResponsesStreamState;
+  anthropic?: AnthropicToChatStreamState;
+  responses?: ChatToResponsesStreamState;
+  chat?: ChatViaResponsesStreamState;
 }
 
 function conversionKind(source: UpstreamFormat, target: UpstreamFormat): ConversionKind {
   if (source === target) {
     if (source !== "responses") {
-      throw new ClientInputError("native forwarding is not protocol-converted")
+      throw new ClientInputError("native forwarding is not protocol-converted");
     }
-    return "responses-passthrough"
+    return "responses-passthrough";
   }
-  if (source === "anthropic_messages" && target === "responses") return "messages-to-responses"
-  if (source === "chat_completions" && target === "anthropic_messages") return "chat-to-messages"
-  if (source === "chat_completions" && target === "responses") return "chat-to-responses"
-  if (source === "responses" && target === "chat_completions") return "responses-to-chat"
-  if (source === "responses" && target === "anthropic_messages") return "responses-to-messages"
-  throw new ClientInputError(`conversion from ${source} to ${target} is not supported`)
+  if (source === "anthropic_messages" && target === "responses") return "messages-to-responses";
+  if (source === "chat_completions" && target === "anthropic_messages") return "chat-to-messages";
+  if (source === "chat_completions" && target === "responses") return "chat-to-responses";
+  if (source === "responses" && target === "chat_completions") return "responses-to-chat";
+  if (source === "responses" && target === "anthropic_messages") return "responses-to-messages";
+  throw new ClientInputError(`conversion from ${source} to ${target} is not supported`);
 }
 
 function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
-  return Boolean(value) && typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function"
+  return Boolean(value) && typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function";
 }
 
 function streamUsage(
   kind: ConversionKind,
   state: ProtocolConvertedState,
 ): {
-  inputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  cacheCreationTokens: number
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
 } {
   if ((kind === "chat-to-messages" || kind === "responses-to-messages") && state.anthropic) {
     return {
@@ -117,39 +127,46 @@ function streamUsage(
       outputTokens: state.anthropic.outputTokens,
       cacheReadTokens: state.anthropic.cacheReadTokens,
       cacheCreationTokens: state.anthropic.cacheCreationTokens,
-    }
+    };
   }
   if (kind === "responses-to-chat" && state.responses) {
     return {
-      inputTokens: nonCachedInputTokens(state.responses.inputTokens, state.responses.cacheReadTokens),
+      inputTokens: nonCachedInputTokens(
+        state.responses.inputTokens,
+        state.responses.cacheReadTokens,
+      ),
       outputTokens: state.responses.outputTokens,
       cacheReadTokens: state.responses.cacheReadTokens,
       cacheCreationTokens: 0,
-    }
+    };
   }
-  const input = state.messages?.chat.inputTokens ?? state.chat?.inputTokens ?? state.inputTokens
-  const output = state.messages?.chat.outputTokens ?? state.chat?.outputTokens ?? state.outputTokens
-  const cache = state.messages?.chat.cacheReadTokens ?? state.chat?.cacheReadTokens ?? state.cacheReadTokens
+  const input = state.messages?.chat.inputTokens ?? state.chat?.inputTokens ?? state.inputTokens;
+  const output =
+    state.messages?.chat.outputTokens ?? state.chat?.outputTokens ?? state.outputTokens;
+  const cache =
+    state.messages?.chat.cacheReadTokens ?? state.chat?.cacheReadTokens ?? state.cacheReadTokens;
   return {
     inputTokens: nonCachedInputTokens(input, cache),
     outputTokens: output,
     cacheReadTokens: cache,
     cacheCreationTokens: 0,
-  }
+  };
 }
 
 function modelOf(body: ConvertedBody): string {
-  return body.model
+  return body.model;
 }
 
 function requireStreamState<T>(value: T | undefined, label: string): T {
   if (!value) {
-    throw new Error(`Missing protocol-converted ${label} stream state`)
+    throw new Error(`Missing protocol-converted ${label} stream state`);
   }
-  return value
+  return value;
 }
 
-export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
+export function makeProtocolConverted(
+  deps: ProtocolConvertedDeps,
+): Strategy<
   ConvertedBody,
   ConvertedBody,
   unknown,
@@ -158,11 +175,11 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
   SSEMessage,
   ProtocolConvertedState
 > {
-  const kind = conversionKind(deps.source, deps.target)
+  const kind = conversionKind(deps.source, deps.target);
   return {
     name: "protocol-converted",
     prepare: (req, ctx) => {
-      if (kind === "responses-passthrough") return req
+      if (kind === "responses-passthrough") return req;
       if (kind === "messages-to-responses") {
         return messagesToResponsesPayload(req as AnthropicMessagesPayload, {
           copilotSanitize: deps.copilotSanitize === true,
@@ -170,39 +187,39 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           anthropicBeta: ctx.anthropicBeta,
           sanitizeOrphanedToolResults: deps.sanitizeOrphanedToolResults ?? false,
           reorderToolResults: deps.reorderToolResults ?? false,
-        })
+        });
       }
-      if (kind === "chat-to-messages") return chatRequestToMessages(req as ChatCompletionsPayload)
+      if (kind === "chat-to-messages") return chatRequestToMessages(req as ChatCompletionsPayload);
       if (kind === "chat-to-responses") {
-        const chat = req as ChatViaResponsesClientReq
-        assertChatViaResponsesSupported(chat)
-        const wire = chatRequestToResponses(chat)
-        if (deps.exactModel) wire.model = chat.model
-        return wire
+        const chat = req as ChatViaResponsesClientReq;
+        assertChatViaResponsesSupported(chat);
+        const wire = chatRequestToResponses(chat);
+        if (deps.exactModel) wire.model = chat.model;
+        return wire;
       }
-      if (kind === "responses-to-chat") return responsesRequestToChat(req as ResponsesPayload)
-      return chatRequestToMessages(responsesRequestToChat(req as ResponsesPayload))
+      if (kind === "responses-to-chat") return responsesRequestToChat(req as ResponsesPayload);
+      return chatRequestToMessages(responsesRequestToChat(req as ResponsesPayload));
     },
     dispatch: async (up, ctx) => {
-      ctx.signal?.throwIfAborted()
-      const response = await deps.client.send(up, ctx.signal)
-      const stream = up && typeof up === "object" && "stream" in up && up.stream === true
+      ctx.signal?.throwIfAborted();
+      const response = await deps.client.send(up, ctx.signal);
+      const stream = up && typeof up === "object" && "stream" in up && up.stream === true;
       if (stream && isAsyncIterable<ServerSentEvent>(response)) {
-        return { kind: "stream", chunks: response }
+        return { kind: "stream", chunks: response };
       }
-      return { kind: "json", body: response }
+      return { kind: "json", body: response };
     },
     adaptJson: (resp, req) => {
-      const model = modelOf(req)
-      if (kind === "responses-passthrough") return resp
-      if (kind === "messages-to-responses") return responsesJsonToAnthropicMessage(resp, model)
-      if (kind === "chat-to-messages") return anthropicResponseToChat(resp as AnthropicResponse)
-      if (kind === "chat-to-responses") return responsesJsonToChat(resp, model)
-      if (kind === "responses-to-chat") return chatJsonToResponses(resp as ChatCompletionResponse)
-      return chatJsonToResponses(anthropicResponseToChat(resp as AnthropicResponse))
+      const model = modelOf(req);
+      if (kind === "responses-passthrough") return resp;
+      if (kind === "messages-to-responses") return responsesJsonToAnthropicMessage(resp, model);
+      if (kind === "chat-to-messages") return anthropicResponseToChat(resp as AnthropicResponse);
+      if (kind === "chat-to-responses") return responsesJsonToChat(resp, model);
+      if (kind === "responses-to-chat") return chatJsonToResponses(resp as ChatCompletionResponse);
+      return chatJsonToResponses(anthropicResponseToChat(resp as AnthropicResponse));
     },
     initStreamState: (req) => {
-      const model = modelOf(req)
+      const model = modelOf(req);
       const state: ProtocolConvertedState = {
         kind,
         model,
@@ -211,59 +228,67 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
         inputTokens: 0,
         outputTokens: 0,
         cacheReadTokens: 0,
-      }
-      if (kind === "messages-to-responses") state.messages = initMessagesViaResponsesStreamState(model)
+      };
+      if (kind === "messages-to-responses")
+        state.messages = initMessagesViaResponsesStreamState(model);
       if (kind === "chat-to-messages" || kind === "responses-to-messages") {
-        state.anthropic = initAnthropicToChatStreamState(model)
+        state.anthropic = initAnthropicToChatStreamState(model);
       }
       if (kind === "responses-to-chat" || kind === "responses-to-messages") {
-        state.responses = initChatToResponsesStreamState(model)
+        state.responses = initChatToResponsesStreamState(model);
       }
       if (kind === "chat-to-responses") {
-        state.chat = initChatViaResponsesStreamState({ model, includeUsage: deps.includeUsage ?? false })
+        state.chat = initChatViaResponsesStreamState({
+          model,
+          includeUsage: deps.includeUsage ?? false,
+        });
       }
-      return state
+      return state;
     },
     adaptChunk: (chunk, state, ctx) => {
       emitUpstreamRawSse(ctx.requestId, {
         event: chunk.event,
         data: typeof chunk.data === "string" ? chunk.data : "",
-      })
+      });
       switch (kind) {
         case "responses-passthrough":
-          return adaptPassthrough(chunk, state)
+          return adaptPassthrough(chunk, state);
         case "messages-to-responses":
-          return adaptResponsesEventToAnthropicSse(chunk, requireStreamState(state.messages, "messages"))
+          return adaptResponsesEventToAnthropicSse(
+            chunk,
+            requireStreamState(state.messages, "messages"),
+          );
         case "chat-to-responses":
-          return adaptResponsesEventToChatChunks(chunk, requireStreamState(state.chat, "chat"))
+          return adaptResponsesEventToChatChunks(chunk, requireStreamState(state.chat, "chat"));
         case "chat-to-messages":
         case "responses-to-messages": {
-          const event = typeof chunk.data === "string" ? parseAnthropicSseData(chunk.data) : null
-          if (!event) return []
-          const anthropic = requireStreamState(state.anthropic, "anthropic")
-          state.terminalSeen ||= event.type === "message_stop"
-          const chatEvents = adaptAnthropicEventToChatSse(event, anthropic)
-          state.inlineFailed = anthropic.inlineFailed
-          if (kind === "chat-to-messages") return chatEvents
-          const responses = requireStreamState(state.responses, "responses")
-          const out: SSEMessage[] = []
+          const event = typeof chunk.data === "string" ? parseAnthropicSseData(chunk.data) : null;
+          if (!event) return [];
+          const anthropic = requireStreamState(state.anthropic, "anthropic");
+          state.terminalSeen ||= event.type === "message_stop";
+          const chatEvents = adaptAnthropicEventToChatSse(event, anthropic);
+          state.inlineFailed = anthropic.inlineFailed;
+          if (kind === "chat-to-messages") return chatEvents;
+          const responses = requireStreamState(state.responses, "responses");
+          const out: SSEMessage[] = [];
           for (const chatEvent of chatEvents) {
-            const parsed = typeof chatEvent.data === "string" ? parseChatChunk(chatEvent.data) : null
-            if (!parsed) continue
-            out.push(...adaptChatChunkToResponsesSse(parsed, responses))
+            const parsed =
+              typeof chatEvent.data === "string" ? parseChatChunk(chatEvent.data) : null;
+            if (!parsed) continue;
+            out.push(...adaptChatChunkToResponsesSse(parsed, responses));
           }
-          state.inlineFailed ||= responses.inlineFailed
-          return out
+          state.inlineFailed ||= responses.inlineFailed;
+          return out;
         }
         case "responses-to-chat": {
-          const responses = requireStreamState(state.responses, "responses")
-          if (chunk.data === "[DONE]") return finalizeChatToResponsesStream(responses)
-          const parsed = typeof chunk.data === "string" ? parseChatChunk(chunk.data) : null
-          if (!parsed) return []
-          const events = adaptChatChunkToResponsesSse(parsed, responses)
-          state.inlineFailed = responses.inlineFailed
-          state.terminalSeen = responses.done
-          return events
+          const responses = requireStreamState(state.responses, "responses");
+          if (chunk.data === "[DONE]") return finalizeChatToResponsesStream(responses);
+          const parsed = typeof chunk.data === "string" ? parseChatChunk(chunk.data) : null;
+          if (!parsed) return [];
+          const events = adaptChatChunkToResponsesSse(parsed, responses);
+          state.inlineFailed = responses.inlineFailed;
+          state.terminalSeen = responses.done;
+          return events;
         }
       }
     },
@@ -273,69 +298,85 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
         : "success",
     isStreamTerminal: (chunk, state) => {
       switch (kind) {
-        case "messages-to-responses": return requireStreamState(state.messages, "messages").chat.done
-        case "chat-to-responses": return requireStreamState(state.chat, "chat").done
-        case "responses-to-chat": return chunk.data === "[DONE]"
-        default: return state.terminalSeen
+        case "messages-to-responses":
+          return requireStreamState(state.messages, "messages").chat.done;
+        case "chat-to-responses":
+          return requireStreamState(state.chat, "chat").done;
+        case "responses-to-chat":
+          return chunk.data === "[DONE]";
+        default:
+          return state.terminalSeen;
       }
     },
     finalizeStream: (state) => {
-      if (state.inlineFailed || state.anthropic?.inlineFailed || state.responses?.inlineFailed) return []
+      if (state.inlineFailed || state.anthropic?.inlineFailed || state.responses?.inlineFailed)
+        return [];
       switch (kind) {
         case "responses-passthrough":
-          if (!state.terminalSeen) throw new Error("Truncated stream: terminal response event was not received")
-          return []
+          if (!state.terminalSeen)
+            throw new Error("Truncated stream: terminal response event was not received");
+          return [];
         case "messages-to-responses":
-          return finalizeMessagesViaResponsesStream(requireStreamState(state.messages, "messages"))
+          return finalizeMessagesViaResponsesStream(requireStreamState(state.messages, "messages"));
         case "chat-to-responses":
-          if (!requireStreamState(state.chat, "chat").done) throw new Error("Truncated stream: terminal response event was not received")
-          return []
+          if (!requireStreamState(state.chat, "chat").done)
+            throw new Error("Truncated stream: terminal response event was not received");
+          return [];
         case "chat-to-messages":
-          return finalizeAnthropicToChatStream(requireStreamState(state.anthropic, "anthropic"), deps.includeUsage ?? false)
+          return finalizeAnthropicToChatStream(
+            requireStreamState(state.anthropic, "anthropic"),
+            deps.includeUsage ?? false,
+          );
         case "responses-to-chat":
-          return finalizeChatToResponsesStream(requireStreamState(state.responses, "responses"))
+          return finalizeChatToResponsesStream(requireStreamState(state.responses, "responses"));
         case "responses-to-messages": {
-          const anthropic = requireStreamState(state.anthropic, "anthropic")
-          const responses = requireStreamState(state.responses, "responses")
-          if (anthropic.inlineFailed || responses.inlineFailed) return []
-          const tail = finalizeAnthropicToChatStream(anthropic)
-          const out: SSEMessage[] = []
+          const anthropic = requireStreamState(state.anthropic, "anthropic");
+          const responses = requireStreamState(state.responses, "responses");
+          if (anthropic.inlineFailed || responses.inlineFailed) return [];
+          const tail = finalizeAnthropicToChatStream(anthropic);
+          const out: SSEMessage[] = [];
           for (const chatEvent of tail) {
-            const parsed = typeof chatEvent.data === "string" ? parseChatChunk(chatEvent.data) : null
-            if (!parsed) continue
-            out.push(...adaptChatChunkToResponsesSse(parsed, responses))
+            const parsed =
+              typeof chatEvent.data === "string" ? parseChatChunk(chatEvent.data) : null;
+            if (!parsed) continue;
+            out.push(...adaptChatChunkToResponsesSse(parsed, responses));
           }
-          out.push(...finalizeChatToResponsesStream(responses))
-          return out
+          out.push(...finalizeChatToResponsesStream(responses));
+          return out;
         }
       }
     },
     adaptStreamError: (err) => {
-      const message = err instanceof Error ? err.message : "An upstream error occurred during streaming."
+      const message =
+        err instanceof Error ? err.message : "An upstream error occurred during streaming.";
       if (deps.source === "chat_completions") {
-        return [{
-          data: JSON.stringify({
-            error: { message, type: "server_error", code: "stream_error" },
-          }),
-        }]
+        return [
+          {
+            data: JSON.stringify({
+              error: { message, type: "server_error", code: "stream_error" },
+            }),
+          },
+        ];
       }
       if (deps.source === "anthropic_messages") {
-        const event = anthropicStreamErrorEvent()
-        const raw = typeof event.data === "string" ? event.data : "{}"
-        const body = JSON.parse(raw) as { error: { message: string } }
-        body.error.message = message
-        return [{ event: "error", data: JSON.stringify(body) }]
+        const event = anthropicStreamErrorEvent();
+        const raw = typeof event.data === "string" ? event.data : "{}";
+        const body = JSON.parse(raw) as { error: { message: string } };
+        body.error.message = message;
+        return [{ event: "error", data: JSON.stringify(body) }];
       }
-      return [{
-        event: "error",
-        data: JSON.stringify({ type: "error", message }),
-      }]
+      return [
+        {
+          event: "error",
+          data: JSON.stringify({ type: "error", message }),
+        },
+      ];
     },
     describeEndLog: (result) => {
       if (result.kind === "json") {
         if (kind === "chat-to-messages" || kind === "responses-to-messages") {
-          const body = result.resp as AnthropicResponse
-          const cache = body.usage?.cache_read_input_tokens ?? 0
+          const body = result.resp as AnthropicResponse;
+          const cache = body.usage?.cache_read_input_tokens ?? 0;
           return {
             model: modelOf(result.req),
             resolvedModel: body.model,
@@ -344,11 +385,11 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
             cacheReadTokens: cache,
             cacheCreationTokens: body.usage?.cache_creation_input_tokens ?? 0,
             routingPath: kind,
-          }
+          };
         }
         if (kind === "responses-to-chat") {
-          const body = result.resp as ChatCompletionResponse
-          const cache = body.usage?.prompt_tokens_details?.cached_tokens ?? 0
+          const body = result.resp as ChatCompletionResponse;
+          const cache = body.usage?.prompt_tokens_details?.cached_tokens ?? 0;
           return {
             model: modelOf(result.req),
             resolvedModel: body.model,
@@ -357,9 +398,9 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
             cacheReadTokens: cache,
             cacheCreationTokens: 0,
             routingPath: kind,
-          }
+          };
         }
-        const meta = extractNonStreamingMeta(result.resp, modelOf(result.req))
+        const meta = extractNonStreamingMeta(result.resp, modelOf(result.req));
         return {
           model: modelOf(result.req),
           resolvedModel: meta.resolvedModel,
@@ -368,45 +409,49 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           cacheReadTokens: meta.cachedInputTokens,
           cacheCreationTokens: 0,
           routingPath: kind,
-        }
+        };
       }
       if (result.kind === "stream") {
-        const usage = streamUsage(kind, result.state)
+        const usage = streamUsage(kind, result.state);
         return {
           model: modelOf(result.req),
           resolvedModel: result.state.model,
           ...usage,
           routingPath: kind,
-        }
+        };
       }
-      return { model: modelOf(result.req), routingPath: kind }
+      return { model: modelOf(result.req), routingPath: kind };
     },
-  }
+  };
 }
 
 function adaptPassthrough(chunk: ServerSentEvent, state: ProtocolConvertedState): SSEMessage[] {
-  let parsed: unknown
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(chunk.data)
+    parsed = JSON.parse(chunk.data);
   } catch {
-    parsed = undefined
+    parsed = undefined;
   }
-  state.inlineFailed ||= isInlineStreamError(chunk.event, parsed)
-  const eventName = chunk.event ?? (parsed && typeof parsed === "object" ? (parsed as { type?: string }).type : undefined)
+  state.inlineFailed ||= isInlineStreamError(chunk.event, parsed);
+  const eventName =
+    chunk.event ??
+    (parsed && typeof parsed === "object" ? (parsed as { type?: string }).type : undefined);
   if (isTerminalResponseEvent(eventName)) {
-    state.terminalSeen = true
+    state.terminalSeen = true;
     const meta = extractNonStreamingMeta(
-      parsed && typeof parsed === "object" && "response" in parsed ? (parsed as { response?: unknown }).response : parsed,
+      parsed && typeof parsed === "object" && "response" in parsed
+        ? (parsed as { response?: unknown }).response
+        : parsed,
       state.model,
-    )
-    state.model = meta.resolvedModel || state.model
-    state.inputTokens = meta.inputTokens
-    state.outputTokens = meta.outputTokens
-    state.cacheReadTokens = meta.cachedInputTokens
+    );
+    state.model = meta.resolvedModel || state.model;
+    state.inputTokens = meta.inputTokens;
+    state.outputTokens = meta.outputTokens;
+    state.cacheReadTokens = meta.cachedInputTokens;
   }
-  const message: SSEMessage = { data: chunk.data }
-  if (chunk.event) message.event = chunk.event
-  if (chunk.id) message.id = chunk.id
-  if (chunk.retry != null) message.retry = chunk.retry
-  return [message]
+  const message: SSEMessage = { data: chunk.data };
+  if (chunk.event) message.event = chunk.event;
+  if (chunk.id) message.id = chunk.id;
+  if (chunk.retry != null) message.retry = chunk.retry;
+  return [message];
 }

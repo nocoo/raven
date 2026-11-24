@@ -8,63 +8,59 @@
 // dispatch.
 // ---------------------------------------------------------------------------
 
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { Strategy } from "../core/strategy"
-import { isInlineStreamError } from "./support/inline-stream-error"
-import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
-import type { ServerSentEvent } from "../util/sse"
-import { HTTPError } from "../lib/error"
-import type {
-  CopilotNativeClient,
-  NativeMessagesOptions,
-} from "../upstream/copilot-native"
-import type {
-  AnthropicMessagesPayload,
-  AnthropicResponse,
-} from "../protocols/anthropic/types"
+import type { Strategy } from "../core/strategy";
+import { isInlineStreamError } from "./support/inline-stream-error";
+import { emitUpstreamRawSse } from "../util/emit-upstream-raw";
+import type { ServerSentEvent } from "../util/sse";
+import { HTTPError } from "../lib/error";
+import type { CopilotNativeClient, NativeMessagesOptions } from "../upstream/copilot-native";
+import type { AnthropicMessagesPayload, AnthropicResponse } from "../protocols/anthropic/types";
 import {
   parseReasoningEffortError,
   pickSupportedEffort,
   adjustEffortInPayload,
   logEffortFallback,
-} from "./support/effort-fallback"
+} from "./support/effort-fallback";
 
 export interface CopilotNativeDeps {
-  client: CopilotNativeClient
+  client: CopilotNativeClient;
   /**
    * When false, a 400 reasoning-effort mismatch is returned as-is.
    * Direct `client.send` never repairs. Omitted keeps the repair.
    * Credential replay stays on the client `allowReplay` flag.
    */
-  allowEffortRepair?: boolean
+  allowEffortRepair?: boolean;
 }
 
 export interface CopilotNativeUpReq {
-  payload: AnthropicMessagesPayload
-  options: NativeMessagesOptions
+  payload: AnthropicMessagesPayload;
+  options: NativeMessagesOptions;
   /** Original Anthropic-side model name (used in logs). */
-  originalModel: string
+  originalModel: string;
 }
 
 export interface CopilotNativeStreamState {
-  inlineFailed?: boolean
-  terminalSeen?: boolean
-  resolvedModel: string
-  inputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  cacheWriteTokens: number
-  copilotModel: string
-  originalModel: string
+  inlineFailed?: boolean;
+  terminalSeen?: boolean;
+  resolvedModel: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  copilotModel: string;
+  originalModel: string;
 }
 
 const isAsyncGenerator = (
   response: AnthropicResponse | AsyncGenerator<ServerSentEvent>,
 ): response is AsyncGenerator<ServerSentEvent> =>
-  typeof (response as AsyncGenerator).next === "function"
+  typeof (response as AsyncGenerator).next === "function";
 
-export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
+export function makeCopilotNative(
+  deps: CopilotNativeDeps,
+): Strategy<
   CopilotNativeUpReq,
   CopilotNativeUpReq,
   AnthropicResponse,
@@ -85,11 +81,11 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
         ctx.requestId,
         ctx.signal,
         deps.allowEffortRepair !== false,
-      )
+      );
       if (isAsyncGenerator(response)) {
-        return { kind: "stream", chunks: response }
+        return { kind: "stream", chunks: response };
       }
-      return { kind: "json", body: response }
+      return { kind: "json", body: response };
     },
 
     adaptJson: (resp) => resp,
@@ -105,36 +101,36 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
     }),
 
     adaptChunk: (sseEvent, st, ctx) => {
-      st.inlineFailed ||= isInlineStreamError(sseEvent.event)
-      emitUpstreamRawSse(ctx.requestId, { event: sseEvent.event, data: sseEvent.data })
+      st.inlineFailed ||= isInlineStreamError(sseEvent.event);
+      emitUpstreamRawSse(ctx.requestId, { event: sseEvent.event, data: sseEvent.data });
 
       if (sseEvent.data) {
         try {
-          const parsed = JSON.parse(sseEvent.data)
-          st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed)
-          st.terminalSeen ||= parsed.type === "message_stop"
+          const parsed = JSON.parse(sseEvent.data);
+          st.inlineFailed ||= isInlineStreamError(sseEvent.event, parsed);
+          st.terminalSeen ||= parsed.type === "message_stop";
           if (parsed.type === "message_start" && parsed.message?.model) {
-            st.resolvedModel = parsed.message.model
+            st.resolvedModel = parsed.message.model;
           }
           if (parsed.type === "message_start" && parsed.message?.usage) {
-            st.inputTokens = parsed.message.usage.input_tokens ?? 0
-            st.cacheReadTokens = parsed.message.usage.cache_read_input_tokens ?? 0
-            st.cacheWriteTokens = parsed.message.usage.cache_creation_input_tokens ?? 0
+            st.inputTokens = parsed.message.usage.input_tokens ?? 0;
+            st.cacheReadTokens = parsed.message.usage.cache_read_input_tokens ?? 0;
+            st.cacheWriteTokens = parsed.message.usage.cache_creation_input_tokens ?? 0;
           }
           if (parsed.type === "message_delta" && parsed.usage) {
-            st.outputTokens = parsed.usage.output_tokens ?? 0
+            st.outputTokens = parsed.usage.output_tokens ?? 0;
           }
         } catch {
           // Parse error for metrics — don't break stream
         }
       }
 
-      const out: SSEMessage = { data: sseEvent.data }
-      if (sseEvent.event) out.event = sseEvent.event
-      return [out]
+      const out: SSEMessage = { data: sseEvent.data };
+      if (sseEvent.event) out.event = sseEvent.event;
+      return [out];
     },
 
-    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
+    streamOutcome: (st) => (st.inlineFailed ? "error" : "success"),
 
     isStreamTerminal: (_chunk, st) => st.terminalSeen === true,
 
@@ -150,7 +146,7 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
             error: { type: "api_error", message: "Upstream stream error" },
           }),
         },
-      ]
+      ];
     },
 
     describeEndLog: (result) => {
@@ -164,7 +160,7 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
           cacheReadTokens: result.resp.usage?.cache_read_input_tokens ?? 0,
           cacheWriteTokens: result.resp.usage?.cache_creation_input_tokens ?? 0,
           routingPath: "native",
-        }
+        };
       }
       if (result.kind === "stream") {
         return {
@@ -176,16 +172,16 @@ export function makeCopilotNative(deps: CopilotNativeDeps): Strategy<
           cacheReadTokens: result.state.cacheReadTokens,
           cacheWriteTokens: result.state.cacheWriteTokens,
           routingPath: "native",
-        }
+        };
       }
       // error arm
       return {
         model: result.req.originalModel,
         copilotModel: result.req.options.copilotModel,
         routingPath: "native",
-      }
+      };
     },
-  }
+  };
 }
 
 async function sendWithEffortFallback(
@@ -196,24 +192,35 @@ async function sendWithEffortFallback(
   allowEffortRepair: boolean,
 ): Promise<AnthropicResponse | AsyncGenerator<ServerSentEvent>> {
   try {
-    return await client.send({ payload: req.payload, options: req.options }, signal)
+    return await client.send({ payload: req.payload, options: req.options }, signal);
   } catch (error) {
-    if (!(error instanceof HTTPError)) throw error
-    if (signal?.aborted || error.status !== 400 || !allowEffortRepair || client.allowReplay === false) throw error
-    let errorBody: unknown
+    if (!(error instanceof HTTPError)) throw error;
+    if (
+      signal?.aborted ||
+      error.status !== 400 ||
+      !allowEffortRepair ||
+      client.allowReplay === false
+    )
+      throw error;
+    let errorBody: unknown;
     try {
-      errorBody = JSON.parse(error.responseBody)
+      errorBody = JSON.parse(error.responseBody);
     } catch {
-      throw error
+      throw error;
     }
-    const effortError = parseReasoningEffortError(errorBody)
-    if (!effortError) throw error
+    const effortError = parseReasoningEffortError(errorBody);
+    if (!effortError) throw error;
     const fallbackEffort = pickSupportedEffort(
       effortError.requestedEffort,
       effortError.supportedEfforts,
-    )
-    logEffortFallback(requestId, req.options.copilotModel, effortError.requestedEffort, fallbackEffort)
-    const adjustedPayload = adjustEffortInPayload(req.payload, fallbackEffort)
-    return await client.send({ payload: adjustedPayload, options: req.options }, signal)
+    );
+    logEffortFallback(
+      requestId,
+      req.options.copilotModel,
+      effortError.requestedEffort,
+      fallbackEffort,
+    );
+    const adjustedPayload = adjustEffortInPayload(req.payload, fallbackEffort);
+    return await client.send({ payload: adjustedPayload, options: req.options }, signal);
   }
 }

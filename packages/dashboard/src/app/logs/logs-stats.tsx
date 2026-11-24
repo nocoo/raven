@@ -11,10 +11,7 @@ import {
   Users,
   Zap,
 } from "@nocoo/basalt/icons";
-import {
-  formatCompact,
-  formatLatency as fmtLatency,
-} from "@/lib/chart-config";
+import { formatCompact, formatLatency as fmtLatency } from "@/lib/chart-config";
 import { LayerCard } from "@nocoo/basalt";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 import { StatCard } from "@/components/stats/stat-card";
@@ -76,7 +73,7 @@ export function extractRequestEnds(events: LogEvent[]): RequestEndData[] {
       latencyMs: (d.latencyMs as number) ?? 0,
       ttftMs: (d.ttftMs as number) ?? null,
       processingMs: (d.processingMs as number) ?? null,
-      stream: !!(d.stream),
+      stream: !!d.stream,
       status: (d.status as string) ?? "unknown",
     });
   }
@@ -93,33 +90,35 @@ function useStats(events: LogEvent[]) {
     const total = ends.length;
     const errors = ends.filter((e) => e.status === "error").length;
     const errorRate = total > 0 ? errors / total : 0;
-    const avgLatency =
-      total > 0
-        ? ends.reduce((s, e) => s + e.latencyMs, 0) / total
-        : 0;
-    const totalTokens = ends.reduce(
-      (s, e) => s + e.inputTokens + e.outputTokens,
-      0,
-    );
+    const avgLatency = total > 0 ? ends.reduce((s, e) => s + e.latencyMs, 0) / total : 0;
+    const totalTokens = ends.reduce((s, e) => s + e.inputTokens + e.outputTokens, 0);
     const totalInput = ends.reduce((s, e) => s + e.inputTokens, 0);
     const totalOutput = ends.reduce((s, e) => s + e.outputTokens, 0);
 
     // TTFT — only from entries that have it (streaming requests)
     const withTtft = ends.filter((e) => e.ttftMs !== null);
-    const avgTtft = withTtft.length > 0
-      ? withTtft.reduce((s, e) => s + (e.ttftMs ?? 0), 0) / withTtft.length
-      : 0;
+    const avgTtft =
+      withTtft.length > 0 ? withTtft.reduce((s, e) => s + (e.ttftMs ?? 0), 0) / withTtft.length : 0;
 
     // Processing — only from entries that have it
     const withProcessing = ends.filter((e) => e.processingMs !== null);
-    const avgProcessing = withProcessing.length > 0
-      ? withProcessing.reduce((s, e) => s + (e.processingMs ?? 0), 0) / withProcessing.length
-      : 0;
+    const avgProcessing =
+      withProcessing.length > 0
+        ? withProcessing.reduce((s, e) => s + (e.processingMs ?? 0), 0) / withProcessing.length
+        : 0;
 
     return {
-      total, errors, errorRate, avgLatency, totalTokens, totalInput, totalOutput,
-      avgTtft, ttftCount: withTtft.length,
-      avgProcessing, processingCount: withProcessing.length,
+      total,
+      errors,
+      errorRate,
+      avgLatency,
+      totalTokens,
+      totalInput,
+      totalOutput,
+      avgTtft,
+      ttftCount: withTtft.length,
+      avgProcessing,
+      processingCount: withProcessing.length,
     };
   }, [events]);
 }
@@ -277,16 +276,9 @@ export function computeSessionTracker(events: LogEvent[]) {
     }
   }
 
-  const allSessions = [...sessions.values()].sort(
-    (a, b) => b.lastActiveTs - a.lastActiveTs,
-  );
-  const activeSessions = allSessions.filter(
-    (s) => s.activeRequests.size > 0,
-  );
-  const totalActiveRequests = activeSessions.reduce(
-    (sum, s) => sum + s.activeRequests.size,
-    0,
-  );
+  const allSessions = [...sessions.values()].sort((a, b) => b.lastActiveTs - a.lastActiveTs);
+  const activeSessions = allSessions.filter((s) => s.activeRequests.size > 0);
+  const totalActiveRequests = activeSessions.reduce((sum, s) => sum + s.activeRequests.size, 0);
 
   return {
     sessions: allSessions,
@@ -302,15 +294,11 @@ export function useSessionTracker(events: LogEvent[]) {
 
 export function computeConcurrencyTimeline(events: LogEvent[]): ConcurrencyBucket[] {
   const deduped = dedupEvents(events);
-  const intervals = new Map<
-    string,
-    { sessionId: string; startTs: number; endTs: number | null }
-  >();
+  const intervals = new Map<string, { sessionId: string; startTs: number; endTs: number | null }>();
 
   for (const e of deduped) {
     if (e.type === "request_start" && e.requestId) {
-      const sessionId =
-        (e.data?.sessionId as string) || "unknown";
+      const sessionId = (e.data?.sessionId as string) || "unknown";
       intervals.set(e.requestId, {
         sessionId,
         startTs: e.ts,
@@ -395,7 +383,10 @@ function formatPercent(v: number): string {
 // Chart sections (use extracted panel components)
 // ---------------------------------------------------------------------------
 
-function RequestCards({ stats, hasData }: {
+function RequestCards({
+  stats,
+  hasData,
+}: {
   stats: ReturnType<typeof useStats>;
   hasData: boolean;
 }) {
@@ -413,13 +404,7 @@ function RequestCards({ stats, hasData }: {
         icon={AlertTriangle}
         label="Error Rate"
         value={hasData ? formatPercent(stats.errorRate) : "—"}
-        accent={
-          stats.errorRate > 0.1
-            ? "danger"
-            : stats.errorRate > 0
-              ? "warning"
-              : "success"
-        }
+        accent={stats.errorRate > 0.1 ? "danger" : stats.errorRate > 0 ? "warning" : "success"}
       />
       <StatCard
         variant="compact"
@@ -427,13 +412,7 @@ function RequestCards({ stats, hasData }: {
         label="Avg TTFT"
         value={hasData && stats.ttftCount > 0 ? fmtLatency(stats.avgTtft) : "—"}
         {...(hasData && stats.ttftCount > 0 && { detail: `${stats.ttftCount} streaming` })}
-        accent={
-          stats.avgTtft > 5_000
-            ? "danger"
-            : stats.avgTtft > 2_000
-              ? "warning"
-              : "default"
-        }
+        accent={stats.avgTtft > 5_000 ? "danger" : stats.avgTtft > 2_000 ? "warning" : "default"}
       />
       <StatCard
         variant="compact"
@@ -441,21 +420,14 @@ function RequestCards({ stats, hasData }: {
         label="Avg Duration"
         value={hasData ? fmtLatency(stats.avgLatency) : "—"}
         accent={
-          stats.avgLatency > 10_000
-            ? "danger"
-            : stats.avgLatency > 5_000
-              ? "warning"
-              : "default"
+          stats.avgLatency > 10_000 ? "danger" : stats.avgLatency > 5_000 ? "warning" : "default"
         }
       />
     </div>
   );
 }
 
-function ModelCards({ stats, hasData }: {
-  stats: ReturnType<typeof useStats>;
-  hasData: boolean;
-}) {
+function ModelCards({ stats, hasData }: { stats: ReturnType<typeof useStats>; hasData: boolean }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       <StatCard
@@ -463,7 +435,9 @@ function ModelCards({ stats, hasData }: {
         icon={Coins}
         label="Tokens"
         value={hasData ? formatCompact(stats.totalTokens) : "—"}
-        {...(hasData && { detail: `in ${formatCompact(stats.totalInput)} · out ${formatCompact(stats.totalOutput)}` })}
+        {...(hasData && {
+          detail: `in ${formatCompact(stats.totalInput)} · out ${formatCompact(stats.totalOutput)}`,
+        })}
       />
     </div>
   );
@@ -483,7 +457,9 @@ function SessionSection({
         icon={Users}
         label="Active Sessions"
         value={String(sessionTracker.activeCount)}
-        {...(sessionTracker.activeCount > 0 && { detail: `${sessionTracker.totalActiveRequests} in-flight` })}
+        {...(sessionTracker.activeCount > 0 && {
+          detail: `${sessionTracker.totalActiveRequests} in-flight`,
+        })}
         accent={
           sessionTracker.activeCount > 3
             ? "warning"
@@ -516,7 +492,10 @@ export function LogsStats({ events }: LogsStatsProps) {
 
   return (
     <>
-      <section aria-label="Log statistics" className="hidden @min-[42rem]/logs:flex w-72 shrink-0 flex-col gap-6 overflow-y-auto">
+      <section
+        aria-label="Log statistics"
+        className="hidden @min-[42rem]/logs:flex w-72 shrink-0 flex-col gap-6 overflow-y-auto"
+      >
         {/* ── Section 1: Requests ── */}
         <SectionRule title="Requests">
           <div className="space-y-3">
@@ -544,10 +523,7 @@ export function LogsStats({ events }: LogsStatsProps) {
         {hasSessionData && (
           <SectionRule title="Sessions">
             <div className="space-y-3">
-              <SessionSection
-                sessionTracker={sessionTracker}
-                concurrencyData={concurrencyData}
-              />
+              <SessionSection sessionTracker={sessionTracker} concurrencyData={concurrencyData} />
             </div>
           </SectionRule>
         )}
@@ -559,7 +535,10 @@ export function LogsStats({ events }: LogsStatsProps) {
         )}
       </section>
 
-      <LayerCard padding="none" className="@min-[42rem]/logs:hidden -order-1 shrink-0 overflow-y-auto max-h-[50%]">
+      <LayerCard
+        padding="none"
+        className="@min-[42rem]/logs:hidden -order-1 shrink-0 overflow-y-auto max-h-[50%]"
+      >
         <button
           type="button"
           onClick={() => setMobileExpanded(!mobileExpanded)}
@@ -570,7 +549,8 @@ export function LogsStats({ events }: LogsStatsProps) {
             Stats
             {(hasData || hasSessionData) && (
               <span className="text-xs font-normal text-basalt-muted-foreground tabular-nums">
-                {stats.total} req · {hasData ? fmtLatency(stats.avgLatency) : "—"} avg · {formatCompact(stats.totalTokens)} tok
+                {stats.total} req · {hasData ? fmtLatency(stats.avgLatency) : "—"} avg ·{" "}
+                {formatCompact(stats.totalTokens)} tok
                 {hasSessionData && ` · ${sessionTracker.activeCount} sessions`}
               </span>
             )}

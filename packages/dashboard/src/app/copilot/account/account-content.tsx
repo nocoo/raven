@@ -1,15 +1,31 @@
 "use client";
 
-
-
 import type { CopilotUser, CopilotQuotaSnapshot } from "@/lib/types";
 import { LocalTime } from "@/components/local-time";
 import { SectionIcon, type SectionIconTone } from "@/components/section-icon";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  RefreshCw, User, Building2, CreditCard, Calendar, CheckCircle2, XCircle, Infinity as InfinityIcon, Sparkles, Braces, type LucideIcon, } from "@nocoo/basalt/icons";
-import { Badge, Button, Collapsible, CollapsibleContent, CollapsibleTrigger, LayerCard } from "@nocoo/basalt";
+  RefreshCw,
+  User,
+  Building2,
+  CreditCard,
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  Infinity as InfinityIcon,
+  Sparkles,
+  Braces,
+  type LucideIcon,
+} from "@nocoo/basalt/icons";
+import {
+  Badge,
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  LayerCard,
+} from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
 import { SectionRule } from "@nocoo/basalt/components/section-rule";
 
@@ -94,7 +110,10 @@ function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean
   const offset = unlimited ? 0 : RING_CIRCUMFERENCE * (1 - clamped / 100);
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: RING_SIZE, height: RING_SIZE }}>
+    <div
+      className="relative flex items-center justify-center"
+      style={{ width: RING_SIZE, height: RING_SIZE }}
+    >
       <svg
         width={RING_SIZE}
         height={RING_SIZE}
@@ -124,7 +143,13 @@ function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean
           strokeLinecap="round"
           strokeDasharray={RING_CIRCUMFERENCE}
           strokeDashoffset={offset}
-          className={unlimited ? "text-basalt-primary" : clamped > 20 ? "text-basalt-primary" : "text-basalt-destructive"}
+          className={
+            unlimited
+              ? "text-basalt-primary"
+              : clamped > 20
+                ? "text-basalt-primary"
+                : "text-basalt-destructive"
+          }
           style={{ transition: "stroke-dashoffset 0.3s ease" }}
         />
       </svg>
@@ -141,9 +166,7 @@ function QuotaRing({ percent, unlimited }: { percent: number; unlimited: boolean
 }
 
 function QuotaCard({ id, snapshot }: { id: string; snapshot: CopilotQuotaSnapshot }) {
-  const label = id
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const label = id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <LayerCard className="flex items-center gap-4">
@@ -154,7 +177,8 @@ function QuotaCard({ id, snapshot }: { id: string; snapshot: CopilotQuotaSnapsho
           <p className="text-xs text-basalt-muted-foreground">Unlimited usage</p>
         ) : (
           <p className="text-xs text-basalt-muted-foreground">
-            {snapshot.remaining.toLocaleString()} / {snapshot.entitlement.toLocaleString()} remaining
+            {snapshot.remaining.toLocaleString()} / {snapshot.entitlement.toLocaleString()}{" "}
+            remaining
           </p>
         )}
         {snapshot.overage_count > 0 && (
@@ -217,32 +241,25 @@ export function AccountContent({ data }: AccountContentProps) {
     }
   }
 
-  const extraEntries = Object.entries(data).filter(
-    ([key]) => !KNOWN_KEYS.has(key),
-  );
+  const extraEntries = Object.entries(data).filter(([key]) => !KNOWN_KEYS.has(key));
 
   const orgs = data.organization_list ?? [];
-  const quotas = data.quota_snapshots
-    ? Object.entries(data.quota_snapshots)
-    : [];
+  const quotas = data.quota_snapshots ? Object.entries(data.quota_snapshots) : [];
 
   return (
     <>
-      <PageHeader title="Account" description="GitHub Copilot subscription and quota." actions={
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={loading}
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      } />
+      <PageHeader
+        title="Account"
+        description="GitHub Copilot subscription and quota."
+        actions={
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        }
+      />
 
-      {refreshError && (
-        <p className="text-xs text-basalt-destructive">{refreshError}</p>
-      )}
+      {refreshError && <p className="text-xs text-basalt-destructive">{refreshError}</p>}
 
       {/* Subscription overview */}
       <div className="grid grid-cols-1 @min-[32rem]/page:grid-cols-2 @min-[48rem]/page:grid-cols-3 gap-3">
@@ -269,9 +286,7 @@ export function AccountContent({ data }: AccountContentProps) {
               <p key={org.login} className="text-sm font-medium">
                 {org.name ?? org.login}
                 {org.name && (
-                  <span className="text-xs text-basalt-muted-foreground ml-1">
-                    ({org.login})
-                  </span>
+                  <span className="text-xs text-basalt-muted-foreground ml-1">({org.login})</span>
                 )}
               </p>
             ))}
@@ -285,7 +300,6 @@ export function AccountContent({ data }: AccountContentProps) {
             </p>
           </InfoRow>
         )}
-
       </div>
 
       {/* Quota snapshots */}
@@ -303,68 +317,92 @@ export function AccountContent({ data }: AccountContentProps) {
       )}
 
       <div className="settings-grid">
-      {[data.chat_enabled, data.copilotignore_enabled, data.is_mcp_enabled, data.restricted_telemetry, data.can_signup_for_limited].some(value => value != null) &&
-        <LayerCard padding="none" className="overflow-hidden">
-          <LayerCard.Header><h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground"><SectionIcon icon={Sparkles} tone="teal" />Capabilities</h2></LayerCard.Header>
-          <div className="max-w-3xl divide-y divide-basalt-border/50">
-          {data.chat_enabled != null && (
-            <ToggleRow label="Chat" value={data.chat_enabled} />
-          )}
-          {data.copilotignore_enabled != null && (
-            <ToggleRow label="Copilot Ignore" value={data.copilotignore_enabled} />
-          )}
-          {data.is_mcp_enabled != null && (
-            <ToggleRow label="MCP" value={data.is_mcp_enabled} />
-          )}
-          {data.restricted_telemetry != null && (
-            <ToggleRow label="Restricted Telemetry" value={data.restricted_telemetry} />
-          )}
-          {data.can_signup_for_limited != null && (
-            <ToggleRow label="Can Signup for Limited" value={data.can_signup_for_limited} />
-          )}
-          </div>
-        </LayerCard>}
+        {[
+          data.chat_enabled,
+          data.copilotignore_enabled,
+          data.is_mcp_enabled,
+          data.restricted_telemetry,
+          data.can_signup_for_limited,
+        ].some((value) => value != null) && (
+          <LayerCard padding="none" className="overflow-hidden">
+            <LayerCard.Header>
+              <h2 className="flex items-center gap-2.5 text-sm font-semibold text-basalt-foreground">
+                <SectionIcon icon={Sparkles} tone="teal" />
+                Capabilities
+              </h2>
+            </LayerCard.Header>
+            <div className="max-w-3xl divide-y divide-basalt-border/50">
+              {data.chat_enabled != null && <ToggleRow label="Chat" value={data.chat_enabled} />}
+              {data.copilotignore_enabled != null && (
+                <ToggleRow label="Copilot Ignore" value={data.copilotignore_enabled} />
+              )}
+              {data.is_mcp_enabled != null && <ToggleRow label="MCP" value={data.is_mcp_enabled} />}
+              {data.restricted_telemetry != null && (
+                <ToggleRow label="Restricted Telemetry" value={data.restricted_telemetry} />
+              )}
+              {data.can_signup_for_limited != null && (
+                <ToggleRow label="Can Signup for Limited" value={data.can_signup_for_limited} />
+              )}
+            </div>
+          </LayerCard>
+        )}
 
-      {(data.analytics_tracking_id != null || (data.endpoints && Object.keys(data.endpoints).length > 0) || extraEntries.length > 0) &&
-          <Collapsible asChild><LayerCard padding="none">
-            <h2><LayerCard.Header asChild><CollapsibleTrigger className="border-solid text-sm font-semibold data-[state=open]:rounded-b-none"><span className="flex items-center gap-2.5"><SectionIcon icon={Braces} tone="blue" />Endpoints and properties</span></CollapsibleTrigger></LayerCard.Header></h2>
-            <CollapsibleContent unstyled><LayerCard.Body className="space-y-4">
-              {data.analytics_tracking_id != null && <div className="space-y-1"><p className="text-xs text-basalt-muted-foreground">Tracking ID</p><p className="break-all font-mono text-xs">{data.analytics_tracking_id}</p></div>}
-      {data.endpoints && Object.keys(data.endpoints).length > 0 && (
-        <section aria-label="Endpoints" className="divide-y divide-basalt-border/50">
-            {Object.entries(data.endpoints).map(([name, url]) => (
-              <div
-                key={name}
-                className="space-y-1 py-2 text-sm"
-              >
-                <span className="block font-mono text-xs text-basalt-muted-foreground">
-                  {name}
-                </span>
-                <span className="block break-all font-mono text-xs">
-                  {url}
-                </span>
-              </div>
-            ))}
-        </section>
-      )}
+        {(data.analytics_tracking_id != null ||
+          (data.endpoints && Object.keys(data.endpoints).length > 0) ||
+          extraEntries.length > 0) && (
+          <Collapsible asChild>
+            <LayerCard padding="none">
+              <h2>
+                <LayerCard.Header asChild>
+                  <CollapsibleTrigger className="border-solid text-sm font-semibold data-[state=open]:rounded-b-none">
+                    <span className="flex items-center gap-2.5">
+                      <SectionIcon icon={Braces} tone="blue" />
+                      Endpoints and properties
+                    </span>
+                  </CollapsibleTrigger>
+                </LayerCard.Header>
+              </h2>
+              <CollapsibleContent unstyled>
+                <LayerCard.Body className="space-y-4">
+                  {data.analytics_tracking_id != null && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-basalt-muted-foreground">Tracking ID</p>
+                      <p className="break-all font-mono text-xs">{data.analytics_tracking_id}</p>
+                    </div>
+                  )}
+                  {data.endpoints && Object.keys(data.endpoints).length > 0 && (
+                    <section aria-label="Endpoints" className="divide-y divide-basalt-border/50">
+                      {Object.entries(data.endpoints).map(([name, url]) => (
+                        <div key={name} className="space-y-1 py-2 text-sm">
+                          <span className="block font-mono text-xs text-basalt-muted-foreground">
+                            {name}
+                          </span>
+                          <span className="block break-all font-mono text-xs">{url}</span>
+                        </div>
+                      ))}
+                    </section>
+                  )}
 
-      {extraEntries.length > 0 && (
-        <section aria-label="Other properties" className="divide-y divide-basalt-border/50">
-            {extraEntries.map(([key, value]) => (
-              <div
-                key={key}
-                className="space-y-1 py-2 text-sm"
-              >
-                <span className="block break-all font-mono text-xs text-basalt-muted-foreground">
-                  {key}
-                </span>
-                <div>{renderValue(value)}</div>
-              </div>
-            ))}
-        </section>
-      )}
-            </LayerCard.Body></CollapsibleContent>
-          </LayerCard></Collapsible>}
+                  {extraEntries.length > 0 && (
+                    <section
+                      aria-label="Other properties"
+                      className="divide-y divide-basalt-border/50"
+                    >
+                      {extraEntries.map(([key, value]) => (
+                        <div key={key} className="space-y-1 py-2 text-sm">
+                          <span className="block break-all font-mono text-xs text-basalt-muted-foreground">
+                            {key}
+                          </span>
+                          <div>{renderValue(value)}</div>
+                        </div>
+                      ))}
+                    </section>
+                  )}
+                </LayerCard.Body>
+              </CollapsibleContent>
+            </LayerCard>
+          </Collapsible>
+        )}
       </div>
     </>
   );

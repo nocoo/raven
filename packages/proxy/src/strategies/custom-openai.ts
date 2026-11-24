@@ -11,68 +11,68 @@
 // `infra/state`; tool-call debug + filter flags arrive via factory deps.
 // ---------------------------------------------------------------------------
 
-import type { SSEMessage } from "hono/streaming"
+import type { SSEMessage } from "hono/streaming";
 
-import type { Strategy } from "../core/strategy"
-import { isInlineStreamError } from "./support/inline-stream-error"
-import type { ServerSentEvent } from "../util/sse"
-import { logEmitter } from "../util/log-emitter"
-import { emitUpstreamRawSse } from "../util/emit-upstream-raw"
-import type { UpstreamRecord } from "../core/routing-types"
+import type { Strategy } from "../core/strategy";
+import { isInlineStreamError } from "./support/inline-stream-error";
+import type { ServerSentEvent } from "../util/sse";
+import { logEmitter } from "../util/log-emitter";
+import { emitUpstreamRawSse } from "../util/emit-upstream-raw";
+import type { UpstreamRecord } from "../core/routing-types";
 import type {
   ChatCompletionChunk,
   ChatCompletionResponse,
   ChatCompletionsPayload,
-} from "../upstream/copilot-openai"
-import type { CustomOpenAIClient } from "../upstream/custom-openai"
-import type { AnthropicStreamState } from "../protocols/anthropic/types"
-import {
-  translateToAnthropic,
-} from "../protocols/translate/non-stream-translation"
+} from "../upstream/copilot-openai";
+import type { CustomOpenAIClient } from "../upstream/custom-openai";
+import type { AnthropicStreamState } from "../protocols/anthropic/types";
+import { translateToAnthropic } from "../protocols/translate/non-stream-translation";
 import {
   createAnthropicStreamState,
   finalizeAnthropicStream,
   translateChunkToAnthropicEvents,
   translateErrorToAnthropicErrorEvent,
-} from "../protocols/translate/stream-translation"
+} from "../protocols/translate/stream-translation";
 
 export interface CustomOpenAIDeps {
-  client: CustomOpenAIClient
+  client: CustomOpenAIClient;
   /** When true, emit `tool_use_start` debug events as new tool calls arrive. */
-  toolCallDebug: boolean
+  toolCallDebug: boolean;
 }
 
 export interface CustomOpenAIUpReq {
-  provider: UpstreamRecord
+  provider: UpstreamRecord;
   /** Already-translated OpenAI payload sent upstream. */
-  payload: ChatCompletionsPayload
+  payload: ChatCompletionsPayload;
   /**
    * Optional Anthropic-side model name. When set, the strategy translates
    * the upstream OpenAI response/stream back to Anthropic shape.
    */
-  originalModel?: string
+  originalModel?: string;
 }
 
 export interface CustomOpenAIStreamState extends AnthropicStreamState {
-  inlineFailed?: boolean
+  inlineFailed?: boolean;
   /** Mirrors `req.payload.model` so error logs survive without `req`. */
-  model: string
-  resolvedModel: string
-  inputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  upstream: string
-  upstreamFormat: string
+  model: string;
+  resolvedModel: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  upstream: string;
+  upstreamFormat: string;
   /** Set ⇔ translated mode. */
-  originalModel: string | undefined
+  originalModel: string | undefined;
 }
 
 const isOpenAINonStreaming = (
   response: ChatCompletionResponse | AsyncGenerator<ServerSentEvent>,
 ): response is ChatCompletionResponse =>
-  typeof response === "object" && "object" in response && response.object === "chat.completion"
+  typeof response === "object" && "object" in response && response.object === "chat.completion";
 
-export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
+export function makeCustomOpenAI(
+  deps: CustomOpenAIDeps,
+): Strategy<
   CustomOpenAIUpReq,
   CustomOpenAIUpReq,
   ChatCompletionResponse,
@@ -87,21 +87,24 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
     prepare: (req) => req,
 
     dispatch: async (up, ctx) => {
-      const response = await deps.client.send({
-        provider: up.provider,
-        payload: up.payload,
-      }, ctx.signal)
+      const response = await deps.client.send(
+        {
+          provider: up.provider,
+          payload: up.payload,
+        },
+        ctx.signal,
+      );
       if (isOpenAINonStreaming(response)) {
-        return { kind: "json", body: response }
+        return { kind: "json", body: response };
       }
-      return { kind: "stream", chunks: response }
+      return { kind: "stream", chunks: response };
     },
 
     adaptJson: (resp, req) => {
       if (req.originalModel) {
-        return translateToAnthropic(resp, req.originalModel)
+        return translateToAnthropic(resp, req.originalModel);
       }
-      return resp
+      return resp;
     },
 
     initStreamState: (req) => ({
@@ -117,106 +120,112 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
     }),
 
     adaptChunk: (rawEvent, st, ctx) => {
-      if (!st.originalModel) st.inlineFailed ||= isInlineStreamError(rawEvent.event)
-      emitUpstreamRawSse(ctx.requestId, { event: rawEvent.event, data: rawEvent.data })
+      if (!st.originalModel) st.inlineFailed ||= isInlineStreamError(rawEvent.event);
+      emitUpstreamRawSse(ctx.requestId, { event: rawEvent.event, data: rawEvent.data });
 
       if (rawEvent.data === "[DONE]") {
-        return st.originalModel ? [] : [rawEvent as SSEMessage]
+        return st.originalModel ? [] : [rawEvent as SSEMessage];
       }
-      if (!rawEvent.data) return st.originalModel ? [] : [rawEvent as SSEMessage]
+      if (!rawEvent.data) return st.originalModel ? [] : [rawEvent as SSEMessage];
 
-      let chunk: ChatCompletionChunk
+      let chunk: ChatCompletionChunk;
       if (st.originalModel) {
         // Translated mode: a malformed chunk corrupts the Anthropic stream
         // bookkeeping (block index, usage). Let it propagate so Runner
         // surfaces an error event to the client and marks request_end as
         // failed. Passthrough mode below tolerates parse failures because
         // the bytes are forwarded verbatim regardless.
-        chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
+        chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk;
       } else {
         try {
-          chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk
-          st.inlineFailed ||= isInlineStreamError(rawEvent.event, chunk)
+          chunk = JSON.parse(rawEvent.data) as ChatCompletionChunk;
+          st.inlineFailed ||= isInlineStreamError(rawEvent.event, chunk);
         } catch {
-          return [rawEvent as SSEMessage]
+          return [rawEvent as SSEMessage];
         }
       }
 
-      if (chunk.model) st.resolvedModel = chunk.model
+      if (chunk.model) st.resolvedModel = chunk.model;
       if (chunk.usage) {
-        const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0
-        st.inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached
-        st.outputTokens = chunk.usage.completion_tokens ?? 0
-        st.cacheReadTokens = cached
+        const cached = chunk.usage.prompt_tokens_details?.cached_tokens ?? 0;
+        st.inputTokens = (chunk.usage.prompt_tokens ?? 0) - cached;
+        st.outputTokens = chunk.usage.completion_tokens ?? 0;
+        st.cacheReadTokens = cached;
       }
 
       if (st.originalModel) {
         return emitTranslated(
           translateChunkToAnthropicEvents(chunk, st, st.originalModel),
-          ctx, deps.toolCallDebug,
-        )
+          ctx,
+          deps.toolCallDebug,
+        );
       }
 
-      return [rawEvent as SSEMessage]
+      return [rawEvent as SSEMessage];
     },
 
-    finalizeStream: (st, ctx) => st.originalModel
-      ? emitTranslated(finalizeAnthropicStream(st), ctx, deps.toolCallDebug)
-      : [],
+    finalizeStream: (st, ctx) =>
+      st.originalModel ? emitTranslated(finalizeAnthropicStream(st), ctx, deps.toolCallDebug) : [],
 
-    streamOutcome: (st) => st.inlineFailed ? "error" : "success",
+    streamOutcome: (st) => (st.inlineFailed ? "error" : "success"),
 
     isStreamTerminal: (chunk) => chunk.data === "[DONE]",
 
     adaptStreamError: (_err, st) => {
       if (st.originalModel) {
-        const errorEvent = translateErrorToAnthropicErrorEvent()
-        return [{
-          event: errorEvent.type,
-          data: JSON.stringify(errorEvent),
-        }]
-      }
-      return [{
-        data: JSON.stringify({
-          error: {
-            message: "An upstream error occurred during streaming.",
-            type: "server_error",
-            code: "stream_error",
+        const errorEvent = translateErrorToAnthropicErrorEvent();
+        return [
+          {
+            event: errorEvent.type,
+            data: JSON.stringify(errorEvent),
           },
-        }),
-      }]
+        ];
+      }
+      return [
+        {
+          data: JSON.stringify({
+            error: {
+              message: "An upstream error occurred during streaming.",
+              type: "server_error",
+              code: "stream_error",
+            },
+          }),
+        },
+      ];
     },
 
     describeEndLog: (result) => {
       if (result.kind === "json") {
-        const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0
-        const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached
-        const outputTokens = result.resp.usage?.completion_tokens ?? 0
+        const cached = result.resp.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+        const inputTokens = (result.resp.usage?.prompt_tokens ?? 0) - cached;
+        const outputTokens = result.resp.usage?.completion_tokens ?? 0;
         if (result.req.originalModel) {
           return {
             model: result.req.originalModel,
             resolvedModel: result.resp.model,
             translatedModel: result.req.payload.model,
-            inputTokens, outputTokens,
+            inputTokens,
+            outputTokens,
             cacheReadTokens: cached,
             upstream: result.req.provider.name,
             upstreamFormat: result.req.provider.format,
-          }
+          };
         }
         return {
           model: result.resp.model,
           resolvedModel: result.resp.model,
-          inputTokens, outputTokens,
+          inputTokens,
+          outputTokens,
           cacheReadTokens: cached,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
-        }
+        };
       }
       if (result.kind === "stream") {
-        const toolCallCount = Object.keys(result.state.toolCalls).length
+        const toolCallCount = Object.keys(result.state.toolCalls).length;
         const debugExtras = deps.toolCallDebug
           ? { toolCallNames: Object.values(result.state.toolCalls).map((tc) => tc.name) }
-          : {}
+          : {};
         if (result.state.originalModel) {
           return {
             model: result.state.originalModel,
@@ -230,7 +239,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
             stopReason: result.state.stopReason,
             toolCallCount,
             ...debugExtras,
-          }
+          };
         }
         return {
           model: result.state.model,
@@ -243,7 +252,7 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
           stopReason: toolCallCount > 0 ? "tool_use" : "end_turn",
           toolCallCount,
           ...debugExtras,
-        }
+        };
       }
       if (result.kind === "error") {
         if (result.req.originalModel) {
@@ -252,17 +261,17 @@ export function makeCustomOpenAI(deps: CustomOpenAIDeps): Strategy<
             translatedModel: result.req.payload.model,
             upstream: result.req.provider.name,
             upstreamFormat: result.req.provider.format,
-          }
+          };
         }
         return {
           model: result.req.payload.model,
           upstream: result.req.provider.name,
           upstreamFormat: result.req.provider.format,
-        }
+        };
       }
-      return {}
+      return {};
     },
-  }
+  };
 }
 
 function emitTranslated(
@@ -272,9 +281,12 @@ function emitTranslated(
 ): SSEMessage[] {
   if (toolCallDebug) {
     for (const event of events) {
-      if (event.type !== "content_block_start" || event.content_block.type !== "tool_use") continue
+      if (event.type !== "content_block_start" || event.content_block.type !== "tool_use") continue;
       logEmitter.emitLog({
-        ts: Date.now(), level: "debug", type: "sse_chunk", requestId: ctx.requestId,
+        ts: Date.now(),
+        level: "debug",
+        type: "sse_chunk",
+        requestId: ctx.requestId,
         msg: `tool_use started: ${event.content_block.name}`,
         data: {
           eventType: "tool_use_start",
@@ -282,11 +294,11 @@ function emitTranslated(
           toolId: event.content_block.id,
           blockIndex: event.index,
         },
-      })
+      });
     }
   }
   return events.map((event) => ({
     event: event.type,
     data: JSON.stringify(event),
-  }))
+  }));
 }

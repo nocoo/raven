@@ -38,12 +38,8 @@ function ConcurrencyTooltip({
   if (!active || !payload?.length) return null;
   return (
     <div className={TOOLTIP_STYLES.container}>
-      <p className={TOOLTIP_STYLES.title}>
-        {label ? formatMinute(label) : ""}
-      </p>
-      <p className={TOOLTIP_STYLES.value}>
-        {payload[0]?.value ?? 0} sessions
-      </p>
+      <p className={TOOLTIP_STYLES.title}>{label ? formatMinute(label) : ""}</p>
+      <p className={TOOLTIP_STYLES.value}>{payload[0]?.value ?? 0} sessions</p>
     </div>
   );
 }
@@ -69,58 +65,38 @@ export function ConcurrencyChart({ data, gradientId = "concurrencyFill" }: Concu
       <LayerCard.Header>
         <span className="text-sm font-semibold text-basalt-foreground">
           Parallel Sessions
-          <span className="ml-1 font-normal text-basalt-muted-foreground/60">
-            / min
-          </span>
+          <span className="ml-1 font-normal text-basalt-muted-foreground/60">/ min</span>
         </span>
       </LayerCard.Header>
       <LayerCard.Body>
-      <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
-        <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient
-                id={gradientId}
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop
-                  offset="5%"
-                  stopColor={getChartColor(2)}
-                  stopOpacity={0.3}
-                />
-                <stop
-                  offset="95%"
-                  stopColor={getChartColor(2)}
-                  stopOpacity={0}
-                />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke={CHART_COLORS.muted}
-              strokeOpacity={0.3}
-            />
-            <XAxis
-              dataKey="minute"
-              tickFormatter={formatMinute}
-              {...AXIS_CONFIG}
-            />
-            <YAxis allowDecimals={false} {...AXIS_CONFIG} width={20} />
-            <Tooltip content={<ConcurrencyTooltip />} />
-            <Area
-              type="stepAfter"
-              dataKey="sessions"
-              stroke={getChartColor(2)}
-              fill={`url(#${gradientId})`}
-              strokeWidth={2}
-              {...ANIMATION_PROPS}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+        <div style={{ height: CHART_HEIGHTS.compact }} role="img" aria-label={summary}>
+          <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={getChartColor(2)} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={getChartColor(2)} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={CHART_COLORS.muted}
+                strokeOpacity={0.3}
+              />
+              <XAxis dataKey="minute" tickFormatter={formatMinute} {...AXIS_CONFIG} />
+              <YAxis allowDecimals={false} {...AXIS_CONFIG} width={20} />
+              <Tooltip content={<ConcurrencyTooltip />} />
+              <Area
+                type="stepAfter"
+                dataKey="sessions"
+                stroke={getChartColor(2)}
+                fill={`url(#${gradientId})`}
+                strokeWidth={2}
+                {...ANIMATION_PROPS}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </LayerCard.Body>
     </LayerCard>
   );

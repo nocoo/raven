@@ -3,15 +3,24 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle, XCircle, Network, Route } from "@nocoo/basalt/icons";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, Switch, Button, Input, Label } from "@nocoo/basalt";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Switch,
+  Button,
+  Input,
+  Label,
+} from "@nocoo/basalt";
 import { PageHeader } from "@nocoo/basalt/components/page-header";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nocoo/basalt/components/select";
 import { SettingNote, SettingsCard } from "./settings-ui";
-
-
-
-
-
 
 interface ProviderPolicy {
   id: string;
@@ -59,31 +68,23 @@ export function Socks5Content({ data }: Socks5ContentProps) {
     latencyMs?: number;
   } | null>(null);
 
-  const handlePasswordChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setPassword(e.target.value);
-      setPasswordState("edited");
-    },
-    [],
-  );
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    setPasswordState("edited");
+  }, []);
 
   const handleClearPassword = useCallback(() => {
     setPassword("");
     setPasswordState("cleared");
   }, []);
 
-  const handleProviderPolicyChange = useCallback(
-    (providerId: string, value: string) => {
-      setProviderPolicies((prev) =>
-        prev.map((p) =>
-          p.id === providerId
-            ? { ...p, use_socks5: value === "null" ? null : Number(value) }
-            : p,
-        ),
-      );
-    },
-    [],
-  );
+  const handleProviderPolicyChange = useCallback((providerId: string, value: string) => {
+    setProviderPolicies((prev) =>
+      prev.map((p) =>
+        p.id === providerId ? { ...p, use_socks5: value === "null" ? null : Number(value) } : p,
+      ),
+    );
+  }, []);
 
   const handleTest = useCallback(async () => {
     setTesting(true);
@@ -97,9 +98,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           host: host.trim(),
           port: Number(port),
           ...(username.trim() ? { username: username.trim() } : {}),
-          ...(passwordState === "edited" && password
-            ? { password }
-            : {}),
+          ...(passwordState === "edited" && password ? { password } : {}),
           // When password is pristine (not edited/cleared), tell server to use stored credentials
           ...(passwordState === "pristine" && data.hasPassword
             ? { useStoredCredentials: true }
@@ -165,9 +164,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
         const body = await res.json().catch(() => null);
-        setError(
-          body?.error?.message ?? body?.error ?? "Failed to save settings",
-        );
+        setError(body?.error?.message ?? body?.error ?? "Failed to save settings");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
@@ -189,31 +186,56 @@ export function Socks5Content({ data }: Socks5ContentProps) {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Proxy" description="SOCKS5 outbound connections." actions={
-        <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 text-xs">
-          {saving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
-          Save
-        </Button>
-      } />
-            {saveSuccess ? (
-              <span className="flex items-center gap-1 text-xs text-basalt-chart-5">
-                <CheckCircle className="h-3 w-3" />
-                Settings saved
-              </span>
-            ) : null}
-            {error ? (
-              <span role="alert" className="flex items-center gap-1 text-xs text-basalt-destructive">
-                <XCircle className="h-3 w-3" />
-                {error}
-              </span>
-            ) : null}
+      <PageHeader
+        title="Proxy"
+        description="SOCKS5 outbound connections."
+        actions={
+          <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 text-xs">
+            {saving ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+            Save
+          </Button>
+        }
+      />
+      {saveSuccess ? (
+        <span className="flex items-center gap-1 text-xs text-basalt-chart-5">
+          <CheckCircle className="h-3 w-3" />
+          Settings saved
+        </span>
+      ) : null}
+      {error ? (
+        <span role="alert" className="flex items-center gap-1 text-xs text-basalt-destructive">
+          <XCircle className="h-3 w-3" />
+          {error}
+        </span>
+      ) : null}
       <div className="settings-grid">
-        <SettingsCard title="SOCKS5 connection" icon={Network} tone="blue" action={<Switch id="socks5-enabled" aria-label="Use SOCKS5 proxy" checked={enabled} onCheckedChange={setEnabled} disabled={saving} />}>
-          {data.enabled && <p className={`text-xs ${data.bridgeStatus === "running" ? "text-basalt-success" : "text-basalt-destructive"}`}>Bridge: {data.bridgeStatus}</p>}
+        <SettingsCard
+          title="SOCKS5 connection"
+          icon={Network}
+          tone="blue"
+          action={
+            <Switch
+              id="socks5-enabled"
+              aria-label="Use SOCKS5 proxy"
+              checked={enabled}
+              onCheckedChange={setEnabled}
+              disabled={saving}
+            />
+          }
+        >
+          {data.enabled && (
+            <p
+              className={`text-xs ${data.bridgeStatus === "running" ? "text-basalt-success" : "text-basalt-destructive"}`}
+            >
+              Bridge: {data.bridgeStatus}
+            </p>
+          )}
 
           <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">
             <div>
-              <Label htmlFor="socks5-host" className="text-xs">Host</Label>
+              <Label htmlFor="socks5-host" className="text-xs">
+                Host
+              </Label>
               <Input
                 id="socks5-host"
                 value={host}
@@ -224,7 +246,9 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               />
             </div>
             <div>
-              <Label htmlFor="socks5-port" className="text-xs">Port</Label>
+              <Label htmlFor="socks5-port" className="text-xs">
+                Port
+              </Label>
               <Input
                 id="socks5-port"
                 value={port}
@@ -238,64 +262,66 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           </div>
 
           <Collapsible defaultOpen={Boolean(data.username || data.hasPassword)}>
-            <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Authentication (optional)</CollapsibleTrigger>
-            <CollapsibleContent unstyled><div className="grid gap-2 pt-3 @min-[26rem]/page:grid-cols-2">
-            <div>
-              <Label htmlFor="socks5-username" className="text-xs">
-                Username{" "}
-                <span className="text-basalt-muted-foreground">(optional)</span>
-              </Label>
-              <Input
-                id="socks5-username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="username"
-                className="h-8 text-xs font-mono"
-                disabled={saving}
-              />
-            </div>
-            <div>
-              <Label htmlFor="socks5-password" className="text-xs">
-                Password{" "}
-                <span className="text-basalt-muted-foreground">(optional)</span>
-              </Label>
-              <div className="flex gap-1">
-                <Input
-                  id="socks5-password"
-                  type="password"
-                  value={password}
-                  onChange={handlePasswordChange}
-                  placeholder={
-                    passwordState === "cleared"
-                      ? "Password cleared"
-                      : data.hasPassword && passwordState === "pristine"
-                        ? "••••••••"
-                        : "password"
-                  }
-                  className="h-8 text-xs font-mono flex-1"
-                  disabled={saving}
-                />
-                {(data.hasPassword || passwordState === "edited") &&
-                  passwordState !== "cleared" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 px-2 text-xs text-basalt-muted-foreground hover:text-basalt-destructive"
-                      onClick={handleClearPassword}
-                      aria-label="Clear proxy password"
+            <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">
+              Authentication (optional)
+            </CollapsibleTrigger>
+            <CollapsibleContent unstyled>
+              <div className="grid gap-2 pt-3 @min-[26rem]/page:grid-cols-2">
+                <div>
+                  <Label htmlFor="socks5-username" className="text-xs">
+                    Username <span className="text-basalt-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="socks5-username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="username"
+                    className="h-8 text-xs font-mono"
+                    disabled={saving}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="socks5-password" className="text-xs">
+                    Password <span className="text-basalt-muted-foreground">(optional)</span>
+                  </Label>
+                  <div className="flex gap-1">
+                    <Input
+                      id="socks5-password"
+                      type="password"
+                      value={password}
+                      onChange={handlePasswordChange}
+                      placeholder={
+                        passwordState === "cleared"
+                          ? "Password cleared"
+                          : data.hasPassword && passwordState === "pristine"
+                            ? "••••••••"
+                            : "password"
+                      }
+                      className="h-8 text-xs font-mono flex-1"
                       disabled={saving}
-                    >
-                      <XCircle className="h-3 w-3" />
-                    </Button>
+                    />
+                    {(data.hasPassword || passwordState === "edited") &&
+                      passwordState !== "cleared" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 text-xs text-basalt-muted-foreground hover:text-basalt-destructive"
+                          onClick={handleClearPassword}
+                          aria-label="Clear proxy password"
+                          disabled={saving}
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </Button>
+                      )}
+                  </div>
+                  {passwordState === "cleared" && (
+                    <p className="text-xs text-basalt-warning mt-0.5">
+                      Password will be cleared on save
+                    </p>
                   )}
+                </div>
               </div>
-              {passwordState === "cleared" && (
-                <p className="text-xs text-basalt-warning mt-0.5">
-                  Password will be cleared on save
-                </p>
-              )}
-            </div>
-            </div></CollapsibleContent>
+            </CollapsibleContent>
           </Collapsible>
 
           {/* Test button */}
@@ -307,9 +333,7 @@ export function Socks5Content({ data }: Socks5ContentProps) {
               disabled={testing || !host.trim() || !port}
               className="h-8 text-xs"
             >
-              {testing ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-              ) : null}
+              {testing ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
               Test Connection
             </Button>
             {testResult && (
@@ -319,7 +343,8 @@ export function Socks5Content({ data }: Socks5ContentProps) {
                 {testResult.success ? (
                   <>
                     <CheckCircle className="h-3 w-3" />
-                    Connected{testResult.ip ? ` via ${testResult.ip}` : ""} ({testResult.latencyMs}ms)
+                    Connected{testResult.ip ? ` via ${testResult.ip}` : ""} ({testResult.latencyMs}
+                    ms)
                   </>
                 ) : (
                   <>
@@ -336,47 +361,66 @@ export function Socks5Content({ data }: Socks5ContentProps) {
           <SettingNote>
             Copilot and GitHub use the proxy. Custom providers connect directly by default.
           </SettingNote>
-          <Collapsible defaultOpen={data.enabled || data.copilotPolicy !== "default" || data.providerPolicies.some(policy => policy.use_socks5 !== null)}>
-            <CollapsibleTrigger className="w-full justify-between text-xs">Upstream policies</CollapsibleTrigger>
-            <CollapsibleContent unstyled><div className="space-y-3 pt-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm">GitHub Copilot</span>
-            <Select value={copilotPolicy} onValueChange={(v) => setCopilotPolicy(v as "default" | "on" | "off")}>
-              <SelectTrigger aria-label="GitHub Copilot proxy policy" className="w-[160px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default (On)</SelectItem>
-                <SelectItem value="on">Force On</SelectItem>
-                <SelectItem value="off">Force Off</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Provider policies */}
-          {providerPolicies.length > 0 && (
-            <div className="border-t border-basalt-border/30 pt-2 space-y-2">
-              {providerPolicies.map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="min-w-0 break-words text-sm">{p.name}</span>
+          <Collapsible
+            defaultOpen={
+              data.enabled ||
+              data.copilotPolicy !== "default" ||
+              data.providerPolicies.some((policy) => policy.use_socks5 !== null)
+            }
+          >
+            <CollapsibleTrigger className="w-full justify-between text-xs">
+              Upstream policies
+            </CollapsibleTrigger>
+            <CollapsibleContent unstyled>
+              <div className="space-y-3 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm">GitHub Copilot</span>
                   <Select
-                    value={String(p.use_socks5 ?? "null")}
-                    onValueChange={(v) => handleProviderPolicyChange(p.id, v)}
+                    value={copilotPolicy}
+                    onValueChange={(v) => setCopilotPolicy(v as "default" | "on" | "off")}
                   >
-                    <SelectTrigger aria-label={`${p.name} proxy policy`} className="w-[160px] h-8 text-xs">
+                    <SelectTrigger
+                      aria-label="GitHub Copilot proxy policy"
+                      className="w-[160px] h-8 text-xs"
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="null">Default (Off)</SelectItem>
-                      <SelectItem value="1">Force On</SelectItem>
-                      <SelectItem value="0">Force Off</SelectItem>
+                      <SelectItem value="default">Default (On)</SelectItem>
+                      <SelectItem value="on">Force On</SelectItem>
+                      <SelectItem value="off">Force Off</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              ))}
-            </div>
-          )}
-            </div></CollapsibleContent>
+
+                {/* Provider policies */}
+                {providerPolicies.length > 0 && (
+                  <div className="border-t border-basalt-border/30 pt-2 space-y-2">
+                    {providerPolicies.map((p) => (
+                      <div key={p.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="min-w-0 break-words text-sm">{p.name}</span>
+                        <Select
+                          value={String(p.use_socks5 ?? "null")}
+                          onValueChange={(v) => handleProviderPolicyChange(p.id, v)}
+                        >
+                          <SelectTrigger
+                            aria-label={`${p.name} proxy policy`}
+                            className="w-[160px] h-8 text-xs"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="null">Default (Off)</SelectItem>
+                            <SelectItem value="1">Force On</SelectItem>
+                            <SelectItem value="0">Force Off</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
           </Collapsible>
         </SettingsCard>
       </div>

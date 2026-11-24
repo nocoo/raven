@@ -8,7 +8,10 @@ const mockProxyFetch = vi.fn();
 
 vi.mock("@/lib/proxy", () => {
   class ProxyError extends Error {
-    constructor(message: string, public readonly statusCode?: number | undefined) {
+    constructor(
+      message: string,
+      public readonly statusCode?: number | undefined,
+    ) {
       super(message);
       this.name = "ProxyError";
     }
@@ -31,7 +34,10 @@ beforeEach(() => {
 describe("GET /api/settings/socks5", () => {
   it("success → returns JSON with 200", async () => {
     const data = {
-      enabled: false, host: null, port: null, copilotPolicy: "default",
+      enabled: false,
+      host: null,
+      port: null,
+      copilotPolicy: "default",
       providerPolicies: [
         { id: "custom:inherited", name: "Inherited gateway", use_socks5: null },
         { id: "custom:proxied", name: "Proxied gateway", use_socks5: 1 },
@@ -74,9 +80,9 @@ describe("GET /api/settings/socks5", () => {
 describe("PUT /api/settings/socks5", () => {
   it("success → forwards body and returns 200", async () => {
     const responseData = { enabled: true, host: "proxy.example.com" };
-    const mockFetch = vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify(responseData), { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(responseData), { status: 200 }));
     vi.stubGlobal("fetch", mockFetch);
 
     const { PUT } = await import("@/app/api/settings/socks5/route");
@@ -96,9 +102,9 @@ describe("PUT /api/settings/socks5", () => {
     const errorPayload = {
       error: { type: "bridge_error", message: "Failed to start SOCKS5 bridge: connection refused" },
     };
-    const mockFetch = vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify(errorPayload), { status: 400 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(errorPayload), { status: 400 }));
     vi.stubGlobal("fetch", mockFetch);
 
     const { PUT } = await import("@/app/api/settings/socks5/route");
@@ -139,9 +145,9 @@ describe("PUT /api/settings/socks5", () => {
 describe("POST /api/settings/socks5/test", () => {
   it("success → forwards body and returns 200 with structured payload", async () => {
     const responseData = { success: true, latencyMs: 120 };
-    const mockFetch = vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify(responseData), { status: 200 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(responseData), { status: 200 }));
     vi.stubGlobal("fetch", mockFetch);
 
     const { POST } = await import("@/app/api/settings/socks5/test/route");
@@ -159,9 +165,9 @@ describe("POST /api/settings/socks5/test", () => {
 
   it("proxy 400 → preserves structured error payload and status", async () => {
     const errorPayload = { success: false, error: "Connection refused", latencyMs: 50 };
-    const mockFetch = vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify(errorPayload), { status: 400 }),
-    );
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(errorPayload), { status: 400 }));
     vi.stubGlobal("fetch", mockFetch);
 
     const { POST } = await import("@/app/api/settings/socks5/test/route");

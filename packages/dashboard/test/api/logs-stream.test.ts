@@ -93,7 +93,6 @@ describe("GET /api/logs/stream", () => {
     vi.stubGlobal("WebSocket", WSFactory);
     vi.stubEnv("RAVEN_PROXY_URL", "http://localhost:7024");
     vi.stubEnv("RAVEN_INTERNAL_KEY", "test-api-key");
-
   });
 
   afterEach(() => {

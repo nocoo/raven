@@ -1,65 +1,65 @@
-import { copilotBaseUrl, copilotHeaders } from "./../../lib/api-config"
-import { HTTPError } from "./../../lib/error"
-import { getProxyUrl } from "./../../lib/socks5-bridge"
-import { state } from "./../../lib/state"
+import { copilotBaseUrl, copilotHeaders } from "./../../lib/api-config";
+import { HTTPError } from "./../../lib/error";
+import { getProxyUrl } from "./../../lib/socks5-bridge";
+import { state } from "./../../lib/state";
 
 export const getModels = async () => {
-  const proxyUrl = getProxyUrl("copilot", state)
+  const proxyUrl = getProxyUrl("copilot", state);
   const response = await fetch(`${copilotBaseUrl(state)}/models`, {
     headers: copilotHeaders(state),
     signal: AbortSignal.timeout(10000),
     ...(proxyUrl ? { proxy: proxyUrl } : {}),
-  } as RequestInit)
+  } as RequestInit);
 
-  if (!response.ok) throw await HTTPError.fromResponse("Failed to get models", response)
+  if (!response.ok) throw await HTTPError.fromResponse("Failed to get models", response);
 
-  return (await response.json()) as ModelsResponse
-}
+  return (await response.json()) as ModelsResponse;
+};
 
 export interface ModelsResponse {
-  data: Array<Model>
-  object: string
+  data: Array<Model>;
+  object: string;
 }
 
 interface ModelLimits {
-  max_context_window_tokens: number | null
-  max_output_tokens: number | null
-  max_prompt_tokens: number | null
-  max_inputs: number | null
+  max_context_window_tokens: number | null;
+  max_output_tokens: number | null;
+  max_prompt_tokens: number | null;
+  max_inputs: number | null;
 }
 
 interface ModelSupports {
-  tool_calls: boolean | null
-  parallel_tool_calls: boolean | null
-  dimensions: boolean | null
+  tool_calls: boolean | null;
+  parallel_tool_calls: boolean | null;
+  dimensions: boolean | null;
   // Extended capabilities from Copilot API
-  reasoning_effort?: string[]
-  adaptive_thinking?: boolean
-  max_thinking_budget?: number
+  reasoning_effort?: string[];
+  adaptive_thinking?: boolean;
+  max_thinking_budget?: number;
 }
 
 interface ModelCapabilities {
-  family: string
-  limits: ModelLimits
-  object: string
-  supports: ModelSupports
-  tokenizer: string
-  type: string
+  family: string;
+  limits: ModelLimits;
+  object: string;
+  supports: ModelSupports;
+  tokenizer: string;
+  type: string;
 }
 
 export interface Model {
-  capabilities: ModelCapabilities
-  id: string
-  model_picker_enabled: boolean
-  name: string
-  object: string
-  preview: boolean
-  vendor: string
-  version: string
+  capabilities: ModelCapabilities;
+  id: string;
+  model_picker_enabled: boolean;
+  name: string;
+  object: string;
+  preview: boolean;
+  vendor: string;
+  version: string;
   policy: {
-    state: string
-    terms: string
-  } | null
+    state: string;
+    terms: string;
+  } | null;
   // Extended fields from Copilot API for native endpoint support
-  supported_endpoints?: string[]
+  supported_endpoints?: string[];
 }

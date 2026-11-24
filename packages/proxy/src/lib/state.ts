@@ -1,55 +1,54 @@
-import type { ModelsResponse } from "./../services/copilot/get-models"
-import type { IPRule } from "./ip-access"
+import type { ModelsResponse } from "./../services/copilot/get-models";
+import type { IPRule } from "./ip-access";
 
 export interface State {
-  githubToken: string | null
-  copilotToken: string | null
-  copilotApiBaseUrl: string | null
+  githubToken: string | null;
+  copilotToken: string | null;
+  copilotApiBaseUrl: string | null;
 
-  accountType: string
-  models: ModelsResponse | null
-  vsCodeVersion: string | null
-  copilotChatVersion: string | null
+  accountType: string;
+  models: ModelsResponse | null;
+  vsCodeVersion: string | null;
+  copilotChatVersion: string | null;
 
   // Source tracking for settings page
-  vsCodeVersionSource: "override" | "local" | "aur" | "fallback" | null
-  copilotChatVersionSource: "override" | "local" | "fallback" | null
+  vsCodeVersionSource: "override" | "local" | "aur" | "fallback" | null;
+  copilotChatVersionSource: "override" | "local" | "fallback" | null;
 
-  rateLimitWait: boolean
+  rateLimitWait: boolean;
 
   // Rate limiting configuration
-  rateLimitSeconds: number | null
-  lastRequestTimestamp: number | null
+  rateLimitSeconds: number | null;
+  lastRequestTimestamp: number | null;
 
   // Request optimizations (default: all false)
-  optSanitizeOrphanedToolResults: boolean
-  optReorderToolResults: boolean
+  optSanitizeOrphanedToolResults: boolean;
+  optReorderToolResults: boolean;
 
   // Debug logging (default: all false)
-  optToolCallDebug: boolean
+  optToolCallDebug: boolean;
 
   // Server tools — replace Anthropic server-side tools with third-party APIs
-  stWebSearchEnabled: boolean
-  stWebSearchApiKey: string | null
-
+  stWebSearchEnabled: boolean;
+  stWebSearchApiKey: string | null;
 
   // IP whitelist — access control (default: disabled)
-  ipWhitelistEnabled: boolean
-  ipWhitelistRanges: IPRule[]
-  trustedProxyRanges: IPRule[]
+  ipWhitelistEnabled: boolean;
+  ipWhitelistRanges: IPRule[];
+  trustedProxyRanges: IPRule[];
 
   // CORS — configurable allowed origins (default: disabled = allow all)
-  corsEnabled: boolean
-  corsAllowedOrigins: string[]
+  corsEnabled: boolean;
+  corsAllowedOrigins: string[];
 
   // SOCKS5 proxy relay — hide exit IP via SOCKS5 proxy
-  socks5Enabled: boolean
-  socks5Host: string | null
-  socks5Port: number | null
-  socks5Username: string | null
-  socks5Password: string | null
-  socks5CopilotPolicy: "default" | "on" | "off"
-  socks5BridgePort: number | null // runtime only, not persisted
+  socks5Enabled: boolean;
+  socks5Host: string | null;
+  socks5Port: number | null;
+  socks5Username: string | null;
+  socks5Password: string | null;
+  socks5CopilotPolicy: "default" | "on" | "off";
+  socks5BridgePort: number | null; // runtime only, not persisted
 }
 
 export const state: State = {
@@ -83,4 +82,4 @@ export const state: State = {
   socks5Password: null,
   socks5CopilotPolicy: "default",
   socks5BridgePort: null,
-}
+};

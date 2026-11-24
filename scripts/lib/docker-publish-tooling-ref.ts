@@ -1,4 +1,4 @@
-const SHA_RE = /^[a-f0-9]{40}$/i
+const SHA_RE = /^[a-f0-9]{40}$/i;
 
 /**
  * Workflow tooling must track the workflow definition that GitHub Actions loaded:
@@ -6,21 +6,23 @@ const SHA_RE = /^[a-f0-9]{40}$/i
  * - workflow_dispatch uses the selected branch head (github.sha)
  */
 export function resolveDockerPublishToolingRef(options: {
-  eventName: string
-  workflowDispatchSha: string
-  releaseWorkflowSha: string
+  eventName: string;
+  workflowDispatchSha: string;
+  releaseWorkflowSha: string;
 }): string {
-  const eventName = String(options.eventName ?? "").trim()
-  const dispatchSha = String(options.workflowDispatchSha ?? "").trim()
-  const workflowSha = String(options.releaseWorkflowSha ?? "").trim().toLowerCase()
+  const eventName = String(options.eventName ?? "").trim();
+  const dispatchSha = String(options.workflowDispatchSha ?? "").trim();
+  const workflowSha = String(options.releaseWorkflowSha ?? "")
+    .trim()
+    .toLowerCase();
   if (eventName === "workflow_dispatch") {
     if (!dispatchSha) {
-      throw new Error("workflow_dispatch tooling ref requires github.sha")
+      throw new Error("workflow_dispatch tooling ref requires github.sha");
     }
-    return dispatchSha
+    return dispatchSha;
   }
   if (!SHA_RE.test(workflowSha)) {
-    throw new Error("release tooling ref requires github.workflow_sha")
+    throw new Error("release tooling ref requires github.workflow_sha");
   }
-  return workflowSha
+  return workflowSha;
 }

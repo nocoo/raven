@@ -13,12 +13,23 @@ export default async function CopilotAccountPage() {
 
   return (
     <div className="space-y-4">
-      {result.ok
-        ? <AccountContent data={result.data} />
-        : <><PageHeader title="Account" description="GitHub Copilot subscription and quota." /><FetchError title="Failed to load account info" message={result.error} /></>}
+      {result.ok ? (
+        <AccountContent data={result.data} />
+      ) : (
+        <>
+          <PageHeader title="Account" description="GitHub Copilot subscription and quota." />
+          <FetchError title="Failed to load account info" message={result.error} />
+        </>
+      )}
       <Collapsible>
-        <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">Token refresh diagnostics</CollapsibleTrigger>
-        <CollapsibleContent unstyled><div className="pt-4"><SentinelStatusPanel /></div></CollapsibleContent>
+        <CollapsibleTrigger className="text-xs text-basalt-muted-foreground">
+          Token refresh diagnostics
+        </CollapsibleTrigger>
+        <CollapsibleContent unstyled>
+          <div className="pt-4">
+            <SentinelStatusPanel />
+          </div>
+        </CollapsibleContent>
       </Collapsible>
     </div>
   );

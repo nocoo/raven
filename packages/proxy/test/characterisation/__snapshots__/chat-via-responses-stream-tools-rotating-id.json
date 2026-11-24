@@ -29,9 +29,7 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "host"
-              ]
+              "required": ["host"]
             }
           }
         }

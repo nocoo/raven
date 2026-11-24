@@ -1,10 +1,14 @@
 "use client";
 
-
 import type { TimeRange } from "@/lib/analytics-filters";
 import { Clock } from "@nocoo/basalt/icons";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@nocoo/basalt/components/select";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@nocoo/basalt/components/select";
 
 const RANGE_OPTIONS: { value: TimeRange; label: string }[] = [
   { value: "15m", label: "Last 15 min" },
@@ -28,7 +32,11 @@ export function TimeRangePicker({ value, onChange }: TimeRangePickerProps) {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {value === "custom" && <SelectItem value="custom" disabled>Selected interval</SelectItem>}
+        {value === "custom" && (
+          <SelectItem value="custom" disabled>
+            Selected interval
+          </SelectItem>
+        )}
         {RANGE_OPTIONS.map((opt) => (
           <SelectItem key={opt.value} value={opt.value}>
             {opt.label}

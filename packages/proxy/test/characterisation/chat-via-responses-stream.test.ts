@@ -1,49 +1,49 @@
 // Characterisation: chat-completions → responses-only shim stream path.
-import { describe, test, beforeEach, afterEach, vi, expect } from "vitest"
-import { Hono } from "hono"
+import { describe, test, beforeEach, afterEach, vi, expect } from "vitest";
+import { Hono } from "hono";
 
-import { state } from "../../src/lib/state"
-import { logEmitter } from "../../src/util/log-emitter"
-import type { LogEvent } from "../../src/util/log-event"
-import { handleCompletion } from "../../src/routes/chat-completions/handler"
-import { COPILOT_UPSTREAM_ID } from "../../src/core/routing-types"
-import { replaceCatalog } from "../../src/db/catalog"
-import { NOW, routingFixture } from "../db/routing-fixture"
-import { installTestRouting } from "../helpers/routing"
+import { state } from "../../src/lib/state";
+import { logEmitter } from "../../src/util/log-emitter";
+import type { LogEvent } from "../../src/util/log-event";
+import { handleCompletion } from "../../src/routes/chat-completions/handler";
+import { COPILOT_UPSTREAM_ID } from "../../src/core/routing-types";
+import { replaceCatalog } from "../../src/db/catalog";
+import { NOW, routingFixture } from "../db/routing-fixture";
+import { installTestRouting } from "../helpers/routing";
 import {
   captureOrDiff,
   scrubEndLog,
   scrubResponseHeaders,
   type CharacterisationRequest,
-} from "./snapshot"
+} from "./snapshot";
 
 function mockFetchStream(chunks: string[]): Response {
-  const enc = new TextEncoder()
+  const enc = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
-      for (const c of chunks) controller.enqueue(enc.encode(c))
-      controller.close()
+      for (const c of chunks) controller.enqueue(enc.encode(c));
+      controller.close();
     },
-  })
+  });
   return new Response(stream, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
-  })
+  });
 }
 
-let fixture: ReturnType<typeof routingFixture>
-let savedState: typeof state
-let fetchSpy: ReturnType<typeof vi.spyOn>
+let fixture: ReturnType<typeof routingFixture>;
+let savedState: typeof state;
+let fetchSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["Date"] })
-  vi.setSystemTime(NOW)
-  fixture = routingFixture()
-  savedState = { ...state }
-  state.models = null
-  state.copilotToken = "test-token"
-  state.vsCodeVersion = "1.90.0"
-  state.accountType = "individual"
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+  fixture = routingFixture();
+  savedState = { ...state };
+  state.models = null;
+  state.copilotToken = "test-token";
+  state.vsCodeVersion = "1.90.0";
+  state.accountType = "individual";
   replaceCatalog(fixture.db, COPILOT_UPSTREAM_ID, [
     {
       id: "grok-4.5",
@@ -73,16 +73,18 @@ beforeEach(() => {
         },
       },
     },
-  ])
-  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected upstream request"))
-})
+  ]);
+  fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected upstream request"));
+});
 
 afterEach(() => {
-  fixture.close()
-  Object.assign(state, savedState)
-  vi.useRealTimers()
-  vi.restoreAllMocks()
-})
+  fixture.close();
+  Object.assign(state, savedState);
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("characterisation/chat-via-responses stream", () => {
   test("snapshot: responses-only model text stream", async () => {
@@ -101,45 +103,45 @@ describe("characterisation/chat-via-responses stream", () => {
           usage: { input_tokens: 10, output_tokens: 2 },
         },
       })}\n\n`,
-    ]
-    fetchSpy.mockResolvedValueOnce(mockFetchStream(upstreamChunks))
+    ];
+    fetchSpy.mockResolvedValueOnce(mockFetchStream(upstreamChunks));
 
-    const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
-    logEmitter.on("log", listener)
+    const events: LogEvent[] = [];
+    const listener = (e: LogEvent) => events.push(e);
+    logEmitter.on("log", listener);
 
     const requestBody = {
       model: "grok-4.5",
       stream: true,
       messages: [{ role: "user", content: "hi" }],
-    }
+    };
     const request: CharacterisationRequest = {
       method: "POST",
       path: "/v1/chat/completions",
       headers: { "content-type": "application/json" },
       body: requestBody,
-    }
+    };
 
-    const app = new Hono()
-    installTestRouting(app, fixture.db)
-    app.post("/v1/chat/completions", handleCompletion)
+    const app = new Hono();
+    installTestRouting(app, fixture.db);
+    app.post("/v1/chat/completions", handleCompletion);
     const res = await app.request(
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(requestBody),
       }),
-    )
-    const responseBody = await res.text()
-    await new Promise((r) => setTimeout(r, 10))
-    logEmitter.off("log", listener)
+    );
+    const responseBody = await res.text();
+    await new Promise((r) => setTimeout(r, 10));
+    logEmitter.off("log", listener);
 
-    const endLog = events.find((e) => e.type === "request_end")
-    if (!endLog?.data) throw new Error("missing request_end")
+    const endLog = events.find((e) => e.type === "request_end");
+    if (!endLog?.data) throw new Error("missing request_end");
 
     // Prove upstream hit /responses
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/);
 
     await captureOrDiff({
       version: 1,
@@ -150,8 +152,8 @@ describe("characterisation/chat-via-responses stream", () => {
       responseHeaders: scrubResponseHeaders(res.headers),
       responseBody,
       endLog: scrubEndLog(endLog.data as Record<string, unknown>),
-    })
-  })
+    });
+  });
 
   test("snapshot: rotating item ids on function_call stream", async () => {
     const upstreamChunks = [
@@ -204,12 +206,12 @@ describe("characterisation/chat-via-responses stream", () => {
           usage: { input_tokens: 8, output_tokens: 4 },
         },
       })}\n\n`,
-    ]
-    fetchSpy.mockResolvedValueOnce(mockFetchStream(upstreamChunks))
+    ];
+    fetchSpy.mockResolvedValueOnce(mockFetchStream(upstreamChunks));
 
-    const events: LogEvent[] = []
-    const listener = (e: LogEvent) => events.push(e)
-    logEmitter.on("log", listener)
+    const events: LogEvent[] = [];
+    const listener = (e: LogEvent) => events.push(e);
+    logEmitter.on("log", listener);
 
     const requestBody = {
       model: "grok-4.5",
@@ -230,41 +232,41 @@ describe("characterisation/chat-via-responses stream", () => {
         },
       ],
       tool_choice: "required",
-    }
+    };
     const request: CharacterisationRequest = {
       method: "POST",
       path: "/v1/chat/completions",
       headers: { "content-type": "application/json" },
       body: requestBody,
-    }
+    };
 
-    const app = new Hono()
-    installTestRouting(app, fixture.db)
-    app.post("/v1/chat/completions", handleCompletion)
+    const app = new Hono();
+    installTestRouting(app, fixture.db);
+    app.post("/v1/chat/completions", handleCompletion);
     const res = await app.request(
       new Request("http://localhost/v1/chat/completions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(requestBody),
       }),
-    )
-    const responseBody = await res.text()
-    await new Promise((r) => setTimeout(r, 10))
-    logEmitter.off("log", listener)
+    );
+    const responseBody = await res.text();
+    await new Promise((r) => setTimeout(r, 10));
+    logEmitter.off("log", listener);
 
-    expect(res.status).toBe(200)
-    expect(responseBody).toContain('"id":"call_ping"')
-    expect(responseBody).toContain('\\"host\\":')
-    expect(responseBody).toContain('example.com')
-    expect(responseBody).toContain('"finish_reason":"tool_calls"')
-    expect(responseBody).not.toContain("no matching prior function_call")
-    expect(responseBody).toContain("[DONE]")
+    expect(res.status).toBe(200);
+    expect(responseBody).toContain('"id":"call_ping"');
+    expect(responseBody).toContain('\\"host\\":');
+    expect(responseBody).toContain("example.com");
+    expect(responseBody).toContain('"finish_reason":"tool_calls"');
+    expect(responseBody).not.toContain("no matching prior function_call");
+    expect(responseBody).toContain("[DONE]");
 
-    const endLog = events.find((e) => e.type === "request_end")
-    if (!endLog?.data) throw new Error("missing request_end")
+    const endLog = events.find((e) => e.type === "request_end");
+    if (!endLog?.data) throw new Error("missing request_end");
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
-    expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/)
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0]?.[0] ?? "")).toMatch(/\/responses$/);
 
     await captureOrDiff({
       version: 1,
@@ -275,6 +277,6 @@ describe("characterisation/chat-via-responses stream", () => {
       responseHeaders: scrubResponseHeaders(res.headers),
       responseBody,
       endLog: scrubEndLog(endLog.data as Record<string, unknown>),
-    })
-  })
-})
+    });
+  });
+});

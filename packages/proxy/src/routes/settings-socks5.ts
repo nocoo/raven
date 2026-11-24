@@ -12,8 +12,8 @@ import {
 
 /** IP echo services — try in order, first success wins. */
 const IP_ECHO_URLS = [
-  "https://api.ipify.org?format=json",          // returns { "ip": "x.x.x.x" }
-  "https://httpbin.org/ip",                      // returns { "origin": "x.x.x.x" }
+  "https://api.ipify.org?format=json", // returns { "ip": "x.x.x.x" }
+  "https://httpbin.org/ip", // returns { "origin": "x.x.x.x" }
 ];
 
 // ---------------------------------------------------------------------------
@@ -120,16 +120,34 @@ export function createSocks5SettingsRoute(db: Database): Hono {
       );
     }
     if (body.port !== undefined) {
-      if (typeof body.port !== "number" || !Number.isInteger(body.port) || body.port < 1 || body.port > 65535) {
+      if (
+        typeof body.port !== "number" ||
+        !Number.isInteger(body.port) ||
+        body.port < 1 ||
+        body.port > 65535
+      ) {
         return c.json(
-          { error: { type: "validation_error", message: "port must be an integer between 1 and 65535" } },
+          {
+            error: {
+              type: "validation_error",
+              message: "port must be an integer between 1 and 65535",
+            },
+          },
           400,
         );
       }
     }
-    if (body.copilotPolicy !== undefined && !["default", "on", "off"].includes(body.copilotPolicy)) {
+    if (
+      body.copilotPolicy !== undefined &&
+      !["default", "on", "off"].includes(body.copilotPolicy)
+    ) {
       return c.json(
-        { error: { type: "validation_error", message: 'copilotPolicy must be "default", "on", or "off"' } },
+        {
+          error: {
+            type: "validation_error",
+            message: 'copilotPolicy must be "default", "on", or "off"',
+          },
+        },
         400,
       );
     }
@@ -138,8 +156,7 @@ export function createSocks5SettingsRoute(db: Database): Hono {
     const newEnabled = body.enabled ?? state.socks5Enabled;
     const newHost = body.host ?? state.socks5Host;
     const newPort = body.port ?? state.socks5Port;
-    const newUsername =
-      body.username === null ? null : body.username ?? state.socks5Username;
+    const newUsername = body.username === null ? null : (body.username ?? state.socks5Username);
     // password three-state: string=update, null=clear, undefined=preserve
     const newPassword =
       body.password === null
@@ -153,7 +170,12 @@ export function createSocks5SettingsRoute(db: Database): Hono {
     if (newEnabled) {
       if (!newHost || !newPort) {
         return c.json(
-          { error: { type: "validation_error", message: "host and port are required when enabling SOCKS5" } },
+          {
+            error: {
+              type: "validation_error",
+              message: "host and port are required when enabling SOCKS5",
+            },
+          },
           400,
         );
       }
@@ -206,11 +228,12 @@ export function createSocks5SettingsRoute(db: Database): Hono {
     if (body.providerPolicies && Array.isArray(body.providerPolicies)) {
       for (const pp of body.providerPolicies) {
         if (!pp.id) continue;
-        const val =
-          pp.use_socks5 === null ? null : pp.use_socks5 === 1 ? 1 : 0;
-        db.query(
-          "UPDATE providers SET use_socks5 = $val, updated_at = $now WHERE id = $id",
-        ).run({ $val: val, $now: Date.now(), $id: pp.id });
+        const val = pp.use_socks5 === null ? null : pp.use_socks5 === 1 ? 1 : 0;
+        db.query("UPDATE providers SET use_socks5 = $val, updated_at = $now WHERE id = $id").run({
+          $val: val,
+          $now: Date.now(),
+          $id: pp.id,
+        });
       }
     }
 
@@ -226,23 +249,27 @@ export function createSocks5SettingsRoute(db: Database): Hono {
     const body = await c.req.json<Socks5TestBody>();
 
     if (!body.host || typeof body.host !== "string") {
-      return c.json(
-        { error: { type: "validation_error", message: "host is required" } },
-        400,
-      );
+      return c.json({ error: { type: "validation_error", message: "host is required" } }, 400);
     }
     if (!body.port || typeof body.port !== "number") {
-      return c.json(
-        { error: { type: "validation_error", message: "port is required" } },
-        400,
-      );
+      return c.json({ error: { type: "validation_error", message: "port is required" } }, 400);
     }
 
     const startTime = Date.now();
 
     // Resolve credentials: explicit body values take priority, fall back to stored
-    const testUsername = body.username !== undefined ? body.username : (body.useStoredCredentials ? state.socks5Username : null);
-    const testPassword = body.password !== undefined ? body.password : (body.useStoredCredentials ? state.socks5Password : null);
+    const testUsername =
+      body.username !== undefined
+        ? body.username
+        : body.useStoredCredentials
+          ? state.socks5Username
+          : null;
+    const testPassword =
+      body.password !== undefined
+        ? body.password
+        : body.useStoredCredentials
+          ? state.socks5Password
+          : null;
 
     try {
       // Spin up a temporary bridge to test the provided config
@@ -329,7 +356,8 @@ export function createSocks5SettingsRoute(db: Database): Hono {
           return c.json(
             {
               success: false,
-              error: "Connected to SOCKS5 proxy but could not verify egress IP (all IP echo services failed)",
+              error:
+                "Connected to SOCKS5 proxy but could not verify egress IP (all IP echo services failed)",
               latencyMs,
             },
             400,

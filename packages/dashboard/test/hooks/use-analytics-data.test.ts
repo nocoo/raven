@@ -42,7 +42,14 @@ describe("resolveSource", () => {
 
 describe("useAnalyticsData", () => {
   const mockEvents: LogEvent[] = [
-    { ts: 1000, level: "info", type: "request_end", requestId: "r1", msg: "done", data: { model: "gpt-4" } },
+    {
+      ts: 1000,
+      level: "info",
+      type: "request_end",
+      requestId: "r1",
+      msg: "done",
+      data: { model: "gpt-4" },
+    },
   ];
 
   const baseFilters: AnalyticsFilters = { range: "24h" };
@@ -248,7 +255,14 @@ describe("useAnalyticsData", () => {
 
     const moreEvents: LogEvent[] = [
       ...mockEvents,
-      { ts: 2000, level: "info", type: "request_end", requestId: "r2", msg: "done", data: { model: "gpt-4" } },
+      {
+        ts: 2000,
+        level: "info",
+        type: "request_end",
+        requestId: "r2",
+        msg: "done",
+        data: { model: "gpt-4" },
+      },
     ];
     rerender({ events: moreEvents });
     expect(result.current.data).toEqual({ count: 2 });

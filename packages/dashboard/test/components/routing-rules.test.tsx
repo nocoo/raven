@@ -11,7 +11,9 @@ let fetchSpy: MockInstance<typeof fetch>;
 let offsetSpy: MockInstance<() => number>;
 beforeEach(() => {
   vi.spyOn(toast, "success").mockReturnValue("fixture-toast");
-  fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+  fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockRejectedValue(new Error("Unexpected fixture request"));
   offsetSpy = vi.spyOn(Date.prototype, "getTimezoneOffset").mockReturnValue(0);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -45,10 +47,22 @@ describe("Routing Rules workbench", () => {
     fetchSpy.mockResolvedValueOnce(Response.json(saved));
     await save();
     expect(fetchSpy).toHaveBeenCalledExactlyOnceWith("/api/routing-rules/builtin%3Acopilot", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Evening work", mode: "all_day", allow_conversion: false, default_chain: saved.default_chain, periods: [] }),
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Evening work",
+        mode: "all_day",
+        allow_conversion: false,
+        default_chain: saved.default_chain,
+        periods: [],
+      }),
     });
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Rule saved. New requests will use this configuration.", expect.objectContaining({ id: expect.any(String) })));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        "Rule saved. New requests will use this configuration.",
+        expect.objectContaining({ id: expect.any(String) }),
+      ),
+    );
     expect(screen.queryByText("All changes saved")).toBeNull();
     expect(screen.queryByText("Unsaved changes")).toBeNull();
     expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
@@ -57,15 +71,37 @@ describe("Routing Rules workbench", () => {
   it("creates a new rule with conversion off, then opens another pristine draft", async () => {
     render(<RulesContent rules={fixtureRules} upstreams={fixtureUpstreams} />);
     await user().click(screen.getByRole("button", { name: "New rule" }));
-    expect(within(screen.getByRole("navigation", { name: "Routing rules" })).getByRole("button", { name: /Untitled rule.*Draft/ })).toHaveAttribute("aria-current", "true");
+    expect(
+      within(screen.getByRole("navigation", { name: "Routing rules" })).getByRole("button", {
+        name: /Untitled rule.*Draft/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
     await tab(/^Protocol$/);
     expect(screen.getByRole("switch", { name: "Allow protocol conversion" })).not.toBeChecked();
     fireEvent.change(nameInput(), { target: { value: "Native research" } });
-    expect(within(screen.getByRole("navigation", { name: "Routing rules" })).getByRole("button", { name: /Native research.*Draft/ })).toHaveAttribute("aria-current", "true");
-    fetchSpy.mockResolvedValueOnce(Response.json(makeRule({ id: "new-rule", name: "Native research", allow_conversion: false, is_builtin: false })));
+    expect(
+      within(screen.getByRole("navigation", { name: "Routing rules" })).getByRole("button", {
+        name: /Native research.*Draft/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(
+        makeRule({
+          id: "new-rule",
+          name: "Native research",
+          allow_conversion: false,
+          is_builtin: false,
+        }),
+      ),
+    );
     await save();
-    expect(fetchSpy).toHaveBeenCalledWith("/api/routing-rules", expect.objectContaining({ method: "POST" }));
-    expect(screen.getByRole("navigation", { name: "Routing rules" })).toHaveTextContent("Native research");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/routing-rules",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(screen.getByRole("navigation", { name: "Routing rules" })).toHaveTextContent(
+      "Native research",
+    );
     await user().click(screen.getByRole("button", { name: "New rule" }));
     expect(nameInput()).toHaveValue("");
   });
@@ -76,14 +112,33 @@ describe("Routing Rules workbench", () => {
     await tab(/^Schedule/);
     const period = screen.getByRole("region", { name: "Period chain" });
     const field = within(period).getByRole("combobox", { name: "Model 1" });
-    await user().clear(field); await user().type(field, "unlisted/period-model"); await user().tab();
-    const saved = { ...scheduled, periods: scheduled.periods.map(item => item.id === "monday-focus" ? { ...item, targets: [{ ...item.targets[0]!, model: "unlisted/period-model" }, ...item.targets.slice(1)] } : item) };
+    await user().clear(field);
+    await user().type(field, "unlisted/period-model");
+    await user().tab();
+    const saved = {
+      ...scheduled,
+      periods: scheduled.periods.map((item) =>
+        item.id === "monday-focus"
+          ? {
+              ...item,
+              targets: [
+                { ...item.targets[0]!, model: "unlisted/period-model" },
+                ...item.targets.slice(1),
+              ],
+            }
+          : item,
+      ),
+    };
     fetchSpy.mockResolvedValueOnce(Response.json(saved));
     await save();
     const payload = JSON.parse(fetchSpy.mock.calls[0]![1]!.body as string);
     expect(payload.default_chain).toEqual(scheduled.default_chain);
-    expect(payload.periods.find((item: { id: string }) => item.id === "monday-focus").targets[0].model).toBe("unlisted/period-model");
-    expect(payload.periods.filter((item: { id: string }) => item.id === "friday-night")).toHaveLength(2);
+    expect(
+      payload.periods.find((item: { id: string }) => item.id === "monday-focus").targets[0].model,
+    ).toBe("unlisted/period-model");
+    expect(
+      payload.periods.filter((item: { id: string }) => item.id === "friday-night"),
+    ).toHaveLength(2);
   });
 
   it("starts a new daily override from an independent copy of the visible default chain", async () => {
@@ -97,11 +152,42 @@ describe("Routing Rules workbench", () => {
     await user().type(period.getByRole("combobox", { name: "Model 1" }), "different-period-model");
     await user().tab();
     await tab(/^Targets$/);
-    expect(within(screen.getByRole("region", { name: "Default chain" })).getByRole("combobox", { name: "Model 1" })).toHaveValue("gpt-5.6-sol");
-    fetchSpy.mockResolvedValueOnce(Response.json(makeRule({ mode: "daily", periods: [{ id: "saved", start_minute: 540, end_minute: 600, targets: [{ upstream_id: "builtin:copilot", model: "different-period-model" }] }] })));
+    expect(
+      within(screen.getByRole("region", { name: "Default chain" })).getByRole("combobox", {
+        name: "Model 1",
+      }),
+    ).toHaveValue("gpt-5.6-sol");
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(
+        makeRule({
+          mode: "daily",
+          periods: [
+            {
+              id: "saved",
+              start_minute: 540,
+              end_minute: 600,
+              targets: [{ upstream_id: "builtin:copilot", model: "different-period-model" }],
+            },
+          ],
+        }),
+      ),
+    );
     await save();
-    expect(screen.getByRole("navigation", { name: "Routing rules" })).toHaveTextContent("Daily timetable");
-    expect(JSON.parse(fetchSpy.mock.lastCall![1]!.body as string)).toMatchObject({ mode: "daily", default_chain: [{ upstream_id: "builtin:copilot", model: "gpt-5.6-sol" }], periods: [{ id: expect.any(String), start_minute: 540, end_minute: 600, targets: [{ upstream_id: "builtin:copilot", model: "different-period-model" }] }] });
+    expect(screen.getByRole("navigation", { name: "Routing rules" })).toHaveTextContent(
+      "Daily timetable",
+    );
+    expect(JSON.parse(fetchSpy.mock.lastCall![1]!.body as string)).toMatchObject({
+      mode: "daily",
+      default_chain: [{ upstream_id: "builtin:copilot", model: "gpt-5.6-sol" }],
+      periods: [
+        {
+          id: expect.any(String),
+          start_minute: 540,
+          end_minute: 600,
+          targets: [{ upstream_id: "builtin:copilot", model: "different-period-model" }],
+        },
+      ],
+    });
   });
 
   it("guards navigation and browser close while dirty, then allows an explicit discard", async () => {
@@ -144,7 +230,10 @@ describe("Routing Rules workbench", () => {
     expect(nameInput()).toHaveValue("Working hours");
     expect(screen.getByRole("switch", { name: "Allow protocol conversion" })).not.toBeChecked();
     expect(directory.queryByText("Draft")).toBeNull();
-    expect(directory.getByRole("button", { name: /Working hours/ })).toHaveAttribute("aria-current", "true");
+    expect(directory.getByRole("button", { name: /Working hours/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -164,7 +253,11 @@ describe("Routing Rules workbench", () => {
 
   it("does not permit duplicate saves or edits while a save is pending", async () => {
     let finish!: (response: Response) => void;
-    fetchSpy.mockReturnValueOnce(new Promise<Response>(resolve => { finish = resolve; }));
+    fetchSpy.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        finish = resolve;
+      }),
+    );
     render(<RulesContent rules={fixtureRules} upstreams={fixtureUpstreams} />);
     fireEvent.change(nameInput(), { target: { value: "Pending" } });
     await save();
@@ -185,12 +278,21 @@ describe("Routing Rules workbench", () => {
   });
 
   it("shows reference conflicts on delete, then supports an explicit successful delete", async () => {
-    const removable = makeRule({ id: "rule:working-hours", name: "Working hours", is_builtin: false });
+    const removable = makeRule({
+      id: "rule:working-hours",
+      name: "Working hours",
+      is_builtin: false,
+    });
     render(<RulesContent rules={[removable, fixtureRules[0]!]} upstreams={fixtureUpstreams} />);
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Cancel" }));
     expect(fetchSpy).not.toHaveBeenCalled();
-    fetchSpy.mockResolvedValueOnce(Response.json({ error: { message: "Rule is in use.", references: [{ id: "key", name: "Laptop" }] } }, { status: 409 }));
+    fetchSpy.mockResolvedValueOnce(
+      Response.json(
+        { error: { message: "Rule is in use.", references: [{ id: "key", name: "Laptop" }] } },
+        { status: 409 },
+      ),
+    );
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Delete rule" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Laptop");
@@ -198,17 +300,30 @@ describe("Routing Rules workbench", () => {
     fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Delete rule" }));
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Rule deleted.", expect.any(Object)));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("Rule deleted.", expect.any(Object)),
+    );
     expect(nameInput()).toHaveValue("GitHub Copilot");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(fetchSpy).toHaveBeenLastCalledWith("/api/routing-rules/rule%3Aworking-hours", { method: "DELETE" });
+    expect(fetchSpy).toHaveBeenLastCalledWith("/api/routing-rules/rule%3Aworking-hours", {
+      method: "DELETE",
+    });
   });
 
   it("returns to a creation form after deleting the only custom rule", async () => {
-    render(<RulesContent rules={[makeRule({ id: "rule:custom", is_builtin: false })]} upstreams={fixtureUpstreams} />);
+    render(
+      <RulesContent
+        rules={[makeRule({ id: "rule:custom", is_builtin: false })]}
+        upstreams={fixtureUpstreams}
+      />,
+    );
     fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
     await user().click(screen.getByRole("button", { name: "Delete" }));
     await user().click(screen.getByRole("button", { name: "Delete rule" }));
-    expect(within(screen.getByRole("navigation", { name: "Routing rules" })).getByRole("button", { name: /Untitled rule.*Draft/ })).toHaveAttribute("aria-current", "true");
+    expect(
+      within(screen.getByRole("navigation", { name: "Routing rules" })).getByRole("button", {
+        name: /Untitled rule.*Draft/,
+      }),
+    ).toHaveAttribute("aria-current", "true");
   });
 });

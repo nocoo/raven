@@ -38,11 +38,7 @@ export function LogDockProvider({ children }: { children: ReactNode }) {
     [isOpen, requestIdFilter, openLogs, closeLogs],
   );
 
-  return (
-    <LogDockContext.Provider value={value}>
-      {children}
-    </LogDockContext.Provider>
-  );
+  return <LogDockContext.Provider value={value}>{children}</LogDockContext.Provider>;
 }
 
 export function useLogDock(): LogDockContextValue {

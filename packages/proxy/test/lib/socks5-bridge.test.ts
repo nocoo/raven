@@ -158,9 +158,7 @@ describe("socks5-bridge", () => {
           socks5Enabled: true,
           socks5CopilotPolicy: "on",
         });
-        expect(getProxyUrl("copilot", state)).toBe(
-          `http://127.0.0.1:${port}`,
-        );
+        expect(getProxyUrl("copilot", state)).toBe(`http://127.0.0.1:${port}`);
       });
 
       it("returns undefined for copilot with off policy", async () => {
@@ -178,9 +176,7 @@ describe("socks5-bridge", () => {
           socks5Enabled: true,
           socks5CopilotPolicy: "default",
         });
-        expect(getProxyUrl("github", state)).toBe(
-          `http://127.0.0.1:${port}`,
-        );
+        expect(getProxyUrl("github", state)).toBe(`http://127.0.0.1:${port}`);
       });
 
       it("returns undefined for provider with use_socks5=null (default off)", async () => {
@@ -194,9 +190,7 @@ describe("socks5-bridge", () => {
         const port = await startBridge({ host: "127.0.0.1", port: 19999 });
         const state = makeState({ socks5Enabled: true });
         const provider = makeProvider({ use_socks5: true });
-        expect(getProxyUrl(provider, state)).toBe(
-          `http://127.0.0.1:${port}`,
-        );
+        expect(getProxyUrl(provider, state)).toBe(`http://127.0.0.1:${port}`);
       });
 
       it("returns undefined for provider with use_socks5=0 (force off)", async () => {
@@ -213,9 +207,7 @@ describe("socks5-bridge", () => {
           socks5Enabled: true,
           socks5CopilotPolicy: "default",
         });
-        expect(() => getProxyUrl("copilot", state)).toThrow(
-          Socks5BridgeUnavailableError,
-        );
+        expect(() => getProxyUrl("copilot", state)).toThrow(Socks5BridgeUnavailableError);
       });
 
       it("throws for copilot with on policy", () => {
@@ -223,9 +215,7 @@ describe("socks5-bridge", () => {
           socks5Enabled: true,
           socks5CopilotPolicy: "on",
         });
-        expect(() => getProxyUrl("copilot", state)).toThrow(
-          Socks5BridgeUnavailableError,
-        );
+        expect(() => getProxyUrl("copilot", state)).toThrow(Socks5BridgeUnavailableError);
       });
 
       it("returns undefined for copilot with off policy (no proxy needed)", () => {
@@ -241,9 +231,7 @@ describe("socks5-bridge", () => {
           socks5Enabled: true,
           socks5CopilotPolicy: "default",
         });
-        expect(() => getProxyUrl("github", state)).toThrow(
-          Socks5BridgeUnavailableError,
-        );
+        expect(() => getProxyUrl("github", state)).toThrow(Socks5BridgeUnavailableError);
       });
 
       it("returns undefined for provider with use_socks5=null (no proxy needed)", () => {
@@ -255,9 +243,7 @@ describe("socks5-bridge", () => {
       it("throws for provider with use_socks5=1", () => {
         const state = makeState({ socks5Enabled: true });
         const provider = makeProvider({ use_socks5: true });
-        expect(() => getProxyUrl(provider, state)).toThrow(
-          Socks5BridgeUnavailableError,
-        );
+        expect(() => getProxyUrl(provider, state)).toThrow(Socks5BridgeUnavailableError);
       });
 
       it("returns undefined for provider with use_socks5=0 (no proxy needed)", () => {
@@ -281,7 +267,9 @@ describe("socks5-bridge", () => {
           client.write("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
         });
         let data = "";
-        client.on("data", (chunk) => { data += chunk.toString(); });
+        client.on("data", (chunk) => {
+          data += chunk.toString();
+        });
         client.on("end", () => resolve(data));
         client.on("close", () => resolve(data));
       });
@@ -298,7 +286,9 @@ describe("socks5-bridge", () => {
           client.write("CONNECT example.com:443 HTTP/1.1\r\n\r\n");
         });
         let data = "";
-        client.on("data", (chunk) => { data += chunk.toString(); });
+        client.on("data", (chunk) => {
+          data += chunk.toString();
+        });
         client.on("end", () => resolve(data));
         client.on("close", () => resolve(data));
         setTimeout(() => resolve(data), 15000);

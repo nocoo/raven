@@ -1,7 +1,6 @@
 import { managementConfig } from "@/lib/management-config";
 import { NextResponse } from "next/server";
 
-
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -20,7 +19,8 @@ export async function POST(request: Request) {
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      cache: "no-store", redirect: "error",
+      cache: "no-store",
+      redirect: "error",
     });
 
     // Forward the proxy's JSON body as-is (preserves structured error + latencyMs)

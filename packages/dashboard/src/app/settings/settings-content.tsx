@@ -1,8 +1,5 @@
 "use client";
 
-
-
-
 import type { SettingsData, SettingInfo } from "@/lib/types";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -19,20 +16,31 @@ const SETTING_LABELS: Record<string, { label: string; description: string }> = {
   },
   copilot_chat_version: {
     label: "Copilot Chat Version",
-    description:
-      "Used in editor-plugin-version and user-agent headers for Copilot API requests",
+    description: "Used in editor-plugin-version and user-agent headers for Copilot API requests",
   },
 };
 
 /** Version setting keys to render (excludes optimizations). */
 const VERSION_KEYS = ["vscode_version", "copilot_chat_version"] as const;
 
-const FALLBACK_BADGE = { label: "Fallback", className: "bg-basalt-warning/15 text-basalt-warning border-basalt-warning/20" };
+const FALLBACK_BADGE = {
+  label: "Fallback",
+  className: "bg-basalt-warning/15 text-basalt-warning border-basalt-warning/20",
+};
 
 const SOURCE_VARIANTS: Record<string, { label: string; className: string }> = {
-  override: { label: "Override", className: "bg-basalt-info/15 text-basalt-info border-basalt-info/20" },
-  local: { label: "Local", className: "bg-basalt-chart-5/15 text-basalt-chart-5 border-basalt-chart-5/20" },
-  aur: { label: "AUR", className: "bg-basalt-chart-14/15 text-basalt-chart-14 border-basalt-chart-14/20" },
+  override: {
+    label: "Override",
+    className: "bg-basalt-info/15 text-basalt-info border-basalt-info/20",
+  },
+  local: {
+    label: "Local",
+    className: "bg-basalt-chart-5/15 text-basalt-chart-5 border-basalt-chart-5/20",
+  },
+  aur: {
+    label: "AUR",
+    className: "bg-basalt-chart-14/15 text-basalt-chart-14 border-basalt-chart-14/20",
+  },
   fallback: FALLBACK_BADGE,
 };
 
@@ -44,25 +52,19 @@ interface SettingsContentProps {
 
 export function SettingsContent({ data }: SettingsContentProps) {
   return (
-      <SettingsCard title="Version overrides" icon={Tags} tone="purple">
-        {VERSION_KEYS.map((key) => {
-          const info = data[key];
-          if (!info) return null;
-          return <SettingRow key={key} settingKey={key} info={info} />;
-        })}
-      </SettingsCard>
+    <SettingsCard title="Version overrides" icon={Tags} tone="purple">
+      {VERSION_KEYS.map((key) => {
+        const info = data[key];
+        if (!info) return null;
+        return <SettingRow key={key} settingKey={key} info={info} />;
+      })}
+    </SettingsCard>
   );
 }
 
 // ── Setting row ──
 
-function SettingRow({
-  settingKey,
-  info,
-}: {
-  settingKey: string;
-  info: SettingInfo;
-}) {
+function SettingRow({ settingKey, info }: { settingKey: string; info: SettingInfo }) {
   const router = useRouter();
   const [value, setValue] = useState(info.override ?? info.effective);
   const [saving, setSaving] = useState(false);
@@ -92,8 +94,7 @@ function SettingRow({
         router.refresh();
       } else {
         const body = await res.json().catch(() => null);
-        const msg =
-          body?.error?.message ?? body?.error ?? `Save failed (${res.status})`;
+        const msg = body?.error?.message ?? body?.error ?? `Save failed (${res.status})`;
         setError(msg);
       }
     } catch (err) {
@@ -119,8 +120,7 @@ function SettingRow({
         router.refresh();
       } else {
         const body = await res.json().catch(() => null);
-        const msg =
-          body?.error?.message ?? body?.error ?? `Reset failed (${res.status})`;
+        const msg = body?.error?.message ?? body?.error ?? `Reset failed (${res.status})`;
         setError(msg);
       }
     } catch (err) {
@@ -143,9 +143,7 @@ function SettingRow({
               {sourceBadge.label}
             </Badge>
           </div>
-          <p className="mt-0.5 text-xs text-basalt-muted-foreground">
-            {meta.description}
-          </p>
+          <p className="mt-0.5 text-xs text-basalt-muted-foreground">{meta.description}</p>
         </div>
         <code className="shrink-0 rounded bg-basalt-muted px-2 py-1 font-mono text-xs text-basalt-muted-foreground">
           {info.effective}
@@ -170,11 +168,7 @@ function SettingRow({
           disabled={saving || !isDirty || !value.trim()}
           className="h-8 px-3 text-xs"
         >
-          {saving ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <Save className="h-3 w-3" />
-          )}
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
           <span className="ml-1.5">Save</span>
         </Button>
         {hasOverride && (

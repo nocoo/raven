@@ -8,7 +8,10 @@ const mockProxyFetch = vi.fn();
 
 vi.mock("@/lib/proxy", () => {
   class ProxyError extends Error {
-    constructor(message: string, public readonly statusCode?: number | undefined) {
+    constructor(
+      message: string,
+      public readonly statusCode?: number | undefined,
+    ) {
       super(message);
       this.name = "ProxyError";
     }
@@ -97,9 +100,7 @@ describe("GET /api/requests", () => {
     const req = new Request("http://localhost/api/requests?cursor=abc&limit=20&sort=timestamp");
     await GET(req);
 
-    expect(mockProxyFetch).toHaveBeenCalledWith(
-      "/api/requests?cursor=abc&limit=20&sort=timestamp",
-    );
+    expect(mockProxyFetch).toHaveBeenCalledWith("/api/requests?cursor=abc&limit=20&sort=timestamp");
   });
 
   it("empty query params → path without ?", async () => {
@@ -354,9 +355,17 @@ describe("DELETE /api/settings/[key]", () => {
 describe("GET /api/upstreams", () => {
   it("success → returns JSON with 200", async () => {
     const data = [
-      { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic_messages" as const,
-        api_key_preview: "sk-test...****", manual_models: ["test"], is_enabled: true,
-        created_at: 1234567890, updated_at: 1234567890 },
+      {
+        id: "p1",
+        name: "TestProvider",
+        base_url: "https://example.com",
+        format: "anthropic_messages" as const,
+        api_key_preview: "sk-test...****",
+        manual_models: ["test"],
+        is_enabled: true,
+        created_at: 1234567890,
+        updated_at: 1234567890,
+      },
     ];
     mockProxyFetch.mockResolvedValueOnce(data);
 
@@ -394,10 +403,21 @@ describe("GET /api/upstreams", () => {
 
 describe("POST /api/upstreams", () => {
   it("success → returns JSON with 201", async () => {
-    const body = { name: "NewProvider", base_url: "https://example.com", format: "chat_completions" as const,
-      api_key: "sk-test", manual_models: ["gpt-example"] };
-    const data = { id: "p1", ...body, api_key_preview: "sk-test...****", is_enabled: true,
-      created_at: 1234567890, updated_at: 1234567890 };
+    const body = {
+      name: "NewProvider",
+      base_url: "https://example.com",
+      format: "chat_completions" as const,
+      api_key: "sk-test",
+      manual_models: ["gpt-example"],
+    };
+    const data = {
+      id: "p1",
+      ...body,
+      api_key_preview: "sk-test...****",
+      is_enabled: true,
+      created_at: 1234567890,
+      updated_at: 1234567890,
+    };
     mockProxyFetch.mockResolvedValueOnce(data);
 
     const { POST } = await import("@/app/api/upstreams/route");
@@ -439,9 +459,17 @@ describe("GET /api/upstreams/[id]", () => {
   }
 
   it("success → returns JSON with 200", async () => {
-    const data = { id: "p1", name: "TestProvider", base_url: "https://example.com", format: "anthropic_messages" as const,
-      api_key_preview: "sk-test...****", manual_models: ["test"], is_enabled: true,
-      created_at: 1234567890, updated_at: 1234567890 };
+    const data = {
+      id: "p1",
+      name: "TestProvider",
+      base_url: "https://example.com",
+      format: "anthropic_messages" as const,
+      api_key_preview: "sk-test...****",
+      manual_models: ["test"],
+      is_enabled: true,
+      created_at: 1234567890,
+      updated_at: 1234567890,
+    };
     mockProxyFetch.mockResolvedValueOnce(data);
 
     const { GET } = await import("@/app/api/upstreams/[id]/route");
@@ -475,9 +503,17 @@ describe("PUT /api/upstreams/[id]", () => {
 
   it("success → returns JSON with 200", async () => {
     const body = { name: "UpdatedProvider" };
-    const data = { id: "p1", name: "UpdatedProvider", base_url: "https://example.com", format: "anthropic_messages" as const,
-      api_key_preview: "sk-test...****", manual_models: ["test"], is_enabled: true,
-      created_at: 1234567890, updated_at: 1234567891 };
+    const data = {
+      id: "p1",
+      name: "UpdatedProvider",
+      base_url: "https://example.com",
+      format: "anthropic_messages" as const,
+      api_key_preview: "sk-test...****",
+      manual_models: ["test"],
+      is_enabled: true,
+      created_at: 1234567890,
+      updated_at: 1234567891,
+    };
     mockProxyFetch.mockResolvedValueOnce(data);
 
     const { PUT } = await import("@/app/api/upstreams/[id]/route");
@@ -581,7 +617,12 @@ describe("GET /api/sentinel-status", () => {
         refreshUpstreamCalls: 0,
         refreshUpstreamCallsByReason: { llm401: 0, sentinel401: 0, scheduled: 0, manual: 0 },
         refreshSucceededTokenUpdated: 0,
-        refreshSucceededTokenUpdatedByReason: { llm401: 0, sentinel401: 0, scheduled: 0, manual: 0 },
+        refreshSucceededTokenUpdatedByReason: {
+          llm401: 0,
+          sentinel401: 0,
+          scheduled: 0,
+          manual: 0,
+        },
         refreshSucceededTokenSame: 0,
         refreshSucceededTokenSameByReason: { llm401: 0, sentinel401: 0, scheduled: 0, manual: 0 },
         refreshFailed: 0,

@@ -1,12 +1,12 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest"
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 
-import { Hono } from "hono"
-import { handleCountTokens } from "../../src/routes/messages/count-tokens-handler"
-import { state } from "../../src/lib/state"
-import type { Model, ModelsResponse } from "../../src/services/copilot/get-models"
-import { installTestRouting, routingHarness } from "../helpers/routing"
-import { logEmitter } from "../../src/util/log-emitter"
-import type { LogEvent } from "../../src/util/log-event"
+import { Hono } from "hono";
+import { handleCountTokens } from "../../src/routes/messages/count-tokens-handler";
+import { state } from "../../src/lib/state";
+import type { Model, ModelsResponse } from "../../src/services/copilot/get-models";
+import { installTestRouting, routingHarness } from "../helpers/routing";
+import { logEmitter } from "../../src/util/log-emitter";
+import type { LogEvent } from "../../src/util/log-event";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,14 +40,14 @@ function makeModel(overrides: Partial<Model> = {}): Model {
       },
     },
     ...overrides,
-  }
+  };
 }
 
 function makeApp(): Hono {
-  const app = new Hono()
-  installTestRouting(app, harness.db)
-  app.post("/count_tokens", handleCountTokens)
-  return app
+  const app = new Hono();
+  installTestRouting(app, harness.db);
+  app.post("/count_tokens", handleCountTokens);
+  return app;
 }
 
 function req(body: Record<string, unknown>, headers?: Record<string, string>): Request {
@@ -58,25 +58,25 @@ function req(body: Record<string, unknown>, headers?: Record<string, string>): R
       ...headers,
     },
     body: JSON.stringify(body),
-  })
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
-const savedModels = state.models
-let harness: ReturnType<typeof routingHarness>
-const fetcher = vi.fn<typeof fetch>()
-let events: LogEvent[]
-const listen = (event: LogEvent) => events.push(event)
+const savedModels = state.models;
+let harness: ReturnType<typeof routingHarness>;
+const fetcher = vi.fn<typeof fetch>();
+let events: LogEvent[];
+const listen = (event: LogEvent) => events.push(event);
 
 beforeEach(() => {
-  harness = routingHarness()
-  events = []
-  logEmitter.on("log", listen)
-  fetcher.mockReset().mockRejectedValue(new Error("No network during token estimation"))
-  vi.stubGlobal("fetch", fetcher)
+  harness = routingHarness();
+  events = [];
+  logEmitter.on("log", listen);
+  fetcher.mockReset().mockRejectedValue(new Error("No network during token estimation"));
+  vi.stubGlobal("fetch", fetcher);
   state.models = {
     object: "list",
     data: [
@@ -92,18 +92,18 @@ beforeEach(() => {
         },
       }),
     ],
-  } as ModelsResponse
-  harness.copilot(state.models.data.map((entry) => ({ ...entry })))
-})
+  } as ModelsResponse;
+  harness.copilot(state.models.data.map((entry) => ({ ...entry })));
+});
 
 afterEach(() => {
-  if (savedModels !== undefined) state.models = savedModels
-  else state.models = null
-  expect(fetcher).not.toHaveBeenCalled()
-  logEmitter.off("log", listen)
-  vi.unstubAllGlobals()
-  harness.close()
-})
+  if (savedModels !== undefined) state.models = savedModels;
+  else state.models = null;
+  expect(fetcher).not.toHaveBeenCalled();
+  logEmitter.off("log", listen);
+  vi.unstubAllGlobals();
+  harness.close();
+});
 
 // ===========================================================================
 // handleCountTokens
@@ -111,46 +111,46 @@ afterEach(() => {
 
 describe("handleCountTokens", () => {
   test("known claude model → returns token count with multiplier", async () => {
-    const app = makeApp()
+    const app = makeApp();
     const res = await app.request(
       req({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
         messages: [{ role: "user", content: "Hello" }],
       }),
-    )
+    );
 
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { input_tokens: number }
-    expect(json.input_tokens).toBeGreaterThan(0)
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { input_tokens: number };
+    expect(json.input_tokens).toBeGreaterThan(0);
     // Claude gets 1.15x multiplier
-  })
+  });
 
   test("unknown model → returns fallback count of 1", async () => {
-    const app = makeApp()
+    const app = makeApp();
     const res = await app.request(
       req({
         model: "unknown-model-xyz",
         max_tokens: 4096,
         messages: [{ role: "user", content: "Hello" }],
       }),
-    )
+    );
 
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { input_tokens: number }
-    expect(json.input_tokens).toBe(1)
-  })
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { input_tokens: number };
+    expect(json.input_tokens).toBe(1);
+  });
 
   test("claude model with tools → applies +346 overhead", async () => {
-    const app = makeApp()
+    const app = makeApp();
     const withoutTools = await app.request(
       req({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
         messages: [{ role: "user", content: "Hello" }],
       }),
-    )
-    const withoutToolsJson = (await withoutTools.json()) as { input_tokens: number }
+    );
+    const withoutToolsJson = (await withoutTools.json()) as { input_tokens: number };
 
     const withTools = await app.request(
       req({
@@ -168,15 +168,15 @@ describe("handleCountTokens", () => {
           },
         ],
       }),
-    )
-    const withToolsJson = (await withTools.json()) as { input_tokens: number }
+    );
+    const withToolsJson = (await withTools.json()) as { input_tokens: number };
 
     // With tools should be higher due to +346 overhead
-    expect(withToolsJson.input_tokens).toBeGreaterThan(withoutToolsJson.input_tokens)
-  })
+    expect(withToolsJson.input_tokens).toBeGreaterThan(withoutToolsJson.input_tokens);
+  });
 
   test("grok model with tools → applies +480 overhead", async () => {
-    const app = makeApp()
+    const app = makeApp();
     const res = await app.request(
       req({
         model: "grok-2",
@@ -190,30 +190,30 @@ describe("handleCountTokens", () => {
           },
         ],
       }),
-    )
+    );
 
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { input_tokens: number }
-    expect(json.input_tokens).toBeGreaterThan(0)
-  })
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { input_tokens: number };
+    expect(json.input_tokens).toBeGreaterThan(0);
+  });
 
   test("grok model without tools → applies 1.03x multiplier", async () => {
-    const app = makeApp()
+    const app = makeApp();
     const res = await app.request(
       req({
         model: "grok-2",
         max_tokens: 4096,
         messages: [{ role: "user", content: "Hello" }],
       }),
-    )
+    );
 
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { input_tokens: number }
-    expect(json.input_tokens).toBeGreaterThan(0)
-  })
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { input_tokens: number };
+    expect(json.input_tokens).toBeGreaterThan(0);
+  });
 
   test("MCP tool (mcp__ prefix) → skips tool overhead", async () => {
-    const app = makeApp()
+    const app = makeApp();
     const res = await app.request(
       req(
         {
@@ -230,16 +230,16 @@ describe("handleCountTokens", () => {
         },
         { "anthropic-beta": "claude-code-2025" },
       ),
-    )
+    );
 
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { input_tokens: number }
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { input_tokens: number };
     // Should skip +346 overhead because mcp tool exists
-    expect(json.input_tokens).toBeGreaterThan(0)
-  })
+    expect(json.input_tokens).toBeGreaterThan(0);
+  });
 
   test("non-claude-code beta with mcp tools → still applies overhead", async () => {
-    const app = makeApp()
+    const app = makeApp();
     const res = await app.request(
       req(
         {
@@ -256,15 +256,15 @@ describe("handleCountTokens", () => {
         },
         // No anthropic-beta or non-claude-code beta
       ),
-    )
+    );
 
-    expect(res.status).toBe(200)
-    const json = (await res.json()) as { input_tokens: number }
-    expect(json.input_tokens).toBeGreaterThan(0)
-  })
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { input_tokens: number };
+    expect(json.input_tokens).toBeGreaterThan(0);
+  });
 
   test("malformed JSON is a client error, not a successful estimate", async () => {
-    const app = makeApp()
+    const app = makeApp();
     // Send invalid JSON to trigger error
     const res = await app.request(
       new Request("http://localhost/count_tokens", {
@@ -272,9 +272,9 @@ describe("handleCountTokens", () => {
         headers: { "content-type": "application/json" },
         body: "invalid json{{{",
       }),
-    )
+    );
 
-    expect(res.status).toBe(400)
-    expect((await res.json()).error.type).toBe("invalid_request_error")
-  })
-})
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.type).toBe("invalid_request_error");
+  });
+});

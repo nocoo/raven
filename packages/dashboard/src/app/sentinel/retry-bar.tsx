@@ -1,26 +1,10 @@
 "use client";
 
 import { memo } from "react";
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  ANIMATION_PROPS,
-  RESPONSIVE_CONTAINER_PROPS,
-} from "@/lib/chart-config";
-import {
-  ChartTooltip,
-  ChartTooltipRow,
-} from "@/components/dashboard/chart-primitives";
-import {
-  computePercent,
-  type RetryStacks,
-} from "@/lib/sentinel-derive";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ANIMATION_PROPS, RESPONSIVE_CONTAINER_PROPS } from "@/lib/chart-config";
+import { ChartTooltip, ChartTooltipRow } from "@/components/dashboard/chart-primitives";
+import { computePercent, type RetryStacks } from "@/lib/sentinel-derive";
 
 interface RetryBarProps {
   stacks: RetryStacks;
@@ -34,13 +18,7 @@ interface StackTooltipPayload {
   payload: { _total: number };
 }
 
-function StackTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: StackTooltipPayload[];
-}) {
+function StackTooltip({ active, payload }: { active?: boolean; payload?: StackTooltipPayload[] }) {
   const first = payload?.[0];
   if (!active || !first) return null;
   const total = first.payload._total;
@@ -84,38 +62,38 @@ export const RetryBar = memo(function RetryBar({ stacks }: RetryBarProps) {
         ) : (
           <div className="w-full h-[44px]">
             <ResponsiveContainer {...RESPONSIVE_CONTAINER_PROPS}>
-            <BarChart
-              layout="vertical"
-              data={[row]}
-              stackOffset="expand"
-              margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-              barCategoryGap={0}
-            >
-              <XAxis type="number" hide domain={[0, 1]} />
-              <YAxis type="category" dataKey="_kind" hide />
-              <Tooltip content={<StackTooltip />} cursor={false} />
-              {segments.map((s, i) => {
-                const radius: [number, number, number, number] =
-                  i === 0
-                    ? [4, 0, 0, 4]
-                    : i === segments.length - 1
-                    ? [0, 4, 4, 0]
-                    : [0, 0, 0, 0];
-                return (
-                  <Bar
-                    key={s.key}
-                    dataKey={s.key}
-                    stackId="retry"
-                    name={s.label}
-                    fill={s.color}
-                    radius={radius}
-                    aria-label={`${s.label}: ${s.value} (${computePercent(s.value, total)}%)`}
-                    {...ANIMATION_PROPS}
-                  />
-                );
-              })}
-            </BarChart>
-          </ResponsiveContainer>
+              <BarChart
+                layout="vertical"
+                data={[row]}
+                stackOffset="expand"
+                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+                barCategoryGap={0}
+              >
+                <XAxis type="number" hide domain={[0, 1]} />
+                <YAxis type="category" dataKey="_kind" hide />
+                <Tooltip content={<StackTooltip />} cursor={false} />
+                {segments.map((s, i) => {
+                  const radius: [number, number, number, number] =
+                    i === 0
+                      ? [4, 0, 0, 4]
+                      : i === segments.length - 1
+                        ? [0, 4, 4, 0]
+                        : [0, 0, 0, 0];
+                  return (
+                    <Bar
+                      key={s.key}
+                      dataKey={s.key}
+                      stackId="retry"
+                      name={s.label}
+                      fill={s.color}
+                      radius={radius}
+                      aria-label={`${s.label}: ${s.value} (${computePercent(s.value, total)}%)`}
+                      {...ANIMATION_PROPS}
+                    />
+                  );
+                })}
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>
@@ -134,9 +112,7 @@ export const RetryBar = memo(function RetryBar({ stacks }: RetryBarProps) {
                 className="inline-block h-2 w-2 rounded-full shrink-0"
                 style={{ background: s.color }}
               />
-              <span className="text-basalt-muted-foreground flex-1 truncate">
-                {s.label}
-              </span>
+              <span className="text-basalt-muted-foreground flex-1 truncate">{s.label}</span>
               <span className="tabular-nums text-basalt-foreground">
                 {s.value.toLocaleString()}
               </span>

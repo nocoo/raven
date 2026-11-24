@@ -15,36 +15,36 @@
  * may not be configured on every machine. Those are listed in
  * CUSTOM_STRATEGIES and gated by RAVEN_CUSTOM_READY=1.
  */
-import { describe, test, beforeAll, expect, setDefaultTimeout } from "bun:test"
-import { headers, isProxyReachable, PROXY, API_KEY } from "./helpers"
-import { allStrategies, scenarioLabel, type Scenario, type StrategyName } from "./scenarios"
-import { buildScenarioRequest } from "./request-builder"
-import { captureOrDiffFixture } from "./capture"
+import { describe, test, beforeAll, expect, setDefaultTimeout } from "bun:test";
+import { headers, isProxyReachable, PROXY, API_KEY } from "./helpers";
+import { allStrategies, scenarioLabel, type Scenario, type StrategyName } from "./scenarios";
+import { buildScenarioRequest } from "./request-builder";
+import { captureOrDiffFixture } from "./capture";
 
-setDefaultTimeout(120_000)
+setDefaultTimeout(120_000);
 
-const CUSTOM_STRATEGIES = new Set<StrategyName>(["CustomOpenAI", "CustomAnthropic"])
-const CUSTOM_READY = process.env.RAVEN_CUSTOM_READY === "1"
+const CUSTOM_STRATEGIES = new Set<StrategyName>(["CustomOpenAI", "CustomAnthropic"]);
+const CUSTOM_READY = process.env.RAVEN_CUSTOM_READY === "1";
 
 // skipIf evaluates at describe-time, so the gate must be synchronous.
 // Reachability is verified in beforeAll and surfaces as a hard fail if
 // the key was supplied but the proxy turned out to be unreachable.
-const HAS_KEY = API_KEY !== ""
+const HAS_KEY = API_KEY !== "";
 const strategyReady = (name: StrategyName): boolean =>
-  HAS_KEY && (!CUSTOM_STRATEGIES.has(name) || CUSTOM_READY)
+  HAS_KEY && (!CUSTOM_STRATEGIES.has(name) || CUSTOM_READY);
 
 beforeAll(async () => {
   if (!HAS_KEY) {
-    console.warn("Refactor E2E suite skipped: RAVEN_API_KEY not set")
-    return
+    console.warn("Refactor E2E suite skipped: RAVEN_API_KEY not set");
+    return;
   }
-  const up = await isProxyReachable()
-  if (!up) throw new Error(`proxy not reachable on ${PROXY}`)
-})
+  const up = await isProxyReachable();
+  if (!up) throw new Error(`proxy not reachable on ${PROXY}`);
+});
 
 async function runScenario(name: StrategyName, s: Scenario): Promise<void> {
-  const request = buildScenarioRequest(name, s)
-  const url = `${PROXY}${request.path}`
+  const request = buildScenarioRequest(name, s);
+  const url = `${PROXY}${request.path}`;
 
   const res = await captureOrDiffFixture({
     scenario: { goldenPath: s.goldenPath, model: s.model },
@@ -55,12 +55,12 @@ async function runScenario(name: StrategyName, s: Scenario): Promise<void> {
         headers: headers(),
         body: JSON.stringify(request.body),
       }),
-  })
+  });
 
   if (res.mode === "capture") {
-    expect(res.live.fixtureVersion).toBe(1)
-    expect(res.live.expected_end_log.statusCode).toBeGreaterThanOrEqual(200)
-    return
+    expect(res.live.fixtureVersion).toBe(1);
+    expect(res.live.expected_end_log.statusCode).toBeGreaterThanOrEqual(200);
+    return;
   }
 
   // Diff mode: require a stored fixture (capture it first) and assert
@@ -69,12 +69,12 @@ async function runScenario(name: StrategyName, s: Scenario): Promise<void> {
   // varies model id / ids / timestamps per call. Only structural
   // fields in expected_end_log are asserted here; deeper SSE-shape
   // diffing is Phase H's job (adaptChunk unit tests).
-  expect(res.stored).not.toBeNull()
-  const stored = res.stored!
-  expect(res.live.expected_end_log.path).toBe(stored.expected_end_log.path)
-  expect(res.live.expected_end_log.format).toBe(stored.expected_end_log.format)
-  expect(res.live.expected_end_log.stream).toBe(stored.expected_end_log.stream)
-  expect(res.live.expected_end_log.status).toBe(stored.expected_end_log.status)
+  expect(res.stored).not.toBeNull();
+  const stored = res.stored!;
+  expect(res.live.expected_end_log.path).toBe(stored.expected_end_log.path);
+  expect(res.live.expected_end_log.format).toBe(stored.expected_end_log.format);
+  expect(res.live.expected_end_log.stream).toBe(stored.expected_end_log.stream);
+  expect(res.live.expected_end_log.status).toBe(stored.expected_end_log.status);
 }
 
 describe("refactor E2E — scenario driver (§4.3)", () => {
@@ -82,9 +82,9 @@ describe("refactor E2E — scenario driver (§4.3)", () => {
     describe(name, () => {
       for (const s of scenarios) {
         test.skipIf(!strategyReady(name))(scenarioLabel(s), async () => {
-          await runScenario(name, s)
-        })
+          await runScenario(name, s);
+        });
       }
-    })
+    });
   }
-})
+});

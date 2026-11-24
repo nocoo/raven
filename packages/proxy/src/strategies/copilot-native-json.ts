@@ -1,32 +1,47 @@
-import type { SSEMessage } from "hono/streaming"
-import type { Strategy } from "../core/strategy"
-import { normalizeUsage, type UsageProtocol } from "../core/usage"
-import { isRecord, type NativeJsonPayload } from "../protocols/native-json"
-import type { CopilotNativeJsonClient, CopilotNativeJsonResult } from "../upstream/copilot-native-json"
+import type { SSEMessage } from "hono/streaming";
+import type { Strategy } from "../core/strategy";
+import { normalizeUsage, type UsageProtocol } from "../core/usage";
+import { isRecord, type NativeJsonPayload } from "../protocols/native-json";
+import type {
+  CopilotNativeJsonClient,
+  CopilotNativeJsonResult,
+} from "../upstream/copilot-native-json";
 
 export interface CopilotNativeJsonStrategyDeps {
-  name: "copilot-decisions" | "copilot-images"
-  client: CopilotNativeJsonClient
-  usageProtocol: UsageProtocol
-  imageEdits?: boolean
+  name: "copilot-decisions" | "copilot-images";
+  client: CopilotNativeJsonClient;
+  usageProtocol: UsageProtocol;
+  imageEdits?: boolean;
 }
 
-export function makeCopilotNativeJson(deps: CopilotNativeJsonStrategyDeps): Strategy<
-  NativeJsonPayload, NativeJsonPayload, CopilotNativeJsonResult, Response, never, SSEMessage, null
+export function makeCopilotNativeJson(
+  deps: CopilotNativeJsonStrategyDeps,
+): Strategy<
+  NativeJsonPayload,
+  NativeJsonPayload,
+  CopilotNativeJsonResult,
+  Response,
+  never,
+  SSEMessage,
+  null
 > {
   return {
     name: deps.name,
-    prepare: req => req,
+    prepare: (req) => req,
     dispatch: async (req, ctx) => ({ kind: "json", body: await deps.client.send(req, ctx.signal) }),
-    adaptJson: resp => new Response(resp.text || null, { status: resp.status, headers: { "content-type": resp.contentType } }),
-    jsonOutcome: resp => resp.failed ? "error" : "success",
+    adaptJson: (resp) =>
+      new Response(resp.text || null, {
+        status: resp.status,
+        headers: { "content-type": resp.contentType },
+      }),
+    jsonOutcome: (resp) => (resp.failed ? "error" : "success"),
     initStreamState: () => null,
     adaptChunk: () => [],
     adaptStreamError: () => [],
-    describeEndLog: result => {
-      if (result.kind !== "json") return { model: result.req.model }
-      const data = isRecord(result.resp.data) ? result.resp.data : {}
-      const usage = normalizeUsage(deps.usageProtocol, data.usage)
+    describeEndLog: (result) => {
+      if (result.kind !== "json") return { model: result.req.model };
+      const data = isRecord(result.resp.data) ? result.resp.data : {};
+      const usage = normalizeUsage(deps.usageProtocol, data.usage);
       return {
         model: result.req.model,
         resolvedModel: typeof data.model === "string" ? data.model : null,
@@ -34,10 +49,14 @@ export function makeCopilotNativeJson(deps: CopilotNativeJsonStrategyDeps): Stra
         outputTokens: usage.output_tokens,
         cacheReadTokens: usage.cache_read_tokens,
         cacheWriteTokens: usage.cache_write_tokens,
-        ...(result.resp.failed && deps.imageEdits ? { error: "Upstream returned an image edit error" }
-          : result.resp.status >= 300 ? { error: result.resp.text.slice(0, 512) }
-          : result.resp.failed ? { error: "Upstream returned a decision or image error or refusal" } : {}),
-      }
+        ...(result.resp.failed && deps.imageEdits
+          ? { error: "Upstream returned an image edit error" }
+          : result.resp.status >= 300
+            ? { error: result.resp.text.slice(0, 512) }
+            : result.resp.failed
+              ? { error: "Upstream returned a decision or image error or refusal" }
+              : {}),
+      };
     },
-  }
+  };
 }

@@ -29,10 +29,7 @@ async function isPortReady(port: number): Promise<boolean> {
   }
 }
 
-async function waitForPort(
-  port: number,
-  label: string,
-): Promise<void> {
+async function waitForPort(port: number, label: string): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < STARTUP_TIMEOUT_MS) {
     if (await isPortReady(port)) {
@@ -83,7 +80,9 @@ async function main(): Promise<number> {
     // D1 isolation: proxy must use test DB, reject if already running
     if (proxyAlready) {
       console.error(`  ❌ Proxy already running on :${PROXY_PORT}`);
-      console.error(`     D1 isolation requires a fresh proxy with RAVEN_DB_PATH=data/raven-test.db`);
+      console.error(
+        `     D1 isolation requires a fresh proxy with RAVEN_DB_PATH=data/raven-test.db`,
+      );
       console.error(`     Stop the running proxy and try again.`);
       return 1;
     }

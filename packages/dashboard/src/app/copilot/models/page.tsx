@@ -13,10 +13,7 @@ export default async function CopilotModelsPage() {
     return (
       <div className="space-y-4">
         <PageHeader title="Models" description="Copilot models, capabilities and limits." />
-        <FetchError
-          title="Failed to load Copilot models"
-          message={result.error}
-        />
+        <FetchError title="Failed to load Copilot models" message={result.error} />
       </div>
     );
   }

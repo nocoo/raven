@@ -1,6 +1,5 @@
 "use client";
 
-
 import { filterLabel } from "@/lib/analytics-filters";
 import { X } from "@nocoo/basalt/icons";
 import { Badge, Button } from "@nocoo/basalt";
@@ -14,12 +13,15 @@ interface FilterChipProps {
 
 export function FilterChip({ filterKey, value, displayValue, onRemove }: FilterChipProps) {
   const label = filterLabel(filterKey);
-  const text = displayValue ?? (typeof value === "boolean" ? (value ? "Yes" : "No") : String(value));
+  const text =
+    displayValue ?? (typeof value === "boolean" ? (value ? "Yes" : "No") : String(value));
 
   return (
     <Badge tone="neutral" className="gap-1 pr-1 font-normal">
       <span className="text-basalt-muted-foreground">{label}:</span>
-      <span className="max-w-40 truncate" title={String(value)}>{text}</span>
+      <span className="max-w-40 truncate" title={String(value)}>
+        {text}
+      </span>
       <Button
         variant="ghost"
         size="icon"

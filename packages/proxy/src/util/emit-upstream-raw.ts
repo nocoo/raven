@@ -12,7 +12,7 @@
 // filters by requestId.
 // ---------------------------------------------------------------------------
 
-import { logEmitter } from "./log-emitter"
+import { logEmitter } from "./log-emitter";
 
 export function emitUpstreamRawSse(
   requestId: string,
@@ -28,5 +28,5 @@ export function emitUpstreamRawSse(
       event: ev.event ?? null,
       data: ev.data,
     },
-  })
+  });
 }

@@ -11,13 +11,24 @@ import "../helpers/routing-interactions";
 
 const viewport = vi.hoisted(() => ({ mobile: true, pathname: "/routing/rules" }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => viewport.mobile }));
-vi.mock("next/navigation", () => ({ usePathname: () => viewport.pathname, useRouter: () => ({ push: vi.fn() }) }));
-vi.mock("next-auth/react", () => ({ useSession: () => ({ data: null, status: "unauthenticated" }), signOut: vi.fn() }));
-vi.mock("@/hooks/use-auth-config", () => ({ useAuthConfig: () => ({ authEnabled: false, isLoading: false, hasError: false }) }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => viewport.pathname,
+  useRouter: () => ({ push: vi.fn() }),
+}));
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: null, status: "unauthenticated" }),
+  signOut: vi.fn(),
+}));
+vi.mock("@/hooks/use-auth-config", () => ({
+  useAuthConfig: () => ({ authEnabled: false, isLoading: false, hasError: false }),
+}));
 vi.mock("@/components/logs/logs-dock", () => ({ LogsDock: () => null }));
 vi.mock("@/components/setup-wizard", () => ({ SetupWizard: () => null }));
 afterEach(() => vi.restoreAllMocks());
-beforeEach(() => { viewport.mobile = true; viewport.pathname = "/routing/rules"; });
+beforeEach(() => {
+  viewport.mobile = true;
+  viewport.pathname = "/routing/rules";
+});
 
 const workbench = () => (
   <ThemeProvider defaultTheme="dark" persist={false} applyToDocument={false}>
@@ -57,7 +68,9 @@ describe("responsive routing shell", () => {
   });
 
   it("keeps the mobile page title and actions with compact breadcrumbs, preserving drafts across resize", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected fixture request"));
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("Unexpected fixture request"));
     const { rerender } = render(workbench());
     await userEvent.setup({ delay: null }).click(screen.getByRole("tab", { name: /^Schedule/ }));
     const header = within(screen.getByRole("main").querySelector("header")!);
@@ -68,10 +81,16 @@ describe("responsive routing shell", () => {
     expect(header.getByRole("button", { name: "Open navigation" })).toBeVisible();
     expect(header.queryByRole("button", { name: /logs/i })).toBeNull();
     expect(header.getByRole("button", { name: "Use system theme" })).toBeVisible();
-    expect(header.getByRole("link", { name: "GitHub repository (opens in a new tab)" })).toBeVisible();
-    expect(header.getByRole("link", { name: "Raven on hexly.ai (opens in a new tab)" })).toBeVisible();
+    expect(
+      header.getByRole("link", { name: "GitHub repository (opens in a new tab)" }),
+    ).toBeVisible();
+    expect(
+      header.getByRole("link", { name: "Raven on hexly.ai (opens in a new tab)" }),
+    ).toBeVisible();
     expect(screen.getByRole("region", { name: "Local schedule visualization" })).toBeVisible();
-    fireEvent.change(screen.getByRole("textbox", { name: "Rule name" }), { target: { value: "Mobile draft" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Rule name" }), {
+      target: { value: "Mobile draft" },
+    });
 
     viewport.mobile = false;
     rerender(workbench());
@@ -118,29 +137,32 @@ describe("site-wide navigation and page frame", () => {
     ["/settings", "Settings", "General"],
     ["/settings/proxy", "Settings", "Proxy"],
     ["/connect", "Settings", "Connect"],
-  ])("aligns %s with its sidebar group and the shared full-width frame", (pathname, group, title) => {
-    viewport.pathname = pathname!;
-    viewport.mobile = false;
-    const { container } = render(
-      <ThemeProvider persist={false} applyToDocument={false}>
-        <TooltipProvider>
-          <LogDockProvider>
-            <AppShell>
-              <p>Page content</p>
-            </AppShell>
-          </LogDockProvider>
-        </TooltipProvider>
-      </ThemeProvider>,
-    );
-    const header = within(screen.getByRole("main").querySelector("header")!);
-    expect(header.getByRole("heading", { name: title })).toBeVisible();
-    expect(header.queryByRole("button", { name: /logs/i })).toBeNull();
-    const trail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
-    expect(trail.getByText("Home")).toBeVisible();
-    expect(trail.getByText(group!)).toBeVisible();
-    const frame = container.querySelector(".dashboard-page");
-    // biome-ignore lint/correctness/noPlaywrightMissingAwait: jest-dom toHaveClass is synchronous, not a Playwright locator matcher
-    expect(frame).toHaveClass("w-full", "@container/page");
-    expect(frame?.className).not.toMatch(/max-w-/);
-  });
+  ])(
+    "aligns %s with its sidebar group and the shared full-width frame",
+    (pathname, group, title) => {
+      viewport.pathname = pathname!;
+      viewport.mobile = false;
+      const { container } = render(
+        <ThemeProvider persist={false} applyToDocument={false}>
+          <TooltipProvider>
+            <LogDockProvider>
+              <AppShell>
+                <p>Page content</p>
+              </AppShell>
+            </LogDockProvider>
+          </TooltipProvider>
+        </ThemeProvider>,
+      );
+      const header = within(screen.getByRole("main").querySelector("header")!);
+      expect(header.getByRole("heading", { name: title })).toBeVisible();
+      expect(header.queryByRole("button", { name: /logs/i })).toBeNull();
+      const trail = within(header.getByRole("navigation", { name: "Breadcrumb" }));
+      expect(trail.getByText("Home")).toBeVisible();
+      expect(trail.getByText(group!)).toBeVisible();
+      const frame = container.querySelector(".dashboard-page");
+      // biome-ignore lint/correctness/noPlaywrightMissingAwait: jest-dom toHaveClass is synchronous, not a Playwright locator matcher
+      expect(frame).toHaveClass("w-full", "@container/page");
+      expect(frame?.className).not.toMatch(/max-w-/);
+    },
+  );
 });

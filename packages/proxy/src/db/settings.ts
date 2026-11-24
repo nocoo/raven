@@ -24,9 +24,9 @@ export function initSettings(db: Database): void {
 // ---------------------------------------------------------------------------
 
 export function getSetting(db: Database, key: string): string | null {
-  const row = db
-    .query("SELECT value FROM settings WHERE key = $key")
-    .get({ $key: key }) as { value: string } | null;
+  const row = db.query("SELECT value FROM settings WHERE key = $key").get({ $key: key }) as {
+    value: string;
+  } | null;
   return row?.value ?? null;
 }
 
@@ -37,18 +37,15 @@ export function setSetting(db: Database, key: string, value: string): void {
 }
 
 export function deleteSetting(db: Database, key: string): boolean {
-  const result = db
-    .query("DELETE FROM settings WHERE key = $key")
-    .run({ $key: key });
+  const result = db.query("DELETE FROM settings WHERE key = $key").run({ $key: key });
   return result.changes > 0;
 }
 
-export function getAllSettings(
-  db: Database,
-): Record<string, string> {
-  const rows = db
-    .query("SELECT key, value FROM settings")
-    .all() as { key: string; value: string }[];
+export function getAllSettings(db: Database): Record<string, string> {
+  const rows = db.query("SELECT key, value FROM settings").all() as {
+    key: string;
+    value: string;
+  }[];
   const result: Record<string, string> = {};
   for (const row of rows) {
     result[row.key] = row.value;
