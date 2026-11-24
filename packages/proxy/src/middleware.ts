@@ -34,7 +34,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
 
   let result = 0;
   for (let i = 0; i < bufA.length; i++) {
-    result |= bufA[i]! ^ bufB[i]!;
+    result |= (bufA[i] ?? 0) ^ (bufB[i] ?? 0);
   }
   return result === 0;
 }
@@ -58,7 +58,7 @@ function validateRequestToken(
   c: Context,
   db: Database,
   envApiKey: string | null,
-): { valid: true; keyName: string; keyId: string; ruleId?: string } | { valid: false; response: Response } {
+): { valid: true; keyName: string; keyId: string; ruleId: string } | { valid: false; response: Response } {
   // Accept token from Authorization: Bearer <token> or x-api-key: <token>
   // (Claude Code sends x-api-key when ANTHROPIC_BASE_URL != api.anthropic.com)
   const authHeader = c.req.header("Authorization");
@@ -138,7 +138,7 @@ export function apiKeyAuth(opts: ApiKeyAuthOpts) {
     }
     c.set("keyName", result.keyName);
     c.set("keyId", result.keyId);
-    c.set("ruleId", result.ruleId!);
+    c.set("ruleId", result.ruleId);
     c.set("routingDb", db);
     await next();
   });

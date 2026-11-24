@@ -67,8 +67,7 @@ for (const abs of walk(ROOT)) {
   if (rel.startsWith(UPSTREAM_PREFIX)) continue
   const src = readFileSync(abs, "utf8").split("\n")
   let hasFetch = false
-  for (let i = 0; i < src.length; i++) {
-    const line = src[i]!
+  for (const [i, line] of src.entries()) {
     if (isComment(line)) continue
     if (FETCH_PATTERN.test(line)) {
       hasFetch = true

@@ -107,8 +107,8 @@ export function readLiveTelemetry(db: Database, clientName: string): LiveTelemet
     FROM requests WHERE client_name = ?`,
   ).all(clientName)
   assert.ok(rows.length <= 1, "Multiple requests matched one live case correlation ID")
-  if (!rows.length) return null
-  const { routing_details, ...request } = rows[0]!
+  if (!rows[0]) return null
+  const { routing_details, ...request } = rows[0]
   const attempts = db.query<LiveSettlement, [string]>(`SELECT attempt_ordinal, upstream_id,
     window_id, captured_at, usage_present, usage_complete, input_tokens, cache_read_tokens,
     cache_write_tokens, output_tokens, multiplier, weighted_debit
@@ -189,7 +189,8 @@ export async function runLiveCases(input: {
   const results: LiveResult[] = input.cases.map((item) => ({ case_id: item.id, status: "not_run", errors: [] }))
   input.checkpoint(results)
   for (const [index, item] of input.cases.entries()) {
-    const result = results[index]!
+    const result = results[index]
+    if (!result) continue
     const started = Date.now()
     const clientName = `RavenLive-${input.runId}-${item.id}`
     Object.assign(result, { status: "running", client_name: clientName, started_at: new Date(started).toISOString() })
@@ -220,7 +221,8 @@ export async function runLiveCases(input: {
         result.reply = inspectFrames(item.protocol, result.frames, item.clientFormat === item.upstreamFormat)
       } else {
         assert.ok(/\bapplication\/(?:json|[^;]+\+json)\b/i.test(result.content_type), "Expected a JSON content type")
-        result.reply = inspectJson(item.protocol, JSON.parse(result.body!), item.protocol === "chat" && item.clientFormat === item.upstreamFormat)
+        assert.ok(result.body !== undefined, "Missing JSON response body")
+        result.reply = inspectJson(item.protocol, JSON.parse(result.body), item.protocol === "chat" && item.clientFormat === item.upstreamFormat)
       }
       assertLiveReply(item, result.reply)
     } catch (error) {

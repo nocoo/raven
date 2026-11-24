@@ -118,7 +118,8 @@ globalThis.fetch = Object.assign(async (input: string | URL | Request, init?: Re
 }, { preconnect: nativeFetch.preconnect }) as typeof fetch
 
 const portReservation = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() })
-const port = portReservation.port!
+const port = portReservation.port
+if (port === undefined) throw new Error("Failed to reserve ephemeral dashboard port")
 portReservation.stop(true)
 const dashboardUrl = `http://127.0.0.1:${port}`
 allowed.add(dashboardUrl)

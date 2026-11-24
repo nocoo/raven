@@ -17,7 +17,7 @@ export function parseSystemoneJson(text: string): SystemonePayload {
     parse(text: string, reviver: (key: string, value: unknown, context: { source?: string }) => unknown): unknown
   }
   return json.parse(text, (_key: string, value: unknown, context: { source?: string }) =>
-    typeof value === "number" ? json.rawJSON(context.source!) : value) as SystemonePayload
+    typeof value === "number" && context.source !== undefined ? json.rawJSON(context.source) : value) as SystemonePayload
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

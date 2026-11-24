@@ -30,9 +30,10 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
   payload: Req,
 ): Promise<Response> {
   const controller = new AbortController()
+  const signal = AbortSignal.any([controller.signal, c.req.raw.signal, ...(ctx.signal ? [ctx.signal] : [])])
   ctx = {
     ...ctx,
-    signal: AbortSignal.any([controller.signal, c.req.raw.signal, ...(ctx.signal ? [ctx.signal] : [])]),
+    signal,
   }
   let upstreamReq: UpReq
   try {
@@ -44,11 +45,11 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
 
   let dispatched: DispatchResult<UpResp, Ch>
   try {
-    throwIfAborted(ctx.signal!)
+    throwIfAborted(signal)
     dispatched = await strategy.dispatch(upstreamReq, ctx)
-    if (dispatched.kind === "json") throwIfAborted(ctx.signal!)
+    if (dispatched.kind === "json") throwIfAborted(signal)
   } catch (err) {
-    const error = normalizeRequestError(err, ctx.signal)
+    const error = normalizeRequestError(err, signal)
     emitErrorEnd(ctx, strategy, upstreamReq, error, { stream: ctx.stream })
     throw error
   }
@@ -71,12 +72,13 @@ export async function execute<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessag
     return response
   }
 
-  return runStream(c, ctx, strategy, upstreamReq, dispatched.chunks, controller)
+  return runStream(c, ctx, signal, strategy, upstreamReq, dispatched.chunks, controller)
 }
 
 function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   c: Context,
   ctx: RequestContext,
+  signal: AbortSignal,
   strategy: Strategy<Req, UpReq, UpResp, Resp, Ch, Ev, St>,
   upstreamReq: UpReq,
   chunks: AsyncIterable<Ch>,
@@ -88,7 +90,6 @@ function runStream<Req, UpReq, UpResp, Resp, Ch, Ev extends SSEMessage, St>(
   let completed = false
 
   return streamSSE(c, async (sseStream) => {
-    const signal = ctx.signal!
     sseStream.onAbort(() => controller.abort())
     const onAbort = () => sseStream.abort()
     signal.addEventListener("abort", onAbort, { once: true })

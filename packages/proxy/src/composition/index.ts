@@ -113,12 +113,12 @@ export async function dispatch(
     }
     const intercept = serverTools?.serverToolContext.hasServerSideTools
       && state.stWebSearchEnabled && state.stWebSearchApiKey !== null
-    if (protocol === "openai" && state.optToolCallDebug && (payload as ChatCompletionsPayload).tools) {
-      const tools = (payload as ChatCompletionsPayload).tools!
+    const chatTools = protocol === "openai" && state.optToolCallDebug ? (payload as ChatCompletionsPayload).tools : undefined
+    if (chatTools) {
       logEmitter.emitLog({
         ts: Date.now(), level: "debug", type: "request_start", requestId: ctx.requestId,
-        msg: `tool definitions: ${tools.length}`,
-        data: { toolDefinitions: tools.map((tool) => tool.function.name), toolDefinitionCount: tools.length },
+        msg: `tool definitions: ${chatTools.length}`,
+        data: { toolDefinitions: chatTools.map((tool) => tool.function.name), toolDefinitionCount: chatTools.length },
       })
     }
     await checkRateLimit(state)

@@ -107,13 +107,13 @@ function useStats(events: LogEvent[]) {
     // TTFT — only from entries that have it (streaming requests)
     const withTtft = ends.filter((e) => e.ttftMs !== null);
     const avgTtft = withTtft.length > 0
-      ? withTtft.reduce((s, e) => s + e.ttftMs!, 0) / withTtft.length
+      ? withTtft.reduce((s, e) => s + (e.ttftMs ?? 0), 0) / withTtft.length
       : 0;
 
     // Processing — only from entries that have it
     const withProcessing = ends.filter((e) => e.processingMs !== null);
     const avgProcessing = withProcessing.length > 0
-      ? withProcessing.reduce((s, e) => s + e.processingMs!, 0) / withProcessing.length
+      ? withProcessing.reduce((s, e) => s + (e.processingMs ?? 0), 0) / withProcessing.length
       : 0;
 
     return {

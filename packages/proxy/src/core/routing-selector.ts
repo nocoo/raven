@@ -26,7 +26,9 @@ export function getRoutingChain(rule: RoutingRule | null, now: number): { period
 
 export function selectRoutingTarget(input: RoutingSelectionInput): RoutingSelection {
   if (!input.requested_model.trim()) throw new RoutingError("Model ID is required")
-  const { period_id, targets } = getRoutingChain(input.rule, input.now)
+  const rule = input.rule
+  if (!rule) throw new RoutingError("Client key has no valid routing rule", "routing_configuration_error", 503)
+  const { period_id, targets } = getRoutingChain(rule, input.now)
   const skipped: RoutingSelection["skipped"] = []
   for (const target of targets) {
     const upstream = input.upstreams.find((entry) => entry.id === target.upstream_id)
@@ -45,15 +47,15 @@ export function selectRoutingTarget(input: RoutingSelectionInput): RoutingSelect
     }
     if (!upstream.is_enabled) throw new RoutingError(`Routing target upstream is disabled: ${upstream.id}`, "routing_configuration_error", 503)
     return {
-      rule_id: input.rule!.id,
+      rule_id: rule.id,
       period_id,
-      allow_conversion: input.rule!.allow_conversion,
+      allow_conversion: rule.allow_conversion,
       requested_model: input.requested_model,
       resolved_model: input.requested_model === "auto" ? target.model : input.requested_model,
       upstream: structuredClone(upstream),
       quota: {
-        upstream_id: upstream.id, window_id: upstream.quota === null ? null : status!.window_id,
-        multiplier: upstream.quota === null ? 1 : status!.multiplier, captured_at: input.now,
+        upstream_id: upstream.id, window_id: upstream.quota === null ? null : (status?.window_id ?? null),
+        multiplier: upstream.quota === null ? 1 : (status?.multiplier ?? 1), captured_at: input.now,
       },
       skipped,
     }

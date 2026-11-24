@@ -46,7 +46,8 @@ export function inspectJson(protocol: LiveProtocol, raw: unknown, nativeChat = f
     if (!nativeChat || value.object !== undefined) assert.equal(value.object, "chat.completion")
     const choices = list(value.choices)
     assert.equal(choices.length, 1, "Expected one Chat choice")
-    const choice = choices[0]!
+    const choice = choices[0]
+    if (!choice) throw new Error("Expected one Chat choice")
     const message = wireObject(choice.message)
     assert.equal(message.role, "assistant")
     return { model, usage, text: message.content == null ? "" : string(message.content), tools: list(message.tool_calls ?? []).map((item) => tool(item, protocol)), terminal: string(choice.finish_reason) }
@@ -246,7 +247,8 @@ export function assertLiveReply(item: LiveCase, reply: LiveReply): void {
   assert.equal(reply.terminal, terminal, "Unexpected terminal reason")
   if (item.kind === "tool") {
     assert.equal(reply.tools.length, 1, "Expected exactly one tool call")
-    const call = reply.tools[0]!
+    const call = reply.tools[0]
+    if (!call) throw new Error("Expected exactly one tool call")
     assert.ok(call.id.length > 0, "Missing tool call ID")
     assert.equal(call.name, "echo")
     assert.deepEqual(JSON.parse(call.arguments), { text: item.marker }, "Tool arguments changed")

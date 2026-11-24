@@ -85,7 +85,9 @@ export function createProvider(db: Database, input: CreateProviderInput): Provid
       JSON.stringify([...new Set(data.manual_models ?? [])]), now, now,
     )
     if (quota) saveQuotaPolicy(db, id, quota, now)
-    return getProvider(db, id)!
+    const created = getProvider(db, id)
+    if (!created) throw new Error(`Failed to reload created provider ${id}`)
+    return created
   }).immediate()
 }
 

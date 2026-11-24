@@ -68,15 +68,16 @@ function flushBufferedTools(
   const indices = Object.keys(state.toolCalls)
     .map(Number)
     .sort((a, b) => a - b)
-  const pending = indices.filter((openaiIndex) => state.toolCalls[openaiIndex]!.anthropicBlockIndex < 0)
-  for (const openaiIndex of pending) {
-    const tool = state.toolCalls[openaiIndex]!
+  const pending: NonNullable<AnthropicStreamState["toolCalls"][number]>[] = []
+  for (const openaiIndex of indices) {
+    const tool = state.toolCalls[openaiIndex]
+    if (!tool || tool.anthropicBlockIndex >= 0) continue
     if (!tool.id || !tool.name) {
       throw new Error(`Incomplete tool_use metadata for OpenAI tool index ${openaiIndex}`)
     }
+    pending.push(tool)
   }
-  for (const openaiIndex of pending) {
-    const tool = state.toolCalls[openaiIndex]!
+  for (const tool of pending) {
     if (state.contentBlockOpen) {
       events.push({
         type: "content_block_stop",

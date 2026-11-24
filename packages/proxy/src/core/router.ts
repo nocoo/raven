@@ -43,8 +43,9 @@ export function pickStrategy(input: RouterInput, evidence: readonly NativeProtoc
     if (protocol === "images" && (!Array.isArray(endpoints) || !endpoints.includes(imageEndpoint))) {
       return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: `The selected Copilot model does not declare ${imageEndpoint}. Refresh its model catalog in Upstreams.` }
     }
-    if (declared.length) {
-      target = declared.includes(protocol) ? protocol : declared[0]!
+    const fallbackProtocol = declared[0]
+    if (fallbackProtocol) {
+      target = declared.includes(protocol) ? protocol : fallbackProtocol
     } else {
       if (input.requestedModel === "auto") {
         return { kind: "reject", status: 503, errorType: "copilot_capabilities_unavailable", message: "Copilot model capabilities are unavailable. Refresh its model catalog in Upstreams." }

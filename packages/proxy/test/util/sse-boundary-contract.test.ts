@@ -90,7 +90,7 @@ describe("SSE transport contracts", () => {
   })
 
   test("a long unterminated line round-trips across many chunks", async () => {
-    const payload = "a".repeat(8000) + " 你好"
+    const payload = `${"a".repeat(8000)} 你好`
     const wire = new TextEncoder().encode(`data: ${payload}\n\n`)
     const chunks: Uint8Array[] = []
     for (let i = 0; i < wire.length; i += 97) chunks.push(wire.slice(i, i + 97))

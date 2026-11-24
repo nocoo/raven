@@ -33,7 +33,8 @@ export function ChainEditor({ value, upstreams, conversion, onChange, label }: {
     setDrag(IDLE_DRAG);
   };
   const update = (index: number, target: RoutingTarget) => {
-    identities.current.set(target, targetKey(value[index]!));
+    const previous = value[index];
+    if (previous) identities.current.set(target, targetKey(previous));
     onChange(value.map((current, i) => i === index ? target : current));
   };
   return <section className="space-y-3" aria-label={label}>

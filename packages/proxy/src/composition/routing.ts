@@ -36,7 +36,10 @@ export function resolveRouting(c: Context, ctx: RequestContext, requestedModel: 
 
 export function accountedFetch(c: Context, ctx: RequestContext, protocol: UsageProtocol): typeof fetch {
   const db = c.get("routingDb")
-  const capture = ctx.routing!.quota
+  const capture = ctx.routing?.quota
+  if (!capture) {
+    throw new Error("Missing routing quota capture on accounted request context")
+  }
   return observeModelFetch(protocol, ({ attempt_ordinal, usage }) => {
     const settlement = settleQuota(db, { request_id: ctx.requestId, attempt_ordinal, capture, usage })
     if (settlement.error) logEmitter.emitLog({

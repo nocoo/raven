@@ -262,8 +262,7 @@ function translateAnthropicMessagesToOpenAI(
   // Tracks tool_use IDs from the most recent assistant message, in order.
   let pendingToolCallIds: string[] = []
 
-  for (let i = 0; i < anthropicMessages.length; i++) {
-    const message = anthropicMessages[i]!
+  for (const message of anthropicMessages) {
     if (message.role === "assistant") {
       pendingToolCallIds = appendAssistantMessage(message, result)
     } else {
@@ -304,9 +303,7 @@ function appendUserMessage(
       // filter unsupported, push tool messages directly, lazily collect non-tool-result blocks.
       // Tool results must come first to maintain protocol: tool_use -> tool_result -> user.
       let otherBlocks: AnthropicUserContentBlock[] | null = null
-      const content = message.content
-      for (let i = 0; i < content.length; i++) {
-        const block = content[i]!
+      for (const block of message.content) {
         if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
         stripBlockMetadata(block as unknown as Record<string, unknown>)
         if (block.type === "tool_result") {
@@ -340,8 +337,7 @@ function appendUserMessage(
     const filteredContent = filterContentBlocks(message.content)
     let toolResultBlocks: AnthropicToolResultBlock[] = []
     const otherBlocks: AnthropicUserContentBlock[] = []
-    for (let i = 0; i < filteredContent.length; i++) {
-      const block = filteredContent[i]!
+    for (const block of filteredContent) {
       if (block.type === "tool_result") {
         toolResultBlocks.push(block as AnthropicToolResultBlock)
       } else {
@@ -365,8 +361,7 @@ function appendUserMessage(
       })
     }
 
-    for (let i = 0; i < toolResultBlocks.length; i++) {
-      const block = toolResultBlocks[i]!
+    for (const block of toolResultBlocks) {
       out.push({
         role: "tool",
         content: mapContent(block.content),
@@ -421,9 +416,7 @@ function appendAssistantMessage(
   const thinkingParts: string[] = []
   let kept = 0
 
-  const content = message.content
-  for (let i = 0; i < content.length; i++) {
-    const block = content[i]!
+  for (const block of message.content) {
     if (UNSUPPORTED_CONTENT_TYPES.has(block.type)) continue
     stripBlockMetadata(block as unknown as Record<string, unknown>)
     kept++
@@ -452,19 +445,18 @@ function appendAssistantMessage(
   let allTextContent: string | null = null
   if (textParts.length > 0) {
     if (thinkingParts.length === 0) {
-      allTextContent = textParts.length === 1 ? textParts[0]! : textParts.join("\n\n")
+      allTextContent = textParts.length === 1 ? (textParts[0] ?? null) : textParts.join("\n\n")
     } else {
       allTextContent = textParts.concat(thinkingParts).join("\n\n")
     }
   } else if (thinkingParts.length > 0) {
-    allTextContent = thinkingParts.length === 1 ? thinkingParts[0]! : thinkingParts.join("\n\n")
+    allTextContent = thinkingParts.length === 1 ? (thinkingParts[0] ?? null) : thinkingParts.join("\n\n")
   }
 
   if (toolUseBlocks.length > 0) {
     const ids: string[] = new Array(toolUseBlocks.length)
     const toolCalls = new Array(toolUseBlocks.length)
-    for (let i = 0; i < toolUseBlocks.length; i++) {
-      const toolUse = toolUseBlocks[i]!
+    for (const [i, toolUse] of toolUseBlocks.entries()) {
       ids[i] = toolUse.id
       toolCalls[i] = {
         id: toolUse.id,
@@ -487,7 +479,7 @@ function appendAssistantMessage(
 
   out.push({
     role: "assistant",
-    content: mapContent(content),
+    content: mapContent(message.content),
     name: null,
     tool_calls: null,
     tool_call_id: null,
@@ -511,8 +503,7 @@ function mapContent(
   let hasImage = false
   const textParts: string[] = []
 
-  for (let i = 0; i < content.length; i++) {
-    const block = content[i]!
+  for (const block of content) {
     switch (block.type) {
       case "image":
         hasImage = true
@@ -529,14 +520,13 @@ function mapContent(
   // Fast path: no images, just join text
   if (!hasImage) {
     if (textParts.length === 0) return null
-    if (textParts.length === 1) return textParts[0]!
+    if (textParts.length === 1) return textParts[0] ?? null
     return textParts.join("\n\n")
   }
 
   // Slow path with images: build ContentPart array
   const contentParts: Array<ContentPart> = []
-  for (let i = 0; i < content.length; i++) {
-    const block = content[i]!
+  for (const block of content) {
     switch (block.type) {
       case "text": {
         contentParts.push({ type: "text", text: block.text })
@@ -568,8 +558,7 @@ function translateAnthropicToolsToOpenAI(
   }
 
   const result: Array<Tool> = new Array(anthropicTools.length)
-  for (let i = 0; i < anthropicTools.length; i++) {
-    const tool = anthropicTools[i]!
+  for (const [i, tool] of anthropicTools.entries()) {
     sanitizeSingleToolDefinition(tool)
     result[i] = {
       type: "function",
@@ -629,8 +618,7 @@ export function translateToAnthropic(
     choices[0]?.finish_reason ?? null
 
   // Process all choices to extract text and tool use blocks
-  for (let i = 0; i < choices.length; i++) {
-    const choice = choices[i]!
+  for (const choice of choices) {
     appendAnthropicTextBlocks(choice.message.content, allTextBlocks)
     if (typeof choice.message.refusal === "string" && choice.message.refusal.length > 0) {
       allTextBlocks.push({ type: "text", text: choice.message.refusal })
@@ -654,7 +642,7 @@ export function translateToAnthropic(
     content = allToolUseBlocks
   } else {
     content = allTextBlocks
-    for (let i = 0; i < allToolUseBlocks.length; i++) content.push(allToolUseBlocks[i]!)
+    for (const toolUse of allToolUseBlocks) content.push(toolUse)
   }
 
   const usage = response.usage
@@ -689,8 +677,7 @@ function appendAnthropicTextBlocks(
     return
   }
   if (Array.isArray(messageContent)) {
-    for (let i = 0; i < messageContent.length; i++) {
-      const part = messageContent[i]!
+    for (const part of messageContent) {
       if (part.type === "text") out.push({ type: "text", text: part.text })
     }
   }
@@ -701,8 +688,7 @@ function appendAnthropicToolUseBlocks(
   out: Array<AnthropicToolUseBlock>,
 ): void {
   if (!toolCalls) return
-  for (let i = 0; i < toolCalls.length; i++) {
-    const toolCall = toolCalls[i]!
+  for (const toolCall of toolCalls) {
     out.push({
       type: "tool_use",
       id: toolCall.id,

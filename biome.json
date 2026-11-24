@@ -39,7 +39,7 @@
 				"useUnifiedTypeSignatures": "error",
 				"noNamespace": "error",
 				"noInferrableTypes": "error",
-				"noNonNullAssertion": "off"
+				"noNonNullAssertion": "error"
 			},
 			"suspicious": {
 				"noExplicitAny": "error",
@@ -114,12 +114,19 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/*.test.ts", "**/*.test.tsx", "**/test/**"],
+			"includes": [
+				"**/*.test.ts",
+				"**/*.test.tsx",
+				"**/test/**",
+				"**/__tests__/**",
+				"**/e2e/**",
+				"**/*.spec.ts",
+				"**/*.spec.tsx"
+			],
 			"linter": {
 				"rules": {
 					"correctness": {
 						"noComponentHookFactories": "off",
-						"noPlaywrightMissingAwait": "off",
 						"usePlaywrightValidDescribeCallback": "off"
 					},
 					"suspicious": {
@@ -127,7 +134,8 @@
 						"noEmptyBlockStatements": "off"
 					},
 					"style": {
-						"useImportType": "off"
+						"useImportType": "off",
+						"noNonNullAssertion": "off"
 					}
 				}
 			}

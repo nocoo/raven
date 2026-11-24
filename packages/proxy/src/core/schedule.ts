@@ -26,7 +26,9 @@ export function normalizeIntervals<T extends ScheduleInterval>(mode: ScheduleMod
     return result
   }).sort((a, b) => a.start_minute - b.start_minute)
   for (let index = 1; index < fragments.length; index++) {
-    if (fragments[index]!.start_minute < fragments[index - 1]!.end_minute) {
+    const current = fragments[index]
+    const previous = fragments[index - 1]
+    if (current && previous && current.start_minute < previous.end_minute) {
       throw new RoutingError("Schedule periods overlap")
     }
   }

@@ -43,7 +43,9 @@ export function createRoutingRule(db: Database, input: RoutingRuleInput): Routin
     const now = Date.now()
     db.query(`INSERT INTO routing_rules (id, name, allow_conversion, mode, default_chain, periods, is_builtin, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`).run(id, rule.name, rule.allow_conversion ? 1 : 0, rule.mode, JSON.stringify(rule.default_chain), JSON.stringify(rule.periods), now, now)
-    return getRoutingRule(db, id)!
+    const created = getRoutingRule(db, id)
+    if (!created) throw new Error(`Failed to reload created routing rule ${id}`)
+    return created
   }).immediate()
 }
 

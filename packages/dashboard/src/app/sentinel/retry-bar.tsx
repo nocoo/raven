@@ -41,8 +41,9 @@ function StackTooltip({
   active?: boolean;
   payload?: StackTooltipPayload[];
 }) {
-  if (!active || !payload?.length) return null;
-  const total = payload[0]!.payload._total;
+  const first = payload?.[0];
+  if (!active || !first) return null;
+  const total = first.payload._total;
   return (
     <ChartTooltip title="LLM-401 outcomes">
       {payload

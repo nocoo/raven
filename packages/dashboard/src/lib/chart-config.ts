@@ -48,10 +48,10 @@ const chartMuted = v("chart-muted");
  */
 export const CHART_COLORS = {
   palette: PALETTE_COLORS,
-  primary: PALETTE_COLORS[0]!,   // slate-blue
-  success: PALETTE_COLORS[4]!,   // green
-  warning: PALETTE_COLORS[6]!,   // amber
-  danger: PALETTE_COLORS[9]!,    // red
+  primary: chart.blue,
+  success: chart.green,
+  warning: chart.amber,
+  danger: chart.red,
   muted: chartMuted,
 } as const;
 
@@ -59,7 +59,7 @@ export const CHART_COLORS = {
  * Get color from palette by index (wraps around)
  */
 export function getChartColor(index: number): string {
-  return PALETTE_COLORS[index % PALETTE_COLORS.length]!;
+  return PALETTE_COLORS[index % PALETTE_COLORS.length] ?? chart.blue;
 }
 
 /**

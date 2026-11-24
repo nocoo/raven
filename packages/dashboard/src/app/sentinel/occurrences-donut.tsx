@@ -33,8 +33,8 @@ function SliceTooltip({
   active?: boolean;
   payload?: SliceTooltipPayload[];
 }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0]!;
+  const p = payload?.[0];
+  if (!active || !p) return null;
   const total = p.payload._total;
   const pct = computePercent(p.value, total);
   return (

@@ -121,4 +121,17 @@ describe("routing accounting admission", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1)
     expect(fixture.db.query("SELECT COUNT(*) AS count FROM quota_settlements").get()).toEqual({ count: 1 })
   })
+
+  test("accountedFetch fails closed when routing quota capture is missing", async () => {
+    const app = new Hono().get("/missing", (c) => {
+      c.set("routingDb", fixture.db)
+      const ctx = buildContext(c, "openai")
+      expect(() => accountedFetch(c, ctx, "openai")).toThrow(
+        "Missing routing quota capture on accounted request context",
+      )
+      return c.json({ ok: true })
+    })
+    const response = await app.request("/missing")
+    expect(response.status).toBe(200)
+  })
 })

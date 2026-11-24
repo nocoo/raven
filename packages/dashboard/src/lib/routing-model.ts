@@ -55,7 +55,8 @@ export function modelIds(upstream: ProviderPublic | undefined): string[] {
 export function moveItem<T>(items: T[], from: number, to: number): T[] {
   if (![from, to].every(index => Number.isInteger(index) && index >= 0 && index < items.length) || from === to) return items;
   const result = [...items];
-  result.splice(to, 0, result.splice(from, 1)[0]!);
+  const [moved] = result.splice(from, 1);
+  if (moved !== undefined) result.splice(to, 0, moved);
   return result;
 }
 export interface DragState { source: number | null; over: number | null }
@@ -103,7 +104,7 @@ export function previewChain(chain: RoutingTarget[], upstreams: ProviderPublic[]
     if (upstream.quota && upstream.quota_status.remaining_tokens === null) {
       labels.push("Quota state unavailable"); stopped = true; continue;
     }
-    if (upstream.quota && upstream.quota_status.remaining_tokens! <= 0) {
+    if (upstream.quota && (upstream.quota_status.remaining_tokens ?? 0) <= 0) {
       labels.push("Exhausted · skip"); continue;
     }
     if (!upstream.is_enabled) { labels.push("Disabled · request stops"); stopped = true; continue; }

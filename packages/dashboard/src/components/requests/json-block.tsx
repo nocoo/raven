@@ -45,12 +45,15 @@ export function tokenizeJson(input: string): JsonToken[] {
     return input.slice(start, i);
   };
 
+  const charAt = (pos: number) => input[pos] ?? "";
+
   while (i < n) {
-    const ch = input[i]!;
+    const ch = input[i];
+    if (ch === undefined) break;
 
     if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") {
       const start = i;
-      while (i < n && /\s/.test(input[i]!)) i++;
+      while (i < n && /\s/.test(charAt(i))) i++;
       tokens.push({ kind: "whitespace", text: input.slice(start, i) });
       continue;
     }
@@ -59,7 +62,7 @@ export function tokenizeJson(input: string): JsonToken[] {
       const text = readString();
       // Look ahead past whitespace for a colon: if present, this is an object key.
       let j = i;
-      while (j < n && /\s/.test(input[j]!)) j++;
+      while (j < n && /\s/.test(charAt(j))) j++;
       const isKey = input[j] === ":";
       tokens.push({ kind: isKey ? "key" : "string", text });
       continue;
@@ -68,7 +71,7 @@ export function tokenizeJson(input: string): JsonToken[] {
     if (ch === "-" || (ch >= "0" && ch <= "9")) {
       const start = i;
       if (ch === "-") i++;
-      while (i < n && /[0-9.eE+-]/.test(input[i]!)) i++;
+      while (i < n && /[0-9.eE+-]/.test(charAt(i))) i++;
       tokens.push({ kind: "number", text: input.slice(start, i) });
       continue;
     }

@@ -41,8 +41,8 @@ export function pickSupportedEffort(
 
   // Search from requested effort downward (lower priority = more likely to be supported)
   for (let i = requestedIndex; i < EFFORT_PRIORITY.length; i++) {
-    const effort = EFFORT_PRIORITY[i]!
-    if (supportedSet.has(effort)) {
+    const effort = EFFORT_PRIORITY[i]
+    if (effort && supportedSet.has(effort)) {
       return effort
     }
   }

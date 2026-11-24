@@ -261,13 +261,14 @@ export function createSocks5SettingsRoute(db: Database): Hono {
         clientSocket.once("data", async (buf) => {
           const request = buf.toString();
           const match = request.match(/^CONNECT\s+([^:\s]+):(\d+)\s+HTTP\/\d\.\d/);
-          if (!match) {
+          const targetHost = match?.[1];
+          const targetPortText = match?.[2];
+          if (!targetHost || !targetPortText) {
             clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
             clientSocket.destroy();
             return;
           }
-          const targetHost = match[1]!;
-          const targetPort = Number.parseInt(match[2]!, 10);
+          const targetPort = Number.parseInt(targetPortText, 10);
           try {
             const { socket: socksSocket } = await SocksClient.createConnection({
               proxy: {

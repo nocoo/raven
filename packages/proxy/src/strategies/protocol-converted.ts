@@ -142,6 +142,13 @@ function modelOf(body: ConvertedBody): string {
   return body.model
 }
 
+function requireStreamState<T>(value: T | undefined, label: string): T {
+  if (!value) {
+    throw new Error(`Missing protocol-converted ${label} stream state`)
+  }
+  return value
+}
+
 export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
   ConvertedBody,
   ConvertedBody,
@@ -226,33 +233,36 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
         case "responses-passthrough":
           return adaptPassthrough(chunk, state)
         case "messages-to-responses":
-          return adaptResponsesEventToAnthropicSse(chunk, state.messages!)
+          return adaptResponsesEventToAnthropicSse(chunk, requireStreamState(state.messages, "messages"))
         case "chat-to-responses":
-          return adaptResponsesEventToChatChunks(chunk, state.chat!)
+          return adaptResponsesEventToChatChunks(chunk, requireStreamState(state.chat, "chat"))
         case "chat-to-messages":
         case "responses-to-messages": {
           const event = typeof chunk.data === "string" ? parseAnthropicSseData(chunk.data) : null
           if (!event) return []
+          const anthropic = requireStreamState(state.anthropic, "anthropic")
           state.terminalSeen ||= event.type === "message_stop"
-          const chatEvents = adaptAnthropicEventToChatSse(event, state.anthropic!)
-          state.inlineFailed = state.anthropic!.inlineFailed
+          const chatEvents = adaptAnthropicEventToChatSse(event, anthropic)
+          state.inlineFailed = anthropic.inlineFailed
           if (kind === "chat-to-messages") return chatEvents
+          const responses = requireStreamState(state.responses, "responses")
           const out: SSEMessage[] = []
           for (const chatEvent of chatEvents) {
             const parsed = typeof chatEvent.data === "string" ? parseChatChunk(chatEvent.data) : null
             if (!parsed) continue
-            out.push(...adaptChatChunkToResponsesSse(parsed, state.responses!))
+            out.push(...adaptChatChunkToResponsesSse(parsed, responses))
           }
-          state.inlineFailed ||= state.responses!.inlineFailed
+          state.inlineFailed ||= responses.inlineFailed
           return out
         }
         case "responses-to-chat": {
-          if (chunk.data === "[DONE]") return finalizeChatToResponsesStream(state.responses!)
+          const responses = requireStreamState(state.responses, "responses")
+          if (chunk.data === "[DONE]") return finalizeChatToResponsesStream(responses)
           const parsed = typeof chunk.data === "string" ? parseChatChunk(chunk.data) : null
           if (!parsed) return []
-          const events = adaptChatChunkToResponsesSse(parsed, state.responses!)
-          state.inlineFailed = state.responses!.inlineFailed
-          state.terminalSeen = state.responses!.done
+          const events = adaptChatChunkToResponsesSse(parsed, responses)
+          state.inlineFailed = responses.inlineFailed
+          state.terminalSeen = responses.done
           return events
         }
       }
@@ -263,8 +273,8 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
         : "success",
     isStreamTerminal: (chunk, state) => {
       switch (kind) {
-        case "messages-to-responses": return state.messages!.chat.done
-        case "chat-to-responses": return state.chat!.done
+        case "messages-to-responses": return requireStreamState(state.messages, "messages").chat.done
+        case "chat-to-responses": return requireStreamState(state.chat, "chat").done
         case "responses-to-chat": return chunk.data === "[DONE]"
         default: return state.terminalSeen
       }
@@ -276,24 +286,26 @@ export function makeProtocolConverted(deps: ProtocolConvertedDeps): Strategy<
           if (!state.terminalSeen) throw new Error("Truncated stream: terminal response event was not received")
           return []
         case "messages-to-responses":
-          return finalizeMessagesViaResponsesStream(state.messages!)
+          return finalizeMessagesViaResponsesStream(requireStreamState(state.messages, "messages"))
         case "chat-to-responses":
-          if (!state.chat!.done) throw new Error("Truncated stream: terminal response event was not received")
+          if (!requireStreamState(state.chat, "chat").done) throw new Error("Truncated stream: terminal response event was not received")
           return []
         case "chat-to-messages":
-          return finalizeAnthropicToChatStream(state.anthropic!, deps.includeUsage ?? false)
+          return finalizeAnthropicToChatStream(requireStreamState(state.anthropic, "anthropic"), deps.includeUsage ?? false)
         case "responses-to-chat":
-          return finalizeChatToResponsesStream(state.responses!)
+          return finalizeChatToResponsesStream(requireStreamState(state.responses, "responses"))
         case "responses-to-messages": {
-          if (state.anthropic!.inlineFailed || state.responses!.inlineFailed) return []
-          const tail = finalizeAnthropicToChatStream(state.anthropic!)
+          const anthropic = requireStreamState(state.anthropic, "anthropic")
+          const responses = requireStreamState(state.responses, "responses")
+          if (anthropic.inlineFailed || responses.inlineFailed) return []
+          const tail = finalizeAnthropicToChatStream(anthropic)
           const out: SSEMessage[] = []
           for (const chatEvent of tail) {
             const parsed = typeof chatEvent.data === "string" ? parseChatChunk(chatEvent.data) : null
             if (!parsed) continue
-            out.push(...adaptChatChunkToResponsesSse(parsed, state.responses!))
+            out.push(...adaptChatChunkToResponsesSse(parsed, responses))
           }
-          out.push(...finalizeChatToResponsesStream(state.responses!))
+          out.push(...finalizeChatToResponsesStream(responses))
           return out
         }
       }

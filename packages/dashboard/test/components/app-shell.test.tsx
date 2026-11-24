@@ -139,6 +139,7 @@ describe("site-wide navigation and page frame", () => {
     expect(trail.getByText("Home")).toBeVisible();
     expect(trail.getByText(group!)).toBeVisible();
     const frame = container.querySelector(".dashboard-page");
+    // biome-ignore lint/correctness/noPlaywrightMissingAwait: jest-dom toHaveClass is synchronous, not a Playwright locator matcher
     expect(frame).toHaveClass("w-full", "@container/page");
     expect(frame?.className).not.toMatch(/max-w-/);
   });

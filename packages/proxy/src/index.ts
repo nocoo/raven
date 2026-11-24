@@ -93,7 +93,10 @@ if (state.socks5Enabled) {
 
 // 4. GitHub OAuth (loads from disk or runs device flow)
 await setupGitHubToken()
-const githubToken = state.githubToken!
+const githubToken = state.githubToken
+if (!githubToken) {
+  throw new Error("GitHub token missing after setupGitHubToken()")
+}
 logger.info("GitHub token loaded")
 
 // 5. Copilot JWT (initial fetch + auto-refresh via setInterval)

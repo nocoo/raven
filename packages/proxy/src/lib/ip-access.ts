@@ -8,8 +8,8 @@ export function normalizeIP(value: string | null): string | null {
   const canonical = new URL(`http://[${value}]`).hostname.slice(1, -1);
   if (!/^::ffff:[0-9a-f]+:[0-9a-f]+$/.test(canonical)) return canonical;
   const parts = canonical.slice(7).split(":").map(part => Number.parseInt(part, 16));
-  const high = parts[0]!;
-  const low = parts[1]!;
+  const [high, low] = parts;
+  if (high === undefined || low === undefined) return canonical;
   return `${high >>> 8}.${high & 255}.${low >>> 8}.${low & 255}`;
 }
 
@@ -24,17 +24,19 @@ export function parseRules(input: unknown): IPRule[] {
   return [...new Set((input as string[]).map(value => value.trim()))].map(original => {
     const block = new BlockList();
     const parts = original.split(original.includes("/") ? "/" : "-");
-    const address = normalizeIP(parts[0]!.trim());
+    const [rawHead = "", rawTail = ""] = parts;
+    const head = rawHead.trim();
+    const address = normalizeIP(head);
     if (!address || parts.length > 2) throw new Error(`Invalid IP rule: ${original}`);
     const family = isIP(address) as 4 | 6;
     const type = family === 4 ? "ipv4" : "ipv6";
     if (original.includes("/")) {
-      if (!/^\d+$/.test(parts[1]!)) throw new Error(`Invalid prefix: ${original}`);
-      let prefix = Number(parts[1]);
-      if (isIP(parts[0]!.trim()) === 6 && family === 4) prefix -= 96;
+      if (!/^\d+$/.test(rawTail)) throw new Error(`Invalid prefix: ${original}`);
+      let prefix = Number(rawTail);
+      if (isIP(head) === 6 && family === 4) prefix -= 96;
       block.addSubnet(address, prefix, type);
     } else if (parts.length === 2) {
-      const end = normalizeIP(parts[1]!.trim());
+      const end = normalizeIP(rawTail.trim());
       if (!end || isIP(end) !== family) throw new Error(`Invalid IP range: ${original}`);
       block.addRange(address, end, type);
     } else {
@@ -60,7 +62,10 @@ export function resolveClientIP(headers: Headers, peer: string | null, trusted: 
   const chain = forwarded.split(",").map(value => normalizeIP(value.trim()));
   if (chain.length > 32 || chain.some(value => !value)) return { ip: null, source: "unknown" };
   let candidate = ip;
-  for (let index = chain.length - 1; index >= 0 && allowsIP(true, trusted, candidate); index--) candidate = chain[index]!;
+  for (let index = chain.length - 1; index >= 0 && allowsIP(true, trusted, candidate); index--) {
+    const entry = chain[index];
+    if (entry) candidate = entry;
+  }
   return { ip: candidate, source: "forwarded" };
 }
 

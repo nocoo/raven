@@ -103,7 +103,7 @@ function collect(node: OxcNode | null | undefined, path: string, src: string, ou
         path,
         line,
         col: col + 1,
-        snippet: src.slice(startPos, endPos).split("\n")[0]!.trim(),
+        snippet: (src.slice(startPos, endPos).split("\n")[0] ?? "").trim(),
       })
     }
   }

@@ -691,14 +691,15 @@ export function bootstrap(opts: BootstrapOptions): SentinelHandle {
   state.copilotApiBaseUrl = opts.apiBaseUrl ?? null
   noteSuccess(opts.refreshInSeconds)
 
-  sentinelState = {
+  const initialState: SentinelState = {
     mode: "steady",
     remainingProbeTicks: 0,
   }
+  sentinelState = initialState
   activeTimers = timers
 
   pendingTimeoutHandle = timers.setTimeout(() => {
-    return sentinelTick(sentinelState!, timers)
+    return sentinelTick(initialState, timers)
   }, currentSteadyIntervalMs()) as ReturnType<TimerFactory["setTimeout"]>
 
   return {

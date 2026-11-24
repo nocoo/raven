@@ -43,7 +43,7 @@ export function IPDistribution({ data }: { data: MonitorData }) {
           const series = activity.series.map((item, index) => ({
             key: item.key,
             label: item.label || "Unknown / historical",
-            color: CHART_COLORS[index % CHART_COLORS.length]!,
+            color: CHART_COLORS[index % CHART_COLORS.length] ?? "#4f46e5",
           }));
           return (
             <ChartFrame

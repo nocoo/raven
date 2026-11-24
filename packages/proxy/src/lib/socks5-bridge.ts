@@ -70,8 +70,14 @@ export async function startBridge(
         return;
       }
 
-      const targetHost = match[1]!;
-      const targetPort = Number.parseInt(match[2]!, 10);
+      const targetHost = match[1]
+      const targetPortText = match[2]
+      if (!targetHost || !targetPortText) {
+        clientSocket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+        clientSocket.destroy();
+        return;
+      }
+      const targetPort = Number.parseInt(targetPortText, 10);
 
       try {
         const { socket: socksSocket } = await SocksClient.createConnection({

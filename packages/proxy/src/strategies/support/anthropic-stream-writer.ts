@@ -51,8 +51,7 @@ export function streamAnthropicResponse(c: Context, resp: AnthropicResponse, onE
         }),
       })
 
-      for (let i = 0; i < resp.content.length; i++) {
-        const block = resp.content[i]!
+      for (const [i, block] of resp.content.entries()) {
 
         if (block.type === "server_tool_use") {
           await write({

@@ -56,7 +56,9 @@ export function toUtcWindows<T>(windows: LocalWindow<T>[], mode: ScheduleMode, o
   }
   result.sort((a, b) => a.start_minute - b.start_minute);
   for (let i = 1; i < result.length; i++) {
-    if (result[i]!.start_minute < result[i - 1]!.end_minute) {
+    const current = result[i];
+    const previous = result[i - 1];
+    if (current && previous && current.start_minute < previous.end_minute) {
       throw new Error("Periods overlap, including an overnight tail. Adjust the highlighted day's times before saving.");
     }
   }
@@ -75,9 +77,10 @@ export function toLocalWindows<T>(windows: UtcWindow<T>[], mode: ScheduleMode, o
   return Array.from(groups, ([id, fragments]) => {
     const pieces = [...fragments].sort((a, b) => a.start_minute - b.start_minute);
     const first = pieces.find((piece, index) => {
-      const previous = pieces[wrap(index - 1, pieces.length)]!;
-      return wrap(previous.end_minute, cycle) !== piece.start_minute;
-    }) ?? pieces[0]!;
+      const previous = pieces[wrap(index - 1, pieces.length)];
+      return previous ? wrap(previous.end_minute, cycle) !== piece.start_minute : false;
+    }) ?? pieces[0];
+    if (!first) throw new Error("Empty schedule window group");
     const duration = pieces.reduce((sum, piece) => sum + piece.end_minute - piece.start_minute, 0);
     const start = cycle === DAY && duration === DAY ? 0 : wrap(first.start_minute - offset, cycle);
     return { id, day: Math.floor(start / DAY), start: start % DAY, end: start % DAY + duration, value: first.value };

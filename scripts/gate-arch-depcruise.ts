@@ -111,14 +111,14 @@ process.stdout.write(output)
 if (proc.status !== 0) process.exit(proc.status ?? 1)
 
 const match = output.match(/\((\d+) modules,\s*(\d+) dependencies cruised\)/)
-if (!match) {
+if (!match?.[1] || !match[2]) {
   console.error(
     "✗ depcruise output missing modules/dependencies summary — reporter format may have changed.",
   )
   process.exit(1)
 }
-const modules = Number.parseInt(match[1]!, 10)
-const deps = Number.parseInt(match[2]!, 10)
+const modules = Number.parseInt(match[1], 10)
+const deps = Number.parseInt(match[2], 10)
 if (modules === 0 || deps === 0) {
   console.error(
     `✗ depcruise cruised ${modules} modules / ${deps} dependencies.\n` +

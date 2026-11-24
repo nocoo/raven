@@ -19,7 +19,8 @@ export function groupEvents(events: LogEvent[]): EventGroup[] {
   const requestMap = new Map<string, number>();
 
   for (let i = 0; i < events.length; i++) {
-    const event = events[i]!;
+    const event = events[i];
+    if (!event) continue;
     if (!event.requestId) {
       // System events have no requestId. `_seq` (client-assigned by
       // useLogStream) is the stable id — falls back to `ts-i` only in
@@ -28,8 +29,9 @@ export function groupEvents(events: LogEvent[]): EventGroup[] {
       groups.push({ key: `sys-${seq}`, events: [event] });
     } else {
       const existing = requestMap.get(event.requestId);
-      if (existing !== undefined) {
-        groups[existing]!.events.push(event);
+      const existingGroup = existing !== undefined ? groups[existing] : undefined;
+      if (existingGroup) {
+        existingGroup.events.push(event);
       } else {
         requestMap.set(event.requestId, groups.length);
         groups.push({ key: event.requestId, events: [event] });

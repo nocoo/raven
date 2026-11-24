@@ -509,7 +509,7 @@ export function queryBreakdown(
     let idx = 0;
     adjustedWhere = whereStr.replace(/\?/g, () => {
       const key = `$_bd${idx}`;
-      namedBindings[key] = filterBindings[idx]!;
+      namedBindings[key] = filterBindings[idx] ?? null;
       idx++;
       return key;
     });
@@ -673,7 +673,7 @@ export function queryPercentiles(
     let idx = 0;
     adjustedWhere = fullWhere.replace(/\?/g, () => {
       const key = `$_pc${idx}`;
-      namedBindings[key] = bindings[idx]!;
+      namedBindings[key] = bindings[idx] ?? null;
       idx++;
       return key;
     });
@@ -694,8 +694,8 @@ export function queryPercentiles(
     p90: percentile(vals, 0.90),
     p95: percentile(vals, 0.95),
     p99: percentile(vals, 0.99),
-    min: vals[0]!,
-    max: vals[vals.length - 1]!,
+    min: vals[0] ?? 0,
+    max: vals[vals.length - 1] ?? 0,
     count: vals.length,
   };
 }
@@ -721,8 +721,8 @@ function intervalToMs(interval: string): number {
 
 function rangeToMs(range: string): number {
   const match = /^(\d+)(h|d|m)$/.exec(range);
-  if (!match) return 86400_000; // default 24h
-  const value = parseInt(match[1]!, 10);
+  if (!match?.[1]) return 86400_000; // default 24h
+  const value = parseInt(match[1], 10);
   switch (match[2]) {
     case "h":
       return value * 3600_000;
@@ -767,7 +767,7 @@ function bindTimeseriesWhere(
     let idx = 0;
     adjustedWhere = fullWhere.replace(/\?/g, () => {
       const key = `$_ts${idx}`;
-      namedBindings[key] = bindings[idx]!;
+      namedBindings[key] = bindings[idx] ?? null;
       idx++;
       return key;
     });
@@ -886,7 +886,7 @@ export function queryTimeseries(
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
   const idx = Math.ceil(p * sorted.length) - 1;
-  return sorted[Math.max(0, idx)]!;
+  return sorted[Math.max(0, idx)] ?? 0;
 }
 
 // ---------------------------------------------------------------------------
