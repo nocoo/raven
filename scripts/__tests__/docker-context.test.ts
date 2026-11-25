@@ -37,6 +37,6 @@ describe("repository docker build context", () => {
     expect(verifyBuild).toBeGreaterThan(contextCheck);
     expect(routeCheck).toBeGreaterThan(verifyBuild);
     expect(push).toBeGreaterThan(routeCheck);
-    expect(read(".github/workflows/ci.yml")).toContain("bun run gate:docker-context");
+    expect(read(".github/workflows/quality-slots.yml")).toContain("bun run gate:docker-context");
   });
 });

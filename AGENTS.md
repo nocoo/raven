@@ -45,12 +45,12 @@ bun run gate:docker-context  # CI .dockerignore build-input verification
 
 ## Quality & Local Gates
 
-Follows `system1-quality`; hooks, CI, and config enforce this contract (raise weaker enforcement to match, never weaken requirements). CI slot definitions and pinned `base-ci` revision live in `.github/workflows/quality-slots.yml` (`quality / Z1: Gate` required on `main`), alongside `arch` and `docker-context` jobs in `.github/workflows/ci.yml`. Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
+Follows `system1-quality`; hooks, CI, and config enforce this contract (raise weaker enforcement to match, never weaken requirements). CI slot definitions and pinned `base-ci` revision live in `.github/workflows/quality-slots.yml` (`quality / Z1: Gate` required on `main`, including `S2: Lint (Architecture)` and `P1: Package`), and `.github/workflows/ci.yml` delegates directly to it. Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
 
 - **L1 coverage (`enforced`)**: No focused/skipped tests; all 4 metrics >=95% for Proxy, Dashboard (excluding pure View `src/components/**` and `src/app/**/*.tsx`), and `scripts/lib` (`vitest.scripts.config.ts` → `coverage/scripts`).
 - **Proxy baseline (`enforced`)**: `gate:coverage` enforces `docs/20-baseline.json` (>=97.5% line floor, per-dir floors, <=0.1pp regression, no new untested files); never swap for bare Vitest.
 - **Exceptions / gaps**: `L2 Runtime` is `enforced` via in-process route tests (mocked upstream); isolated real-HTTP/SQLite `L3 Integration` and `L4 E2E` are `planned` (CI gated off).
-- **N/A & manual**: `P1 Package` is `N/A` (private monorepo); protocol and baseline doc updates are `manual`. `scripts/verify-routing-ui.ts` covers Routing flows only, not full `L3`/`L4`.
+- **Package & manual**: `P1 Package` (`enforced`) verifies Docker build context (`bun run gate:docker-context`); protocol and baseline doc updates are `manual`. `scripts/verify-routing-ui.ts` covers Routing flows only, not full `L3`/`L4`.
 - **Pre-commit (`.husky/pre-commit`)**: Installed via `bun run prepare`. Runs staged `gitleaks` (`G1`), exports `git checkout-index` temp tree (`trap` cleanup), then `scripts/pre-commit.ts` in parallel (<30s target).
 - **Pre-commit scope**: `gate:coverage`, Dashboard/scripts tests, `typecheck`, index-scoped Biome, and micro-gates (`fetch-boundary`, `dynamic-delete`, `ts-expect-error`); staged manifests must match worktree.
 - **Pre-push (`.husky/pre-push`)**: Parallel `scripts/pre-push.ts` on working files: `gate:security` (`G1`/`G2`, hard-fail if missing), `gate:coverage`, `gate:arch`, full `lint` (<3min target).

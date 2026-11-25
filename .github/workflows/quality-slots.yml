@@ -39,6 +39,20 @@ jobs:
           install-policy: project
       - run: bun run lint
 
+  s2-lint-arch:
+    name: "S2: Lint (Architecture)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+        with:
+          package-manager: bun
+          runtime-version: ${{ env.BUN_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
+          install-policy: blocked
+      - run: bun run gate:arch
+
   s3-workflow:
     name: "S3: Workflow"
     runs-on: ubuntu-latest
@@ -140,10 +154,17 @@ jobs:
 
   p1-package:
     name: "P1: Package"
-    if: ${{ vars.ENABLE_P1_PACKAGE == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - run: echo "N/A - Private monorepo"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+        with:
+          package-manager: bun
+          runtime-version: ${{ env.BUN_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
+          install-policy: blocked
+      - run: bun run gate:docker-context
 
   z1-gate:
     name: "Z1: Gate"
@@ -151,6 +172,7 @@ jobs:
     needs:
       - s1-types
       - s2-lint
+      - s2-lint-arch
       - s3-workflow
       - g1-secrets
       - g2-dependencies
@@ -169,12 +191,14 @@ jobs:
           for r in \
             "${{ needs.s1-types.result }}" \
             "${{ needs.s2-lint.result }}" \
+            "${{ needs.s2-lint-arch.result }}" \
             "${{ needs.s3-workflow.result }}" \
             "${{ needs.g1-secrets.result }}" \
             "${{ needs.g2-dependencies.result }}" \
             "${{ needs.b1-build.result }}" \
             "${{ needs.l1-unit.result }}" \
-            "${{ needs.l2-runtime.result }}"; do
+            "${{ needs.l2-runtime.result }}" \
+            "${{ needs.p1-package.result }}"; do
             if [ "$r" != "success" ]; then
               echo "Required slot failed or was skipped: $r"
               exit 1
@@ -182,8 +206,7 @@ jobs:
           done
           for r in \
             "${{ needs.l3-integration.result }}" \
-            "${{ needs.l4-e2e.result }}" \
-            "${{ needs.p1-package.result }}"; do
+            "${{ needs.l4-e2e.result }}"; do
             if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
               echo "Optional slot failed: $r"
               exit 1
