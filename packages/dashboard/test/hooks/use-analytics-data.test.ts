@@ -267,4 +267,70 @@ describe("useAnalyticsData", () => {
     rerender({ events: moreEvents });
     expect(result.current.data).toEqual({ count: 2 });
   });
+
+  it("falls back to generic message on non-Error rejection", async () => {
+    const historicalFetcher = vi.fn(() => Promise.reject("boom"));
+    const liveTransformer = vi.fn(() => ({ count: 0 }));
+
+    const { result } = renderHook(() =>
+      useAnalyticsData({
+        historicalFetcher,
+        liveTransformer,
+        mode: "historical",
+        filters: baseFilters,
+        events: [],
+        connected: false,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.error).toBe("Fetch failed");
+  });
+
+  it("polls on refetchInterval in historical mode and clears timer on live switch or unmount", async () => {
+    vi.useFakeTimers();
+    try {
+      let count = 0;
+      const historicalFetcher = vi.fn(() => Promise.resolve({ count: ++count }));
+      const liveTransformer = vi.fn(() => ({ count: -1 }));
+
+      const { rerender, unmount } = renderHook(
+        (props: { mode: "historical" | "live" }) =>
+          useAnalyticsData({
+            historicalFetcher,
+            liveTransformer,
+            mode: props.mode,
+            filters: baseFilters,
+            events: mockEvents,
+            connected: true,
+            refetchInterval: 5000,
+          }),
+        { initialProps: { mode: "historical" as "historical" | "live" } },
+      );
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(historicalFetcher).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+        await Promise.resolve();
+      });
+      expect(historicalFetcher).toHaveBeenCalledTimes(2);
+
+      rerender({ mode: "live" });
+      await act(async () => {
+        vi.advanceTimersByTime(10000);
+        await Promise.resolve();
+      });
+      expect(historicalFetcher).toHaveBeenCalledTimes(2);
+
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

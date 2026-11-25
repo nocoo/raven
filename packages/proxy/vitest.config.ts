@@ -1,16 +1,12 @@
-import { defineConfig } from "vitest/config"
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    allowOnly: false,
+    passWithNoTests: false,
     maxWorkers: 4,
-    include: [
-      "test/**/*.test.ts",
-    ],
-    exclude: [
-      "test/e2e/**",
-      "test/perf/**",
-      "node_modules/**",
-    ],
+    include: ["test/**/*.test.ts"],
+    exclude: ["test/e2e/**", "test/perf/**", "node_modules/**"],
     server: {
       deps: {
         // Bun built-in modules — let bun's resolver handle these at runtime.
@@ -41,4 +37,4 @@ export default defineConfig({
       },
     },
   },
-})
+});

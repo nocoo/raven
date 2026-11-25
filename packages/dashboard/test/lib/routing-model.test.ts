@@ -7,6 +7,7 @@ import {
   IDLE_DRAG,
   modelIds,
   moveItem,
+  nativeProtocolRows,
   newRule,
   previewChain,
   ruleDraft,
@@ -197,5 +198,33 @@ describe("cached reachability preview", () => {
       ).warnings[0],
     ).toContain("429");
     expect(previewChain([], []).warnings).toEqual([]);
+  });
+});
+
+describe("nativeProtocolRows", () => {
+  it("returns empty array when upstream is undefined", () => {
+    expect(nativeProtocolRows(undefined, "gpt-5.6-sol")).toEqual([]);
+  });
+
+  it("maps custom upstream format to unverified JSON and SSE entries", () => {
+    expect(nativeProtocolRows(custom, "unlisted")).toEqual([
+      {
+        label: "Chat",
+        modes: [
+          { label: "JSON", status: "Unverified", evidence: undefined },
+          { label: "SSE", status: "Unverified", evidence: undefined },
+        ],
+      },
+    ]);
+  });
+
+  it("includes Copilot declared and verified native protocol rows", () => {
+    const rows = nativeProtocolRows(copilot, "gpt-5.6-sol");
+    const responsesRow = rows.find((row) => row.label === "Responses");
+    expect(responsesRow).toBeDefined();
+    expect(responsesRow?.modes).toHaveLength(2);
+    for (const mode of responsesRow?.modes ?? []) {
+      expect(["Verified text", "Unverified", "Unknown"]).toContain(mode.status);
+    }
   });
 });

@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config"
+import { defineConfig } from "vitest/config";
 
 // Standalone coverage configuration: project-local coverage options are not
 // the workspace runner's coverage policy. The baseline gate invokes this
@@ -6,6 +6,8 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     name: "scripts",
+    allowOnly: false,
+    passWithNoTests: false,
     include: ["scripts/**/__tests__/**/*.test.ts"],
     exclude: ["node_modules/**"],
     server: { deps: { external: [/^bun(:|$)/] } },
@@ -23,4 +25,4 @@ export default defineConfig({
       },
     },
   },
-})
+});

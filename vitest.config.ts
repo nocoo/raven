@@ -1,11 +1,9 @@
-import { defineConfig } from "vitest/config"
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    projects: [
-      "packages/proxy",
-      "packages/dashboard",
-      "./vitest.scripts.config.ts",
-    ],
+    allowOnly: false,
+    passWithNoTests: false,
+    projects: ["packages/proxy", "packages/dashboard", "./vitest.scripts.config.ts"],
   },
-})
+});

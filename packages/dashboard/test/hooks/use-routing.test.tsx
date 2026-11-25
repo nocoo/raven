@@ -170,3 +170,177 @@ describe("routing rule operation guards", () => {
     expect(result.current.busy).toBe(false);
   });
 });
+
+describe("upstream lifecycle actions", () => {
+  it("discards dirty edits and restores lastSavedId or null when creating", () => {
+    const first = makeCopilot();
+    const second = makeUpstream();
+    const { result } = renderHook(() => useUpstreams([first, second], 0, FIXTURE_NOW));
+    act(() => result.current.load(second));
+    act(() => result.current.change({ ...result.current.draft, name: "Edited" }));
+    expect(result.current.dirty).toBe(true);
+    act(() => result.current.discard());
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.draft.name).toBe(second.name);
+
+    act(() => result.current.load(null));
+    expect(result.current.active).toBeNull();
+    act(() => result.current.discard());
+    expect(result.current.active?.id).toBe(second.id);
+
+    const emptyHook = renderHook(() => useUpstreams([], 0, FIXTURE_NOW));
+    act(() => emptyHook.result.current.discard());
+    expect(emptyHook.result.current.active).toBeNull();
+  });
+
+  it("saves PUT for existing upstream, POST for new upstream, and surfaces errors", async () => {
+    const initial = makeUpstream();
+    const updated = makeUpstream({ name: "Updated gateway" });
+    const created = makeUpstream({ id: "custom:new", name: "New gateway" });
+    fetchSpy.mockResolvedValueOnce(Response.json(updated));
+    const { result } = renderHook(() => useUpstreams([initial], 0, FIXTURE_NOW));
+    act(() => result.current.change({ ...result.current.draft, name: "Updated gateway" }));
+    await act(() => result.current.save());
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `/api/upstreams/${encodeURIComponent(initial.id)}`,
+      expect.objectContaining({ method: "PUT" }),
+    );
+    expect(result.current.feedback).toEqual({
+      kind: "success",
+      message: "Upstream saved.",
+      action: "save",
+    });
+    expect(result.current.upstreams[0]?.name).toBe("Updated gateway");
+
+    fetchSpy.mockResolvedValueOnce(Response.json(created));
+    act(() => result.current.load(null));
+    act(() =>
+      result.current.change({
+        ...result.current.draft,
+        name: "New gateway",
+        base_url: "https://new.invalid/v1",
+        api_key: "secret-key",
+      }),
+    );
+    await act(() => result.current.save());
+    expect(fetchSpy).toHaveBeenLastCalledWith(
+      "/api/upstreams",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.current.upstreams).toHaveLength(2);
+
+    fetchSpy.mockRejectedValueOnce(new Error("Save network boom"));
+    await act(() => result.current.save());
+    expect(result.current.feedback?.kind).toBe("error");
+    expect(message(result.current.feedback)).toContain("Save network boom");
+  });
+
+  it("removes custom upstream (switching to remaining or null), refreshes models, and reloads quota status", async () => {
+    const copilot = makeCopilot();
+    const custom = makeUpstream();
+    const refreshed = makeUpstream({ manual_models: ["refreshed-model"] });
+    const reloaded = makeUpstream({ name: "Reloaded gateway" });
+
+    fetchSpy.mockResolvedValueOnce(Response.json(refreshed));
+    const { result } = renderHook(() => useUpstreams([custom, copilot], 0, FIXTURE_NOW));
+    await act(() => result.current.refresh());
+    expect(result.current.feedback).toEqual({
+      kind: "success",
+      message: "Models refreshed. Manual IDs were preserved.",
+      action: "refresh",
+    });
+    expect(result.current.active?.manual_models).toEqual(["refreshed-model"]);
+
+    fetchSpy.mockResolvedValueOnce(Response.json(reloaded));
+    await act(() => result.current.reload());
+    expect(result.current.feedback).toEqual({
+      kind: "success",
+      message: "Quota status updated.",
+      action: "status",
+    });
+    expect(result.current.active?.name).toBe("Reloaded gateway");
+
+    fetchSpy.mockRejectedValueOnce(new Error("Refresh boom"));
+    await act(() => result.current.refresh());
+    expect(result.current.feedback?.kind).toBe("error");
+
+    fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
+    await act(() => result.current.remove());
+    expect(result.current.feedback).toEqual({
+      kind: "success",
+      message: "Upstream deleted.",
+      action: "delete",
+    });
+    expect(result.current.upstreams).toHaveLength(1);
+    expect(result.current.active?.id).toBe(copilot.id);
+
+    const singleHook = renderHook(() => useUpstreams([custom], 0, FIXTURE_NOW));
+    fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
+    await act(() => singleHook.result.current.remove());
+    expect(singleHook.result.current.upstreams).toEqual([]);
+    expect(singleHook.result.current.active).toBeNull();
+  });
+});
+
+describe("routing rule lifecycle actions", () => {
+  it("discards dirty edits and restores lastSavedId when creating", () => {
+    const first = fixtureRules[0]!;
+    const second = fixtureRules[1]!;
+    const { result } = renderHook(() => useRoutingRules([first, second], fixtureUpstreams, 0));
+    act(() => result.current.load(second));
+    act(() => result.current.change({ ...result.current.draft, name: "Dirty rule" }));
+    expect(result.current.dirty).toBe(true);
+    act(() => result.current.discard());
+    expect(result.current.dirty).toBe(false);
+    expect(result.current.draft.name).toBe(second.name);
+
+    act(() => result.current.load(null));
+    expect(result.current.active).toBeNull();
+    act(() => result.current.discard());
+    expect(result.current.active?.id).toBe(second.id);
+
+    const emptyHook = renderHook(() => useRoutingRules([], fixtureUpstreams, 0));
+    act(() => emptyHook.result.current.discard());
+    expect(emptyHook.result.current.active).toBeNull();
+  });
+
+  it("creates rule via POST, reports save/timezone/delete failures, and selects remaining rule on delete", async () => {
+    const created = makeRule({ id: "custom:created", name: "Created rule", is_builtin: false });
+    fetchSpy.mockResolvedValueOnce(Response.json(created));
+    const { result } = renderHook(() => useRoutingRules(fixtureRules, fixtureUpstreams, 0));
+    act(() => result.current.load(null));
+    act(() => result.current.change({ ...result.current.draft, name: "Created rule" }));
+    await act(() => result.current.save());
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/routing-rules",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.current.rules).toHaveLength(3);
+
+    offsetSpy.mockReturnValueOnce(-60);
+    await act(() => result.current.save());
+    expect(result.current.feedback).toMatchObject({
+      kind: "error",
+      title: "Rule could not be saved",
+    });
+
+    fetchSpy.mockRejectedValueOnce(new Error("Save failed"));
+    await act(() => result.current.save());
+    expect(result.current.feedback).toMatchObject({
+      kind: "error",
+      title: "Rule could not be saved",
+    });
+
+    fetchSpy.mockRejectedValueOnce(new Error("Delete failed"));
+    await act(() => result.current.remove());
+    expect(result.current.feedback).toMatchObject({
+      kind: "error",
+      title: "Rule could not be deleted",
+    });
+
+    fetchSpy.mockResolvedValueOnce(Response.json({ success: true }));
+    await act(() => result.current.remove());
+    expect(result.current.rules).toHaveLength(2);
+    expect(result.current.active).not.toBeNull();
+  });
+});
