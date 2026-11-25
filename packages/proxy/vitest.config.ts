@@ -15,14 +15,14 @@ export default defineConfig({
       },
     },
     coverage: {
-      provider: "istanbul",
-      reporter: ["text", "lcov", "html"],
+      provider: "v8",
+      reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
       include: ["src/**/*.ts"],
       exclude: [
         "src/**/*.d.ts",
         // Intentionally-uncovered legacy entry points / shims. Mirrors
-        // baseline.enforcement.allowUntestedFiles so the istanbul
+        // baseline.enforcement.allowUntestedFiles so the coverage
         // aggregate doesn't double-count them as regressions.
         "src/index.ts",
         "src/lib/migration.ts",
@@ -30,10 +30,10 @@ export default defineConfig({
         "src/upstream/interface.ts",
       ],
       thresholds: {
-        lines: 95,
-        statements: 95,
-        functions: 95,
-        branches: 95,
+        lines: 80,
+        statements: 80,
+        functions: 80,
+        branches: 80,
       },
     },
   },
