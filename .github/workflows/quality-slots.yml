@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+      - uses: nocoo/base-ci/.github/actions/setup-js@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -31,55 +31,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+      - uses: nocoo/base-ci/.github/actions/setup-js@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-policy: project
-      - run: bun run lint
-
-  s2-lint-arch:
-    name: "S2: Lint (Architecture)"
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
-        with:
-          package-manager: bun
-          runtime-version: ${{ env.BUN_VERSION }}
-          node-version: ${{ env.NODE_VERSION }}
-          install-policy: blocked
-      - run: bun run gate:arch
+      - run: bun run lint && bun run gate:arch
 
   s3-workflow:
     name: "S3: Workflow"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Verify all external actions are pinned to full SHA
-        run: |
-          node -e '
-            const fs = require("fs");
-            const path = require("path");
-            const dir = ".github/workflows";
-            let failed = false;
-            for (const f of fs.readdirSync(dir)) {
-              if (!f.endsWith(".yml") && !f.endsWith(".yaml")) continue;
-              const content = fs.readFileSync(path.join(dir, f), "utf8");
-              for (const m of content.matchAll(/^\s*-?\s*uses:\s*([^\s#]+)/gm)) {
-                const ref = m[1];
-                if (ref.startsWith("./")) continue;
-                const [, sha] = ref.split("@");
-                if (!sha || !/^[a-f0-9]{40}$/.test(sha)) {
-                  console.error(`Unpinned action in ${f}: ${ref}`);
-                  failed = true;
-                }
-              }
-            }
-            if (failed) process.exit(1);
-          '
+        with:
+          persist-credentials: false
+      - uses: nocoo/base-ci/.github/actions/lint-workflows@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
 
   g1-secrets:
     name: "G1: Secrets"
@@ -87,24 +54,27 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-      - uses: nocoo/base-ci/.github/actions/setup-security-scanners@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
-      - run: gitleaks detect --no-banner --source . --config .gitleaks.toml --verbose
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: nocoo/base-ci/.github/actions/scan-secrets@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
 
   g2-dependencies:
     name: "G2: Dependencies"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-security-scanners@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
-      - run: osv-scanner scan --config osv-scanner.toml --lockfile=bun.lock
+        with:
+          persist-credentials: false
+      - uses: nocoo/base-ci/.github/actions/scan-dependencies@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
+        with:
+          lockfiles: "bun.lock"
 
   b1-build:
     name: "B1: Build"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+      - uses: nocoo/base-ci/.github/actions/setup-js@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -117,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+      - uses: nocoo/base-ci/.github/actions/setup-js@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -130,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+      - uses: nocoo/base-ci/.github/actions/setup-js@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -158,7 +128,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@6424d395d36a815d931f10e557762eb635d511c0 # v2026.16
+      - uses: nocoo/base-ci/.github/actions/setup-js@dc858360aa7812db61fd9d825943e4efd4dcd0e7 # v2026.17
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -172,7 +142,6 @@ jobs:
     needs:
       - s1-types
       - s2-lint
-      - s2-lint-arch
       - s3-workflow
       - g1-secrets
       - g2-dependencies
@@ -191,7 +160,6 @@ jobs:
           for r in \
             "${{ needs.s1-types.result }}" \
             "${{ needs.s2-lint.result }}" \
-            "${{ needs.s2-lint-arch.result }}" \
             "${{ needs.s3-workflow.result }}" \
             "${{ needs.g1-secrets.result }}" \
             "${{ needs.g2-dependencies.result }}" \

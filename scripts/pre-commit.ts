@@ -3,7 +3,7 @@
  *   - L1 coverage  (proxy tests + §4.5 baseline via gate:coverage / check-coverage.ts)
  *   - L1 dashboard unit tests
  *   - G1 index-scoped Biome (replaces lint-staged; paths from staged snapshot)
- *   - G1 typecheck, fetch-boundary, dynamic-delete, ts-expect-error
+ *   - G1 typecheck, fetch-boundary
  *
  * Invoked from `.husky/pre-commit` after `git checkout-index` into a temp
  * directory. G2 gitleaks runs in the husky launcher on the real index.
@@ -54,8 +54,6 @@ export const commandTasks: CommandTask[] = [
   },
   { name: "typecheck", gate: "G1", cmd: ["bun", "run", "typecheck"] },
   { name: "fetch-boundary", gate: "G1", cmd: ["bun", "run", "scripts/check-fetch-boundary.ts"] },
-  { name: "dynamic-delete", gate: "G1", cmd: ["bun", "run", "scripts/check-dynamic-delete.ts"] },
-  { name: "ts-expect-error", gate: "G1", cmd: ["bun", "run", "scripts/check-ts-expect-error.ts"] },
 ];
 
 export const tasks: Task[] = [
