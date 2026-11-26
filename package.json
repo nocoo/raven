@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",
-    "@types/bun": "1.4.4",
+    "@types/bun": "1.4.5",
     "@vitest/coverage-v8": "5.1.0",
     "dependency-cruiser": "18.8.0",
     "husky": "^9.1.7",
