@@ -39,14 +39,14 @@
     "scripts/**/*.ts": "biome check --no-errors-on-unmatched --error-on-warnings --max-diagnostics=500"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.8",
-    "@types/bun": "1.4.4",
+    "@biomejs/biome": "2.6.9",
+    "@types/bun": "1.4.5",
     "@vitest/coverage-v8": "5.1.0",
-    "dependency-cruiser": "18.8.0",
+    "dependency-cruiser": "18.9.0",
     "husky": "^9.1.7",
-    "lint-staged": "17.6.1",
+    "lint-staged": "17.6.2",
     "picomatch": "4.0.7",
-    "oxc-parser": "0.159.0",
+    "oxc-parser": "0.160.0",
     "typescript": "^7.0.2",
     "typescript6-for-depcruise": "npm:typescript@6.0.3"
   },
