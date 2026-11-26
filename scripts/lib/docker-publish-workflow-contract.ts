@@ -10,7 +10,7 @@ export const DOCKER_PUBLISH_ACTION_PINS = [
   "docker/login-action@dbcb813823bdd20940b903addbd779551569679f",
   "docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a",
   "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
-  "nocoo/base-ci/.github/actions/release-source@98fc023423f82b010f17e0ebbc9dd580fe68736a",
+  "nocoo/base-ci/.github/actions/release-source@e5876a604547b1ddb0916f16dd841a4f832609a0",
 ] as const;
 
 export const DOCKER_PUBLISH_BUN_VERSION = "1.3.11";
