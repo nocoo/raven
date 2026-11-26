@@ -20,7 +20,7 @@ jobs:
       tested-sha: ${{ steps.record-sha.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/setup-js@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -39,7 +39,7 @@ jobs:
       tested-sha: ${{ steps.record-sha.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/setup-js@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: nocoo/base-ci/.github/actions/lint-workflows@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/lint-workflows@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
       - name: Record tested SHA
         id: record-sha
         if: always()
@@ -76,7 +76,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
-      - uses: nocoo/base-ci/.github/actions/scan-secrets@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/scan-secrets@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
       - name: Record tested SHA
         id: record-sha
         if: always()
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: nocoo/base-ci/.github/actions/scan-dependencies@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/scan-dependencies@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           lockfiles: "bun.lock"
       - name: Record tested SHA
@@ -106,7 +106,7 @@ jobs:
       tested-sha: ${{ steps.record-sha.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/setup-js@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -125,7 +125,7 @@ jobs:
       tested-sha: ${{ steps.record-sha.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/setup-js@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -151,7 +151,7 @@ jobs:
       tested-sha: ${{ steps.record-sha.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/setup-js@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -178,7 +178,7 @@ jobs:
       tested-sha: ${{ steps.record-sha.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: nocoo/base-ci/.github/actions/setup-js@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+      - uses: nocoo/base-ci/.github/actions/setup-js@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           package-manager: bun
           runtime-version: ${{ env.BUN_VERSION }}
@@ -210,7 +210,7 @@ jobs:
       tested-sha: ${{ steps.gate.outputs.tested-sha }}
     steps:
       - id: gate
-        uses: nocoo/base-ci/.github/actions/z1-gate@bfaac83b5a4d5c7ed26320bb5b09f3ca0a01932c # v2026.18
+        uses: nocoo/base-ci/.github/actions/z1-gate@98fc023423f82b010f17e0ebbc9dd580fe68736a # v2026.19
         with:
           needs-json: ${{ toJSON(needs) }}
           expected-sha: ${{ github.sha }}
