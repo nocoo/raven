@@ -4,7 +4,12 @@ node_modules/
 **/.next/
 coverage/
 **/coverage/
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/
 *.tsbuildinfo
+**/*.tsbuildinfo
 
 # Runtime secrets and persistent state
 .env
@@ -25,6 +30,7 @@ packages/proxy/data/
 .github/
 .husky/
 .claude/
+.agents/
 .superset/
 docs/
 assets/
@@ -33,5 +39,7 @@ assets/
 packages/*/test/
 packages/*/e2e/
 scripts/__tests__/
+**/*.test.*
+**/*.spec.*
 *.md
 logo.png
