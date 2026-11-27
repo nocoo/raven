@@ -17,6 +17,10 @@ permissions:
   packages: write
   id-token: write
 
+concurrency:
+  group: pipeline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   quality:
     name: quality
@@ -31,7 +35,7 @@ jobs:
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy == true)
-    uses: nocoo/base-ci/.github/workflows/deploy-docker.yml@3703a073693d598159e87f77f99587e586c14cfe # v2026.24
+    uses: nocoo/base-ci/.github/workflows/deploy-docker.yml@9933a7461a312cfaac526ccc5907357a7e3f669a # v2026.25
     with:
       deploy-over-ssh: false
       environment: production
