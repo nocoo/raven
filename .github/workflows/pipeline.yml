@@ -15,6 +15,7 @@ permissions:
   contents: read
   actions: read
   packages: write
+  id-token: write
 
 jobs:
   quality:
@@ -30,7 +31,7 @@ jobs:
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy == true)
-    uses: nocoo/base-ci/.github/workflows/deploy-docker.yml@1bf0b015de41d57d6a620773b955b5c386c387de # v2026.21
+    uses: nocoo/base-ci/.github/workflows/deploy-docker.yml@9d4637a04c912934984f560d949374e4baa0838f # v2026.22
     with:
       deploy-over-ssh: false
       environment: production
