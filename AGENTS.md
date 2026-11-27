@@ -40,12 +40,12 @@ bun run gate:docker-context  # CI .dockerignore build-input verification
 - Separately authorized live diagnostics stop at the first upstream error (one request/case, no retries/loops/load) and never qualify as isolated L2–L4 proof or imply dry runs validated live upstreams.
 - Use Bun workspaces only (mixing package managers duplicates React). Preserve Dashboard MVVM and shared log-stream path/ring-buffer/event contracts in [operations](docs/26-agent-operations.md).
 - Dashboard sets `agentRules: false`; consult `packages/dashboard/node_modules/next/dist/docs/` before changing Next.js APIs. Keep versions synced across root/dashboard `package.json` and `scripts/release.ts`.
-- Authorized releases run `bun run release`; GitHub Releases trigger `docker-publish.yml` (`ghcr.io/nocoo/raven`, `linux/amd64`, proven CI) for `compose.prod.yaml` + `.env` ([Docker](docs/31-docker-deployment.md)).
+- Automated releases run via `.github/workflows/pipeline.yml` on `main` push (`workflow_dispatch` requires `deploy=true`; PRs skip `deploy`), publishing `ghcr.io/nocoo/raven` (`linux/amd64`) via `base-ci` `deploy-docker.yml` (`deploy-over-ssh: false`, sharing `raven-app` cache with `P1`, `D1`/`D2`/`D5`) for `compose.prod.yaml` + `.env` ([Docker](docs/31-docker-deployment.md)).
 - Network deployment requires Google OAuth for Dashboard, explicit API/management access controls, and IP whitelists ([VPS guide](docs/14-vps-deployment.md)).
 
 ## Quality & Local Gates
 
-Follows `system1-quality`; hooks, CI, and config enforce this contract (raise weaker enforcement to match, never weaken requirements). CI slot definitions and pinned `base-ci` revision live in `.github/workflows/quality-slots.yml` (`quality / Z1: Gate` required on `main`, including `P1: Package`), and `.github/workflows/ci.yml` delegates directly to it. Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
+Follows `system1-quality`; `.github/workflows/pipeline.yml` orchestrates `quality` (`S1`–`Z1` in `.github/workflows/quality-slots.yml` pinned to `base-ci` `v2026.21`, `quality / Z1: Gate` required on `main`) followed by `deploy` (`D1`/`D2`/`D5` GHCR publish). Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
 
 - **L1 coverage (`enforced`)**: No focused/skipped tests; all 4 metrics >=80% (`v8`) for Proxy, Dashboard (excluding pure View `src/components/**` and `src/app/**/*.tsx`), and `scripts/lib` (`vitest.scripts.config.ts` → `coverage/scripts`).
 - **Proxy baseline (`enforced`)**: `gate:coverage` enforces `docs/20-baseline.json` (>=80% line floor, per-dir floors, <=0.1pp regression, no new untested files); never swap for bare Vitest.

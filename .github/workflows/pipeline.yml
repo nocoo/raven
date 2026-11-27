@@ -1,0 +1,38 @@
+name: Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy after quality gate passes
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+  packages: write
+
+jobs:
+  quality:
+    name: quality
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/quality-slots.yml
+
+  deploy:
+    name: deploy
+    needs: [quality]
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy == true)
+    uses: nocoo/base-ci/.github/workflows/deploy-docker.yml@1bf0b015de41d57d6a620773b955b5c386c387de # v2026.21
+    with:
+      deploy-over-ssh: false
+      environment: production
+      images: '[{"image":"ghcr.io/nocoo/raven","service":"app"}]'
+      verify-command: test -n "$IMAGE_DIGEST" && docker buildx imagetools inspect "$IMAGE_REF"

@@ -27,16 +27,18 @@ describe("repository docker build context", () => {
     expect(read(".dockerignore")).not.toMatch(/^\*\*\/(test|tests|e2e)\/?$/m);
   });
 
-  test("publish workflow checks context before build and image routes before push", () => {
-    const workflow = read(".github/workflows/docker-publish.yml");
-    const contextCheck = workflow.indexOf("check-docker-context.ts");
-    const verifyBuild = workflow.indexOf("load: true");
-    const routeCheck = workflow.indexOf("docker-publish-verify-image-routes.ts");
-    const push = workflow.indexOf("push: true");
+  test("P1 checks context and image routes while pipeline pushes GHCR via deploy-docker", () => {
+    const slots = read(".github/workflows/quality-slots.yml");
+    const contextCheck = slots.indexOf("bun run gate:docker-context");
+    const verifyBuild = slots.indexOf("load: true");
+    const routeCheck = slots.indexOf("docker-publish-verify-image-routes.ts");
     expect(contextCheck).toBeGreaterThan(-1);
     expect(verifyBuild).toBeGreaterThan(contextCheck);
     expect(routeCheck).toBeGreaterThan(verifyBuild);
-    expect(push).toBeGreaterThan(routeCheck);
-    expect(read(".github/workflows/quality-slots.yml")).toContain("bun run gate:docker-context");
+
+    const pipeline = read(".github/workflows/pipeline.yml");
+    expect(pipeline).toContain("nocoo/base-ci/.github/workflows/deploy-docker.yml@");
+    expect(pipeline).toContain("deploy-over-ssh: false");
+    expect(pipeline).toContain("needs: [quality]");
   });
 });
