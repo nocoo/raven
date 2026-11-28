@@ -1,45 +1,45 @@
 {
   "$schema": "./20-baseline.schema.json",
   "_doc": "See docs/20-architecture-refactor.md \u00a74.5. Phase C.7 populated real numbers and flipped enforcement mode. Update this file after every phase that moves directories or adds/removes tests so the gate stays in sync.",
-  "capturedAt": "2026-08-04T05:27:05Z",
+  "capturedAt": "2026-11-28T06:45:00Z",
   "proxy": {
-    "l1TestCount": 1932,
-    "statementCoveragePct": 98.31,
-    "_comment_perDirectoryCoveragePct": "Re-captured 2026-05-03; migrated L1 proxy coverage from istanbul to v8 with pragmatic 80% floor.",
+    "l1TestCount": 2875,
+    "statementCoveragePct": 97.64,
+    "_comment_perDirectoryCoveragePct": "Re-captured 2026-11-28 after pruning branch-padding and duplicate matrix tests; v8 90% floor.",
     "perDirectoryCoveragePct": {
       "composition": 100.0,
       "core": 100.0,
-      "db": 98.64,
-      "lib": 97.53,
-      "protocols": 97.57,
-      "routes": 98.77,
-      "services": 98.96,
-      "strategies": 97.76,
-      "upstream": 99.66,
-      "util": 98.92,
+      "db": 99.5,
+      "lib": 97.82,
+      "protocols": 93.7,
+      "routes": 98.96,
+      "services": 100.0,
+      "strategies": 97.58,
+      "upstream": 99.53,
+      "util": 99.08,
       "ws": 100.0
     }
   },
   "dashboard": {
-    "l1TestCount": 368
+    "l1TestCount": 588
   },
   "enforcement": {
     "mode": "enforce",
-    "globalFloorPct": 80.0,
+    "globalFloorPct": 90.0,
     "regressionAllowanceAbsPct": 0.1,
-    "_comment_perDirectoryFloors": "Pragmatic 80% per-directory floors with regression-from-baseline enforcement.",
+    "_comment_perDirectoryFloors": "90% per-directory floors with regression-from-baseline enforcement.",
     "perDirectoryFloors": {
-      "composition": 80.0,
-      "core": 80.0,
-      "db": 80.0,
-      "lib": 80.0,
-      "protocols": 80.0,
-      "routes": 80.0,
-      "services": 80.0,
-      "strategies": 80.0,
-      "upstream": 80.0,
-      "util": 80.0,
-      "ws": 80.0
+      "composition": 90.0,
+      "core": 90.0,
+      "db": 90.0,
+      "lib": 90.0,
+      "protocols": 90.0,
+      "routes": 90.0,
+      "services": 90.0,
+      "strategies": 90.0,
+      "upstream": 90.0,
+      "util": 90.0,
+      "ws": 90.0
     },
     "_comment_allowUntestedFiles": "Legacy src/ files intentionally uncovered by L1 tests. Shrink this list over time; the gate blocks any *new* addition.",
     "allowUntestedFiles": [

@@ -17,7 +17,7 @@ bun run build                # B1 Next.js production bundle
 bun run test:all             # L1 workspace tests (Proxy + Dashboard)
 bun run test:root            # L1 workspace + scripts unit tests
 bun run test:l2              # L3 in-process route/handler tests (mocked upstream)
-bun run gate:coverage        # L1 baseline gate (Proxy >=80% floor + scripts/lib >=80%)
+bun run gate:coverage        # L1 baseline gate (Proxy >=90% floor + scripts/lib >=90%/85%)
 bun run gate:arch            # dependency-cruiser + fetch-boundary
 bun run gate:security        # G1/G2 gitleaks + osv-scanner (hard-fail when missing)
 bun run gate:docker-context  # CI .dockerignore build-input verification
@@ -47,8 +47,8 @@ bun run gate:docker-context  # CI .dockerignore build-input verification
 
 Follows `system1-quality`; `.github/workflows/pipeline.yml` orchestrates `quality` (`S1`–`Z1` in `.github/workflows/quality-slots.yml` pinned to `base-ci` `v2026.21`, `quality / Z1: Gate` required on `main`) followed by `deploy` (`D1`/`D2`/`D5` GHCR publish). Status vocabulary: `enforced`, `planned`, `manual`, `N/A`.
 
-- **L1 coverage (`enforced`)**: No focused/skipped tests; all 4 metrics >=80% (`v8`) for Proxy, Dashboard (excluding pure View `src/components/**` and `src/app/**/*.tsx`), and `scripts/lib` (`vitest.scripts.config.ts` → `coverage/scripts`).
-- **Proxy baseline (`enforced`)**: `gate:coverage` enforces `docs/20-baseline.json` (>=80% line floor, per-dir floors, <=0.1pp regression, no new untested files); never swap for bare Vitest.
+- **L1 coverage (`enforced`)**: No focused/skipped tests; >=90% statements/lines/functions and >=85% branches (`v8`) for Proxy, Dashboard (excluding pure View `src/components/**` and `src/app/**/*.tsx`), and `scripts/lib` (`vitest.scripts.config.ts` → `coverage/scripts`).
+- **Proxy baseline (`enforced`)**: `gate:coverage` enforces `docs/20-baseline.json` (>=90% line floor, per-dir floors, <=0.1pp regression, no new untested files); never swap for bare Vitest.
 - **Exceptions / gaps**: `L2 Runtime` is `N/A` (covered by L1/L3); `L3 Integration` is `enforced` via in-process route tests (mocked upstream); isolated real-HTTP/SQLite `L3` and `L4 E2E` are `planned` (CI gated off).
 - **Package & manual**: `P1 Package` (`enforced`) verifies Docker build context (`bun run gate:docker-context`); protocol and baseline doc updates are `manual`. `scripts/verify-routing-ui.ts` covers Routing flows only, not full `L3`/`L4`.
 - **Pre-commit (`.husky/pre-commit`)**: Installed via `bun run prepare`. Runs staged `gitleaks` (`G1`), exports `git checkout-index` temp tree (`trap` cleanup), then `scripts/pre-commit.ts` in parallel (<30s target).

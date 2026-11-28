@@ -259,7 +259,7 @@ describe("evaluateGate", () => {
   });
 
   test("flags a src/ file with zero executed lines (new module without a test)", () => {
-    const lcov = SAMPLE_LCOV + "TN:\nSF:src/routes/new-feature.ts\nLF:10\nLH:0\nend_of_record\n";
+    const lcov = `${SAMPLE_LCOV}TN:\nSF:src/routes/new-feature.ts\nLF:10\nLH:0\nend_of_record\n`;
     const r = parseLcov(lcov);
     const v = evaluateGate(r, baseline({ globalFloorPct: 10 }));
     expect(v.some((x) => x.kind === "file-without-coverage")).toBe(true);
@@ -267,7 +267,7 @@ describe("evaluateGate", () => {
   });
 
   test("does not flag non-src files with zero hits", () => {
-    const lcov = SAMPLE_LCOV + "TN:\nSF:test/helpers.ts\nLF:5\nLH:0\nend_of_record\n";
+    const lcov = `${SAMPLE_LCOV}TN:\nSF:test/helpers.ts\nLF:5\nLH:0\nend_of_record\n`;
     const r = parseLcov(lcov);
     const v = evaluateGate(r, baseline({ globalFloorPct: 10 }));
     expect(v.some((x) => x.kind === "file-without-coverage")).toBe(false);
@@ -308,7 +308,7 @@ describe("evaluateGate", () => {
   });
 
   test("allowUntestedFiles grandfathers listed paths out of both checks", () => {
-    const lcov = SAMPLE_LCOV + "TN:\nSF:src/legacy/entry.ts\nLF:10\nLH:0\nend_of_record\n";
+    const lcov = `${SAMPLE_LCOV}TN:\nSF:src/legacy/entry.ts\nLF:10\nLH:0\nend_of_record\n`;
     const r = parseLcov(lcov);
     const v = evaluateGate(
       r,
@@ -330,74 +330,64 @@ describe("loadBaseline", () => {
     expect(b.enforcement.mode).toBe("placeholder");
   });
 
-  test("rejects missing enforcement section", () => {
-    expect(() => loadBaseline(JSON.stringify({ proxy: {}, dashboard: {} }))).toThrow("enforcement");
-  });
-
-  test("rejects missing proxy section", () => {
-    expect(() =>
-      loadBaseline(
-        JSON.stringify({
-          enforcement: {
-            mode: "placeholder",
-            globalFloorPct: 95,
-            regressionAllowanceAbsPct: 0.1,
-            perDirectoryFloors: {},
-          },
-          dashboard: { l1TestCount: null },
-        }),
-      ),
-    ).toThrow("proxy");
-  });
-
-  test("rejects unknown mode", () => {
-    expect(() =>
-      loadBaseline(
-        JSON.stringify({
-          proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
-          dashboard: { l1TestCount: null },
-          enforcement: {
-            mode: "yolo",
-            globalFloorPct: 90,
-            regressionAllowanceAbsPct: 0.1,
-            perDirectoryFloors: {},
-          },
-        }),
-      ),
-    ).toThrow("mode");
-  });
-
-  test("rejects non-numeric floor", () => {
-    expect(() =>
-      loadBaseline(
-        JSON.stringify({
-          proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
-          dashboard: { l1TestCount: null },
-          enforcement: {
-            mode: "placeholder",
-            globalFloorPct: "oops",
-            regressionAllowanceAbsPct: 0.1,
-            perDirectoryFloors: {},
-          },
-        }),
-      ),
-    ).toThrow("globalFloorPct");
-  });
-
-  test("rejects non-numeric allowance", () => {
-    expect(() =>
-      loadBaseline(
-        JSON.stringify({
-          proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
-          dashboard: { l1TestCount: null },
-          enforcement: {
-            mode: "placeholder",
-            globalFloorPct: 95,
-            regressionAllowanceAbsPct: "oops",
-            perDirectoryFloors: {},
-          },
-        }),
-      ),
-    ).toThrow("regressionAllowanceAbsPct");
+  test.each([
+    ["missing enforcement", { proxy: {}, dashboard: {} }, "enforcement"],
+    [
+      "missing proxy",
+      {
+        enforcement: {
+          mode: "placeholder",
+          globalFloorPct: 95,
+          regressionAllowanceAbsPct: 0.1,
+          perDirectoryFloors: {},
+        },
+        dashboard: { l1TestCount: null },
+      },
+      "proxy",
+    ],
+    [
+      "unknown mode",
+      {
+        proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
+        dashboard: { l1TestCount: null },
+        enforcement: {
+          mode: "yolo",
+          globalFloorPct: 90,
+          regressionAllowanceAbsPct: 0.1,
+          perDirectoryFloors: {},
+        },
+      },
+      "mode",
+    ],
+    [
+      "non-numeric floor",
+      {
+        proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
+        dashboard: { l1TestCount: null },
+        enforcement: {
+          mode: "placeholder",
+          globalFloorPct: "oops",
+          regressionAllowanceAbsPct: 0.1,
+          perDirectoryFloors: {},
+        },
+      },
+      "globalFloorPct",
+    ],
+    [
+      "non-numeric allowance",
+      {
+        proxy: { l1TestCount: null, statementCoveragePct: null, perDirectoryCoveragePct: {} },
+        dashboard: { l1TestCount: null },
+        enforcement: {
+          mode: "placeholder",
+          globalFloorPct: 95,
+          regressionAllowanceAbsPct: "oops",
+          perDirectoryFloors: {},
+        },
+      },
+      "regressionAllowanceAbsPct",
+    ],
+  ])("rejects %s", (_label, payload, expectedError) => {
+    expect(() => loadBaseline(JSON.stringify(payload))).toThrow(expectedError);
   });
 });

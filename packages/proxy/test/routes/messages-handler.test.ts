@@ -1,19 +1,15 @@
-import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { Hono } from "hono";
 
+import type { CreateProviderInput } from "../../src/core/routing-types";
+import * as tavilyModule from "../../src/lib/server-tools/tavily";
 import { state } from "../../src/lib/state";
+import { handleCompletion } from "../../src/routes/messages/handler";
+import * as copilotOpenAIModule from "../../src/upstream/copilot-openai";
 import { logEmitter } from "../../src/util/log-emitter";
 import type { LogEvent } from "../../src/util/log-event";
-import { handleCompletion } from "../../src/routes/messages/handler";
 import type { ServerSentEvent } from "../../src/util/sse";
-import * as copilotOpenAIModule from "../../src/upstream/copilot-openai";
-import * as tavilyModule from "../../src/lib/server-tools/tavily";
-import type { CreateProviderInput } from "../../src/core/routing-types";
 import { installTestRouting, routingHarness } from "../helpers/routing";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeApp(): Hono {
   const app = new Hono();
@@ -22,8 +18,19 @@ function makeApp(): Hono {
   return app;
 }
 
-function selectUpstream(input: CreateProviderInput): void {
-  harness.bind(harness.upstream(input).id);
+function selectUpstream(
+  overrides: Pick<CreateProviderInput, "name" | "base_url" | "format" | "api_key"> &
+    Partial<CreateProviderInput>,
+): void {
+  harness.bind(
+    harness.upstream({
+      is_enabled: true,
+      supports_reasoning: false,
+      auth_style: null,
+      use_socks5: null,
+      ...overrides,
+    }).id,
+  );
 }
 
 function req(body: Record<string, unknown>): Request {
@@ -45,9 +52,7 @@ function mockFetchStream(chunks: string[]): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
-      for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk));
-      }
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
       controller.close();
     },
   });
@@ -61,15 +66,36 @@ function mockFetchErroringStream(chunks: string[], error: Error): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
-      for (const chunk of chunks) {
-        controller.enqueue(encoder.encode(chunk));
-      }
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
       controller.error(error);
     },
   });
   return new Response(stream, {
     status: 200,
     headers: { "content-type": "text/event-stream" },
+  });
+}
+
+function sseLine(payload: unknown): string {
+  return `data: ${typeof payload === "string" ? payload : JSON.stringify(payload)}\n\n`;
+}
+
+function makeChunk(
+  delta: Record<string, unknown>,
+  opts: {
+    model?: string;
+    finishReason?: string | null;
+    usage?: Record<string, unknown> | null;
+  } = {},
+): string {
+  return sseLine({
+    id: "c1",
+    object: "chat.completion.chunk",
+    created: 1700000000,
+    model: opts.model ?? "claude-sonnet-4",
+    choices: [{ index: 0, delta, finish_reason: opts.finishReason ?? null, logprobs: null }],
+    system_fingerprint: null,
+    ...(opts.usage !== undefined ? { usage: opts.usage } : {}),
   });
 }
 
@@ -87,66 +113,40 @@ function makeOpenAIResponse(overrides: Record<string, unknown> = {}) {
         logprobs: null,
       },
     ],
-    usage: {
-      prompt_tokens: 100,
-      completion_tokens: 20,
-      total_tokens: 120,
-    },
+    usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
     ...overrides,
   };
 }
 
-function createMockStream(opts: {
-  content?: string | null;
-  toolCalls?: Array<{ id: string; name: string; arguments: string }> | null;
-  finishReason?: "stop" | "tool_calls" | "length" | "content_filter";
-  model?: string;
-  usage?: Record<string, unknown> | null;
-}): AsyncGenerator<ServerSentEvent> {
-  const {
-    content = null,
-    toolCalls = null,
-    finishReason = "stop",
-    model = "claude-sonnet-4-20250514",
-    usage = {
-      prompt_tokens: 10,
-      completion_tokens: 20,
-      total_tokens: 30,
-      prompt_tokens_details: { cached_tokens: 0 },
-    },
-  } = opts;
-
-  const chunks: ServerSentEvent[] = [];
-
-  chunks.push({
-    data: JSON.stringify({
-      id: "chatcmpl-test",
-      object: "chat.completion.chunk",
-      created: Math.floor(Date.now() / 1000),
-      model,
-      choices: [
-        {
-          index: 0,
-          delta: { role: "assistant", content: null, tool_calls: [] },
-          finish_reason: null,
-          logprobs: null,
-        },
-      ],
-      system_fingerprint: null,
-      usage: null,
-    }),
-    event: null,
-    id: null,
-    retry: null,
-  });
-
-  if (content) {
-    chunks.push({
+function createMockStream(content: string): AsyncGenerator<ServerSentEvent> {
+  const events: ServerSentEvent[] = [
+    {
       data: JSON.stringify({
         id: "chatcmpl-test",
         object: "chat.completion.chunk",
-        created: Math.floor(Date.now() / 1000),
-        model,
+        created: 1700000000,
+        model: "claude-sonnet-4-20250514",
+        choices: [
+          {
+            index: 0,
+            delta: { role: "assistant", content: null, tool_calls: [] },
+            finish_reason: null,
+            logprobs: null,
+          },
+        ],
+        system_fingerprint: null,
+        usage: null,
+      }),
+      event: null,
+      id: null,
+      retry: null,
+    },
+    {
+      data: JSON.stringify({
+        id: "chatcmpl-test",
+        object: "chat.completion.chunk",
+        created: 1700000000,
+        model: "claude-sonnet-4-20250514",
         choices: [
           {
             index: 0,
@@ -161,110 +161,54 @@ function createMockStream(opts: {
       event: null,
       id: null,
       retry: null,
-    });
-  }
-
-  if (toolCalls) {
-    for (let i = 0; i < toolCalls.length; i++) {
-      const tc = toolCalls[i]!;
-      chunks.push({
-        data: JSON.stringify({
-          id: "chatcmpl-test",
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model,
-          choices: [
-            {
-              index: 0,
-              delta: {
-                content: null,
-                role: null,
-                tool_calls: [
-                  {
-                    index: i,
-                    id: tc.id,
-                    type: "function",
-                    function: { name: tc.name, arguments: "" },
-                  },
-                ],
-              },
-              finish_reason: null,
-              logprobs: null,
-            },
-          ],
-          system_fingerprint: null,
-          usage: null,
-        }),
-        event: null,
-        id: null,
-        retry: null,
-      });
-      chunks.push({
-        data: JSON.stringify({
-          id: "chatcmpl-test",
-          object: "chat.completion.chunk",
-          created: Math.floor(Date.now() / 1000),
-          model,
-          choices: [
-            {
-              index: 0,
-              delta: {
-                content: null,
-                role: null,
-                tool_calls: [
-                  {
-                    index: i,
-                    id: null,
-                    type: null,
-                    function: { name: null, arguments: tc.arguments },
-                  },
-                ],
-              },
-              finish_reason: null,
-              logprobs: null,
-            },
-          ],
-          system_fingerprint: null,
-          usage: null,
-        }),
-        event: null,
-        id: null,
-        retry: null,
-      });
-    }
-  }
-
-  chunks.push({
-    data: JSON.stringify({
-      id: "chatcmpl-test",
-      object: "chat.completion.chunk",
-      created: Math.floor(Date.now() / 1000),
-      model,
-      choices: [
-        {
-          index: 0,
-          delta: { content: null, role: null, tool_calls: [] },
-          finish_reason: finishReason,
-          logprobs: null,
+    },
+    {
+      data: JSON.stringify({
+        id: "chatcmpl-test",
+        object: "chat.completion.chunk",
+        created: 1700000000,
+        model: "claude-sonnet-4-20250514",
+        choices: [
+          {
+            index: 0,
+            delta: { content: null, role: null, tool_calls: [] },
+            finish_reason: "stop",
+            logprobs: null,
+          },
+        ],
+        system_fingerprint: null,
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+          prompt_tokens_details: { cached_tokens: 0 },
         },
-      ],
-      system_fingerprint: null,
-      usage,
-    }),
-    event: null,
-    id: null,
-    retry: null,
-  });
-  chunks.push({ data: "[DONE]", event: null, id: null, retry: null });
+      }),
+      event: null,
+      id: null,
+      retry: null,
+    },
+    { data: "[DONE]", event: null, id: null, retry: null },
+  ];
 
   return (async function* () {
-    for (const chunk of chunks) yield chunk;
+    for (const chunk of events) yield chunk;
   })();
 }
 
-// ---------------------------------------------------------------------------
-// Setup / teardown
-// ---------------------------------------------------------------------------
+async function captureLogs<T>(
+  fn: () => T | Promise<T>,
+): Promise<{ result: T; events: LogEvent[] }> {
+  const events: LogEvent[] = [];
+  const listener = (e: LogEvent) => events.push(e);
+  logEmitter.on("log", listener);
+  try {
+    const result = await fn();
+    return { result, events };
+  } finally {
+    logEmitter.off("log", listener);
+  }
+}
 
 const savedModels = state.models;
 const savedToken = state.copilotToken;
@@ -283,24 +227,17 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (savedModels !== undefined) state.models = savedModels;
-  else state.models = null;
-  if (savedToken !== undefined) state.copilotToken = savedToken;
-  else state.copilotToken = null;
+  state.models = savedModels !== undefined ? savedModels : null;
+  state.copilotToken = savedToken !== undefined ? savedToken : null;
   fetchSpy.mockRestore();
   harness.close();
 });
-
-// ===========================================================================
-// handleCompletion — non-streaming (Anthropic protocol)
-// ===========================================================================
 
 describe("messages handler (non-streaming)", () => {
   test("translates Anthropic request → OpenAI → Anthropic response", async () => {
     fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
 
-    const app = makeApp();
-    const res = await app.request(
+    const res = await makeApp().request(
       req({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
@@ -310,67 +247,13 @@ describe("messages handler (non-streaming)", () => {
 
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
-    // Should be in Anthropic format
     expect(json.type).toBe("message");
     expect(json.role).toBe("assistant");
     expect(json.stop_reason).toBe("end_turn");
     expect(Array.isArray(json.content)).toBe(true);
   });
 
-  test("emits request_start with messageCount and toolCount", async () => {
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [
-          { role: "user", content: "hello" },
-          { role: "assistant", content: "hi" },
-        ],
-        tools: [{ name: "get_weather", input_schema: { type: "object" } }],
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    const startEvent = events.find((e) => e.type === "request_start");
-    expect(startEvent).toBeDefined();
-    expect(startEvent!.data?.messageCount).toBe(2);
-    expect(startEvent!.data?.toolCount).toBe(1);
-    expect(startEvent!.data?.format).toBe("anthropic");
-  });
-
-  test("request_end includes translatedModel", async () => {
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent).toBeDefined();
-    expect(endEvent!.data?.translatedModel).toBe("claude-sonnet-4");
-    expect(endEvent!.data?.format).toBe("anthropic");
-  });
-
-  test("records cached tokens in usage", async () => {
+  test("emits request_start with messageCount/toolCount and request_end with translatedModel & cached usage", async () => {
     fetchSpy.mockResolvedValueOnce(
       mockFetchJson(
         makeOpenAIResponse({
@@ -384,43 +267,43 @@ describe("messages handler (non-streaming)", () => {
       ),
     );
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hello" }],
-      }),
+    const { events } = await captureLogs(() =>
+      makeApp().request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          messages: [
+            { role: "user", content: "hello" },
+            { role: "assistant", content: "hi" },
+          ],
+          tools: [{ name: "get_weather", input_schema: { type: "object" } }],
+        }),
+      ),
     );
 
-    logEmitter.off("log", listener);
+    const startEvent = events.find((e) => e.type === "request_start");
+    expect(startEvent?.data).toMatchObject({
+      messageCount: 2,
+      toolCount: 1,
+      format: "anthropic",
+    });
 
     const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent!.data?.inputTokens).toBe(60); // 100 - 40
-    expect(endEvent!.data?.outputTokens).toBe(20);
+    expect(endEvent?.data).toMatchObject({
+      translatedModel: "claude-sonnet-4",
+      format: "anthropic",
+      inputTokens: 60,
+      outputTokens: 20,
+    });
   });
 });
 
-// ===========================================================================
-// handleCompletion — streaming (Anthropic protocol)
-// ===========================================================================
-
 describe("messages handler (streaming)", () => {
-  test("translates OpenAI stream chunks to Anthropic SSE events", async () => {
-    const chunk = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [{ index: 0, delta: { role: "assistant", content: "Hi" }, finish_reason: null }],
-    });
+  test("translates OpenAI stream chunks to Anthropic SSE and ignores trailing data after [DONE]", async () => {
+    const chunk = makeChunk({ role: "assistant", content: "Hi" });
+    fetchSpy.mockResolvedValueOnce(mockFetchStream([chunk, "data: [DONE]\n\n", chunk]));
 
-    fetchSpy.mockResolvedValueOnce(mockFetchStream([`data: ${chunk}\n\n`, "data: [DONE]\n\n"]));
-
-    const app = makeApp();
-    const res = await app.request(
+    const res = await makeApp().request(
       req({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
@@ -430,52 +313,13 @@ describe("messages handler (streaming)", () => {
     );
 
     expect(res.status).toBe(200);
-    const text = await res.text();
-    // Should contain Anthropic event types
-    expect(text).toContain("message_start");
-  });
-
-  test("[DONE] marker terminates stream", async () => {
-    const chunk = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [{ index: 0, delta: { content: "Hello" }, finish_reason: null }],
-    });
-
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchStream([
-        `data: ${chunk}\n\n`,
-        "data: [DONE]\n\n",
-        // Anything after [DONE] should be ignored
-        `data: ${chunk}\n\n`,
-      ]),
-    );
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    await res.text();
-    // Just verify it doesn't crash
-    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("message_start");
   });
 
   test("skips empty data chunks", async () => {
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchStream([
-        "\n\n", // empty event
-        "data: [DONE]\n\n",
-      ]),
-    );
+    fetchSpy.mockResolvedValueOnce(mockFetchStream(["\n\n", "data: [DONE]\n\n"]));
 
-    const app = makeApp();
-    const res = await app.request(
+    const res = await makeApp().request(
       req({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
@@ -489,52 +333,39 @@ describe("messages handler (streaming)", () => {
   });
 
   test("extracts usage from stream and logs in request_end", async () => {
-    const chunk1 = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4-resolved",
-      choices: [{ index: 0, delta: { content: "Hi" }, finish_reason: null }],
-    });
-    const chunk2 = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4-resolved",
-      choices: [],
-      usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
-    });
-
     fetchSpy.mockResolvedValueOnce(
-      mockFetchStream([`data: ${chunk1}\n\n`, `data: ${chunk2}\n\n`, "data: [DONE]\n\n"]),
+      mockFetchStream([
+        makeChunk({ content: "Hi" }, { model: "claude-sonnet-4-resolved" }),
+        sseLine({
+          id: "c1",
+          model: "claude-sonnet-4-resolved",
+          choices: [],
+          usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 },
+        }),
+        "data: [DONE]\n\n",
+      ]),
     );
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
+    const { events } = await captureLogs(async () => {
+      const res = await makeApp().request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          stream: true,
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      );
+      await res.text();
+      await new Promise((r) => setTimeout(r, 50));
+    });
 
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    await res.text();
-    await new Promise((r) => setTimeout(r, 50));
-
-    logEmitter.off("log", listener);
-
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent).toBeDefined();
-    expect(endEvent!.data?.resolvedModel).toBe("claude-sonnet-4-resolved");
-    expect(endEvent!.data?.inputTokens).toBe(50);
-    expect(endEvent!.data?.outputTokens).toBe(10);
+    expect(events.find((e) => e.type === "request_end")?.data).toMatchObject({
+      resolvedModel: "claude-sonnet-4-resolved",
+      inputTokens: 50,
+      outputTokens: 10,
+    });
   });
 });
-
-// ===========================================================================
-// handleCompletion — error handling
-// ===========================================================================
 
 describe("messages handler (errors)", () => {
   test("upstream error → emits request_end with error status", async () => {
@@ -542,143 +373,52 @@ describe("messages handler (errors)", () => {
       Object.assign(new TypeError("upstream failed"), { code: "ECONNRESET" }),
     );
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
     const app = makeApp();
     app.onError((err, c) => c.json({ error: (err as Error).message }, 502));
 
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-      }),
+    const { events } = await captureLogs(() =>
+      app.request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      ),
     );
 
-    logEmitter.off("log", listener);
-
-    const types = events.map((e) => e.type);
-    expect(types).toContain("request_end");
-
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent!.data?.status).toBe("error");
-    expect(endEvent!.data?.statusCode).toBe(502);
+    expect(events.find((e) => e.type === "request_end")?.data).toMatchObject({
+      status: "error",
+      statusCode: 502,
+    });
   });
 
   test("stream error → sends Anthropic error event", async () => {
-    const stream = new ReadableStream({
-      start(controller) {
-        const encoder = new TextEncoder();
-        const chunk = JSON.stringify({
-          id: "c1",
-          model: "claude-sonnet-4",
-          choices: [{ index: 0, delta: { content: "Hi" }, finish_reason: null }],
-        });
-        controller.enqueue(encoder.encode(`data: ${chunk}\n\n`));
-        controller.error(new Error("connection reset"));
-      },
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchErroringStream([makeChunk({ content: "Hi" })], new Error("connection reset")),
+    );
+
+    const { result: text, events } = await captureLogs(async () => {
+      const res = await makeApp().request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          stream: true,
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      );
+      const body = await res.text();
+      await new Promise((r) => setTimeout(r, 50));
+      return body;
     });
 
-    fetchSpy.mockResolvedValueOnce(
-      new Response(stream, {
-        status: 200,
-        headers: { "content-type": "text/event-stream" },
-      }),
-    );
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "hi" }],
-      }),
-    );
-
-    const text = await res.text();
-    await new Promise((r) => setTimeout(r, 50));
-
-    logEmitter.off("log", listener);
-
-    // Should contain an error event
     expect(text).toContain("error");
-
     const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent).toBeDefined();
-    expect(endEvent!.data?.status).toBe("error");
-    expect(endEvent!.data?.error).toContain("stream error");
+    expect(endEvent?.data?.status).toBe("error");
+    expect(endEvent?.data?.error).toContain("stream error");
   });
 });
 
-// ===========================================================================
-// handleCompletion — thinking parameter drop warnings
-// ===========================================================================
-
-describe("messages handler (thinking drop logs)", () => {
-  test("emits debug log when thinking is dropped for Copilot path", async () => {
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-        thinking: { type: "enabled", budget_tokens: 10000 },
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    const debugEvents = events.filter((e) => e.level === "debug");
-    const thinkingDebug = debugEvents.find((e) => e.msg.includes("thinking parameter dropped"));
-    expect(thinkingDebug).toBeDefined();
-    expect(thinkingDebug!.msg).toContain("Copilot does not support");
-    expect(thinkingDebug!.data?.budgetTokens).toBe(10000);
-    expect(thinkingDebug!.data?.hint).toContain("Anthropic provider");
-  });
-
-  test("does not emit debug log when thinking is not present", async () => {
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    const thinkingDebug = events.find(
-      (e) => e.level === "debug" && e.msg.includes("thinking parameter dropped"),
-    );
-    expect(thinkingDebug).toBeUndefined();
-  });
-});
-
-// ===========================================================================
-// handleCompletion — optToolCallDebug logging
-// ===========================================================================
-
-describe("messages handler (optToolCallDebug)", () => {
+describe("messages handler (thinking drop & optToolCallDebug logs)", () => {
   let savedOptToolCallDebug: boolean;
 
   beforeEach(() => {
@@ -689,96 +429,86 @@ describe("messages handler (optToolCallDebug)", () => {
     state.optToolCallDebug = savedOptToolCallDebug;
   });
 
-  test("emits tool definitions debug log when optToolCallDebug is true", async () => {
-    state.optToolCallDebug = true;
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
+  test("emits thinking drop debug log only when thinking is present on Copilot path", async () => {
+    fetchSpy.mockResolvedValue(mockFetchJson(makeOpenAIResponse()));
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-        tools: [
-          { name: "get_weather", input_schema: { type: "object" } },
-          { name: "search", input_schema: { type: "object" } },
-        ],
-      }),
+    const withThinking = await captureLogs(() =>
+      makeApp().request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "hi" }],
+          thinking: { type: "enabled", budget_tokens: 10000 },
+        }),
+      ),
     );
+    const thinkingDebug = withThinking.events.find(
+      (e) => e.level === "debug" && e.msg.includes("thinking parameter dropped"),
+    );
+    expect(thinkingDebug?.msg).toContain("Copilot does not support");
+    expect(thinkingDebug?.data?.budgetTokens).toBe(10000);
+    expect(thinkingDebug?.data?.hint).toContain("Anthropic provider");
 
-    logEmitter.off("log", listener);
-
-    const debugEvents = events.filter((e) => e.level === "debug");
-    const toolDefsLog = debugEvents.find((e) => e.msg.includes("tool definitions"));
-    expect(toolDefsLog).toBeDefined();
-    expect(toolDefsLog!.data?.toolDefinitionCount).toBe(2);
-    expect(toolDefsLog!.data?.toolDefinitions).toHaveLength(2);
+    const withoutThinking = await captureLogs(() =>
+      makeApp().request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      ),
+    );
+    expect(
+      withoutThinking.events.find(
+        (e) => e.level === "debug" && e.msg.includes("thinking parameter dropped"),
+      ),
+    ).toBeUndefined();
   });
 
-  test("emits server-tool check debug log when optToolCallDebug is true and server-side tools present", async () => {
+  test("emits tool definitions and server-tool debug logs only when optToolCallDebug is true", async () => {
+    fetchSpy.mockResolvedValue(mockFetchJson(makeOpenAIResponse()));
+
     state.optToolCallDebug = true;
     state.stWebSearchEnabled = true;
     state.stWebSearchApiKey = "tvly-test-key";
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "gpt-4o", // Non-Claude model uses translated path
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-        tools: [
-          { name: "web_search", type: "web_search_20260209", input_schema: { type: "object" } },
-        ],
-      }),
+    const enabled = await captureLogs(() =>
+      makeApp().request(
+        req({
+          model: "gpt-4o",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "hi" }],
+          tools: [
+            { name: "get_weather", input_schema: { type: "object" } },
+            { name: "web_search", type: "web_search_20260209", input_schema: { type: "object" } },
+          ],
+        }),
+      ),
     );
 
-    logEmitter.off("log", listener);
+    expect(
+      enabled.events.find((e) => e.level === "debug" && e.msg.includes("tool definitions"))?.data,
+    ).toMatchObject({ toolDefinitionCount: 2 });
+    expect(
+      enabled.events.find((e) => e.level === "debug" && e.msg.includes("server-tool check"))?.data,
+    ).toMatchObject({ hasServerSideTools: true, webSearchEnabled: true });
 
-    const debugEvents = events.filter((e) => e.level === "debug");
-    const serverToolCheck = debugEvents.find((e) => e.msg.includes("server-tool check"));
-    expect(serverToolCheck).toBeDefined();
-    expect(serverToolCheck!.data?.hasServerSideTools).toBe(true);
-    expect(serverToolCheck!.data?.webSearchEnabled).toBe(true);
-  });
-
-  test("does not emit debug logs when optToolCallDebug is false", async () => {
     state.optToolCallDebug = false;
-    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse()));
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-        tools: [{ name: "get_weather", input_schema: { type: "object" } }],
-      }),
+    const disabled = await captureLogs(() =>
+      makeApp().request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "hi" }],
+          tools: [{ name: "get_weather", input_schema: { type: "object" } }],
+        }),
+      ),
     );
-
-    logEmitter.off("log", listener);
-
-    const debugEvents = events.filter((e) => e.level === "debug");
-    const toolDefsLog = debugEvents.find((e) => e.msg.includes("tool definitions"));
-    expect(toolDefsLog).toBeUndefined();
+    expect(
+      disabled.events.find((e) => e.level === "debug" && e.msg.includes("tool definitions")),
+    ).toBeUndefined();
   });
 });
-
-// ===========================================================================
-// handleCompletion — key-bound custom upstream provider
-// ===========================================================================
 
 describe("messages handler (custom providers)", () => {
   test("routes to OpenAI provider and translates request/response", async () => {
@@ -787,24 +517,12 @@ describe("messages handler (custom providers)", () => {
       base_url: "https://api.example.com/v1",
       format: "chat_completions",
       api_key: "sk-test",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
     });
+    fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({ model: "my-model-v2" })));
 
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchJson(
-        makeOpenAIResponse({
-          model: "gpt-4o",
-        }),
-      ),
-    );
-
-    const app = makeApp();
-    const res = await app.request(
+    const res = await makeApp().request(
       req({
-        model: "gpt-4o",
+        model: "my-model-v2",
         max_tokens: 4096,
         messages: [{ role: "user", content: "hello" }],
       }),
@@ -812,14 +530,9 @@ describe("messages handler (custom providers)", () => {
 
     expect(res.status).toBe(200);
     const json = (await res.json()) as Record<string, unknown>;
-    // Response should be in Anthropic format
     expect(json.type).toBe("message");
     expect(json.role).toBe("assistant");
-
-    // Verify fetch was called with correct base_url
-    expect(fetchSpy).toHaveBeenCalled();
-    const fetchCall = fetchSpy.mock.calls[0];
-    expect(fetchCall[0]).toContain("https://api.example.com/v1");
+    expect(fetchSpy.mock.calls[0]?.[0]).toContain("https://api.example.com/v1");
   });
 
   test("routes to Anthropic provider and passthroughs request", async () => {
@@ -828,13 +541,7 @@ describe("messages handler (custom providers)", () => {
       base_url: "https://api.anthropic.com",
       format: "anthropic_messages",
       api_key: "sk-ant-test",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
     });
-
-    // Anthropic format response
     fetchSpy.mockResolvedValueOnce(
       mockFetchJson({
         id: "msg_test",
@@ -848,8 +555,7 @@ describe("messages handler (custom providers)", () => {
       }),
     );
 
-    const app = makeApp();
-    const res = await app.request(
+    const res = await makeApp().request(
       req({
         model: "claude-3-opus-20240229",
         max_tokens: 4096,
@@ -861,140 +567,49 @@ describe("messages handler (custom providers)", () => {
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.type).toBe("message");
     expect(json.model).toBe("claude-3-opus-20240229");
-
-    // Verify fetch was called with Anthropic base_url
-    expect(fetchSpy).toHaveBeenCalled();
-    const fetchCall = fetchSpy.mock.calls[0];
-    expect(fetchCall[0]).toContain("https://api.anthropic.com");
+    expect(fetchSpy.mock.calls[0]?.[0]).toContain("https://api.anthropic.com");
   });
 
-  test("emits thinking drop log for OpenAI provider without supports_reasoning", async () => {
-    selectUpstream({
-      name: "test-openai-no-reasoning",
-      base_url: "https://api.example.com/v1",
-      format: "chat_completions",
-      api_key: "sk-test",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
-    });
+  test.each([
+    { supportsReasoning: false, model: "custom-model", expectDropLog: true },
+    { supportsReasoning: true, model: "o1-preview", expectDropLog: false },
+  ])(
+    "OpenAI provider thinking drop log matches supports_reasoning=$supportsReasoning",
+    async ({ supportsReasoning, model, expectDropLog }) => {
+      selectUpstream({
+        name: `test-openai-${supportsReasoning}`,
+        base_url: "https://api.example.com/v1",
+        format: "chat_completions",
+        api_key: "sk-test",
+        supports_reasoning: supportsReasoning,
+      });
+      fetchSpy.mockResolvedValueOnce(mockFetchJson(makeOpenAIResponse({ model })));
 
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchJson(
-        makeOpenAIResponse({
-          model: "custom-model",
-        }),
-      ),
-    );
+      const { events } = await captureLogs(() =>
+        makeApp().request(
+          req({
+            model,
+            max_tokens: 4096,
+            messages: [{ role: "user", content: "hi" }],
+            thinking: { type: "enabled", budget_tokens: 5000 },
+          }),
+        ),
+      );
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "custom-model",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-        thinking: { type: "enabled", budget_tokens: 5000 },
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    const debugEvents = events.filter((e) => e.level === "debug");
-    const thinkingDebug = debugEvents.find((e) => e.msg.includes("thinking parameter dropped"));
-    expect(thinkingDebug).toBeDefined();
-    expect(thinkingDebug!.msg).toContain("does not declare supports_reasoning");
-    expect(thinkingDebug!.data?.provider).toBe("test-openai-no-reasoning");
-    expect(thinkingDebug!.data?.budgetTokens).toBe(5000);
-  });
-
-  test("OpenAI provider with supports_reasoning uses reasoning format", async () => {
-    selectUpstream({
-      name: "test-openai-with-reasoning",
-      base_url: "https://api.example.com/v1",
-      format: "chat_completions",
-      api_key: "sk-test",
-      is_enabled: true,
-      supports_reasoning: true,
-      auth_style: null,
-      use_socks5: null,
-    });
-
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchJson(
-        makeOpenAIResponse({
-          model: "o1-preview",
-        }),
-      ),
-    );
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "o1-preview",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hi" }],
-        thinking: { type: "enabled", budget_tokens: 5000 },
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    // Should NOT emit "does not declare supports_reasoning" debug log
-    const thinkingDebug = events.find(
-      (e) => e.level === "debug" && e.msg.includes("does not declare supports_reasoning"),
-    );
-    expect(thinkingDebug).toBeUndefined();
-  });
-
-  test("passes an explicit uncached model to the key-bound provider", async () => {
-    selectUpstream({
-      name: "test-glob-provider",
-      base_url: "https://api.example.com/v1",
-      format: "chat_completions",
-      api_key: "sk-test",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
-    });
-
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchJson(
-        makeOpenAIResponse({
-          model: "my-model-v2",
-        }),
-      ),
-    );
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "my-model-v2",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    expect(res.status).toBe(200);
-    // Verify it routed to the custom provider
-    expect(fetchSpy).toHaveBeenCalled();
-    const fetchCall = fetchSpy.mock.calls[0];
-    expect(fetchCall[0]).toContain("https://api.example.com/v1");
-  });
+      const dropLog = events.find(
+        (e) => e.level === "debug" && e.msg.includes("does not declare supports_reasoning"),
+      );
+      if (expectDropLog) {
+        expect(dropLog?.data).toMatchObject({
+          provider: `test-openai-${supportsReasoning}`,
+          budgetTokens: 5000,
+        });
+      } else {
+        expect(dropLog).toBeUndefined();
+      }
+    },
+  );
 });
-
-// ===========================================================================
-// handleCompletion — tool_choice rewrite for server-side tools
-// ===========================================================================
 
 describe("messages handler (tool_choice rewrite)", () => {
   let savedOptToolCallDebug: boolean;
@@ -1013,311 +628,124 @@ describe("messages handler (tool_choice rewrite)", () => {
     state.stWebSearchApiKey = savedStWebSearchApiKey;
   });
 
-  test("rewrites tool_choice to 'auto' when targeting server-side tool (mixed mode)", async () => {
-    state.stWebSearchEnabled = true;
-    state.stWebSearchApiKey = "test-tavily-key";
+  test.each([
+    { targetTool: "web_search", expectRewrite: true },
+    { targetTool: "get_weather", expectRewrite: false },
+  ])(
+    "mixed-mode tool_choice for $targetTool (expectRewrite=$expectRewrite)",
+    async ({ targetTool, expectRewrite }) => {
+      state.stWebSearchEnabled = true;
+      state.stWebSearchApiKey = "test-tavily-key";
 
-    // Mock the stream response (no tool call, just text) — mixed mode uses streaming internally
-    const chunk = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [
-        {
-          index: 0,
-          delta: { role: "assistant", content: "Search results..." },
-          finish_reason: null,
-        },
-      ],
-    });
-    const finalChunk = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
-    });
+      fetchSpy.mockResolvedValueOnce(
+        mockFetchStream([
+          makeChunk({ role: "assistant", content: "ok" }),
+          makeChunk(
+            {},
+            {
+              finishReason: "stop",
+              usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+            },
+          ),
+          "data: [DONE]\n\n",
+        ]),
+      );
 
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchStream([`data: ${chunk}\n\n`, `data: ${finalChunk}\n\n`, "data: [DONE]\n\n"]),
-    );
+      const { events } = await captureLogs(() =>
+        makeApp().request(
+          req({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 4096,
+            messages: [{ role: "user", content: "query" }],
+            tools: [
+              { name: "get_weather", input_schema: { type: "object" } },
+              { name: "web_search", type: "web_search_20250305", input_schema: { type: "object" } },
+            ],
+            tool_choice: { type: "tool", name: targetTool },
+          }),
+        ),
+      );
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "search for news" }],
-        // Include both client and server-side tools for mixed mode
-        // Server-side tool must have type matching pattern: web_search_20250305
-        tools: [
-          { name: "get_weather", input_schema: { type: "object" } },
-          {
-            name: "web_search",
-            type: "web_search_20250305",
-            input_schema: { type: "object" },
-          },
-        ],
-        // Anthropic format: { type: "tool", name: "web_search" }
-        tool_choice: { type: "tool", name: "web_search" },
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    // Should emit log about tool_choice being rewritten
-    const rewriteLog = events.find((e) => e.msg.includes("tool_choice rewritten"));
-    expect(rewriteLog).toBeDefined();
-    expect(rewriteLog!.data?.originalToolChoice).toBe("web_search");
-    expect(rewriteLog!.data?.newToolChoice).toBe("auto");
-  });
-
-  test("does not rewrite tool_choice when targeting client-side tool", async () => {
-    state.stWebSearchEnabled = true;
-    state.stWebSearchApiKey = "test-tavily-key";
-
-    // Mock the stream response
-    const chunk = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [
-        {
-          index: 0,
-          delta: { role: "assistant", content: "Weather is sunny" },
-          finish_reason: null,
-        },
-      ],
-    });
-    const finalChunk = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
-    });
-
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchStream([`data: ${chunk}\n\n`, `data: ${finalChunk}\n\n`, "data: [DONE]\n\n"]),
-    );
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "get weather" }],
-        tools: [
-          { name: "get_weather", input_schema: { type: "object" } },
-          {
-            name: "web_search",
-            type: "web_search_20250305",
-            input_schema: { type: "object" },
-          },
-        ],
-        // Anthropic format: target client-side tool
-        tool_choice: { type: "tool", name: "get_weather" },
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    // Should NOT emit tool_choice rewrite log for client-side tool
-    const rewriteLog = events.find((e) => e.msg.includes("tool_choice rewritten"));
-    expect(rewriteLog).toBeUndefined();
-  });
+      const rewriteLog = events.find((e) => e.msg.includes("tool_choice rewritten"));
+      if (expectRewrite) {
+        expect(rewriteLog?.data).toMatchObject({
+          originalToolChoice: "web_search",
+          newToolChoice: "auto",
+        });
+      } else {
+        expect(rewriteLog).toBeUndefined();
+      }
+    },
+  );
 });
 
-// ===========================================================================
-// handleCompletion — streaming with tool calls (optToolCallDebug)
-// ===========================================================================
-
-describe("messages handler (streaming tool call debug)", () => {
+describe("messages handler (streaming tool call debug & server-side tools)", () => {
   let savedOptToolCallDebug: boolean;
-
-  beforeEach(() => {
-    savedOptToolCallDebug = state.optToolCallDebug;
-  });
-
-  afterEach(() => {
-    state.optToolCallDebug = savedOptToolCallDebug;
-  });
-
-  test("emits tool_use started debug log during streaming", async () => {
-    state.optToolCallDebug = true;
-
-    // Create stream with tool call deltas
-    const chunk1 = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [
-        {
-          index: 0,
-          delta: {
-            role: "assistant",
-            tool_calls: [
-              {
-                index: 0,
-                id: "call_123",
-                type: "function",
-                function: { name: "get_weather", arguments: "" },
-              },
-            ],
-          },
-          finish_reason: null,
-        },
-      ],
-    });
-    const chunk2 = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [
-        {
-          index: 0,
-          delta: {
-            tool_calls: [
-              {
-                index: 0,
-                function: { arguments: '{"loc' },
-              },
-            ],
-          },
-          finish_reason: null,
-        },
-      ],
-    });
-    const chunk3 = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [
-        {
-          index: 0,
-          delta: {
-            tool_calls: [
-              {
-                index: 0,
-                function: { arguments: 'ation":"NYC"}' },
-              },
-            ],
-          },
-          finish_reason: "tool_calls",
-        },
-      ],
-    });
-
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchStream([
-        `data: ${chunk1}\n\n`,
-        `data: ${chunk2}\n\n`,
-        `data: ${chunk3}\n\n`,
-        "data: [DONE]\n\n",
-      ]),
-    );
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "what is the weather in NYC?" }],
-        tools: [{ name: "get_weather", input_schema: { type: "object" } }],
-      }),
-    );
-
-    await res.text();
-    await new Promise((r) => setTimeout(r, 50));
-
-    logEmitter.off("log", listener);
-
-    // Should emit tool_use started debug log
-    const toolUseLog = events.find(
-      (e) => e.level === "debug" && e.msg.includes("tool_use started"),
-    );
-    expect(toolUseLog).toBeDefined();
-    expect(toolUseLog!.data?.toolName).toBe("get_weather");
-    expect(toolUseLog!.data?.toolId).toBe("call_123");
-  });
-
-  test("includes debug data in request_end for streaming with tools", async () => {
-    state.optToolCallDebug = true;
-
-    const chunk1 = JSON.stringify({
-      id: "c1",
-      model: "claude-sonnet-4",
-      choices: [
-        {
-          index: 0,
-          delta: {
-            role: "assistant",
-            tool_calls: [
-              {
-                index: 0,
-                id: "call_abc",
-                type: "function",
-                function: { name: "calculator", arguments: '{"x":1}' },
-              },
-            ],
-          },
-          finish_reason: "tool_calls",
-        },
-      ],
-      usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
-    });
-
-    fetchSpy.mockResolvedValueOnce(mockFetchStream([`data: ${chunk1}\n\n`, "data: [DONE]\n\n"]));
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "calculate 1+1" }],
-        tools: [{ name: "calculator", input_schema: { type: "object" } }],
-      }),
-    );
-
-    await res.text();
-    await new Promise((r) => setTimeout(r, 50));
-
-    logEmitter.off("log", listener);
-
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent).toBeDefined();
-    expect(endEvent!.data?.toolCallCount).toBe(1);
-    expect(endEvent!.data?.toolCallNames).toEqual(["calculator"]);
-  });
-});
-
-// ===========================================================================
-// handleCompletion — server-side tools and second-half branches
-// ===========================================================================
-
-describe("messages handler (server-side tools)", () => {
   let savedStWebSearchEnabled: boolean;
   let savedStWebSearchApiKey: string | null;
 
   beforeEach(() => {
+    savedOptToolCallDebug = state.optToolCallDebug;
     savedStWebSearchEnabled = state.stWebSearchEnabled;
     savedStWebSearchApiKey = state.stWebSearchApiKey;
   });
 
   afterEach(() => {
+    state.optToolCallDebug = savedOptToolCallDebug;
     state.stWebSearchEnabled = savedStWebSearchEnabled;
     state.stWebSearchApiKey = savedStWebSearchApiKey;
+  });
+
+  test("emits tool_use started debug log and toolCallCount/Names in request_end", async () => {
+    state.optToolCallDebug = true;
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        makeChunk({
+          role: "assistant",
+          tool_calls: [
+            {
+              index: 0,
+              id: "call_123",
+              type: "function",
+              function: { name: "get_weather", arguments: "" },
+            },
+          ],
+        }),
+        makeChunk({
+          tool_calls: [{ index: 0, function: { arguments: '{"loc' } }],
+        }),
+        makeChunk(
+          { tool_calls: [{ index: 0, function: { arguments: 'ation":"NYC"}' } }] },
+          {
+            finishReason: "tool_calls",
+            usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+          },
+        ),
+        "data: [DONE]\n\n",
+      ]),
+    );
+
+    const { events } = await captureLogs(async () => {
+      const res = await makeApp().request(
+        req({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          stream: true,
+          messages: [{ role: "user", content: "what is the weather in NYC?" }],
+          tools: [{ name: "get_weather", input_schema: { type: "object" } }],
+        }),
+      );
+      await res.text();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(
+      events.find((e) => e.level === "debug" && e.msg.includes("tool_use started"))?.data,
+    ).toMatchObject({ toolName: "get_weather", toolId: "call_123" });
+    expect(events.find((e) => e.type === "request_end")?.data).toMatchObject({
+      toolCallCount: 1,
+      toolCallNames: ["get_weather"],
+    });
   });
 
   test("returns pure server-side web_search response from array text content", async () => {
@@ -1338,19 +766,13 @@ describe("messages handler (server-side tools)", () => {
     });
     const createSpy = vi
       .spyOn(copilotOpenAIModule.CopilotOpenAIClient.prototype, "send")
-      .mockResolvedValueOnce(createMockStream({ content: "Synthesized answer" }));
+      .mockResolvedValueOnce(createMockStream("Synthesized answer"));
 
-    const app = makeApp();
-    const res = await app.request(
+    const res = await makeApp().request(
       req({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
-        messages: [
-          {
-            role: "user",
-            content: [{ type: "text", text: "search the docs" }],
-          },
-        ],
+        messages: [{ role: "user", content: [{ type: "text", text: "search the docs" }] }],
         tools: [
           {
             name: "web_search",
@@ -1367,7 +789,6 @@ describe("messages handler (server-side tools)", () => {
       content: Array<Record<string, unknown>>;
       usage: { server_tool_use?: { web_search_requests: number } | null };
     };
-
     expect(searchSpy).toHaveBeenCalledWith(
       "tvly-test-key",
       { query: "search the docs" },
@@ -1383,9 +804,6 @@ describe("messages handler (server-side tools)", () => {
     createSpy.mockRestore();
   });
 });
-
-// NOTE: handleServerToolLoop tests have been moved to server-tools.test.ts
-// which tests the unified withServerToolInterception() layer.
 
 describe("messages handler (custom provider streaming edge cases)", () => {
   let savedOptToolCallDebug: boolean;
@@ -1404,10 +822,6 @@ describe("messages handler (custom provider streaming edge cases)", () => {
       base_url: "https://anthropic.example.com",
       format: "anthropic_messages",
       api_key: "sk-ant-test",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
     });
 
     fetchSpy.mockResolvedValueOnce(
@@ -1418,73 +832,67 @@ describe("messages handler (custom provider streaming edge cases)", () => {
       ]),
     );
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "claude-provider-v1",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    expect(res.status).toBe(200);
-    const text = await res.text();
-
-    logEmitter.off("log", listener);
-
-    expect(text).toContain('data: {"type":"message_start","message":{"id":"msg-1"}}');
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent!.data?.inputTokens).toBe(7);
-    expect(endEvent!.data?.outputTokens).toBe(3);
-  });
-
-  test("Anthropic provider streaming sends an Anthropic error event on mid-stream failure", async () => {
-    selectUpstream({
-      name: "anthropic-stream",
-      base_url: "https://anthropic.example.com",
-      format: "anthropic_messages",
-      api_key: "sk-ant-test",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
+    const { result, events } = await captureLogs(async () => {
+      const res = await makeApp().request(
+        req({
+          model: "claude-provider-v1",
+          max_tokens: 4096,
+          stream: true,
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      );
+      return { status: res.status, text: await res.text() };
     });
 
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchErroringStream(
-        ['data: {"type":"message_start","message":{"id":"msg-1"}}\n\n'],
-        new Error("connection reset"),
-      ),
-    );
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "claude-provider-v1",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    const text = await res.text();
-
-    logEmitter.off("log", listener);
-
-    expect(text).toContain("event: error");
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent!.data?.status).toBe("error");
-    expect(endEvent!.data?.error).toContain("stream error: connection reset");
+    expect(result.status).toBe(200);
+    expect(result.text).toContain('data: {"type":"message_start","message":{"id":"msg-1"}}');
+    expect(events.find((e) => e.type === "request_end")?.data).toMatchObject({
+      inputTokens: 7,
+      outputTokens: 3,
+    });
   });
+
+  test.each([
+    {
+      format: "anthropic_messages" as const,
+      name: "anthropic-stream",
+      url: "https://anthropic.example.com",
+      model: "claude-provider-v1",
+      chunk: 'data: {"type":"message_start","message":{"id":"msg-1"}}\n\n',
+      msg: "connection reset",
+    },
+    {
+      format: "chat_completions" as const,
+      name: "openai-stream",
+      url: "https://openai.example.com",
+      model: "gpt-provider-v1",
+      chunk: 'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
+      msg: "provider stream failed",
+    },
+  ])(
+    "$format provider streaming emits Anthropic error event on mid-stream failure",
+    async ({ format, name, url, model, chunk, msg }) => {
+      selectUpstream({ name, base_url: url, format, api_key: "sk-test" });
+      fetchSpy.mockResolvedValueOnce(mockFetchErroringStream([chunk], new Error(msg)));
+
+      const { result: text, events } = await captureLogs(async () => {
+        const res = await makeApp().request(
+          req({
+            model,
+            max_tokens: 4096,
+            stream: true,
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        );
+        return res.text();
+      });
+
+      expect(text).toContain("event: error");
+      const endEvent = events.find((e) => e.type === "request_end");
+      expect(endEvent?.data?.status).toBe("error");
+      expect(endEvent?.data?.error).toContain(`stream error: ${msg}`);
+    },
+  );
 
   test("OpenAI provider streaming records cached-token usage and tool-call debug data", async () => {
     selectUpstream({
@@ -1492,20 +900,13 @@ describe("messages handler (custom provider streaming edge cases)", () => {
       base_url: "https://openai.example.com",
       format: "chat_completions",
       api_key: "sk-openai",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
     });
     state.optToolCallDebug = true;
 
-    const chunk1 = JSON.stringify({
-      id: "c1",
-      model: "gpt-provider-upstream",
-      choices: [
-        {
-          index: 0,
-          delta: {
+    fetchSpy.mockResolvedValueOnce(
+      mockFetchStream([
+        makeChunk(
+          {
             role: "assistant",
             tool_calls: [
               {
@@ -1516,114 +917,51 @@ describe("messages handler (custom provider streaming edge cases)", () => {
               },
             ],
           },
-          finish_reason: null,
-        },
-      ],
-    });
-    const chunk2 = JSON.stringify({
-      id: "c1",
-      model: "gpt-provider-upstream",
-      choices: [
-        {
-          index: 0,
-          delta: {
-            tool_calls: [
-              {
-                index: 0,
-                function: { arguments: '{"x":1}' },
-              },
-            ],
+          { model: "gpt-provider-upstream" },
+        ),
+        makeChunk(
+          { tool_calls: [{ index: 0, function: { arguments: '{"x":1}' } }] },
+          {
+            model: "gpt-provider-upstream",
+            finishReason: "tool_calls",
+            usage: {
+              prompt_tokens: 12,
+              completion_tokens: 4,
+              total_tokens: 16,
+              prompt_tokens_details: { cached_tokens: 2 },
+            },
           },
-          finish_reason: "tool_calls",
-        },
-      ],
-      usage: {
-        prompt_tokens: 12,
-        completion_tokens: 4,
-        total_tokens: 16,
-        prompt_tokens_details: { cached_tokens: 2 },
-      },
+        ),
+        "data: [DONE]\n\n",
+      ]),
+    );
+
+    const { result: text, events } = await captureLogs(async () => {
+      const res = await makeApp().request(
+        req({
+          model: "gpt-provider-v1",
+          max_tokens: 4096,
+          stream: true,
+          messages: [{ role: "user", content: "calculate 1+1" }],
+          tools: [{ name: "calculator", input_schema: { type: "object" } }],
+        }),
+      );
+      const body = await res.text();
+      await new Promise((r) => setTimeout(r, 50));
+      return body;
     });
-
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchStream([`data: ${chunk1}\n\n`, `data: ${chunk2}\n\n`, "data: [DONE]\n\n"]),
-    );
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "gpt-provider-v1",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "calculate 1+1" }],
-        tools: [{ name: "calculator", input_schema: { type: "object" } }],
-      }),
-    );
-
-    const text = await res.text();
-    await new Promise((r) => setTimeout(r, 50));
-
-    logEmitter.off("log", listener);
 
     expect(text).toContain("event: message_start");
-    const toolUseLog = events.find(
-      (e) => e.level === "debug" && e.msg.includes("tool_use started"),
-    );
-    expect(toolUseLog!.data?.toolName).toBe("calculator");
-
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent!.data?.resolvedModel).toBe("gpt-provider-upstream");
-    expect(endEvent!.data?.inputTokens).toBe(10);
-    expect(endEvent!.data?.outputTokens).toBe(4);
-    expect(endEvent!.data?.toolCallCount).toBe(1);
-    expect(endEvent!.data?.toolCallNames).toEqual(["calculator"]);
-  });
-
-  test("OpenAI provider streaming sends Anthropic error events on mid-stream failure", async () => {
-    selectUpstream({
-      name: "openai-stream",
-      base_url: "https://openai.example.com",
-      format: "chat_completions",
-      api_key: "sk-openai",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
+    expect(
+      events.find((e) => e.level === "debug" && e.msg.includes("tool_use started"))?.data?.toolName,
+    ).toBe("calculator");
+    expect(events.find((e) => e.type === "request_end")?.data).toMatchObject({
+      resolvedModel: "gpt-provider-upstream",
+      inputTokens: 10,
+      outputTokens: 4,
+      toolCallCount: 1,
+      toolCallNames: ["calculator"],
     });
-
-    fetchSpy.mockResolvedValueOnce(
-      mockFetchErroringStream(
-        ['data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n'],
-        new Error("provider stream failed"),
-      ),
-    );
-
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
-
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "gpt-provider-v1",
-        max_tokens: 4096,
-        stream: true,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    const text = await res.text();
-
-    logEmitter.off("log", listener);
-
-    expect(text).toContain("event: error");
-    const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent!.data?.status).toBe("error");
-    expect(endEvent!.data?.error).toContain("stream error: provider stream failed");
   });
 
   test("OpenAI provider logs and forwards fetch failures", async () => {
@@ -1632,35 +970,24 @@ describe("messages handler (custom provider streaming edge cases)", () => {
       base_url: "https://openai.example.com",
       format: "chat_completions",
       api_key: "sk-openai",
-      is_enabled: true,
-      supports_reasoning: false,
-      auth_style: null,
-      use_socks5: null,
     });
-
     fetchSpy.mockRejectedValueOnce(new Error("provider unreachable"));
 
-    const events: LogEvent[] = [];
-    const listener = (e: LogEvent) => events.push(e);
-    logEmitter.on("log", listener);
+    const { result, events } = await captureLogs(async () => {
+      const res = await makeApp().request(
+        req({
+          model: "gpt-provider-v1",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      );
+      return { status: res.status, json: (await res.json()) as { error: { message: string } } };
+    });
 
-    const app = makeApp();
-    const res = await app.request(
-      req({
-        model: "gpt-provider-v1",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: "hello" }],
-      }),
-    );
-
-    logEmitter.off("log", listener);
-
-    expect(res.status).toBe(500);
-    const json = (await res.json()) as { error: { message: string } };
-    expect(json.error.message).toContain("provider unreachable");
-
+    expect(result.status).toBe(500);
+    expect(result.json.error.message).toContain("provider unreachable");
     const endEvent = events.find((e) => e.type === "request_end");
-    expect(endEvent!.data?.status).toBe("error");
-    expect(endEvent!.data?.error).toContain("provider unreachable");
+    expect(endEvent?.data?.status).toBe("error");
+    expect(endEvent?.data?.error).toContain("provider unreachable");
   });
 });

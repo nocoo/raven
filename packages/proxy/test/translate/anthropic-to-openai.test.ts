@@ -1,14 +1,11 @@
 import { describe, expect, test } from "vitest";
-import {
-  translateToOpenAI,
-  translateToAnthropic,
-} from "../../src/protocols/translate/non-stream-translation";
 import type { AnthropicMessagesPayload } from "../../src/protocols/anthropic/types";
+import {
+  translateToAnthropic,
+  translateToOpenAI,
+} from "../../src/protocols/translate/non-stream-translation";
 import type { ChatCompletionResponse } from "../../src/upstream/copilot-openai";
 
-// ---------------------------------------------------------------------------
-// Helper: minimal valid Anthropic request
-// ---------------------------------------------------------------------------
 function makeRequest(overrides: Partial<AnthropicMessagesPayload> = {}): AnthropicMessagesPayload {
   return {
     model: "claude-sonnet-4-20250514",
@@ -29,51 +26,59 @@ function makeRequest(overrides: Partial<AnthropicMessagesPayload> = {}): Anthrop
   };
 }
 
-// ===========================================================================
-// System prompt
-// ===========================================================================
+function makeResponse(overrides: Partial<ChatCompletionResponse> = {}): ChatCompletionResponse {
+  return {
+    id: "chatcmpl-abc",
+    object: "chat.completion",
+    created: 1700000000,
+    model: "claude-sonnet-4",
+    system_fingerprint: null,
+    choices: [
+      {
+        index: 0,
+        message: { role: "assistant", content: "Hello!", tool_calls: null },
+        finish_reason: "stop",
+        logprobs: null,
+      },
+    ],
+    usage: {
+      prompt_tokens: 100,
+      completion_tokens: 20,
+      total_tokens: 120,
+      prompt_tokens_details: null,
+    },
+    ...overrides,
+  };
+}
 
 describe("system prompt", () => {
-  test("string system → system message", () => {
-    const result = translateToOpenAI(makeRequest({ system: "You are helpful." }));
+  test.each([
+    ["You are helpful.", "You are helpful."],
+    [
+      [
+        { type: "text" as const, text: "Part one." },
+        { type: "text" as const, text: "Part two." },
+      ],
+      "Part one.\n\nPart two.",
+    ],
+  ])("translates system prompt to system message", (system, expectedContent) => {
+    const result = translateToOpenAI(makeRequest({ system }));
     expect(result.messages[0]).toEqual({
       role: "system",
-      content: "You are helpful.",
+      content: expectedContent,
       name: null,
       tool_calls: null,
       tool_call_id: null,
     });
   });
 
-  test("TextBlock[] system → concatenated system message", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        system: [
-          { type: "text", text: "Part one." },
-          { type: "text", text: "Part two." },
-        ],
-      }),
-    );
-    expect(result.messages[0]).toEqual({
-      role: "system",
-      content: "Part one.\n\nPart two.",
-      name: null,
-      tool_calls: null,
-      tool_call_id: null,
-    });
-  });
-
-  test("no system → no system message", () => {
+  test("omits system message when system is null", () => {
     const result = translateToOpenAI(makeRequest());
     expect(result.messages.every((m: { role: string }) => m.role !== "system")).toBe(true);
   });
 });
 
-// ===========================================================================
-// Text messages
-// ===========================================================================
-
-describe("text messages", () => {
+describe("text and content messages", () => {
   test("reorders known tool results while retaining unknown results when orphan sanitization is disabled", () => {
     const result = translateToOpenAI(
       makeRequest({
@@ -108,11 +113,16 @@ describe("text messages", () => {
     expect(tools[2]?.content).toBeNull();
   });
 
-  test("normalizes non-string legacy user content without fabricating text", () => {
-    const request = makeRequest({
+  test("normalizes non-string legacy user/assistant content to null", () => {
+    const userReq = makeRequest({
       messages: [{ role: "user", content: null }],
     } as unknown as Partial<AnthropicMessagesPayload>);
-    expect(translateToOpenAI(request).messages[0]?.content).toBeNull();
+    expect(translateToOpenAI(userReq).messages[0]?.content).toBeNull();
+
+    const assistantReq = makeRequest({
+      messages: [{ role: "assistant", content: undefined as unknown as string }],
+    });
+    expect(translateToOpenAI(assistantReq).messages[0]?.content).toBeNull();
   });
 
   test.each([
@@ -146,8 +156,8 @@ describe("text messages", () => {
     expect(result.messages[0]?.tool_calls?.[0]?.function.name).toBe("read");
   });
 
-  test("string content passes through", () => {
-    const result = translateToOpenAI(
+  test("passes through string content and concatenates text block arrays", () => {
+    const strResult = translateToOpenAI(
       makeRequest({
         messages: [
           { role: "user", content: "hi" },
@@ -155,14 +165,12 @@ describe("text messages", () => {
         ],
       }),
     );
-    expect(result.messages).toEqual([
+    expect(strResult.messages).toEqual([
       { role: "user", content: "hi", name: null, tool_calls: null, tool_call_id: null },
       { role: "assistant", content: "hello", name: null, tool_calls: null, tool_call_id: null },
     ]);
-  });
 
-  test("text block array → concatenated string", () => {
-    const result = translateToOpenAI(
+    const arrResult = translateToOpenAI(
       makeRequest({
         messages: [
           {
@@ -175,234 +183,91 @@ describe("text messages", () => {
         ],
       }),
     );
-    expect(result.messages[0]).toEqual({
-      role: "user",
-      content: "first\n\nsecond",
-      name: null,
-      tool_calls: null,
-      tool_call_id: null,
-    });
+    expect(arrResult.messages[0]?.content).toBe("first\n\nsecond");
   });
 });
 
-// ===========================================================================
-// Tool use (assistant → OpenAI assistant with tool_calls)
-// ===========================================================================
-
-describe("tool_use blocks", () => {
-  test("single tool_use → assistant with tool_calls", () => {
-    const result = translateToOpenAI(
+describe("tool_use, tool_result, thinking, and image blocks", () => {
+  test("translates single, text+tool_use, and multiple tool_use blocks", () => {
+    const single = translateToOpenAI(
       makeRequest({
         messages: [
           {
             role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                id: "tu_1",
-                name: "get_weather",
-                input: { city: "SF" },
-              },
-            ],
+            content: [{ type: "tool_use", id: "tu_1", name: "get_weather", input: { city: "SF" } }],
           },
         ],
       }),
     );
-    const msg = result.messages[0]!;
-    expect(msg.role).toBe("assistant");
-    expect(msg.content).toBeNull();
-    expect(msg.tool_calls).toEqual([
-      {
-        id: "tu_1",
-        type: "function",
-        function: {
-          name: "get_weather",
-          arguments: '{"city":"SF"}',
+    expect(single.messages[0]).toMatchObject({
+      role: "assistant",
+      content: null,
+      tool_calls: [
+        {
+          id: "tu_1",
+          type: "function",
+          function: { name: "get_weather", arguments: '{"city":"SF"}' },
         },
-      },
-    ]);
-  });
+      ],
+    });
 
-  test("text + tool_use → assistant with content + tool_calls", () => {
-    const result = translateToOpenAI(
+    const mixed = translateToOpenAI(
       makeRequest({
         messages: [
           {
             role: "assistant",
             content: [
               { type: "text", text: "Let me check." },
-              {
-                type: "tool_use",
-                id: "tu_2",
-                name: "search",
-                input: { q: "test" },
-              },
+              { type: "tool_use", id: "tu_2", name: "search", input: { q: "test" } },
+              { type: "tool_use", id: "tu_3", name: "fetch", input: { u: "x" } },
             ],
           },
         ],
       }),
     );
-    const msg = result.messages[0]!;
-    expect(msg.role).toBe("assistant");
-    expect(msg.content).toBe("Let me check.");
-    expect(msg.tool_calls).toHaveLength(1);
-    expect(msg.tool_calls![0]!.function.name).toBe("search");
+    expect(mixed.messages[0]?.content).toBe("Let me check.");
+    expect(mixed.messages[0]?.tool_calls).toHaveLength(2);
   });
 
-  test("multiple tool_use blocks → multiple tool_calls", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        messages: [
-          {
-            role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                id: "tu_a",
-                name: "fn_a",
-                input: { x: 1 },
-              },
-              {
-                type: "tool_use",
-                id: "tu_b",
-                name: "fn_b",
-                input: { y: 2 },
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    expect(result.messages[0]!.tool_calls).toHaveLength(2);
-  });
-});
-
-// ===========================================================================
-// Tool result (user → OpenAI tool message)
-// ===========================================================================
-
-describe("tool_result blocks", () => {
-  test("string tool_result → tool message", () => {
-    const result = translateToOpenAI(
+  test("translates single, multiple, and text-mixed tool_result blocks", () => {
+    const single = translateToOpenAI(
       makeRequest({
         messages: [
           {
             role: "user",
             content: [
-              {
-                type: "tool_result",
-                tool_use_id: "tu_1",
-                content: "72°F",
-                is_error: null,
-              },
+              { type: "tool_result", tool_use_id: "tu_1", content: "72°F", is_error: null },
             ],
           },
         ],
       }),
     );
-    expect(result.messages[0]).toEqual({
+    expect(single.messages[0]).toEqual({
       role: "tool",
       tool_call_id: "tu_1",
       content: "72°F",
       name: null,
       tool_calls: null,
     });
-  });
 
-  // NOTE: In the new code, AnthropicToolResultBlock.content is typed as `string`,
-  // so "array tool_result" is not supported. This test is adapted to use a string
-  // content which is the only valid shape in the new type.
-  test("string tool_result content → tool message with string", () => {
-    const result = translateToOpenAI(
+    const mixed = translateToOpenAI(
       makeRequest({
         messages: [
           {
             role: "user",
             content: [
-              {
-                type: "tool_result",
-                tool_use_id: "tu_1",
-                content: "Line 1\nLine 2",
-                is_error: null,
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    expect(result.messages[0]).toEqual({
-      role: "tool",
-      tool_call_id: "tu_1",
-      content: "Line 1\nLine 2",
-      name: null,
-      tool_calls: null,
-    });
-  });
-
-  test("multiple tool_results → multiple tool messages", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "tool_result",
-                tool_use_id: "tu_a",
-                content: "result_a",
-                is_error: null,
-              },
-              {
-                type: "tool_result",
-                tool_use_id: "tu_b",
-                content: "result_b",
-                is_error: null,
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    expect(result.messages).toHaveLength(2);
-    expect(result.messages[0]).toEqual({
-      role: "tool",
-      tool_call_id: "tu_a",
-      content: "result_a",
-      name: null,
-      tool_calls: null,
-    });
-    expect(result.messages[1]).toEqual({
-      role: "tool",
-      tool_call_id: "tu_b",
-      content: "result_b",
-      name: null,
-      tool_calls: null,
-    });
-  });
-
-  test("tool_result with text blocks mixed → tool messages + user message", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "tool_result",
-                tool_use_id: "tu_1",
-                content: "ok",
-                is_error: null,
-              },
+              { type: "tool_result", tool_use_id: "tu_a", content: "result_a", is_error: null },
+              { type: "tool_result", tool_use_id: "tu_b", content: "result_b", is_error: null },
               { type: "text", text: "Now continue." },
             ],
           },
         ],
       }),
     );
-    // tool_result becomes tool message, text becomes user message
-    expect(result.messages).toHaveLength(2);
-    expect(result.messages[0]!.role).toBe("tool");
-    expect(result.messages[1]).toEqual({
+    expect(mixed.messages).toHaveLength(3);
+    expect(mixed.messages[0]?.tool_call_id).toBe("tu_a");
+    expect(mixed.messages[1]?.tool_call_id).toBe("tu_b");
+    expect(mixed.messages[2]).toEqual({
       role: "user",
       content: "Now continue.",
       name: null,
@@ -410,15 +275,9 @@ describe("tool_result blocks", () => {
       tool_call_id: null,
     });
   });
-});
 
-// ===========================================================================
-// Thinking blocks (merged into text)
-// ===========================================================================
-
-describe("thinking blocks", () => {
-  test("thinking + text → merged text content", () => {
-    const result = translateToOpenAI(
+  test("merges thinking blocks with or without text", () => {
+    const withText = translateToOpenAI(
       makeRequest({
         messages: [
           {
@@ -431,38 +290,18 @@ describe("thinking blocks", () => {
         ],
       }),
     );
-    const msg = result.messages[0]!;
-    expect(msg.role).toBe("assistant");
-    // thinking is merged into text
-    expect(typeof msg.content).toBe("string");
-    expect(msg.content as string).toContain("The answer is 42.");
-  });
+    expect(withText.messages[0]?.content).toContain("The answer is 42.");
 
-  test("thinking only → text content", () => {
-    const result = translateToOpenAI(
+    const onlyThinking = translateToOpenAI(
       makeRequest({
-        messages: [
-          {
-            role: "assistant",
-            content: [{ type: "thinking", thinking: "Hmm..." }],
-          },
-        ],
+        messages: [{ role: "assistant", content: [{ type: "thinking", thinking: "Hmm..." }] }],
       }),
     );
-    const msg = result.messages[0]!;
-    expect(msg.role).toBe("assistant");
-    expect(typeof msg.content).toBe("string");
-    expect(msg.content as string).toContain("Hmm...");
+    expect(onlyThinking.messages[0]?.content).toContain("Hmm...");
   });
-});
 
-// ===========================================================================
-// Image blocks
-// ===========================================================================
-
-describe("image blocks", () => {
-  test("image → image_url content", () => {
-    const result = translateToOpenAI(
+  test("translates image and text+image blocks to image_url content", () => {
+    const imageOnly = translateToOpenAI(
       makeRequest({
         messages: [
           {
@@ -470,30 +309,18 @@ describe("image blocks", () => {
             content: [
               {
                 type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/png",
-                  data: "iVBOR...",
-                },
+                source: { type: "base64", media_type: "image/png", data: "iVBOR..." },
               },
             ],
           },
         ],
       }),
     );
-    const msg = result.messages[0]!;
-    expect(msg.role).toBe("user");
-    expect(Array.isArray(msg.content)).toBe(true);
-    const content = msg.content as Array<{
-      type: string;
-      image_url?: { url: string };
-    }>;
-    expect(content[0]!.type).toBe("image_url");
-    expect(content[0]!.image_url!.url).toBe("data:image/png;base64,iVBOR...");
-  });
+    expect(imageOnly.messages[0]?.content).toEqual([
+      { type: "image_url", image_url: { url: "data:image/png;base64,iVBOR..." } },
+    ]);
 
-  test("text + image mixed → array content with both types", () => {
-    const result = translateToOpenAI(
+    const mixed = translateToOpenAI(
       makeRequest({
         messages: [
           {
@@ -502,102 +329,23 @@ describe("image blocks", () => {
               { type: "text", text: "What is this?" },
               {
                 type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/jpeg",
-                  data: "abc123",
-                },
+                source: { type: "base64", media_type: "image/jpeg", data: "abc123" },
               },
             ],
           },
         ],
       }),
     );
-    const msg = result.messages[0]!;
-    const content = msg.content as Array<{ type: string }>;
-    expect(content).toHaveLength(2);
-    expect(content[0]!.type).toBe("text");
-    expect(content[1]!.type).toBe("image_url");
+    expect(
+      (mixed.messages[0]?.content as Array<{ type: string }> | undefined)?.map((p) => p.type),
+    ).toEqual(["text", "image_url"]);
   });
 });
 
-// ===========================================================================
-// Edge case E6: image + thinking mixed
-// ===========================================================================
+describe("tools and tool_choice translation", () => {
+  test("translates custom, server-side, and untyped tools; omits when absent", () => {
+    expect(translateToOpenAI(makeRequest()).tools).toBeUndefined();
 
-describe("E6: image + thinking mixed", () => {
-  test("thinking + image + text in user message", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Describe this:" },
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: "image/png",
-                  data: "data123",
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    const msg = result.messages[0]!;
-    const content = msg.content as Array<{ type: string }>;
-    expect(content).toHaveLength(2);
-    expect(content[0]!.type).toBe("text");
-    expect(content[1]!.type).toBe("image_url");
-  });
-});
-
-// ===========================================================================
-// Tools array translation
-// ===========================================================================
-
-describe("tools translation", () => {
-  test("Anthropic tools → OpenAI function tools", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        tools: [
-          {
-            name: "get_weather",
-            description: "Get weather for a city",
-            input_schema: {
-              type: "object",
-              properties: { city: { type: "string" } },
-              required: ["city"],
-            },
-          },
-        ],
-      }),
-    );
-    expect(result.tools).toEqual([
-      {
-        type: "function",
-        function: {
-          name: "get_weather",
-          description: "Get weather for a city",
-          parameters: {
-            type: "object",
-            properties: { city: { type: "string" } },
-            required: ["city"],
-          },
-        },
-      },
-    ]);
-  });
-
-  test("no tools → no tools field", () => {
-    const result = translateToOpenAI(makeRequest());
-    expect(result.tools).toBeUndefined();
-  });
-
-  test("server-side tools are preserved and tracked", () => {
     const result = translateToOpenAI(
       makeRequest({
         tools: [
@@ -610,58 +358,9 @@ describe("tools translation", () => {
           {
             name: "get_weather",
             description: "Get weather",
-            input_schema: { type: "object" },
+            input_schema: { type: "object", properties: { city: { type: "string" } } },
             type: "custom",
           },
-        ],
-      }),
-    );
-
-    // All tools should be translated to OpenAI format
-    expect(result.tools).toHaveLength(2);
-    expect(result.tools?.[0]).toEqual({
-      type: "function",
-      function: {
-        name: "web_search",
-        description: "Search the web",
-        parameters: { type: "object" },
-      },
-    });
-    expect(result.tools?.[1]).toEqual({
-      type: "function",
-      function: {
-        name: "get_weather",
-        description: "Get weather",
-        parameters: { type: "object" },
-      },
-    });
-
-    // NOTE: Server-side tool detection is now handled by preprocessPayload() in preprocess.ts,
-    // not by translateToOpenAI(). See preprocess.test.ts for server-side tool detection tests.
-  });
-
-  test("custom tools are translated correctly", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        tools: [
-          {
-            name: "my_tool",
-            description: "My tool",
-            input_schema: { type: "object" },
-            type: "custom",
-          },
-        ],
-      }),
-    );
-
-    expect(result.tools).toHaveLength(1);
-    expect(result.tools![0]!.function.name).toBe("my_tool");
-  });
-
-  test("tools without type field are translated correctly", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        tools: [
           {
             name: "legacy_tool",
             description: "Legacy tool",
@@ -670,277 +369,161 @@ describe("tools translation", () => {
         ],
       }),
     );
-
-    expect(result.tools).toHaveLength(1);
-    expect(result.tools![0]!.function.name).toBe("legacy_tool");
-  });
-});
-
-// ===========================================================================
-// Tool choice translation
-// ===========================================================================
-
-describe("tool_choice translation", () => {
-  test("auto → 'auto'", () => {
-    const result = translateToOpenAI(makeRequest({ tool_choice: { type: "auto" } }));
-    expect(result.tool_choice).toBe("auto");
-  });
-
-  test("any → 'required'", () => {
-    const result = translateToOpenAI(makeRequest({ tool_choice: { type: "any" } }));
-    expect(result.tool_choice).toBe("required");
-  });
-
-  test("tool with name → function object", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        tool_choice: { type: "tool", name: "get_weather" },
-      }),
-    );
-    expect(result.tool_choice).toEqual({
-      type: "function",
-      function: { name: "get_weather" },
-    });
-  });
-
-  test("no tool_choice → no tool_choice field", () => {
-    const result = translateToOpenAI(makeRequest());
-    expect(result.tool_choice).toBeUndefined();
-  });
-});
-
-// ===========================================================================
-// Model name normalization
-// ===========================================================================
-
-describe("model name normalization", () => {
-  test("strips date suffix from claude-sonnet-4 model", () => {
-    const result = translateToOpenAI(makeRequest({ model: "claude-sonnet-4-20250514" }));
-    expect(result.model).toBe("claude-sonnet-4");
-  });
-
-  test("claude-3.5-sonnet-20240620 passes through unchanged", () => {
-    const result = translateToOpenAI(makeRequest({ model: "claude-3.5-sonnet-20240620" }));
-    // New code only normalizes claude-sonnet-4-* and claude-opus-4-*
-    expect(result.model).toBe("claude-3.5-sonnet-20240620");
-  });
-
-  test("keeps non-claude models unchanged", () => {
-    const result = translateToOpenAI(makeRequest({ model: "gpt-4o" }));
-    expect(result.model).toBe("gpt-4o");
-  });
-
-  test("keeps claude model without date suffix unchanged", () => {
-    const result = translateToOpenAI(makeRequest({ model: "claude-3.5-sonnet" }));
-    expect(result.model).toBe("claude-3.5-sonnet");
-  });
-});
-
-// ===========================================================================
-// Other request fields
-// ===========================================================================
-
-describe("other request fields", () => {
-  test("max_tokens passes through", () => {
-    const result = translateToOpenAI(makeRequest({ max_tokens: 1024 }));
-    expect(result.max_tokens).toBe(1024);
-  });
-
-  test("temperature passes through", () => {
-    const result = translateToOpenAI(makeRequest({ temperature: 0.7 }));
-    expect(result.temperature).toBe(0.7);
-  });
-
-  test("stream passes through", () => {
-    const result = translateToOpenAI(makeRequest({ stream: true }));
-    expect(result.stream).toBe(true);
-  });
-
-  test("custom OpenAI streaming leaves usage policy to transport", () => {
-    const result = translateToOpenAI(makeRequest({ stream: true }), { targetFormat: "openai" });
-    expect(result.stream_options).toBeUndefined();
-  });
-
-  test("custom OpenAI reasoning streaming leaves usage policy to transport", () => {
-    const result = translateToOpenAI(makeRequest({ stream: true }), {
-      targetFormat: "openai-reasoning",
-    });
-    expect(result.stream_options).toBeUndefined();
-  });
-
-  test("custom OpenAI non-stream does not set include_usage", () => {
-    const result = translateToOpenAI(makeRequest({ stream: false }), { targetFormat: "openai" });
-    expect(result.stream_options).toBeUndefined();
-  });
-
-  test("Copilot streaming does not set include_usage", () => {
-    const result = translateToOpenAI(makeRequest({ stream: true }), { targetFormat: "copilot" });
-    expect(result.stream_options).toBeUndefined();
-  });
-
-  test("stop_sequences → stop", () => {
-    const result = translateToOpenAI(makeRequest({ stop_sequences: ["END", "STOP"] }));
-    expect(result.stop).toEqual(["END", "STOP"]);
-  });
-
-  test("top_p passes through", () => {
-    const result = translateToOpenAI(makeRequest({ top_p: 0.9 }));
-    expect(result.top_p).toBe(0.9);
-  });
-
-  test("top_k is dropped (not in OpenAI)", () => {
-    const result = translateToOpenAI(makeRequest({ top_k: 50 }));
-    expect(result).not.toHaveProperty("top_k");
-  });
-
-  test("metadata.user_id → user field", () => {
-    const result = translateToOpenAI(makeRequest({ metadata: { user_id: "u1" } }));
-    expect(result).not.toHaveProperty("metadata");
-    expect(result.user).toBe("u1");
-  });
-});
-
-// ===========================================================================
-// Model name: claude-opus normalization
-// ===========================================================================
-
-describe("claude-opus model name normalization", () => {
-  test("claude-opus-4-20260301 → claude-opus-4", () => {
-    const result = translateToOpenAI(makeRequest({ model: "claude-opus-4-20260301" }));
-    expect(result.model).toBe("claude-opus-4");
-  });
-
-  test("claude-opus-4 (no date suffix) → unchanged", () => {
-    const result = translateToOpenAI(makeRequest({ model: "claude-opus-4" }));
-    // startsWith("claude-opus-") is true, but the regex doesn't match
-    // because there's no date suffix after "claude-opus-4-"
-    expect(result.model).toBe("claude-opus-4");
-  });
-});
-
-// ===========================================================================
-// tool_choice edge cases
-// ===========================================================================
-
-describe("tool_choice edge cases", () => {
-  test("tool without name → undefined", () => {
-    const result = translateToOpenAI(
-      makeRequest({ tool_choice: { type: "tool" } as { type: "tool"; name: string } }),
-    );
-    expect(result.tool_choice).toBeUndefined();
-  });
-
-  test("none → 'none'", () => {
-    const result = translateToOpenAI(makeRequest({ tool_choice: { type: "none" } }));
-    expect(result.tool_choice).toBe("none");
-  });
-
-  test("unknown type → undefined", () => {
-    const result = translateToOpenAI(
-      // @ts-expect-error - Testing unknown type
-      makeRequest({ tool_choice: { type: "unknown_type" } as { type: "auto" } }),
-    );
-    expect(result.tool_choice).toBeUndefined();
-  });
-});
-
-// ===========================================================================
-// mapContent edge: non-string, non-array → null
-// ===========================================================================
-
-describe("mapContent edge cases", () => {
-  test("assistant with non-array non-string content → null", () => {
-    const result = translateToOpenAI(
-      makeRequest({
-        messages: [{ role: "assistant", content: undefined as unknown as string }],
-      }),
-    );
-    expect(result.messages[0]!.content).toBeNull();
-  });
-});
-
-// ===========================================================================
-// translateToAnthropic — response translation
-// ===========================================================================
-
-function makeResponse(overrides: Partial<ChatCompletionResponse> = {}): ChatCompletionResponse {
-  return {
-    id: "chatcmpl-abc",
-    object: "chat.completion",
-    created: 1700000000,
-    model: "claude-sonnet-4",
-    system_fingerprint: null,
-    choices: [
+    expect(result.tools).toEqual([
       {
-        index: 0,
-        message: { role: "assistant", content: "Hello!", tool_calls: null },
-        finish_reason: "stop",
-        logprobs: null,
+        type: "function",
+        function: {
+          name: "web_search",
+          description: "Search the web",
+          parameters: { type: "object" },
+        },
       },
+      {
+        type: "function",
+        function: {
+          name: "get_weather",
+          description: "Get weather",
+          parameters: { type: "object", properties: { city: { type: "string" } } },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "legacy_tool",
+          description: "Legacy tool",
+          parameters: { type: "object" },
+        },
+      },
+    ]);
+  });
+
+  test.each([
+    [{ type: "auto" as const }, "auto"],
+    [{ type: "any" as const }, "required"],
+    [{ type: "none" as const }, "none"],
+    [
+      { type: "tool" as const, name: "get_weather" },
+      { type: "function", function: { name: "get_weather" } },
     ],
-    usage: {
-      prompt_tokens: 100,
-      completion_tokens: 20,
-      total_tokens: 120,
-      prompt_tokens_details: null,
+    [{ type: "tool" as const } as { type: "tool"; name: string }, undefined],
+    [{ type: "unknown_type" } as unknown as { type: "auto" }, undefined],
+    [null, undefined],
+  ])("maps tool_choice %j", (toolChoice, expected) => {
+    expect(translateToOpenAI(makeRequest({ tool_choice: toolChoice })).tool_choice).toEqual(
+      expected,
+    );
+  });
+});
+
+describe("model normalization, request fields, thinking, and max_completion_tokens", () => {
+  test.each([
+    ["claude-sonnet-4-20250514", "claude-sonnet-4"],
+    ["claude-opus-4-20260301", "claude-opus-4"],
+    ["claude-opus-4", "claude-opus-4"],
+    ["claude-3.5-sonnet-20240620", "claude-3.5-sonnet-20240620"],
+    ["claude-3.5-sonnet", "claude-3.5-sonnet"],
+    ["gpt-4o", "gpt-4o"],
+  ])("normalizes model %s → %s", (input, expected) => {
+    expect(translateToOpenAI(makeRequest({ model: input })).model).toBe(expected);
+  });
+
+  test("maps scalar fields, stop_sequences, drops top_k, and leaves stream_options unset", () => {
+    const result = translateToOpenAI(
+      makeRequest({
+        max_tokens: 1024,
+        temperature: 0.7,
+        stream: true,
+        stop_sequences: ["END", "STOP"],
+        top_p: 0.9,
+        top_k: 50,
+        metadata: { user_id: "u1" },
+      }),
+    );
+    expect(result).toMatchObject({
+      max_tokens: 1024,
+      temperature: 0.7,
+      stream: true,
+      stop: ["END", "STOP"],
+      top_p: 0.9,
+      user: "u1",
+    });
+    expect(result).not.toHaveProperty("top_k");
+    expect(result).not.toHaveProperty("metadata");
+
+    for (const targetFormat of ["openai", "openai-reasoning", "copilot"] as const) {
+      expect(
+        translateToOpenAI(makeRequest({ stream: true }), { targetFormat }).stream_options,
+      ).toBeUndefined();
+    }
+    expect(
+      translateToOpenAI(makeRequest({ stream: false }), { targetFormat: "openai" }).stream_options,
+    ).toBeUndefined();
+  });
+
+  test.each([
+    [{ type: "enabled" as const, budget_tokens: 15000 }, "openai-reasoning" as const, "high"],
+    [{ type: "enabled" as const, budget_tokens: 5000 }, "openai-reasoning" as const, "medium"],
+    [{ type: "enabled" as const, budget_tokens: 3000 }, "openai-reasoning" as const, "low"],
+    [{ type: "enabled" as const, budget_tokens: 1000 }, "openai-reasoning" as const, "minimal"],
+    [{ type: "enabled" as const, budget_tokens: null }, "openai-reasoning" as const, "minimal"],
+    [{ type: "enabled" as const, budget_tokens: 10000 }, "openai" as const, undefined],
+    [{ type: "enabled" as const, budget_tokens: 10000 }, "copilot" as const, undefined],
+    [{ type: "enabled" as const, budget_tokens: 10000 }, undefined, undefined],
+    [null, "openai-reasoning" as const, undefined],
+  ])(
+    "thinking %j with targetFormat=%s → reasoning_effort=%s",
+    (thinking, targetFormat, expected) => {
+      const result = translateToOpenAI(
+        makeRequest({ thinking }),
+        targetFormat ? { targetFormat } : undefined,
+      );
+      expect(result.reasoning_effort).toBe(expected);
     },
-    ...overrides,
-  };
-}
+  );
+
+  test.each([
+    ["gpt-5.4", "copilot" as const, true],
+    ["gpt-5.4-mini", "copilot" as const, true],
+    ["gpt-5.4.1", "copilot" as const, true],
+    ["GPT-5.4", "copilot" as const, true],
+    ["o3-mini", "openai-reasoning" as const, true],
+    ["gpt-5.2", "copilot" as const, false],
+    ["gpt-5-mini", "copilot" as const, false],
+    ["claude-opus-4.6", "copilot" as const, false],
+    ["gpt-5.4", "openai" as const, false],
+  ])(
+    "max_tokens rewrite for model=%s target=%s (rewrite=%s)",
+    (model, targetFormat, shouldRewrite) => {
+      const result = translateToOpenAI(makeRequest({ model, max_tokens: 256 }), { targetFormat });
+      expect(result.max_tokens).toBe(shouldRewrite ? undefined : 256);
+      expect(result.max_completion_tokens).toBe(shouldRewrite ? 256 : undefined);
+    },
+  );
+
+  test("Copilot gpt-5.4 with undefined max_tokens emits neither field", () => {
+    const payload = makeRequest({ model: "gpt-5.4" });
+    delete (payload as { max_tokens?: number }).max_tokens;
+    const result = translateToOpenAI(payload, { targetFormat: "copilot" });
+    expect(result.max_tokens).toBeUndefined();
+    expect(result.max_completion_tokens).toBeUndefined();
+  });
+});
 
 describe("translateToAnthropic", () => {
-  test("basic text response → Anthropic format", () => {
-    const result = translateToAnthropic(makeResponse());
-    expect(result.id).toBe("chatcmpl-abc");
-    expect(result.type).toBe("message");
-    expect(result.role).toBe("assistant");
-    expect(result.model).toBe("claude-sonnet-4");
-    expect(result.stop_reason).toBe("end_turn");
-    expect(result.stop_sequence).toBeNull();
-    expect(result.content).toHaveLength(1);
-    expect(result.content[0]).toEqual({ type: "text", text: "Hello!" });
-    expect(result.usage.input_tokens).toBe(100);
-    expect(result.usage.output_tokens).toBe(20);
-  });
-
-  test("response with tool_calls → tool_use blocks", () => {
-    const result = translateToAnthropic(
-      makeResponse({
-        choices: [
-          {
-            index: 0,
-            message: {
-              role: "assistant",
-              content: null,
-              tool_calls: [
-                {
-                  id: "call_1",
-                  type: "function",
-                  function: {
-                    name: "get_weather",
-                    arguments: '{"city":"SF"}',
-                  },
-                },
-              ],
-            },
-            finish_reason: "tool_calls",
-            logprobs: null,
-          },
-        ],
-      }),
-    );
-    expect(result.stop_reason).toBe("tool_use");
-    expect(result.content).toHaveLength(1);
-    expect(result.content[0]).toMatchObject({
-      type: "tool_use",
-      id: "call_1",
-      name: "get_weather",
-      input: { city: "SF" },
+  test("translates text, cached usage, and missing usage", () => {
+    const basic = translateToAnthropic(makeResponse());
+    expect(basic).toMatchObject({
+      id: "chatcmpl-abc",
+      type: "message",
+      role: "assistant",
+      model: "claude-sonnet-4",
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      content: [{ type: "text", text: "Hello!" }],
+      usage: { input_tokens: 100, output_tokens: 20 },
     });
-  });
 
-  test("response with cached_tokens → cache_read_input_tokens", () => {
-    const result = translateToAnthropic(
+    const cached = translateToAnthropic(
       makeResponse({
         usage: {
           prompt_tokens: 100,
@@ -950,50 +533,55 @@ describe("translateToAnthropic", () => {
         },
       }),
     );
-    expect(result.usage.input_tokens).toBe(70); // 100 - 30
-    expect(result.usage.cache_read_input_tokens).toBe(30);
+    expect(cached.usage.input_tokens).toBe(70);
+    expect(cached.usage.cache_read_input_tokens).toBe(30);
+
+    const noUsage = translateToAnthropic(makeResponse({ usage: null }));
+    expect(noUsage.usage).toEqual({
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: null,
+      cache_read_input_tokens: null,
+      service_tier: null,
+    });
   });
 
-  test("finish_reason:length → max_tokens", () => {
+  test.each([
+    ["stop" as const, "end_turn"],
+    ["length" as const, "max_tokens"],
+    ["content_filter" as const, "end_turn"],
+    ["tool_calls" as const, "tool_use"],
+  ])("maps finish_reason=%s → stop_reason=%s", (finishReason, expectedStopReason) => {
     const result = translateToAnthropic(
       makeResponse({
         choices: [
           {
             index: 0,
-            message: { role: "assistant", content: "partial", tool_calls: null },
-            finish_reason: "length",
+            message: {
+              role: "assistant",
+              content: finishReason === "tool_calls" ? null : "partial",
+              tool_calls:
+                finishReason === "tool_calls"
+                  ? [
+                      {
+                        id: "call_1",
+                        type: "function",
+                        function: { name: "get_weather", arguments: '{"city":"SF"}' },
+                      },
+                    ]
+                  : null,
+            },
+            finish_reason: finishReason,
             logprobs: null,
           },
         ],
       }),
     );
-    expect(result.stop_reason).toBe("max_tokens");
+    expect(result.stop_reason).toBe(expectedStopReason);
   });
 
-  test("finish_reason:content_filter → end_turn", () => {
-    const result = translateToAnthropic(
-      makeResponse({
-        choices: [
-          {
-            index: 0,
-            message: { role: "assistant", content: "", tool_calls: null },
-            finish_reason: "content_filter",
-            logprobs: null,
-          },
-        ],
-      }),
-    );
-    expect(result.stop_reason).toBe("end_turn");
-  });
-
-  test("no usage → defaults to 0", () => {
-    const result = translateToAnthropic(makeResponse({ usage: null }));
-    expect(result.usage.input_tokens).toBe(0);
-    expect(result.usage.output_tokens).toBe(0);
-  });
-
-  test("array content → text blocks", () => {
-    const result = translateToAnthropic(
+  test("handles array content, null content, and text + tool_calls together", () => {
+    const arrayResult = translateToAnthropic(
       makeResponse({
         choices: [
           {
@@ -1012,13 +600,12 @@ describe("translateToAnthropic", () => {
         ],
       }),
     );
-    expect(result.content).toHaveLength(2);
-    expect(result.content[0]).toEqual({ type: "text", text: "part 1" });
-    expect(result.content[1]).toEqual({ type: "text", text: "part 2" });
-  });
+    expect(arrayResult.content).toEqual([
+      { type: "text", text: "part 1" },
+      { type: "text", text: "part 2" },
+    ]);
 
-  test("null content → empty content array", () => {
-    const result = translateToAnthropic(
+    const nullResult = translateToAnthropic(
       makeResponse({
         choices: [
           {
@@ -1030,11 +617,9 @@ describe("translateToAnthropic", () => {
         ],
       }),
     );
-    expect(result.content).toHaveLength(0);
-  });
+    expect(nullResult.content).toEqual([]);
 
-  test("text + tool_calls → both in content", () => {
-    const result = translateToAnthropic(
+    const mixed = translateToAnthropic(
       makeResponse({
         choices: [
           {
@@ -1056,156 +641,8 @@ describe("translateToAnthropic", () => {
         ],
       }),
     );
-    expect(result.content).toHaveLength(2);
-    expect(result.content[0]).toMatchObject({ type: "text", text: "I'll help" });
-    expect(result.content[1]).toMatchObject({ type: "tool_use", name: "search" });
-  });
-});
-
-// ===========================================================================
-// thinking → reasoning_effort translation
-// ===========================================================================
-
-describe("thinking → reasoning_effort", () => {
-  test("openai-reasoning with budget >= 10000 → high", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: 15000 } }),
-      { targetFormat: "openai-reasoning" },
-    );
-    expect(result.reasoning_effort).toBe("high");
-  });
-
-  test("openai-reasoning with budget >= 5000 → medium", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: 5000 } }),
-      { targetFormat: "openai-reasoning" },
-    );
-    expect(result.reasoning_effort).toBe("medium");
-  });
-
-  test("openai-reasoning with budget >= 2000 → low", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: 3000 } }),
-      { targetFormat: "openai-reasoning" },
-    );
-    expect(result.reasoning_effort).toBe("low");
-  });
-
-  test("openai-reasoning with budget < 2000 → minimal", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: 1000 } }),
-      { targetFormat: "openai-reasoning" },
-    );
-    expect(result.reasoning_effort).toBe("minimal");
-  });
-
-  test("openai-reasoning with null budget → minimal", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: null } }),
-      { targetFormat: "openai-reasoning" },
-    );
-    expect(result.reasoning_effort).toBe("minimal");
-  });
-
-  test("openai (non-reasoning) drops thinking", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: 10000 } }),
-      { targetFormat: "openai" },
-    );
-    expect(result.reasoning_effort).toBeUndefined();
-  });
-
-  test("copilot drops thinking", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: 10000 } }),
-      { targetFormat: "copilot" },
-    );
-    expect(result.reasoning_effort).toBeUndefined();
-  });
-
-  test("no targetFormat drops thinking", () => {
-    const result = translateToOpenAI(
-      makeRequest({ thinking: { type: "enabled", budget_tokens: 10000 } }),
-    );
-    expect(result.reasoning_effort).toBeUndefined();
-  });
-
-  test("no thinking param → no reasoning_effort", () => {
-    const result = translateToOpenAI(makeRequest({ thinking: null }), {
-      targetFormat: "openai-reasoning",
-    });
-    expect(result.reasoning_effort).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// max_completion_tokens rewrite for gpt-5.4 on Copilot path
-// ---------------------------------------------------------------------------
-describe("translateToOpenAI — max_tokens → max_completion_tokens (Copilot gpt-5.4)", () => {
-  const mk = (model: string): AnthropicMessagesPayload => makeRequest({ model, max_tokens: 256 });
-
-  test("Copilot gpt-5.4: rewrites max_tokens → max_completion_tokens", () => {
-    const result = translateToOpenAI(mk("gpt-5.4"), { targetFormat: "copilot" });
-    expect(result.max_tokens).toBeUndefined();
-    expect(result.max_completion_tokens).toBe(256);
-  });
-
-  test("Copilot gpt-5.4-mini (and other 5.4 suffixed variants): rewrites", () => {
-    const result = translateToOpenAI(mk("gpt-5.4-mini"), { targetFormat: "copilot" });
-    expect(result.max_tokens).toBeUndefined();
-    expect(result.max_completion_tokens).toBe(256);
-  });
-
-  test("Copilot gpt-5.2: keeps legacy max_tokens (regression guard)", () => {
-    const result = translateToOpenAI(mk("gpt-5.2"), { targetFormat: "copilot" });
-    expect(result.max_tokens).toBe(256);
-    expect(result.max_completion_tokens).toBeUndefined();
-  });
-
-  test("Copilot gpt-5-mini: keeps legacy max_tokens", () => {
-    const result = translateToOpenAI(mk("gpt-5-mini"), { targetFormat: "copilot" });
-    expect(result.max_tokens).toBe(256);
-    expect(result.max_completion_tokens).toBeUndefined();
-  });
-
-  test("Copilot claude-*: keeps legacy max_tokens", () => {
-    const result = translateToOpenAI(mk("claude-opus-4.6"), { targetFormat: "copilot" });
-    expect(result.max_tokens).toBe(256);
-    expect(result.max_completion_tokens).toBeUndefined();
-  });
-
-  // openai-reasoning was widened in PR #27 alongside the Copilot gpt-5.4 fix:
-  // it now also rewrites max_tokens → max_completion_tokens. Prior to that PR
-  // this path emitted max_tokens unchanged.
-  test("openai-reasoning rewrites max_tokens → max_completion_tokens", () => {
-    const result = translateToOpenAI(mk("o3-mini"), { targetFormat: "openai-reasoning" });
-    expect(result.max_tokens).toBeUndefined();
-    expect(result.max_completion_tokens).toBe(256);
-  });
-
-  test("plain openai target: not affected by this fix (regression guard)", () => {
-    const result = translateToOpenAI(mk("gpt-5.4"), { targetFormat: "openai" });
-    expect(result.max_tokens).toBe(256);
-    expect(result.max_completion_tokens).toBeUndefined();
-  });
-
-  test("Copilot gpt-5.4.1 (dot separator): rewrites", () => {
-    const result = translateToOpenAI(mk("gpt-5.4.1"), { targetFormat: "copilot" });
-    expect(result.max_tokens).toBeUndefined();
-    expect(result.max_completion_tokens).toBe(256);
-  });
-
-  test("Copilot GPT-5.4 (uppercase): rewrites (regex is case-insensitive)", () => {
-    const result = translateToOpenAI(mk("GPT-5.4"), { targetFormat: "copilot" });
-    expect(result.max_tokens).toBeUndefined();
-    expect(result.max_completion_tokens).toBe(256);
-  });
-
-  test("Copilot gpt-5.4 with undefined max_tokens: emits neither field", () => {
-    const payload = makeRequest({ model: "gpt-5.4" });
-    delete (payload as { max_tokens?: number }).max_tokens;
-    const result = translateToOpenAI(payload, { targetFormat: "copilot" });
-    expect(result.max_tokens).toBeUndefined();
-    expect(result.max_completion_tokens).toBeUndefined();
+    expect(mixed.content).toHaveLength(2);
+    expect(mixed.content[0]).toMatchObject({ type: "text", text: "I'll help" });
+    expect(mixed.content[1]).toMatchObject({ type: "tool_use", name: "search" });
   });
 });
